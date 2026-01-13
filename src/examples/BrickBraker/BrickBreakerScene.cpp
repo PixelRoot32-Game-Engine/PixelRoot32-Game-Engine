@@ -2,28 +2,27 @@
 #include "Config.h"
 #include "core/EDGE.h"
 #include "particles/ParticlePresets.h"
+#include "GameLayers.h"
 
 extern EDGE engine;
 
-// Configuración clásica de Brick Breaker
 #define BRICK_WIDTH 30
 #define BRICK_HEIGHT 12
 #define PADDLE_W 40
 #define PADDLE_H 8
 #define BALL_SIZE 6
-#define BORDER_TOP 20 // Espacio para el puntaje
+#define BORDER_TOP 20.0
 
 void BrickBreakerScene::init() {
-    clearEntities(); // Asegura que no haya entidades previas
+    clearEntities(); 
 
     int sw = engine.getRenderer().getWidth();
     int sh = engine.getRenderer().getHeight();
 
-    // Inicializar Paddle y Ball como Entidades
-    paddle = new BrickPaddleEntity(sw/2 - PADDLE_W/2, sh - 20, PADDLE_W, PADDLE_H, false);
-    ball = new BrickBallEntity(sw/2, sh - 30, BALL_SIZE/2, 150.0f);
+    paddle = new Paddle(sw/2 - PADDLE_W/2, sh - 20, PADDLE_W, PADDLE_H, engine.getInputManager(), sw);
+    ball = new Ball(sw/2, sh - 30, (float)BALL_SIZE / 2.0f, (float)sw, (float)BORDER_TOP);
+    ball->attachTo(paddle);
     
-    // Creamos el emisor con un pool de 50 partículas
     explosionEffect = new ParticleEmitter(100,100, ParticlePresets::Explosion);
 
     addEntity(paddle);
@@ -49,6 +48,10 @@ void BrickBreakerScene::init() {
 
     loadLevel(currentLevel);
     resetBall();
+}
+
+void BrickBreakerScene::addScore(int score) {
+    this->score += score;
 }
 
 void BrickBreakerScene::loadLevel(int level) {
@@ -102,7 +105,7 @@ void BrickBreakerScene::loadLevel(int level) {
                 if (brickHP > 4) brickHP = 4;
                 if (brickHP < 1) brickHP = 1;
 
-                BrickEntity* b = new BrickEntity(posX, posY, brickHP);
+                BrickEntity* b = new BrickEntity(posX, posY, brickHP, this);
                 bricks.push_back(b);
                 addEntity(b);
             }
@@ -111,123 +114,63 @@ void BrickBreakerScene::loadLevel(int level) {
 }
 
 void BrickBreakerScene::resetBall() {
-    ball->x = paddle->x + paddle->width / 2;
-    ball->y = paddle->y - ball->radius - 2;
-    ball->vx = 0;
-    ball->vy = 0;
+    ball->reset(paddle);
     gameStarted = false;
 }
 
 void BrickBreakerScene::update(unsigned long deltaTime) {
-    if (explosionEffect) {
-        explosionEffect->update(deltaTime);
-    }
+    // 1. ACTUALIZACIÓN AUTOMÁTICA (Estilo Godot)
+    // Llama al update de todas las entidades (Ball, Paddle, Bricks, Labels)
+    // Cada objeto ya sabe cómo moverse internamente.
+    Scene::update(deltaTime);
 
-    if(lblGameOver){
-        lblGameOver->update(deltaTime);
-    }
+    // 2. SISTEMA DE COLISIONES GENÉRICO
+    // Procesa rebotes entre Ball-Paddle y Ball-Brick usando Layers/Masks
+    collisionSystem.update();
 
-    if(lblStartMessage){
-        lblStartMessage->update(deltaTime);
-    }
-
+    // 3. CONTROL DE ESTADOS DE LA ESCENA
     if (gameOver) {
         if (engine.getInputManager().isButtonPressed(0)) init();
         lblGameOver->setVisible(true);
         lblStartMessage->setVisible(false);
-        return;
+        return; // Detener lógica de juego si terminó
     }
 
-    // 1. Control del Paddle (Limitado a la pantalla)
-    paddle->velocity = 0;
-    if (engine.getInputManager().isButtonDown(2)) paddle->velocity = -180.0f;
-    if (engine.getInputManager().isButtonDown(1)) paddle->velocity = 180.0f;
-    
-    paddle->update(deltaTime);
-    if (paddle->x < 0) paddle->x = 0;
-    if (paddle->x + paddle->width > engine.getRenderer().getWidth()) 
-        paddle->x = engine.getRenderer().getWidth() - paddle->width;
-
-    // 2. Lógica de la Bola
     if (!gameStarted) {
-        ball->x = paddle->x + paddle->width / 2;
-        ball->y = paddle->y - ball->radius - 2;
         if (engine.getInputManager().isButtonPressed(0)) {
             gameStarted = true;
-            ball->vx = 120.0f;
-            ball->vy = -120.0f;
+            ball->launch(120.0f, -120.0f); // Método nuevo en Ball
         }
-
-        lblGameOver->setVisible(false);
         lblStartMessage->setVisible(true);
-    } else {
         lblGameOver->setVisible(false);
+    } else {
         lblStartMessage->setVisible(false);
+        lblGameOver->setVisible(false);
 
-        ball->update(deltaTime);
+        // 4. LÓGICA DE VICTORIA / DERROTA (Reglas de la Escena)
         
-        // Rebotes Paredes
-        if (ball->x - ball->radius < 0 || ball->x + ball->radius > engine.getRenderer().getWidth()) {
-            ball->vx *= -1;
-        }
-        if (ball->y - ball->radius < BORDER_TOP) {
-            ball->vy *= -1;
-            ball->y = BORDER_TOP + ball->radius;
-        }
-
-        // Rebote Paddle con angulación
-        if (ball->vy > 0 && ball->y + ball->radius >= paddle->y && 
-            ball->x >= paddle->x && ball->x <= paddle->x + paddle->width) {
-            
-            float hitPoint = (ball->x - (paddle->x + paddle->width / 2.0f)) / (paddle->width / 2.0f);
-            ball->vx = hitPoint * 150.0f; // El ángulo depende de dónde toque
-            ball->vy *= -1;
-            ball->y = paddle->y - ball->radius - 1; 
-        }
-
-        checkBrickCollisions();
-
-        // Verificar si ganó el nivel (si no quedan ladrillos visibles)
+        // Comprobar si quedan ladrillos activos
         bool levelCleared = true;
-        for (const auto& b : bricks) {
-            if (b->active) { levelCleared = false; break; }
+        for (auto& b : bricks) {
+            if (b->active) {
+                 levelCleared = false; 
+                 break; 
+            }
         }
 
         if (levelCleared) {
             currentLevel++;
-            loadLevel(currentLevel);
+            loadLevel(currentLevel); // Genera nuevos ladrillos
             resetBall();
         }
 
-        // Perder vida
+        // Condición de caída (Muerte)
         if (ball->y > engine.getRenderer().getHeight()) {
             lives--;
-            if (lives <= 0) gameOver = true;
-            else resetBall();
-        }
-    }
-}
-
-void BrickBreakerScene::checkBrickCollisions() {
-for (auto& b : bricks) {
-        if (b->active) {
-            // AABB Collision
-            if (ball->x + ball->radius > b->x && ball->x - ball->radius < b->x + b->width &&
-                ball->y + ball->radius > b->y && ball->y - ball->radius < b->y + b->height) {
-                
-                // optengo el color del ladrino antes de bajar la dureza.
-                uint16_t  brickColor = b->getColor();
-                b->hit();        // Baja la dureza y cambia color
-                ball->vy *= -1;  // Rebote
-                
-                if (!b->active) {
-                    // Disparamos 15 partículas en la posición del ladrillo
-                    explosionEffect->burst(b->x + (b->width/2), b->y + (b->height/2), 15);
-                    score += 50; // Bonus por destruir
-                } else {
-                    score += 10; // Puntos por golpe
-                }
-                break; 
+            if (lives <= 0) {
+                gameOver = true;
+            } else {
+                resetBall();
             }
         }
     }

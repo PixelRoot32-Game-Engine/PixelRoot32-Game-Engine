@@ -8,16 +8,21 @@ void CollisionSystem::removeEntity(Entity* e) {
 
 void CollisionSystem::update() {
     for (size_t i = 0; i < entities.size(); i++) {
+        // 1. We ask the Entity (thanks to the virtual method in the database)
+        if (entities[i]->type != EntityType::ACTOR) continue; 
+
+        // 2. If we get here, it's safe to use static_cast (much faster than dynamic_cast)
+        Actor* actorA = static_cast<Actor*>(entities[i]);
+
         for (size_t j = i + 1; j < entities.size(); j++) {
+            if (entities[j]->type != EntityType::ACTOR) continue;
             
-            // Si tu vector es de Entity*
-            Actor* actorA = static_cast<Actor*>(entities[i]);
             Actor* actorB = static_cast<Actor*>(entities[j]);
 
-            // Verificamos que ambos sean punteros válidos (no null)
-            if (actorA && actorB) {
+            // 3. We verify bitmasks (our "Collision Matrix")
+            if ((actorA->mask & actorB->layer) || (actorB->mask & actorA->layer)) {
                 if (actorA->getHitBox().intersects(actorB->getHitBox())) {
-                    actorA->onCollision(actorB); // Enviamos el puntero al otro actor
+                    actorA->onCollision(actorB);
                     actorB->onCollision(actorA);
                 }
             }

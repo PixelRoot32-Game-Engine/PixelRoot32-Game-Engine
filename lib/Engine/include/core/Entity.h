@@ -11,14 +11,19 @@ struct Rect {
     }
 };
 
+enum class EntityType { GENERIC, ACTOR, UI_ELEMENT };
+
 class Entity {
 public:
     float x, y;
     int width, height;
+    EntityType type;
 
-    Entity(float x, float y, int w, int h) : x(x), y(y), width(w), height(h) {}
-
+    Entity(float x, float y, int w, int h, EntityType t) 
+        : x(x), y(y), width(w), height(h), type(t) {}
+        
     virtual ~Entity() {}
+    
     virtual void update(unsigned long deltaTimet) = 0;
     virtual void draw(Renderer& renderer) = 0;
 };

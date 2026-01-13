@@ -9,7 +9,7 @@
 extern EDGE engine;
 
 ParticleEmitter::ParticleEmitter(float x, float y, const ParticleConfig& cfg)
-    : Entity(x, y, 0, 0),
+    : Entity(x, y, 0, 0, EntityType::GENERIC),
         config(cfg) {}
 
 void ParticleEmitter::update(unsigned long deltaTime) {

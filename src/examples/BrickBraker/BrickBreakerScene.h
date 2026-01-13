@@ -1,6 +1,6 @@
 #include "core/Scene.h"
-#include "BrickPaddleEntity.h"
-#include "BrickBallEntity.h"
+#include "Paddle.h"
+#include "Ball.h"
 #include "graphics/ui/UILabel.h"
 #include <vector>
 #include "BrickEntity.h"
@@ -12,14 +12,17 @@ public:
     void update(unsigned long deltaTime) override;
     void draw(Renderer& renderer) override;
 
+    void addScore(int score);
+    ParticleEmitter* getParticleEmiter() { return explosionEffect; }
+
+
 private:
     void loadLevel(int level);
     void resetBall();
-    void checkBrickCollisions();
     
     ParticleEmitter* explosionEffect;
-    BrickPaddleEntity* paddle;
-    BrickBallEntity* ball;
+    Paddle* paddle;
+    Ball* ball;
     std::vector<BrickEntity*> bricks;
 
     UI::UILabel* lblGameOver;
