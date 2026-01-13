@@ -1,0 +1,66 @@
+#include "BallEntity.h"
+#include "PaddleEntity.h"
+#include "core/EDGE.h"
+#include "Config.h"
+#include <stdlib.h>
+#include <math.h>
+
+extern EDGE engine;
+
+void BallEntity::reset() {
+    int screenWidth = engine.getRenderer().getWidth();
+    int screenHeight = engine.getRenderer().getHeight();
+
+    x = screenWidth / 2.0f;
+    y = screenHeight / 2.0f;
+
+    vx = 0;
+    vy = 0;
+    respawnTimer = 500;
+    active = false;
+}
+
+void BallEntity::update(unsigned long deltaTime) {
+    float dt = deltaTime / 1000.0f;
+
+    if (!active) {
+        if (respawnTimer > deltaTime) {
+            respawnTimer -= deltaTime;
+            return;
+        } else {
+            respawnTimer = 0;
+            active = true;
+
+            vx = (rand() % 2 == 0 ? 1 : -1) * speed;
+            vy = ((rand() % 100) / 100.0f - 0.5f) * speed;
+        }
+    }
+
+    x += vx * dt;
+    y += vy * dt;
+
+    int screenHeight = engine.getRenderer().getHeight();
+
+    if (y - radius < 0) { y = radius; vy = -vy; }
+    if (y + radius > screenHeight) { y = screenHeight - radius; vy = -vy; }
+}
+
+void BallEntity::draw(Renderer& renderer) {
+    renderer.drawFilledCircle((int)x, (int)y, radius, COLOR_WHITE);
+}
+
+void BallEntity::onCollision(Entity* other) {
+    PaddleEntity* paddle = static_cast<PaddleEntity*>(other);
+    if (paddle) {
+        vx = -vx;
+
+        if (vx > 0) {
+            x = paddle->x + paddle->width + radius;
+        } else {
+            x = paddle->x - radius;
+        }
+
+        float impactPos = (y - paddle->y) / paddle->height - 0.5f;
+        vy += impactPos * 50.0f;
+    }
+}

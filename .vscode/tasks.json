@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Copy to Arduino",
+            "type": "shell",
+            "command": "powershell.exe -ExecutionPolicy Bypass -File '${workspaceFolder}/copy_project.ps1'",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
