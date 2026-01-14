@@ -7,7 +7,7 @@ extern EDGE engine;
 #define PADDLE_HEIGHT 50
 #define BALL_RADIUS 6
 #define BALL_SPEED 120.0f
-#define SCORE_TO_WIN 5
+#define SCORE_TO_WIN 1
 
 void PongScene::init() {
     int screenWidth = engine.getRenderer().getWidth();
@@ -23,17 +23,22 @@ void PongScene::init() {
     lblRightScore = new UI::UILabel("0", screenWidth - 20, 8, COLOR_WHITE, 2);
     lblRightScore->setVisible(true);
 
+    lblStartMessage = new UI::UILabel("PRESS A TO START", 0, 150, COLOR_WHITE, 1);
+    lblStartMessage->centerX(screenWidth);
+    lblStartMessage->setVisible(false);
+
     lblGameOver = new UI::UILabel("GAME OVER", 0, 120, COLOR_WHITE, 2);
     lblGameOver->centerX(screenWidth);
     lblGameOver->setVisible(false);
 
     leftPaddle = new PaddleActor(0, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, false);
     rightPaddle = new PaddleActor(screenWidth - PADDLE_WIDTH, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, true);
-    ball = new BallActor(screenWidth/2, screenHeight/2, BALL_RADIUS, BALL_SPEED);
+    ball = new BallActor(screenWidth/2, screenHeight/2, BALL_SPEED, BALL_RADIUS);
     ball->reset();
 
     addEntity(lblLeftScore);
     addEntity(lblRightScore);
+    addEntity(lblStartMessage);
     addEntity(lblGameOver);
 
     addEntity(leftPaddle);
@@ -48,13 +53,8 @@ void PongScene::update(unsigned long deltaTime) {
         if (engine.getInputManager().isButtonDown(0)) leftPaddle->velocity = -100.0f;
         if (engine.getInputManager().isButtonDown(1)) leftPaddle->velocity = 100.0f;
 
-        // --- Update actors ---
-        leftPaddle->update(deltaTime);
-        rightPaddle->update(deltaTime);
-        ball->update(deltaTime);
-
-        // --- Collisions between entities ---
-        collisionSystem.update();
+        // --- Update all entities via base Scene ---
+        Scene::update(deltaTime);
 
         // --- Check if ball is out of bounds ---
         if (ball->x < 0) {
@@ -82,9 +82,10 @@ void PongScene::update(unsigned long deltaTime) {
         }
 
     } else {
-        if (engine.getInputManager().isButtonPressed(0)) resetGame();
-        ball->setEnabled(false);
+        // --- Game Over ---
+        lblStartMessage->setVisible(true);
         lblGameOver->setVisible(true);
+        if (engine.getInputManager().isButtonPressed(0)) resetGame();
     }
 }
 
@@ -110,6 +111,7 @@ void PongScene::resetGame() {
     leftScore = 0;
     rightScore = 0;
     gameOver = false;
+    lblStartMessage->setVisible(false);
     lblGameOver->setVisible(false);
     ball->reset();
 }

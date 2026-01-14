@@ -2,7 +2,10 @@
 
 namespace UI {
     UILabel::UILabel(std::string t, float x, float y, uint16_t col, uint8_t sz)
-        : UIElement(x, y, 0, 0), text(t), color(col), size(sz) {
+        : UIElement(x, y, 0, 0),
+            text(t), 
+            color(col), 
+            size(sz) {
         recalcSize();
     }
 
@@ -26,7 +29,6 @@ namespace UI {
     }
 
     void UILabel::draw(Renderer& renderer) {
-        if (!isVisible) return;
         renderer.drawText(text.c_str(), x, y, color, size);
     }
 }

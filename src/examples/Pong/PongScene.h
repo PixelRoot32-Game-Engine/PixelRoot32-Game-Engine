@@ -16,6 +16,7 @@ public:
 private:
     UI::UILabel* lblLeftScore;
     UI::UILabel* lblRightScore;
+    UI::UILabel* lblStartMessage;
     UI::UILabel* lblGameOver;
 
     PaddleActor* leftPaddle;

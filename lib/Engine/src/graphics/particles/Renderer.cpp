@@ -66,6 +66,7 @@ void Renderer::drawLine(int x1, int y1, int x2, int y2, uint16_t color) {
 }
 
 void Renderer::setFont(const uint8_t* font) {
+    (void)font;
     // Optional: Implement font setting if your DrawSurface supports it.
 }
 

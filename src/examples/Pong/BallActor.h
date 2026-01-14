@@ -7,6 +7,7 @@ public:
     float vx, vy;
     float speed;
     int radius;
+    bool isActive;
     unsigned long respawnTimer;   // respawn delay timer
 
     inline BallActor(float x, float y, float speed, int radius)
@@ -15,6 +16,7 @@ public:
             vy(0), 
             speed(speed), 
             radius(radius), 
+            isActive(false),
             respawnTimer(0) {
 
         this->setCollisionLayer(Layers::BALL);

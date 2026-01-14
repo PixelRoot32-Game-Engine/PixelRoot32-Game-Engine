@@ -16,21 +16,21 @@ void BallActor::reset() {
     vx = 0;
     vy = 0;
     respawnTimer = 500;
-    isEnabled = false;
-    isVisible = true;
+    isActive = false;
+    isEnabled = true;
 }
 
 void BallActor::update(unsigned long deltaTime) {
     float dt = deltaTime / 1000.0f;
 
-    if (!isEnabled) {
+    if (!isActive) {
         if (respawnTimer > deltaTime) {
             respawnTimer -= deltaTime;
             return;
         } else {
    
             respawnTimer = 0;
-            isEnabled = true;
+            isActive = true;
 
             vx = (rand() % 2 == 0 ? 1 : -1) * speed;
             vy = ((rand() % 100) / 100.0f - 0.5f) * speed;

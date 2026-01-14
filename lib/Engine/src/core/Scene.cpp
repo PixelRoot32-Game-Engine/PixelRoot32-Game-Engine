@@ -16,7 +16,12 @@ void Scene::draw(Renderer& renderer) {
     int count = entities.itemCount();
     for (int i = 0; i < count; i++) {
         Entity* entity = entities.dequeue();  // Get entity from queue
-        entity->draw(renderer);
+        
+        // Draw entity if it is visible
+        if(entity->isVisible) {
+            entity->draw(renderer);
+        }
+        
         entities.enqueue(entity);  // Re-add entity to maintain order
     }
 }

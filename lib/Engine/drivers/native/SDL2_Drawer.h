@@ -47,6 +47,7 @@ public:
     bool processEvents() override;
 
     void setContrast(uint8_t value) override {
+        (void)value;
         // SDL2 no soporta contraste real → noop
     }
 

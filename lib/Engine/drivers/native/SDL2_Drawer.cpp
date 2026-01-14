@@ -179,7 +179,7 @@ void SDL2_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t colo
     setTextColor(color);
     setTextSize(size);
     setCursor(x, y);
-    print(text,font5x7);
+    print(text, font5x7);
 }
 
 void SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {
@@ -188,7 +188,7 @@ void SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, 
     int16_t textWidth = this->textWidth(text);
     int16_t x = (displayWidth - textWidth) / 2;
     setCursor(x, y);
-    print(text,font5x7);
+    print(text, font5x7);
 }
 
 // ---------- PRIMITIVAS ----------
