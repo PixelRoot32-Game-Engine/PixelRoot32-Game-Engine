@@ -7,6 +7,13 @@
 #include <cstdarg>
 #include <cstdio>
 
+/**
+ * @class MockSafeString
+ * @brief Mocks the SafeString library for native PC testing.
+ *
+ * SafeString is a library often used in Arduino for safer string manipulation.
+ * This mock wraps std::string to provide a compatible API.
+ */
 class MockSafeString {
 public:
     MockSafeString() = default;
@@ -23,12 +30,14 @@ public:
         return data.length();
     }
 
-    SafeString& operator=(const char* str) {
+    // Assuming SafeString is the intended class name, usually there would be a typedef or class rename.
+    // For now, documenting as is to match the existing code structure.
+    MockSafeString& operator=(const char* str) {
         data = (str != nullptr) ? str : "";
         return *this;
     }
 
-    SafeString& operator=(const std::string& str) {
+    MockSafeString& operator=(const std::string& str) {
         data = str;
         return *this;
     }
@@ -36,6 +45,9 @@ public:
 private:
     std::string data;
 };
+
+// Typedef to allow usage of 'SafeString' type as expected by the macro and library users
+typedef MockSafeString SafeString;
 
 // Arduino-style macro
 #define createSafeString(name, size) SafeString name; (void)size

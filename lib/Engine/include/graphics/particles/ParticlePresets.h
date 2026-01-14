@@ -1,8 +1,18 @@
 #pragma once
 #include "ParticleConfig.h"
 
+/**
+ * @namespace ParticlePresets
+ * @brief Predefined configurations for common particle effects.
+ *
+ * Provides ready-to-use constants for effects like Fire, Explosion, Smoke, etc.
+ */
 namespace ParticlePresets {
 
+    /**
+     * @brief Fire effect configuration.
+     * Red/Orange colors, rising upward (negative gravity), moderate life.
+     */
     constexpr ParticleConfig Fire {
         0xF800, 0x7800,
         0.5f, 1.5f,
@@ -12,6 +22,10 @@ namespace ParticlePresets {
         true
     };
 
+    /**
+     * @brief Explosion effect configuration.
+     * Yellow to Red, high initial speed, expanding outward.
+     */
     constexpr ParticleConfig Explosion {
         0xFFE0, 0x0000,
         2.0f, 4.0f,
@@ -21,6 +35,10 @@ namespace ParticlePresets {
         true
     };
 
+    /**
+     * @brief Sparks effect configuration.
+     * White to Yellow, quick bursts, gravity affects them.
+     */
     constexpr ParticleConfig Sparks {
         0xFFFF, 0xFFE0,
         1.5f, 3.0f,
@@ -30,6 +48,10 @@ namespace ParticlePresets {
         true
     };
 
+    /**
+     * @brief Smoke effect configuration.
+     * Grey, slow rising, long life.
+     */
     constexpr ParticleConfig Smoke {
         0x7BEF, 0x0000,
         0.2f, 0.6f,
@@ -39,6 +61,10 @@ namespace ParticlePresets {
         true
     };
 
+    /**
+     * @brief Dust effect configuration.
+     * Light grey, subtle movement.
+     */
     constexpr ParticleConfig Dust {
         0xC618, 0x7BEF,
         0.3f, 1.0f,

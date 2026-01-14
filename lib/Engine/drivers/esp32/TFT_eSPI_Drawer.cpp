@@ -38,10 +38,6 @@ void TFT_eSPI_Drawer::init() {
     spr.setTextFont(1);
     
     spr.initDMA();
-
-    // tft.setTextDatum(TL_DATUM);
-    // tft.setTextColor(textColor, COLOR_BLACK);
-    // tft.setTextSize(textSize);
 }
 
 void TFT_eSPI_Drawer::setRotation(uint8_t rotation) {
@@ -140,7 +136,6 @@ void TFT_eSPI_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t col
     spr.setTextSize(size);
     spr.setTextColor(color, COLOR_BLACK);
 
-    // Aquí es donde suele ocurrir el Crash si spr no está bien inicializado
     int16_t tw = spr.textWidth(text); 
     int16_t x = (displayWidth - tw) / 2;
 
@@ -162,13 +157,11 @@ bool TFT_eSPI_Drawer::processEvents() {
 }
 
 void TFT_eSPI_Drawer::present() {
-    // 2. Usamos el método de la pantalla (tft) para empujar los datos del Sprite (spr)
-    // Pasamos la posición (0,0), dimensiones y el puntero a los datos.
     tft.pushImageDMA(
-        0, 0,                // Posición en pantalla
-        spr.width(),         // Ancho del Sprite
-        spr.height(),        // Alto del Sprite
-        (uint16_t*)spr.getPointer() // Acceso directo a los píxeles en RAM
+        0, 0,
+        spr.width(),
+        spr.height(),
+        (uint16_t*)spr.getPointer()
     );
 }
 

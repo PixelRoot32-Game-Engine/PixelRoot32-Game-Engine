@@ -5,11 +5,21 @@
 
 #include <cstdint>
 
+/**
+ * @class SPIClass
+ * @brief Mocks the Arduino SPI class for native platform.
+ *
+ * Provides a dummy implementation of SPI methods to allow compilation
+ * of drivers that depend on SPI.h.
+ */
 class SPIClass {
 public:
     void begin() {}
     void end() {}
 
+    /**
+     * @brief Mocks data transfer. Returns input data (loopback).
+     */
     uint8_t transfer(uint8_t data) {
         return data;
     }

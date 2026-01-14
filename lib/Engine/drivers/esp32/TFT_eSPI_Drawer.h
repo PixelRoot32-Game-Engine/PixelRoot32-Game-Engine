@@ -40,15 +40,39 @@
 #include <TFT_eSPI.h>
 #include <stdint.h>
 
+/**
+ * @class TFT_eSPI_Drawer
+ * @brief Concrete implementation of DrawSurface for ESP32 using the TFT_eSPI library.
+ *
+ * This class handles low-level interaction with the display hardware via SPI.
+ * It uses a sprite (framebuffer) to minimize flickering and tearing.
+ */
 class TFT_eSPI_Drawer : public DrawSurface {
 public:
     TFT_eSPI_Drawer();
     virtual ~TFT_eSPI_Drawer();
 
+    /**
+     * @brief Initializes the TFT_eSPI library and the sprite buffer.
+     * Sets up the SPI communication and allocates memory for the framebuffer.
+     */
     void init() override;
+
+    /**
+     * @brief Sets the screen rotation.
+     * @param rotation 0-3 corresponding to 0, 90, 180, 270 degrees.
+     */
     void setRotation(uint8_t rotation) override;
 
+    /**
+     * @brief Fills the sprite buffer with black color.
+     */
     void clearBuffer() override;
+
+    /**
+     * @brief Pushes the sprite buffer to the physical display.
+     * This is the "flip" operation in double buffering.
+     */
     void sendBuffer() override;
 
     void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override;
@@ -69,17 +93,26 @@ public:
 
     void setDisplaySize(int w, int h) override;
 
+    /**
+     * @brief Sets contrast. No-op for ST7789 usually.
+     */
     void setContrast(uint8_t value) override {
-        // ST7789 no soporta contraste real → noop
+        // ST7789 does not support real contrast control via this API -> noop
     }
 
+    /**
+     * @brief Processes system events. Always true for embedded.
+     */
     bool processEvents() override;
 
+    /**
+     * @brief Present buffer. Calls sendBuffer().
+     */
     void present() override;
 
 private:
-    TFT_eSPI tft;
-    TFT_eSprite spr;
+    TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
+    TFT_eSprite spr; ///< The sprite used as a framebuffer.
     int16_t cursorX, cursorY;
     uint16_t textColor;
     uint8_t textSize;

@@ -6,12 +6,16 @@
 #include <queue>
 #include <cstddef>
 
-// Mock ArduinoQueue using std::queue
+/**
+ * @class ArduinoQueue
+ * @brief Mocks the ArduinoQueue library using std::queue for native platforms.
+ * @tparam T The type of elements stored in the queue.
+ */
 template<typename T>
 class ArduinoQueue {
 public:
     ArduinoQueue(size_t capacity = 0) {
-        (void)capacity; // capacity ignored in mock
+        (void)capacity; // capacity ignored in mock, std::queue is dynamic
     }
 
     bool enqueue(const T& item) {

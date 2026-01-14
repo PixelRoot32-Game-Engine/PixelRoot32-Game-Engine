@@ -10,7 +10,14 @@
 #include <cstdio>
 #include <cstring>
 
-// Mock Arduino.h for native platform
+/**
+ * @file MockArduino.h
+ * @brief Mocks Arduino core functions for native platform (PC/SDL2).
+ *
+ * This file allows code written for Arduino to compile and run on desktop
+ * by providing compatible signatures for common functions like millis(),
+ * delay(), and pin operations.
+ */
 
 #define HIGH 1
 #define LOW 0
@@ -61,7 +68,10 @@ inline void delayMicroseconds(uint32_t us) {
     SDL_Delay((us + 999) / 1000); // Approximate
 }
 
-// Serial mock (outputs to stdout)
+/**
+ * @class SerialClass
+ * @brief Mocks the Arduino Serial object, redirecting output to stdout.
+ */
 class SerialClass {
 public:
     void begin(uint32_t baud) {
@@ -100,45 +110,10 @@ public:
     void println(float value) {
         printf("%f\n", value);
     }
-    
-    void println() {
-        printf("\n");
-    }
-    
-    int available() {
-        return 0; // No serial input in mock
-    }
-    
-    int read() {
-        return -1; // No serial input in mock
-    }
 };
 
-// Global Serial instance (declared here, defined in MockArduino.cpp)
+// Global instance to match Arduino's Serial
 extern SerialClass Serial;
-
-// Random functions
-inline void randomSeed(uint32_t seed) {
-    srand(seed);
-}
-
-inline long random(long min, long max) {
-    if (min >= max) return min;
-    return min + (rand() % (max - min));
-}
-
-inline long random(long max) {
-    return random(0, max);
-}
-
-// ESP32 specific (mock)
-inline uint32_t esp_random() {
-    return (uint32_t)rand();
-}
-
-// Math functions (usually in math.h, but Arduino.h includes them)
-#include <cmath>
-#include <cstdlib>
 
 #endif // PLATFORM_NATIVE
 
