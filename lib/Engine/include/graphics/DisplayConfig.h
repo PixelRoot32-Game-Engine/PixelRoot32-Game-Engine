@@ -39,5 +39,4 @@ struct DisplayConfig {
         xOffset = (DEFAULT_DISPLAY_WIDTH - width) / 2;
         yOffset = (DEFAULT_DISPLAY_HEIGHT - height) / 2;            
     }
-
 };

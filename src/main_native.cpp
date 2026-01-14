@@ -4,8 +4,8 @@
 #include <SDL2/SDL.h>
 
 #include "core/EDGE.h"
-//#include "examples/Pong/PongScene.h"
-#include "examples/BrickBraker/BrickBreakerScene.h"
+#include "examples/Pong/PongScene.h"
+//#include "examples/BrickBraker/BrickBreakerScene.h"
 //#include "examples/Snake/SnakeScene.h"
 
 #define I2C_SDA 0 // Not used
@@ -23,8 +23,8 @@ InputConfig inputConfig(5, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT
 
 EDGE engine(config, inputConfig);
 
-//PongScene pongScene;
-BrickBreakerScene brickBreakerScene;
+PongScene pongScene;
+//BrickBreakerScene brickBreakerScene;
 //SnakeScene snakeScene;
 
 int main(int argc, char* argv[]) {
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     (void)argv;
     
     engine.init();
-    engine.setScene(&brickBreakerScene);
+    engine.setScene(&pongScene);
 
     engine.run();
 

@@ -19,11 +19,19 @@ public:
     int width, height;
     EntityType type;
 
+    bool isVisible = true;
+    virtual void setVisible(bool v) { isVisible = v; }
+
+    bool isEnabled = true;
+    virtual void setEnabled(bool e) { isEnabled = e; }
+
     Entity(float x, float y, int w, int h, EntityType t) 
         : x(x), y(y), width(w), height(h), type(t) {}
         
     virtual ~Entity() {}
+
     
-    virtual void update(unsigned long deltaTimet) = 0;
+    
+    virtual void update(unsigned long deltaTime) = 0;
     virtual void draw(Renderer& renderer) = 0;
 };

@@ -3,8 +3,11 @@
 namespace UI {
 
     UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)
-        : UIElement(x, y, w, h), label(t), onClick(callback) {
-        // Valores por defecto
+        : UIElement(x, y, w, h), 
+            label(t), 
+            index(index),
+            onClick(callback) {
+        
         textColor = COLOR_WHITE;
         backgroundColor = COLOR_BLACK;
         hasBackground = true;
@@ -54,6 +57,8 @@ namespace UI {
     }
 
     void UIButton::update(unsigned long deltaTime) {
+        (void)deltaTime;
+
         // Aquí podrías añadir un efecto de "latido" o parpadeo si isSelected es true
     }
 

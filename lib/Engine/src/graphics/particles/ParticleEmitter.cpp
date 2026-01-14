@@ -13,6 +13,8 @@ ParticleEmitter::ParticleEmitter(float x, float y, const ParticleConfig& cfg)
         config(cfg) {}
 
 void ParticleEmitter::update(unsigned long deltaTime) {
+    (void)deltaTime;
+
     int screenW = engine.getRenderer().getWidth();
     int screenH = engine.getRenderer().getHeight();
 

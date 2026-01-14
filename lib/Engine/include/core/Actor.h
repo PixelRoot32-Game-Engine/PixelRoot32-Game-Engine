@@ -13,8 +13,8 @@ public:
     void setCollisionLayer(CollisionLayer l) { layer = l; }
     void setCollisionMask(CollisionLayer m)  { mask = m; }
 
-    void update(unsigned long dt) override {
-
+    void update(unsigned long deltaTime) override {
+        (void)deltaTime;
     }
 
     /**

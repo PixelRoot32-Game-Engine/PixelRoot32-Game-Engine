@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include "EDGE.h"
-// #include "examples/Pong/PongScene.h"
-#include "examples/BrickBraker/BrickBreakerScene.h"
-//#include "examples/Snake/SnakeScene.h"
+#include "examples/Pong/PongScene.h"
+
 
 #define I2C_FREQUENCY 400000
 #define SCREEN_WIDTH 240
@@ -14,13 +13,12 @@ InputConfig inputConfig(4, 13, 12, 14, 32); // 4 buttons: A, Left, Right, Up
 
 EDGE engine(config, inputConfig);
 
-// PongScene pongScene;
-BrickBreakerScene brickBreakerScene;
-//SnakeScene snakeScene;
+PongScene pongScene;
+
 
 void setup() {
     engine.init();
-    engine.setScene(&brickBreakerScene);
+    engine.setScene(&pongScene);
 }
 
 void loop() {
