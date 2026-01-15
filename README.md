@@ -222,8 +222,8 @@ A concrete `DrawSurface` implementation is responsible for:
 
 Reference implementations:
 
-- ESP32: [`TFT_eSPI_Drawer`](lib/Engine/include/drivers/esp32/TFT_eSPI_Drawer.h).
-- Native (PC): [`SDL2_Drawer`](lib/Engine/include/drivers/native/SDL2_Drawer.h).
+- ESP32: [`TFT_eSPI_Drawer`](include/drivers/esp32/TFT_eSPI_Drawer.h).
+- Native (PC): [`SDL2_Drawer`](include/drivers/native/SDL2_Drawer.h).
 
 ### Basic Steps to Implement Your Own DrawSurface
 
