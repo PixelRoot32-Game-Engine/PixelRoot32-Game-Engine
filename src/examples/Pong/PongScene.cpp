@@ -1,5 +1,6 @@
 #include "PongScene.h"
 #include "Engine.h"
+#include "PhysicsActor.h"
 
 namespace pr32 = pixelroot32;
 
@@ -16,14 +17,10 @@ void PongScene::init() {
     gameOver = false;
 
     int16_t scoreY = PONG_PLAY_AREA_TOP / 2 - 8; // Center vertically in top border
-    
-    lblLeftScore = new pr32::graphics::ui::UILabel("0", 0, scoreY, Color::Black, 2);
-    lblLeftScore->centerX(screenWidth - 40);
-    lblLeftScore->setVisible(true);
 
-    lblRightScore = new pr32::graphics::ui::UILabel("0", screenWidth - 0, scoreY, Color::Black, 2);
-    lblRightScore->centerX(screenWidth + 40);
-    lblRightScore->setVisible(true);
+    lblScore = new pr32::graphics::ui::UILabel("0 : 0", 0, scoreY, Color::Black, 2);
+    lblScore->centerX(screenWidth);
+    lblScore->setVisible(true);
 
     lblStartMessage = new pr32::graphics::ui::UILabel("PRESS A TO START", 0, 150, Color::White, 1);
     lblStartMessage->centerX(screenWidth);
@@ -42,12 +39,11 @@ void PongScene::init() {
     rightPaddle->setBottomLimit(PONG_PLAY_AREA_BOTTOM);  
     
     ball = new BallActor(screenWidth/2, screenHeight/2, BALL_SPEED, BALL_RADIUS);
-    ball->setTopLimit(PONG_PLAY_AREA_TOP);
-    ball->setBottomLimit(PONG_PLAY_AREA_BOTTOM);
+    ball->setWorldSize(screenWidth, screenHeight);
+    ball->setLimits(pr32::core::LimitRect(-1, PONG_PLAY_AREA_TOP, -1, PONG_PLAY_AREA_BOTTOM));
     ball->reset();
 
-    addEntity(lblLeftScore);
-    addEntity(lblRightScore);
+    addEntity(lblScore);
     addEntity(lblStartMessage);
     addEntity(lblGameOver);
 
@@ -67,24 +63,21 @@ void PongScene::update(unsigned long deltaTime) {
         Scene::update(deltaTime);
 
         // --- Check if ball is out of bounds ---
-        if (ball->x < 0) {
+        if (ball->isActive && ball->getWorldCollisionInfo().left) {
             rightScore++;
-
-            char rightScoreStr[16];
-            snprintf(rightScoreStr, sizeof(rightScoreStr), "%d", rightScore);
-            lblRightScore->setText(rightScoreStr);
-
+            printf("Right Score: %d\n", rightScore);
             ball->reset();
         }
-        if (ball->x > engine.getRenderer().getWidth()) {
+        if (ball->isActive && ball->getWorldCollisionInfo().right) {
             leftScore++;
-
-            char leftScoreStr[16];
-            snprintf(leftScoreStr, sizeof(leftScoreStr), "%d", leftScore);
-            lblLeftScore->setText(leftScoreStr);
-
+            printf("Left Score: %d\n", leftScore);
             ball->reset();
         }
+
+        // --- Update score label ---
+        char scoreStr[16];
+        snprintf(scoreStr, sizeof(scoreStr), "%d : %d", leftScore, rightScore);
+        lblScore->setText(scoreStr);
 
         // --- Game Over ---
         if (leftScore >= SCORE_TO_WIN || rightScore >= SCORE_TO_WIN) {

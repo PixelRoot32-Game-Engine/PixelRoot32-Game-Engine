@@ -27,8 +27,7 @@ public:
     float getBallY() { return ball->y; }
 
 private:
-    pixelroot32::graphics::ui::UILabel* lblLeftScore;
-    pixelroot32::graphics::ui::UILabel* lblRightScore;
+    pixelroot32::graphics::ui::UILabel* lblScore;
     pixelroot32::graphics::ui::UILabel* lblStartMessage;
     pixelroot32::graphics::ui::UILabel* lblGameOver;
 

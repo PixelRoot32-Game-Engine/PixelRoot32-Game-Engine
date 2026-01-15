@@ -6,15 +6,25 @@
 
 namespace pr32 = pixelroot32;
 
-extern pr32::core::Engine engine;
 using Color = pr32::graphics::Color;
 
-void BallActor::reset() {
-    int screenWidth = engine.getRenderer().getWidth();
-    int screenHeight = engine.getRenderer().getHeight();
+BallActor::BallActor(float x, float y, float initialSpeed, int radius)
+    : PhysicsActor(x, y, radius * 2.0f, radius * 2.0f),
+      radius(radius),
+      isActive(false),
+      respawnTimer(0),
+      initialSpeed(initialSpeed)
+{
+    vx = 0;
+    vy = 0;
 
-    x = screenWidth / 2.0f;
-    y = screenHeight / 2.0f;
+    setCollisionLayer(Layers::BALL);
+    setCollisionMask(Layers::PADDLE);
+}
+
+void BallActor::reset() {
+    x = worldWidth / 2.0f;
+    y = worldHeight / 2.0f;
 
     vx = 0;
     vy = 0;
@@ -24,37 +34,33 @@ void BallActor::reset() {
 }
 
 void BallActor::update(unsigned long deltaTime) {
-    float dt = deltaTime / 1000.0f;
-
     if (!isActive) {
         if (respawnTimer > deltaTime) {
             respawnTimer -= deltaTime;
             return;
         } else {
-   
             respawnTimer = 0;
             isActive = true;
 
-            vx = (rand() % 2 == 0 ? 1 : -1) * speed;
-            vy = ((rand() % 100) / 100.0f - 0.5f) * speed;
+            vx = (rand() % 2 == 0 ? 1 : -1) * initialSpeed;
+            vy = ((rand() % 100) / 100.0f - 0.5f) * initialSpeed;
         }
     }
 
-    x += vx * dt;
-    y += vy * dt;
-
-
-    if (y - radius < topLimit) { y = topLimit + radius; vy = -vy; }
-    if (y + radius > bottomLimit) { y = bottomLimit - radius; vy = -vy; }
+    PhysicsActor::update(deltaTime);
 }
 
 void BallActor::draw(pr32::graphics::Renderer& renderer) {
-    if(isEnabled) renderer.drawFilledCircle((int)x, (int)y, radius, Color::White);
+    if(isEnabled) 
+        renderer.drawFilledCircle((int)x, (int)y, radius, Color::White);
+}
+
+pixelroot32::core::Rect BallActor::getHitBox() {
+    return { x - radius, y - radius, radius * 2, radius * 2 };
 }
 
 void BallActor::onCollision(pr32::core::Actor* other) {
-    // The ball only interacts with PADDLE; if it interacts with another layer, use isInLayer 
-    vx = -vx;
+    PhysicsActor::onCollision(other);
 
     if (vx > 0) {
         x = other->x + other->width + radius;

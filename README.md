@@ -150,6 +150,53 @@ Direct RGB565 usage is supported but discouraged for regular gameplay rendering.
 
 ---
 
+## Physics System
+
+The engine provides `PhysicsActor`, a specialized actor that handles 2D physics behavior similar to a `RigidBody2D` in Godot. It simplifies the implementation of moving objects by managing velocity, acceleration, and world boundary collisions automatically.
+
+### Key Features
+
+- **Velocity & Movement**: Managed via `vx` (horizontal) and `vy` (vertical) properties. The `update` loop automatically integrates these values to update position.
+- **World & Custom Bounds**: 
+  - Uses `worldWidth` and `worldHeight` to define the default play area.
+  - Supports custom limits via `LimitRect` (top, bottom, left, right) to constrain actors to specific zones (e.g. `setLimits({0, 0, 320, 240})`).
+- **Collision Resolution**: The `resolveWorldBounds()` function automatically detects collisions with the defined limits and applies a bounce response based on the `restitution` (bounciness) coefficient.
+- **Properties**:
+  - `restitution`: Controls energy conservation (1.0 = full bounce, < 1.0 = dampening).
+  - `friction`: Applies drag to movement.
+
+### Example: BallActor
+
+Here is how you can use `PhysicsActor` to create a bouncing ball, like in Pong:
+
+```cpp
+class BallActor : public pixelroot32::core::PhysicsActor {
+public:
+    BallActor(float x, float y) : PhysicsActor(x, y, 10, 10) {
+        // 1. Initialize velocity
+        vx = 200.0f;
+        vy = -150.0f;
+        
+        // 2. Set physical properties
+        setRestitution(1.0f); // Perfect bounce (no energy loss)
+        setFriction(0.0f);    // No friction
+    }
+    
+    // 3. Customize behavior on impact (optional)
+    void onWorldCollision() override {
+        // Logic when hitting walls (e.g. play sound)
+    }
+};
+
+// In your scene:
+// Create the ball and set the world boundaries for collision
+auto* ball = new BallActor(160, 120);
+ball->setWorldSize(320, 240); 
+addEntity(ball);
+```
+
+---
+
 ## User Interface (UI) System
 
 The UI system is hierarchical and integrates with the normal scene flow, inspired by Godot’s node approach.

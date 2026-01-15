@@ -1,41 +1,24 @@
 #pragma once
-#include "Actor.h"
+#include "PhysicsActor.h"
 #include "GameLayers.h"
 #include <graphics/Color.h>
 
-class BallActor : public pixelroot32::core::Actor {
+class BallActor : public pixelroot32::core::PhysicsActor {
 public:
-    float vx, vy;
-    float speed;
-    int radius;
+    int radius; 
     bool isActive;
     unsigned long respawnTimer;   // respawn delay timer
 
-    inline BallActor(float x, float y, float speed, int radius)
-        : pixelroot32::core::Actor(x, y, radius * 2.0f, radius * 2.0f),
-            vx(0), 
-            vy(0), 
-            speed(speed), 
-            radius(radius), 
-            isActive(false),
-            respawnTimer(0) {
+    BallActor(float x, float y, float initialSpeed, int radius);
 
-        this->setCollisionLayer(Layers::BALL);
-        this->setCollisionMask(Layers::PADDLE);
-    }
-    
     void reset();
-
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
-    pixelroot32::core::Rect getHitBox() override { return {x-radius, y-radius, radius*2, radius*2}; }
-    void onCollision(pixelroot32::core::Actor* other);
+    pixelroot32::core::Rect getHitBox() override;
 
-    void setTopLimit(int limit) { topLimit = limit; }
-    void setBottomLimit(int limit) { bottomLimit = limit; }
+    void onCollision(pixelroot32::core::Actor* other) override;
 
 private:
-    int topLimit;
-    int bottomLimit;
+    float initialSpeed;  // speed at respawn
 };

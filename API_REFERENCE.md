@@ -396,6 +396,84 @@ Namespace with common collision layer constants:
 
 ---
 
+### PhysicsActor
+
+**Inherits:** [Actor](#actor)
+
+An actor with basic 2D physics properties similar to a RigidBody2D. It extends the base Actor class by adding velocity, acceleration, friction, restitution (bounciness), and world boundary collision resolution.
+
+#### Public Methods
+
+- **`PhysicsActor(float x, float y, float w, float h)`**
+    Constructs a PhysicsActor.
+
+- **`void update(unsigned long deltaTime)`**
+    Updates the actor state, applying physics integration and checking world boundary collisions.
+
+- **`WorldCollisionInfo getWorldCollisionInfo() const`**
+    Gets information about collisions with the world boundaries.
+
+- **`virtual void onWorldCollision()`**
+    Callback triggered when this actor collides with world boundaries.
+
+- **`void setVelocity(float x, float y)`**
+    Sets the linear velocity of the actor.
+
+- **`void setRestitution(float r)`**
+    Sets the restitution (bounciness). 1.0 means perfect bounce, < 1.0 means energy loss.
+
+- **`void setFriction(float f)`**
+    Sets the friction coefficient (0.0 means no friction).
+
+- **`void setLimits(LimitRect limits)`**
+    Sets custom movement limits for the actor.
+
+- **`void setWorldSize(int width, int height)`**
+    Defines the world size for boundary checking, used as default limits.
+
+---
+
+### LimitRect
+
+**Inherits:** None
+
+Bounding rectangle for world-collision resolution. Defines the limits of the play area.
+
+#### Properties
+
+- **`left`**: Left boundary (-1 for no limit).
+- **`top`**: Top boundary (-1 for no limit).
+- **`right`**: Right boundary (-1 for no limit).
+- **`bottom`**: Bottom boundary (-1 for no limit).
+
+#### Public Methods
+
+- **`LimitRect(int l, int t, int r, int b)`**
+    Constructs a LimitRect with specific bounds.
+
+- **`int width() const`**
+    Calculates the width of the limit area.
+
+- **`int height() const`**
+    Calculates the height of the limit area.
+
+---
+
+### WorldCollisionInfo
+
+**Inherits:** None
+
+Information about world collisions in the current frame. Holds flags indicating which sides of the play area the actor collided with.
+
+#### Properties
+
+- **`left`**: True if collided with the left boundary.
+- **`right`**: True if collided with the right boundary.
+- **`top`**: True if collided with the top boundary.
+- **`bottom`**: True if collided with the bottom boundary.
+
+---
+
 ## Math Module
 
 ### MathUtil
