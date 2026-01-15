@@ -61,6 +61,7 @@ These namespaces are considered part of the stable public API and may be used di
 - pixelroot32::input
 - pixelroot32::physics
 - pixelroot32::math
+- pixelroot32::drivers
 
 Example usage in a game project:
 

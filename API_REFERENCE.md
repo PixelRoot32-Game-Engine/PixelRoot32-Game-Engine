@@ -212,6 +212,31 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 ---
 
+### Color
+
+**Inherits:** None
+
+Enumeration of the 32 built-in colors available in the engine's palette.
+
+#### Values
+
+- `Black`, `White`, `LightGray`, `DarkGray`
+- `Red`, `DarkRed`, `Green`, `DarkGreen`, `Blue`, `DarkBlue`
+- `Yellow`, `Orange`, `Brown`
+- `Purple`, `Pink`, `Cyan`
+- `LightBlue`, `LightGreen`, `LightRed`
+- `Navy`, `Teal`, `Olive`
+- `Gold`, `Silver`
+- `Transparent` (special value)
+- `DebugRed`, `DebugGreen`, `DebugBlue`
+
+#### Public Methods
+
+- **`uint16_t resolveColor(Color color)`**
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation.
+
+---
+
 ### DisplayConfig
 
 **Inherits:** None

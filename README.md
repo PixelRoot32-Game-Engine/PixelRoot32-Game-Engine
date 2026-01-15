@@ -151,14 +151,14 @@ Direct RGB565 usage is supported but discouraged for regular gameplay rendering.
 
 ## Physics System
 
-The engine provides `PhysicsActor`, a specialized actor that handles 2D physics behavior similar to a `RigidBody2D` in Godot. It simplifies the implementation of moving objects by managing velocity, acceleration, and world boundary collisions automatically.
+The engine provides [`PhysicsActor`](API_REFERENCE.md#physicsactor), a specialized actor that handles 2D physics behavior similar to a `RigidBody2D` in Godot. It simplifies the implementation of moving objects by managing velocity, acceleration, and world boundary collisions automatically.
 
 ### Key Features
 
 - **Velocity & Movement**: Managed via `vx` (horizontal) and `vy` (vertical) properties. The `update` loop automatically integrates these values to update position.
 - **World & Custom Bounds**: 
   - Uses `worldWidth` and `worldHeight` to define the default play area.
-  - Supports custom limits via `LimitRect` (top, bottom, left, right) to constrain actors to specific zones (e.g. `setLimits({0, 0, 320, 240})`).
+  - Supports custom limits via [`LimitRect`](API_REFERENCE.md#limitrect) (top, bottom, left, right) to constrain actors to specific zones (e.g. `setLimits({0, 0, 320, 240})`).
 - **Collision Resolution**: The `resolveWorldBounds()` function automatically detects collisions with the defined limits and applies a bounce response based on the `restitution` (bounciness) coefficient.
 - **Properties**:
   - `restitution`: Controls energy conservation (1.0 = full bounce, < 1.0 = dampening).
@@ -449,6 +449,30 @@ For testing without flashing the ESP32, you can create a `native` environment in
    - SDL2 library installed on the system.
 
 Developed to be efficient, fast, and easy to extend.
+
+---
+
+## 🗺️ Roadmap
+
+### v0.6 - Visuals & Motion
+- [ ] **Sprite Animation**: Support for sprite sheets and frame-based animation (`AnimatedSprite`).
+- [ ] **Tilemaps**: Efficient rendering of grid-based worlds.
+- [ ] **Camera System**: Viewport management for worlds larger than the screen (scrolling).
+- [ ] **Tweening System**: Simple Easing functions for UI and movement.
+
+### v0.7 - Audio & Storage
+- [ ] **Audio System**: Basic SFX and Music support (I2S/PWM/DAC).
+- [ ] **Asset Manager**: Loading resources (images, audio) from SPIFFS/LittleFS/SD Card.
+- [ ] **Config Files**: Save/Load game settings and state (JSON/Binary).
+
+### v0.8 - Connectivity (ESP32 Special)
+- [ ] **Local Multiplayer**: ESP-NOW integration for low-latency multiplayer.
+- [ ] **Web Control**: Control the game via a web browser interface.
+
+### v1.0 - Stable Release
+- [ ] **Full API Freeze**: Long-term stable API.
+- [ ] **Editor Tools**: Web-based or PC-based tools to export scenes to engine format.
+- [ ] **Showcase Games**: Complete open-source examples (Platformer, RPG, Space Shooter).
 
 ---
 
