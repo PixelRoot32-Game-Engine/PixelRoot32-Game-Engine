@@ -1,62 +1,96 @@
-#pragma once
-#include "UIElement.h"
-#include "graphics/Color.h"
-#include <string>
+#include "graphics/ui/UIButton.h"
 
 namespace pixelroot32::graphics::ui {
 
-    /**
-    * @class UILabel
-    * @brief A simple text label UI element.
-    *
-    * Displays a string of text on the screen. Auto-calculates its bounds based on text length and size.
-    */
-class UILabel : public UIElement {
-public:
-    /**
-        * @brief Constructs a new UILabel.
-        * @param t Initial text.
-        * @param x X position.
-        * @param y Y position.
-        * @param col Text color.
-        * @param sz Text size multiplier.
-        */
-    UILabel(std::string t, float x, float y, Color col, uint8_t sz);
+    using namespace pixelroot32::input;
+    using namespace pixelroot32::graphics;
 
-    /**
-        * @brief Updates the label's text.
-        * Recalculates dimensions if text changes.
-        * @param t New text.
-        */
-    void setText(const std::string& t);
-
-    /**
-        * @brief Sets visibility.
-        * @param v True to show, false to hide.
-        */
-    void setVisible(bool v) { isVisible = v; }
-
-    /**
-        * @brief Centers the label horizontally on the screen.
-        * @param screenWidth Width of the screen/container.
-        */
-    void centerX(int screenWidth);
-
-    void update(unsigned long deltaTime) override;
-    void draw(pixelroot32::graphics::Renderer& renderer) override;
-
-private:
-    std::string text;
-    Color color;
-    uint8_t size;
-    bool dirty = false;
-
-    /**
-        * @brief Recalculates width and height based on current text and font size.
-        */
-    inline void recalcSize() {
-        this->width  = (float)(text.length() * (6 * size));
-        this->height = (float)(8 * size);
+    UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
+        : UIElement(x, y, w, h), 
+            label(t), 
+            index(index),
+            textAlign(textAlign),
+            fontSize(fontSize),
+            onClick(callback) {
+        
+        textColor = Color::White;
+        backgroundColor = Color::Black;
+        hasBackground = true;
     }
-};
+
+    void UIButton::setStyle(Color textCol, Color bgCol, bool drawBg) {
+        textColor = textCol;
+        backgroundColor = bgCol;
+        hasBackground = drawBg;
+    }
+
+    void UIButton::setSelected(bool selected) {
+        isSelected = selected;
+    }
+
+    bool UIButton::getSelected() const {
+        return isSelected;
+    }
+
+    void UIButton::press() {
+        if (isEnabled && onClick) {
+            onClick();
+        }
+    }
+
+    bool UIButton::isPointInside(int px, int py) const {
+        return (px >= x && px <= x + width && 
+                py >= y && py <= y + height);
+    }
+
+    void UIButton::handleInput(const InputManager& input) {
+        if (!isEnabled || !isVisible) return;
+
+        // 1. Accionamiento por Botón Físico (A / Enter)
+        // Solo si el botón tiene el foco (isSelected)
+        if (isSelected && input.isButtonPressed(index)) {
+            this->press();
+        }
+
+        // 2. Accionamiento por Pantalla Táctil o Mouse
+        // Si hay un evento de click/touch en las coordenadas del botón
+        // if (input.isButtonClicked()) { 
+        //     if (isPointInside(input.getMouseX(), input.getMouseY())) {
+        //         this->press();
+        //     }
+        // }
+    }
+
+    void UIButton::update(unsigned long deltaTime) {
+        (void)deltaTime;
+
+        // Aquí podrías añadir un efecto de "latido" o parpadeo si isSelected es true
+    }
+
+    void UIButton::draw(Renderer& renderer) {
+        if (!isVisible) return;
+
+        // 1. Dibujar el fondo y borde solo si tiene activado hasBackground
+        if (hasBackground) {
+            // Dibujamos fondo relleno
+            renderer.drawFilledRectangle(x, y, width, height, backgroundColor);
+        } else {
+            // Si no tiene fondo, podemos indicar la selección con un pequeño marcador
+            // o cambiando el color del texto
+            if (isSelected) {
+                renderer.drawText(">", x - 10, y + (height / 4), Color::Yellow, fontSize);
+            }
+        }
+
+        // 2. Dibujar el texto
+        Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
+
+        if (textAlign == TextAlignment::CENTER) {
+            renderer.drawTextCentered(label.c_str(), y + (height / 4), currentTextCol, fontSize);
+        } else if (textAlign == TextAlignment::RIGHT) {
+            renderer.drawText(label.c_str(), x + width - 5, y + (height / 4), currentTextCol, fontSize);
+        } else {
+            renderer.drawText(label.c_str(), x + 5, y + (height / 4), currentTextCol, fontSize);
+        }
+    }
 }

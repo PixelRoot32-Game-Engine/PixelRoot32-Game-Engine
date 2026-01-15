@@ -3,6 +3,12 @@
 
 namespace pixelroot32::graphics::ui {
 
+    enum TextAlignment {
+        LEFT,
+        CENTER,
+        RIGHT
+    };
+
 /**
  * @class UIElement
  * @brief Base class for all user interface elements (buttons, labels, etc.).

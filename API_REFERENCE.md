@@ -2,6 +2,18 @@
 
 This document provides a complete reference for the PixelRoot32 Game Engine public API.
 
+## Global Configuration
+
+The `Config.h` file contains global configuration constants for the engine.
+
+### Constants
+
+- **`DISPLAY_WIDTH`**
+    The width of the display in pixels. Default is `240`.
+
+- **`DISPLAY_HEIGHT`**
+    The height of the display in pixels. Default is `240`.
+
 ## Core Module
 
 The Core module provides the fundamental building blocks of the engine, including the main application loop, entity management, and scene organization.
@@ -513,3 +525,74 @@ Collection of helper functions.
     Linear interpolation.
 - **`float clamp(float v, float min, float max)`**
     Clamps a value between min and max.
+
+---
+
+## UI Module
+
+The UI module provides classes for creating user interfaces.
+
+### UIElement
+
+**Inherits:** [Entity](#entity)
+
+Base class for all user interface elements (buttons, labels, etc.). Sets the `EntityType` to `UI_ELEMENT`.
+
+#### Public Methods
+
+- **`UIElement(float x, float y, float w, float h)`**
+    Constructs a new UIElement.
+
+### UIButton
+
+**Inherits:** [UIElement](#uielement)
+
+A clickable button UI element. Supports both physical (keyboard/gamepad) and touch input. Can trigger a callback function when pressed.
+
+#### Public Methods
+
+- **`UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2)`**
+    Constructs a new UIButton.
+    - `t`: Button label text.
+    - `index`: Navigation index (for D-pad navigation).
+    - `x, y`: Position.
+    - `w, h`: Size.
+    - `callback`: Function to call when clicked/pressed.
+    - `textAlign`: Text alignment (LEFT, CENTER, RIGHT).
+    - `fontSize`: Text size multiplier.
+
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
+    Configures the button's visual style.
+
+- **`void setSelected(bool selected)`**
+    Sets the selection state (e.g., focused via D-pad).
+
+- **`bool getSelected() const`**
+    Checks if the button is currently selected.
+
+- **`void handleInput(const InputManager& input)`**
+    Handles input events. Checks for touch events within bounds or confirmation buttons if selected.
+
+- **`void press()`**
+    Manually triggers the button's action.
+
+### UILabel
+
+**Inherits:** [UIElement](#uielement)
+
+A simple text label UI element. Displays a string of text on the screen. Auto-calculates its bounds based on text length and size.
+
+#### Public Methods
+
+- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
+    Constructs a new UILabel.
+
+- **`void setText(const std::string& t)`**
+    Updates the label's text. Recalculates dimensions.
+
+- **`void setVisible(bool v)`**
+    Sets visibility.
+
+- **`void centerX(int screenWidth)`**
+    Centers the label horizontally on the screen.
+

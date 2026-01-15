@@ -22,6 +22,8 @@ private:
     bool isSelected = false;
     bool hasBackground = true;
     uint8_t index;
+    TextAlignment textAlign = TextAlignment::CENTER;
+    int fontSize = 2;
     std::function<void()> onClick;
 
     /**
@@ -36,6 +38,8 @@ public:
     /**
         * @brief Constructs a new UIButton.
         * @param t Button label text.
+        * @param textAlign Text alignment.
+        * @param fontSize Text size multiplier.
         * @param index Navigation index (for D-pad navigation).
         * @param x X position.
         * @param y Y position.
@@ -43,7 +47,7 @@ public:
         * @param h Height.
         * @param callback Function to call when clicked/pressed.
         */
-    UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback);
+    UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
 
     /**
         * @brief Configures the button's visual style.
