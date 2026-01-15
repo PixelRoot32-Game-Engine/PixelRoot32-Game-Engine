@@ -388,7 +388,7 @@ class MainMenu : public Scene {
 
 1. ESP32 Environment:
    - Arduino framework for ESP32.
-   - TFT_eSPI library (configure `User_Setup.h`, including MISO pin definition for DMA support).
+   - A display driver library compatible with your hardware that you plug in via a custom `DrawSurface` implementation. The engine ships with a reference driver based on **TFT_eSPI**, but you can use alternatives such as **U8g2** or your own driver as long as they implement the `DrawSurface` interface.
 
 2. Native Environment:
    - C++ compiler (GCC/Clang).
