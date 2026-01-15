@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "EDGE.h"
+#include "Engine.h"
 #include "examples/Pong/PongScene.h"
 
 
@@ -7,11 +7,14 @@
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
 
+namespace pr32 = pixelroot32;
 
-DisplayConfig config(SCREEN_WIDTH, SCREEN_HEIGHT);
-InputConfig inputConfig(4, 13, 12, 14, 32); // 4 buttons: A, Left, Right, Up
 
-EDGE engine(config, inputConfig);
+pr32::graphics::DisplayConfig config(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+pr32::input::InputConfig inputConfig(4, 13, 12, 14, 32); // 4 buttons: A, Left, Right, Up
+
+pr32::core::Engine engine(config, inputConfig);
 
 PongScene pongScene;
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 
+namespace pixelroot32::physics {
 /**
  * @typedef CollisionLayer
  * @brief Bitmask representing collision layers.
@@ -17,4 +18,6 @@ typedef uint16_t CollisionLayer;
 namespace DefaultLayers {
     const CollisionLayer kNone = 0;      ///< No collision.
     const CollisionLayer kAll  = 0xFFFF; ///< Collides with everything.
+}
+
 }

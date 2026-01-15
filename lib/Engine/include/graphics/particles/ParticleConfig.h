@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 
+namespace pixelroot32::graphics::particles {
 /**
  * @struct ParticleConfig
  * @brief Configuration parameters for a particle emitter.
@@ -23,3 +24,5 @@ struct ParticleConfig {
 
     bool fadeColor; ///< If true, interpolates color from startColor to endColor.
 };
+
+}

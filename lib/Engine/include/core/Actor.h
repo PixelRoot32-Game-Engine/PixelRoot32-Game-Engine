@@ -2,6 +2,8 @@
 #include "Entity.h"
 #include <CollisionTypes.h>
 
+namespace pixelroot32::core {
+
 /**
  * @class Actor
  * @brief An Entity capable of physical interaction and collision.
@@ -21,20 +23,20 @@ public:
     Actor(float x, float y, int w, int h) : Entity(x, y, w, h, EntityType::ACTOR) {}
     virtual ~Actor() = default;
 
-    CollisionLayer layer = DefaultLayers::kNone; ///< The collision layer this actor belongs to.
-    CollisionLayer mask  = DefaultLayers::kNone; ///< The collision layers this actor interacts with.
+    pixelroot32::physics::CollisionLayer layer = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layer this actor belongs to.
+    pixelroot32::physics::CollisionLayer mask  = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layers this actor interacts with.
 
     /**
      * @brief Sets the collision layer for this actor.
      * @param l The layer to set.
      */
-    void setCollisionLayer(CollisionLayer l) { layer = l; }
+    void setCollisionLayer(pixelroot32::physics::CollisionLayer l) { layer = l; }
 
     /**
      * @brief Sets the collision mask for this actor.
      * @param m The mask to set.
      */
-    void setCollisionMask(CollisionLayer m)  { mask = m; }
+    void setCollisionMask(pixelroot32::physics::CollisionLayer m)  { mask = m; }
 
     /**
      * @brief Updates the actor logic.
@@ -66,3 +68,5 @@ public:
      */
     virtual void onCollision(Actor* other) = 0;
 };
+
+}

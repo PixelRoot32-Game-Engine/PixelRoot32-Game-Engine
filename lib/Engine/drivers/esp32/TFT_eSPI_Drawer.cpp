@@ -5,6 +5,8 @@
 #include <cstdarg>
 #include <cstdio>
 
+namespace pixelroot32::drivers::esp32 {
+
 // --------------------------------------------------
 // Constructor / Destructor
 // --------------------------------------------------
@@ -164,5 +166,7 @@ void TFT_eSPI_Drawer::present() {
         (uint16_t*)spr.getPointer()
     );
 }
+
+} // namespace pixelroot32::drivers::esp32
 
 #endif // ESP32

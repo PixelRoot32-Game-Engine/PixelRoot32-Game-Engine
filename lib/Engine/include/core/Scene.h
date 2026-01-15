@@ -1,6 +1,6 @@
 #pragma once
 #ifdef PLATFORM_NATIVE
-    #include "MockArduinoQueue.h"
+    #include "../../src/platforms/mock/MockArduinoQueue.h"
 #else
     #include <ArduinoQueue.h>
 #endif
@@ -10,6 +10,12 @@
 
 #define MAX_ENTITIES 10  // Adjustable max entities per scene
 
+namespace pixelroot32::core {
+
+    using namespace pixelroot32::core;
+    using namespace pixelroot32::physics;
+    using namespace pixelroot32::graphics;
+    
 /**
  * @class Scene
  * @brief Represents a game level or screen containing entities.
@@ -36,7 +42,7 @@ public:
      * @brief Draws all visible entities in the scene.
      * @param renderer The renderer to use.
      */
-    virtual void draw(Renderer& renderer);
+    virtual void draw(pixelroot32::graphics::Renderer& renderer);
 
     /**
      * @brief Adds an entity to the scene.
@@ -57,5 +63,7 @@ public:
 
 protected:
     ArduinoQueue<Entity*> entities;  ///< Queue of entities in the scene.
-    CollisionSystem collisionSystem; ///< System to handle collisions between actors.
+    pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
 };
+
+}

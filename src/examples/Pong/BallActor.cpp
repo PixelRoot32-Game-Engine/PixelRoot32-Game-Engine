@@ -1,10 +1,12 @@
 #include "BallActor.h"
-#include "EDGE.h"
-#include <stdlib.h>
-#include <math.h>
+#include "Engine.h"
+#include <cstdlib>
+#include <cmath>
 #include <Config.h>
 
-extern EDGE engine;
+namespace pr32 = pixelroot32;
+
+extern pr32::core::Engine engine;
 
 void BallActor::reset() {
     int screenWidth = engine.getRenderer().getWidth();
@@ -46,11 +48,11 @@ void BallActor::update(unsigned long deltaTime) {
     if (y + radius > screenHeight) { y = screenHeight - radius; vy = -vy; }
 }
 
-void BallActor::draw(Renderer& renderer) {
+void BallActor::draw(pr32::graphics::Renderer& renderer) {
     if(isEnabled) renderer.drawCircle((int)x, (int)y, radius, COLOR_WHITE);
 }
 
-void BallActor::onCollision(Actor* other) {
+void BallActor::onCollision(pr32::core::Actor* other) {
     // The ball only interacts with PADDLE; if it interacts with another layer, use isInLayer 
     vx = -vx;
 

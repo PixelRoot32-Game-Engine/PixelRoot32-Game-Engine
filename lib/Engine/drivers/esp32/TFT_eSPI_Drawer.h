@@ -40,6 +40,9 @@
 #include <TFT_eSPI.h>
 #include <stdint.h>
 
+
+namespace pixelroot32::drivers::esp32 {
+    
 /**
  * @class TFT_eSPI_Drawer
  * @brief Concrete implementation of DrawSurface for ESP32 using the TFT_eSPI library.
@@ -47,7 +50,7 @@
  * This class handles low-level interaction with the display hardware via SPI.
  * It uses a sprite (framebuffer) to minimize flickering and tearing.
  */
-class TFT_eSPI_Drawer : public DrawSurface {
+class TFT_eSPI_Drawer : public pixelroot32::graphics::DrawSurface {
 public:
     TFT_eSPI_Drawer();
     virtual ~TFT_eSPI_Drawer();
@@ -121,6 +124,8 @@ private:
     int displayWidth;
     int displayHeight;
 };
+
+} // namespace pixelroot32::drivers::esp32
 
 #endif // ESP32
 

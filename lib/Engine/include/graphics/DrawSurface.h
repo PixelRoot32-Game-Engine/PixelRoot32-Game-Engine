@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace pixelroot32::graphics {
+
 /**
  * @class DrawSurface
  * @brief Abstract interface for platform-specific drawing operations.
@@ -86,3 +88,5 @@ public:
      */
     virtual void present() = 0;
 };
+
+}

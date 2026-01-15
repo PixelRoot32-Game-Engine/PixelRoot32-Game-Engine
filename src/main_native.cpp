@@ -3,7 +3,7 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 
-#include "core/EDGE.h"
+#include "Engine.h"
 #include "examples/Pong/PongScene.h"
 //#include "examples/BrickBraker/BrickBreakerScene.h"
 //#include "examples/Snake/SnakeScene.h"
@@ -17,11 +17,13 @@
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
 
-DisplayConfig config(SCREEN_WIDTH,SCREEN_HEIGHT);
+namespace pr32 = pixelroot32;
 
-InputConfig inputConfig(5, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE); // 5 buttons: Up, Down, Left, Right, Space
+pr32::graphics::DisplayConfig config(SCREEN_WIDTH,SCREEN_HEIGHT);
 
-EDGE engine(config, inputConfig);
+pr32::input::InputConfig inputConfig(5, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE); // 5 buttons: Up, Down, Left, Right, Space
+
+pr32::core::Engine engine(config, inputConfig);
 
 PongScene pongScene;
 //BrickBreakerScene brickBreakerScene;

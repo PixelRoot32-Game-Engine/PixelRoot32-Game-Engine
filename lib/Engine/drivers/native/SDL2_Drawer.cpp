@@ -7,6 +7,8 @@
 #include <cstdarg>
 #include <cstdio>
 
+namespace pixelroot32::drivers::native {
+
 SDL2_Drawer::SDL2_Drawer()
     : window(nullptr)
     , renderer(nullptr)
@@ -339,6 +341,8 @@ void SDL2_Drawer::setDisplaySize(int w, int h) {
 
 void SDL2_Drawer::present() {
     sendBuffer(); // wrapper por compatibilidad
+}
+
 }
 
 #endif

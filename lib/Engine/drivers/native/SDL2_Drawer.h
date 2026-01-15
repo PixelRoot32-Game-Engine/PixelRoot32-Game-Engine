@@ -13,7 +13,8 @@ constexpr int FONT_W = 5;
 constexpr int FONT_H = 7;
 constexpr int FONT_SPACING = 1;
 
-class SDL2_Drawer : public DrawSurface {
+namespace pixelroot32::drivers::native {
+class SDL2_Drawer : public pixelroot32::graphics::DrawSurface {
 public:
     SDL2_Drawer();
     virtual ~SDL2_Drawer();
@@ -128,6 +129,8 @@ private:
         pixels[y * displayWidth + x] = color;
     }
 };
+
+} // namespace pixelroot32::drivers::native
 
 #endif // PLATFORM_NATIVE
 

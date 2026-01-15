@@ -1,9 +1,11 @@
 #pragma once
 #include "core/Entity.h"
 #include "Particle.h"
-#include "particles/ParticleConfig.h"
+#include "ParticleConfig.h"
 
 #define MAX_PARTICLES_PER_EMITTER 50
+
+namespace pixelroot32::graphics::particles {
 
 /**
  * @class ParticleEmitter
@@ -12,7 +14,7 @@
  * Inherits from Entity to participate in the scene's update/draw loop.
  * Uses a fixed-size array for particles to avoid dynamic allocation during runtime.
  */
-class ParticleEmitter: public Entity {
+class ParticleEmitter: public pixelroot32::core::Entity {
 public:
 
     /**
@@ -34,7 +36,7 @@ public:
      * @brief Renders all active particles.
      * @param renderer The renderer instance.
      */
-    void draw(Renderer& renderer) override;
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
 
     /**
      * @brief Emits a burst of particles from a specific location.
@@ -73,3 +75,5 @@ private:
         return (r << 11) | (g << 5) | b;
     }
 };
+
+}

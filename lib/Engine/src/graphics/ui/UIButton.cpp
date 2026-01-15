@@ -1,6 +1,9 @@
 #include "ui/UIButton.h"
 
-namespace UI {
+namespace pixelroot32::graphics::ui {
+
+    using namespace pixelroot32::input;
+    using namespace pixelroot32::graphics;
 
     UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)
         : UIElement(x, y, w, h), 

@@ -6,6 +6,8 @@
     #include <mock/MockSafeString.h>
 #endif
 
+namespace pixelroot32::graphics {
+
 /**
  * @class Renderer
  * @brief High-level graphics rendering system.
@@ -184,3 +186,5 @@ private:
     int xOffset = 0;
     int yOffset = 0;
 };
+
+}

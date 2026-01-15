@@ -1,7 +1,9 @@
 #include "PongScene.h"
-#include "EDGE.h"
+#include "Engine.h"
 
-extern EDGE engine;
+namespace pr32 = pixelroot32;
+
+extern pr32::core::Engine engine;
 
 #define PADDLE_WIDTH 10
 #define PADDLE_HEIGHT 50
@@ -17,17 +19,17 @@ void PongScene::init() {
     rightScore = 0;
     gameOver = false;
 
-    lblLeftScore = new UI::UILabel("0", 20, 8, COLOR_WHITE, 2);
+    lblLeftScore = new pr32::graphics::ui::UILabel("0", 20, 8, COLOR_WHITE, 2);
     lblLeftScore->setVisible(true);
 
-    lblRightScore = new UI::UILabel("0", screenWidth - 20, 8, COLOR_WHITE, 2);
+    lblRightScore = new pr32::graphics::ui::UILabel("0", screenWidth - 20, 8, COLOR_WHITE, 2);
     lblRightScore->setVisible(true);
 
-    lblStartMessage = new UI::UILabel("PRESS A TO START", 0, 150, COLOR_WHITE, 1);
+    lblStartMessage = new pr32::graphics::ui::UILabel("PRESS A TO START", 0, 150, COLOR_WHITE, 1);
     lblStartMessage->centerX(screenWidth);
     lblStartMessage->setVisible(false);
 
-    lblGameOver = new UI::UILabel("GAME OVER", 0, 120, COLOR_WHITE, 2);
+    lblGameOver = new pr32::graphics::ui::UILabel("GAME OVER", 0, 120, COLOR_WHITE, 2);
     lblGameOver->centerX(screenWidth);
     lblGameOver->setVisible(false);
 
@@ -89,7 +91,7 @@ void PongScene::update(unsigned long deltaTime) {
     }
 }
 
-void PongScene::draw(Renderer& renderer) {
+void PongScene::draw(pr32::graphics::Renderer& renderer) {
     int screenWidth = engine.getRenderer().getWidth();
     int screenHeight = engine.getRenderer().getHeight();
 

@@ -1,11 +1,12 @@
 #pragma once
 #ifdef PLATFORM_NATIVE
-    #include "MockArduino.h"  // Defines SDL_MAIN_HANDLED before SDL.h
+    #include "../../src/platforms/mock/MockArduino.h"  // Defines SDL_MAIN_HANDLED before SDL.h
 #else
     #include <Arduino.h>
 #endif
 #include "InputConfig.h"
 
+namespace pixelroot32::input {
 /**
  * @class InputManager
  * @brief Handles input from physical buttons or keyboard (on PC).
@@ -78,3 +79,5 @@ private:
     bool* clickFlag;        ///< Flags for tracking click events.
     uint8_t* buttonPins;    ///< Array of hardware pin numbers.
 };
+
+}

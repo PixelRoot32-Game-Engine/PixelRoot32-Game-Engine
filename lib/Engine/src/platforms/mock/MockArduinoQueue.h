@@ -53,6 +53,7 @@ public:
 private:
     std::queue<T> q;
 };
+ // namespace pixelroot32::platforms::mock
 
 #endif // PLATFORM_NATIVE
 

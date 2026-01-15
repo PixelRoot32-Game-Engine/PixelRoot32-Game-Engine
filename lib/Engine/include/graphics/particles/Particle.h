@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 
+namespace pixelroot32::graphics::particles {
 /**
  * @struct Particle
  * @brief Represents a single particle in the particle system.
@@ -20,3 +21,5 @@ struct Particle {
 
     bool active = false; ///< Whether the particle is currently in use.
 };
+
+}

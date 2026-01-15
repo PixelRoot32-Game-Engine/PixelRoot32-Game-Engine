@@ -4,20 +4,20 @@
 #include "BallActor.h"
 #include "ui/UILabel.h"
 
-class PongScene : public Scene {
+class PongScene : public pixelroot32::core::Scene {
 public:
     void init() override;
     void update(unsigned long deltaTime) override;
-    void draw(Renderer& renderer) override;
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
 
     float getBallX() { return ball->x; }
     float getBallY() { return ball->y; }
 
 private:
-    UI::UILabel* lblLeftScore;
-    UI::UILabel* lblRightScore;
-    UI::UILabel* lblStartMessage;
-    UI::UILabel* lblGameOver;
+    pixelroot32::graphics::ui::UILabel* lblLeftScore;
+    pixelroot32::graphics::ui::UILabel* lblRightScore;
+    pixelroot32::graphics::ui::UILabel* lblStartMessage;
+    pixelroot32::graphics::ui::UILabel* lblGameOver;
 
     PaddleActor* leftPaddle;
     PaddleActor* rightPaddle;

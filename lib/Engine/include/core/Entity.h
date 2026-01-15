@@ -1,6 +1,8 @@
 #pragma once
 #include "graphics/Renderer.h"
 
+namespace pixelroot32::core {
+
 /**
  * @struct Rect
  * @brief Represents a 2D rectangle, typically used for hitboxes or bounds.
@@ -78,5 +80,7 @@ public:
      * @brief Renders the entity.
      * @param renderer Reference to the renderer to use for drawing.
      */
-    virtual void draw(Renderer& renderer) = 0;
+    virtual void draw(pixelroot32::graphics::Renderer& renderer) = 0;
 };
+
+}

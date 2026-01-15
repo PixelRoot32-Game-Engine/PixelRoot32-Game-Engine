@@ -2,6 +2,8 @@
 #include "Scene.h"
 #include "graphics/Renderer.h"
 
+namespace pixelroot32::core {
+
 #define MAX_SCENES 5  // Adjust based on needs
 
 /**
@@ -42,7 +44,7 @@ public:
      * @brief Draws the currently active scene.
      * @param renderer The renderer to use.
      */
-    void draw(Renderer& renderer);
+    void draw(pixelroot32::graphics::Renderer& renderer);
 
     /**
      * @brief Gets the currently active scene.
@@ -54,3 +56,5 @@ private:
     Scene* sceneStack[MAX_SCENES] = {nullptr};  ///< Fixed-size stack for scenes.
     int sceneCount = 0; ///< Current number of scenes in the stack.
 };
+
+}

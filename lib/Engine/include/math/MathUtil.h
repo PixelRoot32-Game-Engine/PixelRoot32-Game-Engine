@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 
+namespace pixelroot32::math {
 /**
  * @namespace Math
  * @brief Collection of math helper functions and constants.
@@ -32,4 +33,6 @@ namespace Math {
     inline float clamp(float v, float min, float max) {
         return (v < min) ? min : (v > max ? max : v);
     }
+}
+
 }

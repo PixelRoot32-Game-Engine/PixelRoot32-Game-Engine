@@ -1,6 +1,9 @@
 #pragma once
 #include "ParticleConfig.h"
 
+
+namespace pixelroot32::graphics::particles {
+
 /**
  * @namespace ParticlePresets
  * @brief Predefined configurations for common particle effects.
@@ -73,4 +76,6 @@ namespace ParticlePresets {
         12, 25,
         true
     };
+}
+
 }

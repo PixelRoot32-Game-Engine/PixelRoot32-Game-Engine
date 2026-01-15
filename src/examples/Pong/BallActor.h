@@ -2,7 +2,7 @@
 #include "Actor.h"
 #include "GameLayers.h"
 
-class BallActor : public Actor {
+class BallActor : public pixelroot32::core::Actor {
 public:
     float vx, vy;
     float speed;
@@ -11,7 +11,7 @@ public:
     unsigned long respawnTimer;   // respawn delay timer
 
     inline BallActor(float x, float y, float speed, int radius)
-        : Actor(x, y, radius * 2.0f, radius * 2.0f),
+        : pixelroot32::core::Actor(x, y, radius * 2.0f, radius * 2.0f),
             vx(0), 
             vy(0), 
             speed(speed), 
@@ -26,8 +26,8 @@ public:
     void reset();
 
     void update(unsigned long deltaTime) override;
-    void draw(Renderer& renderer) override;
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
 
-    Rect getHitBox() override { return {x-radius, y-radius, radius*2, radius*2}; }
-    void onCollision(Actor* other);
+    pixelroot32::core::Rect getHitBox() override { return {x-radius, y-radius, radius*2, radius*2}; }
+    void onCollision(pixelroot32::core::Actor* other);
 };

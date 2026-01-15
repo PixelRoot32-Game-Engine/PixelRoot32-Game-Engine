@@ -1,8 +1,11 @@
 #include "PaddleActor.h"
 #include "PongScene.h"  
-#include "EDGE.h"
+#include "Engine.h"
 #include <math.h>
-extern EDGE engine;
+
+namespace pr32 = pixelroot32;
+
+extern pr32::core::Engine engine;
 
 // Constantes AI
 #define AI_TARGET_OFFSET 6.0f
@@ -56,11 +59,11 @@ void PaddleActor::update(unsigned long deltaTime) {
     if (y + height > PONG_PLAY_AREA_BOTTOM) { y = PONG_PLAY_AREA_BOTTOM - height; accumulator = 0; }
 }
 
-void PaddleActor::draw(Renderer& renderer) {
+void PaddleActor::draw(pr32::graphics::Renderer& renderer) {
     renderer.drawFilledRectangle((int)x, (int)y, width, height, COLOR_WHITE);
 }
 
-void PaddleActor::onCollision(Actor* other) {
+void PaddleActor::onCollision(pr32::core::Actor* other) {
     (void)other;
     // No special collision handling needed for paddles
 }

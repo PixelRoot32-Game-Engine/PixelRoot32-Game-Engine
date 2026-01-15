@@ -5,33 +5,35 @@
 #include "input/InputManager.h"
 #include "graphics/DisplayConfig.h"
 
+namespace pixelroot32::core {
+
 /**
- * @class EDGE
+ * @class Engine
  * @brief The main engine class that manages the game loop and core subsystems.
  *
- * EDGE acts as the central hub of the game engine. It initializes and manages
+ * Engine acts as the central hub of the game engine. It initializes and manages
  * the Renderer, InputManager, and SceneManager. It runs the main game loop,
  * handling timing (delta time), updating the current scene, and rendering frames.
  */
-class EDGE {
+class Engine {
 public:
     /**
-     * @brief Constructs the EDGE engine with custom display and input configurations.
+     * @brief Constructs the Engine with custom display and input configurations.
      * @param displayConfig Configuration settings for the display (width, height, rotation, etc.).
      * @param inputConfig Configuration settings for the input system (pins, buttons).
      */
-    EDGE(const DisplayConfig& displayConfig, const InputConfig& inputConfig);
+    Engine(const pixelroot32::graphics::DisplayConfig& displayConfig, const pixelroot32::input::InputConfig& inputConfig);
 
     /**
-     * @brief Constructs the EDGE engine with custom display configuration and default input settings.
+     * @brief Constructs the Engine with custom display configuration and default input settings.
      * @param displayConfig Configuration settings for the display.
      */
-    EDGE(const DisplayConfig& displayConfig);
+    Engine(const pixelroot32::graphics::DisplayConfig& displayConfig);
 
     /**
      * @brief Destructor. Cleans up engine resources.
      */
-    ~EDGE();
+    ~Engine();
 
     /**
      * @brief Initializes the engine subsystems.
@@ -71,24 +73,24 @@ public:
      * @brief Replaces the current renderer instance.
      * @param newRenderer Reference to the new Renderer to use.
      */
-    void setRenderer(Renderer& newRenderer) { renderer = newRenderer; }
+    void setRenderer(pixelroot32::graphics::Renderer& newRenderer) { renderer = newRenderer; }
 
     /**
      * @brief Provides access to the Renderer subsystem.
      * @return Reference to the current Renderer.
      */
-    Renderer& getRenderer();
+    pixelroot32::graphics::Renderer& getRenderer();
 
     /**
      * @brief Provides access to the InputManager subsystem.
-     * @return Reference to the InputManager.
+     * @return Reference to the InputManager    .
      */
-    InputManager& getInputManager() { return inputManager; }
+    pixelroot32::input::InputManager& getInputManager() { return inputManager; }
 
 private:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
-    Renderer renderer;         ///< Handles all graphics rendering operations.
-    InputManager inputManager; ///< Manages input device state and events.
+    pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
+    pixelroot32::input::InputManager inputManager; ///< Manages input device state and events.
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.
@@ -107,3 +109,5 @@ private:
      */
     void draw();
 };
+
+}

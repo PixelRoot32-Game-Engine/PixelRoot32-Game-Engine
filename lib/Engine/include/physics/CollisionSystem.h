@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "core/Entity.h"
 
+namespace pixelroot32::physics {
+
 /**
  * @class CollisionSystem
  * @brief Manages collision detection between entities.
@@ -16,13 +18,13 @@ public:
      * @brief Adds an entity to the collision system.
      * @param e Pointer to the entity to add.
      */
-    void addEntity(Entity* e);
+    void addEntity(pixelroot32::core::Entity* e);
 
     /**
      * @brief Removes an entity from the collision system.
      * @param e Pointer to the entity to remove.
      */
-    void removeEntity(Entity* e);
+    void removeEntity(pixelroot32::core::Entity* e);
 
     /**
      * @brief Performs collision detection for all registered entities.
@@ -34,5 +36,7 @@ public:
     void update();
 
 private:
-    std::vector<Entity*> entities; ///< List of entities to check for collisions.
+    std::vector<pixelroot32::core::Entity*> entities; ///< List of entities to check for collisions.
 };
+
+}

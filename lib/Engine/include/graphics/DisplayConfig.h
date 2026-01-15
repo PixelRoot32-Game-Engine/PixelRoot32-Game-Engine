@@ -1,9 +1,11 @@
 #pragma once
 #ifdef PLATFORM_NATIVE
-    #include "MockSPI.h"
+    #include "../../src/platforms/mock/MockSPI.h"
 #else
     #include <SPI.h>
 #endif
+
+namespace pixelroot32::graphics {
 
 /**
  * @brief Configuration settings for initializing U8g2-compatible displays.
@@ -40,3 +42,5 @@ struct DisplayConfig {
         yOffset = (DEFAULT_DISPLAY_HEIGHT - height) / 2;            
     }
 };
+
+}

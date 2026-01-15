@@ -1,6 +1,9 @@
 #include "ui/UILabel.h"
 
-namespace UI {
+namespace pixelroot32::graphics::ui {
+
+    using namespace pixelroot32::graphics;
+
     UILabel::UILabel(std::string t, float x, float y, uint16_t col, uint8_t sz)
         : UIElement(x, y, 0, 0),
             text(t), 

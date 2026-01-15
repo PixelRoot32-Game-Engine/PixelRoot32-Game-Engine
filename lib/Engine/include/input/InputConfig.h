@@ -2,6 +2,8 @@
 #include <cstdarg>
 #include <cstdint>
 
+namespace pixelroot32::input {
+
 /**
  * @struct InputConfig
  * @brief Configuration structure for the InputManager.
@@ -52,3 +54,5 @@ struct InputConfig{
         va_end(args);
     }
 };
+
+}
