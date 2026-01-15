@@ -1,5 +1,4 @@
 #pragma once
-#include "Config.h"
 #include "UIElement.h"
 #include "graphics/Color.h"
 #include <string>
