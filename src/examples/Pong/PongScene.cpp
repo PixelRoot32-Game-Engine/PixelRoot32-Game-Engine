@@ -5,6 +5,9 @@
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
+namespace pong {
+
+
 
 using Color = pr32::graphics::Color;
 
@@ -122,4 +125,6 @@ void PongScene::resetGame() {
     lblStartMessage->setVisible(false);
     lblGameOver->setVisible(false);
     ball->reset();
+}
+
 }

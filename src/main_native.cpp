@@ -25,7 +25,7 @@ pr32::input::InputConfig inputConfig(5, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_
 
 pr32::core::Engine engine(config, inputConfig);
 
-PongScene pongScene;
+pong::PongScene pongScene;
 //BrickBreakerScene brickBreakerScene;
 //SnakeScene snakeScene;
 

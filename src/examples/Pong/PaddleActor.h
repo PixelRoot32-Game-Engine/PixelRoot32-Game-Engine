@@ -3,6 +3,7 @@
 #include "GameLayers.h"
 #include <graphics/Color.h>
 
+namespace pong {
 class PaddleActor : public pixelroot32::core::Actor {
 public:
     float velocity;      // for player movement
@@ -30,3 +31,5 @@ private:
     int topLimit;
     int bottomLimit;
 };
+
+}

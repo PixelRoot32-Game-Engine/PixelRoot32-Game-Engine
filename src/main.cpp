@@ -16,7 +16,7 @@ pr32::input::InputConfig inputConfig(4, 13, 12, 14, 32); // 4 buttons: A, Left, 
 
 pr32::core::Engine engine(config, inputConfig);
 
-PongScene pongScene;
+pong::PongScene pongScene;
 
 
 void setup() {

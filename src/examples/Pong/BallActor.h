@@ -3,6 +3,7 @@
 #include "GameLayers.h"
 #include <graphics/Color.h>
 
+namespace pong {
 class BallActor : public pixelroot32::core::PhysicsActor {
 public:
     int radius; 
@@ -22,3 +23,5 @@ public:
 private:
     float initialSpeed;  // speed at respawn
 };
+
+}

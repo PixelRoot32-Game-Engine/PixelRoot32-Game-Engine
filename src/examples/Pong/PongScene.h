@@ -17,6 +17,8 @@
 #define PONG_PLAY_AREA_TOP ((DISPLAY_HEIGHT - PONG_PLAY_AREA_HEIGHT) / 2)  // Center vertically
 #define PONG_PLAY_AREA_BOTTOM (PONG_PLAY_AREA_TOP + PONG_PLAY_AREA_HEIGHT)
 
+namespace pong {
+
 class PongScene : public pixelroot32::core::Scene {
 public:
     void init() override;
@@ -40,3 +42,5 @@ private:
 
     void resetGame();
 };
+
+}

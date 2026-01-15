@@ -4,6 +4,8 @@
 #include <cmath>
 #include <Config.h>
 
+namespace pong {
+
 namespace pr32 = pixelroot32;
 
 using Color = pr32::graphics::Color;
@@ -70,4 +72,6 @@ void BallActor::onCollision(pr32::core::Actor* other) {
 
     float impactPos = (y - other->y) / other->height - 0.5f;
     vy += impactPos * 50.0f;
+}
+
 }

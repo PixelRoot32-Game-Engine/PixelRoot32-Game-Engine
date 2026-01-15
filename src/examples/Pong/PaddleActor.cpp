@@ -2,10 +2,14 @@
 #include "PongScene.h"  
 #include "Engine.h"
 #include <math.h>
+#include "GameLayers.h"
 
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
+
+namespace pong {
+
 using Color = pr32::graphics::Color;
 
 // Constantes AI
@@ -64,4 +68,6 @@ void PaddleActor::draw(pr32::graphics::Renderer& renderer) {
 void PaddleActor::onCollision(pr32::core::Actor* other) {
     (void)other;
     // No special collision handling needed for paddles
+}
+
 }
