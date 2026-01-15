@@ -14,6 +14,7 @@ constexpr int FONT_H = 7;
 constexpr int FONT_SPACING = 1;
 
 namespace pixelroot32::drivers::native {
+
 class SDL2_Drawer : public pixelroot32::graphics::DrawSurface {
 public:
     SDL2_Drawer();

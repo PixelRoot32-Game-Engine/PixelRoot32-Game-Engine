@@ -5,43 +5,13 @@
 
 #ifdef ESP32
 
-#include "graphics/DrawSurface.h"
-// TFT_eSPI specific includes would go here
-#include "Config.h"
-// ESP32 platform: use TFT_eSPI
-// Force TFT_eSPI configuration before including the library
-#ifndef ST7789_DRIVER
-#define ST7789_DRIVER
-#endif
-#ifndef TFT_WIDTH
-#define TFT_WIDTH 240
-#endif
-#ifndef TFT_HEIGHT
-#define TFT_HEIGHT 240
-#endif
-#ifndef TFT_MOSI
-#define TFT_MOSI 23
-#endif
-#ifndef TFT_SCLK
-#define TFT_SCLK 18
-#endif
-#ifndef TFT_DC
-#define TFT_DC 2
-#endif
-#ifndef TFT_RST
-#define TFT_RST 4
-#endif
-#ifndef TFT_CS
-#define TFT_CS -1
-#endif
-#ifndef SPI_FREQUENCY
-#define SPI_FREQUENCY 40000000
-#endif
+#include "DrawSurface.h"
+// TFT_esPI pecific includes would go here
 #include <TFT_eSPI.h>
 #include <stdint.h>
 
 
-namespace pixelroot32::drivers::esp32 {
+namespace  pixelroot32::drivers::esp32 {
     
 /**
  * @class TFT_eSPI_Drawer

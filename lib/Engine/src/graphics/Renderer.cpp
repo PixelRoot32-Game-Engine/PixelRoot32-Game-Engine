@@ -1,10 +1,10 @@
 #include "graphics/Renderer.h"
 #include <stdarg.h>
 #ifdef PLATFORM_NATIVE
-    #include "SDL2_Drawer.h"
+    #include "drivers/native/SDL2_Drawer.h"
     #include "../../src/platforms/mock/MockSPI.h"
 #else
-    #include "TFT_eSPI_Drawer.h"
+    #include "drivers/esp32/TFT_eSPI_Drawer.h"
     #include <SPI.h>
     #include <SafeString.h>
 #endif
@@ -12,12 +12,13 @@
 namespace pixelroot32::graphics {
 
     Renderer::Renderer(const DisplayConfig& config) : config(config) {
-        #if defined(PLATFORM_NATIVE)
-            drawer = new pixelroot32::drivers::native::SDL2_Drawer();
-        #else
-            drawer = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
-        #endif
-
+        // #if defined(PLATFORM_NATIVE)
+        //     drawer = new pixelroot32::drivers::native::SDL2_Drawer();
+        // #else
+        //     drawer = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
+        // #endif
+        
+        drawer = config.drawSurface;
         xOffset = config.xOffset;
         yOffset = config.yOffset;
     }

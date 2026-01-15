@@ -14,11 +14,12 @@ namespace pixelroot32::graphics {
  * and communication type (I2C or SPI).
  */
 struct DisplayConfig {
-    int rotation = 0;        ///< Display rotation
-    uint16_t width;                 ///< Display width in pixels
-    uint16_t height;                ///< Display height in pixels
-    int xOffset = 0;                ///< X offset for display rendering
-    int yOffset = 0;                ///< Y offset for display rendering
+    DrawSurface* drawSurface = nullptr; ///< Pointer to the draw surface
+    int rotation = 0;                   ///< Display rotation
+    uint16_t width;                     ///< Display width in pixels
+    uint16_t height;                    ///< Display height in pixels
+    int xOffset = 0;                    ///< X offset for display rendering
+    int yOffset = 0;                    ///< Y offset for display rendering
 
     /**
      * @brief Constructor to initialize the display configuration.
@@ -29,11 +30,12 @@ struct DisplayConfig {
      * @param h Display height in pixels.
      */
     DisplayConfig(
+        DrawSurface* drawSurface,
         const int rot = 0,
         uint16_t w = 240,
         uint16_t h = 240
     )
-        : rotation(rot), width(w), height(h)
+        : drawSurface(drawSurface), rotation(rot), width(w), height(h)
     {
         const int DEFAULT_DISPLAY_WIDTH = 240;
         const int DEFAULT_DISPLAY_HEIGHT = 240;

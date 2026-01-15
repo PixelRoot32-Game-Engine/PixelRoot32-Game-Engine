@@ -1,15 +1,15 @@
 #ifdef PLATFORM_NATIVE
 
-#include "SDL2_Drawer.h"
+#include <drivers/native/SDL2_Drawer.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <cstdarg>
 #include <cstdio>
 
-namespace pixelroot32::drivers::native {
+namespace pr32 = pixelroot32;
 
-SDL2_Drawer::SDL2_Drawer()
+pr32::drivers::native::SDL2_Drawer::SDL2_Drawer()
     : window(nullptr)
     , renderer(nullptr)
     , texture(nullptr)
@@ -22,7 +22,7 @@ SDL2_Drawer::SDL2_Drawer()
 {
 }
 
-SDL2_Drawer::~SDL2_Drawer() {
+pr32::drivers::native::SDL2_Drawer::~SDL2_Drawer() {
     if (texture) SDL_DestroyTexture(texture);
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
@@ -30,7 +30,7 @@ SDL2_Drawer::~SDL2_Drawer() {
     SDL_Quit();
 }
 
-void SDL2_Drawer::init() {
+void pr32::drivers::native::SDL2_Drawer::init() {
     SDL_Init(SDL_INIT_VIDEO);
 
     int scale = 2;
@@ -58,16 +58,16 @@ void SDL2_Drawer::init() {
     memset(pixels, 0, displayWidth * displayHeight * sizeof(uint16_t));
 }
 
-void SDL2_Drawer::setRotation(uint8_t rot) {
+void pr32::drivers::native::SDL2_Drawer::setRotation(uint8_t rot) {
     rotation = rot;
 }
 
-void SDL2_Drawer::clearBuffer() {
+void pr32::drivers::native::SDL2_Drawer::clearBuffer() {
     // LIMPIAR FRAMEBUFFER (no renderer)
     memset(pixels, 0, displayWidth * displayHeight * sizeof(uint16_t));
 }
 
-void SDL2_Drawer::sendBuffer() {
+void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     updateTexture();
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -177,14 +177,14 @@ static const uint8_t font5x7[][7] = {
         {0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00}, // ~
     };
 
-void SDL2_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
+void pr32::drivers::native::SDL2_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
     setTextColor(color);
     setTextSize(size);
     setCursor(x, y);
     print(text, font5x7);
 }
 
-void SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {
+void pr32::drivers::native::SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {
     setTextColor(color);
     setTextSize(size);
     int16_t textWidth = this->textWidth(text);
@@ -195,7 +195,7 @@ void SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, 
 
 // ---------- PRIMITIVAS ----------
 
-void SDL2_Drawer::drawFilledCircle(int x, int y, int r, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawFilledCircle(int x, int y, int r, uint16_t color) {
     int f = 1 - r;
     int ddF_x = 1;
     int ddF_y = -2 * r;
@@ -225,7 +225,7 @@ void SDL2_Drawer::drawFilledCircle(int x, int y, int r, uint16_t color) {
     }
 }
 
-void SDL2_Drawer::drawCircle(int x, int y, int r, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawCircle(int x, int y, int r, uint16_t color) {
     int f = 1 - r;
     int ddF_x = 1;
     int ddF_y = -2 * r;
@@ -258,17 +258,17 @@ void SDL2_Drawer::drawCircle(int x, int y, int r, uint16_t color) {
     }
 }
 
-void SDL2_Drawer::drawFilledRectangle(int x, int y, int w, int h, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawFilledRectangle(int x, int y, int w, int h, uint16_t color) {
     for (int j = y; j < y + h; j++)
         for (int i = x; i < x + w; i++)
             setPixel(i, j, color);
 }
 
-void SDL2_Drawer::updateTexture() {
+void pr32::drivers::native::SDL2_Drawer::updateTexture() {
     SDL_UpdateTexture(texture, nullptr, pixels, displayWidth * sizeof(uint16_t));
 }
 
-bool SDL2_Drawer::processEvents() {
+bool pr32::drivers::native::SDL2_Drawer::processEvents() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) return false;
@@ -276,14 +276,14 @@ bool SDL2_Drawer::processEvents() {
     return true;
 }
 
-void SDL2_Drawer::drawRectangle(int x, int y, int width, int height, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawRectangle(int x, int y, int width, int height, uint16_t color) {
     drawLine(x, y, x + width - 1, y, color);
     drawLine(x + width - 1, y, x + width - 1, y + height - 1, color);
     drawLine(x + width - 1, y + height - 1, x, y + height - 1, color);
     drawLine(x, y + height - 1, x, y, color);
 }
 
-void SDL2_Drawer::drawLine(int x1, int y1, int x2, int y2, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawLine(int x1, int y1, int x2, int y2, uint16_t color) {
     int dx = abs(x2 - x1);
     int dy = -abs(y2 - y1);
     int sx = (x1 < x2) ? 1 : -1;
@@ -299,7 +299,7 @@ void SDL2_Drawer::drawLine(int x1, int y1, int x2, int y2, uint16_t color) {
     }
 }
 
-void SDL2_Drawer::drawBitmap(int x, int y, int w, int h, const uint8_t* bitmap, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawBitmap(int x, int y, int w, int h, const uint8_t* bitmap, uint16_t color) {
     if (!bitmap) return;
     int bytesPerRow = (w + 7) / 8;
 
@@ -313,36 +313,34 @@ void SDL2_Drawer::drawBitmap(int x, int y, int w, int h, const uint8_t* bitmap, 
     }
 }
 
-void SDL2_Drawer::drawPixel(int x, int y, uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::drawPixel(int x, int y, uint16_t color) {
     setPixel(x, y, color);
 }
 
-void SDL2_Drawer::setTextColor(uint16_t color) {
+void pr32::drivers::native::SDL2_Drawer::setTextColor(uint16_t color) {
     textColor = color;
 }
 
-void SDL2_Drawer::setTextSize(uint8_t size) {
+void pr32::drivers::native::SDL2_Drawer::setTextSize(uint8_t size) {
     textSize = size;
 }
 
-void SDL2_Drawer::setCursor(int16_t x, int16_t y) {
+void pr32::drivers::native::SDL2_Drawer::setCursor(int16_t x, int16_t y) {
     cursorX = x;
     cursorY = y;
 }
 
-uint16_t SDL2_Drawer::color565(uint8_t r, uint8_t g, uint8_t b) {
+uint16_t pr32::drivers::native::SDL2_Drawer::color565(uint8_t r, uint8_t g, uint8_t b) {
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
-void SDL2_Drawer::setDisplaySize(int w, int h) {
+void pr32::drivers::native::SDL2_Drawer::setDisplaySize(int w, int h) {
     displayWidth = w;
     displayHeight = h;
 }
 
-void SDL2_Drawer::present() {
+void pr32::drivers::native::SDL2_Drawer::present() {
     sendBuffer(); // wrapper por compatibilidad
 }
 
-}
-
-#endif
+#endif // PLATFORM_NATIVE
