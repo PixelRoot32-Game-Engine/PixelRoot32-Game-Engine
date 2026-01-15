@@ -4,6 +4,7 @@
 #include "BallActor.h"
 #include "graphics/ui/UILabel.h"
 #include "graphics/Color.h"
+#include "Config.h"
 
 // Game constants
 #define PADDLE_WIDTH 10

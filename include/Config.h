@@ -1,0 +1,3 @@
+
+#define DISPLAY_HEIGHT 240
+#define DISPLAY_WIDTH  240

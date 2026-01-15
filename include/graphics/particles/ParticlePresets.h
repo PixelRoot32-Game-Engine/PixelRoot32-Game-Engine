@@ -17,7 +17,7 @@ namespace ParticlePresets {
      * Red/Orange colors, rising upward (negative gravity), moderate life.
      */
     constexpr ParticleConfig Fire {
-        0xF800, 0x7800,
+        Color::Red, Color::DarkRed,
         0.5f, 1.5f,
         -0.02f,
         0.98f,
@@ -30,7 +30,7 @@ namespace ParticlePresets {
      * Yellow to Red, high initial speed, expanding outward.
      */
     constexpr ParticleConfig Explosion {
-        0xFFE0, 0x0000,
+        Color::Yellow, Color::Black,
         2.0f, 4.0f,
         0.1f,
         0.90f,
@@ -43,7 +43,7 @@ namespace ParticlePresets {
      * White to Yellow, quick bursts, gravity affects them.
      */
     constexpr ParticleConfig Sparks {
-        0xFFFF, 0xFFE0,
+        Color::White, Color::Yellow,
         1.5f, 3.0f,
         0.15f,
         0.85f,    
@@ -56,7 +56,7 @@ namespace ParticlePresets {
      * Grey, slow rising, long life.
      */
     constexpr ParticleConfig Smoke {
-        0x7BEF, 0x0000,
+        Color::DarkGray, Color::Black,
         0.2f, 0.6f,
         -0.01f,
         0.97f,
@@ -69,7 +69,7 @@ namespace ParticlePresets {
      * Light grey, subtle movement.
      */
     constexpr ParticleConfig Dust {
-        0xC618, 0x7BEF,
+        Color::LightGray, Color::DarkGray,
         0.3f, 1.0f,
         0.08f,
         0.90f,
