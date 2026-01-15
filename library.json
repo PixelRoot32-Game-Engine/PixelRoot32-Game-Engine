@@ -1,20 +1,21 @@
 {
-  "name": "EDGE",
-  "description": "EDGE (ESP Device Game Engine) : A lightweight game engine for ESP devices using U8G2 graphics library. Might work on other devices compatible with U8G2 library.",
+  "name": "PixelRoot32-Game-Engine",
+  "description": "PixelRoot32-Game-Engine is an entity-based game engine with scene management, designed for embedded systems. The engine ships with a reference driver based on TFT_eSPI, but you can use alternatives such as **U8g2** or your own driver as long as they implement the `DrawSurface` interface.",
   "keywords": [
     "esp32",
     "game engine",
     "u8g2",
+    "tft_espi",
     "graphics",
     "game",
     "engine"
   ],
-  "version": "0.2.0",
+  "version": "0.0.1",
   "authors": [
     {
-      "name": "Nick B",
-      "email": "nbourrereg@hotmail.com",
-      "url": "https://github.com/nbourre",
+      "name": "Gabriel Perez",
+      "email": "perezgabriel89@hotmail.com",
+      "url": "https://github.com/gperez88",
       "maintainer": true
     }
   ],
@@ -25,18 +26,13 @@
     "SafeString": "*",
     "OneButton": "*"
   },
-  "frameworks": [
-    "arduino"
-  ],
-  "platforms": [
-    "espressif32"
-  ],
+  "frameworks": ["arduino", "native"],
+  "platforms": ["espressif32", "native"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/nbourre/ESP32-Game-Engine.git"
+    "url": "https://github.com/gperez88/PixelRoot32-Game-Engine.git"
   },
   "examples": [
-    "examples/BouncingBall",
-    "examples/FlappyBird"
+    "examples/Pong"
   ]
 }
