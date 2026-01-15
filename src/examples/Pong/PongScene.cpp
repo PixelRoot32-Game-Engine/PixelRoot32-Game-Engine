@@ -5,11 +5,7 @@ namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
 
-#define PADDLE_WIDTH 10
-#define PADDLE_HEIGHT 50
-#define BALL_RADIUS 6
-#define BALL_SPEED 120.0f
-#define SCORE_TO_WIN 1
+using Color = pr32::graphics::Color;
 
 void PongScene::init() {
     int screenWidth = engine.getRenderer().getWidth();
@@ -19,23 +15,35 @@ void PongScene::init() {
     rightScore = 0;
     gameOver = false;
 
-    lblLeftScore = new pr32::graphics::ui::UILabel("0", 20, 8, COLOR_WHITE, 2);
+    int16_t scoreY = PONG_PLAY_AREA_TOP / 2 - 8; // Center vertically in top border
+    
+    lblLeftScore = new pr32::graphics::ui::UILabel("0", 0, scoreY, Color::Black, 2);
+    lblLeftScore->centerX(screenWidth - 40);
     lblLeftScore->setVisible(true);
 
-    lblRightScore = new pr32::graphics::ui::UILabel("0", screenWidth - 20, 8, COLOR_WHITE, 2);
+    lblRightScore = new pr32::graphics::ui::UILabel("0", screenWidth - 0, scoreY, Color::Black, 2);
+    lblRightScore->centerX(screenWidth + 40);
     lblRightScore->setVisible(true);
 
-    lblStartMessage = new pr32::graphics::ui::UILabel("PRESS A TO START", 0, 150, COLOR_WHITE, 1);
+    lblStartMessage = new pr32::graphics::ui::UILabel("PRESS A TO START", 0, 150, Color::White, 1);
     lblStartMessage->centerX(screenWidth);
     lblStartMessage->setVisible(false);
 
-    lblGameOver = new pr32::graphics::ui::UILabel("GAME OVER", 0, 120, COLOR_WHITE, 2);
+    lblGameOver = new pr32::graphics::ui::UILabel("GAME OVER", 0, 120, Color::White, 2);
     lblGameOver->centerX(screenWidth);
     lblGameOver->setVisible(false);
 
     leftPaddle = new PaddleActor(0, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, false);
+    leftPaddle->setTopLimit(PONG_PLAY_AREA_TOP);
+    leftPaddle->setBottomLimit(PONG_PLAY_AREA_BOTTOM);
+    
     rightPaddle = new PaddleActor(screenWidth - PADDLE_WIDTH, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, true);
+    rightPaddle->setTopLimit(PONG_PLAY_AREA_TOP);
+    rightPaddle->setBottomLimit(PONG_PLAY_AREA_BOTTOM);  
+    
     ball = new BallActor(screenWidth/2, screenHeight/2, BALL_SPEED, BALL_RADIUS);
+    ball->setTopLimit(PONG_PLAY_AREA_TOP);
+    ball->setBottomLimit(PONG_PLAY_AREA_BOTTOM);
     ball->reset();
 
     addEntity(lblLeftScore);
@@ -95,6 +103,11 @@ void PongScene::draw(pr32::graphics::Renderer& renderer) {
     int screenWidth = engine.getRenderer().getWidth();
     int screenHeight = engine.getRenderer().getHeight();
 
+    // === BORDERS ===
+    renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, PONG_PLAY_AREA_TOP, Color::White);
+    renderer.drawFilledRectangle(0, PONG_PLAY_AREA_BOTTOM, DISPLAY_WIDTH, 
+                    DISPLAY_HEIGHT - PONG_PLAY_AREA_BOTTOM, Color::White);
+
     // === CENTER LINE ===
     int16_t centerX = screenWidth / 2;
     int16_t dashHeight = 10;
@@ -103,7 +116,7 @@ void PongScene::draw(pr32::graphics::Renderer& renderer) {
     for (int16_t y = 0; y < screenHeight; y += (dashHeight + dashGap)) {
         int16_t dashEnd = y + dashHeight;
         if (dashEnd > screenHeight) dashEnd = screenHeight;
-        renderer.drawLine(centerX, y, centerX, dashEnd, COLOR_WHITE);
+        renderer.drawLine(centerX, y, centerX, dashEnd, Color::White);
     }
 
     Scene::draw(renderer);

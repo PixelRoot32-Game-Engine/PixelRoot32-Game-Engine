@@ -11,12 +11,12 @@ namespace pixelroot32::graphics::ui {
             index(index),
             onClick(callback) {
         
-        textColor = COLOR_WHITE;
-        backgroundColor = COLOR_BLACK;
+        textColor = Color::White;
+        backgroundColor = Color::Black;
         hasBackground = true;
     }
 
-    void UIButton::setStyle(uint16_t textCol, uint16_t bgCol, bool drawBg) {
+    void UIButton::setStyle(Color textCol, Color bgCol, bool drawBg) {
         textColor = textCol;
         backgroundColor = bgCol;
         hasBackground = drawBg;
@@ -76,12 +76,12 @@ if (!isVisible) return;
             // Si no tiene fondo, podemos indicar la selección con un pequeño marcador
             // o cambiando el color del texto
             if (isSelected) {
-                renderer.drawText(">", x - 10, y + (height / 4), COLOR_YELLOW, 1);
+                renderer.drawText(">", x - 10, y + (height / 4), Color::Yellow, 1);
             }
         }
 
         // 2. Dibujar el texto
-        uint16_t currentTextCol = (isSelected && !hasBackground) ? COLOR_YELLOW : textColor;
+        Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
         renderer.drawText(label.c_str(), x + 5, y + (height / 4), currentTextCol, 1);
     }
 }

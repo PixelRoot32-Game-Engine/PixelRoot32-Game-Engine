@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "Color.h"
 
 namespace pixelroot32::graphics::particles {
 /**
@@ -10,8 +11,8 @@ namespace pixelroot32::graphics::particles {
  * Allows defining ranges for randomness (speed, life).
  */
 struct ParticleConfig {
-    uint16_t startColor; ///< Color at the beginning of the particle's life.
-    uint16_t endColor;   ///< Color at the end of the particle's life.
+    Color startColor; ///< Color at the beginning of the particle's life.   
+    Color endColor;   ///< Color at the end of the particle's life.
 
     float minSpeed; ///< Minimum initial speed.
     float maxSpeed; ///< Maximum initial speed.

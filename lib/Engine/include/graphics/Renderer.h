@@ -1,6 +1,7 @@
 #pragma once
 #include "DrawSurface.h"
 #include "DisplayConfig.h"
+#include "Color.h"
 
 #ifdef PLATFORM_ESP32
     #include <mock/MockSafeString.h>
@@ -57,7 +58,7 @@ public:
      * @param color Text color (RGB565).
      * @param size Text size multiplier.
      */
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size);
+    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws text centered horizontally at a given Y coordinate.
@@ -66,7 +67,7 @@ public:
      * @param color Text color.
      * @param size Text size.
      */
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size);
+    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws a filled circle.
@@ -75,7 +76,7 @@ public:
      * @param radius Radius of the circle.
      * @param color Fill color.
      */
-    void drawFilledCircle(int x, int y, int radius,uint16_t color);
+    void drawFilledCircle(int x, int y, int radius, Color color);   
 
     /**
      * @brief Draws a circle outline.
@@ -84,8 +85,8 @@ public:
      * @param radius Radius of the circle.
      * @param color Outline color.
      */
-    void drawCircle(int x, int y, int radius,uint16_t color);
-
+    void drawCircle(int x, int y, int radius, Color color);
+    
     /**
      * @brief Draws a rectangle outline.
      * @param x Top-left X coordinate.
@@ -94,7 +95,7 @@ public:
      * @param height Height of the rectangle.
      * @param color Outline color.
      */
-    void drawRectangle(int x, int y, int width, int height,uint16_t color);
+    void drawRectangle(int x, int y, int width, int height, Color color);
 
     /**
      * @brief Draws a filled rectangle.
@@ -104,7 +105,17 @@ public:
      * @param height Height of the rectangle.
      * @param color Fill color.
      */
-    void drawFilledRectangle(int x, int y, int width, int height, uint16_t color);
+    void drawFilledRectangle(int x, int y, int width, int height, Color color);
+
+    /**
+     * @brief Draws a filled rectangle with a 16-bit color.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param width Width of the rectangle.
+     * @param height Height of the rectangle.
+     * @param color Fill color (RGB565).
+     */
+    void drawFilledRectangleW(int x, int y, int width, int height, uint16_t color);
 
     /**
      * @brief Draws a line between two points.
@@ -114,7 +125,7 @@ public:
      * @param y2 End Y.
      * @param color Line color.
      */
-    void drawLine(int x1, int y1, int x2, int y2,uint16_t color);
+    void drawLine(int x1, int y1, int x2, int y2, Color color); 
 
     /**
      * @brief Draws a bitmap image.
@@ -125,7 +136,7 @@ public:
      * @param bitmap Pointer to the bitmap data.
      * @param color Color to draw the bitmap pixels (if monochrome) or ignored.
      */
-    void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color);
+    void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, Color color);
 
     /**
      * @brief Draws a single pixel.
@@ -133,7 +144,7 @@ public:
      * @param y Y coordinate.
      * @param color Pixel color.
      */
-    void drawPixel(int x, int y, uint16_t color);
+    void drawPixel(int x, int y, Color color);
 
     /**
      * @brief Sets the logical display size.

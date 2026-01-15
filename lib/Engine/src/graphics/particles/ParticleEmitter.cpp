@@ -1,5 +1,6 @@
 #include "graphics/particles/ParticleEmitter.h"
 #include "graphics/Renderer.h"
+#include "graphics/Color.h"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
@@ -7,8 +8,8 @@
 #include <math/MathUtil.h>
 
 namespace pr32 = pixelroot32;
-extern pr32::core::Engine engine;
 
+extern pr32::core::Engine engine;
 namespace pixelroot32::graphics::particles {
 
     using namespace pixelroot32::core;
@@ -46,7 +47,7 @@ namespace pixelroot32::graphics::particles {
 
                 if (config.fadeColor) {
                     float t = 1.0f - (float)p.life / p.maxLife;
-                    p.color = lerpColor(p.startColor, p.endColor, t);
+                    p.color = lerpColor(resolveColor(p.startColor), resolveColor(p.endColor), t);
                 }
 
             } else {
@@ -60,7 +61,7 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i]; 
             if (!p.active) continue;
             
-            renderer.drawFilledRectangle(p.x, p.y, 2, 2, p.color);
+            renderer.drawFilledRectangleW(p.x, p.y, 2, 2, p.color);
         }
     }
 
@@ -87,7 +88,7 @@ namespace pixelroot32::graphics::particles {
 
             p.startColor = config.startColor;
             p.endColor   = config.endColor;
-            p.color      = config.startColor;
+            p.color      = resolveColor(config.startColor);
 
             activated++;
         }

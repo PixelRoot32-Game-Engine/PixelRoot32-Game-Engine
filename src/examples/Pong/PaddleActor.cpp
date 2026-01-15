@@ -6,13 +6,12 @@
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
+using Color = pr32::graphics::Color;
 
 // Constantes AI
 #define AI_TARGET_OFFSET 6.0f
 #define AI_MAX_SPEED 90.0f
 #define AI_MOVEMENT_THRESHOLD 0.5f
-#define PONG_PLAY_AREA_TOP 0
-#define PONG_PLAY_AREA_BOTTOM engine.getRenderer().getHeight()
 
 void PaddleActor::update(unsigned long deltaTime) {
     float dt = deltaTime / 1000.0f;
@@ -27,7 +26,6 @@ void PaddleActor::update(unsigned long deltaTime) {
 
             float paddleCenterY = y + height / 2.0f;
             float diff = ballY - paddleCenterY;
-
 
             // Small offset for AI
             static uint32_t aiOffsetSeed = 0;
@@ -55,12 +53,12 @@ void PaddleActor::update(unsigned long deltaTime) {
     }
 
     // Keep inside play area
-    if (y < 0) { y = 0; accumulator = 0; }
-    if (y + height > PONG_PLAY_AREA_BOTTOM) { y = PONG_PLAY_AREA_BOTTOM - height; accumulator = 0; }
+    if (y < topLimit) { y = topLimit; accumulator = 0; }
+    if (y + height > bottomLimit) { y = bottomLimit - height; accumulator = 0; }
 }
 
 void PaddleActor::draw(pr32::graphics::Renderer& renderer) {
-    renderer.drawFilledRectangle((int)x, (int)y, width, height, COLOR_WHITE);
+    renderer.drawFilledRectangle((int)x, (int)y, width, height, Color::White);
 }
 
 void PaddleActor::onCollision(pr32::core::Actor* other) {

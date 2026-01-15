@@ -3,6 +3,19 @@
 #include "PaddleActor.h"
 #include "BallActor.h"
 #include "ui/UILabel.h"
+#include <graphics/Color.h>
+
+// Game constants
+#define PADDLE_WIDTH 10
+#define PADDLE_HEIGHT 50
+#define BALL_RADIUS 6
+#define BALL_SPEED 120.0f
+#define SCORE_TO_WIN 5
+
+// Rectangular play area (more width than height, like classic Pong)
+#define PONG_PLAY_AREA_HEIGHT 160  // Reduced height for rectangular aspect
+#define PONG_PLAY_AREA_TOP ((DISPLAY_HEIGHT - PONG_PLAY_AREA_HEIGHT) / 2)  // Center vertically
+#define PONG_PLAY_AREA_BOTTOM (PONG_PLAY_AREA_TOP + PONG_PLAY_AREA_HEIGHT)
 
 class PongScene : public pixelroot32::core::Scene {
 public:

@@ -1,6 +1,7 @@
 #pragma once
 #include "Actor.h"
 #include "GameLayers.h"
+#include <graphics/Color.h>
 
 class BallActor : public pixelroot32::core::Actor {
 public:
@@ -30,4 +31,11 @@ public:
 
     pixelroot32::core::Rect getHitBox() override { return {x-radius, y-radius, radius*2, radius*2}; }
     void onCollision(pixelroot32::core::Actor* other);
+
+    void setTopLimit(int limit) { topLimit = limit; }
+    void setBottomLimit(int limit) { bottomLimit = limit; }
+
+private:
+    int topLimit;
+    int bottomLimit;
 };

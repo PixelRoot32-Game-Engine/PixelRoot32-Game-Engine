@@ -1,37 +1,82 @@
 # PixelRoot32 Game Engine
 
-PixelRoot32 Game Engine es un motor de juegos 2D, ligero y modular, desarrollado en C++, diseñado específicamente para microcontroladores ESP32.
+PixelRoot32 Game Engine is a lightweight, modular 2D game engine written in C++ and designed specifically for ESP32 microcontrollers.
 
-El motor adopta una arquitectura basada en nodos y escenas, inspirada en el flujo de trabajo de Godot Engine, y ofrece una capa de abstracción de hardware que permite simulación nativa en PC mediante SDL2, facilitando el desarrollo y depuración multiplataforma.
-
----
-
-## Origen e Inspiración
-
-PixelRoot32 nace como una evolución directa del proyecto:
-
-ESP32-Game-Engine de nbourre  
-https://github.com/nbourre/ESP32-Game-Engine
-
-Sobre esta base sólida, PixelRoot32 expande el concepto original incorporando ideas inspiradas en Godot, tales como:
-
-- Organización jerárquica mediante escenas y nodos
-- Separación clara entre lógica, render y entrada
-- Componentes reutilizables y desacoplados
-- Flujo de actualización estructurado (update / draw)
-
-Créditos: Este proyecto reconoce y agradece profundamente el trabajo original de nbourre, sobre el cual se construye y evoluciona PixelRoot32.
+The engine adopts a node- and scene-based architecture inspired by Godot Engine, and provides a hardware abstraction layer (HAL) that enables native simulation on PC using SDL2. This makes cross‑platform development and debugging much easier: you can iterate quickly on desktop and then deploy the same code to the ESP32.
 
 ---
 
-## Estructura del Proyecto
+## Table of Contents
 
-La arquitectura del motor separa la lógica de alto nivel del hardware (HAL), permitiendo un desarrollo eficiente tanto en ESP32 como en entorno desktop.
+- [Origin and Inspiration](#origin-and-inspiration)
+- [Coding Standards & Architecture](#-coding-standards--architecture)
+- [Project Structure](#project-structure)
+- [Main Components](#main-components)
+- [Color Palette](#color-palette)
+- [High-Performance Optimizations](#high-performance-optimizations)
+  - [Particle System (Pooled Memory)](#particle-system-pooled-memory)
+  - [Asynchronous Rendering via DMA](#asynchronous-rendering-via-dma)
+- [User Interface (UI) System](#user-interface-ui-system)
+  - [Class Hierarchy](#class-hierarchy)
+- [Example Usage in a Scene](#example-usage-in-a-scene)
+  - [Technical Notes for the Implementation](#technical-notes-for-the-implementation)
+- [Platform Configuration](#-platform-configuration)
+- [Requirements](#-requirements)
+- [Philosophy](#philosophy)
 
-```
+---
+
+## Origin and Inspiration
+
+PixelRoot32 is a direct evolution of the project:
+
+ESP32-Game-Engine by nbourre  
+<https://github.com/nbourre/ESP32-Game-Engine>
+
+On top of this solid base, PixelRoot32 extends the original concept by incorporating ideas inspired by Godot, such as:
+
+- Hierarchical organization using scenes and nodes
+- Clear separation between logic, rendering, and input
+- Reusable and decoupled components
+- Structured update flow (`update` / `draw`)
+
+Credits: this project explicitly acknowledges and thanks the original work by nbourre, on which PixelRoot32 is built and evolved.
+
+---
+
+## 📐 Coding Standards & Architecture
+
+PixelRoot32 follows a well-defined set of coding conventions and architectural rules to ensure consistency, maintainability, and long-term scalability of the engine.
+
+Before contributing or extending the engine, please review the following documents:
+
+- [STYLE_GUIDE.md](STYLE_GUIDE.md) — Official coding style, naming conventions, and file structure rules
+- [API_REFERENCE.md](API_REFERENCE.md) — Public engine API reference, following a Godot-inspired style
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Guidelines for contributing to the project
+
+These documents define:
+
+- How code should be written and organized
+- Which namespaces are public versus internal
+- What is considered stable API and what may change internally
+
+Adhering to these guidelines is required for all engine development.
+
+---
+
+## Project Structure
+
+The engine architecture separates high-level logic from the hardware layer (HAL), enabling efficient development both on ESP32 and in a desktop environment.
+
+```txt
 Engine/
 ├── include/
-│   ├── core/               # Núcleo: Node, Scene, SceneManager
+│   ├── core/
+│   │   ├── Actor.h
+│   │   ├── Engine.h
+│   │   ├── Scene.h
+│   │   ├── Entity.h
+│   │   ├── SceneManager.h
 │   ├── graphics/
 │   │   ├── ui/
 │   │   │   ├── UIElement.h
@@ -43,65 +88,86 @@ Engine/
 │   └── physics/
 ├── src/
 │   ├── core/
+│   │   ├── Actor.cpp
+│   │   ├── Engine.cpp
+│   │   ├── Scene.cpp
+│   │   ├── Entity.cpp
+│   │   ├── SceneManager.cpp
 │   ├── graphics/
 │   │   ├── ui/
 │   │   │   ├── UILabel.cpp
 │   │   │   └── UIButton.cpp
 │   │   └── Renderer.cpp
 │   └── ...
+```
 
 ---
 
-## Componentes Principales
+## Main Components
 
 Core  
-Controla el SceneManager, el árbol de nodos y el ciclo principal de ejecución (update / draw).
+Controls the `SceneManager`, the node tree, and the main execution loop (`update` / `draw`).
 
 Renderer  
-API de renderizado unificada. En ESP32 utiliza TFT_eSprite con Double Buffering, eliminando parpadeos en pantalla.
+Unified rendering API. On ESP32 it uses `TFT_eSprite` with double buffering to remove visible flicker.
 
 InputManager  
-Abstrae botones físicos (GPIO) y teclas de PC en comandos lógicos (UP, DOWN, A, B).
+Abstracts physical buttons (GPIO) and PC keyboard keys into logical commands (`UP`, `DOWN`, `A`, `B`).
 
 CollisionSystem  
-Provee detección de colisiones AABB y soporte para movimientos basados en rejilla (grid-based).
+Provides AABB collision detection and supports grid-based movement.
 
 ---
 
-## Optimizaciones de Alto Rendimiento
+### Color Palette
 
-### Sistema de Partículas (Pooled Memory)
+PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware.
 
-- Uso de arrays estáticos para reutilizar partículas y evitar fragmentación de memoria.
-- Trigonometría pre-calculada para minimizar costos en el ciclo de actualización.
-- Auto-clipping de entidades fuera de pantalla.
+- Colors are represented as 8-bit indices
+- Internally resolved to RGB565
+- Improves performance and memory usage
+- Ensures visual consistency across games
 
-### Renderizado Asíncrono vía DMA
+The engine provides a built-in palette of 32 colors via the `graphics::Color` enum.
 
-- Transferencias no bloqueantes mediante pushImageDMA.
-- Paralelismo real entre lógica de juego y transferencia SPI.
-- Sin tearing mediante sincronización con dmaWait.
+Direct RGB565 usage is supported but discouraged for regular gameplay rendering.
 
 ---
 
-## Sistema de Interfaz de Usuario (UI)
+## High-Performance Optimizations
 
-El sistema de UI es jerárquico y se integra al flujo normal de escenas, inspirado en el enfoque de nodos de Godot.
+### Particle System (Pooled Memory)
 
-### Jerarquía de Clases
+- Uses static arrays to reuse particles and avoid memory fragmentation.
+- Pre-calculated trigonometry to minimize cost in the update loop.
+- Auto-clipping of entities that are off-screen.
+
+### Asynchronous Rendering via DMA
+
+- Non-blocking transfers using `pushImageDMA`.
+- Real parallelism between game logic and SPI transfer.
+- No tearing thanks to synchronization via `dmaWait`.
+
+---
+
+## User Interface (UI) System
+
+The UI system is hierarchical and integrates with the normal scene flow, inspired by Godot’s node approach.
+
+### Class Hierarchy
 
 UIElement  
-Clase base con control de visibilidad y estado.
+Base class with visibility and state control.
 
 UILabel  
-Renderizado eficiente de texto con alineación dinámica.
+Efficient text rendering with dynamic alignment helpers (for example, centering).
 
 UIButton  
-Elemento interactivo conectado al InputManager (en desarrollo).
+Interactive element connected to `InputManager` (in active development).
 
 ---
 
-## Ejemplo de Uso en una Escena
+## Example Usage in a Scene
 
 ```cpp
 #include "graphics/ui/UILabel.h"
@@ -124,29 +190,33 @@ class GameScene : public Scene {
 };
 ```
 
-### Notas técnicas para la implementación:
-1. Optimización del Dibujo: Para evitar el efecto de "texto encimado" (ghosting) visible en la imagen que compartiste, el UILabel implementa una verificación interna:
+### Technical Notes for the Implementation
+
+1. Drawing Optimization: To avoid the "overlapping text" (ghosting) effect, `UILabel` implements an internal visibility check:
 
 ```c++
 void UILabel::draw(Renderer& renderer) {
-    if (!isVisible) return; // Evita el redibujado de elementos ocultos
+    if (!isVisible) return; // Avoid drawing elements that are hidden
     renderer.drawText(text.c_str(), x, y, color, size);
 }
 ```
 
-2. Cálculo de Dimensiones: El ancho (`width`) del elemento se autocalcula en el constructor multiplicando el número de caracteres por el ancho de la fuente (`size * 6`), lo que permite que el sistema de colisiones o centrado funcione de forma precisa. ¿Te gustaría que redacte también la especificación técnica para el **UIButton**, incluyendo cómo detectaría el foco (focus) usando el `InputManager`?
+1. Size Calculation: The element width (`width`) is automatically calculated in the constructor by multiplying the number of characters by the font width (`size * 6`). This allows collision and centering systems to operate with precise bounds.
 
-## 🛠️ Configuración de Plataforma
+---
 
-El motor utiliza directivas de preprocesador para conmutar entre hardware y simulador:
+## 🛠️ Platform Configuration
 
-Característica,ESP32 (Producción),Native (Desarrollo PC)
-Gráficos,TFT_eSPI (SPI Bus),SDL2 (Window Manager)
-Entrada,Botones Físicos (GPIO),Teclado (WASD / Flechas)
-Tiempo,millis() Arduino,MockArduino (SDL_GetTicks)
-Debug,Serial Monitor,Consola Estándar (stdout)
+The engine uses preprocessor directives to switch between hardware and simulator:
 
-📝 Ejemplo de Implementación
+| Feature     | ESP32 (Production)        | Native (PC Development)     |
+|------------|---------------------------|-----------------------------|
+| Graphics   | TFT_eSPI (SPI bus)        | SDL2 (window manager)       |
+| Input      | Physical buttons (GPIO)   | Keyboard (WASD / Arrows)    |
+| Time       | `millis()` (Arduino)      | `MockArduino` / `SDL_GetTicks` |
+| Debug      | Serial Monitor            | Standard console (`stdout`) |
+
+📝 Example Implementation
 
 ```c++
 #include "Scene.h"
@@ -154,7 +224,7 @@ Debug,Serial Monitor,Consola Estándar (stdout)
 class MainMenu : public Scene {
     void update(unsigned long deltaTime) override {
         if (engine.getInputManager().wasPressed(Input::BUTTON_A)) {
-            // Cambiar de escena o iniciar juego
+            // Change scene or start game
         }
     }
     
@@ -164,24 +234,29 @@ class MainMenu : public Scene {
 };
 ```
 
-## ⚙️ Requisitos
-1. Entorno ESP32:
-    - Framework Arduino para ESP32.
-    - Librería TFT_eSPI (configurar User_Setup.h incluyendo definición de pin MISO para soporte DMA).
+---
 
-2. Entorno Native:
-    - Compilador C++ (GCC/Clang).
-    - Librería SDL2 instalada en el sistema.
+## ⚙️ Requirements
 
-Desarrollado para ser eficiente, rápido y fácil de extender.
+1. ESP32 Environment:
+   - Arduino framework for ESP32.
+   - TFT_eSPI library (configure `User_Setup.h`, including MISO pin definition for DMA support).
 
-## Filosofía
+2. Native Environment:
+   - C++ compiler (GCC/Clang).
+   - SDL2 library installed on the system.
 
-PixelRoot32 busca ofrecer:
+Developed to be efficient, fast, and easy to extend.
 
-- Arquitectura clara y extensible
-- Rendimiento real en hardware limitado
-- Flujo de trabajo moderno inspirado en engines de alto nivel
-- Control total del hardware con una API simple
+---
+
+## Philosophy
+
+PixelRoot32 aims to provide:
+
+- Clear and extensible architecture
+- Real performance on constrained hardware
+- A modern workflow inspired by high-level engines
+- Full hardware control with a simple API
 
 ---

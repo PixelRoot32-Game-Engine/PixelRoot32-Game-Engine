@@ -1,6 +1,7 @@
 #pragma once
 #include "Config.h"
 #include "graphics/ui/UIElement.h"
+#include "graphics/Color.h"
 #include <string>
 #include <functional>
 #include <InputManager.h>
@@ -17,8 +18,8 @@ namespace pixelroot32::graphics::ui {
 class UIButton : public UIElement {
 private:
     std::string label;
-    uint16_t textColor;
-    uint16_t backgroundColor;
+    Color textColor;
+    Color backgroundColor;
     bool isSelected = false;
     bool hasBackground = true;
     uint8_t index;
@@ -51,7 +52,7 @@ public:
         * @param bgCol Color of the background.
         * @param drawBg Whether to draw the background rectangle.
         */
-    void setStyle(uint16_t textCol, uint16_t bgCol, bool drawBg);
+    void setStyle(Color textCol, Color bgCol, bool drawBg);
 
     /**
         * @brief Sets the selection state (e.g., focused via D-pad).

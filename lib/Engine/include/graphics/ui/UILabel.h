@@ -1,6 +1,7 @@
 #pragma once
 #include "Config.h"
 #include "UIElement.h"
+#include "graphics/Color.h"
 #include <string>
 
 namespace pixelroot32::graphics::ui {
@@ -18,10 +19,10 @@ public:
         * @param t Initial text.
         * @param x X position.
         * @param y Y position.
-        * @param col Text color (RGB565).
+        * @param col Text color.
         * @param sz Text size multiplier.
         */
-    UILabel(std::string t, float x, float y, uint16_t col, uint8_t sz);
+    UILabel(std::string t, float x, float y, Color col, uint8_t sz);
 
     /**
         * @brief Updates the label's text.
@@ -47,7 +48,7 @@ public:
 
 private:
     std::string text;
-    uint16_t color;
+    Color color;
     uint8_t size;
     bool dirty = false;
 

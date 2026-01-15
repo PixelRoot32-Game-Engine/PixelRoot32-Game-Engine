@@ -113,8 +113,8 @@ The use of `using namespace pixelroot32::...` is discouraged even internally, ex
 
 The following documents are recommended as part of the project:
 
-- [API_REFERENCE.md](lib/Engine/API_REFERENCE.md) — Engine API reference (Godot-style)
-- [CONTRIBUTING.md](lib/Engine/CONTRIBUTING.md) — Contribution guidelines
+- [API_REFERENCE.md](API_REFERENCE.md) — Engine API reference (Godot-style)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution guidelines
 
 ---
 

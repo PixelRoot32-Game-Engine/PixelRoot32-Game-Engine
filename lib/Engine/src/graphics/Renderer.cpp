@@ -1,0 +1,87 @@
+#include "graphics/Renderer.h"
+#include <stdarg.h>
+#ifdef PLATFORM_NATIVE
+    #include "SDL2_Drawer.h"
+    #include "../../src/platforms/mock/MockSPI.h"
+#else
+    #include "TFT_eSPI_Drawer.h"
+    #include <SPI.h>
+    #include <SafeString.h>
+#endif
+
+namespace pixelroot32::graphics {
+
+    Renderer::Renderer(const DisplayConfig& config) : config(config) {
+        #if defined(PLATFORM_NATIVE)
+            drawer = new pixelroot32::drivers::native::SDL2_Drawer();
+        #else
+            drawer = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
+        #endif
+
+        xOffset = config.xOffset;
+        yOffset = config.yOffset;
+    }
+
+
+    void Renderer::init() {
+        setDisplaySize(config.width, config.height);
+        getDrawSurface().setDisplaySize(getHeight(), getWidth());
+        getDrawSurface().init();
+    }
+
+    void Renderer::beginFrame() {
+        getDrawSurface().clearBuffer();
+    }
+
+    void Renderer::endFrame() {
+        getDrawSurface().sendBuffer();
+    }
+
+    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
+        getDrawSurface().drawText(text, x, y, resolveColor(color), size);
+    }
+
+    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
+        getDrawSurface().drawTextCentered(text, y, resolveColor(color), size);
+    }
+
+    void Renderer::drawFilledCircle(int x, int y, int radius, Color color) {
+        getDrawSurface().drawFilledCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
+    }
+
+    void Renderer::drawCircle(int x, int y, int radius, Color color) {
+        getDrawSurface().drawCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
+    }
+
+    void Renderer::drawRectangle(int x, int y, int width, int height, Color color) {
+        getDrawSurface().drawRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
+    }
+
+    void Renderer::drawFilledRectangle(int x, int y, int width, int height, Color color) {
+        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
+    }
+
+    void Renderer::drawFilledRectangleW(int x, int y, int width, int height, uint16_t color) {
+        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, color);
+    }
+
+    void Renderer::drawLine(int x1, int y1, int x2, int y2, Color color) {
+        getDrawSurface().drawLine(xOffset + x1, yOffset + y1, xOffset + x2, yOffset + y2, resolveColor(color));
+    }
+
+    void Renderer::setFont(const uint8_t* font) {
+        (void)font;
+        // Optional: Implement font setting if your DrawSurface supports it.
+    }
+
+    //draw an image to the screen in an bitmap format
+    void Renderer::drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, Color color) {
+        getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color));
+    }
+
+    void Renderer::drawPixel(int x, int y, Color color) {
+        getDrawSurface().drawPixel(x, y, resolveColor(color));
+    }
+}
+
+

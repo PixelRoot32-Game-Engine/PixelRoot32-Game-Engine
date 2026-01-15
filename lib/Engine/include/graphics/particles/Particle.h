@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "Color.h"
 
 namespace pixelroot32::graphics::particles {
 /**
@@ -13,8 +14,8 @@ struct Particle {
     float vx, vy;   ///< Velocity vector.
 
     uint16_t color;      ///< Current color (RGB565).
-    uint16_t startColor; ///< Initial color for interpolation.
-    uint16_t endColor;   ///< Final color for interpolation.
+    Color startColor; ///< Initial color for interpolation.
+    Color endColor;   ///< Final color for interpolation.
 
     uint8_t life;    ///< Current remaining life (frames or ticks).
     uint8_t maxLife; ///< Total life duration.

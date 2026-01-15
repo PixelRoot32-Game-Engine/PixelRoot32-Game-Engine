@@ -1,6 +1,7 @@
 #pragma once
 #include "Actor.h"
 #include "GameLayers.h"
+#include <graphics/Color.h>
 
 class PaddleActor : public pixelroot32::core::Actor {
 public:
@@ -21,4 +22,11 @@ public:
     pixelroot32::core::Rect getHitBox() override { return {x, y, width, height}; }
 
     void onCollision(pixelroot32::core::Actor* other) override;
+
+    void setTopLimit(int limit) { topLimit = limit; }
+    void setBottomLimit(int limit) { bottomLimit = limit; }
+
+private:
+    int topLimit;
+    int bottomLimit;
 };

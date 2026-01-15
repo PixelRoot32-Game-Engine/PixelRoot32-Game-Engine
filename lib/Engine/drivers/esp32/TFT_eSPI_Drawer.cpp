@@ -16,7 +16,7 @@ TFT_eSPI_Drawer::TFT_eSPI_Drawer()
     , spr(&tft) 
     , cursorX(0)
     , cursorY(0)    
-    , textColor(COLOR_WHITE)
+    , textColor(TFT_WHITE)
     , textSize(1)
     , rotation(0)
 {
@@ -31,8 +31,8 @@ TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
 
 void TFT_eSPI_Drawer::init() {
     tft.init();
-    tft.setRotation(DISPLAY_ROTATION);
-    tft.fillScreen(COLOR_BLACK);
+    tft.setRotation(0);
+    tft.fillScreen(TFT_BLACK);
 
     spr.setColorDepth(8);
     spr.createSprite(displayWidth, displayHeight);
@@ -123,7 +123,7 @@ void TFT_eSPI_Drawer::setCursor(int16_t x, int16_t y) {
 void TFT_eSPI_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
     
     spr.setTextSize(size);
-    spr.setTextColor(color, COLOR_BLACK);
+    spr.setTextColor(color, TFT_BLACK);
     spr.setCursor(x, y);
     
     // Si el puntero del texto es nulo, evitar imprimir
@@ -136,7 +136,7 @@ void TFT_eSPI_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t col
     if (!text) return;
 
     spr.setTextSize(size);
-    spr.setTextColor(color, COLOR_BLACK);
+    spr.setTextColor(color, TFT_BLACK);
 
     int16_t tw = spr.textWidth(text); 
     int16_t x = (displayWidth - tw) / 2;

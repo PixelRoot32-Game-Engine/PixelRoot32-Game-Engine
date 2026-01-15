@@ -7,6 +7,7 @@
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
+using Color = pr32::graphics::Color;
 
 void BallActor::reset() {
     int screenWidth = engine.getRenderer().getWidth();
@@ -42,14 +43,13 @@ void BallActor::update(unsigned long deltaTime) {
     x += vx * dt;
     y += vy * dt;
 
-    int screenHeight = engine.getRenderer().getHeight();
 
-    if (y - radius < 0) { y = radius; vy = -vy; }
-    if (y + radius > screenHeight) { y = screenHeight - radius; vy = -vy; }
+    if (y - radius < topLimit) { y = topLimit + radius; vy = -vy; }
+    if (y + radius > bottomLimit) { y = bottomLimit - radius; vy = -vy; }
 }
 
 void BallActor::draw(pr32::graphics::Renderer& renderer) {
-    if(isEnabled) renderer.drawCircle((int)x, (int)y, radius, COLOR_WHITE);
+    if(isEnabled) renderer.drawFilledCircle((int)x, (int)y, radius, Color::White);
 }
 
 void BallActor::onCollision(pr32::core::Actor* other) {
