@@ -125,4 +125,38 @@ The following documents are recommended as part of the project:
 
 ---
 
+## 🚀 Best Practices & Optimization
+
+These guidelines are derived from practical implementation in `examples/GeometryJump`, `examples/BrickBreaker`, and `examples/Pong`.
+
+### 💾 Memory & Resources
+
+- **Object Pooling**: Pre-allocate all game objects (obstacles, particles, enemies) during `init()`.
+  - *Pattern*: Use fixed-size arrays (e.g., `Particle particles[50]`) and flags (`isActive`) instead of `std::vector` with `push_back`/`erase`.
+- **Zero Runtime Allocation**: Never use `new` or `malloc` inside the game loop (`update` or `draw`).
+- **String Handling**: Avoid `std::string` in `update()`/`draw()`. Use `snprintf` with stack-allocated `char` buffers for UI text.
+
+### ⚡ Performance (ESP32 Focus)
+
+- **Inlining**:
+  - Define trivial accessors (e.g., `getHitBox`, `getX`) in the header (`.h`) to allow compiler inlining.
+  - Keep heavy implementation logic in `.cpp`.
+- **Fast Randomness**: `std::rand()` is slow and uses division. Use lightweight PRNGs (like Xorshift) for visual effects (particles).
+- **Collision Detection**: Use simple AABB (Axis-Aligned Bounding Box) checks first. Use Collision Layers (`GameLayers.h`) to avoid checking unnecessary pairs.
+
+### 🏗️ Code Architecture
+
+- **Tuning Constants**: Extract gameplay values (gravity, speed, dimensions) into a dedicated `GameConstants.h`. This allows designers to tweak the game without touching logic code.
+- **State Management**: Implement a `reset()` method for Actors to reuse them after "Game Over", rather than destroying and recreating the scene.
+- **Component Pattern**: Inherit from `PhysicsActor` for moving objects and `Actor` for static ones.
+
+### 🎮 Game Feel & Logic
+
+- **Frame-Rate Independence**: Always multiply movement by `deltaTime`.
+  - *Example*: `x += speed * (deltaTime * 0.001f);`
+- **Logic/Visual Decoupling**: For infinite runners, keep logic progression (obstacle spacing) constant in time, even if visual speed increases.
+- **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
+
+---
+
 PixelRoot32 Game Engine aims to remain simple, explicit, and predictable, prioritizing clarity over abstraction and control over convenience.

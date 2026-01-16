@@ -1,8 +1,6 @@
 #include "graphics/particles/ParticleEmitter.h"
 #include "graphics/Renderer.h"
 #include "graphics/Color.h"
-#include <cstdlib>
-#include <ctime>
 #include <cmath>
 #include "core/Engine.h"
 #include <math/MathUtil.h>
@@ -16,9 +14,36 @@ namespace pixelroot32::graphics::particles {
     using namespace pixelroot32::graphics;
     using namespace pixelroot32::math;
 
+    namespace {
+        static uint32_t s_rngState = 123456789;
+
+        // Xorshift32 - fast PRNG
+        inline uint32_t fastRand() {
+            uint32_t x = s_rngState;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            s_rngState = x;
+            return x;
+        }
+
+        inline float fastRandFloat(float min, float max) {
+            float r = (fastRand() & 0xFFFF) * (1.0f / 65535.0f);
+            return min + r * (max - min);
+        }
+
+        inline int fastRandInt(int min, int max) {
+            if (min >= max) return min;
+            return min + (fastRand() % (max - min + 1));
+        }
+    }
+
     ParticleEmitter::ParticleEmitter(float x, float y, const ParticleConfig& cfg)
         : Entity(x, y, 0, 0, EntityType::GENERIC),
-            config(cfg) {}
+            config(cfg) {
+             // Seed with something somewhat random if needed, or keep deterministic
+             s_rngState = (uint32_t)((uintptr_t)this + 12345); 
+    }
 
     void ParticleEmitter::update(unsigned long deltaTime) {
         (void)deltaTime;
@@ -76,14 +101,14 @@ namespace pixelroot32::graphics::particles {
             p.x = x;
             p.y = y;
 
-            float angle = (rand() % 360) * Math::kDegToRad;;
-            float speed = config.minSpeed + 
-                        (rand() / (float)RAND_MAX) * (config.maxSpeed - config.minSpeed);
+            float angleDeg = fastRandFloat(config.minAngleDeg, config.maxAngleDeg);
+            float angle = angleDeg * Math::kDegToRad;
+            float speed = fastRandFloat(config.minSpeed, config.maxSpeed);
 
             p.vx = cos(angle) * speed;
             p.vy = sin(angle) * speed;
 
-            p.maxLife = config.minLife + (rand() % (config.maxLife - config.minLife + 1));
+            p.maxLife = fastRandInt(config.minLife, config.maxLife);
             p.life = p.maxLife;
 
             p.startColor = config.startColor;

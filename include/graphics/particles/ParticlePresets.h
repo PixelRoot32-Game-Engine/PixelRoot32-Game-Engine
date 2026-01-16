@@ -22,7 +22,8 @@ namespace ParticlePresets {
         -0.02f,
         0.98f,
         20, 40,
-        true
+        true,
+        0.0f, 360.0f
     };
 
     /**
@@ -35,7 +36,8 @@ namespace ParticlePresets {
         0.1f,
         0.90f,
         10, 20,
-        true
+        true,
+        0.0f, 360.0f
     };
 
     /**
@@ -48,7 +50,8 @@ namespace ParticlePresets {
         0.15f,
         0.85f,    
         8, 15,
-        true
+        true,
+        0.0f, 360.0f
     };
 
     /**
@@ -61,7 +64,8 @@ namespace ParticlePresets {
         -0.01f,
         0.97f,
         40, 80,
-        true
+        true,
+        0.0f, 360.0f
     };
 
     /**
@@ -74,7 +78,8 @@ namespace ParticlePresets {
         0.08f,
         0.90f,
         12, 25,
-        true
+        true,
+        0.0f, 360.0f
     };
 }
 

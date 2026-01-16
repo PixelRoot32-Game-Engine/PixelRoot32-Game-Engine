@@ -24,6 +24,8 @@ struct ParticleConfig {
     uint8_t maxLife; ///< Maximum lifetime in frames/ticks.
 
     bool fadeColor; ///< If true, interpolates color from startColor to endColor.
+    float minAngleDeg; ///< Minimum emission angle in degrees (0 = right).
+    float maxAngleDeg; ///< Maximum emission angle in degrees.
 };
 
 }
