@@ -157,7 +157,7 @@ The engine provides [`PhysicsActor`](API_REFERENCE.md#physicsactor), a specializ
 ### Key Features
 
 - **Velocity & Movement**: Managed via `vx` (horizontal) and `vy` (vertical) properties. The `update` loop automatically integrates these values to update position.
-- **World & Custom Bounds**: 
+- **World & Custom Bounds**:
   - Uses `worldWidth` and `worldHeight` to define the default play area.
   - Supports custom limits via [`LimitRect`](API_REFERENCE.md#limitrect) (top, bottom, left, right) to constrain actors to specific zones (e.g. `setLimits({0, 0, 320, 240})`).
 - **Collision Resolution**: The `resolveWorldBounds()` function automatically detects collisions with the defined limits and applies a bounce response based on the `restitution` (bounciness) coefficient.
@@ -267,7 +267,7 @@ public:
 
 You can use `TFT_eSPI_Drawer` and `SDL2_Drawer` as concrete references for how to implement each method.
 
-2. Instantiate your driver and wire it into a `DisplayConfig`:
+1. Instantiate your driver and wire it into a `DisplayConfig`:
 
 ```cpp
 mygame::drivers::MyDisplayDriver myDriver;
@@ -282,7 +282,7 @@ pixelroot32::graphics::DisplayConfig config(
 
 The `Renderer` will use this `DrawSurface` instance internally and will not need to know anything about the underlying hardware or window system.
 
-3. Pass the `DisplayConfig` to the `Engine`:
+1. Pass the `DisplayConfig` to the `Engine`:
 
 ```cpp
 pixelroot32::core::Engine engine(config, inputConfig);
@@ -456,21 +456,25 @@ Developed to be efficient, fast, and easy to extend.
 ## 🗺️ Roadmap
 
 ### v0.6 - Visuals & Motion
+
 - [ ] **Sprite Animation**: Support for sprite sheets and frame-based animation (`AnimatedSprite`).
 - [ ] **Tilemaps**: Efficient rendering of grid-based worlds.
 - [ ] **Camera System**: Viewport management for worlds larger than the screen (scrolling).
 - [ ] **Tweening System**: Simple Easing functions for UI and movement.
 
 ### v0.7 - Audio & Storage
+
 - [ ] **Audio System**: Basic SFX and Music support (I2S/PWM/DAC).
 - [ ] **Asset Manager**: Loading resources (images, audio) from SPIFFS/LittleFS/SD Card.
 - [ ] **Config Files**: Save/Load game settings and state (JSON/Binary).
 
 ### v0.8 - Connectivity (ESP32 Special)
+
 - [ ] **Local Multiplayer**: ESP-NOW integration for low-latency multiplayer.
 - [ ] **Web Control**: Control the game via a web browser interface.
 
 ### v1.0 - Stable Release
+
 - [ ] **Full API Freeze**: Long-term stable API.
 - [ ] **Editor Tools**: Web-based or PC-based tools to export scenes to engine format.
 - [ ] **Showcase Games**: Complete open-source examples (Platformer, RPG, Space Shooter).
