@@ -6,6 +6,7 @@
 #include "graphics/DisplayConfig.h"
 #include "audio/AudioConfig.h"
 #include "audio/AudioEngine.h"
+#include "audio/MusicPlayer.h"
 
 namespace pixelroot32::core {
 
@@ -103,11 +104,18 @@ public:
      */
     pixelroot32::audio::AudioEngine& getAudioEngine() { return audioEngine; }
 
+    /**
+     * @brief Provides access to the MusicPlayer subsystem.
+     * @return Reference to the MusicPlayer.
+     */
+    pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
+
 private:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
     pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
     pixelroot32::input::InputManager inputManager; ///< Manages input device state and events.
     pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
+    pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.

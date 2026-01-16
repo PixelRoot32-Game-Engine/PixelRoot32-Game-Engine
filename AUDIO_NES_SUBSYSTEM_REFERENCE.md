@@ -101,9 +101,9 @@ Also defined in `AudioTypes.h`:
 struct AudioEvent {
     WaveType type;
     float frequency;
-    float duration; // segundos
+    float duration; // seconds
     float volume;   // 0.0 - 1.0
-    float duty;     // solo para PULSE
+    float duty;     // only for PULSE
 };
 ```
 
@@ -349,7 +349,151 @@ Since there are no complex envelopes yet, effects are built by combining:
 
 ---
 
-## 7. Current limitations and future extensions
+## 7. Melody subsystem (tracks and songs)
+
+The audio system also includes a lightweight melody/music layer built on top of
+`AudioEngine`. It is designed to stay simple and deterministic, while being easy
+to use from games.
+
+### 7.1 Data model (`AudioMusicTypes.h`)
+
+Defined in [`AudioMusicTypes.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioMusicTypes.h):
+
+```cpp
+enum class Note : uint8_t {
+    C = 0, Cs, D, Ds, E, F, Fs, G, Gs, A, As, B,
+    Rest,
+    COUNT
+};
+```
+
+- `Note::Rest` represents a silence.
+- Frequencies are derived from an internal table for octave 4 combined with
+  power-of-two shifts:
+
+```cpp
+inline float noteToFrequency(Note note, int octave);
+```
+
+Melodies are sequences of `MusicNote` elements:
+
+```cpp
+struct MusicNote {
+    Note note;
+    uint8_t octave;
+    float duration; // seconds
+    float volume;   // 0.0 - 1.0
+};
+```
+
+A `MusicTrack` groups notes and defines how they are played:
+
+```cpp
+struct MusicTrack {
+    const MusicNote* notes;
+    size_t count;
+    bool loop;
+    WaveType channelType;
+    float duty;
+};
+```
+
+For convenience there are simple “instrument” presets and helpers:
+
+```cpp
+struct InstrumentPreset {
+    float baseVolume;
+    float duty;
+    uint8_t defaultOctave;
+};
+
+inline constexpr InstrumentPreset INSTR_PULSE_LEAD{0.35f, 0.5f, 4};
+inline constexpr InstrumentPreset INSTR_PULSE_BASS{0.30f, 0.25f, 3};
+inline constexpr InstrumentPreset INSTR_PULSE_CHIP_HIGH{0.32f, 0.125f, 5};
+inline constexpr InstrumentPreset INSTR_TRIANGLE_PAD{0.28f, 0.5f, 4};
+
+inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration);
+inline MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration);
+inline MusicNote makeRest(float duration);
+```
+
+These helpers reduce boilerplate when defining tracks and keep note volumes and
+octaves consistent per instrument.
+
+### 7.2 MusicPlayer (`MusicPlayer.h`)
+
+Defined in [`MusicPlayer.h`](../lib/PixelRoot32-Game-Engine/include/audio/MusicPlayer.h) and
+[`MusicPlayer.cpp`](../lib/PixelRoot32-Game-Engine/src/audio/MusicPlayer.cpp).
+
+Responsibilities:
+
+- Maintain the current track, note index and timer.
+- On `update(deltaTime)` advance through the sequence using game time.
+- For each new note, call `AudioEngine::playEvent(...)` with the appropriate
+  frequency, duration and volume.
+- Support `play`, `stop`, `pause`, `resume` and simple looping
+  (`MusicTrack::loop`).
+- Treat `Note::Rest` as silence (no event is fired, only time passes).
+
+Internally, `MusicPlayer` converts each `MusicNote` into an `AudioEvent` using
+`noteToFrequency` and the instrument config.
+
+### 7.3 Integration with Engine
+
+`MusicPlayer` is owned by `Engine` alongside `AudioEngine`:
+
+- The `Engine` constructor creates `audioEngine` and `musicPlayer` (passing a
+  reference to `audioEngine`).
+- `Engine::update` calls `musicPlayer.update(deltaTime)` after
+  `audioEngine.update(deltaTime)`.
+- Games use:
+
+```cpp
+auto& music = engine.getMusicPlayer();
+music.play(myTrack);
+```
+
+This keeps music sequencing deterministic and synchronized with the main game
+loop, reusing the same timing model as the rest of the engine.
+
+### 7.4 Example: GeometryJump background music
+
+GeometryJump defines a simple looping melody using the helpers in
+`AudioMusicTypes.h`
+(see [`GeometryJumpScene.cpp`](../lib/PixelRoot32-Game-Engine/examples/GeometryJump/GeometryJumpScene.cpp)):
+
+```cpp
+using namespace pixelroot32::audio;
+
+static const MusicNote MELODY_NOTES[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.25f),
+    makeRest(0.10f),
+    // ...
+};
+
+static const MusicTrack GAME_MUSIC = {
+    MELODY_NOTES,
+    sizeof(MELODY_NOTES) / sizeof(MusicNote),
+    true,            // loop
+    WaveType::PULSE, // use one PULSE channel
+    0.5f             // duty cycle
+};
+
+void GeometryJumpScene::init() {
+    // ...
+    engine.getMusicPlayer().play(GAME_MUSIC);
+}
+```
+
+- Music uses one `PULSE` channel; the remaining channels stay available for SFX.
+- Because `MusicPlayer` is frame-driven, the melody timing is stable even if FPS
+  varies.
+
+---
+
+## 8. Current limitations and future extensions
 
 Current limitations (intentional to keep things simple):
 
@@ -357,20 +501,20 @@ Current limitations (intentional to keep things simple):
 - Not implemented yet:
   - Complex volume envelopes.
   - Frequency sweeps (pitch slides).
-  - A music sequencer.
+  - Advanced music features (patterns, tempo changes, multi-track songs).
 - Noise uses a simplified `rand()`-based approach instead of a precise LFSR.
 
 Possible future improvements:
 
 - Simple envelopes based on `targetVolume`.
-- Note frequency tables.
+- More advanced music tooling on top of `MusicPlayer`.
 - Noise using a deterministic LFSR with configurable patterns.
 - High-level helpers such as:
   - `playJumpSfx()`, `playHitSfx()`, `playCoinSfx()`.
 
 ---
 
-## 8. Summary
+## 9. Summary
 
 - The NES-like audio system in PixelRoot32:
   - Uses 4 static channels (2 Pulse, 1 Triangle, 1 Noise).
@@ -378,3 +522,5 @@ Possible future improvements:
   - Is platform-agnostic thanks to the `AudioBackend` interface.
   - Is integrated with the game loop via `Engine::update`.
   - Is controlled from games through `AudioEvent` and `AudioEngine::playEvent`.
+  - Provides a lightweight melody layer via `Note`, `MusicTrack` and
+    `MusicPlayer` for background music.

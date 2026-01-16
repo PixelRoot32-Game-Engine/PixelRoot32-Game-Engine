@@ -2,6 +2,7 @@
 #include "core/Engine.h"
 #include "graphics/particles/ParticlePresets.h"
 #include "audio/AudioTypes.h"
+#include "audio/AudioMusicTypes.h"
 #include <cstdio>
 #include <cstring>
 
@@ -13,6 +14,32 @@ namespace geometryjump {
 
 using Color = pr32::graphics::Color;
 using pr32::graphics::particles::ParticleEmitter;
+using namespace pr32::audio;
+
+static const MusicNote MELODY_NOTES[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.25f),
+    makeRest(0.10f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::A, 0.25f),
+    makeRest(0.10f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::C, 0.25f),
+    makeRest(0.15f),
+    makeNote(INSTR_PULSE_BASS, Note::G, 3, 0.30f),
+    makeRest(0.15f)
+};
+
+static const MusicTrack GAME_MUSIC = {
+    MELODY_NOTES,
+    sizeof(MELODY_NOTES) / sizeof(MusicNote),
+    true, // loop
+    WaveType::PULSE,
+    0.5f // duty
+};
 
 void GeometryJumpScene::init() {
     int screenWidth = engine.getRenderer().getWidth();
@@ -20,7 +47,6 @@ void GeometryJumpScene::init() {
 
     score = 0;
     scoreLabel = new pr32::graphics::ui::UILabel("0", 0.0f, 8.0f, Color::White, 2);
-    float initialWidth = 1.0f * (6.0f * 2.0f);
     scoreLabel->centerX(screenWidth);
 
     lblGameOver = new pr32::graphics::ui::UILabel("GAME OVER", 0, 50, Color::White, 2);
@@ -48,12 +74,11 @@ void GeometryJumpScene::init() {
     addEntity(lblRetry);
     addEntity(player);
 
-    auto dustConfig = pr32::graphics::particles::ParticlePresets::Dust;
-    dustConfig.minAngleDeg = 170.0f;
-    dustConfig.maxAngleDeg = 190.0f;
-    dustConfig.gravity = 0.02f;
     deathEmitter = new ParticleEmitter(0.0f, 0.0f, pr32::graphics::particles::ParticlePresets::Explosion);
     addEntity(deathEmitter);
+
+    // Start playing music
+    engine.getMusicPlayer().play(GAME_MUSIC);
 
     for (int i = 0; i < MAX_OBSTACLES; ++i) {
         obstacles[i] = new ObstacleActor(0.0f, 0.0f, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);

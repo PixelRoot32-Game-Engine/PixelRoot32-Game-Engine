@@ -8,19 +8,19 @@ namespace pixelroot32::core {
     using namespace pixelroot32::audio;
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig) {
+        : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()) {
+        : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()) {
+        : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
     }
@@ -89,6 +89,7 @@ namespace pixelroot32::core {
     #endif
         sceneManager.update(deltaTime);
         audioEngine.update(deltaTime);
+        musicPlayer.update(deltaTime);
     }
 
     void Engine::draw() {
