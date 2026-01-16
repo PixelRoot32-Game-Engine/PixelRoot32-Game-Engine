@@ -1,4 +1,4 @@
-#include "graphics/ui/UILabel.h"
+﻿#include "graphics/ui/UILabel.h"
 
 namespace pixelroot32::graphics::ui {
 
@@ -6,8 +6,8 @@ namespace pixelroot32::graphics::ui {
 
     UILabel::UILabel(std::string t, float x, float y, Color col, uint8_t sz)
         : UIElement(x, y, 0, 0),
-            text(t), 
-            color(col), 
+            text(t),
+            color(col),
             size(sz) {
         recalcSize();
     }
@@ -32,6 +32,7 @@ namespace pixelroot32::graphics::ui {
     }
 
     void UILabel::draw(Renderer& renderer) {
+        if (!isVisible) return;
         renderer.drawText(text.c_str(), x, y, color, size);
     }
 }

@@ -5,10 +5,12 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
 
-    UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)
+    UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
         : UIElement(x, y, w, h), 
             label(t), 
             index(index),
+            textAlign(textAlign),
+            fontSize(fontSize),
             onClick(callback) {
         
         textColor = Color::White;
@@ -66,7 +68,7 @@ namespace pixelroot32::graphics::ui {
     }
 
     void UIButton::draw(Renderer& renderer) {
-if (!isVisible) return;
+        if (!isVisible) return;
 
         // 1. Dibujar el fondo y borde solo si tiene activado hasBackground
         if (hasBackground) {
@@ -76,12 +78,19 @@ if (!isVisible) return;
             // Si no tiene fondo, podemos indicar la selección con un pequeño marcador
             // o cambiando el color del texto
             if (isSelected) {
-                renderer.drawText(">", x - 10, y + (height / 4), Color::Yellow, 1);
+                renderer.drawText(">", x - 10, y + (height / 4), Color::Yellow, fontSize);
             }
         }
 
         // 2. Dibujar el texto
         Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
-        renderer.drawText(label.c_str(), x + 5, y + (height / 4), currentTextCol, 1);
+
+        if (textAlign == TextAlignment::CENTER) {
+            renderer.drawTextCentered(label.c_str(), y + (height / 4), currentTextCol, fontSize);
+        } else if (textAlign == TextAlignment::RIGHT) {
+            renderer.drawText(label.c_str(), x + width - 5, y + (height / 4), currentTextCol, fontSize);
+        } else {
+            renderer.drawText(label.c_str(), x + 5, y + (height / 4), currentTextCol, fontSize);
+        }
     }
 }
