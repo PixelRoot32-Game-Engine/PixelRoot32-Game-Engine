@@ -1,9 +1,13 @@
 #include "BallActor.h"
 #include <core/Engine.h>
-
-namespace brickbreaker {
+#include "BrickBreakerScene.h"
+#include "BrickActor.h"
 
 namespace pr32 = pixelroot32;
+
+extern pr32::core::Engine engine;
+
+namespace brickbreaker {
 
 using Color = pr32::graphics::Color;
 
@@ -34,7 +38,7 @@ void BallActor::launch(float velocityX, float velocityY) {
     this->paddleReference = nullptr;
 }
 
-void BallActor::reset(pixelroot32::core::Actor* paddle) {
+void BallActor::reset(pr32::core::Actor* paddle) {
     attachTo(paddle);
 }
 
@@ -55,8 +59,6 @@ void BallActor::draw(pr32::graphics::Renderer&  renderer) {
 }
 
 void BallActor::onCollision(Actor* other) {
-    //if (!isLaunched) return;
-
     PhysicsActor::onCollision(other);
     
     if (other->isInLayer(Layers::PADDLE)) {
@@ -70,6 +72,22 @@ void BallActor::onCollision(Actor* other) {
 
     if (other->isInLayer(Layers::BRICK)) {
         this->vy *= -1;
+
+        BrickActor* brick = static_cast<BrickActor*>(other);
+        if (brick && brick->active) {
+            int previousHp = brick->hp;
+            brick->hit();
+
+            BrickBreakerScene* scene = static_cast<BrickBreakerScene*>(engine.getCurrentScene());
+            if (scene) {
+                if (brick->hp <= 0 && previousHp > 0) {
+                    scene->getParticleEmiter()->burst(brick->x + (brick->width / 2), brick->y + (brick->height / 2), 15);
+                    scene->addScore(50);
+                } else if (brick->hp < previousHp) {
+                    scene->addScore(10);
+                }
+            }
+        }
     }
 }
 

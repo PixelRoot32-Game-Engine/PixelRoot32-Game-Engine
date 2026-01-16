@@ -3,12 +3,7 @@
 #include "core/Scene.h"
 #include "graphics/ui/UILabel.h"
 #include "Config.h"
-
-// Game configuration
-#define BOARD_SIZE 3
-#define CELL_SIZE 50
-#define BOARD_X_OFFSET ((DISPLAY_WIDTH - (BOARD_SIZE * CELL_SIZE)) / 2)
-#define BOARD_Y_OFFSET 40
+#include "GameConstants.h"
 
 namespace tictactoe {
 
@@ -43,6 +38,9 @@ private:
     int cursorIndex; // 0-8, mapping to board[row][col]
     bool gameOver;
     unsigned long gameEndTime;
+    
+    // Layout
+    int boardXOffset;
 
     // UI Elements
     pixelroot32::graphics::ui::UILabel* lblStatus;

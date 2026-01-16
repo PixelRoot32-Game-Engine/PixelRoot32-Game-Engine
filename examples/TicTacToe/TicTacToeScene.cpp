@@ -17,6 +17,9 @@ static constexpr float kDefaultAiErrorChance = 0.25f;
 void TicTacToeScene::init() {
     int screenWidth = engine.getRenderer().getWidth();
 
+    int boardPixelWidth = BOARD_SIZE * CELL_SIZE;
+    boardXOffset = (screenWidth - boardPixelWidth) / 2;
+
     // Initialize UI
     lblStatus = new pr32::graphics::ui::UILabel("Player X Turn", 0, 10, Color::White, 1);
     lblStatus->centerX(screenWidth);
@@ -56,8 +59,8 @@ void TicTacToeScene::resetGame() {
 }
 
 void TicTacToeScene::update(unsigned long deltaTime) {
-    Scene::update(deltaTime);
     handleInput();
+    Scene::update(deltaTime);
 }
 
 void TicTacToeScene::handleInput() {
@@ -67,24 +70,24 @@ void TicTacToeScene::handleInput() {
         if (millis() - gameEndTime < 500) {
             return;
         }
-        if (input.isButtonPressed(0)) {
+        if (input.isButtonPressed(BTN_SELECT)) {
             resetGame();
         }
         return;
     }
 
     if (!inputReady) {
-        if (!engine.getInputManager().isButtonDown(0) &&
-            !engine.getInputManager().isButtonDown(1) &&
-            !engine.getInputManager().isButtonDown(2)) {
+        if (!engine.getInputManager().isButtonDown(BTN_SELECT) &&
+            !engine.getInputManager().isButtonDown(BTN_NEXT) &&
+            !engine.getInputManager().isButtonDown(BTN_PREV)) {
             inputReady = true;
         } else {
             return;
         }
     }
 
-    bool leftDown = input.isButtonDown(2);
-    bool rightDown = input.isButtonDown(1);
+    bool leftDown = input.isButtonDown(BTN_PREV);
+    bool rightDown = input.isButtonDown(BTN_NEXT);
 
     static bool wasLeftDown = false;
     static bool wasRightDown = false;
@@ -330,7 +333,7 @@ void TicTacToeScene::draw(pr32::graphics::Renderer& renderer) {
 }
 
 void TicTacToeScene::drawGrid(pr32::graphics::Renderer& renderer) {
-    int startX = BOARD_X_OFFSET;
+    int startX = boardXOffset;
     int startY = BOARD_Y_OFFSET;
     int fullSize = BOARD_SIZE * CELL_SIZE;
 
@@ -354,7 +357,7 @@ void TicTacToeScene::drawCursor(pr32::graphics::Renderer& renderer) {
     int row = cursorIndex / BOARD_SIZE;
     int col = cursorIndex % BOARD_SIZE;
     
-    int x = BOARD_X_OFFSET + col * CELL_SIZE;
+    int x = boardXOffset + col * CELL_SIZE;
     int y = BOARD_Y_OFFSET + row * CELL_SIZE;
 
     // Draw a blinking selection box or just a highlight
@@ -365,7 +368,7 @@ void TicTacToeScene::drawCursor(pr32::graphics::Renderer& renderer) {
 void TicTacToeScene::drawMarks(pr32::graphics::Renderer& renderer) {
     for (int i = 0; i < BOARD_SIZE; ++i) {
         for (int j = 0; j < BOARD_SIZE; ++j) {
-            int x = BOARD_X_OFFSET + j * CELL_SIZE;
+            int x = boardXOffset + j * CELL_SIZE;
             int y = BOARD_Y_OFFSET + i * CELL_SIZE;
 
             if (board[i][j] == Player::X) {

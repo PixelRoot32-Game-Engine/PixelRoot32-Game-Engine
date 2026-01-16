@@ -11,7 +11,7 @@ namespace pr32 = pixelroot32;
 using Color = pr32::graphics::Color;
 
 BallActor::BallActor(float x, float y, float initialSpeed, int radius)
-    : PhysicsActor(x, y, radius * 2.0f, radius * 2.0f),
+    : pr32::core::PhysicsActor(x, y, radius * 2.0f, radius * 2.0f),
       radius(radius),
       isActive(false),
       respawnTimer(0),

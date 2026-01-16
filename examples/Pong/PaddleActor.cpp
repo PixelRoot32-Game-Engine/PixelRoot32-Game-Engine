@@ -1,8 +1,9 @@
 #include "PaddleActor.h"
 #include "PongScene.h"  
 #include "core/Engine.h"
-#include <math.h>
+#include <cmath>
 #include "GameLayers.h"
+#include "GameConstants.h"
 
 namespace pr32 = pixelroot32;
 
@@ -11,11 +12,6 @@ extern pr32::core::Engine engine;
 namespace pong {
 
 using Color = pr32::graphics::Color;
-
-// Constantes AI
-#define AI_TARGET_OFFSET 6.0f
-#define AI_MAX_SPEED 90.0f
-#define AI_MOVEMENT_THRESHOLD 0.5f
 
 void PaddleActor::update(unsigned long deltaTime) {
     float dt = deltaTime / 1000.0f;
@@ -44,7 +40,7 @@ void PaddleActor::update(unsigned long deltaTime) {
             if (proportionalSpeed > AI_MAX_SPEED) proportionalSpeed = AI_MAX_SPEED;
             else if (proportionalSpeed < -AI_MAX_SPEED) proportionalSpeed = -AI_MAX_SPEED;
 
-            if (fabsf(diff) > AI_MOVEMENT_THRESHOLD) accumulator += proportionalSpeed * dt;
+            if (std::abs(diff) > AI_MOVEMENT_THRESHOLD) accumulator += proportionalSpeed * dt;
 
             if (accumulator >= 1.0f) { int m = (int)accumulator; y += m; accumulator -= m; }
             else if (accumulator <= -1.0f) { int m = (int)accumulator; y += m; accumulator -= m; }

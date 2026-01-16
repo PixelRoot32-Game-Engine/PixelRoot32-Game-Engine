@@ -10,22 +10,26 @@ It focuses on simplicity, deterministic behavior, and low memory usage, making i
 PixelRoot32 follows a strict set of conventions to ensure consistency, readability, and long-term maintainability of the engine.
 
 ### Language
+
 - C++17
 - Avoid RTTI and exceptions in performance-critical runtime code
 - Prefer deterministic and explicit control flow
 
 ### Files
+
 - `.h` files define interfaces and public types
 - `.cpp` files contain implementations
 - Public headers must not contain heavy logic (only trivial inline code if needed)
 
 ### Includes
+
 - User code must include headers only from `include/`
 - Headers in `include/` may include headers from `src/`
 - Source files in `src/` must never include headers from `include/`
 - Internal headers that are not part of the public API must not be exposed via `include/`
 
 ### Naming Conventions
+
 - Classes and structs: PascalCase
 - Methods and functions: camelCase
 - Variables and members: camelCase
@@ -33,6 +37,7 @@ PixelRoot32 follows a strict set of conventions to ensure consistency, readabili
 - No `m_` or `_` prefixes for members
 
 ### Order inside classes
+
 - Public members first
 - Protected members second
 - Private members last
@@ -82,6 +87,7 @@ The following namespaces are intended for internal engine use only and are not p
 - pixelroot32::detail
 
 Rules for internal namespaces:
+
 - They may change without notice
 - They must not be included directly by user projects
 - They must not be exposed through headers in `include/`

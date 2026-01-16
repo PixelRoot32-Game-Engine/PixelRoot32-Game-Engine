@@ -5,9 +5,8 @@
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
+
 namespace pong {
-
-
 
 using Color = pr32::graphics::Color;
 
@@ -15,11 +14,15 @@ void PongScene::init() {
     int screenWidth = engine.getRenderer().getWidth();
     int screenHeight = engine.getRenderer().getHeight();
 
+    // Calculate play area
+    playAreaTop = (screenHeight - PONG_PLAY_AREA_HEIGHT) / 2;
+    playAreaBottom = playAreaTop + PONG_PLAY_AREA_HEIGHT;
+
     leftScore = 0;
     rightScore = 0;
     gameOver = false;
 
-    int16_t scoreY = PONG_PLAY_AREA_TOP / 2 - 8; // Center vertically in top border
+    int16_t scoreY = playAreaTop / 2 - 8; // Center vertically in top border
 
     lblScore = new pr32::graphics::ui::UILabel("0 : 0", 0, scoreY, Color::Black, 2);
     lblScore->centerX(screenWidth);
@@ -34,16 +37,16 @@ void PongScene::init() {
     lblGameOver->setVisible(false);
 
     leftPaddle = new PaddleActor(0, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, false);
-    leftPaddle->setTopLimit(PONG_PLAY_AREA_TOP);
-    leftPaddle->setBottomLimit(PONG_PLAY_AREA_BOTTOM);
+    leftPaddle->setTopLimit(playAreaTop);
+    leftPaddle->setBottomLimit(playAreaBottom);
     
     rightPaddle = new PaddleActor(screenWidth - PADDLE_WIDTH, screenHeight/2 - PADDLE_HEIGHT/2, PADDLE_WIDTH, PADDLE_HEIGHT, true);
-    rightPaddle->setTopLimit(PONG_PLAY_AREA_TOP);
-    rightPaddle->setBottomLimit(PONG_PLAY_AREA_BOTTOM);  
+    rightPaddle->setTopLimit(playAreaTop);
+    rightPaddle->setBottomLimit(playAreaBottom);  
     
     ball = new BallActor(screenWidth/2, screenHeight/2, BALL_SPEED, BALL_RADIUS);
     ball->setWorldSize(screenWidth, screenHeight);
-    ball->setLimits(pr32::core::LimitRect(-1, PONG_PLAY_AREA_TOP, -1, PONG_PLAY_AREA_BOTTOM));
+    ball->setLimits(pr32::core::LimitRect(-1, playAreaTop, -1, playAreaBottom));
     ball->reset();
 
     addEntity(lblScore);
@@ -56,24 +59,29 @@ void PongScene::init() {
 }
 
 void PongScene::update(unsigned long deltaTime) {
+    // 1. Input Processing
     if (!gameOver) {
-        // --- Input Player ---
         leftPaddle->velocity = 0;
-        if (engine.getInputManager().isButtonDown(0)) leftPaddle->velocity = -100.0f;
-        if (engine.getInputManager().isButtonDown(1)) leftPaddle->velocity = 100.0f;
+        if (engine.getInputManager().isButtonDown(BTN_UP)) leftPaddle->velocity = -100.0f;
+        if (engine.getInputManager().isButtonDown(BTN_DOWN)) leftPaddle->velocity = 100.0f;
+    } else {
+        if (engine.getInputManager().isButtonPressed(BTN_START)) resetGame();
+    }
 
-        // --- Update all entities via base Scene ---
-        Scene::update(deltaTime);
+    // 2. Physics & Entity Update (Always call this!)
+    Scene::update(deltaTime);
 
+    // 3. Game Logic
+    if (!gameOver) {
         // --- Check if ball is out of bounds ---
         if (ball->isActive && ball->getWorldCollisionInfo().left) {
             rightScore++;
-            printf("Right Score: %d\n", rightScore);
+            // printf("Right Score: %d\n", rightScore);
             ball->reset();
         }
         if (ball->isActive && ball->getWorldCollisionInfo().right) {
             leftScore++;
-            printf("Left Score: %d\n", leftScore);
+            // printf("Left Score: %d\n", leftScore);
             ball->reset();
         }
 
@@ -91,7 +99,6 @@ void PongScene::update(unsigned long deltaTime) {
         // --- Game Over ---
         lblStartMessage->setVisible(true);
         lblGameOver->setVisible(true);
-        if (engine.getInputManager().isButtonPressed(0)) resetGame();
     }
 }
 
@@ -100,9 +107,11 @@ void PongScene::draw(pr32::graphics::Renderer& renderer) {
     int screenHeight = engine.getRenderer().getHeight();
 
     // === BORDERS ===
-    renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, PONG_PLAY_AREA_TOP, Color::White);
-    renderer.drawFilledRectangle(0, PONG_PLAY_AREA_BOTTOM, DISPLAY_WIDTH, 
-                    DISPLAY_HEIGHT - PONG_PLAY_AREA_BOTTOM, Color::White);
+    // Use display width from renderer or Config if available. 
+    // Assuming screenWidth covers the display.
+    renderer.drawFilledRectangle(0, 0, screenWidth, playAreaTop, Color::White);
+    renderer.drawFilledRectangle(0, playAreaBottom, screenWidth, 
+                    screenHeight - playAreaBottom, Color::White);
 
     // === CENTER LINE ===
     int16_t centerX = screenWidth / 2;

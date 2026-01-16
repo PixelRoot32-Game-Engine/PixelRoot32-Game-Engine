@@ -4,6 +4,7 @@
 #include "graphics/Color.h"
 #include "graphics/particles/ParticlePresets.h"
 #include "GameLayers.h"
+#include "GameConstants.h"
 
 namespace pr32 = pixelroot32;
 
@@ -11,18 +12,7 @@ extern pr32::core::Engine engine;
 
 namespace brickbreaker {
 
-using namespace pixelroot32::core;
-using namespace pixelroot32::graphics;
-using namespace pixelroot32::graphics::particles;
-
 using Color = pr32::graphics::Color;
-
-#define BRICK_WIDTH 30
-#define BRICK_HEIGHT 12
-#define PADDLE_W 40
-#define PADDLE_H 8
-#define BALL_SIZE 6
-#define BORDER_TOP 20.0f
 
 void BrickBreakerScene::init() {
     clearEntities(); 
@@ -37,7 +27,7 @@ void BrickBreakerScene::init() {
     ball->setLimits(pr32::core::LimitRect(0, (int)BORDER_TOP, sw, sh));
     ball->attachTo(paddle);
     
-    explosionEffect = new pr32::graphics::particles::ParticleEmitter(100,100, ParticlePresets::Explosion);
+    explosionEffect = new pr32::graphics::particles::ParticleEmitter(100,100, pr32::graphics::particles::ParticlePresets::Explosion);
 
     addEntity(paddle);
     addEntity(ball);
@@ -106,7 +96,7 @@ void BrickBreakerScene::loadLevel(int level) {
                 if (brickHP > 4) brickHP = 4;
                 if (brickHP < 1) brickHP = 1;
 
-                BrickActor* b = new BrickActor(posX, posY, brickHP, this);
+                BrickActor* b = new BrickActor(posX, posY, brickHP);
                 bricks.push_back(b);
                 addEntity(b);
             }
@@ -120,17 +110,13 @@ void BrickBreakerScene::resetBall() {
 }
 
 void BrickBreakerScene::update(unsigned long deltaTime) {
-    Scene::update(deltaTime);
-
+    // 1. Input Processing
     if (gameOver) {
-        if (engine.getInputManager().isButtonPressed(0)) init();
+        if (engine.getInputManager().isButtonPressed(BTN_START)) init();
         lblGameOver->setVisible(true);
         lblStartMessage->setVisible(true);
-        return;
-    }
-
-    if (!gameStarted) {
-        if (engine.getInputManager().isButtonPressed(0)) {
+    } else if (!gameStarted) {
+        if (engine.getInputManager().isButtonPressed(BTN_START)) {
             gameStarted = true;
             ball->launch(120.0f, -120.0f);
         }
@@ -139,7 +125,13 @@ void BrickBreakerScene::update(unsigned long deltaTime) {
     } else {
         lblStartMessage->setVisible(false);
         lblGameOver->setVisible(false);
+    }
 
+    // 2. Physics & Entity Update
+    Scene::update(deltaTime);
+
+    // 3. Game Logic
+    if (!gameOver && gameStarted) {
         bool levelCleared = true;
         for (auto& b : bricks) {
             if (b->active) {
@@ -165,14 +157,8 @@ void BrickBreakerScene::update(unsigned long deltaTime) {
     }
 }
 
-void BrickBreakerScene::draw(pixelroot32::graphics::Renderer& renderer) {
-    for (const auto& b : bricks) {
-        if (b->active) {
-            renderer.drawFilledRectangle(b->x, b->y, b->width, b->height, b->getColor());
-        }
-    }
-
-
+void BrickBreakerScene::draw(pr32::graphics::Renderer& renderer) {
+    // Draw HUD first
     char scoreStr[16];
     snprintf(scoreStr, sizeof(scoreStr), "S: %d", score);
     renderer.drawText(scoreStr, 10, 5, Color::White, 2);
@@ -190,6 +176,8 @@ void BrickBreakerScene::draw(pixelroot32::graphics::Renderer& renderer) {
         renderer.drawFilledRectangle(x, posY, rectSize, rectSize, Color::Red);
     }
 
+    // Delegate entity drawing to Scene (which calls entity->draw)
+    // This fixes the antipattern of manually drawing bricks here
     Scene::draw(renderer);
 }
 

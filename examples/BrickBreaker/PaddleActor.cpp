@@ -1,5 +1,6 @@
 #include "PaddleActor.h"
 #include <core/Engine.h>
+#include "GameConstants.h"
 
 namespace pr32 = pixelroot32;
 
@@ -10,11 +11,11 @@ namespace brickbreaker {
 void PaddleActor::update(unsigned long dt) {
     float deltaTimeSec = dt / 1000.0f;
 
-    if (engine.getInputManager().isButtonDown(2)) {
+    if (engine.getInputManager().isButtonDown(BTN_LEFT)) {
         x -= speed * deltaTimeSec;
     }
 
-    if (engine.getInputManager().isButtonDown(1)) {
+    if (engine.getInputManager().isButtonDown(BTN_RIGHT)) {
         x += speed * deltaTimeSec;
     }
 
@@ -27,11 +28,11 @@ void PaddleActor::update(unsigned long dt) {
     }
 }
 
-void PaddleActor::draw(pixelroot32::graphics::Renderer& renderer) {
+void PaddleActor::draw(pr32::graphics::Renderer& renderer) {
     renderer.drawFilledRectangle((int)x, (int)y, width, height, color);
 }
 
-void PaddleActor::onCollision(pixelroot32::core::Actor* other) {
+void PaddleActor::onCollision(pr32::core::Actor* other) {
     (void)other;
 }
 
