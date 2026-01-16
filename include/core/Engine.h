@@ -4,6 +4,9 @@
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
 #include "graphics/DisplayConfig.h"
+#include "audio/AudioConfig.h"
+#include "audio/AudioEngine.h"
+#include "audio/MusicPlayer.h"
 
 namespace pixelroot32::core {
 
@@ -12,11 +15,19 @@ namespace pixelroot32::core {
  * @brief The main engine class that manages the game loop and core subsystems.
  *
  * Engine acts as the central hub of the game engine. It initializes and manages
- * the Renderer, InputManager, and SceneManager. It runs the main game loop,
+ * the Renderer, InputManager, AudioEngine, and SceneManager. It runs the main game loop,
  * handling timing (delta time), updating the current scene, and rendering frames.
  */
 class Engine {
 public:
+    /**
+     * @brief Constructs the Engine with custom display, input and audio configurations.
+     * @param displayConfig Configuration settings for the display (width, height, rotation, etc.).
+     * @param inputConfig Configuration settings for the input system (pins, buttons).
+     * @param audioConfig Configuration settings for the audio system.
+     */
+    Engine(const pixelroot32::graphics::DisplayConfig& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig);
+
     /**
      * @brief Constructs the Engine with custom display and input configurations.
      * @param displayConfig Configuration settings for the display (width, height, rotation, etc.).
@@ -87,10 +98,24 @@ public:
      */
     pixelroot32::input::InputManager& getInputManager() { return inputManager; }
 
+    /**
+     * @brief Provides access to the AudioEngine subsystem.
+     * @return Reference to the AudioEngine.
+     */
+    pixelroot32::audio::AudioEngine& getAudioEngine() { return audioEngine; }
+
+    /**
+     * @brief Provides access to the MusicPlayer subsystem.
+     * @return Reference to the MusicPlayer.
+     */
+    pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
+
 private:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
     pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
     pixelroot32::input::InputManager inputManager; ///< Manages input device state and events.
+    pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
+    pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.

@@ -1,80 +1,66 @@
 # PixelRoot32 Game Engine
 
-PixelRoot32 Game Engine is a lightweight, modular 2D game engine written in C++ and designed specifically for ESP32 microcontrollers.
+PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
-The engine adopts a node- and scene-based architecture inspired by Godot Engine, and provides a hardware abstraction layer (HAL) that enables native simulation on PC using SDL2. This makes cross‑platform development and debugging much easier: you can iterate quickly on desktop and then deploy the same code to the ESP32.
-
----
-
-## Table of Contents
-
-- [Origin and Inspiration](#origin-and-inspiration)
-- [Coding Standards & Architecture](#-coding-standards--architecture)
-- [Project Structure](#project-structure)
-- [Main Components](#main-components)
-- [Color Palette](#color-palette)
-- [High-Performance Optimizations](#high-performance-optimizations)
-  - [Particle System (Pooled Memory)](#particle-system-pooled-memory)
-  - [Asynchronous Rendering via DMA](#asynchronous-rendering-via-dma)
-- [Custom DrawSurface Implementations](#custom-drawsurface-implementations)
-- [User Interface (UI) System](#user-interface-ui-system)
-  - [Class Hierarchy](#class-hierarchy)
-- [Example Usage in a Scene](#example-usage-in-a-scene)
-  - [Technical Notes for the Implementation](#technical-notes-for-the-implementation)
-- [Platform Configuration](#-platform-configuration)
-- [Setup & Installation](#setup--installation)
-- [Requirements](#-requirements)
-- [Philosophy](#philosophy)
+The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
 ---
 
-## Origin and Inspiration
+## 💡Origin and Inspirations
 
-PixelRoot32 is a direct evolution of the project:
+PixelRoot32 is an evolution of [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine) by **nbourre**, extended with architectural concepts from **Godot Engine**.
 
-ESP32-Game-Engine by nbourre  
-<https://github.com/nbourre/ESP32-Game-Engine>
+Special thanks to **nbourre** for open-sourcing the original engine and inspiring this project. Without that work, PixelRoot32 would not exist.
 
-On top of this solid base, PixelRoot32 extends the original concept by incorporating ideas inspired by Godot, such as:
+## 🚀 Key Features
 
-- Hierarchical organization using scenes and nodes
-- Clear separation between logic, rendering, and input
-- Reusable and decoupled components
-- Structured update flow (`update` / `draw`)
+- **Scene & Entity System**: Scenes managing Entities, Actors, PhysicsActors and UI elements.
+- **Cross-Platform**: Develop on PC (Windows/Linux via SDL2) and deploy to ESP32 (ST7735/ILI9341 via SPI/DMA).
+- **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
+- **Color Palette**: Fixed indexed palette (32 colors) using RGB565 for fast rendering.
+- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics.
+- **Particle System**: High-performance, memory-pooled particle effects.
+- **UI System**: Lightweight UI controls (Label, Button).
 
-Credits: this project explicitly acknowledges and thanks the original work by **nbourre**, on which PixelRoot32 is built and evolved.
+## 🛠 Target Platforms
 
----
+1.  **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
+2.  **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
 
-## 📐 Coding Standards & Architecture
+## 📚 Documentation
 
-PixelRoot32 follows a well-defined set of coding conventions and architectural rules to ensure consistency, maintainability, and long-term scalability of the engine.
+Detailed documentation for engine subsystems and coding standards:
 
-Before contributing or extending the engine, please review the following documents:
+- **[API Reference](API_REFERENCE.md)**: Core classes and usage examples.
+- **[Audio Subsystem](AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Architecture of the NES-like sound engine.
+- **[Style Guide](STYLE_GUIDE.md)**: Coding conventions and best practices.
 
-- [STYLE_GUIDE.md](STYLE_GUIDE.md) — Official coding style, naming conventions, and file structure rules
-- [API_REFERENCE.md](API_REFERENCE.md) — Public engine API reference, following a Godot-inspired style
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Guidelines for contributing to the project
+### Color Palette
 
-These documents define:
+PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 
-- How code should be written and organized
-- Which namespaces are public versus internal
-- What is considered stable API and what may change internally
+- Colors are represented as 8-bit indices.
+- Internally resolved to RGB565.
+- Improves performance and memory usage.
+- Ensures visual consistency across games.
 
-Adhering to these guidelines is required for all engine development.
+The engine provides a built-in palette of 32 colors via the
+`pixelroot32::graphics::Color` enum.
 
----
+## 📁 Project Structure
 
-## Project Structure
-
-The engine architecture separates high-level logic from the hardware layer (HAL), enabling efficient development both on ESP32 and in a desktop environment.
+Main structure of the `PixelRoot32-Game-Engine` library:
 
 ```txt
 PixelRoot32-Game-Engine/
-├── examples/
-│   └── Pong/
-├── include/
+├── assets/                 # Icons and logos
+├── examples/               # Example games
+│   ├── Pong/
+│   ├── GeometryJump/
+│   ├── BrickBreaker/
+│   └── TicTacToe/
+├── include/                # Public engine headers
+│   ├── audio/
 │   ├── core/
 │   ├── drivers/
 │   │   ├── esp32/
@@ -85,8 +71,12 @@ PixelRoot32-Game-Engine/
 │   ├── input/
 │   ├── math/
 │   └── physics/
-├── src/
+├── src/                    # Engine implementations
+│   ├── audio/
 │   ├── core/
+│   ├── drivers/
+│   │   ├── esp32/
+│   │   └── native/
 │   ├── graphics/
 │   │   ├── particles/
 │   │   └── ui/
@@ -94,395 +84,58 @@ PixelRoot32-Game-Engine/
 │   ├── physics/
 │   └── platforms/
 │       └── mock/
-├── lib/
 ├── test/
-├── platformio.ini
-└── README.md
+├── library.json
+└── library.properties
 ```
 
----
+## 📦 Getting Started
 
-## Main Components
+### Using this example repository
 
-Core  
-Controls the `SceneManager`, the node tree, and the main execution loop (`update` / `draw`).
+1.  Clone this repository.
+2.  Open it in **PlatformIO** (VS Code).
+3.  Select the environment (`esp32` or `native`).
+4.  Build and run the **GeometryJump** example to see the engine in action.
 
-Renderer  
-Unified rendering API. On ESP32 it uses `TFT_eSprite` with double buffering to remove visible flicker.
+### Create your own project using PixelRoot32 as a library
 
-InputManager  
-Abstracts physical buttons (GPIO) and PC keyboard keys into logical commands (`UP`, `DOWN`, `A`, `B`).
-
-CollisionSystem  
-Provides AABB collision detection and supports grid-based movement.
-
----
-
-### Color Palette
-
-PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware.
-
-- Colors are represented as 8-bit indices
-- Internally resolved to RGB565
-- Improves performance and memory usage
-- Ensures visual consistency across games
-
-The engine provides a built-in palette of 32 colors via the `graphics::Color` enum.
-
-Direct RGB565 usage is supported but discouraged for regular gameplay rendering.
-
----
-
-## High-Performance Optimizations
-
-### Particle System (Pooled Memory)
-
-- Uses static arrays to reuse particles and avoid memory fragmentation.
-- Pre-calculated trigonometry to minimize cost in the update loop.
-- Auto-clipping of entities that are off-screen.
-
-### Asynchronous Rendering via DMA
-
-- Non-blocking transfers using `pushImageDMA`.
-- Real parallelism between game logic and SPI transfer.
-- No tearing thanks to synchronization via `dmaWait`.
-
----
-
-## Physics System
-
-The engine provides [`PhysicsActor`](API_REFERENCE.md#physicsactor), a specialized actor that handles 2D physics behavior similar to a `RigidBody2D` in Godot. It simplifies the implementation of moving objects by managing velocity, acceleration, and world boundary collisions automatically.
-
-### Key Features
-
-- **Velocity & Movement**: Managed via `vx` (horizontal) and `vy` (vertical) properties. The `update` loop automatically integrates these values to update position.
-- **World & Custom Bounds**: 
-  - Uses `worldWidth` and `worldHeight` to define the default play area.
-  - Supports custom limits via [`LimitRect`](API_REFERENCE.md#limitrect) (top, bottom, left, right) to constrain actors to specific zones (e.g. `setLimits({0, 0, 320, 240})`).
-- **Collision Resolution**: The `resolveWorldBounds()` function automatically detects collisions with the defined limits and applies a bounce response based on the `restitution` (bounciness) coefficient.
-- **Properties**:
-  - `restitution`: Controls energy conservation (1.0 = full bounce, < 1.0 = dampening).
-  - `friction`: Applies drag to movement.
-
-### Example: BallActor
-
-Here is how you can use `PhysicsActor` to create a bouncing ball, like in Pong:
+1.  Create a new PlatformIO project for your ESP32.
+2.  Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
+    (or add it as a Git submodule in `lib/PixelRoot32-Game-Engine`).
+3.  Create a `src/drivers` folder in your project and add your `DrawSurface`
+    implementations there, for example:
+    - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
+    - `src/drivers/native/SDL2_Drawer.cpp` for the native PC mode.
+4.  In your `src/main.cpp`, include the engine and configure the drivers, similar to:
 
 ```cpp
-class BallActor : public pixelroot32::core::PhysicsActor {
-public:
-    BallActor(float x, float y) : PhysicsActor(x, y, 10, 10) {
-        // 1. Initialize velocity
-        vx = 200.0f;
-        vy = -150.0f;
-        
-        // 2. Set physical properties
-        setRestitution(1.0f); // Perfect bounce (no energy loss)
-        setFriction(0.0f);    // No friction
-    }
-    
-    // 3. Customize behavior on impact (optional)
-    void onWorldCollision() override {
-        // Logic when hitting walls (e.g. play sound)
-    }
-};
+#include <drivers/esp32/TFT_eSPI_Drawer.h>
+#include <drivers/esp32/ESP32_AudioBackend.h>
+#include <core/Engine.h>
 
-// In your scene:
-// Create the ball and set the world boundaries for collision
-auto* ball = new BallActor(160, 120);
-ball->setWorldSize(320, 240); 
-addEntity(ball);
-```
+namespace pr32 = pixelroot32;
 
----
+pr32::drivers::esp32::TFT_eSPI_Drawer drawer;
+pr32::drivers::esp32::ESP32_AudioBackend audioBackend(26, 25, 22, 22050);
+pr32::graphics::DisplayConfig displayConfig(&drawer, 0, 240, 240);
+pr32::input::InputConfig inputConfig(5, 13, 12, 14, 32, 33);
+pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
+pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
 
-## Custom DrawSurface Implementations
+void setup() {
+    engine.init();
+    // engine.setScene(&yourScene);
+}
 
-PixelRoot32 uses the `DrawSurface` interface as a thin abstraction layer between the engine and the underlying graphics backend. The high-level `Renderer` only depends on `DrawSurface`, so you can plug in your own implementation without modifying engine code.
-
-### Responsibilities of DrawSurface
-
-A concrete `DrawSurface` implementation is responsible for:
-
-- Initializing the graphics backend (SPI display, SDL window, etc.).
-- Managing an internal framebuffer (or equivalent).
-- Implementing basic drawing primitives:
-  - Text rendering (`drawText`, `drawTextCentered`).
-  - Shapes (`drawFilledCircle`, `drawCircle`, `drawRectangle`, `drawFilledRectangle`, `drawLine`).
-  - Bitmaps (`drawBitmap`).
-  - Single pixels (`drawPixel`).
-- Handling display state:
-  - Rotation (`setRotation`).
-  - Logical size (`setDisplaySize`).
-  - Contrast/brightness (`setContrast`).
-- Presenting frames:
-  - Flushing the buffer to the display (`sendBuffer`).
-  - Swapping buffers or updating the window (`present`).
-  - Optionally processing platform events (`processEvents`).
-
-Reference implementations:
-
-- ESP32: [`TFT_eSPI_Drawer`](include/drivers/esp32/TFT_eSPI_Drawer.h).
-- Native (PC): [`SDL2_Drawer`](include/drivers/native/SDL2_Drawer.h).
-
-### Basic Steps to Implement Your Own DrawSurface
-
-1. Create a new class that derives from `pixelroot32::graphics::DrawSurface` inside your own namespace. For example:
-
-```cpp
-namespace mygame::drivers {
-
-class MyDisplayDriver : public pixelroot32::graphics::DrawSurface {
-public:
-    void init() override;
-    void setRotation(uint8_t rotation) override;
-    void clearBuffer() override;
-    void sendBuffer() override;
-
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override;
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override;
-    void drawFilledCircle(int x, int y, int radius, uint16_t color) override;
-    void drawCircle(int x, int y, int radius, uint16_t color) override;
-    void drawRectangle(int x, int y, int width, int height, uint16_t color) override;
-    void drawFilledRectangle(int x, int y, int width, int height, uint16_t color) override;
-    void drawLine(int x1, int y1, int x2, int y2, uint16_t color) override;
-    void drawBitmap(int x, int y, int width, int height, const uint8_t* bitmap, uint16_t color) override;
-    void drawPixel(int x, int y, uint16_t color) override;
-
-    void setContrast(uint8_t level) override;
-    void setTextColor(uint16_t color) override;
-    void setTextSize(uint8_t size) override;
-    void setCursor(int16_t x, int16_t y) override;
-
-    uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override;
-    void setDisplaySize(int w, int h) override;
-
-    bool processEvents() override;
-    void present() override;
-};
-
+void loop() {
+    engine.run();
 }
 ```
 
-You can use `TFT_eSPI_Drawer` and `SDL2_Drawer` as concrete references for how to implement each method.
-
-2. Instantiate your driver and wire it into a `DisplayConfig`:
-
-```cpp
-mygame::drivers::MyDisplayDriver myDriver;
-
-pixelroot32::graphics::DisplayConfig config(
-    &myDriver,
-    0,
-    SCREEN_WIDTH,
-    SCREEN_HEIGHT
-);
-```
-
-The `Renderer` will use this `DrawSurface` instance internally and will not need to know anything about the underlying hardware or window system.
-
-3. Pass the `DisplayConfig` to the `Engine`:
-
-```cpp
-pixelroot32::core::Engine engine(config, inputConfig);
-```
-
-From this point on, all scenes and entities can draw using the standard `Renderer` API, while your custom `DrawSurface` takes care of the low-level details.
+5.  Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+    actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
+    assign them with `engine.setScene(...)` in `setup()`.
 
 ---
-
-## User Interface (UI) System
-
-The UI system is hierarchical and integrates with the normal scene flow, inspired by Godot’s node approach.
-
-### Class Hierarchy
-
-UIElement  
-Base class with visibility and state control.
-
-UILabel  
-Efficient text rendering with dynamic alignment helpers (for example, centering).
-
-UIButton  
-Interactive element connected to `InputManager` (in active development).
-
----
-
-## Example Usage in a Scene
-
-```cpp
-#include "graphics/ui/UILabel.h"
-
-class GameScene : public Scene {
-    UI::UILabel* lblStart;
-
-    void init() override {
-        lblStart = new UI::UILabel("PRESS A TO START", 0, 150, COLOR_WHITE, 1);
-        lblStart->centerX(SCREEN_WIDTH);
-        addEntity(lblStart);
-    }
-
-    void update(unsigned long deltaTime) override {
-        if (gameStarted) {
-            lblStart->setVisible(false);
-        }
-        Scene::update(deltaTime);
-    }
-};
-```
-
-### Technical Notes for the Implementation
-
-1. Drawing Optimization: To avoid the "overlapping text" (ghosting) effect, `UILabel` implements an internal visibility check:
-
-```c++
-void UILabel::draw(Renderer& renderer) {
-    if (!isVisible) return; // Avoid drawing elements that are hidden
-    renderer.drawText(text.c_str(), x, y, color, size);
-}
-```
-
-1. Size Calculation: The element width (`width`) is automatically calculated in the constructor by multiplying the number of characters by the font width (`size * 6`). This allows collision and centering systems to operate with precise bounds.
-
----
-
-## 🛠️ Platform Configuration
-
-The engine uses preprocessor directives to switch between hardware and simulator:
-
-| Feature     | ESP32 (Production)        | Native (PC Development)     |
-|------------|---------------------------|-----------------------------|
-| Graphics   | TFT_eSPI (SPI bus)        | SDL2 (window manager)       |
-| Input      | Physical buttons (GPIO)   | Keyboard (WASD / Arrows)    |
-| Time       | `millis()` (Arduino)      | `MockArduino` / `SDL_GetTicks` |
-| Debug      | Serial Monitor            | Standard console (`stdout`) |
-
-The `native` PlatformIO environment is intended for running and debugging your game
-logic directly on a desktop PC (using SDL2) without flashing the firmware to an
-ESP32 on every iteration. This allows fast feedback loops while keeping the same
-engine API and game code for both targets.
-
-📝 Example Implementation
-
-```c++
-#include "Scene.h"
-
-class MainMenu : public Scene {
-    void update(unsigned long deltaTime) override {
-        if (engine.getInputManager().wasPressed(Input::BUTTON_A)) {
-            // Change scene or start game
-        }
-    }
-    
-    void draw(Renderer& renderer) override {
-        renderer.drawTextCentered("PRESS START", 120, COLOR_WHITE);
-    }
-};
-```
-
----
-
-## Setup & Installation
-
-PixelRoot32 does not force you to use a specific display driver. The engine only depends on the `DrawSurface` interface; you choose which backend to use (for example, **TFT_eSPI**, **U8g2**, or **SDL2** on PC) as long as you provide a compatible implementation or reuse one of the reference implementations.
-
-### Hardware Requirements
-
-- ESP32 (or another Arduino‑compatible microcontroller).
-- Display: any screen supported by your chosen driver (for example, ST7789 with TFT_eSPI, any display supported by U8g2, or an SDL2 window on PC).
-- Buttons / input device (GPIO buttons or a custom controller).
-  - Typically the switch should pull the pin to GND when pressed (using internal or external pull‑up).
-
-### Library Dependencies
-
-If you use PlatformIO and add PixelRoot32 as a library (`library.json`), dependencies are resolved automatically. If you need to install them manually in a standalone project:
-
-```sh
-pio lib install "U8g2" "ArduinoQueue" "SafeString" "OneButton"
-```
-
-### Include PixelRoot32 in your project
-
-In PlatformIO or Arduino IDE, include the engine from your application code:
-
-```cpp
-#include "core/Engine.h"
-```
-
-### Install as a Library
-
-#### PlatformIO
-
-Create a new project and clone PixelRoot32 into the project `lib` directory:
-
-```sh
-cd ~/Documents/PlatformIO/Projects/<project-name>/lib
-git clone https://github.com/gperez88/PixelRoot32-Game-Engine.git
-```
-
-### Run an Example (Pong)
-
-Once PixelRoot32 is available as a library in your PlatformIO project:
-
-```sh
-cd ~/Documents/PlatformIO/Projects/<project-name>
-cp lib/PixelRoot32-Game-Engine/examples/Pong/* src
-```
-
-- Remove the default `main.cpp` generated by PlatformIO if necessary.
-- Configure your project `platformio.ini`:
-  - Select the appropriate `platform` and `board`.
-  - Ensure the required libraries are installed (or declared in `library.json`).
-
-For testing without flashing the ESP32, you can create a `native` environment in your `platformio.ini` and use an SDL2‑based `DrawSurface`, as described in the **Platform Configuration** section.
-
----
-
-## ⚙️ Requirements
-
-1. ESP32 Environment:
-   - Arduino framework for ESP32.
-   - A display driver library compatible with your hardware that you plug in via a custom `DrawSurface` implementation. The engine ships with a reference driver based on **TFT_eSPI**, but you can use alternatives such as **U8g2** or your own driver as long as they implement the `DrawSurface` interface.
-
-2. Native Environment:
-   - C++ compiler (GCC/Clang).
-   - SDL2 library installed on the system.
-
-Developed to be efficient, fast, and easy to extend.
-
----
-
-## 🗺️ Roadmap
-
-### v0.6 - Visuals & Motion
-- [ ] **Sprite Animation**: Support for sprite sheets and frame-based animation (`AnimatedSprite`).
-- [ ] **Tilemaps**: Efficient rendering of grid-based worlds.
-- [ ] **Camera System**: Viewport management for worlds larger than the screen (scrolling).
-- [ ] **Tweening System**: Simple Easing functions for UI and movement.
-
-### v0.7 - Audio & Storage
-- [ ] **Audio System**: Basic SFX and Music support (I2S/PWM/DAC).
-- [ ] **Asset Manager**: Loading resources (images, audio) from SPIFFS/LittleFS/SD Card.
-- [ ] **Config Files**: Save/Load game settings and state (JSON/Binary).
-
-### v0.8 - Connectivity (ESP32 Special)
-- [ ] **Local Multiplayer**: ESP-NOW integration for low-latency multiplayer.
-- [ ] **Web Control**: Control the game via a web browser interface.
-
-### v1.0 - Stable Release
-- [ ] **Full API Freeze**: Long-term stable API.
-- [ ] **Editor Tools**: Web-based or PC-based tools to export scenes to engine format.
-- [ ] **Showcase Games**: Complete open-source examples (Platformer, RPG, Space Shooter).
-
----
-
-## Philosophy
-
-PixelRoot32 aims to provide:
-
-- Clear and extensible architecture
-- Real performance on constrained hardware
-- A modern workflow inspired by high-level engines
-- Full hardware control with a simple API
-
----
+*Built with ❤️ for the retro-dev community.*

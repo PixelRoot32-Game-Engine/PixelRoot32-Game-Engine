@@ -26,10 +26,13 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 #### Public Methods
 
--   **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
+- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig)`**
+    Constructs the engine with custom display, input and audio configurations.
+
+- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
     Constructs the engine with custom display and input configurations.
 
--   **`Engine(const DisplayConfig& displayConfig)`**
+- **`Engine(const DisplayConfig& displayConfig)`**
     Constructs the engine with custom display configuration and default input settings.
 
 - **`void init()`**
@@ -52,6 +55,184 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`InputManager& getInputManager()`**
     Provides access to the InputManager subsystem.
+
+- **`AudioEngine& getAudioEngine()`**
+    Provides access to the AudioEngine subsystem.
+
+---
+
+## Audio Module
+
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise
+channels, plus a lightweight melody subsystem for background music.
+
+### AudioEngine
+
+**Inherits:** None
+
+The core class managing audio generation and playback.
+
+#### Public Methods
+
+- **`AudioEngine(const AudioConfig& config)`**
+    Constructs the AudioEngine.
+
+- **`void init()`**
+    Initializes the audio backend.
+
+- **`void update(unsigned long deltaTime)`**
+    Updates audio logic (envelopes, sequencers).
+
+- **`void generateSamples(int16_t* stream, int length)`**
+    Fills the buffer with audio samples.
+
+- **`void playEvent(const AudioEvent& event)`**
+    Plays a one-shot audio event on the first available channel of the requested type.
+
+Typical usage from a scene:
+
+```cpp
+auto& audio = engine.getAudioEngine();
+
+AudioEvent evt{};
+evt.type = WaveType::PULSE;
+evt.frequency = 1500.0f;
+evt.duration = 0.12f;
+evt.volume = 0.8f;
+evt.duty = 0.5f;
+
+audio.playEvent(evt);
+```
+
+### Data Structures
+
+#### WaveType (Enum)
+
+- `PULSE`: Square wave with variable duty cycle.
+- `TRIANGLE`: Triangle wave (fixed volume/duty).
+- `NOISE`: Pseudo-random noise.
+
+#### AudioEvent (Struct)
+
+Structure defining a sound effect to be played.
+
+- **`WaveType type`**: Type of waveform to use.
+- **`float frequency`**: Frequency in Hz.
+- **`float duration`**: Duration in seconds.
+- **`float volume`**: Volume level (0.0 to 1.0).
+- **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
+
+#### Note (Enum)
+
+Defined in `AudioMusicTypes.h`. Represents the 12 semitones plus a rest:
+
+- `C`, `Cs`, `D`, `Ds`, `E`, `F`, `Fs`, `G`, `Gs`, `A`, `As`, `B`, `Rest`
+
+Use `noteToFrequency(Note note, int octave)` to convert a note and octave to Hz.
+
+#### MusicNote (Struct)
+
+Represents a single musical note in a melody.
+
+- **`Note note`**: Musical note (C, D, E, etc. or Rest).
+- **`uint8_t octave`**: Octave index (0–8).
+- **`float duration`**: Duration in seconds.
+- **`float volume`**: Volume level (0.0 to 1.0).
+
+#### MusicTrack (Struct)
+
+Represents a sequence of notes to be played as a track.
+
+- **`const MusicNote* notes`**: Pointer to an array of notes.
+- **`size_t count`**: Number of notes in the array.
+- **`bool loop`**: If true, the track loops when it reaches the end.
+- **`WaveType channelType`**: Which channel type to use (typically `PULSE`).
+- **`float duty`**: Duty cycle for Pulse tracks.
+
+#### InstrumentPreset (Struct)
+
+Simple preset describing a reusable “instrument”:
+
+- **`float baseVolume`**: Default volume for notes.
+- **`float duty`**: Duty cycle suggestion (for Pulse).
+- **`uint8_t defaultOctave`**: Default octave for the instrument.
+
+Predefined presets:
+
+- `INSTR_PULSE_LEAD` – main lead pulse in octave 4.
+- `INSTR_PULSE_BASS` – bass pulse in octave 3.
+- `INSTR_PULSE_CHIP_HIGH` – high-pitched chiptune pulse in octave 5.
+- `INSTR_TRIANGLE_PAD` – soft triangle pad in octave 4.
+
+Helper functions:
+
+- **`MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration)`**
+- **`MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration)`**
+- **`MusicNote makeRest(float duration)`**
+
+These helpers reduce boilerplate when defining melodies and keep instruments consistent.
+
+### MusicPlayer
+
+**Inherits:** None
+
+High-level sequencer for playing `MusicTrack` instances as background music.
+
+#### Public Methods
+
+- **`MusicPlayer(AudioEngine& engine)`**
+    Constructs a MusicPlayer bound to an existing `AudioEngine`.
+
+- **`void play(const MusicTrack& track)`**
+    Starts playing the given track from the beginning.
+
+- **`void stop()`**
+    Stops playback of the current track.
+
+- **`void pause()`**
+    Pauses playback (time does not advance).
+
+- **`void resume()`**
+    Resumes playback after pause.
+
+- **`void update(unsigned long deltaTime)`**
+    Advances the internal timer and moves to the next note when its duration
+    expires. Intended to be called once per frame from the main `Engine`.
+
+- **`bool isPlaying() const`**
+    Returns true if a track is currently playing and not finished.
+
+Typical usage from a scene:
+
+```cpp
+using namespace pixelroot32::audio;
+
+static const MusicNote MELODY[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.25f),
+    makeRest(0.10f),
+};
+
+static const MusicTrack GAME_MUSIC = {
+    MELODY,
+    sizeof(MELODY) / sizeof(MusicNote),
+    true,
+    WaveType::PULSE,
+    0.5f
+};
+
+void MyScene::init() {
+    engine.getMusicPlayer().play(GAME_MUSIC);
+}
+```
+
+### AudioConfig
+
+Configuration struct for the audio system.
+
+- **`AudioBackend* backend`**: Pointer to the platform-specific audio backend (e.g., SDL2, I2S).
+- **`int sampleRate`**: Audio sample rate in Hz (default: 22050).
 
 ---
 
@@ -553,13 +734,13 @@ A clickable button UI element. Supports both physical (keyboard/gamepad) and tou
 
 - **`UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2)`**
     Constructs a new UIButton.
-    - `t`: Button label text.
-    - `index`: Navigation index (for D-pad navigation).
-    - `x, y`: Position.
-    - `w, h`: Size.
-    - `callback`: Function to call when clicked/pressed.
-    - `textAlign`: Text alignment (LEFT, CENTER, RIGHT).
-    - `fontSize`: Text size multiplier.
+  - `t`: Button label text.
+  - `index`: Navigation index (for D-pad navigation).
+  - `x, y`: Position.
+  - `w, h`: Size.
+  - `callback`: Function to call when clicked/pressed.
+  - `textAlign`: Text alignment (LEFT, CENTER, RIGHT).
+  - `fontSize`: Text size multiplier.
 
 - **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
     Configures the button's visual style.
@@ -595,4 +776,3 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 - **`void centerX(int screenWidth)`**
     Centers the label horizontally on the screen.
-
