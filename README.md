@@ -55,6 +55,7 @@ Before contributing or extending the engine, please review the following documen
 - [STYLE_GUIDE.md](STYLE_GUIDE.md) — Official coding style, naming conventions, and file structure rules
 - [API_REFERENCE.md](API_REFERENCE.md) — Public engine API reference, following a Godot-inspired style
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Guidelines for contributing to the project
+- [AUDIO_NES_SUBSYSTEM_REFERENCE.md](AUDIO_NES_SUBSYSTEM_REFERENCE.md) — NES-like audio subsystem design, implementation and usage
 
 These documents define:
 

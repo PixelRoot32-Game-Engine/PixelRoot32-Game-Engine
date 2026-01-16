@@ -1,6 +1,7 @@
 #include "GeometryJumpScene.h"
 #include "core/Engine.h"
 #include "graphics/particles/ParticlePresets.h"
+#include "audio/AudioTypes.h"
 #include <cstdio>
 #include <cstring>
 
@@ -118,14 +119,20 @@ void GeometryJumpScene::update(unsigned long deltaTime) {
                     obstacleScored[i] = true;
                     score++;
 
-                    // Increase difficulty
+                    pr32::audio::AudioEvent coinEvent{};
+                    coinEvent.type = pr32::audio::WaveType::PULSE;
+                    coinEvent.frequency = 1500.0f;
+                    coinEvent.duration = 0.12f;
+                    coinEvent.volume = 0.8f;
+                    coinEvent.duty = 0.5f;
+                    engine.getAudioEngine().playEvent(coinEvent);
+
                     if (scrollSpeed < MAX_SCROLL_SPEED) {
                         scrollSpeed += SPEED_INCREMENT;
                     }
 
                     char scoreBuffer[16];
                     snprintf(scoreBuffer, sizeof(scoreBuffer), "%d", score);
-                    // 6px width * 2 scale = 12px per char
                     float textWidth = static_cast<float>(strlen(scoreBuffer) * 12);
                     scoreLabel->x = (engine.getRenderer().getWidth() - textWidth) * 0.5f;
                     scoreLabel->setText(scoreBuffer);
@@ -167,6 +174,13 @@ void GeometryJumpScene::update(unsigned long deltaTime) {
         for (int i = 0; i < MAX_OBSTACLES; ++i) {
             if (obstacles[i]->isEnabled) {
                 if (player->getHitBox().intersects(obstacles[i]->getHitBox())) {
+                    pr32::audio::AudioEvent hitEvent{};
+                    hitEvent.type = pr32::audio::WaveType::NOISE;
+                    hitEvent.frequency = 1200.0f;
+                    hitEvent.duration = 0.25f;
+                    hitEvent.volume = 0.9f;
+                    hitEvent.duty = 0.5f;
+                    engine.getAudioEngine().playEvent(hitEvent);
                     gameOver = true;
                     player->isEnabled = false;
                     float cx = player->x + player->width * 0.5f;

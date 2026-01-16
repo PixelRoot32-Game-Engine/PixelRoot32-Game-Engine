@@ -26,6 +26,9 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 #### Public Methods
 
+-   **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig)`**
+    Constructs the engine with custom display, input and audio configurations.
+
 -   **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
     Constructs the engine with custom display and input configurations.
 
@@ -52,6 +55,60 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`InputManager& getInputManager()`**
     Provides access to the InputManager subsystem.
+
+- **`AudioEngine& getAudioEngine()`**
+    Provides access to the AudioEngine subsystem.
+
+---
+
+## Audio Module
+
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels.
+
+### AudioEngine
+
+**Inherits:** None
+
+The core class managing audio generation and playback.
+
+#### Public Methods
+
+- **`AudioEngine(const AudioConfig& config)`**
+    Constructs the AudioEngine.
+
+- **`void init()`**
+    Initializes the audio backend.
+
+- **`void update(unsigned long deltaTime)`**
+    Updates audio logic (envelopes, sequencers).
+
+- **`void generateSamples(int16_t* stream, int length)`**
+    Fills the buffer with audio samples.
+
+- **`void playEvent(const AudioEvent& event)`**
+    Plays a one-shot audio event on the first available channel of the requested type.
+
+### Data Structures
+
+#### WaveType (Enum)
+- `PULSE`: Square wave with variable duty cycle.
+- `TRIANGLE`: Triangle wave (fixed volume/duty).
+- `NOISE`: Pseudo-random noise.
+
+#### AudioEvent (Struct)
+Structure defining a sound effect to be played.
+- **`WaveType type`**: Type of waveform to use.
+- **`float frequency`**: Frequency in Hz.
+- **`float duration`**: Duration in seconds.
+- **`float volume`**: Volume level (0.0 to 1.0).
+- **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
+
+### AudioConfig
+
+Configuration struct for the audio system.
+
+- **`AudioBackend* backend`**: Pointer to the platform-specific audio backend (e.g., SDL2, I2S).
+- **`int sampleRate`**: Audio sample rate in Hz (default: 22050).
 
 ---
 

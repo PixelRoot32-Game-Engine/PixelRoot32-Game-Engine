@@ -1,0 +1,64 @@
+#pragma once
+
+#include <cstdint>
+
+namespace pixelroot32::audio {
+
+    // --- Channel Types ---
+
+    enum class WaveType {
+        PULSE,
+        TRIANGLE,
+        NOISE
+    };
+
+    /**
+     * @struct AudioChannel
+     * @brief Represents the internal state of a single audio channel.
+     * 
+     * Designed to be static and memory-efficient.
+     */
+    struct AudioChannel {
+        bool enabled = false;
+        WaveType type;
+        
+        // Oscillator state
+        float frequency = 0.0f;
+        float phase = 0.0f;
+        float phaseIncrement = 0.0f; // Pre-calculated (freq / sampleRate)
+
+        // Envelope / Volume
+        float volume = 0.0f;       // Current volume [0.0 - 1.0]
+        float targetVolume = 0.0f; // For envelopes (not fully implemented in Phase 2)
+        
+        // Wave specific parameters
+        float dutyCycle = 0.5f;    // For Pulse wave [0.0 - 1.0]
+        uint16_t noiseRegister = 1; // LFSR for Noise
+
+        // Duration control
+        unsigned long durationMs = 0;
+        unsigned long remainingMs = 0;
+
+        void reset() {
+            enabled = false;
+            phase = 0.0f;
+            volume = 0.0f;
+            remainingMs = 0;
+        }
+    };
+
+    // --- Event Types ---
+
+    /**
+     * @struct AudioEvent
+     * @brief A fire-and-forget sound event triggered by the game.
+     */
+    struct AudioEvent {
+        WaveType type;
+        float frequency;
+        float duration; // seconds
+        float volume;   // 0.0 - 1.0
+        float duty;     // For pulse only
+    };
+
+}
