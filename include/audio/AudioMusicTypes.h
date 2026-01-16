@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include "AudioTypes.h"
 
 namespace pixelroot32 {
@@ -97,10 +98,10 @@ struct InstrumentPreset {
     uint8_t defaultOctave;
 };
 
-inline constexpr InstrumentPreset INSTR_PULSE_LEAD{0.35f, 0.5f, 4};
-inline constexpr InstrumentPreset INSTR_PULSE_BASS{0.30f, 0.25f, 3};
-inline constexpr InstrumentPreset INSTR_PULSE_CHIP_HIGH{0.32f, 0.125f, 5};
-inline constexpr InstrumentPreset INSTR_TRIANGLE_PAD{0.28f, 0.5f, 4};
+constexpr InstrumentPreset INSTR_PULSE_LEAD{0.35f, 0.5f, 4};
+constexpr InstrumentPreset INSTR_PULSE_BASS{0.30f, 0.25f, 3};
+constexpr InstrumentPreset INSTR_PULSE_CHIP_HIGH{0.32f, 0.125f, 5};
+constexpr InstrumentPreset INSTR_TRIANGLE_PAD{0.28f, 0.5f, 4};
 
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration) {
     return MusicNote{note, preset.defaultOctave, duration, preset.baseVolume};
