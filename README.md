@@ -49,17 +49,17 @@ The engine provides a built-in palette of 32 colors via the
 
 ## 📁 Project Structure
 
-Estructura principal de la librería `PixelRoot32-Game-Engine`:
+Main structure of the `PixelRoot32-Game-Engine` library:
 
 ```txt
 PixelRoot32-Game-Engine/
-├── assets/                 # Iconos y logos
-├── examples/               # Juegos de ejemplo
+├── assets/                 # Icons and logos
+├── examples/               # Example games
 │   ├── Pong/
 │   ├── GeometryJump/
 │   ├── BrickBreaker/
 │   └── TicTacToe/
-├── include/                # Headers públicos del engine
+├── include/                # Public engine headers
 │   ├── audio/
 │   ├── core/
 │   ├── drivers/
@@ -71,7 +71,7 @@ PixelRoot32-Game-Engine/
 │   ├── input/
 │   ├── math/
 │   └── physics/
-├── src/                    # Implementaciones del engine
+├── src/                    # Engine implementations
 │   ├── audio/
 │   ├── core/
 │   ├── drivers/
@@ -91,23 +91,23 @@ PixelRoot32-Game-Engine/
 
 ## 📦 Getting Started
 
-### Usar este repositorio de ejemplo
+### Using this example repository
 
-1.  Clona este repositorio.
-2.  Ábrelo en **PlatformIO** (VS Code).
-3.  Selecciona el entorno (`esp32` o `native`).
-4.  Compila y ejecuta el ejemplo **GeometryJump** para ver el engine en acción.
+1.  Clone this repository.
+2.  Open it in **PlatformIO** (VS Code).
+3.  Select the environment (`esp32` or `native`).
+4.  Build and run the **GeometryJump** example to see the engine in action.
 
-### Crear tu propio proyecto con PixelRoot32 como librería
+### Create your own project using PixelRoot32 as a library
 
-1.  Crea un nuevo proyecto en PlatformIO para tu ESP32.
-2.  Copia la carpeta `PixelRoot32-Game-Engine` dentro de la carpeta `lib/` de tu proyecto  
-    (o añádela como submódulo Git en `lib/PixelRoot32-Game-Engine`).
-3.  Crea una carpeta `src/drivers` en tu proyecto y añade allí tus implementaciones
-    de `DrawSurface`, por ejemplo:
-    - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` para pantallas TFT_eSPI.
-    - `src/drivers/native/SDL2_Drawer.cpp` para el modo PC nativo.
-4.  En tu `src/main.cpp`, incluye el engine y configura los drivers, similar a:
+1.  Create a new PlatformIO project for your ESP32.
+2.  Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
+    (or add it as a Git submodule in `lib/PixelRoot32-Game-Engine`).
+3.  Create a `src/drivers` folder in your project and add your `DrawSurface`
+    implementations there, for example:
+    - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
+    - `src/drivers/native/SDL2_Drawer.cpp` for the native PC mode.
+4.  In your `src/main.cpp`, include the engine and configure the drivers, similar to:
 
 ```cpp
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
@@ -133,9 +133,9 @@ void loop() {
 }
 ```
 
-5.  Crea tus propias escenas heredando de `pixelroot32::core::Scene` y actores
-    heredando de `pixelroot32::core::Actor` o `PhysicsActor`, y asígnalos con
-    `engine.setScene(...)` en `setup()`.
+5.  Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+    actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
+    assign them with `engine.setScene(...)` in `setup()`.
 
 ---
 *Built with ❤️ for the retro-dev community.*
