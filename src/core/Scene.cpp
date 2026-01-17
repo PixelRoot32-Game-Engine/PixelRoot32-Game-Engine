@@ -37,16 +37,15 @@ namespace pixelroot32::core {
     }
 
     void Scene::removeEntity(Entity* entity) {
-        ArduinoQueue<Entity*> tempQueue; 
-        while (!entities.isEmpty()) {
+        int count = entities.itemCount();
+        for (int i = 0; i < count; i++) {
             Entity* e = entities.dequeue();
-            if (e != entity) {
-                tempQueue.enqueue(e);  // Keep all except the one to remove
-            } else {
-                collisionSystem.removeEntity(e); // sync with collision system
+            if (e == entity) {
+                collisionSystem.removeEntity(e);
+                continue;
             }
+            entities.enqueue(e);
         }
-        entities = tempQueue;
     }
 
     void Scene::clearEntities() {
@@ -54,7 +53,5 @@ namespace pixelroot32::core {
             Entity* e = entities.dequeue();
             collisionSystem.removeEntity(e); // sync with collision system
         }
-
-        entities = ArduinoQueue<Entity*>(); // Reset the queue
     }   
 }

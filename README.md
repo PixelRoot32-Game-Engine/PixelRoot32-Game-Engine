@@ -18,6 +18,8 @@ Special thanks to **nbourre** for open-sourcing the original engine and inspirin
 - **Cross-Platform**: Develop on PC (Windows/Linux via SDL2) and deploy to ESP32 (ST7735/ILI9341 via SPI/DMA).
 - **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
 - **Color Palette**: Fixed indexed palette (32 colors) using RGB565 for fast rendering.
+- **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers.
+- **Sprite Animation**: Lightweight, step-based sprite animation that works with both simple sprites and layered `MultiSprite`, without coupling animation logic to rendering.
 - **Physics & Collision**: AABB collision detection, gravity, and basic kinematics.
 - **Particle System**: High-performance, memory-pooled particle effects.
 - **UI System**: Lightweight UI controls (Label, Button).
@@ -35,7 +37,7 @@ Detailed documentation for engine subsystems and coding standards:
 - **[Audio Subsystem](AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Architecture of the NES-like sound engine.
 - **[Style Guide](STYLE_GUIDE.md)**: Coding conventions and best practices.
 
-### Color Palette
+### Color Palette & Sprites
 
 PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 
@@ -46,6 +48,13 @@ PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 
 The engine provides a built-in palette of 32 colors via the
 `pixelroot32::graphics::Color` enum.
+
+Sprites are defined as compact 1bpp bitmaps:
+
+- One `uint16_t` per row, each bit representing a pixel (`0` = transparent, `1` = on).
+- Bit 0 is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
+- `Renderer::drawSprite` draws a single-color sprite using any palette `Color`.
+- `Renderer::drawMultiSprite` composes multiple 1bpp layers (each with its own color) to build multi-color, NES/GameBoy-style sprites without changing the underlying format.
 
 ## 📁 Project Structure
 

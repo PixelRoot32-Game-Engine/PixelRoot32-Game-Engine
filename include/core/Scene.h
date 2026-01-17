@@ -8,7 +8,7 @@
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
 
-#define MAX_ENTITIES 10  // Adjustable max entities per scene
+#define MAX_ENTITIES 32  // Adjustable max entities per scene
 
 namespace pixelroot32::core {
 

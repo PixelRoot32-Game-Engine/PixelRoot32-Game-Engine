@@ -159,4 +159,14 @@ These guidelines are derived from practical implementation in `examples/Geometry
 
 ---
 
+### 🎨 Sprite & Graphics Guidelines
+
+- **1bpp Sprites**: Define sprite bitmaps as `static const uint16_t` arrays, one row per element. Use bit `0` as the leftmost pixel and bit (`width - 1`) as the rightmost pixel.
+- **Sprite Descriptors**: Wrap raw bitmaps in `pixelroot32::graphics::Sprite` or `MultiSprite` descriptors and pass them to `Renderer::drawSprite` / `Renderer::drawMultiSprite`.
+- **No Bit Logic in Actors**: Actors should never iterate bits or draw individual pixels. They only select the appropriate sprite (or layered sprite) and call the renderer.
+- **Layered Sprites**: For multi-color sprites, compose multiple 1bpp `SpriteLayer` entries instead of introducing new bitmap formats. Keep layer data `static const` to allow storage in flash.
+- **Integer-Only Rendering**: Sprite rendering must remain integer-only and avoid dynamic allocations to stay friendly to ESP32 constraints.
+
+---
+
 PixelRoot32 Game Engine aims to remain simple, explicit, and predictable, prioritizing clarity over abstraction and control over convenience.
