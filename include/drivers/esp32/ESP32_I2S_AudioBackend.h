@@ -10,24 +10,24 @@
 namespace pixelroot32::drivers::esp32 {
 
     /**
-     * @class ESP32_AudioBackend
+     * @class ESP32_I2S_AudioBackend
      * @brief Audio backend implementation for ESP32 using I2S.
      * 
      * Uses a FreeRTOS task to continuously feed the I2S DMA buffer
      * to ensure smooth playback independent of the game loop frame rate.
      */
-    class ESP32_AudioBackend : public pixelroot32::audio::AudioBackend {
+    class ESP32_I2S_AudioBackend : public pixelroot32::audio::AudioBackend {
     public:
         /**
-         * @brief Construct a new ESP32_AudioBackend
+         * @brief Construct a new ESP32_I2S_AudioBackend
          * 
          * @param bclkPin Bit Clock pin (BCLK)
          * @param wclkPin Word Clock / LR Clock pin (LRCK/WS)
          * @param doutPin Data Out pin (DIN/DOUT)
          * @param sampleRate Audio sample rate (default 22050)
          */
-        ESP32_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate = 22050);
-        virtual ~ESP32_AudioBackend();
+        ESP32_I2S_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate = 22050);
+        virtual ~ESP32_I2S_AudioBackend();
 
         void init(pixelroot32::audio::AudioEngine* engine) override;
         int getSampleRate() const override { return sampleRate; }

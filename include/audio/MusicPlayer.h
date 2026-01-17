@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstddef>
 #include "AudioEngine.h"
 #include "AudioMusicTypes.h"
+#include <cstddef> // Required for size_t
 
 namespace pixelroot32::audio {
 

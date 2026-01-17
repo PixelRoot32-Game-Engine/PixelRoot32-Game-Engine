@@ -79,8 +79,7 @@ namespace pixelroot32::audio {
             ch.phase -= 1.0f;
         }
 
-        // Apply volume (approx 5000 amplitude to stay well within int16)
-        return (int16_t)(sample * ch.volume * 4000.0f); 
+        return (int16_t)(sample * ch.volume * masterVolume * 12000.0f); 
     }
 
     void AudioEngine::generateSamples(int16_t* stream, int length) {
@@ -120,6 +119,16 @@ namespace pixelroot32::audio {
                 ch->dutyCycle = event.duty;
             }
         }
+    }
+
+    void AudioEngine::setMasterVolume(float volume) {
+        if (volume < 0.0f) volume = 0.0f;
+        if (volume > 1.0f) volume = 1.0f;
+        masterVolume = volume;
+    }
+
+    float AudioEngine::getMasterVolume() const {
+        return masterVolume;
     }
 
     AudioChannel* AudioEngine::findFreeChannel(WaveType type) {

@@ -1,7 +1,7 @@
-# PixelRoot32 / EDGE: NES-like Audio System – Implementation and Usage
+# PixelRoot32 / PR32: NES-like Audio System – Implementation and Usage
 
 This document describes how the NES-style audio subsystem is implemented in the
-PixelRoot32 (EDGE) engine and how to use it from your games. It covers both the
+PixelRoot32 (PR32) engine and how to use it from your games. It covers both the
 high-level architecture and the concrete implementation details.
 
 - The system focuses on:
@@ -9,7 +9,7 @@ high-level architecture and the concrete implementation details.
   - Respecting the existing engine architecture (`core`, `drivers`, `examples`) and the style guide.
   - Providing a **platform-agnostic** audio API:
     - Consistent with `Engine`, `Renderer`, and `InputManager`.
-    - With one implementation for ESP32 (I2S) and another for SDL2 on desktop.
+    - With implementations for ESP32 (I2S and DAC) and SDL2 (desktop).
   - Avoiding unnecessary complexity:
     - No exact emulation of the NES APU.
     - No heavy external audio libraries.
@@ -27,14 +27,15 @@ high-level architecture and the concrete implementation details.
 - **Event-driven** model: games fire short-lived `AudioEvent` instances (SFX, notes).
 - Fully **platform-agnostic** core:
   - Wave, mixing, and timing logic lives in `AudioEngine`.
-  - Backends (SDL2, ESP32 I2S) only request PCM blocks.
+  - Backends (SDL2, ESP32 I2S/DAC) only request PCM blocks.
 
 Main files:
 
-- Core: [`audio/AudioEngine.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioEngine.h)
-- Audio types: [`audio/AudioTypes.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioTypes.h)
-- SDL2 backend: [`SDL2_AudioBackend`](../lib/PixelRoot32-Game-Engine/include/drivers/native/SDL2_AudioBackend.h)
-- ESP32 I2S backend: [`ESP32_AudioBackend`](../lib/PixelRoot32-Game-Engine/include/drivers/esp32/ESP32_AudioBackend.h)
+- Core: [`audio/AudioEngine.h`](include/audio/AudioEngine.h)
+- Audio types: [`audio/AudioTypes.h`](include/audio/AudioTypes.h)
+- SDL2 backend: [`SDL2_AudioBackend`](include/drivers/native/SDL2_AudioBackend.h)
+- ESP32 I2S backend: [`ESP32_I2S_AudioBackend`](include/drivers/esp32/ESP32_I2S_AudioBackend.h)
+- ESP32 DAC backend: [`ESP32_DAC_AudioBackend`](include/drivers/esp32/ESP32_DAC_AudioBackend.h)
 
 ---
 
@@ -42,7 +43,7 @@ Main files:
 
 ### 2.1 Basic types
 
-Defined in [`AudioTypes.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioTypes.h):
+Defined in [`AudioTypes.h`](include/audio/AudioTypes.h):
 
 ```cpp
 enum class WaveType {
@@ -114,8 +115,8 @@ struct AudioEvent {
 
 ## 3. AudioEngine: mixing core
 
-Defined in [`AudioEngine.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioEngine.h) and
-[`AudioEngine.cpp`](../lib/PixelRoot32-Game-Engine/src/audio/AudioEngine.cpp).
+Defined in [`AudioEngine.h`](include/audio/AudioEngine.h) and
+[`AudioEngine.cpp`](src/audio/AudioEngine.cpp).
 
 ### 3.1 Channel initialization
 
@@ -173,13 +174,16 @@ if (ch.phase >= 1.0f) {
 }
 ```
 
-- Volume is applied and the result is scaled to `int16_t`:
+- Volume and the global master volume are applied and the result is scaled to `int16_t`:
 
 ```cpp
-return (int16_t)(sample * ch.volume * 4000.0f);
+return (int16_t)(sample * ch.volume * masterVolume * 12000.0f);
 ```
 
-The `4000.0f` factor keeps enough headroom so that the sum of several channels does not clip.
+- `ch.volume` is the per-event/channel volume in the range `[0.0f, 1.0f]`.
+- `masterVolume` is a global scalar configured via `setMasterVolume` (also `[0.0f, 1.0f]`).
+- The `12000.0f` factor gives a strong output on low-amplitude backends like the ESP32 DAC,
+  while the mixer still applies hard clipping after summing all channels.
 
 ### 3.4 Mixing all channels
 
@@ -229,8 +233,8 @@ public:
 
 Implemented in:
 
-- Header: [`include/drivers/native/SDL2_AudioBackend.h`](../lib/PixelRoot32-Game-Engine/include/drivers/native/SDL2_AudioBackend.h)
-- Source: [`src/drivers/native/SDL2_AudioBackend.cpp`](../lib/PixelRoot32-Game-Engine/src/drivers/native/SDL2_AudioBackend.cpp)
+- Header: [`include/drivers/native/SDL2_AudioBackend.h`](include/drivers/native/SDL2_AudioBackend.h)
+- Source: [`src/drivers/native/SDL2_AudioBackend.cpp`](src/drivers/native/SDL2_AudioBackend.cpp)
 
 Key points:
 
@@ -243,28 +247,62 @@ Key points:
 
 This completely decouples **audio timing** from the SDL2 game loop.
 
-### 4.2 ESP32 I2S backend
+### 4.2 ESP32 Backends
 
-Implemented in:
+The engine provides two distinct backends for ESP32, allowing developers to choose between high-quality I2S (external DAC) or retro-style internal DAC.
 
-- Header: [`include/drivers/esp32/ESP32_AudioBackend.h`](../lib/PixelRoot32-Game-Engine/include/drivers/esp32/ESP32_AudioBackend.h)
-- Source: [`src/drivers/esp32/ESP32_AudioBackend.cpp`](../lib/PixelRoot32-Game-Engine/src/drivers/esp32/ESP32_AudioBackend.cpp)
+#### A) ESP32 I2S Backend (External DAC)
 
-Key points:
+- **Class**: `ESP32_I2S_AudioBackend`
+- **Header**: [`include/drivers/esp32/ESP32_I2S_AudioBackend.h`](include/drivers/esp32/ESP32_I2S_AudioBackend.h)
+- **Use case**: High-quality audio using external DACs like **MAX98357A** or **PCM5102**.
+- **Key points**:
+  - Uses ESP32 **I2S** peripheral with DMA (`I2S_NUM_0`).
+  - Output is digital I2S (BCLK, LRCK, DOUT).
+  - Runs in a dedicated FreeRTOS task to ensure smooth playback.
+  - Supports standard sample rates (e.g., 22050Hz, 44100Hz).
 
-- Uses the ESP32 **I2S** peripheral with DMA:
-  - Configures `I2S_NUM_0` in `MASTER | TX` mode.
-  - `sample_rate` is configurable (22050 Hz in the examples).
-  - 16 bits per sample (`I2S_BITS_PER_SAMPLE_16BIT`), mono (`I2S_CHANNEL_FMT_ONLY_RIGHT`).
-- Configures I2S pins:
-  - `bck_io_num` (BCLK).
-  - `ws_io_num` (LRCK/WS).
-  - `data_out_num` (DOUT).
-- Creates a FreeRTOS task (`AudioTask`), usually pinned to **Core 0**.
-- In `audioTaskLoop`:
-  - Declares a small local sample buffer.
-  - Calls `engineInstance->generateSamples(...)`.
-  - Sends the block to I2S via `i2s_write` (blocking if DMA is full).
+#### B) ESP32 DAC Backend (Internal DAC)
+
+- **Class**: `ESP32_DAC_AudioBackend`
+- **Header**: [`include/drivers/esp32/ESP32_DAC_AudioBackend.h`](include/drivers/esp32/ESP32_DAC_AudioBackend.h)
+- **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
+  driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
+- **Key points**:
+-  - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
+-  - **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
+-  - Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
+-  - Works well with small on-board speakers and low-cost mono amps.
+
+### 4.3 Backend Configuration (in `main.cpp`)
+
+To select a backend, simply instantiate the desired class and pass it to the `AudioConfig` struct.
+
+**Example for Internal DAC (PAM8302A):**
+```cpp
+// 1. Instantiate the backend (GPIO 25, 11025Hz for retro feel)
+pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(25, 11025);
+
+// 2. Configure the engine
+pr32::audio::AudioConfig audioConfig;
+audioConfig.backend = &audioBackend;
+
+// 3. Initialize engine
+pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+```
+
+**Example for I2S (MAX98357A):**
+```cpp
+// 1. Instantiate the backend (BCLK=26, LRCK=25, DOUT=22)
+pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
+
+// 2. Configure the engine
+pr32::audio::AudioConfig audioConfig;
+audioConfig.backend = &audioBackend;
+
+// 3. Initialize engine
+pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+```
 
 Advantages:
 
@@ -281,8 +319,8 @@ The central `Engine` is responsible for:
 - Providing an `AudioConfig` with the appropriate backend.
 - Calling `audioEngine.update(deltaTime)` every frame.
 
-See [`core/Engine.h`](../lib/PixelRoot32-Game-Engine/include/core/Engine.h) and
-[`core/Engine.cpp`](../lib/PixelRoot32-Game-Engine/src/core/Engine.cpp).
+See [`core/Engine.h`](include/core/Engine.h) and
+[`core/Engine.cpp`](src/core/Engine.cpp).
 
 Simplified flow:
 
@@ -317,7 +355,7 @@ auto& audio = engine.getAudioEngine();
 ### 6.2 Triggering a simple sound
 
 Example of a “coin” sound when the player passes an obstacle in GeometryJump
-([`GeometryJumpScene.cpp`](../lib/PixelRoot32-Game-Engine/examples/GeometryJump/GeometryJumpScene.cpp)):
+([`GeometryJumpScene.cpp`](examples/GeometryJump/GeometryJumpScene.cpp)):
 
 ```cpp
 pr32::audio::AudioEvent coinEvent{};
@@ -334,6 +372,21 @@ Recommended patterns:
 - Use `PULSE` for “blip”, “coin”, jumps, and UI sounds.
 - Use `TRIANGLE` for bass lines or softer tones.
 - Use `NOISE` for hits, explosions, and collisions.
+
+### 6.2.1 Global master volume
+
+Games can control a global volume multiplier without changing individual events:
+
+```cpp
+auto& audio = engine.getAudioEngine();
+
+audio.setMasterVolume(0.5f); // 50% of full volume
+// ...
+float current = audio.getMasterVolume(); // Query current setting
+```
+
+- `setMasterVolume` clamps the value to `[0.0f, 1.0f]`.
+- It scales all channels uniformly on top of each event’s own `volume`.
 
 ### 6.3 Designing NES-like effects
 
@@ -357,7 +410,7 @@ to use from games.
 
 ### 7.1 Data model (`AudioMusicTypes.h`)
 
-Defined in [`AudioMusicTypes.h`](../lib/PixelRoot32-Game-Engine/include/audio/AudioMusicTypes.h):
+Defined in [`AudioMusicTypes.h`](include/audio/AudioMusicTypes.h):
 
 ```cpp
 enum class Note : uint8_t {
@@ -422,8 +475,8 @@ octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
 
-Defined in [`MusicPlayer.h`](../lib/PixelRoot32-Game-Engine/include/audio/MusicPlayer.h) and
-[`MusicPlayer.cpp`](../lib/PixelRoot32-Game-Engine/src/audio/MusicPlayer.cpp).
+Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
+[`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).
 
 Responsibilities:
 
@@ -460,7 +513,7 @@ loop, reusing the same timing model as the rest of the engine.
 
 GeometryJump defines a simple looping melody using the helpers in
 `AudioMusicTypes.h`
-(see [`GeometryJumpScene.cpp`](../lib/PixelRoot32-Game-Engine/examples/GeometryJump/GeometryJumpScene.cpp)):
+(see [`GeometryJumpScene.cpp`](examples/GeometryJump/GeometryJumpScene.cpp)):
 
 ```cpp
 using namespace pixelroot32::audio;

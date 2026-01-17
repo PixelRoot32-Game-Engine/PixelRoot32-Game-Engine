@@ -111,13 +111,13 @@ PixelRoot32-Game-Engine/
 
 ```cpp
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
-#include <drivers/esp32/ESP32_AudioBackend.h>
+#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
 #include <core/Engine.h>
 
 namespace pr32 = pixelroot32;
 
 pr32::drivers::esp32::TFT_eSPI_Drawer drawer;
-pr32::drivers::esp32::ESP32_AudioBackend audioBackend(26, 25, 22, 22050);
+pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
 pr32::graphics::DisplayConfig displayConfig(&drawer, 0, 240, 240);
 pr32::input::InputConfig inputConfig(5, 13, 12, 14, 32, 33);
 pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
