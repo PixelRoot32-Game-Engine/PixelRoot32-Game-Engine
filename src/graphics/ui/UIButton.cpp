@@ -46,14 +46,12 @@ namespace pixelroot32::graphics::ui {
     void UIButton::handleInput(const InputManager& input) {
         if (!isEnabled || !isVisible) return;
 
-        // 1. Accionamiento por Botón Físico (A / Enter)
-        // Solo si el botón tiene el foco (isSelected)
+        // 1. Physical button activation (e.g., A / Enter) when the button is focused
         if (isSelected && input.isButtonPressed(index)) {
             this->press();
         }
 
-        // 2. Accionamiento por Pantalla Táctil o Mouse
-        // Si hay un evento de click/touch en las coordenadas del botón
+        // 2. Touch / mouse activation (if implemented in the input system)
         // if (input.isButtonClicked()) { 
         //     if (isPointInside(input.getMouseX(), input.getMouseY())) {
         //         this->press();
@@ -64,33 +62,38 @@ namespace pixelroot32::graphics::ui {
     void UIButton::update(unsigned long deltaTime) {
         (void)deltaTime;
 
-        // Aquí podrías añadir un efecto de "latido" o parpadeo si isSelected es true
+        // Optional: add visual feedback (e.g., pulsing) when isSelected is true
     }
 
     void UIButton::draw(Renderer& renderer) {
         if (!isVisible) return;
 
-        // 1. Dibujar el fondo y borde solo si tiene activado hasBackground
+        int intHeight = static_cast<int>(height);
+        int intY = static_cast<int>(y);
+        int textPixelHeight = fontSize * 8;
+        if (textPixelHeight > intHeight) textPixelHeight = intHeight;
+        int textY = intY + (intHeight - textPixelHeight) / 2;
+
+        // 1. Draw background only when hasBackground is enabled
         if (hasBackground) {
-            // Dibujamos fondo relleno
+            // Filled background rectangle
             renderer.drawFilledRectangle(x, y, width, height, backgroundColor);
         } else {
-            // Si no tiene fondo, podemos indicar la selección con un pequeño marcador
-            // o cambiando el color del texto
+            // Without background, indicate selection with a small marker
             if (isSelected) {
-                renderer.drawText(">", x - 10, y + (height / 4), Color::Yellow, fontSize);
+                renderer.drawText(">", x - 10, textY, Color::Yellow, fontSize);
             }
         }
 
-        // 2. Dibujar el texto
+        // 2. Draw label text
         Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
 
         if (textAlign == TextAlignment::CENTER) {
-            renderer.drawTextCentered(label.c_str(), y + (height / 4), currentTextCol, fontSize);
+            renderer.drawTextCentered(label.c_str(), textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {
-            renderer.drawText(label.c_str(), x + width - 5, y + (height / 4), currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), x + width - 5, textY, currentTextCol, fontSize);
         } else {
-            renderer.drawText(label.c_str(), x + 5, y + (height / 4), currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), x + 5, textY, currentTextCol, fontSize);
         }
     }
 }
