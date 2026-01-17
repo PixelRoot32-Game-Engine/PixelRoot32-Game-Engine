@@ -391,6 +391,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void drawPixel(int x, int y, uint16_t color)`**
     Draws a single pixel.
 
+- **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
+    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
+
+- **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
+    Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
+
 - **`void setDisplaySize(int w, int h)`**
     Sets the logical display size.
 
@@ -427,6 +433,121 @@ Enumeration of the 32 built-in colors available in the engine's palette.
 
 - **`uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation.
+
+---
+
+### Sprite
+
+**Inherits:** None
+
+Compact descriptor for monochrome bitmapped sprites used by `Renderer::drawSprite`.
+
+#### Properties
+
+- **`const uint16_t* data`**  
+  Pointer to an array of 16-bit rows. Each `uint16_t` packs pixels for one row.
+
+- **`uint8_t width`**  
+  Sprite width in pixels (typically ≤ 16).
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+#### Bit Convention
+
+- Each bit represents one pixel: `0` = transparent, `1` = pixel on.  
+- Bit 0 is the leftmost pixel in the row.  
+- Bit (`width - 1`) is the rightmost pixel in the row.
+
+---
+
+### SpriteLayer
+
+**Inherits:** None
+
+Single monochrome layer used by layered sprites (`MultiSprite`).
+
+#### Properties
+
+- **`const uint16_t* data`**  
+  Packed 1bpp bitmap data for this layer, using the same layout as `Sprite::data`.
+
+- **`Color color`**  
+  Palette color used for active pixels in this layer.
+
+---
+
+### MultiSprite
+
+**Inherits:** None
+
+Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. All layers share the same width and height and are drawn in array order.
+
+#### Properties
+
+- **`uint8_t width`**  
+  Sprite width in pixels.
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+- **`const SpriteLayer* layers`**  
+  Pointer to the first element of a `SpriteLayer` array.
+
+- **`uint8_t layerCount`**  
+  Number of layers in the array.
+
+#### Example Usage (Actor + Renderer)
+
+```cpp
+using namespace pixelroot32::graphics;
+
+// Raw 1bpp data (one row per uint16_t, bit 0 = leftmost pixel)
+static const uint16_t BODY_BITS[] = {
+    0x0018,
+    0x003C,
+    0x007E,
+    0x00FF,
+    0x007E,
+    0x003C,
+    0x0018,
+    0x0000
+};
+
+static const uint16_t EYES_BITS[] = {
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0240,
+    0x0000,
+    0x0000
+};
+
+static const SpriteLayer ENEMY_LAYERS[] = {
+    { BODY_BITS, Color::Orange },
+    { EYES_BITS, Color::White }
+};
+
+static const MultiSprite ENEMY_MULTI = {
+    11,            // width
+    8,             // height
+    ENEMY_LAYERS,  // layers
+    2              // layerCount
+};
+
+// Inside an Actor::draw(Renderer& renderer) implementation:
+void EnemyActor::draw(Renderer& renderer) {
+    if (!isAlive) {
+        return;
+    }
+
+    renderer.drawMultiSprite(ENEMY_MULTI,
+                             static_cast<int>(x),
+                             static_cast<int>(y));
+}
+```
 
 ---
 

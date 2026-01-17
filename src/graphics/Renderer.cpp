@@ -83,6 +83,71 @@ namespace pixelroot32::graphics {
     void Renderer::drawPixel(int x, int y, Color color) {
         getDrawSurface().drawPixel(x, y, resolveColor(color));
     }
+
+    void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
+        // Early-out if sprite is invalid.
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+        const uint16_t resolvedColor = resolveColor(color);
+
+        // Iterate over rows (Y axis).
+        for (int row = 0; row < sprite.height; ++row) {
+            const int dstY = y + row;
+            if (dstY < 0 || dstY >= screenH) {
+                continue;
+            }
+
+            const uint16_t bits = sprite.data[row];
+
+            // Iterate over columns (X axis).
+            for (int col = 0; col < sprite.width; ++col) {
+                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << col)) != 0;
+                if (!bitSet) {
+                    continue;
+                }
+
+                int logicalX = flipX
+                    ? x + (sprite.width - 1 - col)
+                    : x + col;
+
+                if (logicalX < 0 || logicalX >= screenW) {
+                    continue;
+                }
+
+                const int dstX = xOffset + logicalX;
+                const int finalY = yOffset + dstY;
+
+                getDrawSurface().drawPixel(dstX, finalY, resolvedColor);
+            }
+        }
+    }
+
+    void Renderer::drawMultiSprite(const MultiSprite& sprite, int x, int y) {
+        // Early-out if descriptor is invalid.
+        if (sprite.layers == nullptr || sprite.layerCount == 0 ||
+            sprite.width == 0 || sprite.height == 0) {
+            return;
+        }
+
+        Sprite singleLayer;
+        singleLayer.width  = sprite.width;
+        singleLayer.height = sprite.height;
+
+        // Iterate over layers and reuse drawSprite() for each one.
+        for (uint8_t i = 0; i < sprite.layerCount; ++i) {
+            const SpriteLayer& layer = sprite.layers[i];
+            if (layer.data == nullptr) {
+                continue;
+            }
+
+            singleLayer.data = layer.data;
+            drawSprite(singleLayer, x, y, layer.color, false);
+        }
+    }
 }
 
 

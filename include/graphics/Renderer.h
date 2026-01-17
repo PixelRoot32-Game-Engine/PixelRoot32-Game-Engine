@@ -10,6 +10,55 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @brief Compact sprite descriptor for monochrome bitmapped sprites.
+ *
+ * Sprites are stored as an array of 16-bit rows. Each row packs horizontal
+ * pixels into bits, using the following convention:
+ *
+ * - Bit 0 represents the leftmost pixel of the row.
+ * - Bit (width - 1) represents the rightmost pixel of the row.
+ *
+ * Only the lowest (width) bits of each row are used. A bit value of 1 means
+ * "pixel on", 0 means "pixel off".
+ *
+ * This format is optimized for small microcontroller displays (NES/GameBoy
+ * style assets) and keeps data in flash-friendly, constexpr-friendly form.
+ */
+struct Sprite {
+    const uint16_t* data;   ///< Pointer to packed row data (size = height).
+    uint8_t         width;  ///< Sprite width in pixels (<= 16).
+    uint8_t         height; ///< Sprite height in pixels.
+};
+
+/**
+ * @brief Single monochrome layer used by layered sprites.
+ *
+ * Each layer uses the same width/height as its owning MultiSprite but can
+ * provide its own bitmap and color.
+ */
+struct SpriteLayer {
+    const uint16_t* data; ///< Pointer to packed row data for this layer.
+    Color           color;///< Color used for "on" pixels in this layer.
+};
+
+/**
+ * @brief Multi-layer, multi-color sprite built from 1bpp layers.
+ *
+ * A MultiSprite combines several SpriteLayer entries that share the same
+ * width and height. Layers are drawn in array order, allowing more complex
+ * visuals (highlights, outlines) while keeping each layer 1bpp.
+ *
+ * This design keeps compatibility with the existing Sprite format while
+ * enabling NES/GameBoy-style layered sprites.
+ */
+struct MultiSprite {
+    uint8_t              width;      ///< Sprite width in pixels (<= 16).
+    uint8_t              height;     ///< Sprite height in pixels.
+    const SpriteLayer*   layers;     ///< Pointer to array of layers.
+    uint8_t              layerCount; ///< Number of layers in the array.
+};
+
+/**
  * @class Renderer
  * @brief High-level graphics rendering system.
  *
@@ -185,6 +234,34 @@ public:
 
     int getXOffset() const { return xOffset; }
     int getYOffset() const { return yOffset; }
+
+    /**
+     * @brief Draws a 1bpp monochrome sprite using the Sprite descriptor.
+     *
+     * Sprite data is interpreted bit-by-bit using the Sprite convention:
+     * bit 0 = leftmost pixel, bit (width - 1) = rightmost pixel.
+     *
+     * This API intentionally hides all bit-level details from game code.
+     *
+     * @param sprite Sprite descriptor (data, width, height).
+     * @param x      Top-left X coordinate in logical screen space.
+     * @param y      Top-left Y coordinate in logical screen space.
+     * @param color  Color used for "on" pixels.
+     * @param flipX  If true, sprite is mirrored horizontally.
+     */
+    void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false);
+
+    /**
+     * @brief Draws a multi-layer sprite composed of several 1bpp layers.
+     *
+     * Each layer is rendered in array order using the existing drawSprite()
+     * implementation, avoiding duplicated bit iteration logic.
+     *
+     * @param sprite Multi-layer sprite descriptor.
+     * @param x      Top-left X coordinate in logical screen space.
+     * @param y      Top-left Y coordinate in logical screen space.
+     */
+    void drawMultiSprite(const MultiSprite& sprite, int x, int y);
 
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.
