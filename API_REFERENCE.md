@@ -2,6 +2,18 @@
 
 This document provides a complete reference for the PixelRoot32 Game Engine public API.
 
+## Global Configuration
+
+The `Config.h` file contains global configuration constants for the engine.
+
+### Constants
+
+- **`DISPLAY_WIDTH`**
+    The width of the display in pixels. Default is `240`.
+
+- **`DISPLAY_HEIGHT`**
+    The height of the display in pixels. Default is `240`.
+
 ## Core Module
 
 The Core module provides the fundamental building blocks of the engine, including the main application loop, entity management, and scene organization.
@@ -14,10 +26,13 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 #### Public Methods
 
--   **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
+- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig)`**
+    Constructs the engine with custom display, input and audio configurations.
+
+- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
     Constructs the engine with custom display and input configurations.
 
--   **`Engine(const DisplayConfig& displayConfig)`**
+- **`Engine(const DisplayConfig& displayConfig)`**
     Constructs the engine with custom display configuration and default input settings.
 
 - **`void init()`**
@@ -40,6 +55,184 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`InputManager& getInputManager()`**
     Provides access to the InputManager subsystem.
+
+- **`AudioEngine& getAudioEngine()`**
+    Provides access to the AudioEngine subsystem.
+
+---
+
+## Audio Module
+
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise
+channels, plus a lightweight melody subsystem for background music.
+
+### AudioEngine
+
+**Inherits:** None
+
+The core class managing audio generation and playback.
+
+#### Public Methods
+
+- **`AudioEngine(const AudioConfig& config)`**
+    Constructs the AudioEngine.
+
+- **`void init()`**
+    Initializes the audio backend.
+
+- **`void update(unsigned long deltaTime)`**
+    Updates audio logic (envelopes, sequencers).
+
+- **`void generateSamples(int16_t* stream, int length)`**
+    Fills the buffer with audio samples.
+
+- **`void playEvent(const AudioEvent& event)`**
+    Plays a one-shot audio event on the first available channel of the requested type.
+
+Typical usage from a scene:
+
+```cpp
+auto& audio = engine.getAudioEngine();
+
+AudioEvent evt{};
+evt.type = WaveType::PULSE;
+evt.frequency = 1500.0f;
+evt.duration = 0.12f;
+evt.volume = 0.8f;
+evt.duty = 0.5f;
+
+audio.playEvent(evt);
+```
+
+### Data Structures
+
+#### WaveType (Enum)
+
+- `PULSE`: Square wave with variable duty cycle.
+- `TRIANGLE`: Triangle wave (fixed volume/duty).
+- `NOISE`: Pseudo-random noise.
+
+#### AudioEvent (Struct)
+
+Structure defining a sound effect to be played.
+
+- **`WaveType type`**: Type of waveform to use.
+- **`float frequency`**: Frequency in Hz.
+- **`float duration`**: Duration in seconds.
+- **`float volume`**: Volume level (0.0 to 1.0).
+- **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
+
+#### Note (Enum)
+
+Defined in `AudioMusicTypes.h`. Represents the 12 semitones plus a rest:
+
+- `C`, `Cs`, `D`, `Ds`, `E`, `F`, `Fs`, `G`, `Gs`, `A`, `As`, `B`, `Rest`
+
+Use `noteToFrequency(Note note, int octave)` to convert a note and octave to Hz.
+
+#### MusicNote (Struct)
+
+Represents a single musical note in a melody.
+
+- **`Note note`**: Musical note (C, D, E, etc. or Rest).
+- **`uint8_t octave`**: Octave index (0–8).
+- **`float duration`**: Duration in seconds.
+- **`float volume`**: Volume level (0.0 to 1.0).
+
+#### MusicTrack (Struct)
+
+Represents a sequence of notes to be played as a track.
+
+- **`const MusicNote* notes`**: Pointer to an array of notes.
+- **`size_t count`**: Number of notes in the array.
+- **`bool loop`**: If true, the track loops when it reaches the end.
+- **`WaveType channelType`**: Which channel type to use (typically `PULSE`).
+- **`float duty`**: Duty cycle for Pulse tracks.
+
+#### InstrumentPreset (Struct)
+
+Simple preset describing a reusable “instrument”:
+
+- **`float baseVolume`**: Default volume for notes.
+- **`float duty`**: Duty cycle suggestion (for Pulse).
+- **`uint8_t defaultOctave`**: Default octave for the instrument.
+
+Predefined presets:
+
+- `INSTR_PULSE_LEAD` – main lead pulse in octave 4.
+- `INSTR_PULSE_BASS` – bass pulse in octave 3.
+- `INSTR_PULSE_CHIP_HIGH` – high-pitched chiptune pulse in octave 5.
+- `INSTR_TRIANGLE_PAD` – soft triangle pad in octave 4.
+
+Helper functions:
+
+- **`MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration)`**
+- **`MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration)`**
+- **`MusicNote makeRest(float duration)`**
+
+These helpers reduce boilerplate when defining melodies and keep instruments consistent.
+
+### MusicPlayer
+
+**Inherits:** None
+
+High-level sequencer for playing `MusicTrack` instances as background music.
+
+#### Public Methods
+
+- **`MusicPlayer(AudioEngine& engine)`**
+    Constructs a MusicPlayer bound to an existing `AudioEngine`.
+
+- **`void play(const MusicTrack& track)`**
+    Starts playing the given track from the beginning.
+
+- **`void stop()`**
+    Stops playback of the current track.
+
+- **`void pause()`**
+    Pauses playback (time does not advance).
+
+- **`void resume()`**
+    Resumes playback after pause.
+
+- **`void update(unsigned long deltaTime)`**
+    Advances the internal timer and moves to the next note when its duration
+    expires. Intended to be called once per frame from the main `Engine`.
+
+- **`bool isPlaying() const`**
+    Returns true if a track is currently playing and not finished.
+
+Typical usage from a scene:
+
+```cpp
+using namespace pixelroot32::audio;
+
+static const MusicNote MELODY[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 0.20f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 0.25f),
+    makeRest(0.10f),
+};
+
+static const MusicTrack GAME_MUSIC = {
+    MELODY,
+    sizeof(MELODY) / sizeof(MusicNote),
+    true,
+    WaveType::PULSE,
+    0.5f
+};
+
+void MyScene::init() {
+    engine.getMusicPlayer().play(GAME_MUSIC);
+}
+```
+
+### AudioConfig
+
+Configuration struct for the audio system.
+
+- **`AudioBackend* backend`**: Pointer to the platform-specific audio backend (e.g., SDL2, I2S).
+- **`int sampleRate`**: Audio sample rate in Hz (default: 22050).
 
 ---
 
@@ -198,6 +391,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void drawPixel(int x, int y, uint16_t color)`**
     Draws a single pixel.
 
+- **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
+    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
+
+- **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
+    Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
+
 - **`void setDisplaySize(int w, int h)`**
     Sets the logical display size.
 
@@ -209,6 +408,248 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 - **`void setFont(const uint8_t* font)`**
     Sets the font for text rendering.
+
+---
+
+### Color
+
+**Inherits:** None
+
+Enumeration of the 32 built-in colors available in the engine's palette.
+
+#### Values
+
+- `Black`, `White`, `LightGray`, `DarkGray`
+- `Red`, `DarkRed`, `Green`, `DarkGreen`, `Blue`, `DarkBlue`
+- `Yellow`, `Orange`, `Brown`
+- `Purple`, `Pink`, `Cyan`
+- `LightBlue`, `LightGreen`, `LightRed`
+- `Navy`, `Teal`, `Olive`
+- `Gold`, `Silver`
+- `Transparent` (special value)
+- `DebugRed`, `DebugGreen`, `DebugBlue`
+
+#### Public Methods
+
+- **`uint16_t resolveColor(Color color)`**
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation.
+
+---
+
+### Sprite
+
+**Inherits:** None
+
+Compact descriptor for monochrome bitmapped sprites used by `Renderer::drawSprite`.
+
+#### Properties
+
+- **`const uint16_t* data`**  
+  Pointer to an array of 16-bit rows. Each `uint16_t` packs pixels for one row.
+
+- **`uint8_t width`**  
+  Sprite width in pixels (typically ≤ 16).
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+#### Bit Convention
+
+- Each bit represents one pixel: `0` = transparent, `1` = pixel on.  
+- Bit 0 is the leftmost pixel in the row.  
+- Bit (`width - 1`) is the rightmost pixel in the row.
+
+---
+
+### SpriteLayer
+
+**Inherits:** None
+
+Single monochrome layer used by layered sprites (`MultiSprite`).
+
+#### Properties
+
+- **`const uint16_t* data`**  
+  Packed 1bpp bitmap data for this layer, using the same layout as `Sprite::data`.
+
+- **`Color color`**  
+  Palette color used for active pixels in this layer.
+
+---
+
+### MultiSprite
+
+**Inherits:** None
+
+Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. All layers share the same width and height and are drawn in array order.
+
+#### Properties
+
+- **`uint8_t width`**  
+  Sprite width in pixels.
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+- **`const SpriteLayer* layers`**  
+  Pointer to the first element of a `SpriteLayer` array.
+
+- **`uint8_t layerCount`**  
+  Number of layers in the array.
+
+---
+
+### SpriteAnimationFrame
+
+**Inherits:** None
+
+Single animation frame that can reference either a simple `Sprite` or a layered `MultiSprite`.
+
+#### Properties
+
+- **`const Sprite* sprite`**  
+  Optional pointer to a `Sprite` used for this frame. May be `nullptr` when using layered sprites only.
+
+- **`const MultiSprite* multiSprite`**  
+  Optional pointer to a `MultiSprite` used for this frame. May be `nullptr` when using simple sprites only.
+
+Exactly one of `sprite` or `multiSprite` is expected to be non-null for a valid frame.
+
+---
+
+### SpriteAnimation
+
+**Inherits:** None
+
+Lightweight, step-based animation controller for sprite frames. It owns no memory and only references a compile-time array of `SpriteAnimationFrame` entries.
+
+#### Properties
+
+- **`const SpriteAnimationFrame* frames`**  
+  Pointer to the first element of an immutable frame table.
+
+- **`uint8_t frameCount`**  
+  Number of frames in the table.
+
+- **`uint8_t current`**  
+  Current frame index in the range `[0, frameCount)`.
+
+#### Public Methods
+
+- **`void reset()`**  
+  Resets the animation to the first frame (`current = 0`).
+
+- **`void step()`**  
+  Advances the animation by one frame. When the index reaches `frameCount`, it wraps back to `0`. Intended for step-based animation (e.g. once per horde movement in a game).
+
+- **`const SpriteAnimationFrame& getCurrentFrame() const`**  
+  Returns a reference to the current frame descriptor.
+
+- **`const Sprite* getCurrentSprite() const`**  
+  Convenience accessor for the current `Sprite`, or `nullptr` when the frame is layered-only.
+
+- **`const MultiSprite* getCurrentMultiSprite() const`**  
+  Convenience accessor for the current `MultiSprite`, or `nullptr` when the frame is simple-only.
+
+#### Example Usage (step-based)
+
+```cpp
+using namespace pixelroot32::graphics;
+
+// Two-frame animation using simple sprites
+static const Sprite SPRITE_F1 = { F1_BITS, 8, 8 };
+static const Sprite SPRITE_F2 = { F2_BITS, 8, 8 };
+
+static const SpriteAnimationFrame WALK_FRAMES[] = {
+    { &SPRITE_F1, nullptr },
+    { &SPRITE_F2, nullptr }
+};
+
+class EnemyActor {
+public:
+    EnemyActor()
+    {
+        anim.frames     = WALK_FRAMES;
+        anim.frameCount = sizeof(WALK_FRAMES) / sizeof(SpriteAnimationFrame);
+        anim.reset();
+    }
+
+    void stepLogic()
+    {
+        // Called by the scene when the enemy takes a logical "step"
+        anim.step();
+    }
+
+    void draw(Renderer& renderer)
+    {
+        const Sprite* frame = anim.getCurrentSprite();
+        if (!frame) {
+            return;
+        }
+        renderer.drawSprite(*frame,
+                            static_cast<int>(x),
+                            static_cast<int>(y),
+                            Color::White);
+    }
+
+private:
+    float x = 0;
+    float y = 0;
+    SpriteAnimation anim;
+};
+```
+
+#### Example Usage (Actor + Renderer)
+
+```cpp
+using namespace pixelroot32::graphics;
+
+// Raw 1bpp data (one row per uint16_t, bit 0 = leftmost pixel)
+static const uint16_t BODY_BITS[] = {
+    0x0018,
+    0x003C,
+    0x007E,
+    0x00FF,
+    0x007E,
+    0x003C,
+    0x0018,
+    0x0000
+};
+
+static const uint16_t EYES_BITS[] = {
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0000,
+    0x0240,
+    0x0000,
+    0x0000
+};
+
+static const SpriteLayer ENEMY_LAYERS[] = {
+    { BODY_BITS, Color::Orange },
+    { EYES_BITS, Color::White }
+};
+
+static const MultiSprite ENEMY_MULTI = {
+    11,            // width
+    8,             // height
+    ENEMY_LAYERS,  // layers
+    2              // layerCount
+};
+
+// Inside an Actor::draw(Renderer& renderer) implementation:
+void EnemyActor::draw(Renderer& renderer) {
+    if (!isAlive) {
+        return;
+    }
+
+    renderer.drawMultiSprite(ENEMY_MULTI,
+                             static_cast<int>(x),
+                             static_cast<int>(y));
+}
+```
 
 ---
 
@@ -488,3 +929,73 @@ Collection of helper functions.
     Linear interpolation.
 - **`float clamp(float v, float min, float max)`**
     Clamps a value between min and max.
+
+---
+
+## UI Module
+
+The UI module provides classes for creating user interfaces.
+
+### UIElement
+
+**Inherits:** [Entity](#entity)
+
+Base class for all user interface elements (buttons, labels, etc.). Sets the `EntityType` to `UI_ELEMENT`.
+
+#### Public Methods
+
+- **`UIElement(float x, float y, float w, float h)`**
+    Constructs a new UIElement.
+
+### UIButton
+
+**Inherits:** [UIElement](#uielement)
+
+A clickable button UI element. Supports both physical (keyboard/gamepad) and touch input. Can trigger a callback function when pressed.
+
+#### Public Methods
+
+- **`UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2)`**
+    Constructs a new UIButton.
+  - `t`: Button label text.
+  - `index`: Navigation index (for D-pad navigation).
+  - `x, y`: Position.
+  - `w, h`: Size.
+  - `callback`: Function to call when clicked/pressed.
+  - `textAlign`: Text alignment (LEFT, CENTER, RIGHT).
+  - `fontSize`: Text size multiplier.
+
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
+    Configures the button's visual style.
+
+- **`void setSelected(bool selected)`**
+    Sets the selection state (e.g., focused via D-pad).
+
+- **`bool getSelected() const`**
+    Checks if the button is currently selected.
+
+- **`void handleInput(const InputManager& input)`**
+    Handles input events. Checks for touch events within bounds or confirmation buttons if selected.
+
+- **`void press()`**
+    Manually triggers the button's action.
+
+### UILabel
+
+**Inherits:** [UIElement](#uielement)
+
+A simple text label UI element. Displays a string of text on the screen. Auto-calculates its bounds based on text length and size.
+
+#### Public Methods
+
+- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
+    Constructs a new UILabel.
+
+- **`void setText(const std::string& t)`**
+    Updates the label's text. Recalculates dimensions.
+
+- **`void setVisible(bool v)`**
+    Sets visibility.
+
+- **`void centerX(int screenWidth)`**
+    Centers the label horizontally on the screen.
