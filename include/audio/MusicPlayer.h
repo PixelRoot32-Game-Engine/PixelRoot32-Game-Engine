@@ -52,11 +52,24 @@ public:
      */
     bool isPlaying() const;
 
+    /**
+     * @brief Sets the global tempo scaling factor.
+     * @param factor 1.0f is normal speed, 2.0f is double speed.
+     */
+    void setTempoFactor(float factor);
+
+    /**
+     * @brief Gets the current tempo scaling factor.
+     * @return Current factor (default 1.0f).
+     */
+    float getTempoFactor() const;
+
 private:
     AudioEngine& engine;
     const MusicTrack* currentTrack;
     size_t currentNoteIndex;
     float noteTimer; // Accumulated time in seconds
+    float tempoFactor; // Global speed multiplier
     bool playing;
     bool paused;
 

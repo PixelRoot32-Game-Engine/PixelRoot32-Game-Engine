@@ -1,5 +1,6 @@
 #include "graphics/Renderer.h"
 #include <stdarg.h>
+#include <cmath>
 #ifdef PLATFORM_NATIVE
     #include "drivers/native/SDL2_Drawer.h"
     #include "../../src/platforms/mock/MockSPI.h"
@@ -146,6 +147,82 @@ namespace pixelroot32::graphics {
 
             singleLayer.data = layer.data;
             drawSprite(singleLayer, x, y, layer.color, false);
+        }
+    }
+
+    void Renderer::drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX) {
+        // Early-out if sprite is invalid or scale is non-positive.
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || scaleX <= 0 || scaleY <= 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+        const uint16_t resolvedColor = resolveColor(color);
+
+        // Calculate destination dimensions.
+        const int dstWidth = static_cast<int>(std::ceil(sprite.width * scaleX));
+        const int dstHeight = static_cast<int>(std::ceil(sprite.height * scaleY));
+
+        // Iterate over destination rows (Y axis).
+        for (int dstRow = 0; dstRow < dstHeight; ++dstRow) {
+            const int logicalY = y + dstRow;
+            if (logicalY < 0 || logicalY >= screenH) {
+                continue;
+            }
+
+            // Map back to source row.
+            int srcRow = (dstRow * sprite.height) / dstHeight;
+            if (srcRow >= sprite.height) srcRow = sprite.height - 1; // Safety clamp
+
+            const uint16_t bits = sprite.data[srcRow];
+
+            // Iterate over destination columns (X axis).
+            for (int dstCol = 0; dstCol < dstWidth; ++dstCol) {
+                // Map back to source column.
+                int srcCol = (dstCol * sprite.width) / dstWidth;
+                if (srcCol >= sprite.width) srcCol = sprite.width - 1; // Safety clamp
+
+                // Handle X flipping on source column index.
+                if (flipX) {
+                    srcCol = sprite.width - 1 - srcCol;
+                }
+
+                // Check bit at source.
+                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << srcCol)) != 0;
+                
+                if (bitSet) {
+                    const int logicalX = x + dstCol;
+                    
+                    // Bounds check X.
+                    if (logicalX >= 0 && logicalX < screenW) {
+                         getDrawSurface().drawPixel(xOffset + logicalX, yOffset + logicalY, resolvedColor);
+                    }
+                }
+            }
+        }
+    }
+
+    void Renderer::drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY) {
+         // Early-out if descriptor is invalid.
+        if (sprite.layers == nullptr || sprite.layerCount == 0 ||
+            sprite.width == 0 || sprite.height == 0) {
+            return;
+        }
+
+        Sprite singleLayer;
+        singleLayer.width  = sprite.width;
+        singleLayer.height = sprite.height;
+
+        // Iterate over layers and reuse scaled drawSprite() for each one.
+        for (uint8_t i = 0; i < sprite.layerCount; ++i) {
+            const SpriteLayer& layer = sprite.layers[i];
+            if (layer.data == nullptr) {
+                continue;
+            }
+
+            singleLayer.data = layer.data;
+            drawSprite(singleLayer, x, y, scaleX, scaleY, layer.color, false);
         }
     }
 }

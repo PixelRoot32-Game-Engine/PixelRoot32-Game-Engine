@@ -324,6 +324,22 @@ public:
     void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false);
 
     /**
+     * @brief Draws a scaled 1bpp monochrome sprite.
+     *
+     * Similar to drawSprite but applies nearest-neighbor scaling.
+     * The destination size is calculated as ceil(width * scaleX) x ceil(height * scaleY).
+     *
+     * @param sprite Sprite descriptor.
+     * @param x      Top-left X coordinate.
+     * @param y      Top-left Y coordinate.
+     * @param scaleX Horizontal scaling factor (e.g., 1.25).
+     * @param scaleY Vertical scaling factor (e.g., 1.25).
+     * @param color  Color used for "on" pixels.
+     * @param flipX  If true, sprite is mirrored horizontally before scaling.
+     */
+    void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
+
+    /**
      * @brief Draws a multi-layer sprite composed of several 1bpp layers.
      *
      * Each layer is rendered in array order using the existing drawSprite()
@@ -334,6 +350,19 @@ public:
      * @param y      Top-left Y coordinate in logical screen space.
      */
     void drawMultiSprite(const MultiSprite& sprite, int x, int y);
+
+    /**
+     * @brief Draws a scaled multi-layer sprite.
+     *
+     * Reuses the scaled drawSprite implementation for each layer.
+     *
+     * @param sprite Multi-layer sprite descriptor.
+     * @param x      Top-left X coordinate.
+     * @param y      Top-left Y coordinate.
+     * @param scaleX Horizontal scaling factor.
+     * @param scaleY Vertical scaling factor.
+     */
+    void drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY);
 
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.

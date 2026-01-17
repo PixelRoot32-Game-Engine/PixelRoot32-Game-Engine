@@ -5,7 +5,7 @@ namespace pixelroot32::audio {
 
 MusicPlayer::MusicPlayer(AudioEngine& engine) 
     : engine(engine), currentTrack(nullptr), currentNoteIndex(0), 
-      noteTimer(0.0f), playing(false), paused(false) {}
+      noteTimer(0.0f), tempoFactor(1.0f), playing(false), paused(false) {}
 
 void MusicPlayer::play(const MusicTrack& track) {
     currentTrack = &track;
@@ -38,8 +38,8 @@ void MusicPlayer::resume() {
 void MusicPlayer::update(unsigned long deltaTime) {
     if (!playing || paused || !currentTrack) return;
 
-    // Convert ms to seconds
-    float dt = static_cast<float>(deltaTime) / 1000.0f;
+    // Convert ms to seconds with tempo scaling (Optimized: multiplication only)
+    float dt = static_cast<float>(deltaTime) * 0.001f * tempoFactor;
     noteTimer += dt;
 
     bool noteChanged = false;
@@ -95,6 +95,16 @@ void MusicPlayer::playCurrentNote() {
 
 bool MusicPlayer::isPlaying() const {
     return playing;
+}
+
+void MusicPlayer::setTempoFactor(float factor) {
+    if (factor > 0.0f) {
+        tempoFactor = factor;
+    }
+}
+
+float MusicPlayer::getTempoFactor() const {
+    return tempoFactor;
 }
 
 } // namespace pixelroot32::audio
