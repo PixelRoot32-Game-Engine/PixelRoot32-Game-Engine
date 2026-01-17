@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <cstddef>
+#include <cstddef> // Required for size_t
 #include "AudioTypes.h"
 
 namespace pixelroot32 {

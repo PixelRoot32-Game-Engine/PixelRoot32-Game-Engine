@@ -41,11 +41,10 @@ namespace pixelroot32::audio {
          */
         void generateSamples(int16_t* stream, int length);
 
-        /**
-         * @brief Plays a sound event on an available channel.
-         * @param event The audio event parameters.
-         */
         void playEvent(const AudioEvent& event);
+
+        void setMasterVolume(float volume);
+        float getMasterVolume() const;
 
     private:
         AudioConfig config;
@@ -54,7 +53,8 @@ namespace pixelroot32::audio {
         static constexpr int NUM_CHANNELS = 4;
         AudioChannel channels[NUM_CHANNELS];
 
-        // Helpers
+        float masterVolume = 1.0f;
+
         AudioChannel* findFreeChannel(WaveType type);
         int16_t generateSampleForChannel(AudioChannel& ch);
     };

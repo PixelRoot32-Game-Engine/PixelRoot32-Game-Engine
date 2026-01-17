@@ -1,6 +1,6 @@
 #ifdef ARDUINO_ARCH_ESP32
 
-#include "drivers/esp32/ESP32_AudioBackend.h"
+#include "drivers/esp32/ESP32_I2S_AudioBackend.h"
 #include "audio/AudioEngine.h"
 #include <Arduino.h>
 
@@ -8,24 +8,24 @@ namespace pixelroot32::drivers::esp32 {
 
     // FreeRTOS task wrapper
     static void audioTaskTrampoline(void* arg) {
-        auto* backend = static_cast<ESP32_AudioBackend*>(arg);
+        auto* backend = static_cast<ESP32_I2S_AudioBackend*>(arg);
         if (backend) {
             backend->audioTaskLoop();
         }
         vTaskDelete(NULL);
     }
 
-    ESP32_AudioBackend::ESP32_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate)
+    ESP32_I2S_AudioBackend::ESP32_I2S_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate)
         : bclkPin(bclkPin), wclkPin(wclkPin), doutPin(doutPin), sampleRate(sampleRate) {}
 
-    ESP32_AudioBackend::~ESP32_AudioBackend() {
+    ESP32_I2S_AudioBackend::~ESP32_I2S_AudioBackend() {
         if (audioTaskHandle) {
             vTaskDelete(audioTaskHandle);
         }
         i2s_driver_uninstall(I2S_NUM_0);
     }
 
-    void ESP32_AudioBackend::init(pixelroot32::audio::AudioEngine* engine) {
+    void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine) {
         this->engineInstance = engine;
 
         // I2S Configuration
@@ -75,7 +75,7 @@ namespace pixelroot32::drivers::esp32 {
         );
     }
 
-    void ESP32_AudioBackend::audioTaskLoop() {
+    void ESP32_I2S_AudioBackend::audioTaskLoop() {
         const int BUFFER_SAMPLES = 256;
         int16_t sampleBuffer[BUFFER_SAMPLES];
         size_t bytesWritten;
