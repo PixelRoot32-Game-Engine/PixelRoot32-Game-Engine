@@ -497,6 +497,108 @@ Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. Al
 - **`uint8_t layerCount`**  
   Number of layers in the array.
 
+---
+
+### SpriteAnimationFrame
+
+**Inherits:** None
+
+Single animation frame that can reference either a simple `Sprite` or a layered `MultiSprite`.
+
+#### Properties
+
+- **`const Sprite* sprite`**  
+  Optional pointer to a `Sprite` used for this frame. May be `nullptr` when using layered sprites only.
+
+- **`const MultiSprite* multiSprite`**  
+  Optional pointer to a `MultiSprite` used for this frame. May be `nullptr` when using simple sprites only.
+
+Exactly one of `sprite` or `multiSprite` is expected to be non-null for a valid frame.
+
+---
+
+### SpriteAnimation
+
+**Inherits:** None
+
+Lightweight, step-based animation controller for sprite frames. It owns no memory and only references a compile-time array of `SpriteAnimationFrame` entries.
+
+#### Properties
+
+- **`const SpriteAnimationFrame* frames`**  
+  Pointer to the first element of an immutable frame table.
+
+- **`uint8_t frameCount`**  
+  Number of frames in the table.
+
+- **`uint8_t current`**  
+  Current frame index in the range `[0, frameCount)`.
+
+#### Public Methods
+
+- **`void reset()`**  
+  Resets the animation to the first frame (`current = 0`).
+
+- **`void step()`**  
+  Advances the animation by one frame. When the index reaches `frameCount`, it wraps back to `0`. Intended for step-based animation (e.g. once per horde movement in a game).
+
+- **`const SpriteAnimationFrame& getCurrentFrame() const`**  
+  Returns a reference to the current frame descriptor.
+
+- **`const Sprite* getCurrentSprite() const`**  
+  Convenience accessor for the current `Sprite`, or `nullptr` when the frame is layered-only.
+
+- **`const MultiSprite* getCurrentMultiSprite() const`**  
+  Convenience accessor for the current `MultiSprite`, or `nullptr` when the frame is simple-only.
+
+#### Example Usage (step-based)
+
+```cpp
+using namespace pixelroot32::graphics;
+
+// Two-frame animation using simple sprites
+static const Sprite SPRITE_F1 = { F1_BITS, 8, 8 };
+static const Sprite SPRITE_F2 = { F2_BITS, 8, 8 };
+
+static const SpriteAnimationFrame WALK_FRAMES[] = {
+    { &SPRITE_F1, nullptr },
+    { &SPRITE_F2, nullptr }
+};
+
+class EnemyActor {
+public:
+    EnemyActor()
+    {
+        anim.frames     = WALK_FRAMES;
+        anim.frameCount = sizeof(WALK_FRAMES) / sizeof(SpriteAnimationFrame);
+        anim.reset();
+    }
+
+    void stepLogic()
+    {
+        // Called by the scene when the enemy takes a logical "step"
+        anim.step();
+    }
+
+    void draw(Renderer& renderer)
+    {
+        const Sprite* frame = anim.getCurrentSprite();
+        if (!frame) {
+            return;
+        }
+        renderer.drawSprite(*frame,
+                            static_cast<int>(x),
+                            static_cast<int>(y),
+                            Color::White);
+    }
+
+private:
+    float x = 0;
+    float y = 0;
+    SpriteAnimation anim;
+};
+```
+
 #### Example Usage (Actor + Renderer)
 
 ```cpp

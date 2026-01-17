@@ -59,6 +59,78 @@ struct MultiSprite {
 };
 
 /**
+ * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
+ *
+ * Exactly one of the pointers is expected to be non-null for a valid frame.
+ * This allows the same animation system to drive both simple and layered
+ * sprites without exposing bit-level details to game code.
+ */
+struct SpriteAnimationFrame {
+    const Sprite*      sprite;      ///< Optional pointer to a simple 1bpp sprite frame.
+    const MultiSprite* multiSprite; ///< Optional pointer to a layered sprite frame.
+};
+
+/**
+ * @brief Lightweight, step-based sprite animation controller.
+ *
+ * SpriteAnimation owns no memory. It references a compile-time array of
+ * SpriteAnimationFrame entries and exposes simple integer-based control:
+ *
+ * - step(): advance to the next frame (wrapping at frameCount)
+ * - reset(): go back to frame 0
+ * - getCurrentSprite()/getCurrentMultiSprite(): query current frame data
+ *
+ * The animation object never draws anything; Actors remain responsible for
+ * asking which frame to render and calling Renderer accordingly.
+ *
+ * Initially this struct is used for "step-based" animation (advance once per
+ * logical event, such as a horde movement). The design can be extended later
+ * with time-based advancement without changing Renderer.
+ */
+struct SpriteAnimation {
+    const SpriteAnimationFrame* frames;    ///< Pointer to immutable frame table.
+    uint8_t                     frameCount;///< Number of frames in the table.
+    uint8_t                     current;   ///< Current frame index [0, frameCount).
+
+    /// Reset the animation to the first frame.
+    void reset() {
+        current = 0;
+    }
+
+    /// Advance to the next frame in a loop (step-based advancement).
+    void step() {
+        if (!frames || frameCount == 0) {
+            return;
+        }
+        ++current;
+        if (current >= frameCount) {
+            current = 0;
+        }
+    }
+
+    /// Get the current frame descriptor (may contain either type of sprite).
+    const SpriteAnimationFrame& getCurrentFrame() const {
+        return frames[current];
+    }
+
+    /// Convenience helper: returns the current simple Sprite, if any.
+    const Sprite* getCurrentSprite() const {
+        if (!frames || frameCount == 0) {
+            return nullptr;
+        }
+        return frames[current].sprite;
+    }
+
+    /// Convenience helper: returns the current MultiSprite, if any.
+    const MultiSprite* getCurrentMultiSprite() const {
+        if (!frames || frameCount == 0) {
+            return nullptr;
+        }
+        return frames[current].multiSprite;
+    }
+};
+
+/**
  * @class Renderer
  * @brief High-level graphics rendering system.
  *
