@@ -137,5 +137,7 @@ void loop() {
     actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
     assign them with `engine.setScene(...)` in `setup()`.
 
+Reference project: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
+
 ---
 *Built with ❤️ for the retro-dev community.*
