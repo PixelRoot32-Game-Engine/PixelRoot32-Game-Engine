@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="300"/>
+</p>
+
 # PixelRoot32 Game Engine
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
-**Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Expect occasional issues or breaking changes, especially on less-tested configurations; feedback and bug reports are welcome.
+> **Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Expect occasional issues or breaking changes, especially on less-tested configurations; feedback and bug reports are welcome.
 
 The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
@@ -61,6 +65,28 @@ Sprites are defined as compact 1bpp bitmaps by default:
 - `Renderer::drawMultiSprite` composes multiple 1bpp layers (each with its own color) to build multi-color, NES/GameBoy-style sprites without changing the underlying format.
 - Optional 2bpp/4bpp packed formats can be enabled at compile time for higher fidelity assets while keeping 1bpp as the default path for ESP32-friendly games.
 
+## 🎨 Asset Tools
+
+### Sprite Compiler (`pr32-sprite-compiler`)
+
+A Python tool is available to convert standard PNG sprite sheets into PixelRoot32-compatible C headers (`.h`). The source code and detailed usage instructions are available in the [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler/tree/master) repository.
+
+- **Input**: PNG sprite sheet (RGB/RGBA).
+- **Output**: C header with `uint16_t` arrays for each color layer (1bpp per layer).
+- **Features**:
+  - Automatically detects colors and generates a 1bpp layer for each distinct color.
+  - Supports grid-based sprite extraction.
+  - Includes both a **Command Line Interface (CLI)** and a **GUI** for ease of use.
+
+**Usage Example:**
+
+```bash
+# Convert a sprite sheet with 16x16 sprites
+python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
+```
+
+This tool simplifies the process of creating multi-layer 1bpp sprites from modern image editors.
+
 ## 📁 Project Structure
 
 Main structure of the `PixelRoot32-Game-Engine` library:
@@ -94,9 +120,61 @@ PixelRoot32-Game-Engine/
 │   └── platforms/
 │       └── mock/
 ├── test/
+├── API_REFERENCE.md
+├── AUDIO_NES_SUBSYSTEM_REFERENCE.md
+├── STYLE_GUIDE.md
 ├── library.json
 └── library.properties
 ```
+
+## 🗺️ Roadmap
+
+The following features are planned to enhance the engine's capabilities, focusing on workflow efficiency and ESP32 optimization.
+
+### 1. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
+
+- **Goal**: Convert standard tracker formats (FTM/MML/MIDI) into `MusicNote` C++ structures.
+- **Why**: Manual music coding is inefficient. Enables complex chiptune soundtracks stored in Flash.
+
+### 2. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
+
+- **Goal**: Import Tiled (.tmx) or JSON maps into compressed `TileMap` structures.
+- **Why**: Reduces RAM usage compared to Entity-based levels and streamlines level design.
+
+### 3. 🅰️ Engine: Native Bitmap Font System
+
+- **Goal**: Implement a platform-agnostic 1bpp sprite-based text renderer.
+- **Why**: Ensures pixel-perfect consistency between PC (SDL2) and ESP32, removing dependency on external font libraries.
+
+### 4. 🔊 Engine: SFX Manager
+
+- **Goal**: "Fire-and-forget" sound effect system with channel management (priorities, virtual channels).
+- **Why**: Automates hardware channel allocation (Pulse/Triangle/Noise) for game events.
+
+### 5. 💾 Core: Persistence (Save/Load)
+
+- **Goal**: Abstract Key-Value storage (NVS on ESP32, File on PC).
+- **Why**: Standardizes saving high scores and progress across platforms.
+
+### 6. ⚡ Engine: Spatial Partitioning
+
+- **Goal**: Implement a Uniform Grid for collision detection.
+- **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
+
+## 📜 Changelog
+
+### v0.1.0-dev (Pre-release)
+
+- **Initial Public Preview.**
+- **Core Architecture**: Scene, Entity, Actor, and PhysicsActor system.
+- **Rendering**: 1bpp Sprites, MultiSprite (layered colors), and Tilemap support.
+- **Audio**: NES-style sound engine (Pulse, Triangle, Noise channels).
+- **Physics**: AABB Collision detection and basic kinematics.
+- **Platform Support**: ESP32 (SPI/DMA) and PC (SDL2) targets.
+- **Tools**: Added Sprite Compiler python tool.
+- **Experimental Build Flags**:
+  - `PIXELROOT32_ENABLE_2BPP_SPRITES`: Enables support for 2bpp (4-color) packed sprites.
+  - `PIXELROOT32_ENABLE_SCENE_ARENA`: Enables dedicated memory arena for scene management.
 
 ## 📦 Getting Started
 
