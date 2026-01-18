@@ -2,6 +2,8 @@
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
+**Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Expect occasional issues or breaking changes, especially on less-tested configurations; feedback and bug reports are welcome.
+
 The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
 ---
