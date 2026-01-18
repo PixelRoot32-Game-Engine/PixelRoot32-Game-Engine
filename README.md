@@ -3,6 +3,8 @@
 </p>
 
 # PixelRoot32 Game Engine
+[![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/gperez88)
+
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
@@ -17,6 +19,14 @@ The engine adopts a simple scene-based architecture inspired by **Godot Engine**
 PixelRoot32 is an evolution of [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine) by **nbourre**, extended with architectural concepts from **Godot Engine**.
 
 Special thanks to **nbourre** for open-sourcing the original engine and inspiring this project. Without that work, PixelRoot32 would not exist.
+
+## 🎬 Demo in Action
+
+Watch PixelRoot32 running on ESP32 with example games:
+
+[![PixelRoot32 Demo](https://img.youtube.com/vi/55_Jwkx-gPs/0.jpg)](https://www.youtube.com/shorts/55_Jwkx-gPs)
+
+> Click the image to watch the full demo on YouTube.  
 
 ## 🚀 Key Features
 
