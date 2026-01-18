@@ -235,4 +235,15 @@ void loop() {
     assign them with `engine.setScene(...)` in `setup()`.
 
 ---
+
+## License
+PixelRoot32 is **open-source** under the **MIT License**.
+
+---
+
+## Credits
+Developed by **Gabriel Perez** as a modular **game engine for embedded systems**.  
+Special thanks to **nbourre** for the original ESP32-Game-Engine.
+
+---
 *Built with ❤️ for the retro-dev community.*
