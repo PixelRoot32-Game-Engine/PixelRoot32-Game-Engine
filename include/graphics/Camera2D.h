@@ -10,9 +10,12 @@ public:
 
     void setBounds(float minX, float maxX);
 
+    void setVerticalBounds(float minY, float maxY);
+
     void setPosition(float x, float y);
 
     void followTarget(float targetX);
+    void followTarget(float targetX, float targetY);
 
     float getX() const;
     float getY() const;
@@ -26,7 +29,8 @@ private:
     int viewportHeight;
     float minX;
     float maxX;
+    float minY;
+    float maxY;
 };
 
 } // namespace pixelroot32::graphics
-

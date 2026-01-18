@@ -127,7 +127,7 @@ The following documents are recommended as part of the project:
 
 ## 🚀 Best Practices & Optimization
 
-These guidelines are derived from practical implementation in `examples/GeometryJump`, `examples/BrickBreaker`, and `examples/Pong`.
+These guidelines are derived from practical implementation in `examples/GeometryJump`, `examples/BrickBreaker`, `examples/Pong`, and the side-scrolling platformer prototype used in the camera demo.
 
 ### 💾 Memory & Resources
 
@@ -176,6 +176,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
   - *Example*: `x += speed * (deltaTime * 0.001f);`
 - **Logic/Visual Decoupling**: For infinite runners, keep logic progression (obstacle spacing) constant in time, even if visual speed increases.
 - **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
+ - **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
 
 ---
 
@@ -202,6 +203,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
   - For grid-like backgrounds, use the `TileMap` helper with 1bpp `Sprite` tiles and `Renderer::drawTileMap`.
   - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
   - *Trade-off*: Greatly reduces background RAM compared to full bitmaps, but adds a predictable per-tile draw cost; avoid unnecessarily large maps or resolutions on ESP32.
+  - For side-scrolling platformers, combine tilemaps with `Camera2D` and `Renderer::setDisplayOffset` instead of manually offsetting individual actors. Keep camera logic centralized (for example in a `Scene`-level camera object) and use different parallax factors per layer to achieve multi-layer scrolling without additional allocations.
 
 ---
 

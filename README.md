@@ -20,8 +20,9 @@ Special thanks to **nbourre** for open-sourcing the original engine and inspirin
 - **Color Palette**: Fixed indexed palette (32 colors) using RGB565 for fast rendering.
 - **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers, plus optional 2bpp/4bpp packed sprites for richer visuals.
 - **Sprite Animation**: Lightweight, step-based sprite animation that works with both simple sprites and layered `MultiSprite`, without coupling animation logic to rendering.
-- **Render Layers & Tilemaps**: Simple logical render layers (background, gameplay, UI) and a compact 1bpp tilemap helper for backgrounds, designed to stay friendly to ESP32 RAM/CPU limits.
-- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics.
+- **Render Layers & Tilemaps**: Simple logical render layers (background, gameplay, UI) and a compact 1bpp tilemap helper for backgrounds and side-scrolling levels, designed to stay friendly to ESP32 RAM/CPU limits.
+- **2D Camera & Scrolling**: Dead-zone camera (`Camera2D`) that follows a target horizontally (and optionally vertically) by driving `Renderer::setDisplayOffset`, enabling parallax backgrounds and long platformer levels.
+- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
 - **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
 - **UI System**: Lightweight UI controls (Label, Button).
 
