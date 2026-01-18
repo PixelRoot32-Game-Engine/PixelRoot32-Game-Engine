@@ -28,8 +28,8 @@ Special thanks to **nbourre** for open-sourcing the original engine and inspirin
 
 ## 🛠 Target Platforms
 
-1.  **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
-2.  **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
+1. **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
+2. **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
 
 ## 📚 Documentation
 
@@ -66,11 +66,6 @@ Main structure of the `PixelRoot32-Game-Engine` library:
 ```txt
 PixelRoot32-Game-Engine/
 ├── assets/                 # Icons and logos
-├── examples/               # Example games
-│   ├── Pong/
-│   ├── GeometryJump/
-│   ├── BrickBreaker/
-│   └── TicTacToe/
 ├── include/                # Public engine headers
 │   ├── audio/
 │   ├── core/
@@ -105,21 +100,21 @@ PixelRoot32-Game-Engine/
 
 ### Using this example repository
 
-1.  Clone this repository.
-2.  Open it in **PlatformIO** (VS Code).
-3.  Select the environment (`esp32` or `native`).
-4.  Build and run the **GeometryJump** example to see the engine in action.
+1. Clone this repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples).
+2. Open it in **PlatformIO** (VS Code).
+3. Select the environment (`esp32` or `native`).
+4. Build and run the **GeometryJump** example to see the engine in action.
 
 ### Create your own project using PixelRoot32 as a library
 
-1.  Create a new PlatformIO project for your ESP32.
-2.  Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
+1. Create a new PlatformIO project for your ESP32.
+2. Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
     (or add it as a Git submodule in `lib/PixelRoot32-Game-Engine`).
-3.  Create a `src/drivers` folder in your project and add your `DrawSurface`
+3. Create a `src/drivers` folder in your project and add your `DrawSurface`
     implementations there, for example:
     - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
     - `src/drivers/native/SDL2_Drawer.cpp` for the native PC mode.
-4.  In your `src/main.cpp`, include the engine and configure the drivers, similar to:
+4. In your `src/main.cpp`, include the engine and configure the drivers, similar to:
 
 ```cpp
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
@@ -145,11 +140,9 @@ void loop() {
 }
 ```
 
-5.  Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+1. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
     actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
     assign them with `engine.setScene(...)` in `setup()`.
-
-Reference project: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
 
 ---
 *Built with ❤️ for the retro-dev community.*
