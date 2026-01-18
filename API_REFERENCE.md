@@ -450,6 +450,40 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 ---
 
+### Camera2D
+
+**Inherits:** None
+
+Dead-zone 2D camera used for side-scrolling and simple platformer levels. It controls the world-to-screen offset by driving `Renderer::setDisplayOffset`.
+
+#### Public Methods
+
+- **`Camera2D(int viewportWidth, int viewportHeight)`**  
+    Constructs a camera for a given viewport size in pixels.
+
+- **`void setBounds(float minX, float maxX)`**  
+    Sets horizontal limits for the camera position. The internal `x` value is clamped to this range whenever it changes. Use this to keep the camera inside the level width.
+
+- **`void setVerticalBounds(float minY, float maxY)`**  
+    Sets vertical limits for the camera position. Pass the same value for `minY` and `maxY` to lock vertical movement (for example, in pure side-scrollers).
+
+- **`void setPosition(float x, float y)`**  
+    Sets the camera origin in world coordinates and applies both horizontal and vertical bounds.
+
+- **`void followTarget(float targetX)`**  
+    Horizontally follows a target using a dead zone expressed as a fraction of the viewport width (by default, between 30% and 70% of the screen). The camera only moves when the target leaves this region.
+
+- **`void followTarget(float targetX, float targetY)`**  
+    2D variant that follows a target in both axes using horizontal and vertical dead zones (also expressed as fractions of the viewport size), respecting the configured bounds on each axis.
+
+- **`float getX() const`**, **`float getY() const`**  
+    Returns the current camera position in world space.
+
+- **`void apply(Renderer& renderer) const`**  
+    Applies the camera by calling `renderer.setDisplayOffset(-x, -y)`, so subsequent draw calls are automatically shifted by the camera.
+
+---
+
 ### Color
 
 **Inherits:** None
