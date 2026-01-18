@@ -58,6 +58,16 @@ struct MultiSprite {
     uint8_t              layerCount; ///< Number of layers in the array.
 };
 
+struct TileMap {
+    uint8_t*        indices;
+    uint8_t         width;
+    uint8_t         height;
+    const Sprite*   tiles;
+    uint8_t         tileWidth;
+    uint8_t         tileHeight;
+    uint16_t        tileCount;
+};
+
 /**
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
  *
@@ -363,6 +373,8 @@ public:
      * @param scaleY Vertical scaling factor.
      */
     void drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY);
+
+    void drawTileMap(const TileMap& map, int originX, int originY, Color color);
 
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.

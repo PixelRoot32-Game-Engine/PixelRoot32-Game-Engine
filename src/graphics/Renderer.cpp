@@ -225,6 +225,46 @@ namespace pixelroot32::graphics {
             drawSprite(singleLayer, x, y, scaleX, scaleY, layer.color, false);
         }
     }
+
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+
+        for (int ty = 0; ty < map.height; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            if (baseY >= screenH || baseY + map.tileHeight <= 0) {
+                continue;
+            }
+
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = 0; tx < map.width; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                if (baseX >= screenW || baseX + map.tileWidth <= 0) {
+                    continue;
+                }
+
+                uint8_t index = map.indices[rowIndexBase + tx];
+                if (index >= map.tileCount) {
+                    continue;
+                }
+
+                const Sprite& tile = map.tiles[index];
+                if (tile.data == nullptr) {
+                    continue;
+                }
+
+                drawSprite(tile, baseX, baseY, color);
+            }
+        }
+    }
 }
 
 

@@ -42,7 +42,8 @@ public:
     EntityType type;   ///< The specific type of this entity.
 
     bool isVisible = true; ///< If false, the entity's draw method will not be called.
-    
+    unsigned char renderLayer = 1;
+
     /**
      * @brief Sets the visibility of the entity.
      * @param v true to show, false to hide.
@@ -56,6 +57,9 @@ public:
      * @param e true to enable, false to disable.
      */
     virtual void setEnabled(bool e) { isEnabled = e; }
+
+    unsigned char getRenderLayer() const { return renderLayer; }
+    virtual void setRenderLayer(unsigned char layer) { renderLayer = layer; }
 
     /**
      * @brief Constructor.

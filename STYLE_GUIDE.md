@@ -136,6 +136,17 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **Zero Runtime Allocation**: Never use `new` or `malloc` inside the game loop (`update` or `draw`).
 - **String Handling**: Avoid `std::string` in `update()`/`draw()`. Use `snprintf` with stack-allocated `char` buffers for UI text.
 
+#### Recommended Pooling Patterns (ESP32)
+
+- **High-rotation entities** (bullets, snake segments, particles):
+  - Create all instances once in `init()` or in an initial `resetGame()`.
+  - Keep a usage flag (for example `isActive`) or a separate container that represents the active subset.
+  - Reactivate entities with a `reset(...)` method that configures position/state without allocating memory again.
+  - Avoid calling `delete` inside the game loop; deactivate and recycle entities instead.
+- **Engine examples**:
+  - Space Invaders projectiles: fixed-size bullet pool reused via `reset(...)`.
+  - Snake segments: segment pool reused for growth without `new` during gameplay.
+
 ### ⚡ Performance (ESP32 Focus)
 
 - **Inlining**:
@@ -166,6 +177,20 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **No Bit Logic in Actors**: Actors should never iterate bits or draw individual pixels. They only select the appropriate sprite (or layered sprite) and call the renderer.
 - **Layered Sprites**: For multi-color sprites, compose multiple 1bpp `SpriteLayer` entries instead of introducing new bitmap formats. Keep layer data `static const` to allow storage in flash.
 - **Integer-Only Rendering**: Sprite rendering must remain integer-only and avoid dynamic allocations to stay friendly to ESP32 constraints.
+
+### 🧱 Render Layers & Tilemaps
+
+- **Render Layers**:
+  - Use `Entity::renderLayer` to separate concerns:
+    - `0` – background (tilemaps, solid fills, court outlines).
+    - `1` – gameplay actors (player, enemies, bullets, snake segments, ball/paddles).
+    - `2` – UI (labels, menus, score text).
+  - Scenes draw entities by iterating these layers in ascending order. Higher layers naturally appear on top.
+- **Background Entities**:
+  - Prefer lightweight background entities in layer `0` (for example, starfields or playfield outlines) instead of redrawing background logic inside every scene `draw()`.
+- **Tilemaps**:
+  - For grid-like backgrounds, use the `TileMap` helper with 1bpp `Sprite` tiles and `Renderer::drawTileMap`.
+  - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
 
 ---
 
