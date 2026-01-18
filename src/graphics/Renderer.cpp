@@ -97,8 +97,8 @@ namespace pixelroot32::graphics {
 
         // Iterate over rows (Y axis).
         for (int row = 0; row < sprite.height; ++row) {
-            const int dstY = y + row;
-            if (dstY < 0 || dstY >= screenH) {
+            const int logicalY = y + row;
+            if (logicalY + yOffset < 0 || logicalY + yOffset >= screenH) {
                 continue;
             }
 
@@ -115,14 +115,14 @@ namespace pixelroot32::graphics {
                     ? x + (sprite.width - 1 - col)
                     : x + col;
 
-                if (logicalX < 0 || logicalX >= screenW) {
+                const int finalX = xOffset + logicalX;
+                if (finalX < 0 || finalX >= screenW) {
                     continue;
                 }
 
-                const int dstX = xOffset + logicalX;
-                const int finalY = yOffset + dstY;
+                const int finalY = yOffset + logicalY;
 
-                getDrawSurface().drawPixel(dstX, finalY, resolvedColor);
+                getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
             }
         }
     }
@@ -354,23 +354,12 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        const int screenW = width;
-        const int screenH = height;
-
         for (int ty = 0; ty < map.height; ++ty) {
             int baseY = originY + ty * map.tileHeight;
-            if (baseY >= screenH || baseY + map.tileHeight <= 0) {
-                continue;
-            }
-
             int rowIndexBase = ty * map.width;
 
             for (int tx = 0; tx < map.width; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
-                if (baseX >= screenW || baseX + map.tileWidth <= 0) {
-                    continue;
-                }
-
                 uint8_t index = map.indices[rowIndexBase + tx];
                 if (index >= map.tileCount) {
                     continue;
