@@ -30,6 +30,26 @@ struct Sprite {
     uint8_t         height; ///< Sprite height in pixels.
 };
 
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+struct Sprite2bpp {
+    const uint8_t*  data;
+    const Color*    palette;
+    uint8_t         width;
+    uint8_t         height;
+    uint8_t         paletteSize;
+};
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+struct Sprite4bpp {
+    const uint8_t*  data;
+    const Color*    palette;
+    uint8_t         width;
+    uint8_t         height;
+    uint8_t         paletteSize;
+};
+#endif
+
 /**
  * @brief Single monochrome layer used by layered sprites.
  *
@@ -56,6 +76,16 @@ struct MultiSprite {
     uint8_t              height;     ///< Sprite height in pixels.
     const SpriteLayer*   layers;     ///< Pointer to array of layers.
     uint8_t              layerCount; ///< Number of layers in the array.
+};
+
+struct TileMap {
+    uint8_t*        indices;
+    uint8_t         width;
+    uint8_t         height;
+    const Sprite*   tiles;
+    uint8_t         tileWidth;
+    uint8_t         tileHeight;
+    uint16_t        tileCount;
 };
 
 /**
@@ -339,6 +369,14 @@ public:
      */
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
 
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false);
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false);
+#endif
+
     /**
      * @brief Draws a multi-layer sprite composed of several 1bpp layers.
      *
@@ -363,6 +401,8 @@ public:
      * @param scaleY Vertical scaling factor.
      */
     void drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY);
+
+    void drawTileMap(const TileMap& map, int originX, int originY, Color color);
 
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.

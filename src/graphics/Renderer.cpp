@@ -127,6 +127,126 @@ namespace pixelroot32::graphics {
         }
     }
 
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
+            return;
+        }
+
+        if (sprite.palette == nullptr || sprite.paletteSize == 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+
+        uint16_t paletteLUT[4];
+        uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
+        for (uint8_t i = 0; i < paletteCount; ++i) {
+            paletteLUT[i] = resolveColor(sprite.palette[i]);
+        }
+
+        const int bitsPerPixel = 2;
+        const int rowStrideBits = sprite.width * bitsPerPixel;
+        const int rowStrideBytes = (rowStrideBits + 7) / 8;
+
+        for (int row = 0; row < sprite.height; ++row) {
+            const int dstY = y + row;
+            if (dstY < 0 || dstY >= screenH) {
+                continue;
+            }
+
+            const uint8_t* rowData = sprite.data + row * rowStrideBytes;
+
+            for (int col = 0; col < sprite.width; ++col) {
+                const int bitIndex = col * bitsPerPixel;
+                const int byteIndex = bitIndex >> 3;
+                const int shift = bitIndex & 7;
+
+                const uint8_t packed = rowData[byteIndex];
+                const uint8_t value = static_cast<uint8_t>((packed >> shift) & 0x3u);
+
+                if (value == 0 || value >= paletteCount) {
+                    continue;
+                }
+
+                int logicalX = flipX
+                    ? x + (sprite.width - 1 - col)
+                    : x + col;
+
+                if (logicalX < 0 || logicalX >= screenW) {
+                    continue;
+                }
+
+                const int dstX = xOffset + logicalX;
+                const int finalY = yOffset + dstY;
+
+                getDrawSurface().drawPixel(dstX, finalY, paletteLUT[value]);
+            }
+        }
+    }
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
+            return;
+        }
+
+        if (sprite.palette == nullptr || sprite.paletteSize == 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+
+        uint16_t paletteLUT[16];
+        uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
+        for (uint8_t i = 0; i < paletteCount; ++i) {
+            paletteLUT[i] = resolveColor(sprite.palette[i]);
+        }
+
+        const int bitsPerPixel = 4;
+        const int rowStrideBits = sprite.width * bitsPerPixel;
+        const int rowStrideBytes = (rowStrideBits + 7) / 8;
+
+        for (int row = 0; row < sprite.height; ++row) {
+            const int dstY = y + row;
+            if (dstY < 0 || dstY >= screenH) {
+                continue;
+            }
+
+            const uint8_t* rowData = sprite.data + row * rowStrideBytes;
+
+            for (int col = 0; col < sprite.width; ++col) {
+                const int bitIndex = col * bitsPerPixel;
+                const int byteIndex = bitIndex >> 3;
+                const int shift = bitIndex & 7;
+
+                const uint8_t packed = rowData[byteIndex];
+                const uint8_t value = static_cast<uint8_t>((packed >> shift) & 0x0Fu);
+
+                if (value == 0 || value >= paletteCount) {
+                    continue;
+                }
+
+                int logicalX = flipX
+                    ? x + (sprite.width - 1 - col)
+                    : x + col;
+
+                if (logicalX < 0 || logicalX >= screenW) {
+                    continue;
+                }
+
+                const int dstX = xOffset + logicalX;
+                const int finalY = yOffset + dstY;
+
+                getDrawSurface().drawPixel(dstX, finalY, paletteLUT[value]);
+            }
+        }
+    }
+#endif
+
     void Renderer::drawMultiSprite(const MultiSprite& sprite, int x, int y) {
         // Early-out if descriptor is invalid.
         if (sprite.layers == nullptr || sprite.layerCount == 0 ||
@@ -223,6 +343,46 @@ namespace pixelroot32::graphics {
 
             singleLayer.data = layer.data;
             drawSprite(singleLayer, x, y, scaleX, scaleY, layer.color, false);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        const int screenW = width;
+        const int screenH = height;
+
+        for (int ty = 0; ty < map.height; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            if (baseY >= screenH || baseY + map.tileHeight <= 0) {
+                continue;
+            }
+
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = 0; tx < map.width; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                if (baseX >= screenW || baseX + map.tileWidth <= 0) {
+                    continue;
+                }
+
+                uint8_t index = map.indices[rowIndexBase + tx];
+                if (index >= map.tileCount) {
+                    continue;
+                }
+
+                const Sprite& tile = map.tiles[index];
+                if (tile.data == nullptr) {
+                    continue;
+                }
+
+                drawSprite(tile, baseX, baseY, color);
+            }
         }
     }
 }

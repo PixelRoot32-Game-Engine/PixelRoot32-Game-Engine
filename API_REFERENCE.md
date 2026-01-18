@@ -248,6 +248,7 @@ Abstract base class for all game objects. Entities are the fundamental building 
 - **`int width, height`**: Dimensions of the entity.
 - **`bool isVisible`**: If false, the entity is skipped during rendering.
 - **`bool isEnabled`**: If false, the entity is skipped during updates.
+- **`unsigned char renderLayer`**: Logical render layer for this entity (0 = background, 1 = gameplay, 2 = UI).
 
 #### Public Methods
 
@@ -259,6 +260,12 @@ Abstract base class for all game objects. Entities are the fundamental building 
 
 - **`void setEnabled(bool e)`**
     Sets the enabled state of the entity.
+
+- **`unsigned char getRenderLayer() const`**
+    Returns the current render layer.
+
+- **`void setRenderLayer(unsigned char layer)`**
+    Sets the logical render layer for this entity.
 
 - **`virtual void update(unsigned long deltaTime)`**
     Updates the entity's logic. Must be overridden by subclasses.
@@ -311,7 +318,7 @@ Represents a game level or screen containing entities. A Scene manages a collect
     Updates all entities in the scene and handles collisions.
 
 - **`virtual void draw(Renderer& renderer)`**
-    Draws all visible entities in the scene.
+    Draws all visible entities in the scene, iterating them by logical render layers (0 = background, 1 = gameplay, 2 = UI).
 
 - **`void addEntity(Entity* entity)`**
     Adds an entity to the scene.
@@ -343,6 +350,29 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 
 - **`Scene* getCurrentScene() const`**
     Gets the currently active scene.
+
+---
+
+### SceneArena (Memory Management)
+
+**Inherits:** None
+
+An optional memory arena for zero-allocation scenes. This feature is enabled via the `PIXELROOT32_ENABLE_SCENE_ARENA` macro. It allows scenes to pre-allocate a fixed memory block for temporary data or entity storage, avoiding heap fragmentation on embedded devices.
+
+On ESP32, the main trade-off is:
+- **Benefits**: predictable memory usage, no `new`/`delete` in the scene, reduced fragmentation.
+- **Costs**: the buffer size is fixed (over-allocating wastes RAM, under-allocating returns `nullptr`), and all allocations are freed only when the arena is reset or the scene ends.
+
+#### Public Methods
+
+- **`void init(void* memory, std::size_t size)`**
+    Initializes the arena with a pre-allocated memory buffer.
+
+- **`void reset()`**
+    Resets the allocation offset to zero. This "frees" all memory in the arena instantly.
+
+- **`void* allocate(std::size_t size, std::size_t alignment)`**
+    Allocates a block of memory from the arena. Returns `nullptr` if the arena is full.
 
 ---
 
@@ -394,8 +424,17 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
     Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
 
+- **`void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite where each pixel stores a 2-bit index into the sprite-local palette. Index `0` is treated as transparent.
+
+- **`void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite where each pixel stores a 4-bit index into the sprite-local palette. Index `0` is treated as transparent.
+
 - **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
     Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
+
+- **`void drawTileMap(const TileMap& map, int originX, int originY, Color color)`**
+    Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles.
 
 - **`void setDisplaySize(int w, int h)`**
     Sets the logical display size.
@@ -440,7 +479,7 @@ Enumeration of the 32 built-in colors available in the engine's palette.
 
 **Inherits:** None
 
-Compact descriptor for monochrome bitmapped sprites used by `Renderer::drawSprite`.
+Compact descriptor for monochrome bitmapped sprites used by `Renderer::drawSprite`. This is the default 1bpp format used throughout the engine.
 
 #### Properties
 
@@ -458,6 +497,68 @@ Compact descriptor for monochrome bitmapped sprites used by `Renderer::drawSprit
 - Each bit represents one pixel: `0` = transparent, `1` = pixel on.  
 - Bit 0 is the leftmost pixel in the row.  
 - Bit (`width - 1`) is the rightmost pixel in the row.
+
+---
+
+### Sprite2bpp
+
+**Inherits:** None
+
+Optional descriptor for packed 2bpp sprites, enabled when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. This format is intended for higher fidelity assets while keeping 1bpp as the default.
+
+#### Properties
+
+- **`const uint8_t* data`**  
+  Pointer to packed 2bpp bitmap data. Pixels are stored row by row, four pixels per byte.
+
+- **`const Color* palette`**  
+  Pointer to a small sprite-local palette. Each pixel value selects a `Color` from this array.
+
+- **`uint8_t width`**  
+  Sprite width in pixels.
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+- **`uint8_t paletteSize`**  
+  Number of entries in the palette array (up to 4 are used by the 2bpp format).
+
+#### Bit Convention
+
+- Each pixel uses 2 bits storing an index in the range `[0, 3]`.  
+- Index `0` is treated as transparent.  
+- Within each row, bit 0 of the first byte corresponds to the leftmost pixel.
+
+---
+
+### Sprite4bpp
+
+**Inherits:** None
+
+Optional descriptor for packed 4bpp sprites, enabled when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Use this format for special cases that need more than four colors per sprite.
+
+#### Properties
+
+- **`const uint8_t* data`**  
+  Pointer to packed 4bpp bitmap data. Pixels are stored row by row, two pixels per byte.
+
+- **`const Color* palette`**  
+  Pointer to a sprite-local palette. Each pixel value selects a `Color` from this array.
+
+- **`uint8_t width`**  
+  Sprite width in pixels.
+
+- **`uint8_t height`**  
+  Sprite height in pixels.
+
+- **`uint8_t paletteSize`**  
+  Number of entries in the palette array (up to 16 are used by the 4bpp format).
+
+#### Bit Convention
+
+- Each pixel uses 4 bits storing an index in the range `[0, 15]`.  
+- Index `0` is treated as transparent.  
+- Within each row, bit 0 of the first byte corresponds to the leftmost pixel.
 
 ---
 
@@ -496,6 +597,39 @@ Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. Al
 
 - **`uint8_t layerCount`**  
   Number of layers in the array.
+
+---
+
+### TileMap
+
+**Inherits:** None
+
+Descriptor for compact tile-based backgrounds that reuse 1bpp `Sprite` tiles.
+
+#### Properties
+
+- **`uint8_t* indices`**  
+  Pointer to a `width * height` array of tile indices. Each entry selects one tile from the `tiles` array.
+
+- **`uint8_t width`**  
+  Number of tiles horizontally.
+
+- **`uint8_t height`**  
+  Number of tiles vertically.
+
+- **`const Sprite* tiles`**  
+  Pointer to the first element of a `Sprite` tile set.
+
+- **`uint8_t tileWidth`**  
+  Tile width in pixels.
+
+- **`uint8_t tileHeight`**  
+  Tile height in pixels.
+
+- **`uint16_t tileCount`**  
+  Number of entries in the `tiles` array.
+
+Typically used with `Renderer::drawTileMap` to render scroll-free backgrounds or simple starfields in a dedicated background render layer.
 
 ---
 
@@ -823,6 +957,43 @@ Manages collision detection between entities using AABB checks and collision lay
 
 - **`void update()`**
     Performs collision detection checks and triggers `onCollision` callbacks.
+
+---
+
+### Collision Primitives
+
+**Inherits:** None
+
+Lightweight geometric primitives and helpers used by the physics and collision systems.
+
+#### Types
+
+- **`struct Circle`**
+    Represents a circle in 2D space.
+
+    - `float x, y` – center position.
+    - `float radius` – circle radius.
+
+- **`struct Segment`**
+    Represents a line segment between two points.
+
+    - `float x1, y1` – start point.
+    - `float x2, y2` – end point.
+
+#### Helper Functions
+
+- **`bool intersects(const Circle& a, const Circle& b)`**
+    Returns true if two circles overlap.
+
+- **`bool intersects(const Circle& c, const Rect& r)`**
+    Returns true if a circle overlaps an axis-aligned rectangle.
+
+- **`bool intersects(const Segment& s, const Rect& r)`**
+    Returns true if a line segment intersects an axis-aligned rectangle.
+
+- **`bool sweepCircleVsRect(const Circle& start, const Circle& end, const Rect& rect, float& tHit)`**
+    Performs a simple sweep test between two circle positions against a rectangle, using a segment cast against an expanded rectangle.  
+    Returns true if a collision occurs between `start` and `end`, writing the normalized hit time in `tHit` (`0.0f` = at `start`, `1.0f` = at `end`).
 
 ---
 
