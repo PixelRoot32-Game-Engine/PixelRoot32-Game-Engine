@@ -2,6 +2,8 @@
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
+**Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Expect occasional issues or breaking changes, especially on less-tested configurations; feedback and bug reports are welcome.
+
 The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
 ---
@@ -18,16 +20,18 @@ Special thanks to **nbourre** for open-sourcing the original engine and inspirin
 - **Cross-Platform**: Develop on PC (Windows/Linux via SDL2) and deploy to ESP32 (ST7735/ILI9341 via SPI/DMA).
 - **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
 - **Color Palette**: Fixed indexed palette (32 colors) using RGB565 for fast rendering.
-- **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers.
+- **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers, plus optional 2bpp/4bpp packed sprites for richer visuals.
 - **Sprite Animation**: Lightweight, step-based sprite animation that works with both simple sprites and layered `MultiSprite`, without coupling animation logic to rendering.
-- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics.
-- **Particle System**: High-performance, memory-pooled particle effects.
+- **Render Layers & Tilemaps**: Simple logical render layers (background, gameplay, UI) and a compact 1bpp tilemap helper for backgrounds and side-scrolling levels, designed to stay friendly to ESP32 RAM/CPU limits.
+- **2D Camera & Scrolling**: Dead-zone camera (`Camera2D`) that follows a target horizontally (and optionally vertically) by driving `Renderer::setDisplayOffset`, enabling parallax backgrounds and long platformer levels.
+- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
+- **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
 - **UI System**: Lightweight UI controls (Label, Button).
 
 ## 🛠 Target Platforms
 
-1.  **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
-2.  **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
+1. **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
+2. **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
 
 ## 📚 Documentation
 
@@ -49,12 +53,13 @@ PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 The engine provides a built-in palette of 32 colors via the
 `pixelroot32::graphics::Color` enum.
 
-Sprites are defined as compact 1bpp bitmaps:
+Sprites are defined as compact 1bpp bitmaps by default:
 
 - One `uint16_t` per row, each bit representing a pixel (`0` = transparent, `1` = on).
 - Bit 0 is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
 - `Renderer::drawSprite` draws a single-color sprite using any palette `Color`.
 - `Renderer::drawMultiSprite` composes multiple 1bpp layers (each with its own color) to build multi-color, NES/GameBoy-style sprites without changing the underlying format.
+- Optional 2bpp/4bpp packed formats can be enabled at compile time for higher fidelity assets while keeping 1bpp as the default path for ESP32-friendly games.
 
 ## 📁 Project Structure
 
@@ -63,11 +68,6 @@ Main structure of the `PixelRoot32-Game-Engine` library:
 ```txt
 PixelRoot32-Game-Engine/
 ├── assets/                 # Icons and logos
-├── examples/               # Example games
-│   ├── Pong/
-│   ├── GeometryJump/
-│   ├── BrickBreaker/
-│   └── TicTacToe/
 ├── include/                # Public engine headers
 │   ├── audio/
 │   ├── core/
@@ -102,21 +102,21 @@ PixelRoot32-Game-Engine/
 
 ### Using this example repository
 
-1.  Clone this repository.
-2.  Open it in **PlatformIO** (VS Code).
-3.  Select the environment (`esp32` or `native`).
-4.  Build and run the **GeometryJump** example to see the engine in action.
+1. Clone this repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples).
+2. Open it in **PlatformIO** (VS Code).
+3. Select the environment (`esp32` or `native`).
+4. Build and run the **GeometryJump** example to see the engine in action.
 
 ### Create your own project using PixelRoot32 as a library
 
-1.  Create a new PlatformIO project for your ESP32.
-2.  Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
+1. Create a new PlatformIO project for your ESP32.
+2. Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
     (or add it as a Git submodule in `lib/PixelRoot32-Game-Engine`).
-3.  Create a `src/drivers` folder in your project and add your `DrawSurface`
+3. Create a `src/drivers` folder in your project and add your `DrawSurface`
     implementations there, for example:
     - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
     - `src/drivers/native/SDL2_Drawer.cpp` for the native PC mode.
-4.  In your `src/main.cpp`, include the engine and configure the drivers, similar to:
+4. In your `src/main.cpp`, include the engine and configure the drivers, similar to:
 
 ```cpp
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
@@ -142,11 +142,9 @@ void loop() {
 }
 ```
 
-5.  Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+1. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
     actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
     assign them with `engine.setScene(...)` in `setup()`.
-
-Reference project: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
 
 ---
 *Built with ❤️ for the retro-dev community.*

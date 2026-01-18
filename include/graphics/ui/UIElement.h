@@ -25,7 +25,9 @@ public:
      * @param w Width.
      * @param h Height.
      */
-    UIElement(float x, float y, float w, float h) : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT) {}
+    UIElement(float x, float y, float w, float h) : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT) {
+        setRenderLayer(2);
+    }
     
     virtual ~UIElement() = default;
 };

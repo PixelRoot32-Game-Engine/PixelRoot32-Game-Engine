@@ -70,9 +70,12 @@ private:
     void updateTexture();
 
     inline int16_t textWidth(const char* text) {
-        // Simple calculation
+        if (!text || !*text) return 0;
         int len = strlen(text);
-        return len * 6 * textSize;
+        int size = textSize ? textSize : 1;
+        int base = FONT_W + FONT_SPACING;
+        int width = len * base - FONT_SPACING;
+        return static_cast<int16_t>(width * size);
     }
 
     inline void print(const char* text, const uint8_t font5x7[][7]) {
@@ -85,8 +88,9 @@ private:
 
         while (*text) {
             char c = *text++;
+            int size = textSize ? textSize : 1;
             if (c < 32 || c > 126) {
-                cx += FONT_W + FONT_SPACING;
+                cx += (FONT_W + FONT_SPACING) * size;
                 continue;
             }
 
@@ -96,12 +100,18 @@ private:
                 uint8_t bits = glyph[row];
                 for (int col = 0; col < FONT_W; ++col) {
                     if (bits & (1 << (FONT_W - 1 - col))) {
-                        setPixel(cx + col, y + row, textColor);
+                        int px = cx + col * size;
+                        int py = y + row * size;
+                        for (int dy = 0; dy < size; ++dy) {
+                            for (int dx = 0; dx < size; ++dx) {
+                                setPixel(px + dx, py + dy, textColor);
+                            }
+                        }
                     }
                 }
             }
 
-            cx += FONT_W + FONT_SPACING;
+            cx += (FONT_W + FONT_SPACING) * size;
         }
     }
 
