@@ -30,6 +30,26 @@ struct Sprite {
     uint8_t         height; ///< Sprite height in pixels.
 };
 
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+struct Sprite2bpp {
+    const uint8_t*  data;
+    const Color*    palette;
+    uint8_t         width;
+    uint8_t         height;
+    uint8_t         paletteSize;
+};
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+struct Sprite4bpp {
+    const uint8_t*  data;
+    const Color*    palette;
+    uint8_t         width;
+    uint8_t         height;
+    uint8_t         paletteSize;
+};
+#endif
+
 /**
  * @brief Single monochrome layer used by layered sprites.
  *
@@ -348,6 +368,14 @@ public:
      * @param flipX  If true, sprite is mirrored horizontally before scaling.
      */
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false);
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false);
+#endif
 
     /**
      * @brief Draws a multi-layer sprite composed of several 1bpp layers.
