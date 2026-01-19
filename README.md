@@ -187,6 +187,7 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Tools**: Added Sprite Compiler python tool.
 - **Experimental Build Flags**:
   - `PIXELROOT32_ENABLE_2BPP_SPRITES`: Enables support for 2bpp (4-color) packed sprites.
+  - `PIXELROOT32_ENABLE_4BPP_SPRITES`: Enables support for 4bpp (up to 16-color) packed sprites, intended for high-fidelity UI elements or special effects where more colors per sprite are needed.
   - `PIXELROOT32_ENABLE_SCENE_ARENA`: Enables dedicated memory arena for scene management.
 
 ## 📦 Getting Started
