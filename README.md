@@ -33,7 +33,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Scene & Entity System**: Scenes managing Entities, Actors, PhysicsActors and UI elements.
 - **Cross-Platform**: Develop on PC (Windows/Linux via SDL2) and deploy to ESP32 (ST7735/ILI9341 via SPI/DMA).
 - **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
-- **Color Palette**: Fixed indexed palette (32 colors) using RGB565 for fast rendering.
+- **Color Palette**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering.
 - **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers, plus optional 2bpp/4bpp packed sprites for richer visuals.
 - **Sprite Animation**: Lightweight, step-based sprite animation that works with both simple sprites and layered `MultiSprite`, without coupling animation logic to rendering.
 - **Render Layers & Tilemaps**: Simple logical render layers (background, gameplay, UI) and a compact 1bpp tilemap helper for backgrounds and side-scrolling levels, designed to stay friendly to ESP32 RAM/CPU limits.
@@ -64,8 +64,10 @@ PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 - Improves performance and memory usage.
 - Ensures visual consistency across games.
 
-The engine provides a built-in palette of 32 colors via the
+The engine provides a built-in palette of 24 colors (plus transparent) via the
 `pixelroot32::graphics::Color` enum.
+
+> **Note:** You can find the palette reference image at `assets/pixelroot32_palette.png`. Import this file into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
 
 Sprites are defined as compact 1bpp bitmaps by default:
 
@@ -73,6 +75,7 @@ Sprites are defined as compact 1bpp bitmaps by default:
 - Bit 0 is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
 - `Renderer::drawSprite` draws a single-color sprite using any palette `Color`.
 - `Renderer::drawMultiSprite` composes multiple 1bpp layers (each with its own color) to build multi-color, NES/GameBoy-style sprites without changing the underlying format.
+  > **Performance Note:** While `MultiSprite` allows many layers, it is recommended to keep the layer count between **2 and 4** for optimal performance on ESP32, as each layer incurs a separate drawing pass.
 - Optional 2bpp/4bpp packed formats can be enabled at compile time for higher fidelity assets while keeping 1bpp as the default path for ESP32-friendly games.
 
 ## 🎨 Asset Tools

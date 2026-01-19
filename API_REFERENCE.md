@@ -488,7 +488,7 @@ Dead-zone 2D camera used for side-scrolling and simple platformer levels. It con
 
 **Inherits:** None
 
-Enumeration of the 32 built-in colors available in the engine's palette.
+Enumeration of the 24 built-in colors (plus transparent) available in the engine's palette.
 
 #### Values
 
