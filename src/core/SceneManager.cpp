@@ -1,3 +1,13 @@
+/*
+ * Original work:
+ * Copyright (c) nbourre
+ * Licensed under the MIT License
+ *
+ * Modifications:
+ * Copyright (c) 2026 Gabriel Perez
+ *
+ * This file remains licensed under the MIT License.
+ */
 #include "core/SceneManager.h"
 
 namespace pixelroot32::core {

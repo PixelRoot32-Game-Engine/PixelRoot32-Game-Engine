@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #ifdef ARDUINO_ARCH_ESP32
 
 #include "drivers/esp32/ESP32_DAC_AudioBackend.h"

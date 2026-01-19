@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #include "graphics/ui/UIButton.h"
 
 namespace pixelroot32::graphics::ui {

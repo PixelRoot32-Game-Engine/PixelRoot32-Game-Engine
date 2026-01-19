@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #ifndef MOCK_ARDUINO_H
 #define MOCK_ARDUINO_H
 

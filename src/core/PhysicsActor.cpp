@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"
 

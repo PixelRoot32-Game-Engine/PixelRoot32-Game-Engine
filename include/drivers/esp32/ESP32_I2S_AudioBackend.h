@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #pragma once
 
 #ifdef ARDUINO_ARCH_ESP32
