@@ -360,6 +360,7 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 An optional memory arena for zero-allocation scenes. This feature is enabled via the `PIXELROOT32_ENABLE_SCENE_ARENA` macro. It allows scenes to pre-allocate a fixed memory block for temporary data or entity storage, avoiding heap fragmentation on embedded devices.
 
 On ESP32, the main trade-off is:
+
 - **Benefits**: predictable memory usage, no `new`/`delete` in the scene, reduced fragmentation.
 - **Costs**: the buffer size is fixed (over-allocating wastes RAM, under-allocating returns `nullptr`), and all allocations are freed only when the arena is reset or the scene ends.
 
@@ -488,9 +489,30 @@ Dead-zone 2D camera used for side-scrolling and simple platformer levels. It con
 
 **Inherits:** None
 
-Enumeration of the 24 built-in colors (plus transparent) available in the engine's palette.
+The `Color` module manages the engine's color palettes and provides the `Color` enumeration for referencing colors within the active palette.
 
-#### Values
+#### PaletteType (Enum)
+
+Enumeration of available color palettes.
+
+- `PR32` (Default): The standard PixelRoot32 palette (vibrant, general purpose).
+- `NES`: Nintendo Entertainment System inspired palette.
+- `GB`: Game Boy inspired palette (4 greens).
+- `GBC`: Game Boy Color inspired palette.
+- `PICO8`: PICO-8 fantasy console palette.
+
+#### Public Methods
+
+- **`static void setPalette(PaletteType type)`**
+    Sets the active color palette for the engine.
+    *Note: This should typically be called once during game initialization (e.g., in the first Scene's `init()` method). Only one palette can be active at a time.*
+
+- **`static uint16_t resolveColor(Color color)`**
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette.
+
+#### Color (Enum)
+
+Enumeration of color indices available in the engine's palette. The actual RGB value of each color depends on the active `PaletteType`.
 
 - `Black`, `White`, `LightGray`, `DarkGray`
 - `Red`, `DarkRed`, `Green`, `DarkGreen`, `Blue`, `DarkBlue`
@@ -499,13 +521,8 @@ Enumeration of the 24 built-in colors (plus transparent) available in the engine
 - `LightBlue`, `LightGreen`, `LightRed`
 - `Navy`, `Teal`, `Olive`
 - `Gold`, `Silver`
-- `Transparent` (special value)
-- `DebugRed`, `DebugGreen`, `DebugBlue`
-
-#### Public Methods
-
-- **`uint16_t resolveColor(Color color)`**
-    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation.
+- `Transparent` (special value, not rendered)
+- `DebugRed`, `DebugGreen`, `DebugBlue` (debug colors)
 
 ---
 
@@ -1005,14 +1022,14 @@ Lightweight geometric primitives and helpers used by the physics and collision s
 - **`struct Circle`**
     Represents a circle in 2D space.
 
-    - `float x, y` – center position.
-    - `float radius` – circle radius.
+  - `float x, y` – center position.
+  - `float radius` – circle radius.
 
 - **`struct Segment`**
     Represents a line segment between two points.
 
-    - `float x1, y1` – start point.
-    - `float x2, y2` – end point.
+  - `float x1, y1` – start point.
+  - `float x2, y2` – end point.
 
 #### Helper Functions
 

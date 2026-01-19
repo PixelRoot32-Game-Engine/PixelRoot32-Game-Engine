@@ -7,96 +7,68 @@
 
 namespace pixelroot32::graphics {
 
-enum class Color : uint8_t {
-    Black = 0,
-    White,
-    LightGray,
-    DarkGray,
-
-    Red,
-    DarkRed,
-    Green,
-    DarkGreen,
-    Blue,
-    DarkBlue,
-
-    Yellow,
-    Orange,
-    Brown,
-
-    Purple,
-    Pink,
-    Cyan,
-
-    LightBlue,
-    LightGreen,
-    LightRed,
-
-    Navy,
-    Teal,
-    Olive,
-
-    Gold,
-    Silver,
-
-    Transparent,   // optional (alpha logic)
-    DebugRed,
-    DebugGreen,
-    DebugBlue,
-
-    COUNT
+enum class PaletteType {
+    NES,
+    GB,
+    GBC,
+    PICO8,
+    PR32
 };
 
-static constexpr uint16_t ENGINE_PALETTE[] = {
+// Default palette is PR32.
+// The Color enum is mapped to the PR32 palette indices (0-15).
+// Some legacy colors are aliased to the nearest available color in the 16-color palette.
+enum class Color : uint8_t {
+    // Standard Colors (PR32 indices)
+    Black = 0,
+    White = 1,
+    Navy = 2,
+    Blue = 3,
+    Cyan = 4,
+    DarkGreen = 5,
+    Green = 6,
+    LightGreen = 7,
+    Yellow = 8,
+    Orange = 9,
+    LightRed = 10,
+    Red = 11,
+    DarkRed = 12,
+    Purple = 13,
+    Magenta = 14,
+    Gray = 15,
 
-    // Grayscale
-    0x0000, // Black
-    0xFFFF, // White
-    0xC618, // LightGray
-    0x7BEF, // DarkGray
-
-    // Reds
-    0xF800, // Red
-    0x7800, // DarkRed
-
-    // Greens
-    0x07E0, // Green
-    0x03E0, // DarkGreen
-
-    // Blues
-    0x001F, // Blue
-    0x000F, // DarkBlue
-
-    // Warm colors
-    0xFFE0, // Yellow
-    0xFD20, // Orange
-    0xA145, // Brown
-
-    // Fantasy / UI
-    0x780F, // Purple
-    0xF81F, // Pink
-    0x07FF, // Cyan
-
-    // Light tones
-    0xAEDC, // LightBlue
-    0x9772, // LightGreen
-    0xFBAE, // LightRed
-
-    // Dark tones
-    0x0010, // Navy
-    0x0410, // Teal
-    0x7BE0, // Olive
-
-    // Metallic
-    0xFEA0, // Gold
-    0xC618, // Silver
+    // Aliases for compatibility
+    DarkBlue = Navy,
+    LightBlue = Blue,   // Closest match
+    Teal = Cyan,        // Closest match
+    Olive = DarkGreen,  // Closest match
+    Gold = Yellow,      // Closest match
+    Brown = DarkRed,    // Closest match (Maroon)
+    Pink = Magenta,
+    LightPurple = Magenta,
+    Maroon = DarkRed,
+    MidGray = Gray,
+    LightGray = Gray,
+    DarkGray = Gray,
+    Silver = Gray,
 
     // Special
-    0x0000, // Transparent (handled separately)
-    0xF800, // DebugRed
-    0x07E0, // DebugGreen
-    0x001F, // DebugBlue
+    Transparent = 0, // Treated as Black or handled by renderer logic
+    DebugRed = Red,
+    DebugGreen = Green,
+    DebugBlue = Blue,
+
+    COUNT = 16
 };
+
+/**
+ * @brief Selects the active color palette.
+ * @param palette The palette to use.
+ */
+void setPalette(PaletteType palette);
+
+// Removed static constexpr ENGINE_PALETTE to support dynamic switching.
+
 
 uint16_t resolveColor(Color color);
 

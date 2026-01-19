@@ -3,8 +3,8 @@
 </p>
 
 # PixelRoot32 Game Engine
-[![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/gperez88)
 
+[![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/gperez88)
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
@@ -64,10 +64,49 @@ PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 - Improves performance and memory usage.
 - Ensures visual consistency across games.
 
-The engine provides a built-in palette of 24 colors (plus transparent) via the
+The engine provides a built-in palette of 16 colors (plus transparent) via the
 `pixelroot32::graphics::Color` enum.
 
-> **Note:** You can find the palette reference image at [assets/pixelroot32_palette.png](assets/pixelroot32_palette.png). Import this file into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
+### Color Palette Selection
+
+The engine supports multiple pre-defined color palettes. Developers can select **one active palette** at a time for their game.
+
+**Available Palettes:**
+
+| Palette | Description | Preview |
+| :--- | :--- | :--- |
+| `PR32` (Default) | The standard PixelRoot32 palette | <img src="assets/palette_PR32.png" width="150"/> |
+| `NES` | Nintendo Entertainment System style | <img src="assets/palette_NES.png" width="150"/> |
+| `GB` | GameBoy (Greyscale/Green) style | <img src="assets/palette_GB.png" width="150"/> |
+| `GBC` | GameBoy Color style | <img src="assets/palette_GBC.png" width="150"/> |
+| `PICO8` | PICO-8 fantasy console style | <img src="assets/palette_PICO8.png" width="150"/> |
+
+> **Note:** You can import these images into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
+
+**How to Select a Palette:**
+
+Call `pr32::graphics::setPalette(...)` in your scene's `init()` method.
+
+```cpp
+#include <graphics/Color.h>
+
+void MyScene::init() {
+    // Select the GameBoy palette
+    pr32::graphics::setPalette(pr32::graphics::PaletteType::GB);
+    
+    // ... rest of initialization
+}
+```
+
+> **Note:** Only one palette can be active globally. When switching scenes, it is good practice to explicitly set the desired palette in `init()`.
+
+### Technical Implementation
+
+The palette system is designed for **zero-overhead switching**, critical for the limited resources of the ESP32:
+
+1.  **Flash Storage**: All palettes are stored as `static constexpr` arrays in flash memory (RODATA), consuming no dynamic RAM.
+2.  **Pointer-Based Switching**: The engine maintains a single global pointer `currentPalette` that points to the active array. Calling `setPalette()` merely updates this pointer, making the operation instantaneous (**O(1)**).
+3.  **Dynamic Resolution**: The `resolveColor(Color c)` function uses the enum value as a direct index into the array referenced by `currentPalette`. This ensures that all rendering calls automatically use the new colors without needing to redraw or reload assets.
 
 Sprites are defined as compact 1bpp bitmaps by default:
 
@@ -241,6 +280,7 @@ void loop() {
 ---
 
 ## License
+
 PixelRoot32 is an **open-source** project.
 
 - Source files derived from *ESP32-Game-Engine* are licensed under the **MIT License**.
@@ -252,6 +292,7 @@ See individual source files for license details.
 ---
 
 ## Credits
+
 Developed by **Gabriel Perez** as a modular **game engine for embedded systems**.  
 Special thanks to **nbourre** for the original ESP32-Game-Engine.
 
