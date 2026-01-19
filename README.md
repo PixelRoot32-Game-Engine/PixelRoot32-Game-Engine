@@ -67,7 +67,7 @@ PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
 The engine provides a built-in palette of 24 colors (plus transparent) via the
 `pixelroot32::graphics::Color` enum.
 
-> **Note:** You can find the palette reference image at `assets/pixelroot32_palette.png`. Import this file into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
+> **Note:** You can find the palette reference image at [assets/pixelroot32_palette.png](assets/pixelroot32_palette.png). Import this file into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
 
 Sprites are defined as compact 1bpp bitmaps by default:
 
@@ -82,7 +82,7 @@ Sprites are defined as compact 1bpp bitmaps by default:
 
 ### Sprite Compiler (`pr32-sprite-compiler`)
 
-A Python tool is available to convert standard PNG sprite sheets into PixelRoot32-compatible C headers (`.h`). The source code and detailed usage instructions are available in the [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler/tree/master) repository.
+A Python tool is available to convert standard PNG sprite sheets into PixelRoot32-compatible C headers (`.h`). The source code and detailed usage instructions are available in the [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler) repository.
 
 - **Input**: PNG sprite sheet (RGB/RGBA).
 - **Output**: C header with `uint16_t` arrays for each color layer (1bpp per layer).
