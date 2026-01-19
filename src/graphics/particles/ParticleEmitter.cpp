@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #include "graphics/particles/ParticleEmitter.h"
 #include "graphics/Renderer.h"
 #include "graphics/Color.h"

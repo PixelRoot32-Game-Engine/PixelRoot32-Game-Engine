@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #pragma once
 #ifndef SDL2_DRAWER_H
 #define SDL2_DRAWER_H

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Gabriel Perez
+ * Licensed under the GNU GPL v3
+ */
 #ifndef MOCK_SPI_H
 #define MOCK_SPI_H
 

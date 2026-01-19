@@ -241,7 +241,13 @@ void loop() {
 ---
 
 ## License
-PixelRoot32 is **open-source** under the **MIT License**.
+PixelRoot32 is an **open-source** project.
+
+- Source files derived from *ESP32-Game-Engine* are licensed under the **MIT License**.
+- Modified versions of those files remain under the **MIT License**.
+- New source files authored by **Gabriel Perez (2026)** are licensed under the **GNU GPL v3**.
+
+See individual source files for license details.
 
 ---
 
