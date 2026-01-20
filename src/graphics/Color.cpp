@@ -21,6 +21,12 @@ void setPalette(PaletteType palette) {
     }
 }
 
+void setCustomPalette(const uint16_t* palette) {
+    if (palette != nullptr) {
+        currentPalette = palette;
+    }
+}
+
 /**
  * @brief Resolves a Color enum to its corresponding 16-bit color value.
  * @param color The Color enum value.
