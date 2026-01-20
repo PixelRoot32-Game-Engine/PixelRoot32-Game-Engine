@@ -22,6 +22,10 @@
 
 namespace pixelroot32::graphics {
 
+    inline bool isDrawable(Color c) {
+        return c != Color::Transparent;
+    }
+
     Renderer::Renderer(const DisplayConfig& config) : config(config) {        
         drawer = config.drawSurface;
         xOffset = config.xOffset;
@@ -44,26 +48,32 @@ namespace pixelroot32::graphics {
     }
 
     void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawText(text, x, y, resolveColor(color), size);
     }
 
     void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawTextCentered(text, y, resolveColor(color), size);
     }
 
     void Renderer::drawFilledCircle(int x, int y, int radius, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawFilledCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
     }
 
     void Renderer::drawCircle(int x, int y, int radius, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
     }
 
     void Renderer::drawRectangle(int x, int y, int width, int height, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
     }
 
     void Renderer::drawFilledRectangle(int x, int y, int width, int height, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
     }
 
@@ -72,6 +82,7 @@ namespace pixelroot32::graphics {
     }
 
     void Renderer::drawLine(int x1, int y1, int x2, int y2, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawLine(xOffset + x1, yOffset + y1, xOffset + x2, yOffset + y2, resolveColor(color));
     }
 
@@ -82,10 +93,12 @@ namespace pixelroot32::graphics {
 
     //draw an image to the screen in an bitmap format
     void Renderer::drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color));
     }
 
     void Renderer::drawPixel(int x, int y, Color color) {
+        if (!isDrawable(color)) return;
         getDrawSurface().drawPixel(x, y, resolveColor(color));
     }
 

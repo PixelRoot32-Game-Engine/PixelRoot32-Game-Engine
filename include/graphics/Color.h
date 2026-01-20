@@ -15,6 +15,8 @@ enum class PaletteType {
     PR32
 };
 
+static constexpr uint8_t PALETTE_SIZE = 16;
+
 // Default palette is PR32.
 // The Color enum is mapped to the PR32 palette indices (0-15).
 // Some legacy colors are aliased to the nearest available color in the 16-color palette.
@@ -53,13 +55,27 @@ enum class Color : uint8_t {
     Silver = Gray,
 
     // Special
-    Transparent = 0, // Treated as Black or handled by renderer logic
+
+    // Color::Transparent is not a real color.
+    // It must be handled by the renderer/blitter and must never be resolved.
+    // Using it in drawing primitives results in a no-op.
+    Transparent = 255,
     DebugRed = Red,
     DebugGreen = Green,
-    DebugBlue = Blue,
-
-    COUNT = 16
+    DebugBlue = Blue
 };
+
+
+// -----------------------------------------------------------------------------
+// Palette system
+// -----------------------------------------------------------------------------
+//
+// Only one palette can be active at a time.
+// All Color values are resolved against the currently active palette.
+//
+// Switching the active palette affects all subsequent draw calls.
+// Custom palettes are not copied; the provided palette pointer must remain valid.
+//
 
 /**
  * @brief Selects the active color palette.
@@ -74,9 +90,10 @@ void setPalette(PaletteType palette);
  */
 void setCustomPalette(const uint16_t* palette);
 
-// Removed static constexpr ENGINE_PALETTE to support dynamic switching.
-
-
+/**
+ * @brief Resolves a Color enum to its corresponding 16-bit color value.
+ * @note Color::Transparent is not a real color and must not be resolved.
+ */
 uint16_t resolveColor(Color color);
 
 }
