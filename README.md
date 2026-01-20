@@ -3,8 +3,10 @@
 </p>
 
 # PixelRoot32 Game Engine
-
 [![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/gperez88)
+[![Support me on PayPal](https://img.shields.io/badge/Support%20me%20on%20PayPal-003087?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/ncp/payment/THC3PDSRQKZW6)
+
+
 
 PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
 
