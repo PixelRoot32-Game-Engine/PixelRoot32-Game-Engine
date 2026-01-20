@@ -67,6 +67,13 @@ enum class Color : uint8_t {
  */
 void setPalette(PaletteType palette);
 
+/**
+ * @brief Sets a custom color palette.
+ * @param palette Pointer to an array of 16 uint16_t RGB565 color values.
+ *                The array must remain valid (e.g., static or global) as the engine does not copy it.
+ */
+void setCustomPalette(const uint16_t* palette);
+
 // Removed static constexpr ENGINE_PALETTE to support dynamic switching.
 
 

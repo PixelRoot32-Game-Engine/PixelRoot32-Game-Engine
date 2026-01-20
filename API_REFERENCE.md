@@ -507,6 +507,11 @@ Enumeration of available color palettes.
     Sets the active color palette for the engine.
     *Note: This should typically be called once during game initialization (e.g., in the first Scene's `init()` method). Only one palette can be active at a time.*
 
+- **`static void setCustomPalette(const uint16_t* palette)`**
+    Sets a custom color palette defined by the user.
+  - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
+  - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
+
 - **`static uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette.
 

@@ -100,13 +100,45 @@ void MyScene::init() {
 
 > **Note:** Only one palette can be active globally. When switching scenes, it is good practice to explicitly set the desired palette in `init()`.
 
+### Custom Color Palette
+
+You can also define your own custom palette. This is useful for giving your game a unique look while respecting the 16-color limit.
+
+**How to define and use a custom palette:**
+
+1. Define a `static const` array of 16 `uint16_t` values (RGB565 format).
+2. Pass it to `pr32::graphics::setCustomPalette(...)`.
+
+```cpp
+#include <graphics/Color.h>
+
+// Define your custom 16-color palette (RGB565)
+// Values must be ordered to match the Color enum indices (Black=0, White=1, etc.)
+// if you want to keep compatibility with standard Color names.
+static const uint16_t MY_SEPIA_PALETTE[16] = {
+    0x0000, // 0: Black
+    0xE79C, // 1: White (Sepia tone)
+    0x3186, // 2: Navy
+    0x52AA, // 3: Blue
+    // ... define all 16 colors ...
+    0xCE79  // 15: Gray
+};
+
+void MyScene::init() {
+    // Apply the custom palette
+    pr32::graphics::setCustomPalette(MY_SEPIA_PALETTE);
+}
+```
+
+> **Warning:** The array passed to `setCustomPalette` **must remain valid** while it is active. Always use `static const` arrays or global variables. Do not pass a local stack array.
+
 ### Technical Implementation
 
 The palette system is designed for **zero-overhead switching**, critical for the limited resources of the ESP32:
 
-1.  **Flash Storage**: All palettes are stored as `static constexpr` arrays in flash memory (RODATA), consuming no dynamic RAM.
-2.  **Pointer-Based Switching**: The engine maintains a single global pointer `currentPalette` that points to the active array. Calling `setPalette()` merely updates this pointer, making the operation instantaneous (**O(1)**).
-3.  **Dynamic Resolution**: The `resolveColor(Color c)` function uses the enum value as a direct index into the array referenced by `currentPalette`. This ensures that all rendering calls automatically use the new colors without needing to redraw or reload assets.
+1. **Flash Storage**: All palettes are stored as `static constexpr` arrays in flash memory (RODATA), consuming no dynamic RAM.
+2. **Pointer-Based Switching**: The engine maintains a single global pointer `currentPalette` that points to the active array. Calling `setPalette()` merely updates this pointer, making the operation instantaneous (**O(1)**).
+3. **Dynamic Resolution**: The `resolveColor(Color c)` function uses the enum value as a direct index into the array referenced by `currentPalette`. This ensures that all rendering calls automatically use the new colors without needing to redraw or reload assets.
 
 Sprites are defined as compact 1bpp bitmaps by default:
 
