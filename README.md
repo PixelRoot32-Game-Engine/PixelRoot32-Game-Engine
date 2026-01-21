@@ -33,7 +33,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ## 🚀 Key Features
 
 - **Scene & Entity System**: Scenes managing Entities, Actors, PhysicsActors and UI elements.
-- **Cross-Platform**: Develop on PC (Windows/Linux via SDL2) and deploy to ESP32 (ST7735/ILI9341 via SPI/DMA).
+- **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy to ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA).
 - **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
 - **Color Palette**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering.
 - **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers, plus optional 2bpp/4bpp packed sprites for richer visuals.
@@ -46,8 +46,10 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🛠 Target Platforms
 
-1. **ESP32**: Optimized for embedded constraints (limited RAM, DMA transfer).
-2. **Desktop (Native)**: Uses SDL2 for rapid development, debugging, and testing.
+1. **ESP32**: Currently supports **TFT_eSPI** library for hardware-accelerated rendering.
+2. **Desktop (Native)**: Uses **SDL2** for rapid development, debugging, and testing.
+
+> **Note:** Future support for **u8g2** library on embedded platforms is planned.
 
 ## 📚 Documentation
 
@@ -217,32 +219,37 @@ PixelRoot32-Game-Engine/
 
 The following features are planned to enhance the engine's capabilities, focusing on workflow efficiency and ESP32 optimization.
 
-### 1. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
+### 1. 📟 Driver: u8g2 Support
+
+- **Goal**: Add support for the **u8g2** graphics library.
+- **Why**: Expands hardware support to monochrome OLEDs (SSD1306, SH1106) and other displays not covered by TFT_eSPI, making the engine more versatile for low-power devices.
+
+### 2. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
 
 - **Goal**: Convert standard tracker formats (FTM/MML/MIDI) into `MusicNote` C++ structures.
 - **Why**: Manual music coding is inefficient. Enables complex chiptune soundtracks stored in Flash.
 
-### 2. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
+### 3. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
 
 - **Goal**: Import Tiled (.tmx) or JSON maps into compressed `TileMap` structures.
 - **Why**: Reduces RAM usage compared to Entity-based levels and streamlines level design.
 
-### 3. 🅰️ Engine: Native Bitmap Font System
+### 4. 🅰️ Engine: Native Bitmap Font System
 
 - **Goal**: Implement a platform-agnostic 1bpp sprite-based text renderer.
 - **Why**: Ensures pixel-perfect consistency between PC (SDL2) and ESP32, removing dependency on external font libraries.
 
-### 4. 🔊 Engine: SFX Manager
+### 5. 🔊 Engine: SFX Manager
 
 - **Goal**: "Fire-and-forget" sound effect system with channel management (priorities, virtual channels).
 - **Why**: Automates hardware channel allocation (Pulse/Triangle/Noise) for game events.
 
-### 5. 💾 Core: Persistence (Save/Load)
+### 6. 💾 Core: Persistence (Save/Load)
 
 - **Goal**: Abstract Key-Value storage (NVS on ESP32, File on PC).
 - **Why**: Standardizes saving high scores and progress across platforms.
 
-### 6. ⚡ Engine: Spatial Partitioning
+### 7. ⚡ Engine: Spatial Partitioning
 
 - **Goal**: Implement a Uniform Grid for collision detection.
 - **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
@@ -264,6 +271,39 @@ The following features are planned to enhance the engine's capabilities, focusin
   - `PIXELROOT32_ENABLE_SCENE_ARENA`: Enables dedicated memory arena for scene management.
 
 ## 📦 Getting Started
+
+### Setting up Native Environment (SDL2)
+
+To run the engine on your PC (Native mode), you need **SDL2** installed.
+
+> **Note:** The officially tested native platform is **Windows**. Linux and macOS should work in theory but are currently experimental.
+
+#### 🖥️ Windows (Recommended: MSYS2)
+
+We strongly recommend using **MSYS2** for a stable and easy setup.
+
+1. **Install MSYS2**: Download and install from [msys2.org](https://www.msys2.org/).
+2. **Update Package Database**: Open the MSYS2 terminal (UCRT64 or MINGW64) and run:
+   ```bash
+   pacman -Syu
+   ```
+3. **Install GCC and SDL2**:
+   ```bash
+   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
+   ```
+4. **Add to PATH**: Ensure your MSYS2 `bin` folder (e.g., `C:\msys64\mingw64\bin`) is in your Windows System PATH.
+
+#### 🐧 Linux (Debian/Ubuntu)
+
+```bash
+sudo apt-get install libsdl2-dev
+```
+
+#### 🍎 macOS (Homebrew)
+
+```bash
+brew install sdl2
+```
 
 ### Using this example repository
 
