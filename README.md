@@ -14,6 +14,21 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed
 
 The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
+## 📑 Table of Contents
+
+- [Origin and Inspirations](#origin-and-inspirations)
+- [Demo in Action](#demo-in-action)
+- [Key Features](#key-features)
+- [Target Platforms](#target-platforms)
+- [Documentation](#documentation)
+- [Asset Tools](#asset-tools)
+- [Project Structure](#project-structure)
+- [Roadmap](#roadmap)
+- [Changelog](#changelog)
+- [Getting Started](#getting-started)
+- [License](#license)
+- [Credits](#credits)
+
 ---
 
 ## 💡Origin and Inspirations
