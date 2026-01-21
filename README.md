@@ -315,8 +315,20 @@ brew install sdl2
 ### Create your own project using PixelRoot32 as a library
 
 1. Create a new PlatformIO project for your ESP32.
-2. Copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory  
-    (or add it as a Git submodule in `lib/PixelRoot32-Game-Engine`).
+2. **Install the library**:
+
+   > **⚠️ CRITICAL INSTALLATION NOTE**
+   >
+   > When installing via **PlatformIO (`lib_deps`)**, you **must** use the exact version string below.
+   > **Do NOT use the caret (`^`) symbol** or fuzzy versioning, as it may pull an incorrect or incompatible version.
+   >
+   > ```ini
+   > lib_deps =
+   >     gperez88/PixelRoot32-Game-Engine@0.1.0-dev
+   > ```
+   
+   Alternatively, you can manually copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory (or use a Git submodule).
+
 3. Create a `src/drivers` folder in your project and add your `DrawSurface`
     implementations there, for example:
     - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
