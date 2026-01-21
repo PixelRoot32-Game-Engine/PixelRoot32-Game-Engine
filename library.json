@@ -1,14 +1,14 @@
 {
   "name": "PixelRoot32-Game-Engine",
-  "description": "PixelRoot32-Game-Engine is an entity-based game engine with scene management, designed for embedded systems. The engine ships with a reference driver based on TFT_eSPI, but you can use alternatives such as **U8g2** or your own driver as long as they implement the `DrawSurface` interface.",
+  "description": "PixelRoot32-Game-Engine is an entity-based game engine with scene management, designed for embedded systems. The engine ships with a reference driver based on TFT_eSPI, but you can use alternatives such as U8g2 or your own driver as long as they implement the `DrawSurface` interface.",
   "keywords": [
     "esp32",
-    "game engine",
-    "u8g2",
-    "tft_espi",
+    "game-engine",
     "graphics",
-    "game",
-    "engine"
+    "retro",
+    "engine",
+    "tft_espi",
+    "u8g2"
   ],
   "version": "0.1.0",
   "authors": [
@@ -19,20 +19,16 @@
       "maintainer": true
     }
   ],
-  "license": "MIT",
+  "license": "GPL-3.0",
   "dependencies": {
-    "U8g2": "*",
     "ArduinoQueue": "*",
     "SafeString": "*",
     "OneButton": "*"
   },
-  "frameworks": "*",
+  "frameworks": [],
   "platforms": ["espressif32", "native"],
   "repository": {
     "type": "git",
     "url": "https://github.com/gperez88/PixelRoot32-Game-Engine.git"
-  },
-  "examples": [
-    "examples/Pong"
-  ]
+  }
 }
