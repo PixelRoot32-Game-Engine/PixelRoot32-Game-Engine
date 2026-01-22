@@ -24,10 +24,10 @@
   ],
   "license": "GPL-3.0",
   "dependencies": {
-    "TFT_eSPI": "*",
-    "ArduinoQueue": "*",
-    "SafeString": "*",
-    "OneButton": "*"
+    "TFT_eSPI": "^2.5.43",
+    "ArduinoQueue": "^1.2.5",
+    "SafeString": "^4.1.35",
+    "OneButton": "^2.6.1"
   },
   "frameworks": [],
   "platforms": ["espressif32", "native"],

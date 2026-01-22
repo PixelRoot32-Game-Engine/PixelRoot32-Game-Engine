@@ -353,20 +353,24 @@ brew install sdl2
    Alternatively, you can manually copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory (or use a Git submodule).
 
 3. **Configure TFT_eSPI (ESP32 only)**:
-   
-   If you are using the ESP32 platform, you need to configure the `TFT_eSPI` driver in your `platformio.ini` file. Add the following build flags to your `[env:esp32dev]` section to define your display pins and settings:
+
+   If you are using the ESP32 platform, you need to configure the `TFT_eSPI` driver in your `platformio.ini` file. Add the corresponding build flags to your `[env:esp32dev]` section to define your display pins and settings.
+
+   Here are two **tested configurations** that are known to work well:
+
+   **Option A: ST7789 (240x240)**
 
    ```ini
    build_flags =
-       -D ST7789_DRIVER      ; Driver for your display controller
-       -D TFT_WIDTH=240      ; Screen width
-       -D TFT_HEIGHT=240     ; Screen height
-       -D TFT_MOSI=23        ; SPI MOSI pin
-       -D TFT_SCLK=18        ; SPI Clock pin
-       -D TFT_DC=2           ; Data/Command pin
-       -D TFT_RST=4          ; Reset pin
-       -D TFT_CS=-1          ; Chip Select pin (or -1 if not used)
-       -D LOAD_GLCD          ; Load fonts...
+       -D ST7789_DRIVER
+       -D TFT_WIDTH=240
+       -D TFT_HEIGHT=240
+       -D TFT_MOSI=23
+       -D TFT_SCLK=18
+       -D TFT_DC=2
+       -D TFT_RST=4
+       -D TFT_CS=-1
+       -D LOAD_GLCD
        -D LOAD_FONT2
        -D LOAD_FONT4
        -D LOAD_FONT6
@@ -374,13 +378,39 @@ brew install sdl2
        -D LOAD_FONT8
        -D LOAD_GFXFF
        -D SMOOTH_FONT
-       -D SPI_FREQUENCY=40000000      ; SPI frequency
-       -D SPI_READ_FREQUENCY=20000000 ; SPI read frequency
+       -D SPI_FREQUENCY=40000000
+       -D SPI_READ_FREQUENCY=20000000
+   ```
+
+   **Option B: ST7735 (128x128)**
+
+   ```ini
+   build_flags =
+       -D ST7735_DRIVER
+       -D ST7735_GREENTAB3
+       -D TFT_WIDTH=128
+       -D TFT_HEIGHT=128
+       -D TFT_MOSI=23
+       -D TFT_SCLK=18
+       -D TFT_DC=2
+       -D TFT_RST=4
+       -D TFT_CS=-1
+       -D LOAD_GLCD
+       -D LOAD_FONT2
+       -D LOAD_FONT4
+       -D LOAD_FONT6
+       -D LOAD_FONT7
+       -D LOAD_FONT8
+       -D LOAD_GFXFF
+       -D SMOOTH_FONT
+       -D SPI_FREQUENCY=27000000
+       -D SPI_READ_FREQUENCY=20000000
    ```
 
 4. In your `src/main.cpp` (ESP32) or `src/main_native.cpp` (Native), include the engine and configure the drivers. The `DisplayConfig` now handles the driver instantiation automatically.
 
    **ESP32 Example (`src/main.cpp`):**
+
    ```cpp
    #include <Arduino.h>
    #include <core/Engine.h>
@@ -415,6 +445,7 @@ brew install sdl2
    ```
 
    **Native PC Example (`src/main_native.cpp`):**
+
    ```cpp
    #define SDL_MAIN_HANDLED
    #include <SDL2/SDL.h>
@@ -444,7 +475,7 @@ brew install sdl2
    }
    ```
 
-4. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+5. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
     actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
     assign them with `engine.setScene(...)` in `setup()` or `main()`.
 

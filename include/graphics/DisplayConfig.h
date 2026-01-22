@@ -46,28 +46,24 @@ public:
         DisplayType type,
         const int rot = 0,
         uint16_t w = 240,
-        uint16_t h = 240
+        uint16_t h = 240,
+        const int xOffset = 0,
+        const int yOffset = 0
     )
-        : type(type), rotation(rot), width(w), height(h), drawSurface(nullptr)
-    {
-        const int DEFAULT_DISPLAY_WIDTH = 240;
-        const int DEFAULT_DISPLAY_HEIGHT = 240;
-
-        xOffset = (DEFAULT_DISPLAY_WIDTH - width) / 2;
-        yOffset = (DEFAULT_DISPLAY_HEIGHT - height) / 2;  
-        
+        : type(type), rotation(rot), width(w), height(h), 
+          xOffset(xOffset), yOffset(yOffset), drawSurface(nullptr)
+    {   
         #ifdef PLATFORM_NATIVE
             drawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
         #else
-        switch (type)
-        {
-        case DisplayType::ST7789:
-        case DisplayType::ST7735:
-            drawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
-            break;
-        default:
-            break;
-        }
+            switch (type)
+            {
+            case DisplayType::ST7789:
+            case DisplayType::ST7735:
+            default:
+                drawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
+                break;
+            }
         #endif
         
         if (drawSurface == nullptr) {
