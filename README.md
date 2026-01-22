@@ -347,7 +347,7 @@ brew install sdl2
    >
    > ```ini
    > lib_deps =
-   >     gperez88/PixelRoot32-Game-Engine@0.1.0-dev
+   >     gperez88/PixelRoot32-Game-Engine@0.2.0-dev
    > ```
 
    Alternatively, you can manually copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory (or use a Git submodule).
