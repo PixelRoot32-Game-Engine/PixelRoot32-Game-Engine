@@ -9,13 +9,23 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+
 #ifdef PLATFORM_NATIVE
     #include "../../src/platforms/mock/MockSPI.h"
+    #include <drivers/native/SDL2_Drawer.h> 
 #else
+    #include <drivers/esp32/TFT_eSPI_Drawer.h>
     #include <SPI.h>
 #endif
+#include <stdexcept>
 
 namespace pixelroot32::graphics {
+
+enum DisplayType {
+    ST7789, // 240x240 TFT
+    ST7735, // 128x128 TFT
+    NONE    // for SDL2 native no driver.
+}; 
 
 /**
  * @brief Configuration settings for initializing U8g2-compatible displays.
@@ -24,35 +34,52 @@ namespace pixelroot32::graphics {
  * and communication type (I2C or SPI).
  */
 struct DisplayConfig {
-    DrawSurface* drawSurface = nullptr; ///< Pointer to the draw surface
-    int rotation = 0;                   ///< Display rotation
-    uint16_t width;                     ///< Display width in pixels
-    uint16_t height;                    ///< Display height in pixels
-    int xOffset = 0;                    ///< X offset for display rendering
-    int yOffset = 0;                    ///< Y offset for display rendering
+public:
+    DisplayType type;
+    int rotation = 0;
+    uint16_t width;
+    uint16_t height;
+    int xOffset = 0;
+    int yOffset = 0;
 
-    /**
-     * @brief Constructor to initialize the display configuration.
-     * 
-     * @param driverType Type of the driver (ST7789_DRIVER or SDL_DRIVER).
-     * @param rot Display rotation.
-     * @param w Display width in pixels.
-     * @param h Display height in pixels.
-     */
     DisplayConfig(
-        DrawSurface* drawSurface,
+        DisplayType type,
         const int rot = 0,
         uint16_t w = 240,
-        uint16_t h = 240
+        uint16_t h = 240,
+        const int xOffset = 0,
+        const int yOffset = 0
     )
-        : drawSurface(drawSurface), rotation(rot), width(w), height(h)
-    {
-        const int DEFAULT_DISPLAY_WIDTH = 240;
-        const int DEFAULT_DISPLAY_HEIGHT = 240;
-
-        xOffset = (DEFAULT_DISPLAY_WIDTH - width) / 2;
-        yOffset = (DEFAULT_DISPLAY_HEIGHT - height) / 2;            
+        : type(type), rotation(rot), width(w), height(h), 
+          xOffset(xOffset), yOffset(yOffset), drawSurface(nullptr)
+    {   
+        #ifdef PLATFORM_NATIVE
+            drawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
+        #else
+            switch (type)
+            {
+            case DisplayType::ST7789:
+            case DisplayType::ST7735:
+            default:
+                drawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
+                break;
+            }
+        #endif
+        
+        if (drawSurface == nullptr) {
+            #ifdef PLATFORM_NATIVE
+                throw std::runtime_error("Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
+            #else
+                // In ESP32, exceptions may not be enabled by default
+                // while(1); 
+            #endif
+        }
     }
+
+    DrawSurface& getDrawSurface() const { return *drawSurface; }
+
+private:
+    DrawSurface* drawSurface = nullptr;
 };
 
 }

@@ -27,7 +27,7 @@ namespace pixelroot32::graphics {
     }
 
     Renderer::Renderer(const DisplayConfig& config) : config(config) {        
-        drawer = config.drawSurface;
+        drawer = &config.getDrawSurface();
         xOffset = config.xOffset;
         yOffset = config.yOffset;
     }

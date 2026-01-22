@@ -31,13 +31,13 @@ The engine adopts a simple scene-based architecture inspired by **Godot Engine**
 
 ---
 
-## 💡Origin and Inspirations
+## Origin and Inspirations
 
 PixelRoot32 is an evolution of [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine) by **nbourre**, extended with architectural concepts from **Godot Engine**.
 
 Special thanks to **nbourre** for open-sourcing the original engine and inspiring this project. Without that work, PixelRoot32 would not exist.
 
-## 🎬 Demo in Action
+## Demo in Action
 
 Watch PixelRoot32 running on ESP32 with example games:
 
@@ -45,7 +45,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 > Click the image to watch the full demo on YouTube.  
 
-## 🚀 Key Features
+## Key Features
 
 - **Scene & Entity System**: Scenes managing Entities, Actors, PhysicsActors and UI elements.
 - **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy to ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA).
@@ -59,14 +59,14 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
 - **UI System**: Lightweight UI controls (Label, Button).
 
-## 🛠 Target Platforms
+## Target Platforms
 
 1. **ESP32**: Currently supports **TFT_eSPI** library for hardware-accelerated rendering.
 2. **Desktop (Native)**: Uses **SDL2** for rapid development, debugging, and testing.
 
 > **Note:** Future support for **u8g2** library on embedded platforms is planned.
 
-## 📚 Documentation
+## Documentation
 
 Detailed documentation for engine subsystems and coding standards:
 
@@ -168,7 +168,7 @@ Sprites are defined as compact 1bpp bitmaps by default:
   > **Performance Note:** While `MultiSprite` allows many layers, it is recommended to keep the layer count between **2 and 4** for optimal performance on ESP32, as each layer incurs a separate drawing pass.
 - Optional 2bpp/4bpp packed formats can be enabled at compile time for higher fidelity assets while keeping 1bpp as the default path for ESP32-friendly games.
 
-## 🎨 Asset Tools
+## Asset Tools
 
 ### Sprite Compiler (`pr32-sprite-compiler`)
 
@@ -190,7 +190,7 @@ python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
 
 This tool simplifies the process of creating multi-layer 1bpp sprites from modern image editors.
 
-## 📁 Project Structure
+## Project Structure
 
 Main structure of the `PixelRoot32-Game-Engine` library:
 
@@ -230,7 +230,7 @@ PixelRoot32-Game-Engine/
 └── library.properties
 ```
 
-## 🗺️ Roadmap
+## Roadmap
 
 The following features are planned to enhance the engine's capabilities, focusing on workflow efficiency and ESP32 optimization.
 
@@ -269,9 +269,15 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Goal**: Implement a Uniform Grid for collision detection.
 - **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
 
-## 📜 Changelog
+## Changelog
 
-### v0.1.0-dev (Pre-release)
+### v0.2.0-dev
+
+- **Documentation Overhaul**: Added comprehensive Table of Contents, step-by-step SDL2 installation guide for Windows (MSYS2), and critical PlatformIO installation notes.
+- **Architecture**: Moved `DrawSurface` implementation handling to the engine core. This removes the need for manual developer implementation and facilitates the integration of future display drivers.
+- **Driver Support**: Clarified driver support status (TFT_eSPI & SDL2) and roadmap.
+
+### v0.1.0-dev (Release)
 
 - **Initial Public Preview.**
 - **Core Architecture**: Scene, Entity, Actor, and PhysicsActor system.
@@ -285,7 +291,7 @@ The following features are planned to enhance the engine's capabilities, focusin
   - `PIXELROOT32_ENABLE_4BPP_SPRITES`: Enables support for 4bpp (up to 16-color) packed sprites, intended for high-fidelity UI elements or special effects where more colors per sprite are needed.
   - `PIXELROOT32_ENABLE_SCENE_ARENA`: Enables dedicated memory arena for scene management.
 
-## 📦 Getting Started
+## Getting Started
 
 ### Setting up Native Environment (SDL2)
 
@@ -299,13 +305,17 @@ We strongly recommend using **MSYS2** for a stable and easy setup.
 
 1. **Install MSYS2**: Download and install from [msys2.org](https://www.msys2.org/).
 2. **Update Package Database**: Open the MSYS2 terminal (UCRT64 or MINGW64) and run:
+
    ```bash
    pacman -Syu
    ```
+
 3. **Install GCC and SDL2**:
+
    ```bash
    pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
    ```
+
 4. **Add to PATH**: Ensure your MSYS2 `bin` folder (e.g., `C:\msys64\mingw64\bin`) is in your Windows System PATH.
 
 #### 🐧 Linux (Debian/Ubuntu)
@@ -339,44 +349,137 @@ brew install sdl2
    >
    > ```ini
    > lib_deps =
-   >     gperez88/PixelRoot32-Game-Engine@0.1.0-dev
+   >     gperez88/PixelRoot32-Game-Engine@0.2.0-dev
    > ```
-   
+
    Alternatively, you can manually copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory (or use a Git submodule).
 
-3. Create a `src/drivers` folder in your project and add your `DrawSurface`
-    implementations there, for example:
-    - `src/drivers/esp32/TFT_eSPI_Drawer.cpp` for TFT_eSPI displays.
-    - `src/drivers/native/SDL2_Drawer.cpp` for the native PC mode.
-4. In your `src/main.cpp`, include the engine and configure the drivers, similar to:
+3. **Configure TFT_eSPI (ESP32 only)**:
 
-```cpp
-#include <drivers/esp32/TFT_eSPI_Drawer.h>
-#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
-#include <core/Engine.h>
+   If you are using the ESP32 platform, you need to configure the `TFT_eSPI` driver in your `platformio.ini` file. Add the corresponding build flags to your `[env:esp32dev]` section to define your display pins and settings.
 
-namespace pr32 = pixelroot32;
+   Here are two **tested configurations** that are known to work well:
 
-pr32::drivers::esp32::TFT_eSPI_Drawer drawer;
-pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
-pr32::graphics::DisplayConfig displayConfig(&drawer, 0, 240, 240);
-pr32::input::InputConfig inputConfig(5, 13, 12, 14, 32, 33);
-pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
-pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+   **Option A: ST7789 (240x240)**
 
-void setup() {
-    engine.init();
-    // engine.setScene(&yourScene);
-}
+   ```ini
+   build_flags =
+       -D ST7789_DRIVER
+       -D TFT_WIDTH=240
+       -D TFT_HEIGHT=240
+       -D TFT_MOSI=23
+       -D TFT_SCLK=18
+       -D TFT_DC=2
+       -D TFT_RST=4
+       -D TFT_CS=-1
+       -D LOAD_GLCD
+       -D LOAD_FONT2
+       -D LOAD_FONT4
+       -D LOAD_FONT6
+       -D LOAD_FONT7
+       -D LOAD_FONT8
+       -D LOAD_GFXFF
+       -D SMOOTH_FONT
+       -D SPI_FREQUENCY=40000000
+       -D SPI_READ_FREQUENCY=20000000
+   ```
 
-void loop() {
-    engine.run();
-}
-```
+   **Option B: ST7735 (128x128)**
 
-1. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
+   ```ini
+   build_flags =
+       -D ST7735_DRIVER
+       -D ST7735_GREENTAB3
+       -D TFT_WIDTH=128
+       -D TFT_HEIGHT=128
+       -D TFT_MOSI=23
+       -D TFT_SCLK=18
+       -D TFT_DC=2
+       -D TFT_RST=4
+       -D TFT_CS=-1
+       -D LOAD_GLCD
+       -D LOAD_FONT2
+       -D LOAD_FONT4
+       -D LOAD_FONT6
+       -D LOAD_FONT7
+       -D LOAD_FONT8
+       -D LOAD_GFXFF
+       -D SMOOTH_FONT
+       -D SPI_FREQUENCY=27000000
+       -D SPI_READ_FREQUENCY=20000000
+   ```
+
+4. In your `src/main.cpp` (ESP32) or `src/main_native.cpp` (Native), include the engine and configure the drivers. The `DisplayConfig` now handles the driver instantiation automatically.
+
+   **ESP32 Example (`src/main.cpp`):**
+
+   ```cpp
+   #include <Arduino.h>
+   #include <core/Engine.h>
+   #include <drivers/esp32/ESP32_DAC_AudioBackend.h> // Or ESP32_I2S_AudioBackend.h
+
+   namespace pr32 = pixelroot32;
+
+   // 1. Audio Setup (DAC Example)
+   const int DAC_PIN = 25;
+   pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(DAC_PIN, 11025);
+
+   // 2. Display Setup (TFT_eSPI is automatically selected by the driver enum)
+   // 0 = Rotation, 240x240 = Resolution
+   pr32::graphics::DisplayConfig displayConfig(pr32::graphics::DisplayDriver::TFT_eSPI, 0, 240, 240);
+
+   // 3. Input Setup
+   // count, UP, DOWN, LEFT, RIGHT, A, B
+   pr32::input::InputConfig inputConfig(6, 32, 27, 33, 14, 13, 12);
+
+   // 4. Engine Initialization
+   pr32::audio::AudioConfig audioConfig(&audioBackend, audioBackend.getSampleRate());
+   pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+
+   void setup() {
+       engine.init();
+       // engine.setScene(&yourScene);
+   }
+
+   void loop() {
+       engine.run();
+   }
+   ```
+
+   **Native PC Example (`src/main_native.cpp`):**
+
+   ```cpp
+   #define SDL_MAIN_HANDLED
+   #include <SDL2/SDL.h>
+   #include <core/Engine.h>
+   #include <drivers/native/SDL2_AudioBackend.h>
+
+   namespace pr32 = pixelroot32;
+
+   // 1. Audio Setup
+   pr32::drivers::native::SDL2_AudioBackend audioBackend(22050, 1024);
+
+   // 2. Display Setup (NONE type defaults to SDL2 on Native platform)
+   pr32::graphics::DisplayConfig displayConfig(pr32::graphics::DisplayType::NONE, 0, 240, 240);
+
+   // 3. Input Setup (SDL Scancodes)
+   pr32::input::InputConfig inputConfig(6, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE, SDL_SCANCODE_RETURN);
+
+   // 4. Engine Initialization
+   pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
+   pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+
+   int main(int argc, char* argv[]) {
+       engine.init();
+       // engine.setScene(&yourScene);
+       engine.run();
+       return 0;
+   }
+   ```
+
+5. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
     actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
-    assign them with `engine.setScene(...)` in `setup()`.
+    assign them with `engine.setScene(...)` in `setup()` or `main()`.
 
 ---
 
