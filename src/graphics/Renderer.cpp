@@ -165,7 +165,8 @@ namespace pixelroot32::graphics {
 
         for (int row = 0; row < sprite.height; ++row) {
             const int dstY = y + row;
-            if (dstY < 0 || dstY >= screenH) {
+            const int finalY = yOffset + dstY;
+            if (finalY < 0 || finalY >= screenH) {
                 continue;
             }
 
@@ -186,13 +187,10 @@ namespace pixelroot32::graphics {
                 int logicalX = flipX
                     ? x + (sprite.width - 1 - col)
                     : x + col;
-
-                if (logicalX < 0 || logicalX >= screenW) {
+                const int dstX = xOffset + logicalX;
+                if (dstX < 0 || dstX >= screenW) {
                     continue;
                 }
-
-                const int dstX = xOffset + logicalX;
-                const int finalY = yOffset + dstY;
 
                 getDrawSurface().drawPixel(dstX, finalY, paletteLUT[value]);
             }
@@ -225,7 +223,8 @@ namespace pixelroot32::graphics {
 
         for (int row = 0; row < sprite.height; ++row) {
             const int dstY = y + row;
-            if (dstY < 0 || dstY >= screenH) {
+            const int finalY = yOffset + dstY;
+            if (finalY < 0 || finalY >= screenH) {
                 continue;
             }
 
@@ -246,15 +245,12 @@ namespace pixelroot32::graphics {
                 int logicalX = flipX
                     ? x + (sprite.width - 1 - col)
                     : x + col;
-
-                if (logicalX < 0 || logicalX >= screenW) {
+                const int finalX = xOffset + logicalX;
+                if (finalX < 0 || finalX >= screenW) {
                     continue;
                 }
 
-                const int dstX = xOffset + logicalX;
-                const int finalY = yOffset + dstY;
-
-                getDrawSurface().drawPixel(dstX, finalY, paletteLUT[value]);
+                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[value]);
             }
         }
     }
@@ -383,5 +379,3 @@ namespace pixelroot32::graphics {
         }
     }
 }
-
-
