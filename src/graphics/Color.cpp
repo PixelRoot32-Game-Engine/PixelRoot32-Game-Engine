@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #include "graphics/Color.h"
 #include "graphics/PaletteDefs.h"

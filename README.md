@@ -554,13 +554,11 @@ brew install sdl2
 
 ## License
 
-PixelRoot32 is an **open-source** project.
+PixelRoot32 is an **open-source** project licensed under the **MIT License**.
 
-- Source files derived from *ESP32-Game-Engine* are licensed under the **MIT License**.
-- Modified versions of those files remain under the **MIT License**.
-- New source files authored by **Gabriel Perez (2026)** are licensed under the **GNU GPL v3**.
+This project is based on and derived from [ESP32-Game-Engine](https://github.com/Gperez88/ESP32-Game-Engine), which is also licensed under the MIT License.
 
-See individual source files for license details.
+See the [LICENSE](LICENSE) file for the full license text.
 
 ---
 

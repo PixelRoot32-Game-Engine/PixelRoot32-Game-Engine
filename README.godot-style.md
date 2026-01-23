@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20GPL--3.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
@@ -382,13 +382,11 @@ Use the [issue tracker](https://github.com/Gperez88/PixelRoot32-Game-Engine/issu
 
 ## 📄 License
 
-PixelRoot32 is an **open-source** project:
+PixelRoot32 is an **open-source** project licensed under the **MIT License**.
 
-- Source files derived from *ESP32-Game-Engine* are under the **MIT License**
-- Modified versions of those files remain under the **MIT License**
-- New source files written by **Gabriel Perez (2026)** are under **GNU GPL v3**
+This project is based on and derived from [ESP32-Game-Engine](https://github.com/Gperez88/ESP32-Game-Engine), which is also licensed under the MIT License.
 
-See individual source files for license details.
+See the [LICENSE](LICENSE) file for the full license text.
 
 ---
 

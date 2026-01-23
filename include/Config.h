@@ -1,7 +1,7 @@
 
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #define DISPLAY_ROTATION 0
 #define DISPLAY_HEIGHT 240

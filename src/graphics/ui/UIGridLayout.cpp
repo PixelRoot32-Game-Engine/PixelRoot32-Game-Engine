@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #include "graphics/ui/UIGridLayout.h"
 #include "graphics/ui/UIButton.h"

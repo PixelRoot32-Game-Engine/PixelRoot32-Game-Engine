@@ -22,7 +22,7 @@
       "maintainer": true
     }
   ],
-  "license": "GPL-3.0",
+  "license": "MIT",
   "dependencies": {
     "TFT_eSPI": "^2.5.43",
     "ArduinoQueue": "^1.2.5",
