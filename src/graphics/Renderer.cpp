@@ -9,8 +9,10 @@
  * This file remains licensed under the MIT License.
  */
 #include "graphics/Renderer.h"
+#include "graphics/FontManager.h"
 #include <stdarg.h>
 #include <cmath>
+#include <cstring>
 #ifdef PLATFORM_NATIVE
     #include "drivers/native/SDL2_Drawer.h"
     #include "../../src/platforms/mock/MockSPI.h"
@@ -48,15 +50,79 @@ namespace pixelroot32::graphics {
     }
 
     void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
-        if (!isDrawable(color)) return;
-        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawText(text, x, y, resolveColor(color, context), size);
+        // Legacy method: delegate to new method with default font
+        drawText(text, x, y, color, size, nullptr);
+    }
+
+    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || !text || !*text) {
+            return;
+        }
+
+        // Get active font (parameter or default)
+        const Font* activeFont = font ? font : FontManager::getDefaultFont();
+        if (!activeFont || !activeFont->glyphs) {
+            // No font available - cannot render text
+            // Note: A default font should always be set in Engine::init()
+            return;
+        }
+
+        int16_t currentX = x;
+        const char* p = text;
+        float scale = static_cast<float>(size);
+
+        while (*p) {
+            char c = *p++;
+            uint8_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
+
+            // Skip unsupported characters
+            if (glyphIndex == 255) {
+                // Advance by glyph width for unsupported characters
+                currentX += static_cast<int16_t>((activeFont->glyphWidth + activeFont->spacing) * scale);
+                continue;
+            }
+
+            // Get the glyph sprite
+            const Sprite& glyph = activeFont->glyphs[glyphIndex];
+
+            // Render the glyph
+            if (size == 1) {
+                // Use non-scaled version for size 1 (more efficient)
+                drawSprite(glyph, currentX, y, color, false);
+            } else {
+                // Use scaled version for size > 1
+                drawSprite(glyph, currentX, y, scale, scale, color, false);
+            }
+
+            // Advance position
+            currentX += static_cast<int16_t>((activeFont->glyphWidth + activeFont->spacing) * scale);
+        }
     }
 
     void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
-        if (!isDrawable(color)) return;
-        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawTextCentered(text, y, resolveColor(color, context), size);
+        // Legacy method: delegate to new method with default font
+        drawTextCentered(text, y, color, size, nullptr);
+    }
+
+    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || !text || !*text) {
+            return;
+        }
+
+        // Get active font (parameter or default)
+        const Font* activeFont = font ? font : FontManager::getDefaultFont();
+        if (!activeFont || !activeFont->glyphs) {
+            // No font available - cannot render text
+            // Note: A default font should always be set in Engine::init()
+            return;
+        }
+
+        // Calculate text width and center it
+        int16_t textWidth = FontManager::textWidth(activeFont, text, size);
+        int16_t x = (width - textWidth) / 2;
+
+        // Render using the regular drawText method
+        drawText(text, x, y, color, size, activeFont);
     }
 
     void Renderer::drawFilledCircle(int x, int y, int radius, Color color) {
@@ -130,7 +196,10 @@ namespace pixelroot32::graphics {
             const uint16_t bits = sprite.data[row];
 
             for (int col = 0; col < sprite.width; ++col) {
-                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << col)) != 0;
+                // Read bits from MSB to LSB (bit (width-1) = leftmost, bit 0 = rightmost)
+                // This matches the original font format where bit 4 = left, bit 0 = right
+                const int bitIndex = sprite.width - 1 - col;
+                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << bitIndex)) != 0;
                 if (!bitSet) {
                     continue;
                 }
@@ -320,7 +389,9 @@ namespace pixelroot32::graphics {
                     srcCol = sprite.width - 1 - srcCol;
                 }
 
-                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << srcCol)) != 0;
+                // Read bits from MSB to LSB (bit (width-1) = leftmost, bit 0 = rightmost)
+                const int bitIndex = sprite.width - 1 - srcCol;
+                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << bitIndex)) != 0;
                 if (!bitSet) {
                     continue;
                 }

@@ -395,11 +395,21 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void endFrame()`**
     Finalizes the frame and sends the buffer to the display.
 
-- **`void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size)`**
-    Draws a string of text.
+- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
+    Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
+    - **text**: The string to render (ASCII characters 32-126 are supported).
+    - **x, y**: Position where text starts (top-left corner).
+    - **color**: Color from the `Color` enum (uses sprite palette context).
+    - **size**: Scale multiplier (1 = normal, 2 = double, 3 = triple, etc.).
 
-- **`void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size)`**
-    Draws text centered horizontally at a given Y coordinate.
+- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`**
+    Draws text using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
+
+- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size)`**
+    Draws text centered horizontally at a given Y coordinate using the default font.
+
+- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font)`**
+    Draws text centered horizontally using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
 
 - **`void drawFilledCircle(int x, int y, int radius, uint16_t color)`**
     Draws a filled circle.
@@ -447,7 +457,148 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Sets the display contrast/brightness (0-255).
 
 - **`void setFont(const uint8_t* font)`**
-    Sets the font for text rendering.
+    @deprecated This method is obsolete. The engine now uses the native bitmap font system. Use `FontManager::setDefaultFont()` to set the default font, or pass a `Font*` directly to `drawText()` overloads.
+
+---
+
+### Font System
+
+The engine includes a native bitmap font system that uses 1bpp sprites to render text, ensuring pixel-perfect consistency between PC (SDL2) and ESP32 platforms.
+
+#### Font Structure
+
+**Type:** `struct Font`
+
+Represents a bitmap font containing glyph sprites for ASCII characters.
+
+**Members:**
+- **`const Sprite* glyphs`**: Array of sprite structures, one per character.
+- **`uint8_t firstChar`**: First character code in the font (e.g., 32 for space).
+- **`uint8_t lastChar`**: Last character code in the font (e.g., 126 for tilde).
+- **`uint8_t glyphWidth`**: Fixed width of each glyph in pixels.
+- **`uint8_t glyphHeight`**: Fixed height of each glyph in pixels.
+- **`uint8_t spacing`**: Horizontal spacing between characters in pixels.
+- **`uint8_t lineHeight`**: Vertical line height (includes spacing between lines).
+
+**Example:**
+```cpp
+#include <graphics/Font.h>
+#include <graphics/Font5x7.h>
+
+// The built-in 5x7 font is available as FONT_5X7
+const Font* myFont = &pixelroot32::graphics::FONT_5X7;
+```
+
+#### FontManager
+
+**Type:** `class FontManager`
+
+Static utility class for managing fonts and calculating text dimensions.
+
+**Static Methods:**
+
+- **`static void setDefaultFont(const Font* font)`**
+    Sets the default font used by `Renderer::drawText()` when no font is explicitly provided. The default font is automatically set to `FONT_5X7` during `Engine::init()`.
+
+- **`static const Font* getDefaultFont()`**
+    Returns the currently active default font, or `nullptr` if no font is set.
+
+- **`static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1)`**
+    Calculates the pixel width of a text string when rendered with the specified font and size.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **text**: String to measure.
+    - **size**: Scale multiplier (1 = normal, 2 = double, etc.).
+    - **Returns**: Width in pixels.
+
+- **`static uint8_t getGlyphIndex(char c, const Font* font = nullptr)`**
+    Gets the array index of a character's glyph sprite.
+    - **c**: Character code.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **Returns**: Glyph index (0 to `lastChar - firstChar`), or 255 if character is not supported.
+
+- **`static bool isCharSupported(char c, const Font* font = nullptr)`**
+    Checks if a character is supported by the font.
+    - **c**: Character code.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **Returns**: `true` if the character is in the font's range.
+
+**Example:**
+```cpp
+#include <graphics/FontManager.h>
+#include <graphics/Font5x7.h>
+
+// Set a custom font as default
+FontManager::setDefaultFont(&myCustomFont);
+
+// Calculate text width
+int16_t width = FontManager::textWidth(nullptr, "Hello", 2); // Uses default font, size 2
+
+// Check if character is supported
+if (FontManager::isCharSupported('A')) {
+    // Character is available
+}
+```
+
+#### Built-in Font: FONT_5X7
+
+**Type:** `extern const Font FONT_5X7`
+
+A built-in 5x7 pixel bitmap font containing ASCII characters from space (32) to tilde (126), for a total of 95 characters.
+
+**Characteristics:**
+- **Glyph Size**: 5 pixels wide × 7 pixels tall
+- **Character Range**: ASCII 32-126 (printable characters)
+- **Spacing**: 1 pixel between characters
+- **Line Height**: 8 pixels (7 + 1)
+
+**Usage:**
+```cpp
+#include <graphics/Font5x7.h>
+
+// Use the built-in font
+renderer.drawText("Hello", 10, 10, Color::White, 1, &pixelroot32::graphics::FONT_5X7);
+
+// Or set it as default
+FontManager::setDefaultFont(&pixelroot32::graphics::FONT_5X7);
+```
+
+**Note:** The default font is automatically set to `FONT_5X7` during `Engine::init()`, so you typically don't need to set it manually unless you want to use a different font.
+
+#### Text Rendering Examples
+
+**Basic text rendering:**
+```cpp
+// Uses default font (FONT_5X7)
+renderer.drawText("Score: 100", 10, 10, Color::White, 1);
+
+// With custom size
+renderer.drawText("BIG TEXT", 10, 30, Color::Yellow, 3);
+
+// Centered text
+renderer.drawTextCentered("GAME OVER", 120, Color::Red, 2);
+```
+
+**Using a custom font:**
+```cpp
+// Define your custom font (must be defined elsewhere)
+extern const Font MY_CUSTOM_FONT;
+
+// Use it explicitly
+renderer.drawText("Custom", 10, 10, Color::Cyan, 1, &MY_CUSTOM_FONT);
+
+// Or set it as default
+FontManager::setDefaultFont(&MY_CUSTOM_FONT);
+renderer.drawText("Now default", 10, 20, Color::White, 1);
+```
+
+**Calculating text dimensions:**
+```cpp
+// Calculate width for centering
+const char* text = "Hello World";
+int16_t textWidth = FontManager::textWidth(nullptr, text, 2);
+int16_t x = (DISPLAY_WIDTH - textWidth) / 2;
+renderer.drawText(text, x, 50, Color::White, 2);
+```
 
 ---
 
@@ -899,6 +1050,64 @@ Configuration settings for initializing displays.
 
 Abstract interface for platform-specific drawing operations. Implementations of this class handle the low-level communication with the display hardware (or window system).
 
+**Note:** This interface is primarily for internal engine use. Most developers should use the `Renderer` class instead, which provides a higher-level, platform-agnostic API.
+
+#### Public Methods
+
+- **`virtual void init()`**
+    Initializes the hardware or window.
+
+- **`virtual void setRotation(uint8_t rotation)`**
+    Sets the display rotation (0-3).
+
+- **`virtual void clearBuffer()`**
+    Clears the frame buffer (fills with black or background color).
+
+- **`virtual void sendBuffer()`**
+    Sends the frame buffer to the physical display.
+
+- **`virtual void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size)`**
+    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawText()` which uses the font system.
+
+- **`virtual void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size)`**
+    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawTextCentered()` which uses the font system.
+
+- **`virtual void drawPixel(int x, int y, uint16_t color)`**
+    Draws a single pixel at the specified coordinates.
+
+- **`virtual void drawLine(int x1, int y1, int x2, int y2, uint16_t color)`**
+    Draws a line between two points.
+
+- **`virtual void drawRectangle(int x, int y, int width, int height, uint16_t color)`**
+    Draws a rectangle outline.
+
+- **`virtual void drawFilledRectangle(int x, int y, int width, int height, uint16_t color)`**
+    Draws a filled rectangle.
+
+- **`virtual void drawCircle(int x, int y, int radius, uint16_t color)`**
+    Draws a circle outline.
+
+- **`virtual void drawFilledCircle(int x, int y, int radius, uint16_t color)`**
+    Draws a filled circle.
+
+- **`virtual void drawBitmap(int x, int y, int width, int height, const uint8_t* bitmap, uint16_t color)`**
+    Draws a bitmap image.
+
+- **`virtual void setContrast(uint8_t level)`**
+    Sets the display contrast/brightness (0-255).
+
+- **`virtual uint16_t color565(uint8_t r, uint8_t g, uint8_t b)`**
+    Converts RGB888 color to RGB565 format.
+
+- **`virtual void setDisplaySize(int w, int h)`**
+    Sets the logical display size.
+
+- **`virtual bool processEvents()`**
+    Processes platform events (e.g., SDL window events). Returns `false` if the application should quit.
+
+- **`virtual void present()`**
+    Swaps buffers (for double-buffered systems like SDL).
+
 ---
 
 ### UIElement
@@ -939,11 +1148,15 @@ A simple text label UI element.
 
 #### Public Methods
 
-- **`UILabel(std::string t, float x, float y, uint16_t col, uint8_t sz)`**
+- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
     Constructs a label.
+    - **t**: Label text.
+    - **x, y**: Position.
+    - **col**: Text color from the `Color` enum.
+    - **sz**: Text size multiplier.
 
 - **`void setText(const std::string& t)`**
-    Updates the label's text.
+    Updates the label's text. Recalculates dimensions automatically.
 
 - **`void centerX(int screenWidth)`**
     Centers the label horizontally.

@@ -43,7 +43,18 @@ public:
     virtual void sendBuffer() = 0;
 
     // Drawing Primitives
+    /**
+     * @deprecated Text rendering is now handled by Renderer using the native bitmap font system.
+     * This method is kept for interface compatibility but should never be called.
+     * All text rendering goes through Renderer::drawText() which uses the font system.
+     */
     virtual void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) = 0;
+    
+    /**
+     * @deprecated Text rendering is now handled by Renderer using the native bitmap font system.
+     * This method is kept for interface compatibility but should never be called.
+     * All text rendering goes through Renderer::drawTextCentered() which uses the font system.
+     */
     virtual void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) = 0;
     virtual void drawFilledCircle(int x, int y, int radius, uint16_t color) = 0;
     virtual void drawCircle(int x, int y, int radius, uint16_t color) = 0;

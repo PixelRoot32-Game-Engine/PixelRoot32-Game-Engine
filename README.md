@@ -56,6 +56,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
 - **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
 - **UI System**: Lightweight UI controls (Label, Button).
+- **Native Bitmap Font System**: Platform-agnostic 1bpp sprite-based text renderer with built-in 5x7 font, ensuring pixel-perfect consistency between PC and ESP32.
 
 ## Target Platforms
 
@@ -302,10 +303,11 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Goal**: Import Tiled (.tmx) or JSON maps into compressed `TileMap` structures.
 - **Why**: Reduces RAM usage compared to Entity-based levels and streamlines level design.
 
-### 4. 🅰️ Engine: Native Bitmap Font System
+### 4. 🅰️ Engine: Native Bitmap Font System ✅ **COMPLETED**
 
 - **Goal**: Implement a platform-agnostic 1bpp sprite-based text renderer.
 - **Why**: Ensures pixel-perfect consistency between PC (SDL2) and ESP32, removing dependency on external font libraries.
+- **Status**: ✅ **Implemented and integrated**. The engine now uses a native bitmap font system with a built-in 5x7 font. All text rendering is handled through `Renderer::drawText()` using sprite-based glyphs, ensuring pixel-perfect consistency across platforms.
 
 ### 5. 🔊 Engine: SFX Manager
 
@@ -329,6 +331,7 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Documentation Overhaul**: Added comprehensive Table of Contents, step-by-step SDL2 installation guide for Windows (MSYS2), and critical PlatformIO installation notes.
 - **Architecture**: Moved `DrawSurface` implementation handling to the engine core. This removes the need for manual developer implementation and facilitates the integration of future display drivers.
 - **Driver Support**: Clarified driver support status (TFT_eSPI & SDL2) and roadmap.
+- **Native Bitmap Font System**: Implemented platform-agnostic 1bpp sprite-based text rendering system. Added `Font`, `FontManager`, and built-in `FONT_5X7` (5x7 pixel font with 95 ASCII characters). All text rendering now uses the native font system, ensuring pixel-perfect consistency between PC (SDL2) and ESP32. The system is fully integrated with `Renderer::drawText()` and `Renderer::drawTextCentered()`, maintaining 100% backward compatibility with existing code.
 
 ### v0.1.0-dev (Release)
 
