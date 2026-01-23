@@ -1606,3 +1606,413 @@ for (int i = 0; i < 20; i++) {
 - **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
 - **Optimized Clearing**: The layout area is only cleared when scroll or selection changes, not every frame.
 - **Instant Scroll**: Selection-based scrolling is instant (NES-style) for responsive navigation.
+
+---
+
+### UIHorizontalLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Horizontal layout container with scroll support. Organizes UI elements horizontally, one next to another. Supports scrolling when content exceeds the visible viewport. Handles keyboard/D-pad navigation automatically with NES-style instant scroll.
+
+#### Public Methods
+
+- **`UIHorizontalLayout(float x, float y, float w, float h)`**
+    Constructs a new UIHorizontalLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container (viewport width).
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScrollEnabled(bool enable)`**
+    Enables or disables scrolling. When disabled, scroll offset is reset to 0.
+
+- **`void enableScroll(bool enable)`**
+    Alias for `setScrollEnabled()`.
+
+- **`void setViewportWidth(float w)`**
+    Sets the viewport width (visible area).
+
+- **`float getScrollOffset() const`**
+    Gets the current scroll offset in pixels.
+
+- **`void setScrollOffset(float offset)`**
+    Sets the scroll offset directly.
+
+- **`float getContentWidth() const`**
+    Gets the total content width (all elements combined).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles and ensures the element is visible.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setScrollSpeed(float speed)`**
+    Sets the scroll speed for smooth scrolling (pixels per millisecond).
+
+- **`void setNavigationButtons(uint8_t leftButton, uint8_t rightButton)`**
+    Sets the navigation button indices for LEFT and RIGHT navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a horizontal layout (menu bar)
+UIHorizontalLayout* menuBar = new UIHorizontalLayout(0, 0, 320, 30);
+menuBar->setPadding(5);
+menuBar->setSpacing(4);
+menuBar->setScrollEnabled(true);
+menuBar->setNavigationButtons(2, 3); // LEFT=2, RIGHT=3
+menuBar->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+menuBar->setRenderLayer(2);
+addEntity(menuBar);
+
+// Add buttons to the layout (no manual position calculation needed)
+UIButton* fileBtn = new UIButton("File", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* editBtn = new UIButton("Edit", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* viewBtn = new UIButton("View", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* helpBtn = new UIButton("Help", 4, 0, 0, 60, 20, []() { /* ... */ });
+
+menuBar->addElement(fileBtn);
+menuBar->addElement(editBtn);
+menuBar->addElement(viewBtn);
+menuBar->addElement(helpBtn);
+
+// Layout automatically handles:
+// - Positioning elements horizontally
+// - Scroll when content exceeds viewport
+// - Navigation (LEFT/RIGHT)
+// - Selection management
+// - Button styling
+// - Vertical centering of elements
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Optimized Clearing**: The layout area is only cleared when scroll or selection changes, not every frame.
+- **Instant Scroll**: Selection-based scrolling is instant (NES-style) for responsive navigation.
+- **Vertical Centering**: Elements smaller than the layout height are automatically centered vertically.
+
+---
+
+### UIGridLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Grid layout container for organizing elements in a matrix. Organizes UI elements in a fixed grid of rows and columns. Supports navigation in 4 directions (UP/DOWN/LEFT/RIGHT) and automatic positioning based on grid coordinates.
+
+#### Public Methods
+
+- **`UIGridLayout(float x, float y, float w, float h)`**
+    Constructs a new UIGridLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container.
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically based on its index in the grid.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setColumns(uint8_t cols)`**
+    Sets the number of columns in the grid. Must be > 0. Automatically recalculates the layout.
+
+- **`uint8_t getColumns() const`**
+    Gets the number of columns.
+
+- **`uint8_t getRows() const`**
+    Gets the number of rows (calculated automatically based on element count and columns).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton, uint8_t leftButton, uint8_t rightButton)`**
+    Sets the navigation button indices for UP, DOWN, LEFT, and RIGHT navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a grid layout for inventory (4 columns)
+UIGridLayout* inventory = new UIGridLayout(10, 60, 220, 160);
+inventory->setColumns(4);
+inventory->setPadding(5);
+inventory->setSpacing(4);
+inventory->setNavigationButtons(0, 1, 2, 3); // UP=0, DOWN=1, LEFT=2, RIGHT=3
+inventory->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+inventory->setRenderLayer(2);
+addEntity(inventory);
+
+// Add items to the layout (automatically organized in 4 columns)
+for (int i = 0; i < 16; i++) {
+    UIButton* item = new UIButton("Item " + std::to_string(i), 4, 0, 0, 50, 50, []() {
+        // Item selected callback
+    });
+    inventory->addElement(item);
+}
+
+// Layout automatically handles:
+// - Positioning elements in grid (row = index / columns, col = index % columns)
+// - Navigation (UP/DOWN/LEFT/RIGHT with wrapping)
+// - Selection management
+// - Button styling
+// - Centering elements within cells
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Automatic Cell Sizing**: Cell dimensions are calculated based on layout size, padding, and spacing.
+- **Element Centering**: Elements smaller than their cell are automatically centered within the cell.
+- **Navigation Wrapping**: Navigation wraps around edges (UP from first row goes to last row, etc.) for intuitive grid navigation.
+
+---
+
+### UIPaddingContainer
+
+**Inherits:** [UIElement](#uielement)
+
+Container that wraps a single UI element and applies padding. This container adds padding/margin around a single child element without organizing multiple elements. Useful for adding spacing to individual elements or nesting layouts with custom padding.
+
+#### Public Methods
+
+- **`UIPaddingContainer(float x, float y, float w, float h)`**
+    Constructs a new UIPaddingContainer.
+    - `x, y`: Position of the container.
+    - `w, h`: Width and height of the container.
+
+- **`void setChild(UIElement* element)`**
+    Sets the child element to wrap. The child's position will be adjusted based on padding.
+
+- **`UIElement* getChild() const`**
+    Gets the child element (nullptr if none set).
+
+- **`void setPadding(float p)`**
+    Sets uniform padding on all sides.
+
+- **`void setPadding(float left, float right, float top, float bottom)`**
+    Sets asymmetric padding for each side.
+
+- **`float getPaddingLeft() const`**
+    Gets the left padding.
+
+- **`float getPaddingRight() const`**
+    Gets the right padding.
+
+- **`float getPaddingTop() const`**
+    Gets the top padding.
+
+- **`float getPaddingBottom() const`**
+    Gets the bottom padding.
+
+#### Example Usage
+
+```cpp
+// Create a padding container with uniform padding
+UIPaddingContainer* container = new UIPaddingContainer(10, 10, 200, 100);
+container->setPadding(10);
+container->setChild(button);
+container->setRenderLayer(2);
+addEntity(container);
+
+// Or with asymmetric padding
+UIPaddingContainer* container2 = new UIPaddingContainer(10, 10, 200, 100);
+container2->setPadding(5, 15, 10, 10); // left, right, top, bottom
+container2->setChild(layout);
+addEntity(container2);
+
+// Useful for nesting layouts with custom spacing
+UIPaddingContainer* wrapper = new UIPaddingContainer(0, 0, 320, 240);
+wrapper->setPadding(20);
+UIVerticalLayout* innerLayout = new UIVerticalLayout(0, 0, 280, 200);
+// ... add elements to innerLayout ...
+wrapper->setChild(innerLayout);
+addEntity(wrapper);
+```
+
+#### Performance Notes
+
+- **No Reflow**: The container does not reorganize elements, only adjusts the child's position. Very efficient.
+- **Automatic Position Updates**: When the container's position changes, the child's position is automatically updated.
+- **Low Overhead**: Minimal performance impact, ideal for ESP32.
+
+---
+
+### UIPanel
+
+**Inherits:** [UIElement](#uielement)
+
+Visual container that draws a background and border around a child element. Provides a retro-style window/panel appearance. Typically contains a UILayout or other UI elements. Useful for dialogs, menus, and information panels.
+
+#### Public Methods
+
+- **`UIPanel(float x, float y, float w, float h)`**
+    Constructs a new UIPanel.
+    - `x, y`: Position of the panel.
+    - `w, h`: Width and height of the panel.
+
+- **`void setChild(UIElement* element)`**
+    Sets the child element to wrap (typically a UILayout).
+
+- **`UIElement* getChild() const`**
+    Gets the child element (nullptr if none set).
+
+- **`void setBackgroundColor(Color color)`**
+    Sets the background color. Use `Color::Transparent` to disable background drawing.
+
+- **`Color getBackgroundColor() const`**
+    Gets the background color.
+
+- **`void setBorderColor(Color color)`**
+    Sets the border color. Use `Color::Transparent` to disable border drawing.
+
+- **`Color getBorderColor() const`**
+    Gets the border color.
+
+- **`void setBorderWidth(uint8_t width)`**
+    Sets the border width in pixels. Set to 0 to disable border.
+
+- **`uint8_t getBorderWidth() const`**
+    Gets the border width.
+
+#### Example Usage
+
+```cpp
+// Create a dialog panel
+UIPanel* dialog = new UIPanel(50, 50, 220, 140);
+dialog->setBackgroundColor(Color::Black);
+dialog->setBorderColor(Color::White);
+dialog->setBorderWidth(2);
+dialog->setRenderLayer(2);
+addEntity(dialog);
+
+// Add content layout inside the panel
+UIVerticalLayout* content = new UIVerticalLayout(0, 0, 220, 140);
+content->setPadding(10);
+content->setSpacing(5);
+
+UILabel* title = new UILabel("Dialog Title", 0, 0, Color::White, 2);
+UIButton* okBtn = new UIButton("OK", 4, 0, 0, 100, 20, []() {
+    // OK button callback
+});
+
+content->addElement(title);
+content->addElement(okBtn);
+dialog->setChild(content);
+
+// Panel automatically draws:
+// - Background (filled rectangle)
+// - Border (4 filled rectangles for each side)
+// - Child element (layout with buttons/labels)
+```
+
+#### Performance Notes
+
+- **Efficient Rendering**: Background and border are drawn using simple filled rectangles, very efficient on ESP32.
+- **Transparent Support**: Background and border can be disabled by setting colors to `Color::Transparent` or border width to 0.
+- **Child Positioning**: Child element position is automatically updated when panel position changes.
+- **Low Overhead**: Minimal performance impact, ideal for creating retro-style dialogs and menus.
+
+---
+
+### Anchor
+
+**Enum:** Defines anchor points for positioning UI elements in `UIAnchorLayout`.
+
+#### Values
+
+- **`TOP_LEFT`**: Top-left corner
+- **`TOP_RIGHT`**: Top-right corner
+- **`BOTTOM_LEFT`**: Bottom-left corner
+- **`BOTTOM_RIGHT`**: Bottom-right corner
+- **`CENTER`**: Center of screen
+- **`TOP_CENTER`**: Top center
+- **`BOTTOM_CENTER`**: Bottom center
+- **`LEFT_CENTER`**: Left center
+- **`RIGHT_CENTER`**: Right center
+
+---
+
+### UIAnchorLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Layout that positions elements at fixed anchor points on the screen without reflow. Very efficient for HUDs, debug UI, and fixed-position elements. Positions are calculated once or when screen size changes.
+
+#### Public Methods
+
+- **`UIAnchorLayout(float x, float y, float w, float h)`**
+    Constructs a new UIAnchorLayout.
+    - `x, y`: Position of the layout container (usually 0, 0).
+    - `w, h`: Width and height of the layout container (usually screen width and height).
+
+- **`void addElement(UIElement* element, Anchor anchor)`**
+    Adds a UI element with a specific anchor point.
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element with default anchor (TOP_LEFT).
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScreenSize(float screenWidth, float screenHeight)`**
+    Sets the screen size for anchor calculations. Automatically updates all element positions.
+
+- **`float getScreenWidth() const`**
+    Gets the screen width.
+
+- **`float getScreenHeight() const`**
+    Gets the screen height.
+
+#### Example Usage
+
+```cpp
+// Create HUD with anchor layout
+UIAnchorLayout* hud = new UIAnchorLayout(0, 0, screenWidth, screenHeight);
+hud->setScreenSize(screenWidth, screenHeight);
+hud->setRenderLayer(2);
+addEntity(hud);
+
+// Add HUD elements at different anchor points
+UILabel* scoreLabel = new UILabel("Score: 0", 0, 0, Color::White, 1);
+UILabel* livesLabel = new UILabel("Lives: 3", 0, 0, Color::White, 1);
+UILabel* healthBar = new UILabel("Health: 100%", 0, 0, Color::Green, 1);
+UILabel* debugInfo = new UILabel("FPS: 60", 0, 0, Color::Yellow, 1);
+
+hud->addElement(scoreLabel, Anchor::TOP_LEFT);
+hud->addElement(livesLabel, Anchor::TOP_RIGHT);
+hud->addElement(healthBar, Anchor::BOTTOM_CENTER);
+hud->addElement(debugInfo, Anchor::BOTTOM_LEFT);
+
+// Elements are automatically positioned:
+// - scoreLabel at (0, 0)
+// - livesLabel at (screenWidth - livesLabel->width, 0)
+// - healthBar centered at bottom
+// - debugInfo at (0, screenHeight - debugInfo->height)
+```
+
+#### Performance Notes
+
+- **No Reflow**: Positions are calculated once or when screen size changes. Very efficient on ESP32.
+- **Fixed Positioning**: Elements maintain their anchor positions regardless of other elements.
+- **HUD-Optimized**: Designed specifically for HUD elements that need fixed screen positions.
+- **Low Overhead**: Minimal performance impact, ideal for ESP32.

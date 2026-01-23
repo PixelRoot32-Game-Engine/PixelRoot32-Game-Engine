@@ -55,7 +55,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **2D Camera & Scrolling**: Dead-zone camera (`Camera2D`) that follows a target horizontally (and optionally vertically) by driving `Renderer::setDisplayOffset`, enabling parallax backgrounds and long platformer levels.
 - **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
 - **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
-- **UI System**: Lightweight UI controls (Label, Button) with automatic layout management. Includes `UIVerticalLayout` for organizing elements vertically with scroll support, eliminating manual position calculations.
+- **UI System**: Lightweight UI controls (Label, Button) with automatic layout management. Includes `UIVerticalLayout`, `UIHorizontalLayout`, `UIGridLayout`, `UIPaddingContainer`, `UIPanel`, and `UIAnchorLayout` for organizing elements, adding spacing, creating visual containers, and positioning HUD elements, eliminating manual position calculations.
 - **Native Bitmap Font System**: Platform-agnostic 1bpp sprite-based text renderer with built-in 5x7 font, ensuring pixel-perfect consistency between PC and ESP32.
 
 ## Target Platforms
@@ -332,9 +332,9 @@ The following features are planned to enhance the engine's capabilities, focusin
 
 #### ✅ 📐 Engine: UI Layout System (Partial)
 
-- **Goal**: Implement automatic layout management for UI elements (Vertical Layout with scroll, Grid Layout).
+- **Goal**: Implement automatic layout management for UI elements (Vertical Layout, Horizontal Layout, Grid Layout).
 - **Why**: Simplifies UI creation by eliminating manual position calculations and enables handling of long lists that exceed screen size.
-- **Status**: ✅ **Vertical Layout implemented**. `UIVerticalLayout` organizes elements vertically with automatic scroll support (NES-style instant scroll). Grid Layout is planned for future implementation.
+- **Status**: ✅ **All basic layouts implemented**. `UIVerticalLayout` organizes elements vertically with automatic scroll support (NES-style instant scroll). `UIHorizontalLayout` organizes elements horizontally with the same features. `UIGridLayout` organizes elements in a matrix with 4-direction navigation (UP/DOWN/LEFT/RIGHT). All layouts support viewport culling, optimized rendering, and automatic navigation.
 
 ## Changelog
 
@@ -344,7 +344,7 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Architecture**: Moved `DrawSurface` implementation handling to the engine core. This removes the need for manual developer implementation and facilitates the integration of future display drivers.
 - **Driver Support**: Clarified driver support status (TFT_eSPI & SDL2) and roadmap.
 - **Native Bitmap Font System**: Implemented platform-agnostic 1bpp sprite-based text rendering system. Added `Font`, `FontManager`, and built-in `FONT_5X7` (5x7 pixel font with 95 ASCII characters). All text rendering now uses the native font system, ensuring pixel-perfect consistency between PC (SDL2) and ESP32. The system is fully integrated with `Renderer::drawText()` and `Renderer::drawTextCentered()`, maintaining 100% backward compatibility with existing code.
-- **UI Layout System**: Implemented `UIVerticalLayout` for automatic vertical organization of UI elements with scroll support. Features include NES-style instant scroll on selection change, automatic viewport culling for performance, and optimized rendering (only clears layout area when scroll changes). The layout handles navigation (UP/DOWN), selection management, and automatic button styling. Grid Layout is planned for future implementation.
+- **UI Layout System**: Implemented `UIVerticalLayout`, `UIHorizontalLayout`, and `UIGridLayout` for automatic organization of UI elements. `UIVerticalLayout` organizes elements vertically (UP/DOWN navigation) with scroll support. `UIHorizontalLayout` organizes elements horizontally (LEFT/RIGHT navigation) with scroll support. `UIGridLayout` organizes elements in a matrix (4-direction navigation with wrapping). All layouts feature NES-style instant navigation, automatic viewport culling for performance, optimized rendering, selection management, and automatic button styling.
 
 ### v0.1.0-dev (Release)
 
