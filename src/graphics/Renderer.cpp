@@ -49,32 +49,38 @@ namespace pixelroot32::graphics {
 
     void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawText(text, x, y, resolveColor(color), size);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawText(text, x, y, resolveColor(color, context), size);
     }
 
     void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawTextCentered(text, y, resolveColor(color), size);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawTextCentered(text, y, resolveColor(color, context), size);
     }
 
     void Renderer::drawFilledCircle(int x, int y, int radius, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawFilledCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawFilledCircle(xOffset + x, yOffset + y, radius, resolveColor(color, context));
     }
 
     void Renderer::drawCircle(int x, int y, int radius, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawCircle(xOffset + x, yOffset + y, radius, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawCircle(xOffset + x, yOffset + y, radius, resolveColor(color, context));
     }
 
     void Renderer::drawRectangle(int x, int y, int width, int height, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color, context));
     }
 
     void Renderer::drawFilledRectangle(int x, int y, int width, int height, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color, context));
     }
 
     void Renderer::drawFilledRectangleW(int x, int y, int width, int height, uint16_t color) {
@@ -83,7 +89,8 @@ namespace pixelroot32::graphics {
 
     void Renderer::drawLine(int x1, int y1, int x2, int y2, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawLine(xOffset + x1, yOffset + y1, xOffset + x2, yOffset + y2, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawLine(xOffset + x1, yOffset + y1, xOffset + x2, yOffset + y2, resolveColor(color, context));
     }
 
     void Renderer::setFont(const uint8_t* font) {
@@ -94,12 +101,14 @@ namespace pixelroot32::graphics {
     //draw an image to the screen in an bitmap format
     void Renderer::drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color, context));
     }
 
     void Renderer::drawPixel(int x, int y, Color color) {
         if (!isDrawable(color)) return;
-        getDrawSurface().drawPixel(x, y, resolveColor(color));
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        getDrawSurface().drawPixel(x, y, resolveColor(color, context));
     }
 
     void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
@@ -109,7 +118,7 @@ namespace pixelroot32::graphics {
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color);
+        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
 
         for (int row = 0; row < sprite.height; ++row) {
             const int logicalY = y + row;
@@ -156,7 +165,7 @@ namespace pixelroot32::graphics {
         uint16_t paletteLUT[4];
         uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i]);
+            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
         }
 
         const int bitsPerPixel = 2;
@@ -214,7 +223,7 @@ namespace pixelroot32::graphics {
         uint16_t paletteLUT[16];
         uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i]);
+            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
         }
 
         const int bitsPerPixel = 4;
@@ -286,7 +295,7 @@ namespace pixelroot32::graphics {
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color);
+        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
 
         const int dstWidth = static_cast<int>(std::ceil(sprite.width * scaleX));
         const int dstHeight = static_cast<int>(std::ceil(sprite.height * scaleY));
@@ -358,6 +367,11 @@ namespace pixelroot32::graphics {
             return;
         }
 
+        // Resolve color with Background context for tilemaps
+        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Background);
+        const int screenW = width;
+        const int screenH = height;
+
         for (int ty = 0; ty < map.height; ++ty) {
             int baseY = originY + ty * map.tileHeight;
             int rowIndexBase = ty * map.width;
@@ -374,7 +388,31 @@ namespace pixelroot32::graphics {
                     continue;
                 }
 
-                drawSprite(tile, baseX, baseY, color);
+                // Draw tile directly using Background palette context
+                for (int row = 0; row < tile.height; ++row) {
+                    const int logicalY = baseY + row;
+                    const int finalY = yOffset + logicalY;
+                    if (finalY < 0 || finalY >= screenH) {
+                        continue;
+                    }
+
+                    const uint16_t bits = tile.data[row];
+
+                    for (int col = 0; col < tile.width; ++col) {
+                        const bool bitSet = (bits & (static_cast<uint16_t>(1u) << col)) != 0;
+                        if (!bitSet) {
+                            continue;
+                        }
+
+                        const int logicalX = baseX + col;
+                        const int finalX = xOffset + logicalX;
+                        if (finalX < 0 || finalX >= screenW) {
+                            continue;
+                        }
+
+                        getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
+                    }
+                }
             }
         }
     }

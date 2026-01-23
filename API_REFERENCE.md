@@ -504,16 +504,51 @@ Enumeration of available color palettes.
 #### Public Methods
 
 - **`static void setPalette(PaletteType type)`**
-    Sets the active color palette for the engine.
-    *Note: This should typically be called once during game initialization (e.g., in the first Scene's `init()` method). Only one palette can be active at a time.*
+    Sets the active color palette for the engine (legacy mode).
+    *Note: This sets both background and sprite palettes to the same value. Does not enable dual palette mode. This should typically be called once during game initialization (e.g., in the first Scene's `init()` method).*
 
 - **`static void setCustomPalette(const uint16_t* palette)`**
-    Sets a custom color palette defined by the user.
+    Sets a custom color palette defined by the user (legacy mode).
   - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
   - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
+  - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
+
+- **`static void enableDualPaletteMode(bool enable)`**
+    Enables or disables dual palette mode.
+    - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for legacy mode (single palette).
+
+- **`static void setBackgroundPalette(PaletteType palette)`**
+    Sets the background palette (for backgrounds, tilemaps, etc.).
+    - **palette**: The palette type to use for backgrounds.
+
+- **`static void setSpritePalette(PaletteType palette)`**
+    Sets the sprite palette (for sprites, characters, etc.).
+    - **palette**: The palette type to use for sprites.
+
+- **`static void setBackgroundCustomPalette(const uint16_t* palette)`**
+    Sets a custom background palette.
+    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+
+- **`static void setSpriteCustomPalette(const uint16_t* palette)`**
+    Sets a custom sprite palette.
+    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+
+- **`static void setDualPalette(PaletteType bgPalette, PaletteType spritePalette)`**
+    Convenience function that sets both background and sprite palettes at once and automatically enables dual palette mode.
+    - **bgPalette**: The palette type to use for backgrounds.
+    - **spritePalette**: The palette type to use for sprites.
+
+- **`static void setDualCustomPalette(const uint16_t* bgPalette, const uint16_t* spritePal)`**
+    Convenience function that sets both custom palettes at once and automatically enables dual palette mode.
+    - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
+    - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
 - **`static uint16_t resolveColor(Color color)`**
-    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette.
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (legacy mode).
+
+- **`static uint16_t resolveColor(Color color, PaletteContext context)`**
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (legacy mode).
+    - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
 
 #### Color (Enum)
 

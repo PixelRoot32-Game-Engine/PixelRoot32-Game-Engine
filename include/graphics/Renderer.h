@@ -348,6 +348,28 @@ public:
     int getYOffset() const { return yOffset; }
 
     /**
+     * @brief Sets the render context for palette selection.
+     * 
+     * This method allows the renderer to use the appropriate palette based on
+     * the current render layer. When set, primitives will use this context
+     * instead of their default (Sprite).
+     * 
+     * @param context The palette context to use (Background or Sprite).
+     *                 Pass nullptr to use method-specific defaults.
+     */
+    void setRenderContext(PaletteContext* context) {
+        currentRenderContext = context;
+    }
+
+    /**
+     * @brief Gets the current render context.
+     * @return Pointer to the current context, or nullptr if using defaults.
+     */
+    PaletteContext* getRenderContext() const {
+        return currentRenderContext;
+    }
+
+    /**
      * @brief Draws a 1bpp monochrome sprite using the Sprite descriptor.
      *
      * Sprite data is interpreted bit-by-bit using the Sprite convention:
@@ -424,6 +446,8 @@ private:
 
     int xOffset = 0;
     int yOffset = 0;
+
+    PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
 };
 
 }
