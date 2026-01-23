@@ -55,7 +55,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **2D Camera & Scrolling**: Dead-zone camera (`Camera2D`) that follows a target horizontally (and optionally vertically) by driving `Renderer::setDisplayOffset`, enabling parallax backgrounds and long platformer levels.
 - **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
 - **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
-- **UI System**: Lightweight UI controls (Label, Button).
+- **UI System**: Lightweight UI controls (Label, Button) with automatic layout management. Includes `UIVerticalLayout` for organizing elements vertically with scroll support, eliminating manual position calculations.
 - **Native Bitmap Font System**: Platform-agnostic 1bpp sprite-based text renderer with built-in 5x7 font, ensuring pixel-perfect consistency between PC and ESP32.
 
 ## Target Platforms
@@ -288,41 +288,53 @@ PixelRoot32-Game-Engine/
 
 The following features are planned to enhance the engine's capabilities, focusing on workflow efficiency and ESP32 optimization.
 
-### 1. 📟 Driver: u8g2 Support
+### Planned Features
+
+#### 1. 📟 Driver: u8g2 Support
 
 - **Goal**: Add support for the **u8g2** graphics library.
 - **Why**: Expands hardware support to monochrome OLEDs (SSD1306, SH1106) and other displays not covered by TFT_eSPI, making the engine more versatile for low-power devices.
 
-### 2. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
+#### 2. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
 
 - **Goal**: Convert standard tracker formats (FTM/MML/MIDI) into `MusicNote` C++ structures.
 - **Why**: Manual music coding is inefficient. Enables complex chiptune soundtracks stored in Flash.
 
-### 3. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
+#### 3. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
 
 - **Goal**: Import Tiled (.tmx) or JSON maps into compressed `TileMap` structures.
 - **Why**: Reduces RAM usage compared to Entity-based levels and streamlines level design.
 
-### 4. 🅰️ Engine: Native Bitmap Font System ✅ **COMPLETED**
+#### 4. 🔊 Engine: SFX Manager
+
+- **Goal**: "Fire-and-forget" sound effect system with channel management (priorities, virtual channels).
+- **Why**: Automates hardware channel allocation (Pulse/Triangle/Noise) for game events.
+
+#### 5. 💾 Core: Persistence (Save/Load)
+
+- **Goal**: Abstract Key-Value storage (NVS on ESP32, File on PC).
+- **Why**: Standardizes saving high scores and progress across platforms.
+
+#### 6. ⚡ Engine: Spatial Partitioning
+
+- **Goal**: Implement a Uniform Grid for collision detection.
+- **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
+
+---
+
+### Completed Features
+
+#### ✅ 🅰️ Engine: Native Bitmap Font System
 
 - **Goal**: Implement a platform-agnostic 1bpp sprite-based text renderer.
 - **Why**: Ensures pixel-perfect consistency between PC (SDL2) and ESP32, removing dependency on external font libraries.
 - **Status**: ✅ **Implemented and integrated**. The engine now uses a native bitmap font system with a built-in 5x7 font. All text rendering is handled through `Renderer::drawText()` using sprite-based glyphs, ensuring pixel-perfect consistency across platforms.
 
-### 5. 🔊 Engine: SFX Manager
+#### ✅ 📐 Engine: UI Layout System (Partial)
 
-- **Goal**: "Fire-and-forget" sound effect system with channel management (priorities, virtual channels).
-- **Why**: Automates hardware channel allocation (Pulse/Triangle/Noise) for game events.
-
-### 6. 💾 Core: Persistence (Save/Load)
-
-- **Goal**: Abstract Key-Value storage (NVS on ESP32, File on PC).
-- **Why**: Standardizes saving high scores and progress across platforms.
-
-### 7. ⚡ Engine: Spatial Partitioning
-
-- **Goal**: Implement a Uniform Grid for collision detection.
-- **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
+- **Goal**: Implement automatic layout management for UI elements (Vertical Layout with scroll, Grid Layout).
+- **Why**: Simplifies UI creation by eliminating manual position calculations and enables handling of long lists that exceed screen size.
+- **Status**: ✅ **Vertical Layout implemented**. `UIVerticalLayout` organizes elements vertically with automatic scroll support (NES-style instant scroll). Grid Layout is planned for future implementation.
 
 ## Changelog
 
@@ -332,6 +344,7 @@ The following features are planned to enhance the engine's capabilities, focusin
 - **Architecture**: Moved `DrawSurface` implementation handling to the engine core. This removes the need for manual developer implementation and facilitates the integration of future display drivers.
 - **Driver Support**: Clarified driver support status (TFT_eSPI & SDL2) and roadmap.
 - **Native Bitmap Font System**: Implemented platform-agnostic 1bpp sprite-based text rendering system. Added `Font`, `FontManager`, and built-in `FONT_5X7` (5x7 pixel font with 95 ASCII characters). All text rendering now uses the native font system, ensuring pixel-perfect consistency between PC (SDL2) and ESP32. The system is fully integrated with `Renderer::drawText()` and `Renderer::drawTextCentered()`, maintaining 100% backward compatibility with existing code.
+- **UI Layout System**: Implemented `UIVerticalLayout` for automatic vertical organization of UI elements with scroll support. Features include NES-style instant scroll on selection change, automatic viewport culling for performance, and optimized rendering (only clears layout area when scroll changes). The layout handles navigation (UP/DOWN), selection management, and automatic button styling. Grid Layout is planned for future implementation.
 
 ### v0.1.0-dev (Release)
 

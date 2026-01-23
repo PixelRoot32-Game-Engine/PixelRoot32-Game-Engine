@@ -1422,6 +1422,12 @@ Base class for all user interface elements (buttons, labels, etc.). Sets the `En
 - **`UIElement(float x, float y, float w, float h)`**
     Constructs a new UIElement.
 
+- **`void setPosition(float newX, float newY)`**
+    Sets the position of the element. Used by layouts to reposition elements automatically.
+
+- **`void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
+    Gets the preferred size of the element. Used by layouts to determine how much space the element needs. By default, returns the current width and height.
+
 ### UIButton
 
 **Inherits:** [UIElement](#uielement)
@@ -1474,3 +1480,129 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 - **`void centerX(int screenWidth)`**
     Centers the label horizontally on the screen.
+
+---
+
+### UILayout
+
+**Inherits:** [UIElement](#uielement)
+
+Base class for UI layout containers. Layouts organize UI elements automatically, handling positioning, spacing, and optional scrolling.
+
+#### Public Methods
+
+- **`UILayout(float x, float y, float w, float h)`**
+    Constructs a new UILayout.
+
+- **`void setPadding(float p)`**
+    Sets the padding (internal spacing) of the layout.
+
+- **`float getPadding() const`**
+    Gets the current padding.
+
+- **`void setSpacing(float s)`**
+    Sets the spacing between elements.
+
+- **`float getSpacing() const`**
+    Gets the current spacing.
+
+- **`size_t getElementCount() const`**
+    Gets the number of elements in the layout.
+
+- **`UIElement* getElement(size_t index) const`**
+    Gets the element at a specific index.
+
+- **`void clearElements()`**
+    Clears all elements from the layout.
+
+---
+
+### UIVerticalLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Vertical layout container with scroll support. Organizes UI elements vertically, one below another. Supports scrolling when content exceeds the visible viewport. Handles keyboard/D-pad navigation automatically with NES-style instant scroll.
+
+#### Public Methods
+
+- **`UIVerticalLayout(float x, float y, float w, float h)`**
+    Constructs a new UIVerticalLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container (viewport height).
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScrollEnabled(bool enable)`**
+    Enables or disables scrolling. When disabled, scroll offset is reset to 0.
+
+- **`void enableScroll(bool enable)`**
+    Alias for `setScrollEnabled()`.
+
+- **`void setViewportHeight(float h)`**
+    Sets the viewport height (visible area).
+
+- **`float getScrollOffset() const`**
+    Gets the current scroll offset in pixels.
+
+- **`void setScrollOffset(float offset)`**
+    Sets the scroll offset directly.
+
+- **`float getContentHeight() const`**
+    Gets the total content height (all elements combined).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles and ensures the element is visible.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setScrollSpeed(float speed)`**
+    Sets the scroll speed for smooth scrolling (pixels per millisecond).
+
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton)`**
+    Sets the navigation button indices for UP and DOWN navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a vertical layout
+UIVerticalLayout* layout = new UIVerticalLayout(10, 60, 220, 160);
+layout->setPadding(5);
+layout->setSpacing(6);
+layout->setScrollEnabled(true);
+layout->setNavigationButtons(0, 1); // UP=0, DOWN=1
+layout->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+layout->setRenderLayer(2);
+addEntity(layout);
+
+// Add buttons to the layout (no manual position calculation needed)
+for (int i = 0; i < 20; i++) {
+    UIButton* btn = new UIButton("Button " + std::to_string(i), 4, 0, 0, 120, 20, []() {
+        // Button callback
+    });
+    layout->addElement(btn);
+}
+
+// Layout automatically handles:
+// - Positioning elements vertically
+// - Scroll when content exceeds viewport
+// - Navigation (UP/DOWN)
+// - Selection management
+// - Button styling
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Optimized Clearing**: The layout area is only cleared when scroll or selection changes, not every frame.
+- **Instant Scroll**: Selection-based scrolling is instant (NES-style) for responsive navigation.

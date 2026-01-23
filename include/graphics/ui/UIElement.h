@@ -34,6 +34,27 @@ public:
     }
     
     virtual ~UIElement() = default;
+
+    /**
+     * @brief Sets the position of the element.
+     * @param newX New X coordinate.
+     * @param newY New Y coordinate.
+     */
+    void setPosition(float newX, float newY) {
+        x = newX;
+        y = newY;
+    }
+
+    /**
+     * @brief Gets the preferred size of the element.
+     * Used by layouts to determine how much space the element needs.
+     * @param preferredWidth Output parameter for preferred width (or -1 if flexible).
+     * @param preferredHeight Output parameter for preferred height (or -1 if flexible).
+     */
+    virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const {
+        preferredWidth = static_cast<float>(width);
+        preferredHeight = static_cast<float>(height);
+    }
 };
 
 }

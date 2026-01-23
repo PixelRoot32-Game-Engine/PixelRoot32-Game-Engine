@@ -183,6 +183,12 @@ These guidelines are derived from practical implementation in `examples/Geometry
 ### 🎨 Sprite & Graphics Guidelines
 
 - **1bpp Sprites**: Define sprite bitmaps as `static const uint16_t` arrays, one row per element. Use bit `0` as the leftmost pixel and bit (`width - 1`) as the rightmost pixel.
+
+### 📐 UI Layout Guidelines
+
+- **Use Layouts for Automatic Organization**: Prefer `UIVerticalLayout` over manual position calculations when organizing multiple UI elements. This simplifies code and enables scroll support automatically.
+- **Performance on ESP32**: Layouts use viewport culling and optimized clearing (only when scroll changes) to minimize rendering overhead. The layout system is designed to be efficient on embedded hardware.
+- **Scroll Behavior**: Vertical layouts use NES-style instant scroll on selection change for responsive navigation. Smooth scrolling is available for manual scrolling scenarios.
 - **Sprite Descriptors**: Wrap raw bitmaps in `pixelroot32::graphics::Sprite` or `MultiSprite` descriptors and pass them to `Renderer::drawSprite` / `Renderer::drawMultiSprite`.
 - **No Bit Logic in Actors**: Actors should never iterate bits or draw individual pixels. They only select the appropriate sprite (or layered sprite) and call the renderer.
 - **Layered Sprites First**: Prefer composing multi-color sprites from multiple 1bpp `SpriteLayer` entries. Keep layer data `static const` to allow storage in flash and preserve the 1bpp-friendly pipeline.
