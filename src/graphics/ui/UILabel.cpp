@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #include "graphics/ui/UILabel.h"
 
@@ -9,7 +9,7 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::graphics;
 
     UILabel::UILabel(std::string t, float x, float y, Color col, uint8_t sz)
-        : UIElement(x, y, 0, 0),
+        : UIElement(x, y, 0, 0, UIElementType::LABEL),
             text(t),
             color(col),
             size(sz) {

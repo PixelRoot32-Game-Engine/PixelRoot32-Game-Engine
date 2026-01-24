@@ -4,7 +4,7 @@
  * Licensed under the MIT License
  *
  * Modifications:
- * Copyright (c) 2026 Gabriel Perez
+ * Copyright (c) 2026 PixelRoot32
  *
  * This file remains licensed under the MIT License.
  */

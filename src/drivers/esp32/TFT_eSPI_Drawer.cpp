@@ -36,8 +36,6 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
 
     spr.setColorDepth(8);
     spr.createSprite(displayWidth, displayHeight);
-
-    spr.setTextFont(1);
     
     spr.initDMA();
 }
@@ -119,29 +117,21 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::setCursor(int16_t x, int16_t y) {
     spr.setCursor(cursorX, cursorY);
 }
 
+// @deprecated These methods are obsolete. Text rendering is now handled by Renderer
+// using the native bitmap font system. These methods are kept as empty stubs
+// only for interface compatibility (DrawSurface requires them).
+// The Renderer never calls these methods - all text goes through the font system.
+
 void pr32::drivers::esp32::TFT_eSPI_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
-    
-    spr.setTextSize(size);
-    spr.setTextColor(color, TFT_BLACK);
-    spr.setCursor(x, y);
-    
-    // Si el puntero del texto es nulo, evitar imprimir
-    if (text) {
-        spr.print(text);
-    }
+    // Obsolete: This method should never be called.
+    // All text rendering is handled by Renderer::drawText() using the font system.
+    (void)text; (void)x; (void)y; (void)color; (void)size;
 }
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {   
-    if (!text) return;
-
-    spr.setTextSize(size);
-    spr.setTextColor(color, TFT_BLACK);
-
-    int16_t tw = spr.textWidth(text); 
-    int16_t x = (displayWidth - tw) / 2;
-
-    spr.setCursor(x, y);
-    spr.print(text);
+void pr32::drivers::esp32::TFT_eSPI_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {
+    // Obsolete: This method should never be called.
+    // All text rendering is handled by Renderer::drawTextCentered() using the font system.
+    (void)text; (void)y; (void)color; (void)size;
 }
 
 // --------------------------------------------------

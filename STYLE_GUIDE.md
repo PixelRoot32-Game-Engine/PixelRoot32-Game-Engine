@@ -183,6 +183,17 @@ These guidelines are derived from practical implementation in `examples/Geometry
 ### 🎨 Sprite & Graphics Guidelines
 
 - **1bpp Sprites**: Define sprite bitmaps as `static const uint16_t` arrays, one row per element. Use bit `0` as the leftmost pixel and bit (`width - 1`) as the rightmost pixel.
+
+### 📐 UI Layout Guidelines
+
+- **Use Layouts for Automatic Organization**: Prefer `UIVerticalLayout` (for vertical lists), `UIHorizontalLayout` (for horizontal menus/bars), or `UIGridLayout` (for matrix layouts like inventories) over manual position calculations when organizing multiple UI elements. This simplifies code and enables automatic navigation.
+- **Use Padding Container for Spacing**: Use `UIPaddingContainer` to add padding around individual elements or to nest layouts with custom spacing. This is more efficient than manually calculating positions and allows for flexible UI composition.
+- **Use Panel for Visual Containers**: Use `UIPanel` to create retro-style windows, dialogs, and menus with background and border. Panels typically contain layouts (Vertical, Horizontal, or Grid) which then contain buttons and labels. Ideal for Game & Watch style interfaces.
+- **Use Anchor Layout for HUDs**: Use `UIAnchorLayout` to position HUD elements (score, lives, health bars) at fixed screen positions without manual calculations. Supports 9 anchor points (corners, center, edges). Very efficient on ESP32 as it has no reflow - positions are calculated once or when screen size changes.
+- **Performance on ESP32**: Layouts use viewport culling and optimized clearing (only when scroll changes) to minimize rendering overhead. The layout system is designed to be efficient on embedded hardware.
+- **Scroll Behavior**: Vertical and horizontal layouts use NES-style instant scroll on selection change for responsive navigation. Smooth scrolling is available for manual scrolling scenarios.
+- **Navigation**: `UIVerticalLayout` handles UP/DOWN navigation, `UIHorizontalLayout` handles LEFT/RIGHT navigation, and `UIGridLayout` handles 4-direction navigation (UP/DOWN/LEFT/RIGHT) with wrapping. All layouts support automatic selection management and button styling.
+- **Grid Layout**: `UIGridLayout` automatically calculates cell dimensions based on layout size, padding, and spacing. Elements are centered within cells if they're smaller than the cell size. Ideal for inventories, level selection screens, and item galleries.
 - **Sprite Descriptors**: Wrap raw bitmaps in `pixelroot32::graphics::Sprite` or `MultiSprite` descriptors and pass them to `Renderer::drawSprite` / `Renderer::drawMultiSprite`.
 - **No Bit Logic in Actors**: Actors should never iterate bits or draw individual pixels. They only select the appropriate sprite (or layered sprite) and call the renderer.
 - **Layered Sprites First**: Prefer composing multi-color sprites from multiple 1bpp `SpriteLayer` entries. Keep layer data `static const` to allow storage in flash and preserve the 1bpp-friendly pipeline.

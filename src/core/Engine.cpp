@@ -1,9 +1,11 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #include "core/Engine.h"
 #include "input/InputConfig.h"
+#include "graphics/FontManager.h"
+#include "graphics/Font5x7.h"
 
 namespace pixelroot32::core {
 
@@ -32,13 +34,18 @@ namespace pixelroot32::core {
     Engine::~Engine() {}
 
     void Engine::init() {
-        // Initialize Serial for debugging
-        Serial.begin(115200);
-        delay(100);
+        // Initialize Serial for debugging (ESP32 only)
+        #ifndef PLATFORM_NATIVE
+            Serial.begin(115200);
+            delay(100);
+        #endif
         
         renderer.init();
         inputManager.init();
         audioEngine.init();
+        
+        // Set default font (5x7 bitmap font)
+        FontManager::setDefaultFont(&FONT_5X7);
     }
 
     void Engine::run() {

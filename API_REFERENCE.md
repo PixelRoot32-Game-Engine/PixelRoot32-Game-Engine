@@ -395,11 +395,21 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void endFrame()`**
     Finalizes the frame and sends the buffer to the display.
 
-- **`void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size)`**
-    Draws a string of text.
+- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
+    Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
+    - **text**: The string to render (ASCII characters 32-126 are supported).
+    - **x, y**: Position where text starts (top-left corner).
+    - **color**: Color from the `Color` enum (uses sprite palette context).
+    - **size**: Scale multiplier (1 = normal, 2 = double, 3 = triple, etc.).
 
-- **`void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size)`**
-    Draws text centered horizontally at a given Y coordinate.
+- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`**
+    Draws text using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
+
+- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size)`**
+    Draws text centered horizontally at a given Y coordinate using the default font.
+
+- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font)`**
+    Draws text centered horizontally using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
 
 - **`void drawFilledCircle(int x, int y, int radius, uint16_t color)`**
     Draws a filled circle.
@@ -447,7 +457,148 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Sets the display contrast/brightness (0-255).
 
 - **`void setFont(const uint8_t* font)`**
-    Sets the font for text rendering.
+    @deprecated This method is obsolete. The engine now uses the native bitmap font system. Use `FontManager::setDefaultFont()` to set the default font, or pass a `Font*` directly to `drawText()` overloads.
+
+---
+
+### Font System
+
+The engine includes a native bitmap font system that uses 1bpp sprites to render text, ensuring pixel-perfect consistency between PC (SDL2) and ESP32 platforms.
+
+#### Font Structure
+
+**Type:** `struct Font`
+
+Represents a bitmap font containing glyph sprites for ASCII characters.
+
+**Members:**
+- **`const Sprite* glyphs`**: Array of sprite structures, one per character.
+- **`uint8_t firstChar`**: First character code in the font (e.g., 32 for space).
+- **`uint8_t lastChar`**: Last character code in the font (e.g., 126 for tilde).
+- **`uint8_t glyphWidth`**: Fixed width of each glyph in pixels.
+- **`uint8_t glyphHeight`**: Fixed height of each glyph in pixels.
+- **`uint8_t spacing`**: Horizontal spacing between characters in pixels.
+- **`uint8_t lineHeight`**: Vertical line height (includes spacing between lines).
+
+**Example:**
+```cpp
+#include <graphics/Font.h>
+#include <graphics/Font5x7.h>
+
+// The built-in 5x7 font is available as FONT_5X7
+const Font* myFont = &pixelroot32::graphics::FONT_5X7;
+```
+
+#### FontManager
+
+**Type:** `class FontManager`
+
+Static utility class for managing fonts and calculating text dimensions.
+
+**Static Methods:**
+
+- **`static void setDefaultFont(const Font* font)`**
+    Sets the default font used by `Renderer::drawText()` when no font is explicitly provided. The default font is automatically set to `FONT_5X7` during `Engine::init()`.
+
+- **`static const Font* getDefaultFont()`**
+    Returns the currently active default font, or `nullptr` if no font is set.
+
+- **`static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1)`**
+    Calculates the pixel width of a text string when rendered with the specified font and size.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **text**: String to measure.
+    - **size**: Scale multiplier (1 = normal, 2 = double, etc.).
+    - **Returns**: Width in pixels.
+
+- **`static uint8_t getGlyphIndex(char c, const Font* font = nullptr)`**
+    Gets the array index of a character's glyph sprite.
+    - **c**: Character code.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **Returns**: Glyph index (0 to `lastChar - firstChar`), or 255 if character is not supported.
+
+- **`static bool isCharSupported(char c, const Font* font = nullptr)`**
+    Checks if a character is supported by the font.
+    - **c**: Character code.
+    - **font**: Font to use (or `nullptr` to use default font).
+    - **Returns**: `true` if the character is in the font's range.
+
+**Example:**
+```cpp
+#include <graphics/FontManager.h>
+#include <graphics/Font5x7.h>
+
+// Set a custom font as default
+FontManager::setDefaultFont(&myCustomFont);
+
+// Calculate text width
+int16_t width = FontManager::textWidth(nullptr, "Hello", 2); // Uses default font, size 2
+
+// Check if character is supported
+if (FontManager::isCharSupported('A')) {
+    // Character is available
+}
+```
+
+#### Built-in Font: FONT_5X7
+
+**Type:** `extern const Font FONT_5X7`
+
+A built-in 5x7 pixel bitmap font containing ASCII characters from space (32) to tilde (126), for a total of 95 characters.
+
+**Characteristics:**
+- **Glyph Size**: 5 pixels wide × 7 pixels tall
+- **Character Range**: ASCII 32-126 (printable characters)
+- **Spacing**: 1 pixel between characters
+- **Line Height**: 8 pixels (7 + 1)
+
+**Usage:**
+```cpp
+#include <graphics/Font5x7.h>
+
+// Use the built-in font
+renderer.drawText("Hello", 10, 10, Color::White, 1, &pixelroot32::graphics::FONT_5X7);
+
+// Or set it as default
+FontManager::setDefaultFont(&pixelroot32::graphics::FONT_5X7);
+```
+
+**Note:** The default font is automatically set to `FONT_5X7` during `Engine::init()`, so you typically don't need to set it manually unless you want to use a different font.
+
+#### Text Rendering Examples
+
+**Basic text rendering:**
+```cpp
+// Uses default font (FONT_5X7)
+renderer.drawText("Score: 100", 10, 10, Color::White, 1);
+
+// With custom size
+renderer.drawText("BIG TEXT", 10, 30, Color::Yellow, 3);
+
+// Centered text
+renderer.drawTextCentered("GAME OVER", 120, Color::Red, 2);
+```
+
+**Using a custom font:**
+```cpp
+// Define your custom font (must be defined elsewhere)
+extern const Font MY_CUSTOM_FONT;
+
+// Use it explicitly
+renderer.drawText("Custom", 10, 10, Color::Cyan, 1, &MY_CUSTOM_FONT);
+
+// Or set it as default
+FontManager::setDefaultFont(&MY_CUSTOM_FONT);
+renderer.drawText("Now default", 10, 20, Color::White, 1);
+```
+
+**Calculating text dimensions:**
+```cpp
+// Calculate width for centering
+const char* text = "Hello World";
+int16_t textWidth = FontManager::textWidth(nullptr, text, 2);
+int16_t x = (DISPLAY_WIDTH - textWidth) / 2;
+renderer.drawText(text, x, 50, Color::White, 2);
+```
 
 ---
 
@@ -504,16 +655,51 @@ Enumeration of available color palettes.
 #### Public Methods
 
 - **`static void setPalette(PaletteType type)`**
-    Sets the active color palette for the engine.
-    *Note: This should typically be called once during game initialization (e.g., in the first Scene's `init()` method). Only one palette can be active at a time.*
+    Sets the active color palette for the engine (legacy mode).
+    *Note: This sets both background and sprite palettes to the same value. Does not enable dual palette mode. This should typically be called once during game initialization (e.g., in the first Scene's `init()` method).*
 
 - **`static void setCustomPalette(const uint16_t* palette)`**
-    Sets a custom color palette defined by the user.
+    Sets a custom color palette defined by the user (legacy mode).
   - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
   - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
+  - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
+
+- **`static void enableDualPaletteMode(bool enable)`**
+    Enables or disables dual palette mode.
+    - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for legacy mode (single palette).
+
+- **`static void setBackgroundPalette(PaletteType palette)`**
+    Sets the background palette (for backgrounds, tilemaps, etc.).
+    - **palette**: The palette type to use for backgrounds.
+
+- **`static void setSpritePalette(PaletteType palette)`**
+    Sets the sprite palette (for sprites, characters, etc.).
+    - **palette**: The palette type to use for sprites.
+
+- **`static void setBackgroundCustomPalette(const uint16_t* palette)`**
+    Sets a custom background palette.
+    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+
+- **`static void setSpriteCustomPalette(const uint16_t* palette)`**
+    Sets a custom sprite palette.
+    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+
+- **`static void setDualPalette(PaletteType bgPalette, PaletteType spritePalette)`**
+    Convenience function that sets both background and sprite palettes at once and automatically enables dual palette mode.
+    - **bgPalette**: The palette type to use for backgrounds.
+    - **spritePalette**: The palette type to use for sprites.
+
+- **`static void setDualCustomPalette(const uint16_t* bgPalette, const uint16_t* spritePal)`**
+    Convenience function that sets both custom palettes at once and automatically enables dual palette mode.
+    - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
+    - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
 - **`static uint16_t resolveColor(Color color)`**
-    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette.
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (legacy mode).
+
+- **`static uint16_t resolveColor(Color color, PaletteContext context)`**
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (legacy mode).
+    - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
 
 #### Color (Enum)
 
@@ -864,6 +1050,64 @@ Configuration settings for initializing displays.
 
 Abstract interface for platform-specific drawing operations. Implementations of this class handle the low-level communication with the display hardware (or window system).
 
+**Note:** This interface is primarily for internal engine use. Most developers should use the `Renderer` class instead, which provides a higher-level, platform-agnostic API.
+
+#### Public Methods
+
+- **`virtual void init()`**
+    Initializes the hardware or window.
+
+- **`virtual void setRotation(uint8_t rotation)`**
+    Sets the display rotation (0-3).
+
+- **`virtual void clearBuffer()`**
+    Clears the frame buffer (fills with black or background color).
+
+- **`virtual void sendBuffer()`**
+    Sends the frame buffer to the physical display.
+
+- **`virtual void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size)`**
+    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawText()` which uses the font system.
+
+- **`virtual void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size)`**
+    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawTextCentered()` which uses the font system.
+
+- **`virtual void drawPixel(int x, int y, uint16_t color)`**
+    Draws a single pixel at the specified coordinates.
+
+- **`virtual void drawLine(int x1, int y1, int x2, int y2, uint16_t color)`**
+    Draws a line between two points.
+
+- **`virtual void drawRectangle(int x, int y, int width, int height, uint16_t color)`**
+    Draws a rectangle outline.
+
+- **`virtual void drawFilledRectangle(int x, int y, int width, int height, uint16_t color)`**
+    Draws a filled rectangle.
+
+- **`virtual void drawCircle(int x, int y, int radius, uint16_t color)`**
+    Draws a circle outline.
+
+- **`virtual void drawFilledCircle(int x, int y, int radius, uint16_t color)`**
+    Draws a filled circle.
+
+- **`virtual void drawBitmap(int x, int y, int width, int height, const uint8_t* bitmap, uint16_t color)`**
+    Draws a bitmap image.
+
+- **`virtual void setContrast(uint8_t level)`**
+    Sets the display contrast/brightness (0-255).
+
+- **`virtual uint16_t color565(uint8_t r, uint8_t g, uint8_t b)`**
+    Converts RGB888 color to RGB565 format.
+
+- **`virtual void setDisplaySize(int w, int h)`**
+    Sets the logical display size.
+
+- **`virtual bool processEvents()`**
+    Processes platform events (e.g., SDL window events). Returns `false` if the application should quit.
+
+- **`virtual void present()`**
+    Swaps buffers (for double-buffered systems like SDL).
+
 ---
 
 ### UIElement
@@ -904,11 +1148,15 @@ A simple text label UI element.
 
 #### Public Methods
 
-- **`UILabel(std::string t, float x, float y, uint16_t col, uint8_t sz)`**
+- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
     Constructs a label.
+    - **t**: Label text.
+    - **x, y**: Position.
+    - **col**: Text color from the `Color` enum.
+    - **sz**: Text size multiplier.
 
 - **`void setText(const std::string& t)`**
-    Updates the label's text.
+    Updates the label's text. Recalculates dimensions automatically.
 
 - **`void centerX(int screenWidth)`**
     Centers the label horizontally.
@@ -1169,10 +1417,34 @@ The UI module provides classes for creating user interfaces.
 
 Base class for all user interface elements (buttons, labels, etc.). Sets the `EntityType` to `UI_ELEMENT`.
 
+#### UIElementType (Enum)
+
+Enumeration of UI element types for runtime type identification.
+
+- `GENERIC`
+- `BUTTON`
+- `LABEL`
+- `LAYOUT`
+
 #### Public Methods
 
-- **`UIElement(float x, float y, float w, float h)`**
+- **`UIElement(float x, float y, float w, float h, UIElementType type = UIElementType::GENERIC)`**
     Constructs a new UIElement.
+    - `x, y`: Position.
+    - `w, h`: Dimensions.
+    - `type`: The type of the element (default: `GENERIC`).
+
+- **`UIElementType getType() const`**
+    Returns the type of the UI element.
+
+- **`virtual bool isFocusable() const`**
+    Checks if the element is focusable/selectable. Useful for navigation logic. Returns `false` by default.
+
+- **`void setPosition(float newX, float newY)`**
+    Sets the position of the element. Used by layouts to reposition elements automatically.
+
+- **`void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
+    Gets the preferred size of the element. Used by layouts to determine how much space the element needs. By default, returns the current width and height.
 
 ### UIButton
 
@@ -1207,6 +1479,9 @@ A clickable button UI element. Supports both physical (keyboard/gamepad) and tou
 - **`void press()`**
     Manually triggers the button's action.
 
+- **`bool isFocusable() const override`**
+    Returns `true` (Buttons are always focusable).
+
 ### UILabel
 
 **Inherits:** [UIElement](#uielement)
@@ -1226,3 +1501,539 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 - **`void centerX(int screenWidth)`**
     Centers the label horizontally on the screen.
+
+---
+
+### UILayout
+
+**Inherits:** [UIElement](#uielement)
+
+Base class for UI layout containers. Layouts organize UI elements automatically, handling positioning, spacing, and optional scrolling.
+
+#### Public Methods
+
+- **`UILayout(float x, float y, float w, float h)`**
+    Constructs a new UILayout.
+
+- **`void setPadding(float p)`**
+    Sets the padding (internal spacing) of the layout.
+
+- **`float getPadding() const`**
+    Gets the current padding.
+
+- **`void setSpacing(float s)`**
+    Sets the spacing between elements.
+
+- **`float getSpacing() const`**
+    Gets the current spacing.
+
+- **`size_t getElementCount() const`**
+    Gets the number of elements in the layout.
+
+- **`UIElement* getElement(size_t index) const`**
+    Gets the element at a specific index.
+
+- **`void clearElements()`**
+    Clears all elements from the layout.
+
+---
+
+### UIVerticalLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Vertical layout container with scroll support. Organizes UI elements vertically, one below another. Supports scrolling when content exceeds the visible viewport. Handles keyboard/D-pad navigation automatically with NES-style instant scroll.
+
+#### Public Methods
+
+- **`UIVerticalLayout(float x, float y, float w, float h)`**
+    Constructs a new UIVerticalLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container (viewport height).
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScrollEnabled(bool enable)`**
+    Enables or disables scrolling. When disabled, scroll offset is reset to 0.
+
+- **`void enableScroll(bool enable)`**
+    Alias for `setScrollEnabled()`.
+
+- **`void setViewportHeight(float h)`**
+    Sets the viewport height (visible area).
+
+- **`float getScrollOffset() const`**
+    Gets the current scroll offset in pixels.
+
+- **`void setScrollOffset(float offset)`**
+    Sets the scroll offset directly.
+
+- **`float getContentHeight() const`**
+    Gets the total content height (all elements combined).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles and ensures the element is visible.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setScrollSpeed(float speed)`**
+    Sets the scroll speed for smooth scrolling (pixels per millisecond).
+
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton)`**
+    Sets the navigation button indices for UP and DOWN navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a vertical layout
+UIVerticalLayout* layout = new UIVerticalLayout(10, 60, 220, 160);
+layout->setPadding(5);
+layout->setSpacing(6);
+layout->setScrollEnabled(true);
+layout->setNavigationButtons(0, 1); // UP=0, DOWN=1
+layout->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+layout->setRenderLayer(2);
+addEntity(layout);
+
+// Add buttons to the layout (no manual position calculation needed)
+for (int i = 0; i < 20; i++) {
+    UIButton* btn = new UIButton("Button " + std::to_string(i), 4, 0, 0, 120, 20, []() {
+        // Button callback
+    });
+    layout->addElement(btn);
+}
+
+// Layout automatically handles:
+// - Positioning elements vertically
+// - Scroll when content exceeds viewport
+// - Navigation (UP/DOWN)
+// - Selection management
+// - Button styling
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Optimized Clearing**: The layout area is only cleared when scroll or selection changes, not every frame.
+- **Instant Scroll**: Selection-based scrolling is instant (NES-style) for responsive navigation.
+
+---
+
+### UIHorizontalLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Horizontal layout container with scroll support. Organizes UI elements horizontally, one next to another. Supports scrolling when content exceeds the visible viewport. Handles keyboard/D-pad navigation automatically with NES-style instant scroll.
+
+#### Public Methods
+
+- **`UIHorizontalLayout(float x, float y, float w, float h)`**
+    Constructs a new UIHorizontalLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container (viewport width).
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScrollEnabled(bool enable)`**
+    Enables or disables scrolling. When disabled, scroll offset is reset to 0.
+
+- **`void enableScroll(bool enable)`**
+    Alias for `setScrollEnabled()`.
+
+- **`void setViewportWidth(float w)`**
+    Sets the viewport width (visible area).
+
+- **`float getScrollOffset() const`**
+    Gets the current scroll offset in pixels.
+
+- **`void setScrollOffset(float offset)`**
+    Sets the scroll offset directly.
+
+- **`float getContentWidth() const`**
+    Gets the total content width (all elements combined).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles and ensures the element is visible.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setScrollSpeed(float speed)`**
+    Sets the scroll speed for smooth scrolling (pixels per millisecond).
+
+- **`void setNavigationButtons(uint8_t leftButton, uint8_t rightButton)`**
+    Sets the navigation button indices for LEFT and RIGHT navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a horizontal layout (menu bar)
+UIHorizontalLayout* menuBar = new UIHorizontalLayout(0, 0, 320, 30);
+menuBar->setPadding(5);
+menuBar->setSpacing(4);
+menuBar->setScrollEnabled(true);
+menuBar->setNavigationButtons(2, 3); // LEFT=2, RIGHT=3
+menuBar->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+menuBar->setRenderLayer(2);
+addEntity(menuBar);
+
+// Add buttons to the layout (no manual position calculation needed)
+UIButton* fileBtn = new UIButton("File", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* editBtn = new UIButton("Edit", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* viewBtn = new UIButton("View", 4, 0, 0, 60, 20, []() { /* ... */ });
+UIButton* helpBtn = new UIButton("Help", 4, 0, 0, 60, 20, []() { /* ... */ });
+
+menuBar->addElement(fileBtn);
+menuBar->addElement(editBtn);
+menuBar->addElement(viewBtn);
+menuBar->addElement(helpBtn);
+
+// Layout automatically handles:
+// - Positioning elements horizontally
+// - Scroll when content exceeds viewport
+// - Navigation (LEFT/RIGHT)
+// - Selection management
+// - Button styling
+// - Vertical centering of elements
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Optimized Clearing**: The layout area is only cleared when scroll or selection changes, not every frame.
+- **Instant Scroll**: Selection-based scrolling is instant (NES-style) for responsive navigation.
+- **Vertical Centering**: Elements smaller than the layout height are automatically centered vertically.
+
+---
+
+### UIGridLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Grid layout container for organizing elements in a matrix. Organizes UI elements in a fixed grid of rows and columns. Supports navigation in 4 directions (UP/DOWN/LEFT/RIGHT) and automatic positioning based on grid coordinates.
+
+#### Public Methods
+
+- **`UIGridLayout(float x, float y, float w, float h)`**
+    Constructs a new UIGridLayout.
+    - `x, y`: Position of the layout container.
+    - `w, h`: Width and height of the layout container.
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the layout. The element will be positioned automatically based on its index in the grid.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setColumns(uint8_t cols)`**
+    Sets the number of columns in the grid. Must be > 0. Automatically recalculates the layout.
+
+- **`uint8_t getColumns() const`**
+    Gets the number of columns.
+
+- **`uint8_t getRows() const`**
+    Gets the number of rows (calculated automatically based on element count and columns).
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index (-1 if none selected).
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element index. Automatically updates button styles.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element (nullptr if none selected).
+
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton, uint8_t leftButton, uint8_t rightButton)`**
+    Sets the navigation button indices for UP, DOWN, LEFT, and RIGHT navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the style colors for selected and unselected buttons. Automatically updates all button styles in the layout.
+
+#### Example Usage
+
+```cpp
+// Create a grid layout for inventory (4 columns)
+UIGridLayout* inventory = new UIGridLayout(10, 60, 220, 160);
+inventory->setColumns(4);
+inventory->setPadding(5);
+inventory->setSpacing(4);
+inventory->setNavigationButtons(0, 1, 2, 3); // UP=0, DOWN=1, LEFT=2, RIGHT=3
+inventory->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
+inventory->setRenderLayer(2);
+addEntity(inventory);
+
+// Add items to the layout (automatically organized in 4 columns)
+for (int i = 0; i < 16; i++) {
+    UIButton* item = new UIButton("Item " + std::to_string(i), 4, 0, 0, 50, 50, []() {
+        // Item selected callback
+    });
+    inventory->addElement(item);
+}
+
+// Layout automatically handles:
+// - Positioning elements in grid (row = index / columns, col = index % columns)
+// - Navigation (UP/DOWN/LEFT/RIGHT with wrapping)
+// - Selection management
+// - Button styling
+// - Centering elements within cells
+```
+
+#### Performance Notes
+
+- **Viewport Culling**: Only visible elements are rendered, improving performance on ESP32.
+- **Automatic Cell Sizing**: Cell dimensions are calculated based on layout size, padding, and spacing.
+- **Element Centering**: Elements smaller than their cell are automatically centered within the cell.
+- **Navigation Wrapping**: Navigation wraps around edges (UP from first row goes to last row, etc.) for intuitive grid navigation.
+
+---
+
+### UIPaddingContainer
+
+**Inherits:** [UIElement](#uielement)
+
+Container that wraps a single UI element and applies padding. This container adds padding/margin around a single child element without organizing multiple elements. Useful for adding spacing to individual elements or nesting layouts with custom padding.
+
+#### Public Methods
+
+- **`UIPaddingContainer(float x, float y, float w, float h)`**
+    Constructs a new UIPaddingContainer.
+    - `x, y`: Position of the container.
+    - `w, h`: Width and height of the container.
+
+- **`void setChild(UIElement* element)`**
+    Sets the child element to wrap. The child's position will be adjusted based on padding.
+
+- **`UIElement* getChild() const`**
+    Gets the child element (nullptr if none set).
+
+- **`void setPadding(float p)`**
+    Sets uniform padding on all sides.
+
+- **`void setPadding(float left, float right, float top, float bottom)`**
+    Sets asymmetric padding for each side.
+
+- **`float getPaddingLeft() const`**
+    Gets the left padding.
+
+- **`float getPaddingRight() const`**
+    Gets the right padding.
+
+- **`float getPaddingTop() const`**
+    Gets the top padding.
+
+- **`float getPaddingBottom() const`**
+    Gets the bottom padding.
+
+#### Example Usage
+
+```cpp
+// Create a padding container with uniform padding
+UIPaddingContainer* container = new UIPaddingContainer(10, 10, 200, 100);
+container->setPadding(10);
+container->setChild(button);
+container->setRenderLayer(2);
+addEntity(container);
+
+// Or with asymmetric padding
+UIPaddingContainer* container2 = new UIPaddingContainer(10, 10, 200, 100);
+container2->setPadding(5, 15, 10, 10); // left, right, top, bottom
+container2->setChild(layout);
+addEntity(container2);
+
+// Useful for nesting layouts with custom spacing
+UIPaddingContainer* wrapper = new UIPaddingContainer(0, 0, 320, 240);
+wrapper->setPadding(20);
+UIVerticalLayout* innerLayout = new UIVerticalLayout(0, 0, 280, 200);
+// ... add elements to innerLayout ...
+wrapper->setChild(innerLayout);
+addEntity(wrapper);
+```
+
+#### Performance Notes
+
+- **No Reflow**: The container does not reorganize elements, only adjusts the child's position. Very efficient.
+- **Automatic Position Updates**: When the container's position changes, the child's position is automatically updated.
+- **Low Overhead**: Minimal performance impact, ideal for ESP32.
+
+---
+
+### UIPanel
+
+**Inherits:** [UIElement](#uielement)
+
+Visual container that draws a background and border around a child element. Provides a retro-style window/panel appearance. Typically contains a UILayout or other UI elements. Useful for dialogs, menus, and information panels.
+
+#### Public Methods
+
+- **`UIPanel(float x, float y, float w, float h)`**
+    Constructs a new UIPanel.
+    - `x, y`: Position of the panel.
+    - `w, h`: Width and height of the panel.
+
+- **`void setChild(UIElement* element)`**
+    Sets the child element to wrap (typically a UILayout).
+
+- **`UIElement* getChild() const`**
+    Gets the child element (nullptr if none set).
+
+- **`void setBackgroundColor(Color color)`**
+    Sets the background color. Use `Color::Transparent` to disable background drawing.
+
+- **`Color getBackgroundColor() const`**
+    Gets the background color.
+
+- **`void setBorderColor(Color color)`**
+    Sets the border color. Use `Color::Transparent` to disable border drawing.
+
+- **`Color getBorderColor() const`**
+    Gets the border color.
+
+- **`void setBorderWidth(uint8_t width)`**
+    Sets the border width in pixels. Set to 0 to disable border.
+
+- **`uint8_t getBorderWidth() const`**
+    Gets the border width.
+
+#### Example Usage
+
+```cpp
+// Create a dialog panel
+UIPanel* dialog = new UIPanel(50, 50, 220, 140);
+dialog->setBackgroundColor(Color::Black);
+dialog->setBorderColor(Color::White);
+dialog->setBorderWidth(2);
+dialog->setRenderLayer(2);
+addEntity(dialog);
+
+// Add content layout inside the panel
+UIVerticalLayout* content = new UIVerticalLayout(0, 0, 220, 140);
+content->setPadding(10);
+content->setSpacing(5);
+
+UILabel* title = new UILabel("Dialog Title", 0, 0, Color::White, 2);
+UIButton* okBtn = new UIButton("OK", 4, 0, 0, 100, 20, []() {
+    // OK button callback
+});
+
+content->addElement(title);
+content->addElement(okBtn);
+dialog->setChild(content);
+
+// Panel automatically draws:
+// - Background (filled rectangle)
+// - Border (4 filled rectangles for each side)
+// - Child element (layout with buttons/labels)
+```
+
+#### Performance Notes
+
+- **Efficient Rendering**: Background and border are drawn using simple filled rectangles, very efficient on ESP32.
+- **Transparent Support**: Background and border can be disabled by setting colors to `Color::Transparent` or border width to 0.
+- **Child Positioning**: Child element position is automatically updated when panel position changes.
+- **Low Overhead**: Minimal performance impact, ideal for creating retro-style dialogs and menus.
+
+---
+
+### Anchor
+
+**Enum:** Defines anchor points for positioning UI elements in `UIAnchorLayout`.
+
+#### Values
+
+- **`TOP_LEFT`**: Top-left corner
+- **`TOP_RIGHT`**: Top-right corner
+- **`BOTTOM_LEFT`**: Bottom-left corner
+- **`BOTTOM_RIGHT`**: Bottom-right corner
+- **`CENTER`**: Center of screen
+- **`TOP_CENTER`**: Top center
+- **`BOTTOM_CENTER`**: Bottom center
+- **`LEFT_CENTER`**: Left center
+- **`RIGHT_CENTER`**: Right center
+
+---
+
+### UIAnchorLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Layout that positions elements at fixed anchor points on the screen without reflow. Very efficient for HUDs, debug UI, and fixed-position elements. Positions are calculated once or when screen size changes.
+
+#### Public Methods
+
+- **`UIAnchorLayout(float x, float y, float w, float h)`**
+    Constructs a new UIAnchorLayout.
+    - `x, y`: Position of the layout container (usually 0, 0).
+    - `w, h`: Width and height of the layout container (usually screen width and height).
+
+- **`void addElement(UIElement* element, Anchor anchor)`**
+    Adds a UI element with a specific anchor point.
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element with default anchor (TOP_LEFT).
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`void setScreenSize(float screenWidth, float screenHeight)`**
+    Sets the screen size for anchor calculations. Automatically updates all element positions.
+
+- **`float getScreenWidth() const`**
+    Gets the screen width.
+
+- **`float getScreenHeight() const`**
+    Gets the screen height.
+
+#### Example Usage
+
+```cpp
+// Create HUD with anchor layout
+UIAnchorLayout* hud = new UIAnchorLayout(0, 0, screenWidth, screenHeight);
+hud->setScreenSize(screenWidth, screenHeight);
+hud->setRenderLayer(2);
+addEntity(hud);
+
+// Add HUD elements at different anchor points
+UILabel* scoreLabel = new UILabel("Score: 0", 0, 0, Color::White, 1);
+UILabel* livesLabel = new UILabel("Lives: 3", 0, 0, Color::White, 1);
+UILabel* healthBar = new UILabel("Health: 100%", 0, 0, Color::Green, 1);
+UILabel* debugInfo = new UILabel("FPS: 60", 0, 0, Color::Yellow, 1);
+
+hud->addElement(scoreLabel, Anchor::TOP_LEFT);
+hud->addElement(livesLabel, Anchor::TOP_RIGHT);
+hud->addElement(healthBar, Anchor::BOTTOM_CENTER);
+hud->addElement(debugInfo, Anchor::BOTTOM_LEFT);
+
+// Elements are automatically positioned:
+// - scoreLabel at (0, 0)
+// - livesLabel at (screenWidth - livesLabel->width, 0)
+// - healthBar centered at bottom
+// - debugInfo at (0, screenHeight - debugInfo->height)
+```
+
+#### Performance Notes
+
+- **No Reflow**: Positions are calculated once or when screen size changes. Very efficient on ESP32.
+- **Fixed Positioning**: Elements maintain their anchor positions regardless of other elements.
+- **HUD-Optimized**: Designed specifically for HUD elements that need fixed screen positions.
+- **Low Overhead**: Minimal performance impact, ideal for ESP32.

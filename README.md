@@ -2,38 +2,42 @@
   <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="300"/>
 </p>
 
-# PixelRoot32 Game Engine
+<h1 align="center">PixelRoot32 Game Engine</h1>
 
-[![Support me on Ko-fi](https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=for-the-badge&logo=ko-fi&logoColor=ffffff)](https://ko-fi.com/gperez88)
+<p align="center">
+  <strong>A lightweight, modular 2D game engine for ESP32 and PC</strong>
+</p>
 
-PixelRoot32 is a lightweight, modular 2D game engine written in C++ and designed specifically for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)**.
+<p align="center">
+  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
+  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
+  <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
+  <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
+</p>
 
-> **Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Expect occasional issues or breaking changes, especially on less-tested configurations; feedback and bug reports are welcome.
-
-The engine adopts a simple scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
-
-## 📑 Table of Contents
-
-- [Origin and Inspirations](#origin-and-inspirations)
-- [Demo in Action](#demo-in-action)
-- [Key Features](#key-features)
-- [Target Platforms](#target-platforms)
-- [Documentation](#documentation)
-- [Asset Tools](#asset-tools)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap)
-- [Changelog](#changelog)
-- [Getting Started](#getting-started)
-- [License](#license)
-- [Credits](#credits)
+<p align="center">
+  <a href="#-key-features">Features</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-documentation">Documentation</a> •
+  <a href="#-examples">Examples</a> •
+  <a href="#-build">Build</a> •
+  <a href="#-contribute">Contribute</a> •
+  <a href="#-license">License</a>
+</p>
 
 ---
 
-## Origin and Inspirations
+## 📖 Overview
 
-PixelRoot32 is an evolution of [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine) by **nbourre**, extended with architectural concepts from **Godot Engine**.
+**PixelRoot32** is a lightweight, modular 2D game engine written in C++17, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
-Special thanks to **nbourre** for open-sourcing the original engine and inspiring this project. Without that work, PixelRoot32 would not exist.
+The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
+
+> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Occasional issues or breaking changes are expected, especially in less-tested configurations; feedback and bug reports are welcome.
+
+---
 
 ## Demo in Action
 
@@ -43,231 +47,356 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 > Click the image to watch the full demo on YouTube.  
 
-## Key Features
+## ✨ Key Features
 
-- **Scene & Entity System**: Scenes managing Entities, Actors, PhysicsActors and UI elements.
-- **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy to ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA).
-- **NES-Style Audio**: Integrated audio subsystem with 2 Pulse, 1 Triangle, and 1 Noise channels.
-- **Color Palette**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering.
-- **Sprite System**: 1bpp monochrome sprites with support for layered, multi-color sprites built from multiple 1bpp layers, plus optional 2bpp/4bpp packed sprites for richer visuals.
-- **Sprite Animation**: Lightweight, step-based sprite animation that works with both simple sprites and layered `MultiSprite`, without coupling animation logic to rendering.
-- **Render Layers & Tilemaps**: Simple logical render layers (background, gameplay, UI) and a compact 1bpp tilemap helper for backgrounds and side-scrolling levels, designed to stay friendly to ESP32 RAM/CPU limits.
-- **2D Camera & Scrolling**: Dead-zone camera (`Camera2D`) that follows a target horizontally (and optionally vertically) by driving `Renderer::setDisplayOffset`, enabling parallax backgrounds and long platformer levels.
-- **Physics & Collision**: AABB collision detection, gravity, and basic kinematics suitable for arcade games and simple platformers.
-- **Particle & Object Pooling**: High-performance, memory-pooled particles and reusable gameplay entities (projectiles, snake segments, etc.) designed to avoid allocations inside the game loop on ESP32.
-- **UI System**: Lightweight UI controls (Label, Button).
+### 🎮 Engine Core
+- **Scene and Entity System**: Scene management with Entities, Actors, PhysicsActors, and UI elements
+- **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy on ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA)
+- **Deterministic Game Loop**: Precise delta-time control and frame updates
 
-## Target Platforms
+### 🎨 Graphics
+- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optional 2bpp/4bpp for richer assets
+- **Sprite Animation**: Lightweight, step-based animation system compatible with simple sprites and `MultiSprite`
+- **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
+- **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
+- **2D Camera and Scrolling**: Camera with dead-zone (`Camera2D`) that follows a target horizontally (and optionally vertically)
+- **Particle System**: High-performance particles with memory pooling
 
-1. **ESP32**: Currently supports **TFT_eSPI** library for hardware-accelerated rendering.
-2. **Desktop (Native)**: Uses **SDL2** for rapid development, debugging, and testing.
+### 🔊 Audio
+- **NES-Style Audio**: Built-in audio subsystem with 2 Pulse channels, 1 Triangle, and 1 Noise
+- **Music Player**: Lightweight background music system based on notes
 
-> **Note:** Future support for **u8g2** library on embedded platforms is planned.
+### 🎯 Physics and Collisions
+- **AABB Collision Detection**: Axis-aligned bounding box collision system
+- **Basic Gravity and Kinematics**: Suitable for arcade and simple platformer games
 
-## Documentation
+### 🖥️ User Interface
+- **Lightweight UI System**: UI controls (Label, Button) with automatic layout management
+- **Automatic Layouts**: `UIVerticalLayout`, `UIHorizontalLayout`, `UIGridLayout`, `UIPaddingContainer`, `UIPanel`, and `UIAnchorLayout` for organizing elements without manual calculations
+- **Native Bitmap Font**: Text renderer based on 1bpp sprites with an integrated 5x7 font, ensuring pixel-perfect consistency across PC and ESP32
 
-Detailed documentation for engine subsystems and coding standards:
+---
 
-- **[API Reference](API_REFERENCE.md)**: Core classes and usage examples.
-- **[Audio Subsystem](AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Architecture of the NES-like sound engine.
-- **[Style Guide](STYLE_GUIDE.md)**: Coding conventions and best practices.
+## 🚀 Quick Start
 
-### Color Palette & Sprites
+### Prerequisites
 
-PixelRoot32 uses a fixed indexed color palette optimized for embedded hardware:
+- **VS Code + PlatformIO extension**
+- **C++17 toolchain**
+- **ESP32 DevKit** (for hardware) or **SDL2** (for native development)
 
-- Colors are represented as 8-bit indices.
-- Internally resolved to RGB565.
-- Improves performance and memory usage.
-- Ensures visual consistency across games.
+### Fast Setup
 
-The engine provides a built-in palette of 16 colors (plus transparent) via the
-`pixelroot32::graphics::Color` enum.
+1. **Clone the samples repository:**
+   ```bash
+   git clone https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples.git
+   cd PixelRoot32-Game-Engine-Samples
+   ```
 
-### Color Palette Selection
+2. **Open the project in VS Code** and let PlatformIO initialize
 
-The engine supports multiple pre-defined color palettes. Developers can select **one active palette** at a time for their game.
+3. **Select the environment:**
+   - `env:esp32dev` for ESP32
+   - `env:native` for PC (requires SDL2)
 
-**Available Palettes:**
+4. **Build and run** from PlatformIO
+
+### Minimal Example
+
+```cpp
+#include <core/Engine.h>
+#include <drivers/esp32/ESP32_DAC_AudioBackend.h>
+
+namespace pr32 = pixelroot32;
+
+pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(25, 11025);
+pr32::graphics::DisplayConfig displayConfig(
+    pr32::graphics::DisplayDriver::TFT_eSPI, 0, 240, 240
+);
+pr32::input::InputConfig inputConfig(6, 32, 27, 33, 14, 13, 12);
+pr32::audio::AudioConfig audioConfig(&audioBackend, 11025);
+
+pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
+
+void setup() {
+    engine.init();
+    // engine.setScene(&yourScene);
+}
+
+void loop() {
+    engine.run();
+}
+```
+
+> 📚 **More information:** See the [Official Documentation](https://pixelroot32-game-engine.github.io) for detailed guides.
+
+---
+
+## 📚 Documentation
+
+### Official Documentation
+
+- **[📖 Full Documentation](https://pixelroot32-game-engine.github.io)**: Complete online documentation with guides, API reference, examples, and more
+- **[🚀 Getting Started](https://pixelroot32-game-engine.github.io/getting_started/)**: Installation, first project, and fundamental concepts
+- **[📘 Manual](https://pixelroot32-game-engine.github.io/manual/)**: Game development guides, advanced graphics, and optimization
+- **[🔧 API Reference](https://pixelroot32-game-engine.github.io/api_reference/)**: Complete class reference and usage examples
+- **[🎮 Examples](https://pixelroot32-game-engine.github.io/examples/)**: Complete game examples with code analysis
+- **[🛠️ Tools](https://pixelroot32-game-engine.github.io/tools/)**: Sprite compiler and other development tools
+
+### Local Documentation (Repository)
+
+- **[API Reference](API_REFERENCE.md)**: Complete class reference and usage examples
+- **[Audio Subsystem](AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: NES-style sound engine architecture
+- **[Style Guide](STYLE_GUIDE.md)**: Coding conventions and best practices
+- **[Contributing Guide](CONTRIBUTING.md)**: How to contribute to the project
+
+### Quick Guides
+
+- **[Getting Started](#-quick-start)**: Initial setup and first project
+- **[Color Palettes](#-color-palettes)**: How to use and customize palettes
+- **[Sprite System](#-sprite-system)**: Creating and using sprites
+- **[UI System](#-ui-system)**: Building user interfaces
+
+### Color Palettes
+
+PixelRoot32 uses a fixed indexed palette optimized for embedded hardware:
 
 | Palette | Description | Preview |
 | :--- | :--- | :--- |
-| `PR32` (Default) | The standard PixelRoot32 palette | <img src="assets/palette_PR32.png" width="150"/> |
+| `PR32` (Default) | PixelRoot32 standard palette | <img src="assets/palette_PR32.png" width="150"/> |
 | `NES` | Nintendo Entertainment System style | <img src="assets/palette_NES.png" width="150"/> |
-| `GB` | GameBoy (Greyscale/Green) style | <img src="assets/palette_GB.png" width="150"/> |
+| `GB` | GameBoy style (Gray/Green) | <img src="assets/palette_GB.png" width="150"/> |
 | `GBC` | GameBoy Color style | <img src="assets/palette_GBC.png" width="150"/> |
 | `PICO8` | PICO-8 fantasy console style | <img src="assets/palette_PICO8.png" width="150"/> |
 
-> **Note:** You can import these images into your pixel art editor (Aseprite, Photoshop, etc.) to ensure your assets use the correct colors.
-
-**How to Select a Palette:**
-
-Call `pr32::graphics::setPalette(...)` in your scene's `init()` method.
-
+**Basic usage:**
 ```cpp
 #include <graphics/Color.h>
 
 void MyScene::init() {
-    // Select the GameBoy palette
-    pr32::graphics::setPalette(pr32::graphics::PaletteType::GB);
-    
-    // ... rest of initialization
+    pr32::graphics::setPalette(pr32::graphics::PaletteType::NES);
 }
 ```
 
-> **Note:** Only one palette can be active globally. When switching scenes, it is good practice to explicitly set the desired palette in `init()`.
-
-### Custom Color Palette
-
-You can also define your own custom palette. This is useful for giving your game a unique look while respecting the 16-color limit.
-
-**How to define and use a custom palette:**
-
-1. Define a `static const` array of 16 `uint16_t` values (RGB565 format).
-2. Pass it to `pr32::graphics::setCustomPalette(...)`.
-
+**Dual-palette mode:**
 ```cpp
-#include <graphics/Color.h>
-
-// Define your custom 16-color palette (RGB565)
-// Values must be ordered to match the Color enum indices (Black=0, White=1, etc.)
-// if you want to keep compatibility with standard Color names.
-static const uint16_t MY_SEPIA_PALETTE[16] = {
-    0x0000, // 0: Black
-    0xE79C, // 1: White (Sepia tone)
-    0x3186, // 2: Navy
-    0x52AA, // 3: Blue
-    // ... define all 16 colors ...
-    0xCE79  // 15: Gray
-};
-
 void MyScene::init() {
-    // Apply the custom palette
-    pr32::graphics::setCustomPalette(MY_SEPIA_PALETTE);
+    pr32::graphics::enableDualPaletteMode(true);
+    pr32::graphics::setDualPalette(
+        pr32::graphics::PaletteType::NES,  // Background
+        pr32::graphics::PaletteType::GB    // Sprites
+    );
 }
 ```
 
-> **Warning:** The array passed to `setCustomPalette` **must remain valid** while it is active. Always use `static const` arrays or global variables. Do not pass a local stack array.
-
-### Technical Implementation
-
-The palette system is designed for **zero-overhead switching**, critical for the limited resources of the ESP32:
-
-1. **Flash Storage**: All palettes are stored as `static constexpr` arrays in flash memory (RODATA), consuming no dynamic RAM.
-2. **Pointer-Based Switching**: The engine maintains a single global pointer `currentPalette` that points to the active array. Calling `setPalette()` merely updates this pointer, making the operation instantaneous (**O(1)**).
-3. **Dynamic Resolution**: The `resolveColor(Color c)` function uses the enum value as a direct index into the array referenced by `currentPalette`. This ensures that all rendering calls automatically use the new colors without needing to redraw or reload assets.
+### Sprite System
 
 Sprites are defined as compact 1bpp bitmaps by default:
 
-- One `uint16_t` per row, each bit representing a pixel (`0` = transparent, `1` = on).
-- Bit 0 is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
-- `Renderer::drawSprite` draws a single-color sprite using any palette `Color`.
-- `Renderer::drawMultiSprite` composes multiple 1bpp layers (each with its own color) to build multi-color, NES/GameBoy-style sprites without changing the underlying format.
-  > **Performance Note:** While `MultiSprite` allows many layers, it is recommended to keep the layer count between **2 and 4** for optimal performance on ESP32, as each layer incurs a separate drawing pass.
-- Optional 2bpp/4bpp packed formats can be enabled at compile time for higher fidelity assets while keeping 1bpp as the default path for ESP32-friendly games.
+- One `uint16_t` per row, each bit represents a pixel (`0` = transparent, `1` = active)
+- `Renderer::drawSprite` draws a monochrome sprite using any palette color
+- `Renderer::drawMultiSprite` composes multiple 1bpp layers to create multicolor sprites NES/GameBoy-style
 
-## Asset Tools
+**Example:**
+```cpp
+// Simple 1bpp sprite (16x16)
+static const uint16_t PLAYER_SPRITE[16] = {
+    0b0000111111000000,
+    0b0011111111110000,
+    // ... more rows
+};
+
+// Render
+renderer.drawSprite(PLAYER_SPRITE, 16, 16, x, y, Color::WHITE);
+```
+
+### UI System
+
+The UI system enables building interfaces without manual position calculations:
+
+```cpp
+// Create vertical layout
+auto* layout = new UIVerticalLayout(10, 10, 220, 200);
+layout->setSpacing(5);
+layout->setPadding(10);
+
+// Add elements
+auto* title = new UILabel("MAIN MENU", Color::WHITE);
+auto* btn1 = new UIButton("Play", []() { /* callback */ });
+auto* btn2 = new UIButton("Options", []() { /* callback */ });
+
+layout->addElement(title);
+layout->addElement(btn1);
+layout->addElement(btn2);
+
+scene->addEntity(layout);
+```
+
+---
+
+## 🎮 Examples
+
+The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://pixelroot32-game-engine.github.io/examples/) for detailed analysis and code walkthroughs.
+
+### 🎯 Space Invaders
+**Primary reference for the standard 1bpp sprite system**
+- Full entity system (Player, Aliens, Bunkers, Projectiles)
+- Swept-circle vs rectangle collisions
+- Audio with SFX and music synchronized to tempo
+- **Paleta:** NES
+
+### 📷 CameraDemo
+**Reference for camera, parallax, and platforms**
+- Horizontal scrolling with a camera that follows the player
+- Parallax effects with multiple layers
+- Platform system with collisions
+- **Paleta:** PR32 (Default)
+
+### 🐍 Snake
+**Reference for entity pooling and discrete game loop**
+- Entity pooling with no dynamic allocations
+- Grid-based movement with discrete timing
+- Scoring and game over system
+- **Paleta:** GB
+
+### ⭕ Tic-Tac-Toe
+**Reference for custom palette and basic AI**
+- Uses custom palette (Neon/Cyberpunk)
+- Basic AI with heuristics
+- **Paleta:** Custom Neon
+
+### 🎨 SpritesDemo
+**Reference for 2bpp/4bpp sprites (EXPERIMENTAL)**
+- Demonstrates 2bpp (4 colors) and 4bpp (16 colors) sprites
+- Animations with sprite groups
+- **Paleta:** GBC
+- ⚠️ Requires experimental build flags
+
+---
+
+## 🔧 Build
+
+### Native Environment (SDL2)
+
+#### Windows (Recommended: MSYS2)
+
+1. **Install MSYS2**: Download from [msys2.org](https://www.msys2.org/)
+2. **Update package database:**
+   ```bash
+   pacman -Syu
+   ```
+3. **Install GCC and SDL2:**
+   ```bash
+   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
+   ```
+4. **Add to PATH**: Ensure `C:\msys64\mingw64\bin` is in your Windows PATH
+
+#### Linux (Debian/Ubuntu)
+```bash
+sudo apt-get install libsdl2-dev
+```
+
+#### macOS (Homebrew)
+```bash
+brew install sdl2
+```
+
+### ESP32 Configuration
+
+Configure `TFT_eSPI` in your `platformio.ini`:
+
+**Example for ST7789 (240x240):**
+```ini
+[env:esp32dev]
+platform = espressif32
+board = esp32dev
+framework = arduino
+build_flags =
+    -D ST7789_DRIVER
+    -D TFT_WIDTH=240
+    -D TFT_HEIGHT=240
+    -D TFT_MOSI=23
+    -D TFT_SCLK=18
+    -D TFT_DC=2
+    -D TFT_RST=4
+    -D TFT_CS=-1
+    -D SPI_FREQUENCY=40000000
+lib_deps =
+    bodmer/TFT_eSPI@^2.5.43
+```
+
+### Experimental Build Flags
+
+```ini
+build_flags =
+    -D PIXELROOT32_ENABLE_2BPP_SPRITES    # 2bpp sprites (4 colors)
+    -D PIXELROOT32_ENABLE_4BPP_SPRITES    # 4bpp sprites (16 colors)
+    -D PIXELROOT32_ENABLE_SCENE_ARENA     # Scene memory arena
+```
+
+> ⚠️ **Note:** These features are experimental and may cause performance issues or compilation errors on specific hardware.
+
+---
+
+## 🛠️ Asset Tools
 
 ### Sprite Compiler (`pr32-sprite-compiler`)
 
-A Python tool is available to convert standard PNG sprite sheets into PixelRoot32-compatible C headers (`.h`). The source code and detailed usage instructions are available in the [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler) repository.
+Python tool to convert standard PNG sprite sheets into C headers compatible with PixelRoot32.
 
-- **Input**: PNG sprite sheet (RGB/RGBA).
-- **Output**: C header with `uint16_t` arrays for each color layer (1bpp per layer).
-- **Features**:
-  - Automatically detects colors and generates a 1bpp layer for each distinct color.
-  - Supports grid-based sprite extraction.
-  - Includes both a **Command Line Interface (CLI)** and a **GUI** for ease of use.
+**Repository:** [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
 
-**Usage Example:**
+**Documentation:** [Sprite Compiler Guide](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/)
 
+**Features:**
+- Automatic color detection and 1bpp layer generation
+- Grid-based extraction
+- CLI and GUI available
+- Advanced features: dithering, layer merging, batch processing
+
+**Usage:**
 ```bash
-# Convert a sprite sheet with 16x16 sprites
 python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
 ```
 
-This tool simplifies the process of creating multi-layer 1bpp sprites from modern image editors.
+See the [official documentation](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/) for complete usage guide and advanced features.
 
-## Project Structure
+---
 
-Main structure of the `PixelRoot32-Game-Engine` library:
+## 🗺️ Roadmap
 
-```txt
-PixelRoot32-Game-Engine/
-├── assets/                 # Icons and logos
-├── include/                # Public engine headers
-│   ├── audio/
-│   ├── core/
-│   ├── drivers/
-│   │   ├── esp32/
-│   │   └── native/
-│   ├── graphics/
-│   │   ├── particles/
-│   │   └── ui/
-│   ├── input/
-│   ├── math/
-│   └── physics/
-├── src/                    # Engine implementations
-│   ├── audio/
-│   ├── core/
-│   ├── drivers/
-│   │   ├── esp32/
-│   │   └── native/
-│   ├── graphics/
-│   │   ├── particles/
-│   │   └── ui/
-│   ├── input/
-│   ├── physics/
-│   └── platforms/
-│       └── mock/
-├── test/
-├── API_REFERENCE.md
-├── AUDIO_NES_SUBSYSTEM_REFERENCE.md
-├── STYLE_GUIDE.md
-├── library.json
-└── library.properties
-```
+### Planned Features
 
-## Roadmap
+- 📟 **Driver: u8g2 Support** - Support for monochrome OLEDs (SSD1306, SH1106)
+- 🎵 **Music Compiler** - Convert tracker formats (FTM/MML/MIDI) to C++ structures
+- 🗺️ **Tilemap Compiler** - Import Tiled maps (.tmx) or JSON
+- 🔊 **SFX Manager** - Fire-and-forget system with channel management
+- 💾 **Persistence (Save/Load)** - Abstract key-value storage (NVS on ESP32)
+- ⚡ **Spatial Partitioning** - Uniform Grid for collision optimization
 
-The following features are planned to enhance the engine's capabilities, focusing on workflow efficiency and ESP32 optimization.
+### Completed Features ✅
 
-### 1. 📟 Driver: u8g2 Support
+- ✅ **Native Bitmap Font System** - Font system based on 1bpp sprites
+- ✅ **UI Layout System** - Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding)
 
-- **Goal**: Add support for the **u8g2** graphics library.
-- **Why**: Expands hardware support to monochrome OLEDs (SSD1306, SH1106) and other displays not covered by TFT_eSPI, making the engine more versatile for low-power devices.
-
-### 2. 🎵 Tooling: Music Compiler (`pr32-music-compiler`)
-
-- **Goal**: Convert standard tracker formats (FTM/MML/MIDI) into `MusicNote` C++ structures.
-- **Why**: Manual music coding is inefficient. Enables complex chiptune soundtracks stored in Flash.
-
-### 3. 🗺️ Tooling: Tilemap Compiler (`pr32-map-compiler`)
-
-- **Goal**: Import Tiled (.tmx) or JSON maps into compressed `TileMap` structures.
-- **Why**: Reduces RAM usage compared to Entity-based levels and streamlines level design.
-
-### 4. 🅰️ Engine: Native Bitmap Font System
-
-- **Goal**: Implement a platform-agnostic 1bpp sprite-based text renderer.
-- **Why**: Ensures pixel-perfect consistency between PC (SDL2) and ESP32, removing dependency on external font libraries.
-
-### 5. 🔊 Engine: SFX Manager
-
-- **Goal**: "Fire-and-forget" sound effect system with channel management (priorities, virtual channels).
-- **Why**: Automates hardware channel allocation (Pulse/Triangle/Noise) for game events.
-
-### 6. 💾 Core: Persistence (Save/Load)
-
-- **Goal**: Abstract Key-Value storage (NVS on ESP32, File on PC).
-- **Why**: Standardizes saving high scores and progress across platforms.
-
-### 7. ⚡ Engine: Spatial Partitioning
-
-- **Goal**: Implement a Uniform Grid for collision detection.
-- **Why**: Optimizes collision checks from O(N²) to O(N), allowing more active entities on ESP32 (240MHz).
+---
 
 ## Changelog
+
+### v0.3.0-dev
+
+- **Renderer Fix**: Fixed 2bpp/4bpp sprite clipping when camera offset is applied. Clipping now uses finalX/finalY with xOffset/yOffset, preventing the player from disappearing past the viewport width.
+- **Dual Palette Mode**: Introduced dual palette mode allowing separate palettes for backgrounds and sprites. Added new methods: `enableDualPaletteMode`, `setBackgroundPalette`, `setSpritePalette`, `setBackgroundCustomPalette`, `setSpriteCustomPalette`, `setDualPalette`, and `setDualCustomPalette`. Updated `resolveColor` to support context-based color resolution for dual palette mode.
+- **Native Bitmap Font System**: Implemented a native bitmap font system using 1bpp sprites for consistent text rendering across platforms. Introduced `Font` and `FontManager` classes to manage bitmap fonts and their usage. Updated `Renderer` to support new text rendering methods, allowing for custom fonts and sizes. Added built-in 5x7 font for immediate use.
+- **UI Layout System**: Introduced comprehensive UI layout management system:
+  - `UIVerticalLayout` for automatic vertical organization with scrolling support (NES-style instant scroll and smooth scrolling options).
+  - `UIHorizontalLayout` with scrolling support.
+  - `UIGridLayout` with navigation and automatic selection management.
+  - `UIAnchorLayout` for fixed-position HUD elements with optimized performance (no reflow).
+  - `UIPaddingContainer` and `UIPanel` for enhanced UI organization.
+  - Viewport culling and optimized rendering for embedded systems.
+- **Core UI System**: Introduced base UI system with `UIElement`, `UIButton`, `UIElementType`, focusability, and layout components.
+- **License**: Transitioned project license from GPL-3.0 to MIT for broader compatibility and ease of use.
 
 ### v0.2.0-dev
 
@@ -289,214 +418,57 @@ The following features are planned to enhance the engine's capabilities, focusin
   - `PIXELROOT32_ENABLE_4BPP_SPRITES`: Enables support for 4bpp (up to 16-color) packed sprites, intended for high-fidelity UI elements or special effects where more colors per sprite are needed.
   - `PIXELROOT32_ENABLE_SCENE_ARENA`: Enables dedicated memory arena for scene management.
 
-## Getting Started
+---
 
-### Setting up Native Environment (SDL2)
+## 🤝 Contribute
 
-To run the engine on your PC (Native mode), you need **SDL2** installed.
+Contributions are welcome! Please:
 
-> **Note:** The officially tested native platform is **Windows**. Linux and macOS should work in theory but are currently experimental.
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](STYLE_GUIDE.md)
+2. Fork the repository
+3. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
+4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+5. Push the branch (`git push origin feature/AmazingFeature`)
+6. Open a Pull Request
 
-#### 🖥️ Windows (Recommended: MSYS2)
+### Report Bugs
 
-We strongly recommend using **MSYS2** for a stable and easy setup.
-
-1. **Install MSYS2**: Download and install from [msys2.org](https://www.msys2.org/).
-2. **Update Package Database**: Open the MSYS2 terminal (UCRT64 or MINGW64) and run:
-
-   ```bash
-   pacman -Syu
-   ```
-
-3. **Install GCC and SDL2**:
-
-   ```bash
-   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
-   ```
-
-4. **Add to PATH**: Ensure your MSYS2 `bin` folder (e.g., `C:\msys64\mingw64\bin`) is in your Windows System PATH.
-
-#### 🐧 Linux (Debian/Ubuntu)
-
-```bash
-sudo apt-get install libsdl2-dev
-```
-
-#### 🍎 macOS (Homebrew)
-
-```bash
-brew install sdl2
-```
-
-### Using this example repository
-
-1. Clone this repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples).
-2. Open it in **PlatformIO** (VS Code).
-3. Select the environment (`esp32` or `native`).
-4. Build and run the **GeometryJump** example to see the engine in action.
-
-### Create your own project using PixelRoot32 as a library
-
-1. Create a new PlatformIO project for your ESP32.
-2. **Install the library**:
-
-   > **⚠️ CRITICAL INSTALLATION NOTE**
-   >
-   > When installing via **PlatformIO (`lib_deps`)**, you **must** use the exact version string below.
-   > **Do NOT use the caret (`^`) symbol** or fuzzy versioning, as it may pull an incorrect or incompatible version.
-   >
-   > ```ini
-   > lib_deps =
-   >     gperez88/PixelRoot32-Game-Engine@0.2.0-dev
-   > ```
-
-   Alternatively, you can manually copy the `PixelRoot32-Game-Engine` folder into your project's `lib/` directory (or use a Git submodule).
-
-3. **Configure TFT_eSPI (ESP32 only)**:
-
-   If you are using the ESP32 platform, you need to configure the `TFT_eSPI` driver in your `platformio.ini` file. Add the corresponding build flags to your `[env:esp32dev]` section to define your display pins and settings.
-
-   Here are two **tested configurations** that are known to work well:
-
-   **Option A: ST7789 (240x240)**
-
-   ```ini
-   build_flags =
-       -D ST7789_DRIVER
-       -D TFT_WIDTH=240
-       -D TFT_HEIGHT=240
-       -D TFT_MOSI=23
-       -D TFT_SCLK=18
-       -D TFT_DC=2
-       -D TFT_RST=4
-       -D TFT_CS=-1
-       -D LOAD_GLCD
-       -D LOAD_FONT2
-       -D LOAD_FONT4
-       -D LOAD_FONT6
-       -D LOAD_FONT7
-       -D LOAD_FONT8
-       -D LOAD_GFXFF
-       -D SMOOTH_FONT
-       -D SPI_FREQUENCY=40000000
-       -D SPI_READ_FREQUENCY=20000000
-   ```
-
-   **Option B: ST7735 (128x128)**
-
-   ```ini
-   build_flags =
-       -D ST7735_DRIVER
-       -D ST7735_GREENTAB3
-       -D TFT_WIDTH=128
-       -D TFT_HEIGHT=128
-       -D TFT_MOSI=23
-       -D TFT_SCLK=18
-       -D TFT_DC=2
-       -D TFT_RST=4
-       -D TFT_CS=-1
-       -D LOAD_GLCD
-       -D LOAD_FONT2
-       -D LOAD_FONT4
-       -D LOAD_FONT6
-       -D LOAD_FONT7
-       -D LOAD_FONT8
-       -D LOAD_GFXFF
-       -D SMOOTH_FONT
-       -D SPI_FREQUENCY=27000000
-       -D SPI_READ_FREQUENCY=20000000
-   ```
-
-4. In your `src/main.cpp` (ESP32) or `src/main_native.cpp` (Native), include the engine and configure the drivers. The `DisplayConfig` now handles the driver instantiation automatically.
-
-   **ESP32 Example (`src/main.cpp`):**
-
-   ```cpp
-   #include <Arduino.h>
-   #include <core/Engine.h>
-   #include <drivers/esp32/ESP32_DAC_AudioBackend.h> // Or ESP32_I2S_AudioBackend.h
-
-   namespace pr32 = pixelroot32;
-
-   // 1. Audio Setup (DAC Example)
-   const int DAC_PIN = 25;
-   pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(DAC_PIN, 11025);
-
-   // 2. Display Setup (TFT_eSPI is automatically selected by the driver enum)
-   // 0 = Rotation, 240x240 = Resolution
-   pr32::graphics::DisplayConfig displayConfig(pr32::graphics::DisplayDriver::TFT_eSPI, 0, 240, 240);
-
-   // 3. Input Setup
-   // count, UP, DOWN, LEFT, RIGHT, A, B
-   pr32::input::InputConfig inputConfig(6, 32, 27, 33, 14, 13, 12);
-
-   // 4. Engine Initialization
-   pr32::audio::AudioConfig audioConfig(&audioBackend, audioBackend.getSampleRate());
-   pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
-
-   void setup() {
-       engine.init();
-       // engine.setScene(&yourScene);
-   }
-
-   void loop() {
-       engine.run();
-   }
-   ```
-
-   **Native PC Example (`src/main_native.cpp`):**
-
-   ```cpp
-   #define SDL_MAIN_HANDLED
-   #include <SDL2/SDL.h>
-   #include <core/Engine.h>
-   #include <drivers/native/SDL2_AudioBackend.h>
-
-   namespace pr32 = pixelroot32;
-
-   // 1. Audio Setup
-   pr32::drivers::native::SDL2_AudioBackend audioBackend(22050, 1024);
-
-   // 2. Display Setup (NONE type defaults to SDL2 on Native platform)
-   pr32::graphics::DisplayConfig displayConfig(pr32::graphics::DisplayType::NONE, 0, 240, 240);
-
-   // 3. Input Setup (SDL Scancodes)
-   pr32::input::InputConfig inputConfig(6, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE, SDL_SCANCODE_RETURN);
-
-   // 4. Engine Initialization
-   pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
-   pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
-
-   int main(int argc, char* argv[]) {
-       engine.init();
-       // engine.setScene(&yourScene);
-       engine.run();
-       return 0;
-   }
-   ```
-
-5. Create your own scenes by inheriting from `pixelroot32::core::Scene` and
-    actors by inheriting from `pixelroot32::core::Actor` or `PhysicsActor`, and
-    assign them with `engine.setScene(...)` in `setup()` or `main()`.
+Use the [issue tracker](https://github.com/Gperez88/PixelRoot32-Game-Engine/issues) to report bugs. Include:
+- Clear description of the problem
+- Steps to reproduce
+- Expected vs. observed behavior
+- Platform information (ESP32/PC, version, etc.)
 
 ---
 
-## License
+## 📄 License
 
-PixelRoot32 is an **open-source** project.
+PixelRoot32 is an **open-source** project licensed under the **MIT License**.
 
-- Source files derived from *ESP32-Game-Engine* are licensed under the **MIT License**.
-- Modified versions of those files remain under the **MIT License**.
-- New source files authored by **Gabriel Perez (2026)** are licensed under the **GNU GPL v3**.
+This project is based on and derived from [ESP32-Game-Engine](https://github.com/Gperez88/ESP32-Game-Engine), which is also licensed under the MIT License.
 
-See individual source files for license details.
+See the [LICENSE](LICENSE) file for the full license text.
 
 ---
 
-## Credits
+## 👏 Credits
 
-Developed by **Gabriel Perez** as a modular **game engine for embedded systems**.  
+Developed by **Gabriel Perez** as a modular game engine for embedded systems.
+
 Special thanks to **nbourre** for the original ESP32-Game-Engine.
 
 ---
-*Built with ❤️ for the retro-dev community.*
+
+## 🔗 Useful Links
+
+- **📖 Official Documentation**: [pixelroot32-game-engine.github.io](https://pixelroot32-game-engine.github.io)
+- **Main Repository**: [PixelRoot32-Game-Engine](https://github.com/Gperez88/PixelRoot32-Game-Engine)
+- **Examples and Samples**: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
+- **Sprite Compiler**: [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
+- **Support**: [Ko-fi](https://ko-fi.com/gperez88) • [PayPal](https://www.paypal.com/ncp/payment/THC3PDSRQKZW6)
+
+---
+
+<p align="center">
+  <em>Built with ❤️ for the retro-dev community.</em>
+</p>
