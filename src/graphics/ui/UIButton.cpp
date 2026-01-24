@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #include "graphics/ui/UIButton.h"
 
@@ -10,7 +10,7 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::graphics;
 
     UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
-        : UIElement(x, y, w, h), 
+        : UIElement(x, y, w, h, UIElementType::BUTTON), 
             label(t), 
             index(index),
             textAlign(textAlign),
@@ -93,7 +93,10 @@ namespace pixelroot32::graphics::ui {
         Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
 
         if (textAlign == TextAlignment::CENTER) {
-            renderer.drawTextCentered(label.c_str(), textY, currentTextCol, fontSize);
+            // Calculate text width manually (assuming default font 5x7 + 1 spacing = 6px per char)
+            int textWidth = static_cast<int>(label.length()) * (6 * fontSize);
+            int textX = static_cast<int>(x) + (static_cast<int>(width) - textWidth) / 2;
+            renderer.drawText(label.c_str(), textX, textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {
             renderer.drawText(label.c_str(), x + width - 5, textY, currentTextCol, fontSize);
         } else {

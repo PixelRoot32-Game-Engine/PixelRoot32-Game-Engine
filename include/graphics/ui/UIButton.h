@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #pragma once
 #include "graphics/ui/UIElement.h"
@@ -72,6 +72,12 @@ public:
         * @return true if selected.
         */
     bool getSelected() const;
+    
+    /**
+     * @brief Checks if the element is focusable.
+     * @return true (Buttons are always focusable).
+     */
+    bool isFocusable() const override { return true; }
     
     /**
         * @brief Handles input events.

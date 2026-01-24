@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Gabriel Perez
- * Licensed under the GNU GPL v3
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
  */
 #pragma once
 #ifndef SDL2_DRAWER_H
@@ -13,9 +13,7 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 
-constexpr int FONT_W = 5;
-constexpr int FONT_H = 7;
-constexpr int FONT_SPACING = 1;
+// Font constants removed - now using native bitmap font system via Renderer
 
 namespace pixelroot32::drivers::native {
 
@@ -72,52 +70,6 @@ private:
     int displayHeight;
 
     void updateTexture();
-
-    inline int16_t textWidth(const char* text) {
-        if (!text || !*text) return 0;
-        int len = strlen(text);
-        int size = textSize ? textSize : 1;
-        int base = FONT_W + FONT_SPACING;
-        int width = len * base - FONT_SPACING;
-        return static_cast<int16_t>(width * size);
-    }
-
-    inline void print(const char* text, const uint8_t font5x7[][7]) {
-        if (!text) return;
-
-        int16_t x = cursorX;
-        int16_t y = cursorY;
-
-        int cx = x;
-
-        while (*text) {
-            char c = *text++;
-            int size = textSize ? textSize : 1;
-            if (c < 32 || c > 126) {
-                cx += (FONT_W + FONT_SPACING) * size;
-                continue;
-            }
-
-            const uint8_t* glyph = font5x7[c - 32];
-
-            for (int row = 0; row < FONT_H; ++row) {
-                uint8_t bits = glyph[row];
-                for (int col = 0; col < FONT_W; ++col) {
-                    if (bits & (1 << (FONT_W - 1 - col))) {
-                        int px = cx + col * size;
-                        int py = y + row * size;
-                        for (int dy = 0; dy < size; ++dy) {
-                            for (int dx = 0; dx < size; ++dx) {
-                                setPixel(px + dx, py + dy, textColor);
-                            }
-                        }
-                    }
-                }
-            }
-
-            cx += (FONT_W + FONT_SPACING) * size;
-        }
-    }
 
     inline void rgb565ToRGBA(
         uint16_t color,

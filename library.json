@@ -9,7 +9,7 @@
     "engine",
     "tft_espi"
   ],
-  "version": "0.2.0-dev",
+  "version": "0.3.0-dev",
   "build": {
     "srcDir": "src",
     "includeDir": "include"
@@ -22,7 +22,7 @@
       "maintainer": true
     }
   ],
-  "license": "GPL-3.0",
+  "license": "MIT",
   "dependencies": {
     "TFT_eSPI": "^2.5.43",
     "ArduinoQueue": "^1.2.5",

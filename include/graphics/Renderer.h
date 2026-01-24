@@ -4,7 +4,7 @@
  * Licensed under the MIT License
  *
  * Modifications:
- * Copyright (c) 2026 Gabriel Perez
+ * Copyright (c) 2026 PixelRoot32
  *
  * This file remains licensed under the MIT License.
  */
@@ -12,6 +12,7 @@
 #include "DrawSurface.h"
 #include "DisplayConfig.h"
 #include "Color.h"
+#include "Font.h"
 
 #ifdef PLATFORM_ESP32
     #include <mock/MockSafeString.h>
@@ -212,23 +213,44 @@ public:
     DrawSurface& getDrawSurface() { return *drawer; }
 
     /**
-     * @brief Draws a string of text.
+     * @brief Draws a string of text (legacy method, uses default font).
      * @param text The text to draw.
      * @param x X coordinate.
      * @param y Y coordinate.
-     * @param color Text color (RGB565).
+     * @param color Text color.
      * @param size Text size multiplier.
      */
     void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size);
 
     /**
-     * @brief Draws text centered horizontally at a given Y coordinate.
+     * @brief Draws a string of text using a specific font.
+     * @param text The text to draw.
+     * @param x X coordinate.
+     * @param y Y coordinate.
+     * @param color Text color.
+     * @param size Text size multiplier.
+     * @param font Pointer to the font to use. If nullptr, uses the default font.
+     */
+    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
+
+    /**
+     * @brief Draws text centered horizontally at a given Y coordinate (legacy method, uses default font).
      * @param text The text to draw.
      * @param y Y coordinate.
      * @param color Text color.
      * @param size Text size.
      */
     void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size);
+
+    /**
+     * @brief Draws text centered horizontally at a given Y coordinate using a specific font.
+     * @param text The text to draw.
+     * @param y Y coordinate.
+     * @param color Text color.
+     * @param size Text size.
+     * @param font Pointer to the font to use. If nullptr, uses the default font.
+     */
+    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
      * @brief Draws a filled circle.
@@ -348,6 +370,28 @@ public:
     int getYOffset() const { return yOffset; }
 
     /**
+     * @brief Sets the render context for palette selection.
+     * 
+     * This method allows the renderer to use the appropriate palette based on
+     * the current render layer. When set, primitives will use this context
+     * instead of their default (Sprite).
+     * 
+     * @param context The palette context to use (Background or Sprite).
+     *                 Pass nullptr to use method-specific defaults.
+     */
+    void setRenderContext(PaletteContext* context) {
+        currentRenderContext = context;
+    }
+
+    /**
+     * @brief Gets the current render context.
+     * @return Pointer to the current context, or nullptr if using defaults.
+     */
+    PaletteContext* getRenderContext() const {
+        return currentRenderContext;
+    }
+
+    /**
      * @brief Draws a 1bpp monochrome sprite using the Sprite descriptor.
      *
      * Sprite data is interpreted bit-by-bit using the Sprite convention:
@@ -424,6 +468,8 @@ private:
 
     int xOffset = 0;
     int yOffset = 0;
+
+    PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
 };
 
 }

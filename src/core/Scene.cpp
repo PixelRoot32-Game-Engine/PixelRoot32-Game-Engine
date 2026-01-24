@@ -4,11 +4,12 @@
  * Licensed under the MIT License
  *
  * Modifications:
- * Copyright (c) 2026 Gabriel Perez
+ * Copyright (c) 2026 PixelRoot32
  *
  * This file remains licensed under the MIT License.
  */
 #include "core/Scene.h"
+#include "graphics/Color.h"
 
 namespace pixelroot32::core {
 
@@ -54,7 +55,19 @@ namespace pixelroot32::core {
         const unsigned char maxLayers = 3;
         int count = entities.itemCount();
 
+        // Context for palette selection based on render layer
+        PaletteContext backgroundContext = PaletteContext::Background;
+        PaletteContext spriteContext = PaletteContext::Sprite;
+
         for (unsigned char layer = 0; layer < maxLayers; ++layer) {
+            // Set render context based on layer:
+            // Layer 0 = Background, Layer 1+ = Sprite
+            if (layer == 0) {
+                renderer.setRenderContext(&backgroundContext);
+            } else {
+                renderer.setRenderContext(&spriteContext);
+            }
+
             for (int i = 0; i < count; ++i) {
                 Entity* entity = entities.dequeue();
 
@@ -65,6 +78,9 @@ namespace pixelroot32::core {
                 entities.enqueue(entity);
             }
         }
+
+        // Reset context to nullptr after drawing all layers
+        renderer.setRenderContext(nullptr);
     }
 
     void Scene::addEntity(Entity* entity) {
