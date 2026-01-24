@@ -74,6 +74,12 @@ public:
     bool getSelected() const;
     
     /**
+     * @brief Checks if the element is focusable.
+     * @return true (Buttons are always focusable).
+     */
+    bool isFocusable() const override { return true; }
+    
+    /**
         * @brief Handles input events.
         * Checks for touch events within bounds or confirmation buttons if selected.
         * @param input The input manager instance.

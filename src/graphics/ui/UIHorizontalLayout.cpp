@@ -172,7 +172,7 @@ void UIHorizontalLayout::ensureSelectedVisible() {
     }
     
     // Apply scroll immediately (NES-style: instant scroll on selection change)
-    if (needsScroll) {
+    if (needsScroll && UILayout::enableScroll) {
         // Mark for clearing before changing scroll (important for instant scroll)
         needsClear = true;
         scrollOffset = newScrollOffset;
@@ -210,17 +210,18 @@ void UIHorizontalLayout::setSelectedIndex(int index) {
     
     // Update button selection states and styles
     for (size_t i = 0; i < elements.size(); ++i) {
-        // Use static_cast instead of dynamic_cast for ESP32 compatibility (no RTTI)
-        // We assume all elements in a button layout are UIButtons
-        UIButton* btn = static_cast<UIButton*>(elements[i]);
-        if (btn) {
-            bool isSelected = (static_cast<int>(i) == selectedIndex);
-            btn->setSelected(isSelected);
-            // Update style based on selection
-            if (isSelected) {
-                btn->setStyle(selectedTextColor, selectedBgColor, true);
-            } else {
-                btn->setStyle(unselectedTextColor, unselectedBgColor, false);
+        // Use getType() to safely identify buttons before casting
+        if (elements[i]->getType() == UIElement::UIElementType::BUTTON) {
+            UIButton* btn = static_cast<UIButton*>(elements[i]);
+            if (btn) {
+                bool isSelected = (static_cast<int>(i) == selectedIndex);
+                btn->setSelected(isSelected);
+                // Update style based on selection
+                if (isSelected) {
+                    btn->setStyle(selectedTextColor, selectedBgColor, true);
+                } else {
+                    btn->setStyle(unselectedTextColor, unselectedBgColor, false);
+                }
             }
         }
     }
@@ -283,11 +284,13 @@ void UIHorizontalLayout::handleInput(const pixelroot32::input::InputManager& inp
     
     // Forward input to selected element (for button callbacks)
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(elements.size())) {
-        // Use static_cast instead of dynamic_cast for ESP32 compatibility (no RTTI)
-        // We assume all elements in a button layout are UIButtons
-        UIButton* btn = static_cast<UIButton*>(elements[selectedIndex]);
-        if (btn) {
-            btn->handleInput(input);
+        UIElement* selected = elements[selectedIndex];
+        // Only forward input if it's a button
+        if (selected->getType() == UIElement::UIElementType::BUTTON) {
+            UIButton* btn = static_cast<UIButton*>(selected);
+            if (btn) {
+                btn->handleInput(input);
+            }
         }
     }
 }

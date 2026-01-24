@@ -29,9 +29,43 @@ public:
      * @param w Width.
      * @param h Height.
      */
-    UIElement(float x, float y, float w, float h) : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT) {
+    enum class UIElementType {
+        GENERIC,
+        BUTTON,
+        LABEL,
+        LAYOUT
+    };
+    
+protected:
+    UIElementType type;
+
+public:
+    /**
+     * @brief Constructs a new UIElement.
+     * @param x X position.
+     * @param y Y position.
+     * @param w Width.
+     * @param h Height.
+     * @param t Element type (default: GENERIC).
+     */
+    UIElement(float x, float y, float w, float h, UIElementType t = UIElementType::GENERIC) 
+        : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
         setRenderLayer(2);
     }
+
+    /**
+     * @brief Gets the type of the UI element.
+     * @return The UIElementType.
+     */
+    UIElementType getType() const { return type; }
+    
+    /**
+     * @brief Checks if the element is focusable/selectable.
+     * Use this for navigation logic.
+     * @return true if focusable, false otherwise.
+     */
+    virtual bool isFocusable() const { return false; }
+
     
     virtual ~UIElement() = default;
 

@@ -1417,10 +1417,28 @@ The UI module provides classes for creating user interfaces.
 
 Base class for all user interface elements (buttons, labels, etc.). Sets the `EntityType` to `UI_ELEMENT`.
 
+#### UIElementType (Enum)
+
+Enumeration of UI element types for runtime type identification.
+
+- `GENERIC`
+- `BUTTON`
+- `LABEL`
+- `LAYOUT`
+
 #### Public Methods
 
-- **`UIElement(float x, float y, float w, float h)`**
+- **`UIElement(float x, float y, float w, float h, UIElementType type = UIElementType::GENERIC)`**
     Constructs a new UIElement.
+    - `x, y`: Position.
+    - `w, h`: Dimensions.
+    - `type`: The type of the element (default: `GENERIC`).
+
+- **`UIElementType getType() const`**
+    Returns the type of the UI element.
+
+- **`virtual bool isFocusable() const`**
+    Checks if the element is focusable/selectable. Useful for navigation logic. Returns `false` by default.
 
 - **`void setPosition(float newX, float newY)`**
     Sets the position of the element. Used by layouts to reposition elements automatically.
@@ -1460,6 +1478,9 @@ A clickable button UI element. Supports both physical (keyboard/gamepad) and tou
 
 - **`void press()`**
     Manually triggers the button's action.
+
+- **`bool isFocusable() const override`**
+    Returns `true` (Buttons are always focusable).
 
 ### UILabel
 
