@@ -128,7 +128,7 @@ void loop() {
 }
 ```
 
-> 📚 **More information:** See the [Official Documentation](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs) for detailed guides.
+> 📚 **More information:** See the [Official Documentation](https://pixelroot32-game-engine.github.io) for detailed guides.
 
 ---
 
@@ -136,12 +136,12 @@ void loop() {
 
 ### Official Documentation
 
-- **[📖 Full Documentation](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs)**: Complete online documentation with guides, API reference, examples, and more
-- **[🚀 Getting Started](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/getting_started/)**: Installation, first project, and fundamental concepts
-- **[📘 Manual](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/manual/)**: Game development guides, advanced graphics, and optimization
-- **[🔧 API Reference](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/api_reference/)**: Complete class reference and usage examples
-- **[🎮 Examples](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/examples/)**: Complete game examples with code analysis
-- **[🛠️ Tools](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/tools/)**: Sprite compiler and other development tools
+- **[📖 Full Documentation](https://pixelroot32-game-engine.github.io)**: Complete online documentation with guides, API reference, examples, and more
+- **[🚀 Getting Started](https://pixelroot32-game-engine.github.io/getting_started/)**: Installation, first project, and fundamental concepts
+- **[📘 Manual](https://pixelroot32-game-engine.github.io/manual/)**: Game development guides, advanced graphics, and optimization
+- **[🔧 API Reference](https://pixelroot32-game-engine.github.io/api_reference/)**: Complete class reference and usage examples
+- **[🎮 Examples](https://pixelroot32-game-engine.github.io/examples/)**: Complete game examples with code analysis
+- **[🛠️ Tools](https://pixelroot32-game-engine.github.io/tools/)**: Sprite compiler and other development tools
 
 ### Local Documentation (Repository)
 
@@ -236,7 +236,7 @@ scene->addEntity(layout);
 
 ## 🎮 Examples
 
-The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/examples/) for detailed analysis and code walkthroughs.
+The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://pixelroot32-game-engine.github.io/examples/) for detailed analysis and code walkthroughs.
 
 ### 🎯 Space Invaders
 **Primary reference for the standard 1bpp sprite system**
@@ -346,7 +346,7 @@ Python tool to convert standard PNG sprite sheets into C headers compatible with
 
 **Repository:** [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
 
-**Documentation:** [Sprite Compiler Guide](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/tools/sprite_compiler/)
+**Documentation:** [Sprite Compiler Guide](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/)
 
 **Features:**
 - Automatic color detection and 1bpp layer generation
@@ -359,7 +359,7 @@ Python tool to convert standard PNG sprite sheets into C headers compatible with
 python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
 ```
 
-See the [official documentation](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs/tools/sprite_compiler/) for complete usage guide and advanced features.
+See the [official documentation](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/) for complete usage guide and advanced features.
 
 ---
 
@@ -422,7 +422,7 @@ Special thanks to **nbourre** for the original ESP32-Game-Engine.
 
 ## 🔗 Useful Links
 
-- **📖 Official Documentation**: [pixelroot32-game-engine.github.io/PixelRoot32-Docs](https://pixelroot32-game-engine.github.io/PixelRoot32-Docs)
+- **📖 Official Documentation**: [pixelroot32-game-engine.github.io](https://pixelroot32-game-engine.github.io)
 - **Main Repository**: [PixelRoot32-Game-Engine](https://github.com/Gperez88/PixelRoot32-Game-Engine)
 - **Examples and Samples**: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
 - **Sprite Compiler**: [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
