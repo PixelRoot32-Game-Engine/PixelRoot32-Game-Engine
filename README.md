@@ -71,7 +71,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Basic Gravity and Kinematics**: Suitable for arcade and simple platformer games
 
 ### 🖥️ User Interface
-- **Lightweight UI System**: UI controls (Label, Button) with automatic layout management
+- **Lightweight UI System**: UI controls (Label, CheckBox, Button) with automatic layout management
 - **Automatic Layouts**: `UIVerticalLayout`, `UIHorizontalLayout`, `UIGridLayout`, `UIPaddingContainer`, `UIPanel`, and `UIAnchorLayout` for organizing elements without manual calculations
 - **Native Bitmap Font**: Text renderer based on 1bpp sprites with an integrated 5x7 font, ensuring pixel-perfect consistency across PC and ESP32
 
@@ -383,6 +383,19 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 
 ## Changelog
 
+### v0.4.0-dev
+
+- **UI CheckBox Support**: Introduced the `UICheckBox` element for toggleable states.
+  - Added new `UICheckBox` class with checked state management and callback support (`onCheckChanged`).
+  - Extended `UIElementType` enum to include the `CHECKBOX` type.
+  - Updated all layout containers (`UIGridLayout`, `UIVerticalLayout`, `UIHorizontalLayout`) to support checkbox elements.
+- **Improved UI Text Precision**: Refactored `UILabel` and `UIButton` to use `FontManager` for pixel-perfect text dimensions.
+  - Replaced manual width calculations with `FontManager::textWidth`.
+  - Optimized `UILabel` by removing the dirty flag and implementing immediate dimension recalculation in `setText` and `centerX`.
+  - Added a safety fallback to default calculations when no custom font is loaded.
+- **Input & Stability**: Fixed button `stateChanged` reset logic in `InputManager` to prevent stale input states from affecting UI interactions.
+- **Documentation**: Updated API reference and user manuals to include `UICheckBox` usage and reflect the latest UI behavior.
+
 ### v0.3.0-dev
 
 - **Renderer Fix**: Fixed 2bpp/4bpp sprite clipping when camera offset is applied. Clipping now uses finalX/finalY with xOffset/yOffset, preventing the player from disappearing past the viewport width.
@@ -404,7 +417,7 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 - **Architecture**: Moved `DrawSurface` implementation handling to the engine core. This removes the need for manual developer implementation and facilitates the integration of future display drivers.
 - **Driver Support**: Clarified driver support status (TFT_eSPI & SDL2) and roadmap.
 
-### v0.1.0-dev (Release)
+### v0.1.0-dev
 
 - **Initial Public Preview.**
 - **Core Architecture**: Scene, Entity, Actor, and PhysicsActor system.
