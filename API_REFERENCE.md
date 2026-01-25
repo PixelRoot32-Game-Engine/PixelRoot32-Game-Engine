@@ -606,6 +606,152 @@ renderer.drawText(text, x, 50, Color::White, 2);
 
 **Inherits:** None
 
+---
+
+## UI Module
+
+The UI module provides elements for building user interfaces, including buttons, checkboxes, and automatic layout containers. All UI elements inherit from `UIElement`, which itself inherits from `Entity`, allowing them to be easily integrated into any `Scene`.
+
+### UIElement
+
+**Inherits:** [Entity](#entity)
+
+Abstract base class for all UI components. UI elements are automatically assigned to render layer `2` (UI layer).
+
+#### Public Methods
+
+- **`UIElement(float x, float y, float w, float h, UIElementType t = UIElementType::GENERIC)`**
+    Constructs a new UI element.
+- **`UIElementType getType() const`**
+    Returns the type of the UI element (e.g., `BUTTON`, `CHECKBOX`, `LAYOUT`).
+- **`virtual bool isFocusable() const`**
+    Returns whether the element can receive focus/selection for navigation.
+- **`void setPosition(float newX, float newY)`**
+    Updates the element's position.
+- **`virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
+    Returns the size the element prefers to have (used by layouts).
+
+---
+
+### UIButton
+
+**Inherits:** [UIElement](#uielement)
+
+A clickable button that supports both physical button/keyboard input and touch input.
+
+#### Public Methods
+
+- **`UIButton(std::string label, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
+    Constructs a new button with a navigation index and a click callback.
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
+    Configures the button's colors and background visibility.
+- **`void setSelected(bool selected)`**
+    Sets the focus state of the button (typically called by a layout).
+- **`bool getSelected() const`**
+    Returns whether the button is currently focused.
+- **`void handleInput(const InputManager& input)`**
+    Processes input events. If focused and the action button is pressed, the callback is triggered.
+- **`void press()`**
+    Manually triggers the button's click callback.
+
+---
+
+### UICheckBox
+
+**Inherits:** [UIElement](#uielement)
+
+A UI element that can be toggled between checked and unchecked states.
+
+#### Public Methods
+
+- **`UICheckBox(std::string label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
+    Constructs a new checkbox.
+    - `label`: Checkbox label text.
+    - `index`: Navigation index (for D-pad navigation).
+    - `x, y`: Position.
+    - `w, h`: Size.
+    - `checked`: Initial state.
+    - `callback`: Function called when state changes.
+    - `fontSize`: Text size multiplier.
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg = false)`**
+    Configures colors and background visibility.
+- **`void setChecked(bool checked)`**
+    Sets the current state of the checkbox.
+- **`bool isChecked() const`**
+    Returns `true` if the checkbox is checked.
+- **`void setSelected(bool selected)`**
+    Sets the focus state.
+- **`bool getSelected() const`**
+    Returns whether the checkbox is focused.
+- **`void toggle()`**
+    Inverts the current state and triggers the callback.
+- **`void handleInput(const InputManager& input)`**
+    Processes input events. If focused and the action button is pressed, it toggles the state.
+
+---
+
+### UILayout
+
+**Inherits:** [UIElement](#uielement)
+
+Base class for UI containers that automatically organize child elements.
+
+#### Public Methods
+
+- **`virtual void addElement(UIElement* element)`**
+    Adds a new element to the layout.
+- **`virtual void removeElement(UIElement* element)`**
+    Removes an element from the layout.
+- **`virtual void updateLayout()`**
+    Forces a recalculation of all child element positions.
+- **`void setPadding(float p)`**
+    Sets internal padding for the container.
+- **`void setSpacing(float s)`**
+    Sets spacing between elements.
+- **`void clearElements()`**
+    Removes all elements from the container.
+
+---
+
+### UIHorizontalLayout & UIVerticalLayout
+
+**Inherits:** [UILayout](#uilayout)
+
+Specific layout implementations that organize elements in a row or column. Both support automatic scrolling when elements exceed the viewport size.
+
+#### Public Methods (Specific to Horizontal/Vertical)
+
+- **`void enableScroll(bool enable)`**
+    Enables or disables scrolling support.
+- **`void setViewportWidth(float w)`** (Horizontal) / **`void setViewportHeight(float h)`** (Vertical)
+    Sets the visible area dimensions for scrolling calculations.
+- **`float getScrollOffset() const`**
+    Returns the current scroll position in pixels.
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton)`**
+    Sets the button indices used for layout navigation (e.g., UP/DOWN for vertical, LEFT/RIGHT for horizontal).
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the colors used for child buttons when they are selected or unselected.
+
+---
+
+### Data Structures
+
+#### ScrollBehavior (Enum)
+
+- `NONE`: No scrolling allowed.
+- `SCROLL`: Free scrolling within content bounds.
+- `CLAMP`: Scrolling that stops at the edges of the content.
+
+#### TextAlignment (Enum)
+
+- `LEFT`
+- `CENTER`
+- `RIGHT`
+
+#### UIElementType (Enum)
+
+- `GENERIC`, `BUTTON`, `LABEL`, `CHECKBOX`, `LAYOUT`
+
 Dead-zone 2D camera used for side-scrolling and simple platformer levels. It controls the world-to-screen offset by driving `Renderer::setDisplayOffset`.
 
 #### Public Methods
@@ -1156,10 +1302,10 @@ A simple text label UI element.
     - **sz**: Text size multiplier.
 
 - **`void setText(const std::string& t)`**
-    Updates the label's text. Recalculates dimensions automatically.
+    Updates the label's text. Recalculates dimensions immediately using the current font metrics.
 
 - **`void centerX(int screenWidth)`**
-    Centers the label horizontally.
+    Centers the label horizontally within the specified width. Recalculates dimensions before positioning to ensure precision.
 
 ---
 

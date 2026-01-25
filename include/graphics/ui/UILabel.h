@@ -53,14 +53,10 @@ private:
     std::string text;
     Color color;
     uint8_t size;
-    bool dirty = false;
 
     /**
         * @brief Recalculates width and height based on current text and font size.
         */
-    inline void recalcSize() {
-        this->width  = (float)(text.length() * (6 * size));
-        this->height = (float)(8 * size);
-    }
+    void recalcSize();
 };
 }

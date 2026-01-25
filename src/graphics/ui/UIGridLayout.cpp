@@ -4,6 +4,7 @@
  */
 #include "graphics/ui/UIGridLayout.h"
 #include "graphics/ui/UIButton.h"
+#include "graphics/ui/UICheckBox.h"
 #include "graphics/Renderer.h"
 #include "core/Scene.h"
 #include <algorithm>
@@ -143,22 +144,32 @@ void UIGridLayout::setSelectedIndex(int index) {
     
     selectedIndex = index;
     
-    // Update button selection states and styles
+    // Update element selection states and styles
     for (size_t i = 0; i < elements.size(); ++i) {
-        // Use getType() to safely identify buttons before casting
-        if (elements[i]->getType() == UIElement::UIElementType::BUTTON) {
-            UIButton* btn = static_cast<UIButton*>(elements[i]);
+        UIElement* elem = elements[i];
+        bool isSelected = (static_cast<int>(i) == selectedIndex);
+        
+        if (elem->getType() == UIElement::UIElementType::BUTTON) {
+            UIButton* btn = static_cast<UIButton*>(elem);
             if (btn) {
-                bool isSelected = (static_cast<int>(i) == selectedIndex);
                 btn->setSelected(isSelected);
-                // Update style based on selection
                 if (isSelected) {
                     btn->setStyle(selectedTextColor, selectedBgColor, true);
                 } else {
                     btn->setStyle(unselectedTextColor, unselectedBgColor, false);
                 }
             }
-        }
+        } else if (elem->getType() == UIElement::UIElementType::CHECKBOX) {
+             UICheckBox* cb = static_cast<UICheckBox*>(elem);
+             if (cb) {
+                 cb->setSelected(isSelected);
+                 if (isSelected) {
+                      cb->setStyle(selectedTextColor, selectedBgColor, true);
+                  } else {
+                      cb->setStyle(unselectedTextColor, unselectedBgColor, false);
+                  }
+             }
+         }
     }
 }
 
@@ -271,14 +282,18 @@ void UIGridLayout::handleInput(const pixelroot32::input::InputManager& input) {
         setSelectedIndex(selectedIndex);
     }
     
-    // Forward input to selected element (for button callbacks)
+    // Forward input to selected element (for button callbacks and checkbox toggles)
     if (selectedIndex >= 0 && selectedIndex < static_cast<int>(elements.size())) {
         UIElement* selected = elements[selectedIndex];
-        // Only forward input if it's a button
         if (selected->getType() == UIElement::UIElementType::BUTTON) {
             UIButton* btn = static_cast<UIButton*>(selected);
             if (btn) {
                 btn->handleInput(input);
+            }
+        } else if (selected->getType() == UIElement::UIElementType::CHECKBOX) {
+            UICheckBox* cb = static_cast<UICheckBox*>(selected);
+            if (cb) {
+                cb->handleInput(input);
             }
         }
     }
