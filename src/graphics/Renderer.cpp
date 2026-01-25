@@ -184,7 +184,8 @@ namespace pixelroot32::graphics {
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        const uint16_t resolvedColor = resolveColor(color, context);
 
         for (int row = 0; row < sprite.height; ++row) {
             const int logicalY = y + row;
@@ -233,8 +234,9 @@ namespace pixelroot32::graphics {
 
         uint16_t paletteLUT[4];
         uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
+            paletteLUT[i] = resolveColor(sprite.palette[i], context);
         }
 
         const int bitsPerPixel = 2;
@@ -291,8 +293,9 @@ namespace pixelroot32::graphics {
 
         uint16_t paletteLUT[16];
         uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
+            paletteLUT[i] = resolveColor(sprite.palette[i], context);
         }
 
         const int bitsPerPixel = 4;
@@ -364,7 +367,8 @@ namespace pixelroot32::graphics {
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        const uint16_t resolvedColor = resolveColor(color, context);
 
         const int dstWidth = static_cast<int>(std::ceil(sprite.width * scaleX));
         const int dstHeight = static_cast<int>(std::ceil(sprite.height * scaleY));
@@ -438,10 +442,10 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        // Resolve color with Background context for tilemaps
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Background);
-        const int screenW = width;
-        const int screenH = height;
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
 
         for (int ty = 0; ty < map.height; ++ty) {
             int baseY = originY + ty * map.tileHeight;
@@ -454,37 +458,79 @@ namespace pixelroot32::graphics {
                     continue;
                 }
 
-                const Sprite& tile = map.tiles[index];
-                if (tile.data == nullptr) {
+                drawSprite(map.tiles[index], baseX, baseY, color, false);
+            }
+        }
+
+        // Restore context
+        setRenderContext(oldContext);
+    }
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
+
+        for (int ty = 0; ty < map.height; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = 0; tx < map.width; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                uint8_t index = map.indices[rowIndexBase + tx];
+                if (index >= map.tileCount) {
                     continue;
                 }
 
-                // Draw tile directly using Background palette context
-                for (int row = 0; row < tile.height; ++row) {
-                    const int logicalY = baseY + row;
-                    const int finalY = yOffset + logicalY;
-                    if (finalY < 0 || finalY >= screenH) {
-                        continue;
-                    }
-
-                    const uint16_t bits = tile.data[row];
-
-                    for (int col = 0; col < tile.width; ++col) {
-                        const bool bitSet = (bits & (static_cast<uint16_t>(1u) << col)) != 0;
-                        if (!bitSet) {
-                            continue;
-                        }
-
-                        const int logicalX = baseX + col;
-                        const int finalX = xOffset + logicalX;
-                        if (finalX < 0 || finalX >= screenW) {
-                            continue;
-                        }
-
-                        getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
-                    }
-                }
+                drawSprite(map.tiles[index], baseX, baseY, false);
             }
         }
+
+        // Restore context
+        setRenderContext(oldContext);
     }
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
+
+        for (int ty = 0; ty < map.height; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = 0; tx < map.width; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                uint8_t index = map.indices[rowIndexBase + tx];
+                if (index >= map.tileCount) {
+                    continue;
+                }
+
+                drawSprite(map.tiles[index], baseX, baseY, false);
+            }
+        }
+
+        // Restore context
+        setRenderContext(oldContext);
+    }
+#endif
 }

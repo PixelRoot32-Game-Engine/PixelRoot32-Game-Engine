@@ -447,6 +447,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void drawTileMap(const TileMap& map, int originX, int originY, Color color)`**
     Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles.
 
+- **`void drawTileMap(const TileMap2bpp& map, int originX, int originY)`**
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap.
+
+- **`void drawTileMap(const TileMap4bpp& map, int originX, int originY)`**
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap.
+
 - **`void setDisplaySize(int w, int h)`**
     Sets the logical display size.
 
@@ -988,36 +994,62 @@ Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. Al
 
 ---
 
-### TileMap
+### TileMapGeneric (Template)
 
 **Inherits:** None
 
-Descriptor for compact tile-based backgrounds that reuse 1bpp `Sprite` tiles.
+Generic descriptor for tile-based backgrounds. It stores level data as an array of indices mapping to a tileset.
+
+#### Template Parameters
+
+- **`T`**: The sprite type used for tiles (e.g., `Sprite`, `Sprite2bpp`, `Sprite4bpp`).
 
 #### Properties
 
 - **`uint8_t* indices`**  
-  Pointer to a `width * height` array of tile indices. Each entry selects one tile from the `tiles` array.
+  Array of tile indices (one byte per tile). Array size must be `width * height`.
 
 - **`uint8_t width`**  
-  Number of tiles horizontally.
+  Width of the tilemap in tiles.
 
 - **`uint8_t height`**  
-  Number of tiles vertically.
+  Height of the tilemap in tiles.
 
-- **`const Sprite* tiles`**  
-  Pointer to the first element of a `Sprite` tile set.
+- **`const T* tiles`**  
+  Pointer to the first element of a tileset array of type `T`.
 
 - **`uint8_t tileWidth`**  
-  Tile width in pixels.
+  Width of each individual tile in pixels.
 
 - **`uint8_t tileHeight`**  
-  Tile height in pixels.
+  Height of each individual tile in pixels.
 
 - **`uint16_t tileCount`**  
-  Number of entries in the `tiles` array.
+  Number of unique tiles in the `tiles` array.
 
-Typically used with `Renderer::drawTileMap` to render scroll-free backgrounds or simple starfields in a dedicated background render layer.
+---
+
+### TileMap (Alias)
+
+**Type:** `TileMapGeneric<Sprite>`
+
+Standard 1bpp tilemap.
+
+---
+
+### TileMap2bpp (Alias)
+
+**Type:** `TileMapGeneric<Sprite2bpp>`
+
+Optional 2bpp tilemap, available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined.
+
+---
+
+### TileMap4bpp (Alias)
+
+**Type:** `TileMapGeneric<Sprite4bpp>`
+
+Optional 4bpp tilemap, available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined.
 
 ---
 
