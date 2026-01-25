@@ -33,6 +33,7 @@ public:
         GENERIC,
         BUTTON,
         LABEL,
+        CHECKBOX,
         LAYOUT
     };
     

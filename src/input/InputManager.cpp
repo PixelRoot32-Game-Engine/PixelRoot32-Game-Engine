@@ -45,6 +45,9 @@ namespace pixelroot32::input {
         if (config.count <= 0) return;
 
         for (int i = 0; i < config.count; i++) {
+            // Reset stateChanged at the start of each update for every button
+            stateChanged[i] = false;
+
             // Check if in debounce time window for each button
             if (waitTime[i] >= dt) {
                 waitTime[i] -= dt;
@@ -60,8 +63,6 @@ namespace pixelroot32::input {
                 waitTime[i] = 100;  // Debounce delay
                 buttonState[i] = reading;
                 stateChanged[i] = true;
-            } else {
-                stateChanged[i] = false;
             }
         }   
     }
@@ -70,6 +71,9 @@ namespace pixelroot32::input {
         if (config.count <= 0) return;
 
         for (int i = 0; i < config.count; i++) {
+            // Reset stateChanged at the start of each update for every button
+            stateChanged[i] = false;
+
             // Check if in debounce time window for each button
             if (waitTime[i] >= dt) {
                 waitTime[i] -= dt;
@@ -84,8 +88,6 @@ namespace pixelroot32::input {
                 waitTime[i] = 100;  // Debounce delay
                 buttonState[i] = reading;
                 stateChanged[i] = true;
-            } else {
-                stateChanged[i] = false;
             }
         }
     }
