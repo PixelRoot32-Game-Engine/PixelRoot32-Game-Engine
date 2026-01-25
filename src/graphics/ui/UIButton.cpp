@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include "graphics/ui/UIButton.h"
+#include "graphics/FontManager.h"
 
 namespace pixelroot32::graphics::ui {
 
@@ -93,8 +94,8 @@ namespace pixelroot32::graphics::ui {
         Color currentTextCol = (isSelected && !hasBackground) ? Color::Yellow : textColor;
 
         if (textAlign == TextAlignment::CENTER) {
-            // Calculate text width manually (assuming default font 5x7 + 1 spacing = 6px per char)
-            int textWidth = static_cast<int>(label.length()) * (6 * fontSize);
+            // Calculate text width using FontManager
+            int textWidth = FontManager::textWidth(nullptr, label.c_str(), fontSize);
             int textX = static_cast<int>(x) + (static_cast<int>(width) - textWidth) / 2;
             renderer.drawText(label.c_str(), textX, textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {

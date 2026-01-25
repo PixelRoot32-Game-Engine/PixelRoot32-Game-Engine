@@ -727,6 +727,10 @@ Specific layout implementations that organize elements in a row or column. Both 
     Sets the visible area dimensions for scrolling calculations.
 - **`float getScrollOffset() const`**
     Returns the current scroll position in pixels.
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton)`**
+    Sets the button indices used for layout navigation (e.g., UP/DOWN for vertical, LEFT/RIGHT for horizontal).
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets the colors used for child buttons when they are selected or unselected.
 
 ---
 
@@ -1298,10 +1302,10 @@ A simple text label UI element.
     - **sz**: Text size multiplier.
 
 - **`void setText(const std::string& t)`**
-    Updates the label's text. Recalculates dimensions automatically.
+    Updates the label's text. Recalculates dimensions immediately using the current font metrics.
 
 - **`void centerX(int screenWidth)`**
-    Centers the label horizontally.
+    Centers the label horizontally within the specified width. Recalculates dimensions before positioning to ensure precision.
 
 ---
 
