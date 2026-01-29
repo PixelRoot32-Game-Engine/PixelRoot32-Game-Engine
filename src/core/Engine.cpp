@@ -23,6 +23,7 @@ namespace pixelroot32::core {
 #ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
         std::strcpy(fpsOverlayBuf, "FPS 0");
         fpsUpdateCounter = 0;
+        fpsAccumulatedMs = 0;
 #endif
     }
 
@@ -33,6 +34,7 @@ namespace pixelroot32::core {
 #ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
         std::strcpy(fpsOverlayBuf, "FPS 0");
         fpsUpdateCounter = 0;
+        fpsAccumulatedMs = 0;
 #endif
     }
 
@@ -43,6 +45,7 @@ namespace pixelroot32::core {
 #ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
         std::strcpy(fpsOverlayBuf, "FPS 0");
         fpsUpdateCounter = 0;
+        fpsAccumulatedMs = 0;
 #endif
     }
 
@@ -129,11 +132,16 @@ namespace pixelroot32::core {
 
 #ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
     void Engine::drawFpsOverlay(Renderer& r) {
+        fpsAccumulatedMs += deltaTime;
         if (++fpsUpdateCounter >= FPS_UPDATE_INTERVAL) {
-            fpsUpdateCounter = 0;
-            unsigned int fps = (deltaTime > 0) ? (1000u / static_cast<unsigned int>(deltaTime)) : 0;
-            if (fps > 999) fps = 999;
+            unsigned int fps = 0;
+            if (fpsAccumulatedMs > 0) {
+                fps = (1000u * static_cast<unsigned int>(FPS_UPDATE_INTERVAL)) / static_cast<unsigned int>(fpsAccumulatedMs);
+                if (fps > 999) fps = 999;
+            }
             std::snprintf(fpsOverlayBuf, sizeof(fpsOverlayBuf), "FPS %u", fps);
+            fpsUpdateCounter = 0;
+            fpsAccumulatedMs = 0;
         }
         int x = r.getWidth() - 48;
         if (x < 0) x = 0;

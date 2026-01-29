@@ -9,12 +9,6 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
-#ifdef PLATFORM_NATIVE
-    #include "../../src/platforms/mock/MockArduinoQueue.h"
-#else
-    #include <ArduinoQueue.h>
-#endif
-
 #include <cstddef>
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
