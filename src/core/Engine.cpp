@@ -6,6 +6,9 @@
 #include "input/InputConfig.h"
 #include "graphics/FontManager.h"
 #include "graphics/Font5x7.h"
+#include "graphics/Color.h"
+#include <cstdio>
+#include <cstring>
 
 namespace pixelroot32::core {
 
@@ -17,18 +20,30 @@ namespace pixelroot32::core {
         : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+        std::strcpy(fpsOverlayBuf, "FPS 0");
+        fpsUpdateCounter = 0;
+#endif
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
         : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+        std::strcpy(fpsOverlayBuf, "FPS 0");
+        fpsUpdateCounter = 0;
+#endif
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
         : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+        std::strcpy(fpsOverlayBuf, "FPS 0");
+        fpsUpdateCounter = 0;
+#endif
     }
 
     Engine::~Engine() {}
@@ -106,6 +121,23 @@ namespace pixelroot32::core {
     void Engine::draw() {
         renderer.beginFrame();
         sceneManager.draw(renderer);
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+        drawFpsOverlay(renderer);
+#endif
         renderer.endFrame();
     }
+
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+    void Engine::drawFpsOverlay(Renderer& r) {
+        if (++fpsUpdateCounter >= FPS_UPDATE_INTERVAL) {
+            fpsUpdateCounter = 0;
+            unsigned int fps = (deltaTime > 0) ? (1000u / static_cast<unsigned int>(deltaTime)) : 0;
+            if (fps > 999) fps = 999;
+            std::snprintf(fpsOverlayBuf, sizeof(fpsOverlayBuf), "FPS %u", fps);
+        }
+        int x = r.getWidth() - 48;
+        if (x < 0) x = 0;
+        r.drawText(fpsOverlayBuf, static_cast<int16_t>(x), 12, Color::Green, 1);
+    }
+#endif
 }

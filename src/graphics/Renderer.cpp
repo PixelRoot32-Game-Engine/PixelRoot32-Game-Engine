@@ -22,6 +22,10 @@
     #include <SafeString.h>
 #endif
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pixelroot32::graphics {
 
     inline bool isDrawable(Color c) {
@@ -171,13 +175,13 @@ namespace pixelroot32::graphics {
         getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color, context));
     }
 
-    void Renderer::drawPixel(int x, int y, Color color) {
+    void IRAM_ATTR Renderer::drawPixel(int x, int y, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         getDrawSurface().drawPixel(x, y, resolveColor(color, context));
     }
 
-    void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
+    void IRAM_ATTR Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
         if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
             return;
         }
@@ -235,31 +239,30 @@ namespace pixelroot32::graphics {
         drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
     }
 
-    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
         const int screenW = width;
         const int screenH = height;
         const int bitsPerPixel = 2;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
-
+        // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
         for (int row = 0; row < sprite.height; ++row) {
             const int finalY = yOffset + y + row;
             if (finalY < 0 || finalY >= screenH) continue;
 
-            const uint8_t* rowData = sprite.data + row * rowStrideBytes;
+            const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
 
             for (int col = 0; col < sprite.width; ++col) {
-                // Optimized bit access: 4 pixels per byte
-                const uint8_t packed = rowData[col >> 2];
-                const uint8_t value = (packed >> ((col & 3) * 2)) & 0x03;
+                const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
+                const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
+                const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
 
-                if (value == 0) continue; // Transparency
+                if (val == 0) continue;
 
-                int logicalX = flipX ? (x + sprite.width - 1 - col) : (x + col);
+                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
                 const int finalX = xOffset + logicalX;
-                
-                if (finalX >= 0 && finalX < screenW) {
-                    getDrawSurface().drawPixel(finalX, finalY, paletteLUT[value]);
-                }
+                if (finalX < 0 || finalX >= screenW) continue;
+
+                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
             }
         }
     }
@@ -281,7 +284,7 @@ namespace pixelroot32::graphics {
         drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
     }
 
-    void Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
         const int screenW = width;
         const int screenH = height;
         const int bitsPerPixel = 4;
@@ -294,18 +297,17 @@ namespace pixelroot32::graphics {
             const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
             for (int col = 0; col < sprite.width; ++col) {
-                // Optimized bit access: 2 pixels per byte
-                const uint8_t packed = rowData[col >> 1];
-                const uint8_t value = (col & 1) ? (packed >> 4) : (packed & 0x0F);
+                const int byteIdx = col >> 1;
+                const int bitOffset = (col & 1) << 2;
+                const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
 
-                if (value == 0) continue; // Transparency
+                if (val == 0) continue;
 
-                int logicalX = flipX ? (x + sprite.width - 1 - col) : (x + col);
+                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
                 const int finalX = xOffset + logicalX;
-                
-                if (finalX >= 0 && finalX < screenW) {
-                    getDrawSurface().drawPixel(finalX, finalY, paletteLUT[value]);
-                }
+                if (finalX < 0 || finalX >= screenW) continue;
+
+                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
             }
         }
     }
@@ -408,7 +410,7 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -459,7 +461,7 @@ namespace pixelroot32::graphics {
     }
 
 #ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
-    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -527,7 +529,7 @@ namespace pixelroot32::graphics {
 #endif
 
 #ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
-    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||

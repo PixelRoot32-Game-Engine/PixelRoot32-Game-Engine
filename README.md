@@ -53,11 +53,14 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 - **Scene and Entity System**: Scene management with Entities, Actors, PhysicsActors, and UI elements
 - **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy on ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA)
+- **High Performance (ESP32)**: Optimized for ESP32 with **DMA transfers**, **IRAM-cached** rendering functions, and viewport culling for high FPS games
 - **Deterministic Game Loop**: Precise delta-time control and frame updates
+- **FPS Overlay (optional)**: On-screen FPS counter (green, top-right) when built with `PIXELROOT32_ENABLE_FPS_DISPLAY`; value is updated every 8 frames to minimize per-frame cost
 
 ### 🎨 Graphics
 
-- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optional 2bpp/4bpp for richer assets
+- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optimized 2bpp/4bpp for richer assets (using 16-bit native access)
+- **Advanced Render Optimizations**: Automatic Viewport Culling and Palette LUT Caching for tilemaps
 - **Sprite Animation**: Lightweight, step-based animation system compatible with simple sprites and `MultiSprite`
 - **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
 - **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
@@ -245,51 +248,7 @@ scene->addEntity(layout);
 
 ## 🎮 Examples
 
-The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://pixelroot32-game-engine.github.io/examples/) for detailed analysis and code walkthroughs.
-
-### 🎯 Space Invaders
-
-**Primary reference for the standard 1bpp sprite system**
-
-- Full entity system (Player, Aliens, Bunkers, Projectiles)
-- Swept-circle vs rectangle collisions
-- Audio with SFX and music synchronized to tempo
-- **Paleta:** NES
-
-### 📷 CameraDemo
-
-**Reference for camera, parallax, and platforms**
-
-- Horizontal scrolling with a camera that follows the player
-- Parallax effects with multiple layers
-- Platform system with collisions
-- **Paleta:** PR32 (Default)
-
-### 🐍 Snake
-
-**Reference for entity pooling and discrete game loop**
-
-- Entity pooling with no dynamic allocations
-- Grid-based movement with discrete timing
-- Scoring and game over system
-- **Paleta:** GB
-
-### ⭕ Tic-Tac-Toe
-
-**Reference for custom palette and basic AI**
-
-- Uses custom palette (Neon/Cyberpunk)
-- Basic AI with heuristics
-- **Paleta:** Custom Neon
-
-### 🎨 SpritesDemo
-
-**Reference for 2bpp/4bpp sprites (EXPERIMENTAL)**
-
-- Demonstrates 2bpp (4 colors) and 4bpp (16 colors) sprites
-- Animations with sprite groups
-- **Paleta:** GBC
-- ⚠️ Requires experimental build flags
+The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://docs.pixelroot32.org/reference/game_examples_guide/) for detailed analysis and code walkthroughs.
 
 ---
 
