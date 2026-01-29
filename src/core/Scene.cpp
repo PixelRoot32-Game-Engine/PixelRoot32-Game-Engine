@@ -52,7 +52,7 @@ namespace pixelroot32::core {
     }
 
     void Scene::draw(Renderer& renderer) {
-        const unsigned char maxLayers = 3;
+        const unsigned char maxLayers = MAX_LAYERS;
         int count = entities.itemCount();
 
         // Context for palette selection based on render layer

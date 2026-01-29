@@ -351,6 +351,20 @@ lib_deps =
     bodmer/TFT_eSPI@^2.5.43
 ```
 
+### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
+
+You can override the default scene limits from your project without modifying the engine. The default of 3 for `MAX_LAYERS` is due to **ESP32 platform constraints** (memory and draw-loop cost); on native/PC you can use a higher value.
+
+**Compiler flags (recommended)** — in `platformio.ini`, add to `build_flags` for your environment:
+
+```ini
+build_flags =
+    -DMAX_LAYERS=5
+    -DMAX_ENTITIES=64
+```
+
+The compiler defines these before any `.cpp` is processed. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, your values are used (more render layers drawn, and on Arduino the entity queue capacity when built with `MAX_ENTITIES`). See [API Reference – Scene](API_REFERENCE.md#scene) for details.
+
 ### Experimental Build Flags
 
 ```ini

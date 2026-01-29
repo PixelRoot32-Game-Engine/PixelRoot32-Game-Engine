@@ -329,6 +329,24 @@ Represents a game level or screen containing entities. A Scene manages a collect
 - **`void clearEntities()`**
     Removes all entities from the scene.
 
+#### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
+
+The engine defines default limits in `core/Scene.h`: `MAX_LAYERS` (default 3) and `MAX_ENTITIES` (default 32). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
+
+> **Note:** The default of 3 for `MAX_LAYERS` is due to ESP32 platform constraints (memory and draw-loop cost). On native/PC you can safely use a higher value; on ESP32, increasing it may affect performance or memory.
+
+**Compiler flags (recommended)**
+
+In your project (e.g. in `platformio.ini`), add the defines to `build_flags` for the environment you use:
+
+```ini
+build_flags =
+    -DMAX_LAYERS=5
+    -DMAX_ENTITIES=64
+```
+
+The compiler defines `MAX_LAYERS` and `MAX_ENTITIES` before processing any `.cpp` file. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, it will not redefine them and your values will be used. This affects how many render layers are drawn (see `Scene::draw`) and, on Arduino, the capacity of the scene entity queue when constructed with `MAX_ENTITIES`.
+
 ---
 
 ### SceneManager

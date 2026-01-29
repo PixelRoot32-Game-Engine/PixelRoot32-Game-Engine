@@ -19,7 +19,12 @@
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
 
-#define MAX_ENTITIES 32
+#ifndef MAX_LAYERS
+    #define MAX_LAYERS 3
+#endif
+#ifndef MAX_ENTITIES
+    #define MAX_ENTITIES 32
+#endif
 
 namespace pixelroot32::core {
 
@@ -88,7 +93,7 @@ public:
     void clearEntities();
 
 protected:
-    ArduinoQueue<Entity*> entities;  ///< Queue of entities in the scene.
+    ArduinoQueue<Entity*> entities{MAX_ENTITIES};  ///< Queue of entities in the scene.
     pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     SceneArena arena;
