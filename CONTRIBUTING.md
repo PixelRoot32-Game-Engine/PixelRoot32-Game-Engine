@@ -39,18 +39,18 @@ The process described here has several goals:
 
 Please follow these steps to have your contribution considered by the maintainers:
 
-1.  Follow all instructions in the template
-2.  Follow the [STYLE_GUIDE.md](STYLE_GUIDE.md)
-3.  After you submit your pull request, verify that all status checks are passing
+1. Follow all instructions in the template
+2. Follow the [STYLE_GUIDE.md](STYLE_GUIDE.md)
+3. After you submit your pull request, verify that all status checks are passing
 
 ## Coding Standards
 
 PixelRoot32 follows a specific coding style to ensure consistency and maintainability.
 
--   Please read [STYLE_GUIDE.md](STYLE_GUIDE.md) before starting any development.
--   Ensure your code matches the existing style of the project.
--   Use descriptive variable and function names.
--   Comment your code where necessary, especially for complex logic.
+- Please read [STYLE_GUIDE.md](STYLE_GUIDE.md) before starting any development.
+- Ensure your code matches the existing style of the project.
+- Use descriptive variable and function names.
+- Comment your code where necessary, especially for complex logic.
 
 ## Development Environment Setup
 
