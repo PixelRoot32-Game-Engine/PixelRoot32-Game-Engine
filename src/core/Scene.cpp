@@ -40,70 +40,107 @@ namespace pixelroot32::core {
 #endif
 
     void Scene::update(unsigned long deltaTime) {
-        int count = entities.itemCount();
-        for (int i = 0; i < count; i++) {
-            Entity* entity = entities.dequeue();  // Get entity from queue
-            entity->update(deltaTime);
-            entities.enqueue(entity);  // Re-add entity to maintain order
+        for (int i = 0; i < entityCount; i++) {
+            if (entities[i]->isEnabled) {
+                entities[i]->update(deltaTime);
+            }
         }
 
-        //  update collision system after remoeving all entities
+        // update collision system
         collisionSystem.update();
     }
 
+    void Scene::sortEntities() {
+        // Simple bubble sort for layers (usually small number of entities)
+        // If entityCount is large, we could use std::sort or something else.
+        for (int i = 0; i < entityCount - 1; i++) {
+            for (int j = 0; j < entityCount - i - 1; j++) {
+                if (entities[j]->getRenderLayer() > entities[j + 1]->getRenderLayer()) {
+                    Entity* temp = entities[j];
+                    entities[j] = entities[j + 1];
+                    entities[j + 1] = temp;
+                }
+            }
+        }
+        needsSorting = false;
+    }
+
+    bool Scene::isVisibleInViewport(Entity* entity, Renderer& renderer) {
+        // Calculate viewport boundaries in world space
+        // renderer.getXOffset() and getYOffset() are negative camera positions
+        int viewX = -renderer.getXOffset();
+        int viewY = -renderer.getYOffset();
+        int viewW = renderer.getWidth();
+        int viewH = renderer.getHeight();
+
+        // Check intersection
+        return !(entity->x + entity->width < viewX || 
+                 entity->x > viewX + viewW ||
+                 entity->y + entity->height < viewY || 
+                 entity->y > viewY + viewH);
+    }
+
     void Scene::draw(Renderer& renderer) {
-        const unsigned char maxLayers = MAX_LAYERS;
-        int count = entities.itemCount();
+        if (needsSorting) {
+            sortEntities();
+        }
 
         // Context for palette selection based on render layer
         PaletteContext backgroundContext = PaletteContext::Background;
         PaletteContext spriteContext = PaletteContext::Sprite;
+        unsigned char currentLayer = 255;
 
-        for (unsigned char layer = 0; layer < maxLayers; ++layer) {
-            // Set render context based on layer:
-            // Layer 0 = Background, Layer 1+ = Sprite
-            if (layer == 0) {
-                renderer.setRenderContext(&backgroundContext);
-            } else {
-                renderer.setRenderContext(&spriteContext);
+        for (int i = 0; i < entityCount; ++i) {
+            Entity* entity = entities[i];
+
+            if (!entity->isVisible) continue;
+
+            // Update render context only when layer changes
+            if (entity->getRenderLayer() != currentLayer) {
+                currentLayer = entity->getRenderLayer();
+                if (currentLayer == 0) {
+                    renderer.setRenderContext(&backgroundContext);
+                } else {
+                    renderer.setRenderContext(&spriteContext);
+                }
             }
 
-            for (int i = 0; i < count; ++i) {
-                Entity* entity = entities.dequeue();
-
-                if (entity->isVisible && entity->getRenderLayer() == layer) {
-                    entity->draw(renderer);
-                }
-
-                entities.enqueue(entity);
+            // Entity Culling: Only draw if within viewport
+            if (isVisibleInViewport(entity, renderer)) {
+                entity->draw(renderer);
             }
         }
 
-        // Reset context to nullptr after drawing all layers
+        // Reset context to nullptr after drawing
         renderer.setRenderContext(nullptr);
     }
 
     void Scene::addEntity(Entity* entity) {
-        entities.enqueue(entity);
-        collisionSystem.addEntity(entity); // sync with collision system
+        if (entityCount < MAX_ENTITIES) {
+            entities[entityCount++] = entity;
+            needsSorting = true;
+            collisionSystem.addEntity(entity);
+        }
     }
 
     void Scene::removeEntity(Entity* entity) {
-        int count = entities.itemCount();
-        for (int i = 0; i < count; i++) {
-            Entity* e = entities.dequeue();
-            if (e == entity) {
-                collisionSystem.removeEntity(e);
-                continue;
+        for (int i = 0; i < entityCount; i++) {
+            if (entities[i] == entity) {
+                collisionSystem.removeEntity(entity);
+                // Shift remaining entities
+                for (int j = i; j < entityCount - 1; j++) {
+                    entities[j] = entities[j + 1];
+                }
+                entityCount--;
+                return;
             }
-            entities.enqueue(e);
         }
     }
 
     void Scene::clearEntities() {
-        while (!entities.isEmpty()) {
-            Entity* e = entities.dequeue();
-            collisionSystem.removeEntity(e); // sync with collision system
+        for (int i = 0; i < entityCount; i++) {
+            collisionSystem.removeEntity(entities[i]);
         }
+        entityCount = 0;
     }   
 }

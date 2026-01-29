@@ -498,6 +498,13 @@ private:
     int yOffset = 0;
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+#endif
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+#endif
 };
 
 }
