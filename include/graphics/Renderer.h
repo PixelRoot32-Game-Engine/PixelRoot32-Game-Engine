@@ -89,15 +89,26 @@ struct MultiSprite {
     uint8_t              layerCount; ///< Number of layers in the array.
 };
 
-struct TileMap {
+template<typename T>
+struct TileMapGeneric {
     uint8_t*        indices;
     uint8_t         width;
     uint8_t         height;
-    const Sprite*   tiles;
+    const T*        tiles;
     uint8_t         tileWidth;
     uint8_t         tileHeight;
     uint16_t        tileCount;
 };
+
+using TileMap = TileMapGeneric<Sprite>;
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+using TileMap2bpp = TileMapGeneric<Sprite2bpp>;
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+using TileMap4bpp = TileMapGeneric<Sprite4bpp>;
+#endif
 
 /**
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
@@ -456,7 +467,24 @@ public:
      */
     void drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY);
 
-    void drawTileMap(const TileMap& map, int originX, int originY, Color color);
+    /**
+     * @brief Draws a tilemap of 1bpp sprites.
+     */
+    void drawTileMap(const TileMap& map, int originX, int originY, Color color = Color::White);
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    /**
+     * @brief Draws a tilemap of 2bpp sprites.
+     */
+    void drawTileMap(const TileMap2bpp& map, int originX, int originY);
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    /**
+     * @brief Draws a tilemap of 4bpp sprites.
+     */
+    void drawTileMap(const TileMap4bpp& map, int originX, int originY);
+#endif
 
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.
@@ -470,6 +498,13 @@ private:
     int yOffset = 0;
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+#endif
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+#endif
 };
 
 }

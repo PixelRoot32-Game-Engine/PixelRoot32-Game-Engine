@@ -50,12 +50,17 @@ Watch PixelRoot32 running on ESP32 with example games:
 ## ✨ Key Features
 
 ### 🎮 Engine Core
+
 - **Scene and Entity System**: Scene management with Entities, Actors, PhysicsActors, and UI elements
 - **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy on ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA)
+- **High Performance (ESP32)**: Optimized for ESP32 with **DMA transfers**, **IRAM-cached** rendering functions, and viewport culling for high FPS games
 - **Deterministic Game Loop**: Precise delta-time control and frame updates
+- **FPS Overlay (optional)**: On-screen FPS counter (green, top-right) when built with `PIXELROOT32_ENABLE_FPS_DISPLAY`; value is updated every 8 frames to minimize per-frame cost
 
 ### 🎨 Graphics
-- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optional 2bpp/4bpp for richer assets
+
+- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optimized 2bpp/4bpp for richer assets (using 16-bit native access)
+- **Advanced Render Optimizations**: Automatic Viewport Culling and Palette LUT Caching for tilemaps
 - **Sprite Animation**: Lightweight, step-based animation system compatible with simple sprites and `MultiSprite`
 - **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
 - **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
@@ -63,14 +68,17 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Particle System**: High-performance particles with memory pooling
 
 ### 🔊 Audio
+
 - **NES-Style Audio**: Built-in audio subsystem with 2 Pulse channels, 1 Triangle, and 1 Noise
 - **Music Player**: Lightweight background music system based on notes
 
 ### 🎯 Physics and Collisions
+
 - **AABB Collision Detection**: Axis-aligned bounding box collision system
 - **Basic Gravity and Kinematics**: Suitable for arcade and simple platformer games
 
 ### 🖥️ User Interface
+
 - **Lightweight UI System**: UI controls (Label, CheckBox, Button) with automatic layout management
 - **Automatic Layouts**: `UIVerticalLayout`, `UIHorizontalLayout`, `UIGridLayout`, `UIPaddingContainer`, `UIPanel`, and `UIAnchorLayout` for organizing elements without manual calculations
 - **Native Bitmap Font**: Text renderer based on 1bpp sprites with an integrated 5x7 font, ensuring pixel-perfect consistency across PC and ESP32
@@ -88,6 +96,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### Fast Setup
 
 1. **Clone the samples repository:**
+
    ```bash
    git clone https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples.git
    cd PixelRoot32-Game-Engine-Samples
@@ -170,6 +179,7 @@ PixelRoot32 uses a fixed indexed palette optimized for embedded hardware:
 | `PICO8` | PICO-8 fantasy console style | <img src="assets/palette_PICO8.png" width="150"/> |
 
 **Basic usage:**
+
 ```cpp
 #include <graphics/Color.h>
 
@@ -179,6 +189,7 @@ void MyScene::init() {
 ```
 
 **Dual-palette mode:**
+
 ```cpp
 void MyScene::init() {
     pr32::graphics::enableDualPaletteMode(true);
@@ -198,6 +209,7 @@ Sprites are defined as compact 1bpp bitmaps by default:
 - `Renderer::drawMultiSprite` composes multiple 1bpp layers to create multicolor sprites NES/GameBoy-style
 
 **Example:**
+
 ```cpp
 // Simple 1bpp sprite (16x16)
 static const uint16_t PLAYER_SPRITE[16] = {
@@ -236,41 +248,7 @@ scene->addEntity(layout);
 
 ## 🎮 Examples
 
-The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://pixelroot32-game-engine.github.io/examples/) for detailed analysis and code walkthroughs.
-
-### 🎯 Space Invaders
-**Primary reference for the standard 1bpp sprite system**
-- Full entity system (Player, Aliens, Bunkers, Projectiles)
-- Swept-circle vs rectangle collisions
-- Audio with SFX and music synchronized to tempo
-- **Paleta:** NES
-
-### 📷 CameraDemo
-**Reference for camera, parallax, and platforms**
-- Horizontal scrolling with a camera that follows the player
-- Parallax effects with multiple layers
-- Platform system with collisions
-- **Paleta:** PR32 (Default)
-
-### 🐍 Snake
-**Reference for entity pooling and discrete game loop**
-- Entity pooling with no dynamic allocations
-- Grid-based movement with discrete timing
-- Scoring and game over system
-- **Paleta:** GB
-
-### ⭕ Tic-Tac-Toe
-**Reference for custom palette and basic AI**
-- Uses custom palette (Neon/Cyberpunk)
-- Basic AI with heuristics
-- **Paleta:** Custom Neon
-
-### 🎨 SpritesDemo
-**Reference for 2bpp/4bpp sprites (EXPERIMENTAL)**
-- Demonstrates 2bpp (4 colors) and 4bpp (16 colors) sprites
-- Animations with sprite groups
-- **Paleta:** GBC
-- ⚠️ Requires experimental build flags
+The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://docs.pixelroot32.org/reference/game_examples_guide/) for detailed analysis and code walkthroughs.
 
 ---
 
@@ -282,21 +260,27 @@ The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/Pix
 
 1. **Install MSYS2**: Download from [msys2.org](https://www.msys2.org/)
 2. **Update package database:**
+
    ```bash
    pacman -Syu
    ```
+
 3. **Install GCC and SDL2:**
+
    ```bash
    pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
    ```
+
 4. **Add to PATH**: Ensure `C:\msys64\mingw64\bin` is in your Windows PATH
 
 #### Linux (Debian/Ubuntu)
+
 ```bash
 sudo apt-get install libsdl2-dev
 ```
 
 #### macOS (Homebrew)
+
 ```bash
 brew install sdl2
 ```
@@ -306,6 +290,7 @@ brew install sdl2
 Configure `TFT_eSPI` in your `platformio.ini`:
 
 **Example for ST7789 (240x240):**
+
 ```ini
 [env:esp32dev]
 platform = espressif32
@@ -324,6 +309,20 @@ build_flags =
 lib_deps =
     bodmer/TFT_eSPI@^2.5.43
 ```
+
+### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
+
+You can override the default scene limits from your project without modifying the engine. The default of 3 for `MAX_LAYERS` is due to **ESP32 platform constraints** (memory and draw-loop cost); on native/PC you can use a higher value.
+
+**Compiler flags (recommended)** — in `platformio.ini`, add to `build_flags` for your environment:
+
+```ini
+build_flags =
+    -DMAX_LAYERS=5
+    -DMAX_ENTITIES=64
+```
+
+The compiler defines these before any `.cpp` is processed. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, your values are used (more render layers drawn, and on Arduino the entity queue capacity when built with `MAX_ENTITIES`). See [API Reference – Scene](API_REFERENCE.md#scene) for details.
 
 ### Experimental Build Flags
 
@@ -349,12 +348,14 @@ Python tool to convert standard PNG sprite sheets into C headers compatible with
 **Documentation:** [Sprite Compiler Guide](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/)
 
 **Features:**
+
 - Automatic color detection and 1bpp layer generation
 - Grid-based extraction
 - CLI and GUI available
 - Advanced features: dithering, layer merging, batch processing
 
 **Usage:**
+
 ```bash
 python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
 ```
@@ -368,8 +369,8 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 ### Planned Features
 
 - 📟 **Driver: u8g2 Support** - Support for monochrome OLEDs (SSD1306, SH1106)
+- 🗺️ **TileMap Editor** – Coming soon.
 - 🎵 **Music Compiler** - Convert tracker formats (FTM/MML/MIDI) to C++ structures
-- 🗺️ **Tilemap Compiler** - Import Tiled maps (.tmx) or JSON
 - 🔊 **SFX Manager** - Fire-and-forget system with channel management
 - 💾 **Persistence (Save/Load)** - Abstract key-value storage (NVS on ESP32)
 - ⚡ **Spatial Partitioning** - Uniform Grid for collision optimization
@@ -419,6 +420,7 @@ Contributions are welcome! Please:
 ### Report Bugs
 
 Use the [issue tracker](https://github.com/Gperez88/PixelRoot32-Game-Engine/issues) to report bugs. Include:
+
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs. observed behavior
@@ -430,7 +432,7 @@ Use the [issue tracker](https://github.com/Gperez88/PixelRoot32-Game-Engine/issu
 
 PixelRoot32 is an **open-source** project licensed under the **MIT License**.
 
-This project is based on and derived from [ESP32-Game-Engine](https://github.com/Gperez88/ESP32-Game-Engine), which is also licensed under the MIT License.
+This project is based on and derived from [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine), which is also licensed under the MIT License.
 
 See the [LICENSE](LICENSE) file for the full license text.
 

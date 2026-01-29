@@ -137,6 +137,19 @@ private:
      * Called once per frame. Clears the buffer, asks the scene to draw itself, and sends the buffer to the display.
      */
     void draw();
+
+#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+    /**
+     * @brief Draws the FPS overlay (green text, top-right) when PIXELROOT32_ENABLE_FPS_DISPLAY is defined.
+     * FPS is the average over the last FPS_UPDATE_INTERVAL frames for a stable, reliable reading.
+     */
+    void drawFpsOverlay(pixelroot32::graphics::Renderer& r);
+
+    static constexpr int FPS_UPDATE_INTERVAL = 8;    ///< Number of frames over which to average FPS.
+    char fpsOverlayBuf[12];                         ///< Cached "FPS xxx" string.
+    int fpsUpdateCounter;                          ///< Frames accumulated in current window.
+    unsigned long fpsAccumulatedMs;                ///< Sum of deltaTime over current window (ms).
+#endif
 };
 
 }

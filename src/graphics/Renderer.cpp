@@ -22,6 +22,10 @@
     #include <SafeString.h>
 #endif
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pixelroot32::graphics {
 
     inline bool isDrawable(Color c) {
@@ -171,20 +175,21 @@ namespace pixelroot32::graphics {
         getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color, context));
     }
 
-    void Renderer::drawPixel(int x, int y, Color color) {
+    void IRAM_ATTR Renderer::drawPixel(int x, int y, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         getDrawSurface().drawPixel(x, y, resolveColor(color, context));
     }
 
-    void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
+    void IRAM_ATTR Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
         if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
             return;
         }
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        const uint16_t resolvedColor = resolveColor(color, context);
 
         for (int row = 0; row < sprite.height; ++row) {
             const int logicalY = y + row;
@@ -220,57 +225,44 @@ namespace pixelroot32::graphics {
 
 #ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
-        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
             return;
         }
-
-        if (sprite.palette == nullptr || sprite.paletteSize == 0) {
-            return;
-        }
-
-        const int screenW = width;
-        const int screenH = height;
 
         uint16_t paletteLUT[4];
         uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
+            paletteLUT[i] = resolveColor(sprite.palette[i], context);
         }
 
+        drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+    }
+
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+        const int screenW = width;
+        const int screenH = height;
         const int bitsPerPixel = 2;
-        const int rowStrideBits = sprite.width * bitsPerPixel;
-        const int rowStrideBytes = (rowStrideBits + 7) / 8;
-
+        const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
+        // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
         for (int row = 0; row < sprite.height; ++row) {
-            const int dstY = y + row;
-            const int finalY = yOffset + dstY;
-            if (finalY < 0 || finalY >= screenH) {
-                continue;
-            }
+            const int finalY = yOffset + y + row;
+            if (finalY < 0 || finalY >= screenH) continue;
 
-            const uint8_t* rowData = sprite.data + row * rowStrideBytes;
+            const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
 
             for (int col = 0; col < sprite.width; ++col) {
-                const int bitIndex = col * bitsPerPixel;
-                const int byteIndex = bitIndex >> 3;
-                const int shift = bitIndex & 7;
+                const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
+                const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
+                const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
 
-                const uint8_t packed = rowData[byteIndex];
-                const uint8_t value = static_cast<uint8_t>((packed >> shift) & 0x3u);
+                if (val == 0) continue;
 
-                if (value == 0 || value >= paletteCount) {
-                    continue;
-                }
+                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
+                const int finalX = xOffset + logicalX;
+                if (finalX < 0 || finalX >= screenW) continue;
 
-                int logicalX = flipX
-                    ? x + (sprite.width - 1 - col)
-                    : x + col;
-                const int dstX = xOffset + logicalX;
-                if (dstX < 0 || dstX >= screenW) {
-                    continue;
-                }
-
-                getDrawSurface().drawPixel(dstX, finalY, paletteLUT[value]);
+                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
             }
         }
     }
@@ -278,57 +270,44 @@ namespace pixelroot32::graphics {
 
 #ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
-        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
+        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
             return;
         }
-
-        if (sprite.palette == nullptr || sprite.paletteSize == 0) {
-            return;
-        }
-
-        const int screenW = width;
-        const int screenH = height;
 
         uint16_t paletteLUT[16];
         uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], PaletteContext::Sprite);
+            paletteLUT[i] = resolveColor(sprite.palette[i], context);
         }
 
+        drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+    }
+
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+        const int screenW = width;
+        const int screenH = height;
         const int bitsPerPixel = 4;
-        const int rowStrideBits = sprite.width * bitsPerPixel;
-        const int rowStrideBytes = (rowStrideBits + 7) / 8;
+        const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
         for (int row = 0; row < sprite.height; ++row) {
-            const int dstY = y + row;
-            const int finalY = yOffset + dstY;
-            if (finalY < 0 || finalY >= screenH) {
-                continue;
-            }
+            const int finalY = yOffset + y + row;
+            if (finalY < 0 || finalY >= screenH) continue;
 
             const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
             for (int col = 0; col < sprite.width; ++col) {
-                const int bitIndex = col * bitsPerPixel;
-                const int byteIndex = bitIndex >> 3;
-                const int shift = bitIndex & 7;
+                const int byteIdx = col >> 1;
+                const int bitOffset = (col & 1) << 2;
+                const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
 
-                const uint8_t packed = rowData[byteIndex];
-                const uint8_t value = static_cast<uint8_t>((packed >> shift) & 0x0Fu);
+                if (val == 0) continue;
 
-                if (value == 0 || value >= paletteCount) {
-                    continue;
-                }
-
-                int logicalX = flipX
-                    ? x + (sprite.width - 1 - col)
-                    : x + col;
+                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
                 const int finalX = xOffset + logicalX;
-                if (finalX < 0 || finalX >= screenW) {
-                    continue;
-                }
+                if (finalX < 0 || finalX >= screenW) continue;
 
-                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[value]);
+                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
             }
         }
     }
@@ -364,7 +343,8 @@ namespace pixelroot32::graphics {
 
         const int screenW = width;
         const int screenH = height;
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Sprite);
+        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+        const uint16_t resolvedColor = resolveColor(color, context);
 
         const int dstWidth = static_cast<int>(std::ceil(sprite.width * scaleX));
         const int dstHeight = static_cast<int>(std::ceil(sprite.height * scaleY));
@@ -430,7 +410,7 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -438,53 +418,181 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        // Resolve color with Background context for tilemaps
-        const uint16_t resolvedColor = resolveColor(color, PaletteContext::Background);
-        const int screenW = width;
-        const int screenH = height;
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
 
-        for (int ty = 0; ty < map.height; ++ty) {
+        // Viewport Culling: Only draw tiles that are within the screen boundaries
+        // Important: We must consider xOffset and yOffset (Camera position) to correctly calculate visibility.
+        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
+        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
+                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+                     : map.width;
+        
+        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
+        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
+                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+                     : map.height;
+
+        // Clamp to map boundaries
+        if (startCol < 0) startCol = 0;
+        if (endCol > map.width) endCol = map.width;
+        if (startRow < 0) startRow = 0;
+        if (endRow > map.height) endRow = map.height;
+
+        for (int ty = startRow; ty < endRow; ++ty) {
             int baseY = originY + ty * map.tileHeight;
             int rowIndexBase = ty * map.width;
 
-            for (int tx = 0; tx < map.width; ++tx) {
+            for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
                 uint8_t index = map.indices[rowIndexBase + tx];
-                if (index >= map.tileCount) {
+                if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
 
-                const Sprite& tile = map.tiles[index];
-                if (tile.data == nullptr) {
-                    continue;
-                }
-
-                // Draw tile directly using Background palette context
-                for (int row = 0; row < tile.height; ++row) {
-                    const int logicalY = baseY + row;
-                    const int finalY = yOffset + logicalY;
-                    if (finalY < 0 || finalY >= screenH) {
-                        continue;
-                    }
-
-                    const uint16_t bits = tile.data[row];
-
-                    for (int col = 0; col < tile.width; ++col) {
-                        const bool bitSet = (bits & (static_cast<uint16_t>(1u) << col)) != 0;
-                        if (!bitSet) {
-                            continue;
-                        }
-
-                        const int logicalX = baseX + col;
-                        const int finalX = xOffset + logicalX;
-                        if (finalX < 0 || finalX >= screenW) {
-                            continue;
-                        }
-
-                        getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
-                    }
-                }
+                drawSprite(map.tiles[index], baseX, baseY, color, false);
             }
         }
+
+        // Restore context
+        setRenderContext(oldContext);
     }
+
+#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
+
+        // Viewport Culling
+        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
+        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
+                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+                     : map.width;
+        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
+        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
+                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+                     : map.height;
+
+        if (startCol < 0) startCol = 0;
+        if (endCol > map.width) endCol = map.width;
+        if (startRow < 0) startRow = 0;
+        if (endRow > map.height) endRow = map.height;
+
+        // Palette Caching
+        uint16_t cachedLUT[4];
+        const Color* lastPalette = nullptr;
+        bool lutReady = false;
+
+        for (int ty = startRow; ty < endRow; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = startCol; tx < endCol; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                uint8_t index = map.indices[rowIndexBase + tx];
+                
+                // Optimized check: skip empty tile (index 0) and out of bounds
+                if (index == 0 || index >= map.tileCount) {
+                    continue;
+                }
+
+                const Sprite2bpp& tile = map.tiles[index];
+                
+                // Update LUT only if palette changes
+                if (!lutReady || tile.palette != lastPalette) {
+                    uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
+                    for (uint8_t i = 0; i < paletteCount; ++i) {
+                        cachedLUT[i] = resolveColor(tile.palette[i], bgContext);
+                    }
+                    lastPalette = tile.palette;
+                    lutReady = true;
+                }
+
+                drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
+            }
+        }
+
+        // Restore context
+        setRenderContext(oldContext);
+    }
+#endif
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    void IRAM_ATTR Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        // Set background context automatically for tilemaps
+        PaletteContext bgContext = PaletteContext::Background;
+        PaletteContext* oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
+
+        // Viewport Culling
+        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
+        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
+                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+                     : map.width;
+        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
+        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
+                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+                     : map.height;
+
+        if (startCol < 0) startCol = 0;
+        if (endCol > map.width) endCol = map.width;
+        if (startRow < 0) startRow = 0;
+        if (endRow > map.height) endRow = map.height;
+
+        // Palette Caching
+        uint16_t cachedLUT[16];
+        const Color* lastPalette = nullptr;
+        bool lutReady = false;
+
+        for (int ty = startRow; ty < endRow; ++ty) {
+            int baseY = originY + ty * map.tileHeight;
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = startCol; tx < endCol; ++tx) {
+                int baseX = originX + tx * map.tileWidth;
+                uint8_t index = map.indices[rowIndexBase + tx];
+                
+                // Optimized check: skip empty tile (index 0) and out of bounds
+                if (index == 0 || index >= map.tileCount) {
+                    continue;
+                }
+
+                const Sprite4bpp& tile = map.tiles[index];
+                
+                // Update LUT only if palette changes
+                if (!lutReady || tile.palette != lastPalette) {
+                    uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
+                    for (uint8_t i = 0; i < paletteCount; ++i) {
+                        cachedLUT[i] = resolveColor(tile.palette[i], bgContext);
+                    }
+                    lastPalette = tile.palette;
+                    lutReady = true;
+                }
+
+                drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
+            }
+        }
+
+        // Restore context
+        setRenderContext(oldContext);
+    }
+#endif
 }

@@ -5,6 +5,10 @@
 #include <cstdarg>
 #include <cstdio>
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pr32 = pixelroot32;
 
 // --------------------------------------------------
@@ -49,7 +53,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint8_t rotation) {
 // Buffer control (no framebuffer in TFT_eSPI)
 // --------------------------------------------------
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::clearBuffer() {
+void pr32::drivers::esp32::TFT_eSPI_Drawer::clearBuffer() { 
     spr.fillSprite(TFT_BLACK);
 }
 
@@ -89,7 +93,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::drawBitmap(int x, int y, int width, 
     spr.drawBitmap(x, y, bitmap, width, height, color);
 }
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, uint16_t color) {
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, uint16_t color) {
     spr.drawPixel(x, y, color);
 }
 
@@ -121,7 +125,6 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::setCursor(int16_t x, int16_t y) {
 // using the native bitmap font system. These methods are kept as empty stubs
 // only for interface compatibility (DrawSurface requires them).
 // The Renderer never calls these methods - all text goes through the font system.
-
 void pr32::drivers::esp32::TFT_eSPI_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
     // Obsolete: This method should never be called.
     // All text rendering is handled by Renderer::drawText() using the font system.
@@ -154,6 +157,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::present() {
         spr.height(),
         (uint16_t*)spr.getPointer()
     );
+
 }
 
 #endif // ESP32

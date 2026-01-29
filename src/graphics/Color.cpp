@@ -5,6 +5,10 @@
 #include "graphics/Color.h"
 #include "graphics/PaletteDefs.h"
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pixelroot32::graphics {
 
 struct PaletteEntry {
@@ -82,7 +86,7 @@ void setCustomPalette(const uint16_t* palette) {
  * @note Function is kept in .cpp to avoid exposing internal state (currentPalette).
  * The compiler may still inline it via LTO (Link Time Optimization).
  */
-uint16_t resolveColor(Color color) {
+uint16_t IRAM_ATTR resolveColor(Color color) {
     uint8_t idx = static_cast<uint8_t>(color);
 
     // Color::Transparent must be handled by the renderer, not here
@@ -182,7 +186,7 @@ void setDualCustomPalette(const uint16_t* bgPalette, const uint16_t* spritePal) 
  * Branch prediction: dualPaletteMode is typically constant during a frame,
  * making the branch highly predictable for the CPU.
  */
-uint16_t resolveColor(Color color, PaletteContext context) {
+uint16_t IRAM_ATTR resolveColor(Color color, PaletteContext context) {
     uint8_t idx = static_cast<uint8_t>(color);
 
     // Color::Transparent must be handled by the renderer, not here

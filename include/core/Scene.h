@@ -9,17 +9,16 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
-#ifdef PLATFORM_NATIVE
-    #include "../../src/platforms/mock/MockArduinoQueue.h"
-#else
-    #include <ArduinoQueue.h>
-#endif
-
 #include <cstddef>
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
 
-#define MAX_ENTITIES 32
+#ifndef MAX_LAYERS
+    #define MAX_LAYERS 3
+#endif
+#ifndef MAX_ENTITIES
+    #define MAX_ENTITIES 32
+#endif
 
 namespace pixelroot32::core {
 
@@ -29,6 +28,7 @@ namespace pixelroot32::core {
     
     
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
+#include <new> // for placement new
 struct SceneArena {
     unsigned char* buffer;
     std::size_t capacity;
@@ -40,6 +40,15 @@ struct SceneArena {
     void reset();
     void* allocate(std::size_t size, std::size_t alignment);
 };
+
+template<typename T, typename... Args>
+T* arenaNew(SceneArena& arena, Args&&... args) {
+    void* mem = arena.allocate(sizeof(T), alignof(T));
+    if (!mem) {
+        return nullptr;
+    }
+    return new (mem) T(static_cast<Args&&>(args)...);
+}
 #endif
 
 /**
@@ -88,7 +97,13 @@ public:
     void clearEntities();
 
 protected:
-    ArduinoQueue<Entity*> entities;  ///< Queue of entities in the scene.
+    Entity* entities[MAX_ENTITIES]; ///< Array of entities in the scene.
+    int entityCount = 0;            ///< Current number of entities.
+    bool needsSorting = false;      ///< Flag to trigger sorting by layer.
+
+    void sortEntities();            ///< Sorts entities by render layer.
+    bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer);
+
     pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     SceneArena arena;

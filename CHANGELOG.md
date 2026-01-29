@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.0-dev
+
+- **Generic Tilemap Support (2bpp & 4bpp)**: Refactored `TileMap` into a template `TileMapGeneric` to support different sprite types. Added conditional type aliases (`TileMap2bpp`, `TileMap4bpp`) and corresponding `drawTileMap` overloads. Tilemap rendering now automatically uses the Background palette context. API documentation updated to describe the new generic structure and aliases.
+- **Rendering & Scene Performance**:
+  - Replaced `ArduinoQueue` with a fixed array for O(1) entity access and sorting.
+  - Added viewport culling for entities and tilemaps to skip off-screen elements.
+  - Implemented palette caching in tilemap rendering to avoid repeated color resolution.
+  - Optimized sprite bit access patterns and added internal sprite drawing methods to reduce code duplication.
+- **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) so they execute from internal RAM on ESP32, bypassing slower flash access for improved performance. Documentation updated to reflect these optimizations.
+- **Optional FPS Overlay**: Introduced build flag `PIXELROOT32_ENABLE_FPS_DISPLAY` to enable an on-screen FPS counter in the top-right corner. FPS is calculated by averaging frame times over a defined interval and updates every 8 frames to reduce CPU load. Refined FPS calculation and initialization for more stable readings.
+- **Documentation**: Documented how to override `MAX_LAYERS` and `MAX_ENTITIES` defaults via compiler flags in README.md and API_REFERENCE.md. `Scene.h` now provides default definitions only when not already defined, and `Scene.cpp` uses the `MAX_LAYERS` constant so user overrides are respected.
+
 ## v0.4.1-dev
 
 - **Palette Readability & Alignment**: Reorganized all predefined palettes (`NES`, `GB`, `GBC`, `PICO8`, `PR32`) to align with the `Color.h` enum sequence.

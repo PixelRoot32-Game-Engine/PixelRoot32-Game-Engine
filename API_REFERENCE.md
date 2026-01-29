@@ -59,6 +59,17 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
+#### Optional: FPS overlay (build flag)
+
+When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_FPS_DISPLAY`**, the engine draws an on-screen FPS counter each frame.
+
+- **Behavior**: A green text string `"FPS xxx"` is drawn in the top-right area of the screen (position derived from `Renderer::getWidth()` and a fixed vertical offset). The value is computed from `deltaTime` (frames per second = 1000 / deltaTime ms), clamped to 0–999.
+- **Performance**: The numeric value is recalculated and formatted only every **8 frames** (`FPS_UPDATE_INTERVAL`); the cached string is drawn every frame. This reduces per-frame CPU cost (division and `snprintf`) while keeping the overlay visible and readable.
+- **Usage**: Add to your build flags, e.g. in `platformio.ini`:  
+  `build_flags = -D PIXELROOT32_ENABLE_FPS_DISPLAY`  
+  No code changes are required; the overlay is drawn automatically after the scene in `Engine::draw()`.
+- **Internal**: The overlay is implemented by the private method `Engine::drawFpsOverlay(Renderer& r)`, which uses a cached buffer and a frame counter. This method is only compiled when the define is set.
+
 ---
 
 ## Audio Module
@@ -329,6 +340,24 @@ Represents a game level or screen containing entities. A Scene manages a collect
 - **`void clearEntities()`**
     Removes all entities from the scene.
 
+#### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
+
+The engine defines default limits in `core/Scene.h`: `MAX_LAYERS` (default 3) and `MAX_ENTITIES` (default 32). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
+
+> **Note:** The default of 3 for `MAX_LAYERS` is due to ESP32 platform constraints (memory and draw-loop cost). On native/PC you can safely use a higher value; on ESP32, increasing it may affect performance or memory.
+
+**Compiler flags (recommended)**
+
+In your project (e.g. in `platformio.ini`), add the defines to `build_flags` for the environment you use:
+
+```ini
+build_flags =
+    -DMAX_LAYERS=5
+    -DMAX_ENTITIES=64
+```
+
+The compiler defines `MAX_LAYERS` and `MAX_ENTITIES` before processing any `.cpp` file. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, it will not redefine them and your values will be used. This affects how many render layers are drawn (see `Scene::draw`) and, on Arduino, the capacity of the scene entity queue when constructed with `MAX_ENTITIES`.
+
 ---
 
 ### SceneManager
@@ -437,15 +466,34 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 - **`void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false)`**
     Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite where each pixel stores a 2-bit index into the sprite-local palette. Index `0` is treated as transparent.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false)`**
     Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite where each pixel stores a 4-bit index into the sprite-local palette. Index `0` is treated as transparent.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
     Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
 
 - **`void drawTileMap(const TileMap& map, int originX, int originY, Color color)`**
-    Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles.
+    Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles. Includes automatic Viewport Culling.
+
+- **`void drawTileMap(const TileMap2bpp& map, int originX, int originY)`**
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+
+- **`void drawTileMap(const TileMap4bpp& map, int originX, int originY)`**
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+
+---
+
+### Platform Optimizations (ESP32)
+
+The engine includes several low-level optimizations for the ESP32 platform to maximize performance:
+
+- **DMA Support**: Buffer transfers to the display are handled via DMA (`pushImageDMA`), allowing the CPU to process the next frame while the current one is being sent to the hardware.
+- **IRAM Execution**: Critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) are decorated with `IRAM_ATTR` to run from internal RAM, bypassing the slow SPI Flash latency.
+- **Palette Caching**: Tilemaps cache the resolved RGB565 palette for each tile to avoid redundant color calculations during the draw loop.
+- **Viewport Culling**: All tilemap rendering functions automatically skip tiles that are outside the current screen boundaries.
 
 - **`void setDisplaySize(int w, int h)`**
     Sets the logical display size.
@@ -988,36 +1036,62 @@ Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. Al
 
 ---
 
-### TileMap
+### TileMapGeneric (Template)
 
 **Inherits:** None
 
-Descriptor for compact tile-based backgrounds that reuse 1bpp `Sprite` tiles.
+Generic descriptor for tile-based backgrounds. It stores level data as an array of indices mapping to a tileset.
+
+#### Template Parameters
+
+- **`T`**: The sprite type used for tiles (e.g., `Sprite`, `Sprite2bpp`, `Sprite4bpp`).
 
 #### Properties
 
 - **`uint8_t* indices`**  
-  Pointer to a `width * height` array of tile indices. Each entry selects one tile from the `tiles` array.
+  Array of tile indices (one byte per tile). Array size must be `width * height`.
 
 - **`uint8_t width`**  
-  Number of tiles horizontally.
+  Width of the tilemap in tiles.
 
 - **`uint8_t height`**  
-  Number of tiles vertically.
+  Height of the tilemap in tiles.
 
-- **`const Sprite* tiles`**  
-  Pointer to the first element of a `Sprite` tile set.
+- **`const T* tiles`**  
+  Pointer to the first element of a tileset array of type `T`.
 
 - **`uint8_t tileWidth`**  
-  Tile width in pixels.
+  Width of each individual tile in pixels.
 
 - **`uint8_t tileHeight`**  
-  Tile height in pixels.
+  Height of each individual tile in pixels.
 
 - **`uint16_t tileCount`**  
-  Number of entries in the `tiles` array.
+  Number of unique tiles in the `tiles` array.
 
-Typically used with `Renderer::drawTileMap` to render scroll-free backgrounds or simple starfields in a dedicated background render layer.
+---
+
+### TileMap (Alias)
+
+**Type:** `TileMapGeneric<Sprite>`
+
+Standard 1bpp tilemap.
+
+---
+
+### TileMap2bpp (Alias)
+
+**Type:** `TileMapGeneric<Sprite2bpp>`
+
+Optional 2bpp tilemap, available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined.
+
+---
+
+### TileMap4bpp (Alias)
+
+**Type:** `TileMapGeneric<Sprite4bpp>`
+
+Optional 4bpp tilemap, available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined.
 
 ---
 
