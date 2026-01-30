@@ -7,7 +7,8 @@
     "graphics",
     "retro",
     "engine",
-    "tft_espi"
+    "tft_espi",
+    "sdl2"
   ],
   "version": "0.5.0-dev",
   "build": {

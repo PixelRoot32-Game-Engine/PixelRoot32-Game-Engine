@@ -149,6 +149,13 @@ void UIAnchorLayout::update(unsigned long deltaTime) {
 void UIAnchorLayout::draw(pixelroot32::graphics::Renderer& renderer) {
     if (!isVisible) return;
     
+    // Auto-update screen size if logical resolution changed in renderer
+    if (static_cast<float>(renderer.getLogicalWidth()) != screenWidth || 
+        static_cast<float>(renderer.getLogicalHeight()) != screenHeight) {
+        setScreenSize(static_cast<float>(renderer.getLogicalWidth()), 
+                      static_cast<float>(renderer.getLogicalHeight()));
+    }
+    
     // Draw all elements (no viewport culling needed for HUD elements)
     for (UIElement* elem : elements) {
         if (elem->isVisible) {

@@ -7,6 +7,8 @@
 #include <vector>
 #include <utility>
 
+#include "EngineConfig.h"
+
 namespace pixelroot32::graphics::ui {
 
 /**
@@ -109,8 +111,8 @@ public:
 
 private:
     std::vector<std::pair<UIElement*, Anchor>> anchoredElements;  ///< Elements with their anchor points
-    float screenWidth = 320.0f;   ///< Screen width for anchor calculations
-    float screenHeight = 240.0f;  ///< Screen height for anchor calculations
+    float screenWidth = static_cast<float>(LOGICAL_WIDTH);   ///< Screen width for anchor calculations (logical resolution)
+    float screenHeight = static_cast<float>(LOGICAL_HEIGHT);  ///< Screen height for anchor calculations (logical resolution)
 
     /**
      * @brief Calculates position for an element based on its anchor.

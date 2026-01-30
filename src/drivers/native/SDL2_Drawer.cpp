@@ -33,29 +33,37 @@ pr32::drivers::native::SDL2_Drawer::~SDL2_Drawer() {
 void pr32::drivers::native::SDL2_Drawer::init() {
     SDL_Init(SDL_INIT_VIDEO);
 
+    // Create window at physical size (2x for better visibility on desktop)
     int scale = 2;
     window = SDL_CreateWindow(
-        "ESP32 Game Engine Mock",
+        "PixelRoot32 Engine",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        displayWidth * scale,
-        displayHeight * scale,
+        physicalWidth * scale,
+        physicalHeight * scale,
         SDL_WINDOW_SHOWN
     );
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    SDL_RenderSetLogicalSize(renderer, displayWidth, displayHeight);
+    
+    // Set logical size to logical resolution - SDL will handle scaling!
+    SDL_RenderSetLogicalSize(renderer, logicalWidth, logicalHeight);
 
+    // Create texture at logical resolution
     texture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_RGB565,
         SDL_TEXTUREACCESS_STREAMING,
-        displayWidth,
-        displayHeight
+        logicalWidth,
+        logicalHeight
     );
+    
+    // Set nearest neighbor scaling for pixel-perfect look
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-    pixels = new uint16_t[displayWidth * displayHeight];
-    memset(pixels, 0, displayWidth * displayHeight * sizeof(uint16_t));
+    // Allocate framebuffer at logical resolution
+    pixels = new uint16_t[logicalWidth * logicalHeight];
+    memset(pixels, 0, logicalWidth * logicalHeight * sizeof(uint16_t));
 }
 
 void pr32::drivers::native::SDL2_Drawer::setRotation(uint8_t rot) {
@@ -63,8 +71,8 @@ void pr32::drivers::native::SDL2_Drawer::setRotation(uint8_t rot) {
 }
 
 void pr32::drivers::native::SDL2_Drawer::clearBuffer() {
-    // LIMPIAR FRAMEBUFFER (no renderer)
-    memset(pixels, 0, displayWidth * displayHeight * sizeof(uint16_t));
+    // Clear framebuffer at logical resolution
+    memset(pixels, 0, logicalWidth * logicalHeight * sizeof(uint16_t));
 }
 
 void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
@@ -167,7 +175,7 @@ void pr32::drivers::native::SDL2_Drawer::drawFilledRectangle(int x, int y, int w
 }
 
 void pr32::drivers::native::SDL2_Drawer::updateTexture() {
-    SDL_UpdateTexture(texture, nullptr, pixels, displayWidth * sizeof(uint16_t));
+    SDL_UpdateTexture(texture, nullptr, pixels, logicalWidth * sizeof(uint16_t));
 }
 
 bool pr32::drivers::native::SDL2_Drawer::processEvents() {
@@ -237,12 +245,17 @@ uint16_t pr32::drivers::native::SDL2_Drawer::color565(uint8_t r, uint8_t g, uint
 }
 
 void pr32::drivers::native::SDL2_Drawer::setDisplaySize(int w, int h) {
-    displayWidth = w;
-    displayHeight = h;
+    logicalWidth = w;
+    logicalHeight = h;
+}
+
+void pr32::drivers::native::SDL2_Drawer::setPhysicalSize(int w, int h) {
+    physicalWidth = w;
+    physicalHeight = h;
 }
 
 void pr32::drivers::native::SDL2_Drawer::present() {
-    sendBuffer(); // wrapper por compatibilidad
+    sendBuffer(); // wrapper for compatibility
 }
 
 #endif // PLATFORM_NATIVE

@@ -32,7 +32,11 @@ namespace pixelroot32::graphics {
         return c != Color::Transparent;
     }
 
-    Renderer::Renderer(const DisplayConfig& config) : config(config) {        
+    Renderer::Renderer(const DisplayConfig& config) 
+        : config(config),
+          logicalWidth(config.logicalWidth),
+          logicalHeight(config.logicalHeight)
+    {        
         drawer = &config.getDrawSurface();
         xOffset = config.xOffset;
         yOffset = config.yOffset;
@@ -40,8 +44,12 @@ namespace pixelroot32::graphics {
 
 
     void Renderer::init() {
-        setDisplaySize(config.width, config.height);
-        getDrawSurface().setDisplaySize(getHeight(), getWidth());
+        // Configure logical resolution (rendering framebuffer size)
+        getDrawSurface().setDisplaySize(config.logicalWidth, config.logicalHeight);
+        
+        // Configure physical resolution (hardware display size for scaling)
+        getDrawSurface().setPhysicalSize(config.physicalWidth, config.physicalHeight);
+        
         getDrawSurface().init();
     }
 
@@ -123,7 +131,7 @@ namespace pixelroot32::graphics {
 
         // Calculate text width and center it
         int16_t textWidth = FontManager::textWidth(activeFont, text, size);
-        int16_t x = (width - textWidth) / 2;
+        int16_t x = (logicalWidth - textWidth) / 2;
 
         // Render using the regular drawText method
         drawText(text, x, y, color, size, activeFont);
@@ -186,8 +194,8 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
@@ -240,8 +248,8 @@ namespace pixelroot32::graphics {
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         const int bitsPerPixel = 2;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
         // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
@@ -285,8 +293,8 @@ namespace pixelroot32::graphics {
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         const int bitsPerPixel = 4;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
@@ -341,8 +349,8 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
@@ -426,13 +434,13 @@ namespace pixelroot32::graphics {
         // Viewport Culling: Only draw tiles that are within the screen boundaries
         // Important: We must consider xOffset and yOffset (Camera position) to correctly calculate visibility.
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         // Clamp to map boundaries
@@ -476,12 +484,12 @@ namespace pixelroot32::graphics {
 
         // Viewport Culling
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;
@@ -544,12 +552,12 @@ namespace pixelroot32::graphics {
 
         // Viewport Culling
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;

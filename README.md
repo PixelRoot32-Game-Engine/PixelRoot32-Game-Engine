@@ -54,6 +54,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Scene and Entity System**: Scene management with Entities, Actors, PhysicsActors, and UI elements
 - **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy on ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA)
 - **High Performance (ESP32)**: Optimized for ESP32 with **DMA transfers**, **IRAM-cached** rendering functions, and viewport culling for high FPS games
+- **Independent Resolution Scaling**: Internal rendering at low logical resolutions (e.g., 128x128) with automatic hardware-accelerated scaling to physical display (e.g., 240x240), significantly reducing memory usage and increasing FPS.
 - **Deterministic Game Loop**: Precise delta-time control and frame updates
 - **FPS Overlay (optional)**: On-screen FPS counter (green, top-right) when built with `PIXELROOT32_ENABLE_FPS_DISPLAY`; value is updated every 8 frames to minimize per-frame cost
 
@@ -61,6 +62,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 - **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optimized 2bpp/4bpp for richer assets (using 16-bit native access)
 - **Advanced Render Optimizations**: Automatic Viewport Culling and Palette LUT Caching for tilemaps
+- **Resolution Scaling**: Support for independent logical and physical resolutions with nearest-neighbor scaling (optimized via LUTs and IRAM on ESP32)
 - **Sprite Animation**: Lightweight, step-based animation system compatible with simple sprites and `MultiSprite`
 - **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
 - **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
@@ -165,6 +167,7 @@ void loop() {
 - **[Color Palettes](#-color-palettes)**: How to use and customize palettes
 - **[Sprite System](#-sprite-system)**: Creating and using sprites
 - **[UI System](#-ui-system)**: Building user interfaces
+- **[Resolution Scaling](#-resolution-scaling)**: Optimizing performance via logical resolutions
 
 ### Color Palettes
 
@@ -243,6 +246,41 @@ layout->addElement(btn2);
 
 scene->addEntity(layout);
 ```
+
+### Resolution Scaling
+
+PixelRoot32 allows you to render at a lower resolution than your physical display to save memory and increase FPS. This is especially useful for ESP32.
+
+- **Logical Resolution**: Where the game draws.
+- **Physical Resolution**: Your actual display size.
+
+**Using Presets (Recommended):**
+
+```cpp
+#include <graphics/ResolutionPresets.h>
+
+// 128x128 logical scaled to 240x240 physical
+auto displayConfig = pr32::graphics::ResolutionPresets::create(
+    pr32::graphics::RES_128x128, 
+    pr32::graphics::ST7789
+);
+```
+
+**Manual Configuration:**
+
+```cpp
+pr32::graphics::DisplayConfig displayConfig(
+    pr32::graphics::ST7789, 0, 
+    240, 240, // Physical size
+    160, 160  // Logical size (rendering)
+);
+```
+
+| Preset | Logical | Physical | RAM Savings | FPS Impact |
+| :--- | :--- | :--- | :--- | :--- |
+| `RES_240x240` | 240x240 | 240x240 | 0% | Baseline |
+| `RES_160x160` | 160x160 | 240x240 | ~44% | +20-40% |
+| `RES_128x128` | 128x128 | 240x240 | ~72% | +50-100% |
 
 ---
 

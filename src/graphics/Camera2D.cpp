@@ -93,4 +93,9 @@ void Camera2D::apply(Renderer& renderer) const {
     renderer.setDisplayOffset(static_cast<int>(-x), static_cast<int>(-y));
 }
 
+void Camera2D::setViewportSize(int width, int height) {
+    viewportWidth = width;
+    viewportHeight = height;
+}
+
 } // namespace pixelroot32::graphics

@@ -83,6 +83,13 @@ public:
      */
     void present() override;
 
+    /**
+     * @brief Sets the physical display size for scaling operations.
+     * @param w Physical width.
+     * @param h Physical height.
+     */
+    void setPhysicalSize(int w, int h) override;
+
 private:
     TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
     TFT_eSprite spr; ///< The sprite used as a framebuffer.
@@ -91,8 +98,46 @@ private:
     uint8_t textSize;
     uint8_t rotation;
 
-    int displayWidth;
-    int displayHeight;
+    // Resolution dimensions
+    int logicalWidth = 240;   ///< Logical resolution (framebuffer size)
+    int logicalHeight = 240;
+    int physicalWidth = 240;  ///< Physical resolution (display hardware)
+    int physicalHeight = 240;
+    
+    // Scaling support
+    uint16_t* lineBuffer = nullptr;  ///< Buffer for one physical line during scaling
+    uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
+    uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
+    
+    /**
+     * @brief Checks if scaling is needed.
+     * @return true if logical != physical resolution.
+     */
+    bool needsScaling() const {
+        return logicalWidth != physicalWidth || logicalHeight != physicalHeight;
+    }
+    
+    /**
+     * @brief Builds the X and Y scaling lookup tables.
+     */
+    void buildScaleLUTs();
+    
+    /**
+     * @brief Frees scaling-related memory.
+     */
+    void freeScalingBuffers();
+    
+    /**
+     * @brief Sends the framebuffer scaled to physical resolution.
+     */
+    void IRAM_ATTR sendBufferScaled();
+    
+    /**
+     * @brief Scales a single logical line to physical width.
+     * @param srcY Source Y coordinate in logical space.
+     * @param dst Destination buffer (physicalWidth pixels).
+     */
+    void IRAM_ATTR scaleLine(int srcY, uint16_t* dst);
 };
 
 } // namespace pixelroot32::drivers::esp32

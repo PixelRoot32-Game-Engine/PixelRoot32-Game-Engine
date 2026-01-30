@@ -341,17 +341,26 @@ public:
     void drawPixel(int x, int y, Color color);
 
     /**
-     * @brief Sets the logical display size.
-     * @param w Width.
-     * @param h Height.
+     * @brief Sets the logical display size (rendering resolution).
+     * @param w Logical width.
+     * @param h Logical height.
      */
     void setDisplaySize(int w, int h) {
-        width = w;
-        height = h;
+        logicalWidth = w;
+        logicalHeight = h;
     }
 
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
+    /// @brief Gets the logical rendering width.
+    int getLogicalWidth() const { return logicalWidth; }
+    
+    /// @brief Gets the logical rendering height.
+    int getLogicalHeight() const { return logicalHeight; }
+    
+    /// @deprecated Use getLogicalWidth() instead.
+    int getWidth() const { return logicalWidth; }
+    
+    /// @deprecated Use getLogicalHeight() instead.
+    int getHeight() const { return logicalHeight; }
 
     /**
      * @brief Sets a global offset for all drawing operations.
@@ -491,8 +500,8 @@ private:
 
     DisplayConfig config;
 
-    int width = 240;
-    int height = 240;
+    int logicalWidth = 240;  ///< Logical rendering width (used for clipping)
+    int logicalHeight = 240; ///< Logical rendering height (used for clipping)
 
     int xOffset = 0;
     int yOffset = 0;
