@@ -59,16 +59,20 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
-#### Optional: FPS overlay (build flag)
+#### Optional: Debug Statistics Overlay (build flag)
 
-When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_FPS_DISPLAY`**, the engine draws an on-screen FPS counter each frame.
+When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, the engine draws a technical overlay with real-time metrics.
 
-- **Behavior**: A green text string `"FPS xxx"` is drawn in the top-right area of the screen (position derived from `Renderer::getWidth()` and a fixed vertical offset). The value is computed from `deltaTime` (frames per second = 1000 / deltaTime ms), clamped to 0–999.
-- **Performance**: The numeric value is recalculated and formatted only every **8 frames** (`FPS_UPDATE_INTERVAL`); the cached string is drawn every frame. This reduces per-frame CPU cost (division and `snprintf`) while keeping the overlay visible and readable.
+- **Metrics Included**:
+    - **FPS**: Frames per second (green).
+    - **RAM**: Memory used in KB (cyan). ESP32 specific.
+    - **CPU**: Estimated processor load percentage based on frame processing time (yellow).
+- **Behavior**: The metrics are drawn in the top-right area of the screen, fixed and independent of the camera.
+- **Performance**: Values are recalculated and formatted only every **16 frames** (`DEBUG_UPDATE_INTERVAL`); the cached strings are drawn every frame. This ensures minimal overhead while providing useful development data.
 - **Usage**: Add to your build flags, e.g. in `platformio.ini`:  
-  `build_flags = -D PIXELROOT32_ENABLE_FPS_DISPLAY`  
-  No code changes are required; the overlay is drawn automatically after the scene in `Engine::draw()`.
-- **Internal**: The overlay is implemented by the private method `Engine::drawFpsOverlay(Renderer& r)`, which uses a cached buffer and a frame counter. This method is only compiled when the define is set.
+  `build_flags = -D PIXELROOT32_ENABLE_DEBUG_OVERLAY`  
+  This flag is also available in `EngineConfig.h`.
+- **Internal**: Implemented by the private method `Engine::drawDebugOverlay(Renderer& r)`.
 
 ---
 

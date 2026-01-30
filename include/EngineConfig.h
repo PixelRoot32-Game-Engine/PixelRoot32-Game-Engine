@@ -58,3 +58,7 @@
 // =============================================================================
 // Uncomment to enable performance profiling in Serial monitor
 // #define PIXELROOT32_ENABLE_PROFILING
+
+// Enable a discrete debug overlay with FPS, RAM and CPU metrics.
+// Replaces the old PIXELROOT32_ENABLE_FPS_DISPLAY.
+#define PIXELROOT32_ENABLE_DEBUG_OVERLAY

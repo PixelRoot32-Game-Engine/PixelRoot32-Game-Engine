@@ -56,7 +56,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **High Performance (ESP32)**: Optimized for ESP32 with **DMA transfers**, **IRAM-cached** rendering functions, and viewport culling for high FPS games
 - **Independent Resolution Scaling**: Internal rendering at low logical resolutions (e.g., 128x128) with automatic hardware-accelerated scaling to physical display (e.g., 240x240), significantly reducing memory usage and increasing FPS.
 - **Deterministic Game Loop**: Precise delta-time control and frame updates
-- **FPS Overlay (optional)**: On-screen FPS counter (green, top-right) when built with `PIXELROOT32_ENABLE_FPS_DISPLAY`; value is updated every 8 frames to minimize per-frame cost
+- **Debug Statistics Overlay (optional)**: On-screen real-time metrics showing FPS, RAM usage, and estimated CPU load when built with `PIXELROOT32_ENABLE_DEBUG_OVERLAY`. Value updates are throttled to minimize performance impact.
 
 ### 🎨 Graphics
 
