@@ -33,31 +33,29 @@ pr32::drivers::native::SDL2_Drawer::~SDL2_Drawer() {
 void pr32::drivers::native::SDL2_Drawer::init() {
     SDL_Init(SDL_INIT_VIDEO);
 
-    // Swap physical dimensions for window creation if rotated 90 or 270 degrees
-    uint16_t winWidth = physicalWidth;
-    uint16_t winHeight = physicalHeight;
-    if (rotation == 1 || rotation == 3) {
-        std::swap(winWidth, winHeight);
-    }
+    // Set nearest neighbor scaling hint BEFORE creating renderer
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-    // Create window at physical size (2x for better visibility on desktop)
-    int scale = 2;
+    // We use a scale factor for the window so it's not too small on high-res monitors
+    // but the window itself will be our physical resolution scaled.
+    int windowScale = 2; 
+    int winWidth = physicalWidth * windowScale;
+    int winHeight = physicalHeight * windowScale;
+
+    // Create window
     window = SDL_CreateWindow(
         "PixelRoot32 Engine",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        winWidth * scale,
-        winHeight * scale,
+        winWidth,
+        winHeight,
         SDL_WINDOW_SHOWN
     );
 
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    // Create renderer - No logical size needed, we'll let SDL scale Copy to viewport
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     
-    // Set logical size to logical resolution
-    // We keep logical size as defined, SDL_RenderCopyEx will handle the rotation
-    SDL_RenderSetLogicalSize(renderer, logicalWidth, logicalHeight);
-
-    // Create texture at logical resolution
+    // Create texture at logical resolution (the actual game framebuffer size)
     texture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_RGB565,
@@ -66,12 +64,13 @@ void pr32::drivers::native::SDL2_Drawer::init() {
         logicalHeight
     );
     
-    // Set nearest neighbor scaling for pixel-perfect look
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-
     // Allocate framebuffer at logical resolution
+    if (pixels) delete[] pixels;
     pixels = new uint16_t[logicalWidth * logicalHeight];
     memset(pixels, 0, logicalWidth * logicalHeight * sizeof(uint16_t));
+
+    printf("[SDL2_Drawer] Initialized: Logical=%dx%d, Physical=%dx%d, Window=%dx%d\n", 
+           logicalWidth, logicalHeight, physicalWidth, physicalHeight, winWidth, winHeight);
 }
 
 void pr32::drivers::native::SDL2_Drawer::setRotation(uint16_t rot) {
@@ -96,6 +95,7 @@ void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
+    // SDL_RenderCopy with nullptr as dstrect will scale to fill the entire renderer viewport (the window)
     if (rotation == 0) {
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     } else {

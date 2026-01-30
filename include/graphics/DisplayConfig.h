@@ -54,7 +54,7 @@ public:
     int yOffset = 0;
 
     /**
-     * @brief Extended constructor with separate logical and physical resolutions.
+     * @brief Constructor for initializing display settings.
      * @param type Display type (ST7789, ST7735, NONE).
      * @param rot Rotation (0-3 for 0°, 90°, 180°, 270°; or degree values 90, 180, 270).
      * @param physW Physical display width (hardware).
@@ -66,11 +66,11 @@ public:
      */
     DisplayConfig(
         DisplayType type,
-        const int rot,
-        uint16_t physW,
-        uint16_t physH,
-        uint16_t logW,
-        uint16_t logH,
+        const int rot = 0,
+        uint16_t physW = 240,
+        uint16_t physH = 240,
+        uint16_t logW = 0,
+        uint16_t logH = 0,
         const int xOff = 0,
         const int yOff = 0
     )
@@ -78,31 +78,6 @@ public:
           physicalWidth(physW), physicalHeight(physH),
           logicalWidth(logW == 0 ? physW : logW),
           logicalHeight(logH == 0 ? physH : logH),
-          xOffset(xOff), yOffset(yOff), drawSurface(nullptr)
-    {   
-        initDrawSurface();
-    }
-
-    /**
-     * @brief Legacy constructor for backward compatibility.
-     * @param type Display type.
-     * @param rot Rotation (0-3 for 0°, 90°, 180°, 270°; or degree values 90, 180, 270).
-     * @param w Display width (used for both physical and logical).
-     * @param h Display height (used for both physical and logical).
-     * @param xOff X offset.
-     * @param yOff Y offset.
-     */
-    DisplayConfig(
-        DisplayType type,
-        const int rot = 0,
-        uint16_t w = 240,
-        uint16_t h = 240,
-        const int xOff = 0,
-        const int yOff = 0
-    )
-        : type(type), rotation(rot),
-          physicalWidth(w), physicalHeight(h),
-          logicalWidth(w), logicalHeight(h),
           xOffset(xOff), yOffset(yOff), drawSurface(nullptr)
     {   
         initDrawSurface();

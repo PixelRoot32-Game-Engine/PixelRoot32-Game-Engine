@@ -57,6 +57,8 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Independent Resolution Scaling**: Internal rendering at low logical resolutions (e.g., 128x128) with automatic hardware-accelerated scaling to physical display (e.g., 240x240), significantly reducing memory usage and increasing FPS.
 - **Deterministic Game Loop**: Precise delta-time control and frame updates
 - **Debug Statistics Overlay (optional)**: On-screen real-time metrics showing FPS, RAM usage, and estimated CPU load when built with `PIXELROOT32_ENABLE_DEBUG_OVERLAY`. Value updates are throttled to minimize performance impact.
+  > [!NOTE]
+  > On PC/Native, the CPU load may show 100% due to VSYNC/OS synchronization, which is not reflective of actual CPU hardware usage.
 
 ### 🎨 Graphics
 
@@ -281,6 +283,15 @@ pr32::graphics::DisplayConfig displayConfig(
 | `RES_240x240` | 240x240 | 240x240 | 0% | Baseline |
 | `RES_160x160` | 160x160 | 240x240 | ~44% | +20-40% |
 | `RES_128x128` | 128x128 | 240x240 | ~72% | +50-100% |
+
+> [!IMPORTANT]
+> ### Final FPS Analysis
+> It is very important to understand that at 240x240 physical pixels, your maximum limit is **~14 FPS** due to the SPI bus speed (40MHz).
+> 
+> - **128x128 physical pixels**: You send 16k pixels → **~43 FPS**.
+> - **240x240 physical pixels**: You send 57k pixels (3.5 times more) → The bus takes 3.5 times longer to transmit, dropping to **~12-14 FPS**.
+> 
+> Even if you render internally at 128x128 (logical), the system must ultimately send 57,600 pixels to the physical display to fill it. There is no way to bypass this physical limit unless a smaller display or a faster bus is used.
 
 ---
 

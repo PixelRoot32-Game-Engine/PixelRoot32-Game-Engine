@@ -105,9 +105,11 @@ private:
     int physicalHeight = 240;
     
     // Scaling support
-    uint16_t* lineBuffer = nullptr;  ///< Buffer for one physical line during scaling
+    uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
+    uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
+    uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp to 16bpp palette LUT
     
     /**
      * @brief Checks if scaling is needed.
