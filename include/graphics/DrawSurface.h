@@ -28,7 +28,7 @@ public:
 
     /**
      * @brief Sets the display rotation.
-     * @param rotation Rotation index (0-3).
+     * @param rotation Rotation value. Can be index (0-3) or degrees (0, 90, 180, 270).
      */
     virtual void setRotation(uint8_t rotation) = 0;
 

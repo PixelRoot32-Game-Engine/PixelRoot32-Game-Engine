@@ -50,6 +50,9 @@ namespace pixelroot32::graphics {
         // Configure physical resolution (hardware display size for scaling)
         getDrawSurface().setPhysicalSize(config.physicalWidth, config.physicalHeight);
         
+        // Set display rotation (0-3 or 0-270)
+        getDrawSurface().setRotation(config.rotation);
+        
         getDrawSurface().init();
     }
 

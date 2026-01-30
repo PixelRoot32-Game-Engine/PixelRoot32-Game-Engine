@@ -33,20 +33,28 @@ pr32::drivers::native::SDL2_Drawer::~SDL2_Drawer() {
 void pr32::drivers::native::SDL2_Drawer::init() {
     SDL_Init(SDL_INIT_VIDEO);
 
+    // Swap physical dimensions for window creation if rotated 90 or 270 degrees
+    uint16_t winWidth = physicalWidth;
+    uint16_t winHeight = physicalHeight;
+    if (rotation == 1 || rotation == 3) {
+        std::swap(winWidth, winHeight);
+    }
+
     // Create window at physical size (2x for better visibility on desktop)
     int scale = 2;
     window = SDL_CreateWindow(
         "PixelRoot32 Engine",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        physicalWidth * scale,
-        physicalHeight * scale,
+        winWidth * scale,
+        winHeight * scale,
         SDL_WINDOW_SHOWN
     );
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     
-    // Set logical size to logical resolution - SDL will handle scaling!
+    // Set logical size to logical resolution
+    // We keep logical size as defined, SDL_RenderCopyEx will handle the rotation
     SDL_RenderSetLogicalSize(renderer, logicalWidth, logicalHeight);
 
     // Create texture at logical resolution
@@ -67,7 +75,14 @@ void pr32::drivers::native::SDL2_Drawer::init() {
 }
 
 void pr32::drivers::native::SDL2_Drawer::setRotation(uint8_t rot) {
-    rotation = rot;
+    // Standardize rotation to index 0-3 (0, 90, 180, 270)
+    if (rot == 90) rotation = 1;
+    else if (rot == 180) rotation = 2;
+    else if (rot == 270) rotation = 3;
+    else if (rot >= 360) rotation = (rot / 90) % 4;
+    else rotation = rot % 4;
+    
+    printf("[SDL2_Drawer] Rotation set to %d (%d degrees)\n", rotation, rotation * 90);
 }
 
 void pr32::drivers::native::SDL2_Drawer::clearBuffer() {
@@ -81,7 +96,13 @@ void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    if (rotation == 0) {
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+    } else {
+        double angle = rotation * 90.0;
+        SDL_RenderCopyEx(renderer, texture, nullptr, nullptr, angle, nullptr, SDL_FLIP_NONE);
+    }
+    
     SDL_RenderPresent(renderer);
 }
 

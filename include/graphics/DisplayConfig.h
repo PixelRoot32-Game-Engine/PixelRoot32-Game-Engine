@@ -56,7 +56,7 @@ public:
     /**
      * @brief Extended constructor with separate logical and physical resolutions.
      * @param type Display type (ST7789, ST7735, NONE).
-     * @param rot Rotation (0-3).
+     * @param rot Rotation (0-3 for 0°, 90°, 180°, 270°; or degree values 90, 180, 270).
      * @param physW Physical display width (hardware).
      * @param physH Physical display height (hardware).
      * @param logW Logical rendering width (0 = same as physical).
@@ -86,7 +86,7 @@ public:
     /**
      * @brief Legacy constructor for backward compatibility.
      * @param type Display type.
-     * @param rot Rotation (0-3).
+     * @param rot Rotation (0-3 for 0°, 90°, 180°, 270°; or degree values 90, 180, 270).
      * @param w Display width (used for both physical and logical).
      * @param h Display height (used for both physical and logical).
      * @param xOff X offset.

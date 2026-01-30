@@ -41,9 +41,17 @@
 // =============================================================================
 // Display Settings
 // =============================================================================
+#ifndef DISPLAY_ROTATION
 #define DISPLAY_ROTATION 0
+#endif
+
+#ifndef X_OFF_SET
 #define X_OFF_SET 0
+#endif
+
+#ifndef Y_OFF_SET
 #define Y_OFF_SET 0
+#endif
 
 // =============================================================================
 // Deprecated Macros (for backward compatibility)

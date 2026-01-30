@@ -40,7 +40,7 @@ pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     tft.init();
-    tft.setRotation(0);
+    tft.setRotation(rotation);
     tft.fillScreen(TFT_BLACK);
 
     // Create sprite with LOGICAL resolution (smaller = less memory)
@@ -55,9 +55,21 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     spr.initDMA();
 }
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint8_t rotation) {
-    this->rotation = rotation;
-    spr.setRotation(rotation);
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint8_t rot) {
+    // Standardize rotation to index 0-3 (0, 90, 180, 270)
+    if (rot == 90) rotation = 1;
+    else if (rot == 180) rotation = 2;
+    else if (rot == 270) rotation = 3;
+    else if (rot >= 360) rotation = (rot / 90) % 4;
+    else rotation = rot % 4;
+    
+    #ifdef PIXELROOT32_ENABLE_PROFILING
+    Serial.printf("[TFT_eSPI_Drawer] Rotation set to %d (%d degrees)\n", rotation, rotation * 90);
+    #endif
+
+    if (tft.getRotation() != rotation) {
+        tft.setRotation(rotation);
+    }
 }
 
 // --------------------------------------------------
