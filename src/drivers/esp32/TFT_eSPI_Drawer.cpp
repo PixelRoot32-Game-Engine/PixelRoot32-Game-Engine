@@ -57,11 +57,8 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
         Serial.printf("[ERROR] Failed to create sprite of size %dx%d\n", logicalWidth, logicalHeight);
     }
     
-    // Build scaling lookup tables if needed
-    if (needsScaling()) {
-        Serial.println("[TFT_eSPI_Drawer] Building Scale LUTs...");
-        buildScaleLUTs();
-    }
+    // Build scaling lookup tables and palette conversion buffers
+    buildScaleLUTs();
     Serial.println("[TFT_eSPI_Drawer] Initialization complete.");
 }
 
@@ -91,12 +88,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::clearBuffer() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::sendBuffer() {
-    if (needsScaling()) {
-        sendBufferScaled();
-    } else {
-        // Direct transfer without scaling
-        spr.pushSprite(0, 0);
-    }
+    sendBufferScaled();
 }
 
 // --------------------------------------------------
@@ -333,18 +325,7 @@ bool pr32::drivers::esp32::TFT_eSPI_Drawer::processEvents() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::present() {
-    if (needsScaling()) {
-        // Use scaled version
-        sendBufferScaled();
-    } else {
-        // Direct DMA push
-        tft.pushImageDMA(
-            0, 0,
-            spr.width(),
-            spr.height(),
-            (uint16_t*)spr.getPointer()
-        );
-    }
+    sendBufferScaled();
 }
 
 #endif // ESP32
