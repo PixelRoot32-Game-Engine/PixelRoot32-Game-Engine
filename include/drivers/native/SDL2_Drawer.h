@@ -23,7 +23,11 @@ public:
     virtual ~SDL2_Drawer();
 
     void init() override;
-    void setRotation(uint8_t rotation) override;
+    /**
+     * @brief Sets the screen rotation.
+     * @param rotation 0-3 corresponding to 0, 90, 180, 270 degrees.
+     */
+    void setRotation(uint16_t rotation) override;
 
     void clearBuffer() override;
     void sendBuffer() override;

@@ -55,7 +55,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     spr.initDMA();
 }
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint8_t rot) {
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
     // Standardize rotation to index 0-3 (0, 90, 180, 270)
     if (rot == 90) rotation = 1;
     else if (rot == 180) rotation = 2;

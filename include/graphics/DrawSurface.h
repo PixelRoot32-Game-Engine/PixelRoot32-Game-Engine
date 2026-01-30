@@ -30,7 +30,7 @@ public:
      * @brief Sets the display rotation.
      * @param rotation Rotation value. Can be index (0-3) or degrees (0, 90, 180, 270).
      */
-    virtual void setRotation(uint8_t rotation) = 0;
+    virtual void setRotation(uint16_t rotation) = 0;
 
     /**
      * @brief Clears the frame buffer (fills with black or background color).
