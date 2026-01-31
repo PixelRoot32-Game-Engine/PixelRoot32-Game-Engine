@@ -73,6 +73,12 @@ namespace pixelroot32::graphics::ui {
     void UIButton::draw(Renderer& renderer) {
         if (!isVisible) return;
 
+        // Save current bypass state and apply fixedPosition if enabled
+        bool oldBypass = renderer.isOffsetBypassEnabled();
+        if (fixedPosition) {
+            renderer.setOffsetBypass(true);
+        }
+
         int intHeight = static_cast<int>(height);
         int intY = static_cast<int>(y);
         int textPixelHeight = fontSize * 8;
@@ -102,6 +108,11 @@ namespace pixelroot32::graphics::ui {
             renderer.drawText(label.c_str(), x + width - 5, textY, currentTextCol, fontSize);
         } else {
             renderer.drawText(label.c_str(), x + 5, textY, currentTextCol, fontSize);
+        }
+
+        // Restore bypass state
+        if (fixedPosition) {
+            renderer.setOffsetBypass(oldBypass);
         }
     }
 }

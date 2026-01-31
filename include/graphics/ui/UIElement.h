@@ -39,6 +39,7 @@ public:
     
 protected:
     UIElementType type;
+    bool fixedPosition = false;
 
 public:
     /**
@@ -69,6 +70,22 @@ public:
 
     
     virtual ~UIElement() = default;
+
+    /**
+     * @brief Sets whether the element is in a fixed position (HUD/Overlay).
+     * 
+     * If true, this element (and its children if it's a container) will ignore 
+     * Camera2D scroll and stay fixed at its logical screen coordinates.
+     * 
+     * @param fixed True to enable fixed position.
+     */
+    void setFixedPosition(bool fixed) { fixedPosition = fixed; }
+
+    /**
+     * @brief Checks if the element is in a fixed position.
+     * @return True if fixed position is enabled.
+     */
+    bool isFixedPosition() const { return fixedPosition; }
 
     /**
      * @brief Sets the position of the element.

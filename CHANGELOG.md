@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.0-dev
+
+- **Independent Resolution Scaling**: Introduced logical/physical resolution decoupling to reduce memory usage and improve performance.
+  - New `DisplayConfig` with separate logical and physical dimensions.
+  - Added `ResolutionPresets` helper and `EngineConfig.h` for centralized configuration.
+  - Optimized scaling using LUTs and IRAM-cached functions for ESP32.
+  - Updated SDL2 and TFT_eSPI drivers to support scaling.
+  - Updated Scene, UI, and Physics systems to operate on logical resolution.
+  - Comprehensive documentation added in `README.md` and `RESOLUTION_SCALING.md`.
+- **Comprehensive Debug Overlay**: Replaced the basic FPS overlay with a new debug display showing FPS, RAM usage, and estimated CPU load.
+  - Metrics update every 16 frames to minimize performance impact.
+  - Enabled via the new `PIXELROOT32_ENABLE_DEBUG_OVERLAY` flag (supersedes `PIXELROOT32_ENABLE_FPS_DISPLAY`).
+- **Standardized Display Rotation**: Standardized rotation handling and initialization order across all drivers.
+  - Standardized rotation input (0-3 index or 90-270 degrees) in `TFT_eSPI_Drawer` and `SDL2_Drawer`.
+  - Fixed initialization order in `Renderer` to apply rotation before driver init.
+  - Updated `main.cpp` and `main_native.cpp` to use new `PHYSICAL_DISPLAY_*` macros.
+  - Removed obsolete `Config.h` dependency from `main.cpp`.
+- **ESP32 & Rendering Performance**:
+  - Implemented DMA double buffering for block transfers (10-line blocks) to reduce overhead.
+  - Added pre-calculated palette LUT to avoid runtime 8bpp to 16bpp conversion.
+  - Updated SDL2 driver with proper scaling and VSYNC support.
+- **Fixed Position UI Support**: Added support for UI elements that ignore camera scrolling.
+  - New `setOffsetBypass()` and `isOffsetBypassEnabled()` methods in `Renderer`.
+  - Added `fixedPosition` flag and accessors to `UILayout` base class.
+  - `UIVerticalLayout` now bypasses offsets when the `fixedPosition` flag is enabled.
+
 ## v0.5.0-dev
 
 - **Generic Tilemap Support (2bpp & 4bpp)**: Refactored `TileMap` into a template `TileMapGeneric` to support different sprite types. Added conditional type aliases (`TileMap2bpp`, `TileMap4bpp`) and corresponding `drawTileMap` overloads. Tilemap rendering now automatically uses the Background palette context. API documentation updated to describe the new generic structure and aliases.

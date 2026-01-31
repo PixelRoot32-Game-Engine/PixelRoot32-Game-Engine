@@ -23,7 +23,11 @@ public:
     virtual ~SDL2_Drawer();
 
     void init() override;
-    void setRotation(uint8_t rotation) override;
+    /**
+     * @brief Sets the screen rotation.
+     * @param rotation 0-3 corresponding to 0, 90, 180, 270 degrees.
+     */
+    void setRotation(uint16_t rotation) override;
 
     void clearBuffer() override;
     void sendBuffer() override;
@@ -45,6 +49,13 @@ public:
     uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override;
 
     void setDisplaySize(int w, int h) override;
+    
+    /**
+     * @brief Sets the physical display size for scaling operations.
+     * @param w Physical width.
+     * @param h Physical height.
+     */
+    void setPhysicalSize(int w, int h) override;
 
     void present() override;
 
@@ -66,8 +77,11 @@ private:
     uint8_t textSize;
     uint8_t rotation;
 
-    int displayWidth;
-    int displayHeight;
+    // Resolution dimensions
+    int logicalWidth = 240;   ///< Logical resolution (framebuffer size)
+    int logicalHeight = 240;
+    int physicalWidth = 240;  ///< Physical resolution (window size)
+    int physicalHeight = 240;
 
     void updateTexture();
 
@@ -91,9 +105,9 @@ private:
     }
 
     inline void setPixel(int x, int y, uint16_t color) {
-        if (x < 0 || y < 0 || x >= displayWidth || y >= displayHeight) return;
+        if (x < 0 || y < 0 || x >= logicalWidth || y >= logicalHeight) return;
         
-        pixels[y * displayWidth + x] = color;
+        pixels[y * logicalWidth + x] = color;
     }
 };
 

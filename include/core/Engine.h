@@ -138,17 +138,21 @@ private:
      */
     void draw();
 
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
     /**
-     * @brief Draws the FPS overlay (green text, top-right) when PIXELROOT32_ENABLE_FPS_DISPLAY is defined.
-     * FPS is the average over the last FPS_UPDATE_INTERVAL frames for a stable, reliable reading.
+     * @brief Draws a debug overlay with real-time engine metrics.
+     * Shows FPS, CPU usage (estimated), and RAM usage.
      */
-    void drawFpsOverlay(pixelroot32::graphics::Renderer& r);
+    void drawDebugOverlay(pixelroot32::graphics::Renderer& r);
 
-    static constexpr int FPS_UPDATE_INTERVAL = 8;    ///< Number of frames over which to average FPS.
-    char fpsOverlayBuf[12];                         ///< Cached "FPS xxx" string.
-    int fpsUpdateCounter;                          ///< Frames accumulated in current window.
-    unsigned long fpsAccumulatedMs;                ///< Sum of deltaTime over current window (ms).
+    static constexpr int DEBUG_UPDATE_INTERVAL = 16;  ///< Update metrics every N frames.
+    int debugUpdateCounter;                         ///< Frame counter for updates.
+    unsigned long debugAccumulatedMs;               ///< Accumulated time for FPS calculation.
+    
+    // Cached strings for rendering to minimize per-frame overhead
+    char fpsStr[12];
+    char ramStr[16];
+    char cpuStr[12];
 #endif
 };
 

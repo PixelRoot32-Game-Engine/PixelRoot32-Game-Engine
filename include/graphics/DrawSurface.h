@@ -28,9 +28,9 @@ public:
 
     /**
      * @brief Sets the display rotation.
-     * @param rotation Rotation index (0-3).
+     * @param rotation Rotation value. Can be index (0-3) or degrees (0, 90, 180, 270).
      */
-    virtual void setRotation(uint8_t rotation) = 0;
+    virtual void setRotation(uint16_t rotation) = 0;
 
     /**
      * @brief Clears the frame buffer (fills with black or background color).
@@ -86,11 +86,27 @@ public:
     virtual uint16_t color565(uint8_t r, uint8_t g, uint8_t b) = 0;
 
     /**
-     * @brief Sets the logical display size.
-     * @param w Width.
-     * @param h Height.
+     * @brief Sets the logical display size (rendering resolution).
+     * @param w Width of the logical framebuffer.
+     * @param h Height of the logical framebuffer.
      */
     virtual void setDisplaySize(int w, int h) = 0;
+
+    /**
+     * @brief Sets the physical display size (hardware resolution).
+     * 
+     * Used when the logical rendering resolution differs from the
+     * physical display resolution. The driver will scale output
+     * from logical to physical resolution.
+     * 
+     * @param w Physical display width.
+     * @param h Physical display height.
+     */
+    virtual void setPhysicalSize(int w, int h) {
+        // Default implementation: assume no scaling (physical = logical)
+        // Override in drivers that support resolution scaling
+        (void)w; (void)h;
+    }
 
     /**
      * @brief Processes platform events (e.g., SDL window events).

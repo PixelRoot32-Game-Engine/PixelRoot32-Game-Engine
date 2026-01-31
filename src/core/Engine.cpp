@@ -20,10 +20,12 @@ namespace pixelroot32::core {
         : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
-        std::strcpy(fpsOverlayBuf, "FPS 0");
-        fpsUpdateCounter = 0;
-        fpsAccumulatedMs = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
 #endif
     }
 
@@ -31,10 +33,12 @@ namespace pixelroot32::core {
         : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
-        std::strcpy(fpsOverlayBuf, "FPS 0");
-        fpsUpdateCounter = 0;
-        fpsAccumulatedMs = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
 #endif
     }
 
@@ -42,10 +46,12 @@ namespace pixelroot32::core {
         : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
-        std::strcpy(fpsOverlayBuf, "FPS 0");
-        fpsUpdateCounter = 0;
-        fpsAccumulatedMs = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
 #endif
     }
 
@@ -124,28 +130,66 @@ namespace pixelroot32::core {
     void Engine::draw() {
         renderer.beginFrame();
         sceneManager.draw(renderer);
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
-        drawFpsOverlay(renderer);
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        drawDebugOverlay(renderer);
 #endif
         renderer.endFrame();
     }
 
-#ifdef PIXELROOT32_ENABLE_FPS_DISPLAY
-    void Engine::drawFpsOverlay(Renderer& r) {
-        fpsAccumulatedMs += deltaTime;
-        if (++fpsUpdateCounter >= FPS_UPDATE_INTERVAL) {
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+    void Engine::drawDebugOverlay(Renderer& r) {
+        debugAccumulatedMs += deltaTime;
+        
+        if (++debugUpdateCounter >= DEBUG_UPDATE_INTERVAL) {
+            // 1. Calculate FPS
             unsigned int fps = 0;
-            if (fpsAccumulatedMs > 0) {
-                fps = (1000u * static_cast<unsigned int>(FPS_UPDATE_INTERVAL)) / static_cast<unsigned int>(fpsAccumulatedMs);
+            if (debugAccumulatedMs > 0) {
+                fps = (1000u * static_cast<unsigned int>(DEBUG_UPDATE_INTERVAL)) / static_cast<unsigned int>(debugAccumulatedMs);
                 if (fps > 999) fps = 999;
             }
-            std::snprintf(fpsOverlayBuf, sizeof(fpsOverlayBuf), "FPS %u", fps);
-            fpsUpdateCounter = 0;
-            fpsAccumulatedMs = 0;
+            std::snprintf(fpsStr, sizeof(fpsStr), "FPS: %u", fps);
+
+            // 2. Calculate RAM Usage
+            #ifdef PLATFORM_NATIVE
+                // On PC/Native, actual RAM usage is complex, show a placeholder or static info
+                std::strcpy(ramStr, "RAM: N/A");
+            #else
+                // On ESP32
+                uint32_t freeHeap = ESP.getFreeHeap();
+                uint32_t totalHeap = ESP.getHeapSize();
+                uint32_t usedHeapK = (totalHeap - freeHeap) / 1024;
+                std::snprintf(ramStr, sizeof(ramStr), "RAM: %uK", usedHeapK);
+            #endif
+
+            // 3. Calculate "CPU Usage" (Estimated based on frame time)
+            // This is a simplified metric: (Processing Time / Target Frame Time)
+            // Assuming 60 FPS target (16.6ms)
+            float load = (float)debugAccumulatedMs / (DEBUG_UPDATE_INTERVAL * 16.6f);
+            int cpuPercent = (int)(load * 100);
+            if (cpuPercent > 100) cpuPercent = 100;
+            std::snprintf(cpuStr, sizeof(cpuStr), "CPU: %d%%", cpuPercent);
+
+            debugUpdateCounter = 0;
+            debugAccumulatedMs = 0;
         }
-        int x = r.getWidth() - 48;
+
+        // Render Overlay (Independent of camera/scrolling)
+        // Since this is called at the end of draw(), we render directly on top
+        
+        // Save current offset to restore it later (though endFrame follows)
+        int oldX = r.getXOffset();
+        int oldY = r.getYOffset();
+        r.setDisplayOffset(0, 0);
+
+        int16_t x = r.getWidth() - 55;
         if (x < 0) x = 0;
-        r.drawText(fpsOverlayBuf, static_cast<int16_t>(x), 12, Color::Green, 1);
+        
+        r.drawText(fpsStr, x, 4, Color::Green, 1);
+        r.drawText(ramStr, x, 12, Color::Cyan, 1);
+        r.drawText(cpuStr, x, 20, Color::Yellow, 1);
+
+        // Restore offset
+        r.setDisplayOffset(oldX, oldY);
     }
 #endif
 }

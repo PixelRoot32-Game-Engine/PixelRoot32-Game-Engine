@@ -9,6 +9,10 @@
 #define IRAM_ATTR
 #endif
 
+#ifdef PIXELROOT32_ENABLE_PROFILING
+#include <Arduino.h>
+#endif
+
 namespace pr32 = pixelroot32;
 
 // --------------------------------------------------
@@ -27,6 +31,7 @@ pr32::drivers::esp32::TFT_eSPI_Drawer::TFT_eSPI_Drawer()
 }
 
 pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
+    freeScalingBuffers();
 }
 
 // --------------------------------------------------
@@ -34,19 +39,44 @@ pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
 // --------------------------------------------------
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
+    Serial.println("[TFT_eSPI_Drawer] Initializing TFT...");
     tft.init();
-    tft.setRotation(0);
+    tft.setRotation(rotation);
     tft.fillScreen(TFT_BLACK);
 
+    Serial.println("[TFT_eSPI_Drawer] Initializing DMA...");
+    // Initialize DMA for the TFT. 
+    // We call it with 'false' to indicate we don't want to re-initialize the bus if possible,
+    // but TFT_eSPI on ESP32 usually needs this to setup DMA descriptors.
+    tft.initDMA();
+
+    Serial.println("[TFT_eSPI_Drawer] Creating Sprite...");
+    // Create sprite with LOGICAL resolution (smaller = less memory)
     spr.setColorDepth(8);
-    spr.createSprite(displayWidth, displayHeight);
+    if (!spr.createSprite(logicalWidth, logicalHeight)) {
+        Serial.printf("[ERROR] Failed to create sprite of size %dx%d\n", logicalWidth, logicalHeight);
+    }
     
-    spr.initDMA();
+    // Build scaling lookup tables and palette conversion buffers
+    buildScaleLUTs();
+    Serial.println("[TFT_eSPI_Drawer] Initialization complete.");
 }
 
-void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint8_t rotation) {
-    this->rotation = rotation;
-    spr.setRotation(rotation);
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
+    // Standardize rotation to index 0-3 (0, 90, 180, 270)
+    if (rot == 90) rotation = 1;
+    else if (rot == 180) rotation = 2;
+    else if (rot == 270) rotation = 3;
+    else if (rot >= 360) rotation = (rot / 90) % 4;
+    else rotation = rot % 4;
+    
+    #ifdef PIXELROOT32_ENABLE_PROFILING
+    Serial.printf("[TFT_eSPI_Drawer] Rotation set to %d (%d degrees)\n", rotation, rotation * 90);
+    #endif
+
+    if (tft.getRotation() != rotation) {
+        tft.setRotation(rotation);
+    }
 }
 
 // --------------------------------------------------
@@ -58,7 +88,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::clearBuffer() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::sendBuffer() {
-    spr.pushSprite(0, 0);
+    sendBufferScaled();
 }
 
 // --------------------------------------------------
@@ -98,8 +128,153 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, ui
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setDisplaySize(int width, int height) {
-    displayWidth = width;
-    displayHeight = height;
+    logicalWidth = width;
+    logicalHeight = height;
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setPhysicalSize(int w, int h) {
+    physicalWidth = w;
+    physicalHeight = h;
+}
+
+// --------------------------------------------------
+// Scaling Functions
+// --------------------------------------------------
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
+    freeScalingBuffers();
+    
+    // We will use blocks of 10 lines to reduce DMA overhead
+    const int linesPerBlock = 10;
+    size_t blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
+
+    // Allocate double line buffers for DMA
+#ifdef ESP32
+    lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+    paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_8BIT);
+
+    if (!lineBuffer[0] || !lineBuffer[1] || !paletteLUT) {
+        Serial.println("[ERROR] Failed to allocate DMA or Palette buffers!");
+    }
+#else
+    lineBuffer[0] = new uint16_t[physicalWidth * linesPerBlock];
+    lineBuffer[1] = new uint16_t[physicalWidth * linesPerBlock];
+    paletteLUT = new uint16_t[256];
+#endif
+    
+    // Pre-calculate palette LUT (8bpp -> 16bpp)
+    for (int i = 0; i < 256; ++i) {
+        uint16_t color16 = spr.color8to16(i);
+        // Swap bytes because pushPixelsDMA expects big-endian (TFT order)
+        paletteLUT[i] = (color16 >> 8) | (color16 << 8);
+    }
+
+    // Allocate and build X lookup table
+    xLUT = new uint16_t[physicalWidth];
+    for (int i = 0; i < physicalWidth; ++i) {
+        xLUT[i] = (i * logicalWidth) / physicalWidth;
+    }
+    
+    // Allocate and build Y lookup table
+    yLUT = new uint16_t[physicalHeight];
+    for (int i = 0; i < physicalHeight; ++i) {
+        yLUT[i] = (i * logicalHeight) / physicalHeight;
+    }
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
+    for (int i = 0; i < 2; ++i) {
+        if (lineBuffer[i]) {
+#ifdef ESP32
+            heap_caps_free(lineBuffer[i]);
+#else
+            delete[] lineBuffer[i];
+#endif
+            lineBuffer[i] = nullptr;
+        }
+    }
+    if (paletteLUT) {
+#ifdef ESP32
+        heap_caps_free(paletteLUT);
+#else
+        delete[] paletteLUT;
+#endif
+        paletteLUT = nullptr;
+    }
+    if (xLUT) {
+        delete[] xLUT;
+        xLUT = nullptr;
+    }
+    if (yLUT) {
+        delete[] yLUT;
+        yLUT = nullptr;
+    }
+}
+
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t start = micros();
+#endif
+
+    uint8_t* spritePtr = (uint8_t*)spr.getPointer();
+    if (!spritePtr) return;
+
+    tft.startWrite();
+    tft.setAddrWindow(0, 0, physicalWidth, physicalHeight);
+    
+    const int linesPerBlock = 10;
+    currentBuffer = 0;
+
+    for (int startY = 0; startY < physicalHeight; startY += linesPerBlock) {
+        int endY = startY + linesPerBlock;
+        if (endY > physicalHeight) endY = physicalHeight;
+        int numLines = endY - startY;
+
+        // 1. Wait for previous DMA block to finish
+        tft.dmaWait();
+
+        // 2. Scale a block of lines into the current buffer
+        uint16_t* dst = lineBuffer[currentBuffer];
+        for (int physY = startY; physY < endY; ++physY) {
+            int srcY = yLUT[physY];
+            scaleLine(srcY, dst);
+            dst += physicalWidth;
+        }
+        
+        // 3. Start DMA for the WHOLE BLOCK
+        tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+
+        // 4. Swap buffers for next block
+        currentBuffer = 1 - currentBuffer;
+    }
+    
+    tft.dmaWait();
+    tft.endWrite();
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t elapsed = micros() - start;
+    static uint32_t lastReport = 0;
+    if (millis() - lastReport > 1000) {
+        Serial.printf("[PROFILING] Scaled DMA Transfer: %u us (%u FPS max)\n", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
+        lastReport = millis();
+    }
+#endif
+}
+
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(int srcY, uint16_t* dst) {
+    // Get pointer to source row in 8bpp sprite
+    uint8_t* spritePtr = (uint8_t*)spr.getPointer();
+    uint8_t* srcRow = spritePtr + (srcY * logicalWidth);
+    
+    // Use local pointers to help optimization
+    const uint16_t* __restrict pLUT = paletteLUT;
+    const uint16_t* __restrict xL = xLUT;
+    
+    // Use LUT for X scaling and Palette LUT for color conversion
+    for (int physX = 0; physX < physicalWidth; ++physX) {
+        dst[physX] = pLUT[srcRow[xL[physX]]];
+    }
 }
 
 // --------------------------------------------------
@@ -146,18 +321,11 @@ uint16_t pr32::drivers::esp32::TFT_eSPI_Drawer::color565(uint8_t r, uint8_t g, u
 }
 
 bool pr32::drivers::esp32::TFT_eSPI_Drawer::processEvents() {
-    tft.dmaWait();
     return true;
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::present() {
-    tft.pushImageDMA(
-        0, 0,
-        spr.width(),
-        spr.height(),
-        (uint16_t*)spr.getPointer()
-    );
-
+    sendBufferScaled();
 }
 
 #endif // ESP32

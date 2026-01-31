@@ -337,6 +337,12 @@ void UIVerticalLayout::update(unsigned long deltaTime) {
 void UIVerticalLayout::draw(pixelroot32::graphics::Renderer& renderer) {
     if (!isVisible) return;
     
+    // Save current bypass state and apply fixedPosition if enabled
+    bool oldBypass = renderer.isOffsetBypassEnabled();
+    if (fixedPosition) {
+        renderer.setOffsetBypass(true);
+    }
+    
     // Performance optimization: Only clear layout area when scroll/selection changed
     // This avoids expensive fillRect() call every frame on ESP32
     // However, we must clear when scroll is enabled and there's content to scroll
@@ -359,6 +365,11 @@ void UIVerticalLayout::draw(pixelroot32::graphics::Renderer& renderer) {
         if (elem->isVisible) {
             elem->draw(renderer);
         }
+    }
+
+    // Restore bypass state
+    if (fixedPosition) {
+        renderer.setOffsetBypass(oldBypass);
     }
 }
 

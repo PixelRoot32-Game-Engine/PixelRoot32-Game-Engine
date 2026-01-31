@@ -70,8 +70,8 @@ namespace pixelroot32::core {
         // renderer.getXOffset() and getYOffset() are negative camera positions
         int viewX = -renderer.getXOffset();
         int viewY = -renderer.getYOffset();
-        int viewW = renderer.getWidth();
-        int viewH = renderer.getHeight();
+        int viewW = renderer.getLogicalWidth();
+        int viewH = renderer.getLogicalHeight();
 
         // Check intersection
         return !(entity->x + entity->width < viewX || 

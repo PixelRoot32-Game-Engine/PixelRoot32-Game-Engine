@@ -32,7 +32,11 @@ namespace pixelroot32::graphics {
         return c != Color::Transparent;
     }
 
-    Renderer::Renderer(const DisplayConfig& config) : config(config) {        
+    Renderer::Renderer(const DisplayConfig& config) 
+        : config(config),
+          logicalWidth(config.logicalWidth),
+          logicalHeight(config.logicalHeight)
+    {        
         drawer = &config.getDrawSurface();
         xOffset = config.xOffset;
         yOffset = config.yOffset;
@@ -40,8 +44,15 @@ namespace pixelroot32::graphics {
 
 
     void Renderer::init() {
-        setDisplaySize(config.width, config.height);
-        getDrawSurface().setDisplaySize(getHeight(), getWidth());
+        // Configure logical resolution (rendering framebuffer size)
+        getDrawSurface().setDisplaySize(config.logicalWidth, config.logicalHeight);
+        
+        // Configure physical resolution (hardware display size for scaling)
+        getDrawSurface().setPhysicalSize(config.physicalWidth, config.physicalHeight);
+        
+        // Set display rotation (0-3 or 0-270)
+        getDrawSurface().setRotation(config.rotation);
+        
         getDrawSurface().init();
     }
 
@@ -123,7 +134,7 @@ namespace pixelroot32::graphics {
 
         // Calculate text width and center it
         int16_t textWidth = FontManager::textWidth(activeFont, text, size);
-        int16_t x = (width - textWidth) / 2;
+        int16_t x = (logicalWidth - textWidth) / 2;
 
         // Render using the regular drawText method
         drawText(text, x, y, color, size, activeFont);
@@ -132,35 +143,49 @@ namespace pixelroot32::graphics {
     void Renderer::drawFilledCircle(int x, int y, int radius, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawFilledCircle(xOffset + x, yOffset + y, radius, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawFilledCircle(finalX, finalY, radius, resolveColor(color, context));
     }
 
     void Renderer::drawCircle(int x, int y, int radius, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawCircle(xOffset + x, yOffset + y, radius, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawCircle(finalX, finalY, radius, resolveColor(color, context));
     }
 
     void Renderer::drawRectangle(int x, int y, int width, int height, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawRectangle(finalX, finalY, width, height, resolveColor(color, context));
     }
 
     void Renderer::drawFilledRectangle(int x, int y, int width, int height, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawFilledRectangle(finalX, finalY, width, height, resolveColor(color, context));
     }
 
     void Renderer::drawFilledRectangleW(int x, int y, int width, int height, uint16_t color) {
-        getDrawSurface().drawFilledRectangle(xOffset + x, yOffset + y, width, height, color);
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawFilledRectangle(finalX, finalY, width, height, color);
     }
 
     void Renderer::drawLine(int x1, int y1, int x2, int y2, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawLine(xOffset + x1, yOffset + y1, xOffset + x2, yOffset + y2, resolveColor(color, context));
+        int finalX1 = offsetBypass ? x1 : xOffset + x1;
+        int finalY1 = offsetBypass ? y1 : yOffset + y1;
+        int finalX2 = offsetBypass ? x2 : xOffset + x2;
+        int finalY2 = offsetBypass ? y2 : yOffset + y2;
+        getDrawSurface().drawLine(finalX1, finalY1, finalX2, finalY2, resolveColor(color, context));
     }
 
     void Renderer::setFont(const uint8_t* font) {
@@ -172,7 +197,9 @@ namespace pixelroot32::graphics {
     void Renderer::drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawBitmap(xOffset + x, yOffset + y, width, height, bitmap, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawBitmap(finalX, finalY, width, height, bitmap, resolveColor(color, context));
     }
 
     void IRAM_ATTR Renderer::drawPixel(int x, int y, Color color) {
@@ -186,14 +213,14 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
         for (int row = 0; row < sprite.height; ++row) {
             const int logicalY = y + row;
-            const int finalY = yOffset + logicalY;
+            const int finalY = offsetBypass ? logicalY : yOffset + logicalY;
             if (finalY < 0 || finalY >= screenH) {
                 continue;
             }
@@ -213,7 +240,7 @@ namespace pixelroot32::graphics {
                     ? x + (sprite.width - 1 - col)
                     : x + col;
 
-                const int finalX = xOffset + logicalX;
+                const int finalX = offsetBypass ? logicalX : xOffset + logicalX;
                 if (finalX < 0 || finalX >= screenW) {
                     continue;
                 }
@@ -240,13 +267,13 @@ namespace pixelroot32::graphics {
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         const int bitsPerPixel = 2;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
         // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
         for (int row = 0; row < sprite.height; ++row) {
-            const int finalY = yOffset + y + row;
+            const int finalY = offsetBypass ? (y + row) : (yOffset + y + row);
             if (finalY < 0 || finalY >= screenH) continue;
 
             const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
@@ -259,7 +286,7 @@ namespace pixelroot32::graphics {
                 if (val == 0) continue;
 
                 const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
-                const int finalX = xOffset + logicalX;
+                const int finalX = offsetBypass ? logicalX : (xOffset + logicalX);
                 if (finalX < 0 || finalX >= screenW) continue;
 
                 getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
@@ -285,13 +312,13 @@ namespace pixelroot32::graphics {
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         const int bitsPerPixel = 4;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
         for (int row = 0; row < sprite.height; ++row) {
-            const int finalY = yOffset + y + row;
+            const int finalY = offsetBypass ? (y + row) : (yOffset + y + row);
             if (finalY < 0 || finalY >= screenH) continue;
 
             const uint8_t* rowData = sprite.data + row * rowStrideBytes;
@@ -304,7 +331,7 @@ namespace pixelroot32::graphics {
                 if (val == 0) continue;
 
                 const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
-                const int finalX = xOffset + logicalX;
+                const int finalX = offsetBypass ? logicalX : (xOffset + logicalX);
                 if (finalX < 0 || finalX >= screenW) continue;
 
                 getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
@@ -341,8 +368,8 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        const int screenW = width;
-        const int screenH = height;
+        const int screenW = logicalWidth;
+        const int screenH = logicalHeight;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
@@ -351,7 +378,7 @@ namespace pixelroot32::graphics {
 
         for (int dstRow = 0; dstRow < dstHeight; ++dstRow) {
             const int logicalY = y + dstRow;
-            const int finalY = yOffset + logicalY;
+            const int finalY = offsetBypass ? logicalY : yOffset + logicalY;
             if (finalY < 0 || finalY >= screenH) {
                 continue;
             }
@@ -377,7 +404,7 @@ namespace pixelroot32::graphics {
                 }
 
                 const int logicalX = x + dstCol;
-                const int finalX = xOffset + logicalX;
+                const int finalX = offsetBypass ? logicalX : xOffset + logicalX;
                 if (finalX < 0 || finalX >= screenW) {
                     continue;
                 }
@@ -426,13 +453,13 @@ namespace pixelroot32::graphics {
         // Viewport Culling: Only draw tiles that are within the screen boundaries
         // Important: We must consider xOffset and yOffset (Camera position) to correctly calculate visibility.
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         // Clamp to map boundaries
@@ -476,12 +503,12 @@ namespace pixelroot32::graphics {
 
         // Viewport Culling
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;
@@ -544,12 +571,12 @@ namespace pixelroot32::graphics {
 
         // Viewport Culling
         int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > width) 
-                     ? ((width - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > height) 
-                     ? ((height - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;

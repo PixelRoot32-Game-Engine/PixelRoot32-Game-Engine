@@ -341,17 +341,26 @@ public:
     void drawPixel(int x, int y, Color color);
 
     /**
-     * @brief Sets the logical display size.
-     * @param w Width.
-     * @param h Height.
+     * @brief Sets the logical display size (rendering resolution).
+     * @param w Logical width.
+     * @param h Logical height.
      */
     void setDisplaySize(int w, int h) {
-        width = w;
-        height = h;
+        logicalWidth = w;
+        logicalHeight = h;
     }
 
-    int getWidth() const { return width; }
-    int getHeight() const { return height; }
+    /// @brief Gets the logical rendering width.
+    int getLogicalWidth() const { return logicalWidth; }
+    
+    /// @brief Gets the logical rendering height.
+    int getLogicalHeight() const { return logicalHeight; }
+    
+    /// @deprecated Use getLogicalWidth() instead.
+    int getWidth() const { return logicalWidth; }
+    
+    /// @deprecated Use getLogicalHeight() instead.
+    int getHeight() const { return logicalHeight; }
 
     /**
      * @brief Sets a global offset for all drawing operations.
@@ -486,16 +495,38 @@ public:
     void drawTileMap(const TileMap4bpp& map, int originX, int originY);
 #endif
 
+    /**
+     * @brief Enables or disables ignoring global offsets for subsequent draw calls.
+     * 
+     * When bypass is enabled, xOffset and yOffset are ignored, and drawing
+     * occurs at absolute logical screen coordinates.
+     * 
+     * @param bypass True to ignore offsets, false to apply them (default).
+     */
+    void setOffsetBypass(bool bypass) {
+        offsetBypass = bypass;
+    }
+
+    /**
+     * @brief Checks if offset bypass is currently enabled.
+     * @return True if offsets are being ignored.
+     */
+    bool isOffsetBypassEnabled() const {
+        return offsetBypass;
+    }
+
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.
 
     DisplayConfig config;
 
-    int width = 240;
-    int height = 240;
+    int logicalWidth = 240;  ///< Logical rendering width (used for clipping)
+    int logicalHeight = 240; ///< Logical rendering height (used for clipping)
 
     int xOffset = 0;
     int yOffset = 0;
+
+    bool offsetBypass = false; ///< When true, xOffset and yOffset are ignored
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
 
