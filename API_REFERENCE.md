@@ -59,16 +59,20 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
-#### Optional: FPS overlay (build flag)
+#### Optional: Debug Statistics Overlay (build flag)
 
-When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_FPS_DISPLAY`**, the engine draws an on-screen FPS counter each frame.
+When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, the engine draws a technical overlay with real-time metrics.
 
-- **Behavior**: A green text string `"FPS xxx"` is drawn in the top-right area of the screen (position derived from `Renderer::getWidth()` and a fixed vertical offset). The value is computed from `deltaTime` (frames per second = 1000 / deltaTime ms), clamped to 0–999.
-- **Performance**: The numeric value is recalculated and formatted only every **8 frames** (`FPS_UPDATE_INTERVAL`); the cached string is drawn every frame. This reduces per-frame CPU cost (division and `snprintf`) while keeping the overlay visible and readable.
+- **Metrics Included**:
+    - **FPS**: Frames per second (green).
+    - **RAM**: Memory used in KB (cyan). ESP32 specific.
+    - **CPU**: Estimated processor load percentage based on frame processing time (yellow).
+- **Behavior**: The metrics are drawn in the top-right area of the screen, fixed and independent of the camera.
+- **Performance**: Values are recalculated and formatted only every **16 frames** (`DEBUG_UPDATE_INTERVAL`); the cached strings are drawn every frame. This ensures minimal overhead while providing useful development data.
 - **Usage**: Add to your build flags, e.g. in `platformio.ini`:  
-  `build_flags = -D PIXELROOT32_ENABLE_FPS_DISPLAY`  
-  No code changes are required; the overlay is drawn automatically after the scene in `Engine::draw()`.
-- **Internal**: The overlay is implemented by the private method `Engine::drawFpsOverlay(Renderer& r)`, which uses a cached buffer and a frame counter. This method is only compiled when the define is set.
+  `build_flags = -D PIXELROOT32_ENABLE_DEBUG_OVERLAY`  
+  This flag is also available in `EngineConfig.h`.
+- **Internal**: Implemented by the private method `Engine::drawDebugOverlay(Renderer& r)`.
 
 ---
 
@@ -424,6 +428,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void endFrame()`**
     Finalizes the frame and sends the buffer to the display.
 
+- **`void setOffsetBypass(bool bypass)`**
+    Enables or disables camera offset bypass. When enabled, subsequent draw calls will ignore global x/y offsets (scrolling). This is typically managed automatically by `UILayout` when `fixedPosition` is enabled.
+
+- **`bool isOffsetBypassEnabled() const`**
+    Returns whether the offset bypass is currently active.
+
 - **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
     Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
     - **text**: The string to render (ASCII characters 32-126 are supported).
@@ -676,6 +686,10 @@ Abstract base class for all UI components. UI elements are automatically assigne
     Returns whether the element can receive focus/selection for navigation.
 - **`void setPosition(float newX, float newY)`**
     Updates the element's position.
+- **`void setFixedPosition(bool fixed)`**
+    Enables or disables fixed position for the element. When `true`, the element and its children (if it's a layout) will ignore `Camera2D` scroll and stay fixed at their logical screen coordinates.
+- **`bool isFixedPosition() const`**
+    Returns whether the element is in a fixed position.
 - **`virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
     Returns the size the element prefers to have (used by layouts).
 
@@ -758,6 +772,12 @@ Base class for UI containers that automatically organize child elements.
     Sets spacing between elements.
 - **`void clearElements()`**
     Removes all elements from the container.
+
+- **`void setFixedPosition(bool fixed)`**
+    Enables or disables fixed positioning for the layout. When `true`, the layout and all its children will ignore the `Camera2D` scroll/offset and remain at their specified screen coordinates.
+
+- **`bool isFixedPosition() const`**
+    Returns whether the layout is currently in fixed position mode.
 
 ---
 

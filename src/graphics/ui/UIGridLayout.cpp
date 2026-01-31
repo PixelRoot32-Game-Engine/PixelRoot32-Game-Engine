@@ -311,11 +311,22 @@ void UIGridLayout::update(unsigned long deltaTime) {
 void UIGridLayout::draw(pixelroot32::graphics::Renderer& renderer) {
     if (!isVisible) return;
     
+    // Save current bypass state and apply fixedPosition if enabled
+    bool oldBypass = renderer.isOffsetBypassEnabled();
+    if (fixedPosition) {
+        renderer.setOffsetBypass(true);
+    }
+    
     // Draw only visible elements (visibility already calculated in updateLayout)
     for (UIElement* elem : elements) {
         if (elem->isVisible) {
             elem->draw(renderer);
         }
+    }
+    
+    // Restore bypass state
+    if (fixedPosition) {
+        renderer.setOffsetBypass(oldBypass);
     }
 }
 

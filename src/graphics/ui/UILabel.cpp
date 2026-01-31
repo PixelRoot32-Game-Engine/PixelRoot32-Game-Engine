@@ -34,7 +34,19 @@ namespace pixelroot32::graphics::ui {
 
     void UILabel::draw(Renderer& renderer) {
         if (!isVisible) return;
+        
+        // Save current bypass state and apply fixedPosition if enabled
+        bool oldBypass = renderer.isOffsetBypassEnabled();
+        if (fixedPosition) {
+            renderer.setOffsetBypass(true);
+        }
+        
         renderer.drawText(text.c_str(), x, y, color, size);
+        
+        // Restore bypass state
+        if (fixedPosition) {
+            renderer.setOffsetBypass(oldBypass);
+        }
     }
 
     void UILabel::recalcSize() {

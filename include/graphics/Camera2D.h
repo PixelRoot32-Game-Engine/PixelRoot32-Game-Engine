@@ -26,6 +26,13 @@ public:
 
     void apply(Renderer& renderer) const;
 
+    /**
+     * @brief Sets the viewport size (usually logical resolution).
+     * @param width Viewport width.
+     * @param height Viewport height.
+     */
+    void setViewportSize(int width, int height);
+
 private:
     float x;
     float y;
