@@ -495,6 +495,26 @@ public:
     void drawTileMap(const TileMap4bpp& map, int originX, int originY);
 #endif
 
+    /**
+     * @brief Enables or disables ignoring global offsets for subsequent draw calls.
+     * 
+     * When bypass is enabled, xOffset and yOffset are ignored, and drawing
+     * occurs at absolute logical screen coordinates.
+     * 
+     * @param bypass True to ignore offsets, false to apply them (default).
+     */
+    void setOffsetBypass(bool bypass) {
+        offsetBypass = bypass;
+    }
+
+    /**
+     * @brief Checks if offset bypass is currently enabled.
+     * @return True if offsets are being ignored.
+     */
+    bool isOffsetBypassEnabled() const {
+        return offsetBypass;
+    }
+
 private:
     DrawSurface* drawer; ///< Pointer to the platform-specific implementation.
 
@@ -505,6 +525,8 @@ private:
 
     int xOffset = 0;
     int yOffset = 0;
+
+    bool offsetBypass = false; ///< When true, xOffset and yOffset are ignored
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
 

@@ -69,6 +69,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
 - **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
 - **2D Camera and Scrolling**: Camera with dead-zone (`Camera2D`) that follows a target horizontally (and optionally vertically)
+- **Fixed Position UI**: UI Layouts can ignore camera scrolling via the `fixedPosition` flag, ideal for HUDs and overlays.
 - **Particle System**: High-performance particles with memory pooling
 
 ### 🔊 Audio
@@ -236,17 +237,10 @@ The UI system enables building interfaces without manual position calculations:
 auto* layout = new UIVerticalLayout(10, 10, 220, 200);
 layout->setSpacing(5);
 layout->setPadding(10);
+layout->setFixedPosition(true); // Makes the UI stay fixed on screen (ignores camera scroll)
 
 // Add elements
-auto* title = new UILabel("MAIN MENU", Color::WHITE);
-auto* btn1 = new UIButton("Play", []() { /* callback */ });
-auto* btn2 = new UIButton("Options", []() { /* callback */ });
-
-layout->addElement(title);
-layout->addElement(btn1);
-layout->addElement(btn2);
-
-scene->addEntity(layout);
+// ...
 ```
 
 ### Resolution Scaling

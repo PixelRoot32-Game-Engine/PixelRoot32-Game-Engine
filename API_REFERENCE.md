@@ -428,6 +428,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void endFrame()`**
     Finalizes the frame and sends the buffer to the display.
 
+- **`void setOffsetBypass(bool bypass)`**
+    Enables or disables camera offset bypass. When enabled, subsequent draw calls will ignore global x/y offsets (scrolling). This is typically managed automatically by `UILayout` when `fixedPosition` is enabled.
+
+- **`bool isOffsetBypassEnabled() const`**
+    Returns whether the offset bypass is currently active.
+
 - **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
     Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
     - **text**: The string to render (ASCII characters 32-126 are supported).
@@ -762,6 +768,12 @@ Base class for UI containers that automatically organize child elements.
     Sets spacing between elements.
 - **`void clearElements()`**
     Removes all elements from the container.
+
+- **`void setFixedPosition(bool fixed)`**
+    Enables or disables fixed positioning for the layout. When `true`, the layout and all its children will ignore the `Camera2D` scroll/offset and remain at their specified screen coordinates.
+
+- **`bool isFixedPosition() const`**
+    Returns whether the layout is currently in fixed position mode.
 
 ---
 
