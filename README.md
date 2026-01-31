@@ -427,23 +427,19 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 
 ## Changelog
 
-### v0.4.1-dev
+### v0.6.0-dev
 
-- **Palette Readability & Alignment**: Reorganized all predefined palettes (`NES`, `GB`, `GBC`, `PICO8`, `PR32`) to align with the `Color.h` enum sequence.
-- **Descriptive Color Names**: Added descriptive color names (e.g., "Black", "White", "Navy") as comments next to each hex value in all palette arrays.
+- **Independent Resolution Scaling**: Logical/physical resolution decoupling to reduce memory usage and improve performance.
+- **Comprehensive Debug Overlay**: New debug display showing FPS, RAM usage, and estimated CPU load (supersedes FPS overlay).
+- **Standardized Display Rotation**: Unified rotation handling and fixed initialization order across all drivers.
+- **Fixed Position UI Support**: Added support for UI elements that ignore camera scrolling (ideal for HUDs).
 
-## v0.4.0-dev
+### v0.5.0-dev
 
-- **UI CheckBox Support**: Introduced the `UICheckBox` element for toggleable states.
-  - Added new `UICheckBox` class with checked state management and callback support (`onCheckChanged`).
-  - Extended `UIElementType` enum to include the `CHECKBOX` type.
-  - Updated all layout containers (`UIGridLayout`, `UIVerticalLayout`, `UIHorizontalLayout`) to support checkbox elements.
-- **Improved UI Text Precision**: Refactored `UILabel` and `UIButton` to use `FontManager` for pixel-perfect text dimensions.
-  - Replaced manual width calculations with `FontManager::textWidth`.
-  - Optimized `UILabel` by removing the dirty flag and implementing immediate dimension recalculation in `setText` and `centerX`.
-  - Added a safety fallback to default calculations when no custom font is loaded.
-- **Input & Stability**: Fixed button `stateChanged` reset logic in `InputManager` to prevent stale input states from affecting UI interactions.
-- **Documentation**: Updated API reference and user manuals to include `UICheckBox` usage and reflect the latest UI behavior.
+- **Generic Tilemap Support (2bpp & 4bpp)**: Refactored `TileMap` to support different sprite types and automatic palette context.
+- **Rendering & Scene Performance**: Replaced queue with fixed array for O(1) access, added viewport culling, and palette caching.
+- **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions for improved performance on ESP32.
+- **Optional FPS Overlay**: Introduced `PIXELROOT32_ENABLE_FPS_DISPLAY` for real-time FPS monitoring.
 
 See the [full changelog](CHANGELOG.md) for more details.
 
