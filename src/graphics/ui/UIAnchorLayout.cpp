@@ -149,6 +149,12 @@ void UIAnchorLayout::update(unsigned long deltaTime) {
 void UIAnchorLayout::draw(pixelroot32::graphics::Renderer& renderer) {
     if (!isVisible) return;
     
+    // Save current bypass state and apply fixedPosition if enabled
+    bool oldBypass = renderer.isOffsetBypassEnabled();
+    if (fixedPosition) {
+        renderer.setOffsetBypass(true);
+    }
+    
     // Auto-update screen size if logical resolution changed in renderer
     if (static_cast<float>(renderer.getLogicalWidth()) != screenWidth || 
         static_cast<float>(renderer.getLogicalHeight()) != screenHeight) {
@@ -161,6 +167,11 @@ void UIAnchorLayout::draw(pixelroot32::graphics::Renderer& renderer) {
         if (elem->isVisible) {
             elem->draw(renderer);
         }
+    }
+    
+    // Restore bypass state
+    if (fixedPosition) {
+        renderer.setOffsetBypass(oldBypass);
     }
 }
 

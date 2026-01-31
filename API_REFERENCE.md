@@ -686,6 +686,10 @@ Abstract base class for all UI components. UI elements are automatically assigne
     Returns whether the element can receive focus/selection for navigation.
 - **`void setPosition(float newX, float newY)`**
     Updates the element's position.
+- **`void setFixedPosition(bool fixed)`**
+    Enables or disables fixed position for the element. When `true`, the element and its children (if it's a layout) will ignore `Camera2D` scroll and stay fixed at their logical screen coordinates.
+- **`bool isFixedPosition() const`**
+    Returns whether the element is in a fixed position.
 - **`virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
     Returns the size the element prefers to have (used by layouts).
 

@@ -109,29 +109,12 @@ public:
      */
     void clearElements();
 
-    /**
-     * @brief Sets whether the layout is in a fixed position (HUD/Overlay).
-     * 
-     * If true, this layout and its children will ignore Camera2D scroll
-     * and stay fixed at their logical screen coordinates.
-     * 
-     * @param fixed True to enable fixed position.
-     */
-    void setFixedPosition(bool fixed) { fixedPosition = fixed; }
-
-    /**
-     * @brief Checks if the layout is in a fixed position.
-     * @return True if fixed position is enabled.
-     */
-    bool isFixedPosition() const { return fixedPosition; }
-
 protected:
     std::vector<UIElement*> elements;  ///< List of child elements
     float padding = 0.0f;              ///< Internal padding
     float spacing = 4.0f;              ///< Spacing between elements
     float scrollOffset = 0.0f;         ///< Current scroll offset
     bool enableScroll = false;         ///< Whether scrolling is enabled
-    bool fixedPosition = false;        ///< Whether to ignore Camera2D offsets
     ScrollBehavior scrollBehavior = ScrollBehavior::CLAMP; ///< Scroll behavior mode
 };
 

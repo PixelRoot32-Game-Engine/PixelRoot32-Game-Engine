@@ -82,6 +82,12 @@ namespace pixelroot32::graphics::ui {
     void UICheckBox::draw(Renderer& renderer) {
         if (!isVisible) return;
 
+        // Save current bypass state and apply fixedPosition if enabled
+        bool oldBypass = renderer.isOffsetBypassEnabled();
+        if (fixedPosition) {
+            renderer.setOffsetBypass(true);
+        }
+
         int intX = static_cast<int>(x);
         int intY = static_cast<int>(y);
         int intHeight = static_cast<int>(height);
@@ -117,6 +123,11 @@ namespace pixelroot32::graphics::ui {
         int textX = boxX + boxSize + 5;
         int textY = intY + (intHeight - (fontSize * 8)) / 2;
         renderer.drawText(label.c_str(), textX, textY, highlightColor, fontSize);
+
+        // Restore bypass state
+        if (fixedPosition) {
+            renderer.setOffsetBypass(oldBypass);
+        }
     }
 
 }
