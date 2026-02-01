@@ -159,9 +159,9 @@ void loop() {
 
 ### Local Documentation (Repository)
 
-- **[API Reference](API_REFERENCE.md)**: Complete class reference and usage examples
-- **[Audio Subsystem](AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: NES-style sound engine architecture
-- **[Style Guide](STYLE_GUIDE.md)**: Coding conventions and best practices
+- **[API Reference](docs/API_REFERENCE.md)**: Complete class reference and usage examples
+- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: NES-style sound engine architecture
+- **[Style Guide](docs/STYLE_GUIDE.md)**: Coding conventions and best practices
 - **[Contributing Guide](CONTRIBUTING.md)**: How to contribute to the project
 
 ### Quick Guides
@@ -365,7 +365,7 @@ build_flags =
     -DMAX_ENTITIES=64
 ```
 
-The compiler defines these before any `.cpp` is processed. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, your values are used (more render layers drawn, and on Arduino the entity queue capacity when built with `MAX_ENTITIES`). See [API Reference – Scene](API_REFERENCE.md#scene) for details.
+The compiler defines these before any `.cpp` is processed. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, your values are used (more render layers drawn, and on Arduino the entity queue capacity when built with `MAX_ENTITIES`). See [API Reference – Scene](docs/API_REFERENCE.md#scene) for details.
 
 ### Experimental Build Flags
 
@@ -449,7 +449,7 @@ See the [full changelog](CHANGELOG.md) for more details.
 
 Contributions are welcome! Please:
 
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](STYLE_GUIDE.md)
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
 2. Fork the repository
 3. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
 4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
@@ -475,6 +475,7 @@ This project is based on and derived from [ESP32-Game-Engine](https://github.com
 
 See the [LICENSE](LICENSE) file for the full license text.
 
+> ⚠️ The PixelRoot32 Game Engine name and logo are subject to the trademark policy. See [TRADEMARK.md](./TRADEMARK.md).
 ---
 
 ## 👏 Credits
