@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
   - Optimized scaling using LUTs and IRAM-cached functions for ESP32.
   - Updated SDL2 and TFT_eSPI drivers to support scaling.
   - Updated Scene, UI, and Physics systems to operate on logical resolution.
-  - Comprehensive documentation added in `README.md` and `RESOLUTION_SCALING.md`.
+  - Comprehensive documentation added in `README.md` and `docs/RESOLUTION_SCALING.md`.
 - **Comprehensive Debug Overlay**: Replaced the basic FPS overlay with a new debug display showing FPS, RAM usage, and estimated CPU load.
   - Metrics update every 16 frames to minimize performance impact.
   - Enabled via the new `PIXELROOT32_ENABLE_DEBUG_OVERLAY` flag (supersedes `PIXELROOT32_ENABLE_FPS_DISPLAY`).
@@ -38,7 +38,7 @@ All notable changes to this project will be documented in this file.
   - Optimized sprite bit access patterns and added internal sprite drawing methods to reduce code duplication.
 - **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) so they execute from internal RAM on ESP32, bypassing slower flash access for improved performance. Documentation updated to reflect these optimizations.
 - **Optional FPS Overlay**: Introduced build flag `PIXELROOT32_ENABLE_FPS_DISPLAY` to enable an on-screen FPS counter in the top-right corner. FPS is calculated by averaging frame times over a defined interval and updates every 8 frames to reduce CPU load. Refined FPS calculation and initialization for more stable readings.
-- **Documentation**: Documented how to override `MAX_LAYERS` and `MAX_ENTITIES` defaults via compiler flags in README.md and API_REFERENCE.md. `Scene.h` now provides default definitions only when not already defined, and `Scene.cpp` uses the `MAX_LAYERS` constant so user overrides are respected.
+- **Documentation**: Documented how to override `MAX_LAYERS` and `MAX_ENTITIES` defaults via compiler flags in README.md and docs/API_REFERENCE.md. `Scene.h` now provides default definitions only when not already defined, and `Scene.cpp` uses the `MAX_LAYERS` constant so user overrides are respected.
 
 ## v0.4.1-dev
 
