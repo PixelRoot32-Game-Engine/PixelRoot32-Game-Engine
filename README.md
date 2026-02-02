@@ -449,7 +449,7 @@ See the [full changelog](CHANGELOG.md) for more details.
 
 Contributions are welcome! Please:
 
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](docs/STYLE_GUIDE.md)
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](STYLE_GUIDE.md)
 2. Fork the repository
 3. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
 4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
