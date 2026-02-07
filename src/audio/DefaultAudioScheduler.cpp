@@ -45,6 +45,9 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
 
     processCommands();
 
+    // Advance music sequencer (Phase 3)
+    updateMusicSequencer(length);
+
     memset(stream, 0, length * sizeof(int16_t));
 
     for (int i = 0; i < length; ++i) {
@@ -78,10 +81,73 @@ void DefaultAudioScheduler::processCommands() {
                     channels[cmd.channelIndex].reset();
                 }
                 break;
+            case AudioCommandType::MUSIC_PLAY:
+                currentTrack = cmd.track;
+                currentNoteIndex = 0;
+                nextNoteSample = audioTimeSamples;
+                musicPlaying = true;
+                musicPaused = false;
+                break;
+            case AudioCommandType::MUSIC_STOP:
+                musicPlaying = false;
+                currentTrack = nullptr;
+                break;
+            case AudioCommandType::MUSIC_PAUSE:
+                musicPaused = true;
+                break;
+            case AudioCommandType::MUSIC_RESUME:
+                musicPaused = false;
+                break;
+            case AudioCommandType::MUSIC_SET_TEMPO:
+                tempoFactor = std::max(0.1f, cmd.tempoFactor);
+                break;
             default:
                 break;
         }
     }
+}
+
+void DefaultAudioScheduler::updateMusicSequencer(int /*length*/) {
+    if (!musicPlaying || musicPaused || !currentTrack) return;
+
+    while (musicPlaying && currentTrack && audioTimeSamples >= nextNoteSample) {
+        playCurrentNote();
+
+        // Calculate when the next note should play
+        const MusicNote& note = currentTrack->notes[currentNoteIndex];
+        uint64_t noteDurationSamples = (uint64_t)((note.duration / tempoFactor) * (float)sampleRate);
+        nextNoteSample += noteDurationSamples;
+
+        currentNoteIndex++;
+        if (currentNoteIndex >= currentTrack->count) {
+            if (currentTrack->loop) {
+                currentNoteIndex = 0;
+            } else {
+                musicPlaying = false;
+                currentTrack = nullptr;
+            }
+        }
+
+        // Safety: if we are too far behind, catch up
+        if (nextNoteSample < audioTimeSamples && musicPlaying) {
+             // Optional: handle extreme lag by skipping notes or just letting it run fast
+        }
+    }
+}
+
+void DefaultAudioScheduler::playCurrentNote() {
+    if (!currentTrack) return;
+    const MusicNote& note = currentTrack->notes[currentNoteIndex];
+    if (note.note == Note::Rest) return;
+
+    AudioEvent event;
+    event.type = currentTrack->channelType;
+    event.frequency = noteToFrequency(note.note, note.octave);
+    event.duration = note.duration / tempoFactor;
+    event.volume = note.volume;
+    event.duty = (event.type == WaveType::PULSE) ? currentTrack->duty : 0.5f;
+
+    executePlayEvent(event);
 }
 
 void DefaultAudioScheduler::executePlayEvent(const AudioEvent& event) {

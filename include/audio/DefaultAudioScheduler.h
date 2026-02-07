@@ -6,6 +6,7 @@
 
 #include "AudioScheduler.h"
 #include "AudioCommandQueue.h"
+#include "AudioMusicTypes.h"
 #include <atomic>
 
 namespace pixelroot32::audio {
@@ -38,8 +39,19 @@ namespace pixelroot32::audio {
         uint64_t audioTimeSamples = 0;
         bool running = false;
 
+        // Music Sequencer State (Phase 3)
+        const MusicTrack* currentTrack = nullptr;
+        size_t currentNoteIndex = 0;
+        uint64_t nextNoteSample = 0;
+        float tempoFactor = 1.0f;
+        bool musicPlaying = false;
+        bool musicPaused = false;
+
         void processCommands();
         void executePlayEvent(const AudioEvent& event);
+        void updateMusicSequencer(int length);
+        void playCurrentNote();
+        
         AudioChannel* findFreeChannel(WaveType type);
         int16_t generateSampleForChannel(AudioChannel& ch);
     };
