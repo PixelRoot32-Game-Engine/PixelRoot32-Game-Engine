@@ -555,22 +555,25 @@ void GeometryJumpScene::init() {
 
 ## 8. Current limitations and future extensions
 
-Current limitations (intentional to keep things simple):
+With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations were addressed, particularly regarding timing and stability.
 
-- No exact emulation of the NES APU.
-- Not implemented yet:
-  - Complex volume envelopes.
-  - Frequency sweeps (pitch slides).
-  - Advanced music features (patterns, tempo changes, multi-track songs).
-- Noise uses a simplified `rand()`-based approach instead of a precise LFSR.
+### 8.1 Resolved / Improved
+- **Sample-Accurate Timing**: The system now uses samples instead of `deltaTime` for all internal logic, eliminating jitter and drift.
+- **Decoupled Execution**: Audio logic is completely isolated from the game's frame rate, preventing audio stuttering during heavy CPU load.
+- **Music Tempo Control**: Added support for real-time tempo changes via `MUSIC_SET_TEMPO`.
+- **Simple Volume Envelopes**: Basic volume interpolation (linear fade) is now supported in the scheduler.
 
-Possible future improvements:
+### 8.2 Remaining Limitations
+- No exact cycle-accurate emulation of the NES APU.
+- **Noise Generator**: Still uses a simplified `rand()`-based approach instead of a precise deterministic LFSR.
+- **Pitch Sweeps**: Frequency slides (pitch slides) are not yet implemented.
+- **Complex Envelopes**: ADSR or complex multi-point envelopes are not supported (only linear interpolation).
 
-- Simple envelopes based on `targetVolume`.
-- More advanced music tooling on top of `MusicPlayer`.
-- Noise using a deterministic LFSR with configurable patterns.
-- High-level helpers such as:
-  - `playJumpSfx()`, `playHitSfx()`, `playCoinSfx()`.
+### 8.3 Future Extensions
+- **Deterministic LFSR**: Replace `rand()` with a proper 15-bit LFSR for authentic NES noise sounds.
+- **Frequency Sweeps**: Add `frequencyDelta` to the scheduler for pitch slides.
+- **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.
+- **Advanced Music Tooling**: Better support for patterns and multi-track sequencing in the `MusicPlayer`.
 
 ---
 

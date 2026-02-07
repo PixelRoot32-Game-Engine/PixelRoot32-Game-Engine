@@ -6,6 +6,7 @@
 
 #include "AudioTypes.h"
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 
 namespace pixelroot32::audio {
