@@ -52,6 +52,7 @@ namespace pixelroot32::audio {
             volume = 0.0f;
             remainingMs = 0;
             remainingSamples = 0;
+            noiseRegister = 1;
         }
     };
 

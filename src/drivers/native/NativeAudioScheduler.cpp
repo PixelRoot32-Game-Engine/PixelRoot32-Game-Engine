@@ -2,85 +2,106 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef ESP32
+#ifdef PLATFORM_NATIVE
 
-#include "drivers/esp32/ESP32AudioScheduler.h"
-#include <algorithm>
+#include "drivers/native/NativeAudioScheduler.h"
+#include "audio/AudioMusicTypes.h"
 #include <cstring>
+#include <cmath>
+#include <algorithm>
+#include <chrono>
 #include <cstdlib>
 
 namespace pixelroot32::audio {
 
-    ESP32AudioScheduler::ESP32AudioScheduler(int coreId, int priority)
-        : coreId(coreId), priority(priority) {
-    }
+    NativeAudioScheduler::NativeAudioScheduler(size_t ringBufferSize)
+        : rbCapacity(ringBufferSize) {
+        ringBuffer.resize(rbCapacity);
+        
+        channels[0].type = WaveType::PULSE;
+        channels[1].type = WaveType::PULSE;
+        channels[2].type = WaveType::TRIANGLE;
+        channels[3].type = WaveType::NOISE;
 
-    ESP32AudioScheduler::~ESP32AudioScheduler() {
-        stop();
-    }
-
-    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate) {
-        this->backend = backend;
-        this->sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) {
             channels[i].reset();
         }
-
-        // Initialize NES-like channel types
-        if (NUM_CHANNELS >= 4) {
-            channels[0].type = WaveType::PULSE;
-            channels[1].type = WaveType::PULSE;
-            channels[2].type = WaveType::TRIANGLE;
-            channels[3].type = WaveType::NOISE;
-        }
     }
 
-    void ESP32AudioScheduler::submitCommand(const AudioCommand& cmd) {
+    NativeAudioScheduler::~NativeAudioScheduler() {
+        stop();
+    }
+
+    void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate) {
+        this->sampleRate = sampleRate;
+    }
+
+    void NativeAudioScheduler::submitCommand(const AudioCommand& cmd) {
         commandQueue.enqueue(cmd);
     }
 
-    void ESP32AudioScheduler::start() {
+    void NativeAudioScheduler::start() {
         if (running) return;
         running = true;
-        // Note: Currently backends create their own task.
-        // If we wanted the scheduler to drive the backend, we would create a task here.
-        // For now, we'll let the backend drive generateSamples.
+        audioThread = std::thread(&NativeAudioScheduler::threadLoop, this);
     }
 
-    void ESP32AudioScheduler::stop() {
+    void NativeAudioScheduler::stop() {
+        if (!running) return;
         running = false;
-        if (taskHandle) {
-            vTaskDelete(taskHandle);
-            taskHandle = nullptr;
+        if (audioThread.joinable()) {
+            audioThread.join();
         }
     }
 
-    void ESP32AudioScheduler::generateSamples(int16_t* stream, int length) {
+    void NativeAudioScheduler::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
-        processCommands();
-        updateMusicSequencer(length);
-
-        memset(stream, 0, length * sizeof(int16_t));
-
-        for (int i = 0; i < NUM_CHANNELS; i++) {
-            if (!channels[i].enabled) continue;
-
-            for (int j = 0; j < length; j++) {
-                int16_t sample = generateSampleForChannel(channels[i]);
-                // Mix sample (simple additive mixing with master volume)
-                float mixed = (float)stream[j] + (float)sample * masterVolume;
-                // Clamp to 16-bit range
-                if (mixed > 32767.0f) mixed = 32767.0f;
-                if (mixed < -32768.0f) mixed = -32768.0f;
-                stream[j] = (int16_t)mixed;
-            }
+        size_t available = rbAvailableToRead();
+        if (available < (size_t)length) {
+            // Underflow - fill what we can and zero the rest
+            rbRead(stream, available);
+            memset(stream + available, 0, (length - available) * sizeof(int16_t));
+        } else {
+            rbRead(stream, length);
         }
-        
-        audioTimeSamples += length;
     }
 
-    void ESP32AudioScheduler::processCommands() {
+    void NativeAudioScheduler::threadLoop() {
+        const int CHUNK_SIZE = 128;
+        int16_t chunk[CHUNK_SIZE];
+
+        while (running) {
+            if (rbAvailableToWrite() >= CHUNK_SIZE) {
+                processCommands();
+                updateMusicSequencer(CHUNK_SIZE);
+
+                memset(chunk, 0, sizeof(chunk));
+
+                for (int c = 0; c < NUM_CHANNELS; c++) {
+                    if (!channels[c].enabled) continue;
+
+                    for (int i = 0; i < CHUNK_SIZE; i++) {
+                        int16_t sample = generateSampleForChannel(channels[c]);
+                        float mixed = (float)chunk[i] + (float)sample * masterVolume;
+                        
+                        if (mixed > 32767.0f) mixed = 32767.0f;
+                        if (mixed < -32768.0f) mixed = -32768.0f;
+                        
+                        chunk[i] = (int16_t)mixed;
+                    }
+                }
+
+                rbWrite(chunk, CHUNK_SIZE);
+                audioTimeSamples += CHUNK_SIZE;
+            } else {
+                // Buffer full, wait a bit
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+    }
+
+    void NativeAudioScheduler::processCommands() {
         AudioCommand cmd;
         while (commandQueue.dequeue(cmd)) {
             switch (cmd.type) {
@@ -123,7 +144,7 @@ namespace pixelroot32::audio {
         }
     }
 
-    void ESP32AudioScheduler::updateMusicSequencer(int /*length*/) {
+    void NativeAudioScheduler::updateMusicSequencer(int /*length*/) {
         if (!musicPlaying || musicPaused || !currentTrack) return;
 
         while (musicPlaying && currentTrack && audioTimeSamples >= nextNoteSample) {
@@ -145,7 +166,7 @@ namespace pixelroot32::audio {
         }
     }
 
-    void ESP32AudioScheduler::playCurrentNote() {
+    void NativeAudioScheduler::playCurrentNote() {
         if (!currentTrack) return;
         const MusicNote& note = currentTrack->notes[currentNoteIndex];
         if (note.note == Note::Rest) return;
@@ -160,7 +181,7 @@ namespace pixelroot32::audio {
         executePlayEvent(event);
     }
 
-    void ESP32AudioScheduler::executePlayEvent(const AudioEvent& event) {
+    void NativeAudioScheduler::executePlayEvent(const AudioEvent& event) {
         AudioChannel* ch = findFreeChannel(event.type);
         if (ch) {
             ch->enabled = true;
@@ -177,15 +198,13 @@ namespace pixelroot32::audio {
         }
     }
 
-    AudioChannel* ESP32AudioScheduler::findFreeChannel(WaveType type) {
+    AudioChannel* NativeAudioScheduler::findFreeChannel(WaveType type) {
         AudioChannel* candidate = nullptr;
         uint64_t minRemaining = 0xFFFFFFFFFFFFFFFFULL;
 
         for (int i = 0; i < NUM_CHANNELS; i++) {
             if (channels[i].type == type) {
                 if (!channels[i].enabled) return &channels[i];
-                
-                // Voice stealing: find the one that will finish soonest
                 if (channels[i].remainingSamples < minRemaining) {
                     minRemaining = channels[i].remainingSamples;
                     candidate = &channels[i];
@@ -195,17 +214,15 @@ namespace pixelroot32::audio {
         return candidate;
     }
 
-    int16_t ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+    int16_t NativeAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
         if (!ch.enabled) return 0;
 
         float sample = 0.0f;
-        
         switch (ch.type) {
             case WaveType::PULSE:
                 sample = (ch.phase < ch.dutyCycle) ? 1.0f : -1.0f;
                 break;
             case WaveType::TRIANGLE:
-                // NES-style triangle: rises -1 to 1, falls 1 to -1
                 if (ch.phase < 0.5f) {
                     sample = 4.0f * ch.phase - 1.0f;
                 } else {
@@ -213,7 +230,6 @@ namespace pixelroot32::audio {
                 }
                 break;
             case WaveType::NOISE:
-                // Update noise register only on phase wrap
                 if (ch.phase < ch.phaseIncrement) {
                     ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
                 }
@@ -240,10 +256,44 @@ namespace pixelroot32::audio {
             }
         }
 
-        // Use 12000.0f factor for mixing headroom as per reference
         return (int16_t)(sample * ch.volume * 12000.0f);
+    }
+
+    // Ring buffer implementation
+    size_t NativeAudioScheduler::rbAvailableToRead() const {
+        size_t r = rbReadPos.load(std::memory_order_acquire);
+        size_t w = rbWritePos.load(std::memory_order_acquire);
+        if (w >= r) return w - r;
+        return rbCapacity - (r - w);
+    }
+
+    size_t NativeAudioScheduler::rbAvailableToWrite() const {
+        size_t r = rbReadPos.load(std::memory_order_acquire);
+        size_t w = rbWritePos.load(std::memory_order_acquire);
+        size_t avail;
+        if (w >= r) avail = rbCapacity - (w - r);
+        else avail = r - w;
+        return avail > 0 ? avail - 1 : 0; // Keep one slot empty to distinguish full/empty
+    }
+
+    void NativeAudioScheduler::rbWrite(const int16_t* data, size_t count) {
+        size_t w = rbWritePos.load(std::memory_order_relaxed);
+        for (size_t i = 0; i < count; i++) {
+            ringBuffer[w] = data[i];
+            w = (w + 1) % rbCapacity;
+        }
+        rbWritePos.store(w, std::memory_order_release);
+    }
+
+    void NativeAudioScheduler::rbRead(int16_t* data, size_t count) {
+        size_t r = rbReadPos.load(std::memory_order_relaxed);
+        for (size_t i = 0; i < count; i++) {
+            data[i] = ringBuffer[r];
+            r = (r + 1) % rbCapacity;
+        }
+        rbReadPos.store(r, std::memory_order_release);
     }
 
 } // namespace pixelroot32::audio
 
-#endif // ESP32
+#endif // PLATFORM_NATIVE

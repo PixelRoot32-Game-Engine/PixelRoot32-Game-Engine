@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cmath>
 #include <algorithm>
+#include <cstdlib>
 
 namespace pixelroot32::audio {
 
@@ -50,20 +51,24 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
 
     memset(stream, 0, length * sizeof(int16_t));
 
-    for (int i = 0; i < length; ++i) {
-        int32_t mixedSample = 0;
+    for (int c = 0; c < NUM_CHANNELS; ++c) {
+        if (!channels[c].enabled) continue;
 
-        for (int c = 0; c < NUM_CHANNELS; ++c) {
-            mixedSample += generateSampleForChannel(channels[c]);
+        for (int i = 0; i < length; ++i) {
+            int16_t sample = generateSampleForChannel(channels[c]);
+            
+            // Mix sample (simple additive mixing with master volume)
+            float mixed = (float)stream[i] + (float)sample * masterVolume;
+            
+            // Hard clipper / Limiter
+            if (mixed > 32767.0f) mixed = 32767.0f;
+            if (mixed < -32768.0f) mixed = -32768.0f;
+
+            stream[i] = (int16_t)mixed;
         }
-
-        // Hard clipper / Limiter
-        if (mixedSample > 32767) mixedSample = 32767;
-        if (mixedSample < -32768) mixedSample = -32768;
-
-        stream[i] = (int16_t)mixedSample;
-        audioTimeSamples++;
     }
+    
+    audioTimeSamples += length;
 }
 
 void DefaultAudioScheduler::processCommands() {
@@ -239,7 +244,7 @@ int16_t DefaultAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
         ch.enabled = false;
     }
 
-    return (int16_t)(sample * ch.volume * masterVolume * 12000.0f);
+    return (int16_t)(sample * ch.volume * 12000.0f);
 }
 
 } // namespace pixelroot32::audio

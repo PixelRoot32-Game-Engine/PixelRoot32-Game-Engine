@@ -5,6 +5,8 @@
 #include "audio/AudioEngine.h"
 #ifdef ESP32
 #include "drivers/esp32/ESP32AudioScheduler.h"
+#elif defined(PLATFORM_NATIVE)
+#include "drivers/native/NativeAudioScheduler.h"
 #endif
 #include <cstring>
 #include <cmath>
@@ -16,6 +18,8 @@ namespace pixelroot32::audio {
         : config(config) {
 #ifdef ESP32
         scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler());
+#elif defined(PLATFORM_NATIVE)
+        scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
 #else
         scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
 #endif
