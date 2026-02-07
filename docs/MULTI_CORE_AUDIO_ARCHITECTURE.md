@@ -118,7 +118,7 @@ SDL2 mirrors this architecture using either:
 
 ---
 
-## Phase 1: Command Queue Foundation
+## Phase 1: Command Queue Foundation [x]
 
 ### Goals
 
@@ -170,7 +170,7 @@ struct AudioCommand {
 
 ---
 
-## Phase 2: AudioScheduler Abstraction
+## Phase 2: AudioScheduler Abstraction [x]
 
 ### Goals
 
@@ -211,7 +211,7 @@ public:
 
 ---
 
-## Phase 3: Music System Decoupling
+## Phase 3: Music System Decoupling [x]
 
 ### Goals
 
@@ -247,7 +247,7 @@ public:
 
 ---
 
-## Phase 4: Timing Isolation
+## Phase 4: Timing Isolation [x]
 
 ### Goals
 
@@ -262,7 +262,7 @@ public:
 
 ---
 
-## Phase 5: ESP32 Multi-Core Execution
+## Phase 5: ESP32 Multi-Core Execution [x]
 
 ### Goals
 
