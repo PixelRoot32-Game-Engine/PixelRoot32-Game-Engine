@@ -29,7 +29,7 @@ namespace pixelroot32::drivers::esp32 {
         i2s_driver_uninstall(I2S_NUM_0);
     }
 
-    void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine) {
+    void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) {
         this->engineInstance = engine;
 
         // I2S Configuration
@@ -67,15 +67,15 @@ namespace pixelroot32::drivers::esp32 {
             return;
         }
 
-        // Create audio task pinned to Core 0 (App usually runs on Core 1)
+        // Create audio task pinned to core specified by capabilities
         xTaskCreatePinnedToCore(
             audioTaskTrampoline,
             "AudioTask",
             4096,
             this,
-            configMAX_PRIORITIES - 1, // High priority
+            caps.audioPriority,
             &audioTaskHandle,
-            0
+            caps.audioCoreId
         );
     }
 
@@ -92,6 +92,9 @@ namespace pixelroot32::drivers::esp32 {
                 // Write to I2S (blocking if DMA is full)
                 // Note: sampleBuffer is int16_t, I2S expects bytes
                 i2s_write(I2S_NUM_0, sampleBuffer, BUFFER_SAMPLES * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
+                
+                // Yield to other tasks on Core 0
+                vTaskDelay(1);
             } else {
                 // Should not happen, but wait a bit to avoid watchdog
                 vTaskDelay(10 / portTICK_PERIOD_MS);

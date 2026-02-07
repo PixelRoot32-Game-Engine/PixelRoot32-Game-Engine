@@ -9,6 +9,9 @@
 #include "graphics/Color.h"
 #include <cstdio>
 #include <cstring>
+#ifdef ESP32
+#include <Arduino.h>
+#endif
 
 namespace pixelroot32::core {
 
@@ -17,7 +20,7 @@ namespace pixelroot32::core {
     using namespace pixelroot32::audio;
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig), musicPlayer(audioEngine) {
+        : renderer(displayConfig), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -30,7 +33,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
+        : renderer(displayConfig), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -43,7 +46,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
+        : renderer(displayConfig), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -91,6 +94,12 @@ namespace pixelroot32::core {
                 SDL_Delay(1);
             }
         #else 
+            static uint32_t lastHeartbeat = 0;
+            if (millis() - lastHeartbeat > 1000) {
+                Serial.println("[Engine] Heartbeat...");
+                lastHeartbeat = millis();
+            }
+
             update();
 
             // waitForDMA
@@ -100,6 +109,9 @@ namespace pixelroot32::core {
 
             // Present frame (TFT_eSPI)
             drawer->present();
+
+            // Yield to avoid starving Core 1 system tasks
+            vTaskDelay(1);
 
         #endif // PLATFORM_NATIVE
     }

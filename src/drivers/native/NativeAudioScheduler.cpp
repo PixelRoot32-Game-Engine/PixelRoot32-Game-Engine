@@ -32,9 +32,9 @@ namespace pixelroot32::audio {
         stop();
     }
 
-    void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate) {
-        this->sampleRate = sampleRate;
-    }
+    void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
+    this->sampleRate = sampleRate;
+}
 
     void NativeAudioScheduler::submitCommand(const AudioCommand& cmd) {
         commandQueue.enqueue(cmd);

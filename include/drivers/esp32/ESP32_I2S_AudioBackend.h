@@ -33,7 +33,7 @@ namespace pixelroot32::drivers::esp32 {
         ESP32_I2S_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate = 22050);
         virtual ~ESP32_I2S_AudioBackend();
 
-        void init(pixelroot32::audio::AudioEngine* engine) override;
+        void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) override;
         int getSampleRate() const override { return sampleRate; }
 
         // Internal task function

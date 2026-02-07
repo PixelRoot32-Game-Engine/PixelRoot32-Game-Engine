@@ -21,7 +21,7 @@ DefaultAudioScheduler::DefaultAudioScheduler() {
     }
 }
 
-void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate) {
+void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
     this->sampleRate = sampleRate;
 }
 

@@ -8,6 +8,7 @@
 #include "AudioTypes.h"
 #include "AudioScheduler.h"
 #include "DefaultAudioScheduler.h"
+#include "core/PlatformCapabilities.h"
 #include <cstdint>
 #include <memory>
 
@@ -21,7 +22,7 @@ namespace pixelroot32::audio {
      */
     class AudioEngine {
     public:
-        AudioEngine(const AudioConfig& config);
+        AudioEngine(const AudioConfig& config, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities());
         
         void init();
 
@@ -42,6 +43,7 @@ namespace pixelroot32::audio {
 
     private:
         AudioConfig config;
+        pixelroot32::core::PlatformCapabilities capabilities;
         std::unique_ptr<AudioScheduler> scheduler;
         
         float masterVolume = 1.0f; // Cached for getMasterVolume

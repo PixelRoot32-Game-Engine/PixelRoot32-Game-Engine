@@ -19,7 +19,7 @@ namespace pixelroot32::audio {
         stop();
     }
 
-    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate) {
+    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
         this->backend = backend;
         this->sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) {

@@ -14,10 +14,10 @@
 
 namespace pixelroot32::audio {
 
-    AudioEngine::AudioEngine(const AudioConfig& config) 
-        : config(config) {
+    AudioEngine::AudioEngine(const AudioConfig& config, const pixelroot32::core::PlatformCapabilities& caps) 
+        : config(config), capabilities(caps) {
 #ifdef ESP32
-        scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler());
+        scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler(caps.audioCoreId, caps.audioPriority));
 #elif defined(PLATFORM_NATIVE)
         scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
 #else
@@ -27,11 +27,11 @@ namespace pixelroot32::audio {
 
     void AudioEngine::init() {
         if (scheduler) {
-            scheduler->init(config.backend, config.sampleRate);
+            scheduler->init(config.backend, config.sampleRate, capabilities);
             scheduler->start();
         }
         if (config.backend) {
-            config.backend->init(this);
+            config.backend->init(this, capabilities);
         }
     }
 
@@ -70,7 +70,7 @@ namespace pixelroot32::audio {
 
     void AudioEngine::setScheduler(std::unique_ptr<AudioScheduler> newScheduler) {
         if (newScheduler) {
-            newScheduler->init(config.backend, config.sampleRate);
+            newScheduler->init(config.backend, config.sampleRate, capabilities);
             newScheduler->start();
             scheduler = std::move(newScheduler);
         }

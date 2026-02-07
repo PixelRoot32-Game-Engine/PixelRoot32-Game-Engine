@@ -22,7 +22,7 @@ namespace pixelroot32::audio {
     public:
         DefaultAudioScheduler();
 
-        void init(AudioBackend* backend, int sampleRate) override;
+        void init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& caps) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;

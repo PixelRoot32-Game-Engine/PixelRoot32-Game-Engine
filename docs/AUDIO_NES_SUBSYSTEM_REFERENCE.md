@@ -227,7 +227,15 @@ The `AudioScheduler` is the heart of the decoupled audio system. It:
 
 There are two main implementations:
 - **`NativeAudioScheduler`**: Used for SDL2. Runs in a dedicated high-priority thread.
-- **`ESP32AudioScheduler`**: Used for ESP32. Runs as a pinned FreeRTOS task on **Core 0**.
+- **`ESP32AudioScheduler`**: Used for ESP32. Runs as a pinned FreeRTOS task.
+
+#### 4.1.1 Platform-Agnostic Core Management
+
+The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` structure to detect hardware features at startup:
+
+- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop).
+- **Single-Core ESP32**: Audio task runs on **Core 0** with high priority, allowing the FreeRTOS scheduler to manage time-slicing.
+- **Native (SDL2)**: Uses a standard system thread.
 
 ### 4.2 Audio Backends
 Backends implement the abstract `AudioBackend` interface:
@@ -236,7 +244,7 @@ Backends implement the abstract `AudioBackend` interface:
 class AudioBackend {
 public:
     virtual ~AudioBackend() = default;
-    virtual void init(AudioEngine* engine) = 0;
+    virtual void init(AudioEngine* engine, const PlatformCapabilities& caps) = 0;
     virtual int getSampleRate() const = 0;
 };
 ```

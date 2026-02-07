@@ -25,7 +25,7 @@ namespace pixelroot32::audio {
         ESP32AudioScheduler(int coreId = 0, int priority = configMAX_PRIORITIES - 1);
         ~ESP32AudioScheduler();
 
-        void init(AudioBackend* backend, int sampleRate) override;
+        void init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& caps) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
