@@ -15,9 +15,9 @@ namespace pixelroot32::audio {
     AudioEngine::AudioEngine(const AudioConfig& config) 
         : config(config) {
 #ifdef ESP32
-        scheduler = std::make_unique<ESP32AudioScheduler>();
+        scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler());
 #else
-        scheduler = std::make_unique<DefaultAudioScheduler>();
+        scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
 #endif
     }
 
@@ -51,7 +51,9 @@ namespace pixelroot32::audio {
     }
 
     void AudioEngine::setMasterVolume(float volume) {
-        masterVolume = std::clamp(volume, 0.0f, 1.0f);
+        masterVolume = volume;
+        if (masterVolume > 1.0f) masterVolume = 1.0f;
+        if (masterVolume < 0.0f) masterVolume = 0.0f;
         AudioCommand cmd;
         cmd.type = AudioCommandType::SET_MASTER_VOLUME;
         cmd.volume = masterVolume;

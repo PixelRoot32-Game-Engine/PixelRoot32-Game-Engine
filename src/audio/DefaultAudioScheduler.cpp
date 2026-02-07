@@ -74,7 +74,9 @@ void DefaultAudioScheduler::processCommands() {
                 executePlayEvent(cmd.event);
                 break;
             case AudioCommandType::SET_MASTER_VOLUME:
-                masterVolume = std::clamp(cmd.volume, 0.0f, 1.0f);
+                masterVolume = cmd.volume;
+                if (masterVolume > 1.0f) masterVolume = 1.0f;
+                if (masterVolume < 0.0f) masterVolume = 0.0f;
                 break;
             case AudioCommandType::STOP_CHANNEL:
                 if (cmd.channelIndex < NUM_CHANNELS) {

@@ -24,6 +24,14 @@ namespace pixelroot32::audio {
         for (int i = 0; i < NUM_CHANNELS; i++) {
             channels[i].reset();
         }
+
+        // Initialize NES-like channel types
+        if (NUM_CHANNELS >= 4) {
+            channels[0].type = WaveType::PULSE;
+            channels[1].type = WaveType::PULSE;
+            channels[2].type = WaveType::TRIANGLE;
+            channels[3].type = WaveType::NOISE;
+        }
     }
 
     void ESP32AudioScheduler::submitCommand(const AudioCommand& cmd) {
@@ -62,7 +70,9 @@ namespace pixelroot32::audio {
                 // Mix sample (simple additive mixing with master volume)
                 float mixed = (float)stream[j] + (float)sample * masterVolume;
                 // Clamp to 16-bit range
-                stream[j] = (int16_t)std::clamp(mixed, -32768.0f, 32767.0f);
+                if (mixed > 32767.0f) mixed = 32767.0f;
+                if (mixed < -32768.0f) mixed = -32768.0f;
+                stream[j] = (int16_t)mixed;
             }
         }
         
@@ -77,7 +87,9 @@ namespace pixelroot32::audio {
                     executePlayEvent(cmd.event);
                     break;
                 case AudioCommandType::SET_MASTER_VOLUME:
-                    masterVolume = std::clamp(cmd.volume, 0.0f, 1.0f);
+                    masterVolume = cmd.volume;
+                    if (masterVolume > 1.0f) masterVolume = 1.0f;
+                    if (masterVolume < 0.0f) masterVolume = 0.0f;
                     break;
                 case AudioCommandType::STOP_CHANNEL:
                     if (cmd.channelIndex < NUM_CHANNELS) {
@@ -164,34 +176,47 @@ namespace pixelroot32::audio {
         }
     }
 
-    AudioChannel* ESP32AudioScheduler::findFreeChannel(WaveType /*type*/) {
+    AudioChannel* ESP32AudioScheduler::findFreeChannel(WaveType type) {
+        AudioChannel* candidate = nullptr;
+        uint64_t minRemaining = 0xFFFFFFFFFFFFFFFFULL;
+
         for (int i = 0; i < NUM_CHANNELS; i++) {
-            if (!channels[i].enabled) return &channels[i];
+            if (channels[i].type == type) {
+                if (!channels[i].enabled) return &channels[i];
+                
+                // Voice stealing: find the one that will finish soonest
+                if (channels[i].remainingSamples < minRemaining) {
+                    minRemaining = channels[i].remainingSamples;
+                    candidate = &channels[i];
+                }
+            }
         }
-        return &channels[0]; // Simple steal
+        return candidate;
     }
 
     int16_t ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+        if (!ch.enabled) return 0;
+
         float sample = 0.0f;
         
         switch (ch.type) {
-            case WaveType::SQUARE:
-                sample = (ch.phase < 0.5f) ? 1.0f : -1.0f;
-                break;
             case WaveType::PULSE:
                 sample = (ch.phase < ch.dutyCycle) ? 1.0f : -1.0f;
                 break;
             case WaveType::TRIANGLE:
-                sample = 4.0f * fabsf(ch.phase - 0.5f) - 1.0f;
-                break;
-            case WaveType::SAWTOOTH:
-                sample = 2.0f * ch.phase - 1.0f;
-                break;
-            case WaveType::SINE:
-                sample = sinf(ch.phase * 2.0f * M_PI);
+                // NES-style triangle: rises -1 to 1, falls 1 to -1
+                if (ch.phase < 0.5f) {
+                    sample = 4.0f * ch.phase - 1.0f;
+                } else {
+                    sample = 3.0f - 4.0f * ch.phase;
+                }
                 break;
             case WaveType::NOISE:
-                sample = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+                // Update noise register only on phase wrap
+                if (ch.phase < ch.phaseIncrement) {
+                    ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
+                }
+                sample = (ch.noiseRegister & 1) ? 1.0f : -1.0f;
                 break;
         }
 
@@ -214,7 +239,8 @@ namespace pixelroot32::audio {
             }
         }
 
-        return (int16_t)(sample * ch.volume * 32767.0f);
+        // Use 12000.0f factor for mixing headroom as per reference
+        return (int16_t)(sample * ch.volume * 12000.0f);
     }
 
 } // namespace pixelroot32::audio
