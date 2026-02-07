@@ -52,7 +52,7 @@ namespace pixelroot32::audio {
     };
 
     // --- Event Types ---
-
+    
     /**
      * @struct AudioEvent
      * @brief A fire-and-forget sound event triggered by the game.
@@ -63,6 +63,40 @@ namespace pixelroot32::audio {
         float duration; // seconds
         float volume;   // 0.0 - 1.0
         float duty;     // For pulse only
+    };
+
+    // --- Command Types (Phase 1) ---
+
+    enum class AudioCommandType : uint8_t {
+        PLAY_EVENT,
+        STOP_CHANNEL,
+        SET_MASTER_VOLUME,
+        MUSIC_PLAY,
+        MUSIC_STOP,
+        MUSIC_PAUSE,
+        MUSIC_RESUME,
+        MUSIC_SET_TEMPO
+    };
+
+    // Forward declaration for MusicTrack
+    struct MusicTrack;
+
+    /**
+     * @struct AudioCommand
+     * @brief Internal command to communicate between game and audio threads.
+     */
+    struct AudioCommand {
+        AudioCommandType type;
+        union {
+            AudioEvent event;
+            uint8_t channelIndex;
+            float volume;
+            const MusicTrack* track;
+            float tempoFactor;
+        };
+
+        // Default constructor to allow use in arrays/buffers
+        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0) {}
     };
 
 }

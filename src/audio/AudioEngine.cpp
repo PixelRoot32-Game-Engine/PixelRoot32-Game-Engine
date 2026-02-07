@@ -89,6 +89,9 @@ namespace pixelroot32::audio {
     void AudioEngine::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
+        // Phase 1: Process commands in the audio thread context
+        processCommands();
+
         // Clear buffer first
         memset(stream, 0, length * sizeof(int16_t));
 
@@ -109,6 +112,50 @@ namespace pixelroot32::audio {
     }
 
     void AudioEngine::playEvent(const AudioEvent& event) {
+        AudioCommand cmd;
+        cmd.type = AudioCommandType::PLAY_EVENT;
+        cmd.event = event;
+        commandQueue.enqueue(cmd);
+    }
+
+    void AudioEngine::setMasterVolume(float volume) {
+        AudioCommand cmd;
+        cmd.type = AudioCommandType::SET_MASTER_VOLUME;
+        cmd.volume = volume;
+        commandQueue.enqueue(cmd);
+    }
+
+    void AudioEngine::submitCommand(const AudioCommand& cmd) {
+        commandQueue.enqueue(cmd);
+    }
+
+    void AudioEngine::processCommands() {
+        AudioCommand cmd;
+        while (commandQueue.dequeue(cmd)) {
+            switch (cmd.type) {
+                case AudioCommandType::PLAY_EVENT:
+                    executePlayEvent(cmd.event);
+                    break;
+                case AudioCommandType::SET_MASTER_VOLUME:
+                    // Directly set master volume (it's a float, atomic-ish on most platforms, 
+                    // but here we are in the audio thread so it's safe to own it)
+                    if (cmd.volume < 0.0f) masterVolume = 0.0f;
+                    else if (cmd.volume > 1.0f) masterVolume = 1.0f;
+                    else masterVolume = cmd.volume;
+                    break;
+                case AudioCommandType::STOP_CHANNEL:
+                    if (cmd.channelIndex < NUM_CHANNELS) {
+                        channels[cmd.channelIndex].reset();
+                    }
+                    break;
+                // Other commands (MUSIC_*) will be handled in Phase 3
+                default:
+                    break;
+            }
+        }
+    }
+
+    void AudioEngine::executePlayEvent(const AudioEvent& event) {
         AudioChannel* ch = findFreeChannel(event.type);
         if (ch) {
             ch->enabled = true;
@@ -123,12 +170,6 @@ namespace pixelroot32::audio {
                 ch->dutyCycle = event.duty;
             }
         }
-    }
-
-    void AudioEngine::setMasterVolume(float volume) {
-        if (volume < 0.0f) volume = 0.0f;
-        if (volume > 1.0f) volume = 1.0f;
-        masterVolume = volume;
     }
 
     float AudioEngine::getMasterVolume() const {

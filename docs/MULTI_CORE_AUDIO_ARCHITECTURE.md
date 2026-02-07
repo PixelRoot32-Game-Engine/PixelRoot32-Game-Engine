@@ -47,7 +47,7 @@ Multi-core execution is treated as an optimization, not a dependency.
 ```
 
 ┌─────────────────────────────────────────────────────────────┐
-│                        CORE 1 (Main)                         │
+│                        CORE 1 (Main)                        │
 │                                                             │
 │  InputManager.update()                                      │
 │  SceneManager.update()                                      │
@@ -60,7 +60,7 @@ Multi-core execution is treated as an optimization, not a dependency.
 │ shared AudioChannel[]
 ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Audio Backend Task / Callback             │
+│                    Audio Backend Task / Callback            │
 │                                                             │
 │  AudioEngine.generateSamples()  ← reads & mutates channels  │
 │                                                             │
@@ -83,7 +83,7 @@ Problems:
 ```
 
 ┌─────────────────────────────────────────────────────────────┐
-│                        CORE 1 (Game)                         │
+│                        CORE 1 (Game)                        │
 │                                                             │
 │  InputManager.update()                                      │
 │  SceneManager.update()                                      │
@@ -98,15 +98,15 @@ Problems:
 │ AudioCommandQueue (SPSC, lock-free)
 ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                        CORE 0 (Audio)                        │
+│                        CORE 0 (Audio)                       │
 │                                                             │
 │  AudioScheduler                                             │
-│    - Owns all AudioChannel state                             │
+│    - Owns all AudioChannel state                            │
 │    - Owns music sequencing                                  │
-│    - Uses sample-based timing                                │
+│    - Uses sample-based timing                               │
 │                                                             │
 │  AudioBackend                                               │
-│    - I2S / DAC / SDL2 output                                 │
+│    - I2S / DAC / SDL2 output                                │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 
