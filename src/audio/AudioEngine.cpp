@@ -3,6 +3,9 @@
  * Licensed under the MIT License
  */
 #include "audio/AudioEngine.h"
+#ifdef ESP32
+#include "drivers/esp32/ESP32AudioScheduler.h"
+#endif
 #include <cstring>
 #include <cmath>
 #include <algorithm>
@@ -10,7 +13,12 @@
 namespace pixelroot32::audio {
 
     AudioEngine::AudioEngine(const AudioConfig& config) 
-        : config(config), scheduler(std::make_unique<DefaultAudioScheduler>()) {
+        : config(config) {
+#ifdef ESP32
+        scheduler = std::make_unique<ESP32AudioScheduler>();
+#else
+        scheduler = std::make_unique<DefaultAudioScheduler>();
+#endif
     }
 
     void AudioEngine::init() {
