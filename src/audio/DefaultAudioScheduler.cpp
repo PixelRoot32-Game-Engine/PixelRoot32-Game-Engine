@@ -157,7 +157,13 @@ void DefaultAudioScheduler::executePlayEvent(const AudioEvent& event) {
         ch->frequency = event.frequency;
         ch->phase = 0.0f;
         ch->phaseIncrement = event.frequency / (float)sampleRate;
+        
+        // Phase 4: Volume interpolation setup
+        // For a simple play event, we start at volume and stay there
+        // or we could implement a quick fade-in to avoid clicks.
         ch->volume = event.volume;
+        ch->targetVolume = event.volume;
+        ch->volumeDelta = 0.0f;
         
         // Convert seconds to samples
         ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
@@ -213,6 +219,17 @@ int16_t DefaultAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
 
     ch.phase += ch.phaseIncrement;
     if (ch.phase >= 1.0f) ch.phase -= 1.0f;
+
+    // Phase 4: Volume interpolation
+    if (ch.volumeDelta != 0.0f) {
+        ch.volume += ch.volumeDelta;
+        // Check if we reached target
+        if ((ch.volumeDelta > 0.0f && ch.volume >= ch.targetVolume) ||
+            (ch.volumeDelta < 0.0f && ch.volume <= ch.targetVolume)) {
+            ch.volume = ch.targetVolume;
+            ch.volumeDelta = 0.0f;
+        }
+    }
 
     if (ch.remainingSamples > 0) {
         ch.remainingSamples--;

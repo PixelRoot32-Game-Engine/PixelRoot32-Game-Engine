@@ -33,7 +33,8 @@ namespace pixelroot32::audio {
 
         // Envelope / Volume
         float volume = 0.0f;       // Current volume [0.0 - 1.0]
-        float targetVolume = 0.0f; // For envelopes (not fully implemented in Phase 2)
+        float targetVolume = 0.0f; // Target volume for interpolation
+        float volumeDelta = 0.0f;  // Volume change per sample
         
         // Wave specific parameters
         float dutyCycle = 0.5f;    // For Pulse wave [0.0 - 1.0]
