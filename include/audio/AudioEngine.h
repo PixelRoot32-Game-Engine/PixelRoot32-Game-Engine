@@ -25,12 +25,6 @@ namespace pixelroot32::audio {
         
         void init();
 
-        /**
-         * @brief Updates the audio state based on game time.
-         * @deprecated In Phase 2, audio timing is sample-based and managed by the scheduler.
-         */
-        void update(unsigned long deltaTime);
-
         void generateSamples(int16_t* stream, int length);
 
         void playEvent(const AudioEvent& event);

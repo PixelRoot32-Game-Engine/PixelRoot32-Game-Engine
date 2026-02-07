@@ -123,8 +123,6 @@ namespace pixelroot32::core {
         inputManager.update(deltaTime);
     #endif
         sceneManager.update(deltaTime);
-        audioEngine.update(deltaTime);
-        musicPlayer.update(deltaTime);
     }
 
     void Engine::draw() {

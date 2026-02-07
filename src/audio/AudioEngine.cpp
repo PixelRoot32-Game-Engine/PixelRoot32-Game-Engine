@@ -35,12 +35,6 @@ namespace pixelroot32::audio {
         }
     }
 
-    void AudioEngine::update(unsigned long deltaTime) {
-        // In Phase 2, this is deprecated. 
-        // Timing is handled by the scheduler in generateSamples.
-        (void)deltaTime;
-    }
-
     void AudioEngine::generateSamples(int16_t* stream, int length) {
         if (scheduler) {
             scheduler->generateSamples(stream, length);

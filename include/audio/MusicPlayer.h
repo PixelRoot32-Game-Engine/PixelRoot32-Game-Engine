@@ -44,12 +44,6 @@ public:
     void resume();
 
     /**
-     * @brief Updates the player state.
-     * @deprecated In Phase 3, sequencing is handled by the AudioScheduler.
-     */
-    void update(unsigned long deltaTime);
-
-    /**
      * @brief Checks if a track is currently playing.
      * @return true if playing, false otherwise.
      */

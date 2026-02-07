@@ -50,10 +50,6 @@ void MusicPlayer::resume() {
     }
 }
 
-void MusicPlayer::update(unsigned long /*deltaTime*/) {
-    // Deprecated in Phase 3. Sequencing is handled by AudioScheduler.
-}
-
 bool MusicPlayer::isPlaying() const {
     return playing;
 }

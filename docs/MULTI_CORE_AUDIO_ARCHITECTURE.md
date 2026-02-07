@@ -287,9 +287,9 @@ Fallback:
 
 ---
 
-## Phase 6: SDL2 Parity and Fallback Modes
+## Phase 6: SDL2 Parity and Fallback Modes [x]
 
-### SDL2 Execution Modes
+### SDL2 Execution Modes [x]
 
 1. Threaded AudioScheduler (recommended for parity testing)
 2. Callback-integrated scheduler (minimal change fallback)
