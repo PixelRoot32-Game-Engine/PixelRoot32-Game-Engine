@@ -41,13 +41,16 @@ namespace pixelroot32::audio {
 
         // Duration control
         unsigned long durationMs = 0;
-        unsigned long remainingMs = 0;
+        unsigned long remainingMs = 0; // Deprecated in Phase 2
+        
+        uint64_t remainingSamples = 0; // Sample-accurate duration
 
         void reset() {
             enabled = false;
             phase = 0.0f;
             volume = 0.0f;
             remainingMs = 0;
+            remainingSamples = 0;
         }
     };
 
