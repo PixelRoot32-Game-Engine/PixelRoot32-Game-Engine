@@ -20,7 +20,7 @@ namespace pixelroot32::drivers::native {
         SDL2_AudioBackend(int sampleRate = 22050, int bufferSize = 1024);
         virtual ~SDL2_AudioBackend();
 
-        void init(pixelroot32::audio::AudioEngine* engine) override;
+        void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) override;
         int getSampleRate() const override { return sampleRate; }
 
         // Internal callback for SDL

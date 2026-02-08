@@ -279,12 +279,14 @@ pr32::graphics::DisplayConfig displayConfig(
 | `RES_128x128` | 128x128 | 240x240 | ~72% | +50-100% |
 
 > [!IMPORTANT]
+>
 > ### Final FPS Analysis
+>
 > It is very important to understand that at 240x240 physical pixels, your maximum limit is **~14 FPS** due to the SPI bus speed (40MHz).
-> 
+>
 > - **128x128 physical pixels**: You send 16k pixels → **~43 FPS**.
 > - **240x240 physical pixels**: You send 57k pixels (3.5 times more) → The bus takes 3.5 times longer to transmit, dropping to **~12-14 FPS**.
-> 
+>
 > Even if you render internally at 128x128 (logical), the system must ultimately send 57,600 pixels to the physical display to fill it. There is no way to bypass this physical limit unless a smaller display or a faster bus is used.
 
 ---
@@ -412,20 +414,24 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 ### Planned Features
 
 - 📟 **Driver: u8g2 Support** - Support for monochrome OLEDs (SSD1306, SH1106)
-- 🗺️ **TileMap Editor** – Coming soon.
-- 🎵 **Music Compiler** - Convert tracker formats (FTM/MML/MIDI) to C++ structures
-- 🔊 **SFX Manager** - Fire-and-forget system with channel management
-- 💾 **Persistence (Save/Load)** - Abstract key-value storage (NVS on ESP32)
+- 🗺️ **TileMap Editor** - A specialized tool to design multi-layer environments and tilesets with direct C++ export optimized for ESP32 hardware.
+- 🎵 **Music Editor** - A built-in mini DAW to create SFX and music for PixelRoot32 games with direct export to engine-compatible formats.
+- **Persistence (Save/Load)** - Abstract key-value storage (NVS on ESP32)
 - ⚡ **Spatial Partitioning** - Uniform Grid for collision optimization
 
 ### Completed Features ✅
 
 - ✅ **Native Bitmap Font System** - Font system based on 1bpp sprites
 - ✅ **UI Layout System** - Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding)
+- ✅ **Decoupled Audio Architecture** - Multi-core (ESP32) and multi-threaded (Native) sample-accurate audio engine with NES-like channels.
 
 ---
 
 ## Changelog
+
+### v0.7.0-dev
+
+- **Decoupled Multi-Core Audio**: New audio architecture that runs on Core 0 (ESP32) or a dedicated thread (Native), providing sample-accurate timing and zero-jitter playback.
 
 ### v0.6.0-dev
 
@@ -488,7 +494,7 @@ Special thanks to **nbourre** for the original ESP32-Game-Engine.
 
 ## 🔗 Useful Links
 
-- **📖 Official Documentation**: [pixelroot32-game-engine.github.io](https://pixelroot32-game-engine.github.io)
+- **📖 Official Documentation**: [docs.pixelroot32.org](https://docs.pixelroot32.org)
 - **Main Repository**: [PixelRoot32-Game-Engine](https://github.com/Gperez88/PixelRoot32-Game-Engine)
 - **Examples and Samples**: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
 - **Sprite Compiler**: [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)

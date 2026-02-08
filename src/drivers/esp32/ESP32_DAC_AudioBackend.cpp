@@ -29,7 +29,7 @@ namespace pixelroot32::drivers::esp32 {
         // No specific driver uninstall needed for simple dacWrite
     }
 
-    void ESP32_DAC_AudioBackend::init(pixelroot32::audio::AudioEngine* engine) {
+    void ESP32_DAC_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) {
         this->engineInstance = engine;
 
         // Ensure pin is valid for DAC (25 or 26)
@@ -46,16 +46,17 @@ namespace pixelroot32::drivers::esp32 {
         }
         dac_output_enable(dacChannel);
 
-        // Create audio task pinned to Core 0
+        // Create audio task pinned to core specified by capabilities
         xTaskCreatePinnedToCore(
             audioTaskTrampoline,
             "DACAudioTask",
             4096,
             this,
-            configMAX_PRIORITIES - 1, // High priority
+            caps.audioPriority,
             &audioTaskHandle,
-            0
+            caps.audioCoreId
         );
+        Serial.printf("[ESP32_DAC_AudioBackend] Task created on Core %d with Priority %d\n", caps.audioCoreId, caps.audioPriority);
     }
 
     void ESP32_DAC_AudioBackend::audioTaskLoop() {
@@ -79,6 +80,8 @@ namespace pixelroot32::drivers::esp32 {
 
                     dac_output_voltage(dacChannel, dacValue);
                 }
+                // Yield to other tasks after processing a buffer
+                vTaskDelay(1); 
                 vTaskDelayUntil(&lastWakeTime, bufferTicks);
             } else {
                 vTaskDelay(10 / portTICK_PERIOD_MS);

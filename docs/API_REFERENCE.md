@@ -59,6 +59,22 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
+- **`const PlatformCapabilities& getCapabilities() const`**
+    Returns the detected hardware capabilities for the current platform.
+
+### PlatformCapabilities (Struct)
+
+A structure that holds detected hardware capabilities, used to optimize task pinning and threading.
+
+- **`bool hasDualCore`**: True if the hardware has more than one CPU core.
+- **`int coreCount`**: Total number of CPU cores detected.
+- **`int audioCoreId`**: Recommended CPU core for audio tasks.
+- **`int mainCoreId`**: Recommended CPU core for the main game loop.
+- **`int audioPriority`**: Recommended priority for audio tasks.
+
+Static Methods:
+- **`static PlatformCapabilities detect()`**: Automatically detects hardware capabilities based on the platform and configuration (e.g., ESP32 SDK settings).
+
 #### Optional: Debug Statistics Overlay (build flag)
 
 When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, the engine draws a technical overlay with real-time metrics.

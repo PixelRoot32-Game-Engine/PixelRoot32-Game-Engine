@@ -32,7 +32,7 @@ namespace pixelroot32::drivers::esp32 {
         ESP32_DAC_AudioBackend(int dacPin = 25, int sampleRate = 22050);
         virtual ~ESP32_DAC_AudioBackend();
 
-        void init(pixelroot32::audio::AudioEngine* engine) override;
+        void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) override;
         int getSampleRate() const override { return sampleRate; }
 
         // Internal task function

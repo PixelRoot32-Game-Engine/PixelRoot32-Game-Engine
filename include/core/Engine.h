@@ -11,6 +11,7 @@
 #include "audio/AudioConfig.h"
 #include "audio/AudioEngine.h"
 #include "audio/MusicPlayer.h"
+#include "core/PlatformCapabilities.h"
 
 namespace pixelroot32::core {
 
@@ -114,10 +115,17 @@ public:
      */
     pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
 
+    /**
+     * @brief Gets the capabilities of the current hardware platform.
+     * @return Reference to the PlatformCapabilities.
+     */
+    const PlatformCapabilities& getPlatformCapabilities() const { return capabilities; }
+
 private:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
     pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
-    pixelroot32::input::InputManager inputManager; ///< Manages input device state and events.
+    pixelroot32::input::InputManager inputManager; ///< Manages user input.
+    PlatformCapabilities capabilities;             ///< Hardware capabilities of the current platform.
     pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
     pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
 

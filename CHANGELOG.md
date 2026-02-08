@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.7.0-dev
+
+- **Decoupled Multi-Core Audio Architecture**:
+  - Moved audio generation and sequencing to **Core 0** (ESP32) and dedicated system threads (Native/PC).
+  - Implemented **sample-accurate timing**, replacing frame-based `deltaTime` updates for perfect music and SFX synchronization.
+  - Introduced `AudioScheduler` (Native, ESP32, Default) to own audio state, timing, and sequencing logic.
+  - Added a lock-free **Single Producer / Single Consumer (SPSC)** `AudioCommandQueue` for thread-safe communication between the game loop and the audio core.
+  - Refactored `AudioEngine` and `MusicPlayer` into "thin clients" that act as command producers.
+  - Removed obsolete `update(deltaTime)` methods from audio classes, simplifying the game loop.
+  - Achieved full SDL2 parity with ESP32 multi-core behavior through background thread isolation.
+  - Comprehensive documentation updates in `AUDIO_NES_SUBSYSTEM_REFERENCE.md` and official engine docs.
+
 ## v0.6.0-dev
 
 - **Independent Resolution Scaling**: Introduced logical/physical resolution decoupling to reduce memory usage and improve performance.

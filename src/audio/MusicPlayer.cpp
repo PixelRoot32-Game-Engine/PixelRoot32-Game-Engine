@@ -3,98 +3,51 @@
  * Licensed under the MIT License
  */
 #include "audio/MusicPlayer.h"
-#include <cmath>
+#include <algorithm>
 
 namespace pixelroot32::audio {
 
 MusicPlayer::MusicPlayer(AudioEngine& engine) 
-    : engine(engine), currentTrack(nullptr), currentNoteIndex(0), 
-      noteTimer(0.0f), tempoFactor(1.0f), playing(false), paused(false) {}
+    : engine(engine), currentTrack(nullptr), tempoFactor(1.0f), 
+      playing(false), paused(false) {}
 
 void MusicPlayer::play(const MusicTrack& track) {
     currentTrack = &track;
-    currentNoteIndex = 0;
-    noteTimer = 0.0f;
     playing = true;
     paused = false;
     
-    // Play the first note immediately
-    playCurrentNote();
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_PLAY;
+    cmd.track = &track;
+    engine.submitCommand(cmd);
 }
 
 void MusicPlayer::stop() {
     playing = false;
     paused = false;
     currentTrack = nullptr;
-    currentNoteIndex = 0;
-    // Note: This stops the sequencer, but the last played note 
-    // will continue until its duration expires (AudioEvent behavior).
+
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_STOP;
+    engine.submitCommand(cmd);
 }
 
 void MusicPlayer::pause() {
-    if (playing) paused = true;
+    if (playing) {
+        paused = true;
+        AudioCommand cmd;
+        cmd.type = AudioCommandType::MUSIC_PAUSE;
+        engine.submitCommand(cmd);
+    }
 }
 
 void MusicPlayer::resume() {
-    if (playing && paused) paused = false;
-}
-
-void MusicPlayer::update(unsigned long deltaTime) {
-    if (!playing || paused || !currentTrack) return;
-
-    // Convert ms to seconds with tempo scaling (Optimized: multiplication only)
-    float dt = static_cast<float>(deltaTime) * 0.001f * tempoFactor;
-    noteTimer += dt;
-
-    bool noteChanged = false;
-    
-    // Handle note transitions
-    // Use a while loop to handle cases where deltaTime > note duration (lag)
-    while (playing && currentTrack && noteTimer >= currentTrack->notes[currentNoteIndex].duration) {
-        noteTimer -= currentTrack->notes[currentNoteIndex].duration;
-        currentNoteIndex++;
-        noteChanged = true;
-
-        if (currentNoteIndex >= currentTrack->count) {
-            if (currentTrack->loop) {
-                currentNoteIndex = 0;
-            } else {
-                playing = false;
-                currentTrack = nullptr;
-                return; // Playback finished
-            }
-        }
+    if (playing && paused) {
+        paused = false;
+        AudioCommand cmd;
+        cmd.type = AudioCommandType::MUSIC_RESUME;
+        engine.submitCommand(cmd);
     }
-    
-    if (noteChanged && playing) {
-        playCurrentNote();
-    }
-}
-
-void MusicPlayer::playCurrentNote() {
-    if (!currentTrack) return;
-    
-    const MusicNote& note = currentTrack->notes[currentNoteIndex];
-    
-    // Check for Rest (Silence)
-    if (note.note == Note::Rest) {
-        // Do nothing, just wait for duration to pass in update()
-        return;
-    }
-
-    AudioEvent event;
-    event.type = currentTrack->channelType;
-    event.frequency = noteToFrequency(note.note, note.octave);
-    event.duration = note.duration;
-    event.volume = note.volume;
-    
-    if (event.type == WaveType::PULSE) {
-        event.duty = currentTrack->duty;
-    } else {
-        event.duty = 0.5f;
-    }
-
-    engine.playEvent(event);
 }
 
 bool MusicPlayer::isPlaying() const {
@@ -102,9 +55,11 @@ bool MusicPlayer::isPlaying() const {
 }
 
 void MusicPlayer::setTempoFactor(float factor) {
-    if (factor > 0.0f) {
-        tempoFactor = factor;
-    }
+    tempoFactor = std::max(0.1f, factor);
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_SET_TEMPO;
+    cmd.tempoFactor = tempoFactor;
+    engine.submitCommand(cmd);
 }
 
 float MusicPlayer::getTempoFactor() const {
