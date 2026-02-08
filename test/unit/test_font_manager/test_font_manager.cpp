@@ -1,114 +1,30 @@
 /**
  * @file test_font_manager.cpp
  * @brief Unit tests for graphics/FontManager module
- * @version 1.0
+ * @version 1.1
  * @date 2026-02-08
  * 
- * Tests for FontManager including:
- * - Text width calculation
- * - Glyph index lookup
- * - Character support checking
+ * Tests for FontManager using real classes.
  */
 
 #include <unity.h>
 #include <cstdint>
 #include <cstddef>
 #include "../../test_config.h"
-
-// Mock Font structure
-namespace pixelroot32 {
-namespace graphics {
-
-struct Font {
-    uint8_t glyphWidth;
-    uint8_t glyphHeight;
-    uint8_t spacing;
-    uint8_t firstChar;
-    uint8_t lastChar;
-    const uint8_t* glyphs;
-};
-
-class FontManager {
-public:
-    static const Font* defaultFont;
-    
-    static void setDefaultFont(const Font* font) {
-        defaultFont = font;
-    }
-    
-    static const Font* getDefaultFont() {
-        return defaultFont;
-    }
-    
-    static int16_t textWidth(const Font* font, const char* text, uint8_t size) {
-        if (!text || !*text) {
-            return 0;
-        }
-        
-        const Font* activeFont = font ? font : defaultFont;
-        if (!activeFont || !activeFont->glyphs) {
-            return 0;
-        }
-        
-        int16_t width = 0;
-        const char* p = text;
-        
-        while (*p) {
-            if (isCharSupported(*p, activeFont)) {
-                width += (activeFont->glyphWidth + activeFont->spacing) * size;
-            } else {
-                width += (activeFont->glyphWidth + activeFont->spacing) * size;
-            }
-            p++;
-        }
-        
-        if (width > 0) {
-            width -= activeFont->spacing * size;
-        }
-        
-        return width;
-    }
-    
-    static uint8_t getGlyphIndex(char c, const Font* font) {
-        const Font* activeFont = font ? font : defaultFont;
-        
-        if (!activeFont) {
-            return 255;
-        }
-        
-        uint8_t charCode = static_cast<uint8_t>(c);
-        
-        if (charCode < activeFont->firstChar || charCode > activeFont->lastChar) {
-            return 255;
-        }
-        
-        return charCode - activeFont->firstChar;
-    }
-    
-    static bool isCharSupported(char c, const Font* font) {
-        const Font* activeFont = font ? font : defaultFont;
-        
-        if (!activeFont) {
-            return false;
-        }
-        
-        uint8_t charCode = static_cast<uint8_t>(c);
-        return (charCode >= activeFont->firstChar && charCode <= activeFont->lastChar);
-    }
-};
-
-// Initialize static member
-const Font* FontManager::defaultFont = nullptr;
-
-}
-}
+#include "graphics/FontManager.h"
+#include "graphics/Renderer.h"
 
 using namespace pixelroot32::graphics;
 
+// Mock Sprite data
+static const uint16_t mockSpriteData[] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
+static const Sprite mockGlyphs[] = {
+    {mockSpriteData, 5, 7}
+};
+
 // Test font data
-static const uint8_t testFontData[] = {0x00, 0x01, 0x02};
-static const Font testFont = {5, 7, 1, 32, 126, testFontData};  // 5x7 font, spacing 1, chars 32-126
-static const Font emptyFont = {0, 0, 0, 0, 0, nullptr};
+static const Font testFont = {mockGlyphs, 32, 126, 5, 7, 1, 8};  // 5x7 font, spacing 1, chars 32-126
+static const Font emptyFont = {nullptr, 0, 0, 0, 0, 0, 0};
 
 void setUp(void) {
     test_setup();
@@ -167,7 +83,7 @@ void test_font_manager_text_width_multiple_chars(void) {
 }
 
 void test_font_manager_text_width_size_2(void) {
-    // "A" at size 2: 5*2 + 1*2 - 1*2 = 10
+    // "A" at size 2: (5*2 + 1*2) - 1*2 = 10
     int16_t width = FontManager::textWidth(&testFont, "A", 2);
     TEST_ASSERT_EQUAL_INT(10, width);
 }
@@ -185,7 +101,7 @@ void test_font_manager_text_width_no_font(void) {
 }
 
 void test_font_manager_text_width_empty_glyph(void) {
-    Font empty = {5, 7, 1, 32, 126, nullptr};
+    Font empty = {nullptr, 32, 126, 5, 7, 1, 8};
     int16_t width = FontManager::textWidth(&empty, "A", 1);
     TEST_ASSERT_EQUAL_INT(0, width);
 }
@@ -290,12 +206,10 @@ int main(int argc, char **argv) {
     
     UNITY_BEGIN();
     
-    // Default font tests
     RUN_TEST(test_font_manager_set_default_font);
     RUN_TEST(test_font_manager_get_default_null);
     RUN_TEST(test_font_manager_change_default);
     
-    // textWidth tests
     RUN_TEST(test_font_manager_text_width_empty_string);
     RUN_TEST(test_font_manager_text_width_null_string);
     RUN_TEST(test_font_manager_text_width_single_char);
@@ -305,7 +219,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_text_width_no_font);
     RUN_TEST(test_font_manager_text_width_empty_glyph);
     
-    // getGlyphIndex tests
     RUN_TEST(test_font_manager_get_glyph_index_valid);
     RUN_TEST(test_font_manager_get_glyph_index_space);
     RUN_TEST(test_font_manager_get_glyph_index_invalid_low);
@@ -313,7 +226,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_get_glyph_index_no_font);
     RUN_TEST(test_font_manager_get_glyph_index_uses_default);
     
-    // isCharSupported tests
     RUN_TEST(test_font_manager_is_char_supported_true);
     RUN_TEST(test_font_manager_is_char_supported_space);
     RUN_TEST(test_font_manager_is_char_supported_tilde);
@@ -322,7 +234,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_is_char_supported_no_font);
     RUN_TEST(test_font_manager_is_char_supported_uses_default);
     
-    // Special character tests
     RUN_TEST(test_font_manager_text_width_with_spaces);
     RUN_TEST(test_font_manager_text_width_long_string);
     

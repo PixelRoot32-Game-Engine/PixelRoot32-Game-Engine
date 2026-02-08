@@ -13,6 +13,7 @@
 #ifdef PLATFORM_NATIVE
     #include "../../src/platforms/mock/MockSPI.h"
     #include <drivers/native/SDL2_Drawer.h> 
+    #include "DrawSurface.h"
 #else
     #include <drivers/esp32/TFT_eSPI_Drawer.h>
     #include <SPI.h>
@@ -127,7 +128,33 @@ private:
     DrawSurface* drawSurface = nullptr;
 
     void initDrawSurface() {
-        #ifdef PLATFORM_NATIVE
+        #ifdef TEST_MOCK_GRAPHICS
+            class MockDrawer : public DrawSurface {
+            public:
+                void init() override {}
+                void setRotation(uint16_t) override {}
+                void clearBuffer() override {}
+                void sendBuffer() override {}
+                void drawText(const char*, int16_t, int16_t, uint16_t, uint8_t) override {}
+                void drawTextCentered(const char*, int16_t, uint16_t, uint8_t) override {}
+                void drawFilledCircle(int, int, int, uint16_t) override {}
+                void drawCircle(int, int, int, uint16_t) override {}
+                void drawRectangle(int, int, int, int, uint16_t) override {}
+                void drawFilledRectangle(int, int, int, int, uint16_t) override {}
+                void drawLine(int, int, int, int, uint16_t) override {}
+                void drawBitmap(int, int, int, int, const uint8_t*, uint16_t) override {}
+                void drawPixel(int, int, uint16_t) override {}
+                void setContrast(uint8_t) override {}
+                void setTextColor(uint16_t) override {}
+                void setTextSize(uint8_t) override {}
+                void setCursor(int16_t, int16_t) override {}
+                uint16_t color565(uint8_t, uint8_t, uint8_t) override { return 0; }
+                void setDisplaySize(int, int) override {}
+                void setPhysicalSize(int, int) override {}
+                void present() override {}
+            };
+            drawSurface = new MockDrawer();
+        #elif defined(PLATFORM_NATIVE)
             drawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
         #else
             switch (type)

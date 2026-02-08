@@ -35,6 +35,10 @@ inline bool double_eq(double a, double b, double epsilon = DOUBLE_EPSILON) {
 // Unity Test Framework Extensions
 // =============================================================================
 
+#ifndef TEST_MOCK_GRAPHICS
+#define TEST_MOCK_GRAPHICS
+#endif
+
 /**
  * @brief Assert that two floats are equal within epsilon
  */
