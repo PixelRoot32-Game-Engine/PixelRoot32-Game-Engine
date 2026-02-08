@@ -1,64 +1,18 @@
 /**
  * @file test_entity.cpp
- * @brief Unit tests for core/Entity module
- * @version 1.0
+ * @brief Unit tests for core/Entity module using real engine headers.
+ * @version 1.1
  * @date 2026-02-08
- * 
- * Tests for Entity base class including:
- * - Lifecycle (constructor, destructor)
- * - Position and dimensions
- * - Visibility and enabled states
- * - Render layer management
  */
 
 #include <unity.h>
 #include "../../test_config.h"
+#include "core/Entity.h"
 
-// Mock implementation to avoid Arduino dependencies
-namespace pixelroot32 {
-namespace graphics {
-    class Renderer {
-    public:
-        int xOffset = 0;
-        int yOffset = 0;
-        int logicalWidth = 240;
-        int logicalHeight = 240;
-        
-        int getXOffset() const { return xOffset; }
-        int getYOffset() const { return yOffset; }
-        int getLogicalWidth() const { return logicalWidth; }
-        int getLogicalHeight() const { return logicalHeight; }
-    };
-}
+using namespace pixelroot32::core;
+using namespace pixelroot32::graphics;
 
-namespace core {
-
-enum class EntityType { GENERIC, ACTOR, UI_ELEMENT };
-
-class Entity {
-public:
-    float x, y;
-    int width, height;
-    EntityType type;
-    bool isVisible = true;
-    bool isEnabled = true;
-    unsigned char renderLayer = 1;
-    
-    Entity(float x, float y, int w, int h, EntityType t) 
-        : x(x), y(y), width(w), height(h), type(t) {}
-    virtual ~Entity() {}
-    
-    virtual void setVisible(bool v) { isVisible = v; }
-    virtual void setEnabled(bool e) { isEnabled = e; }
-    
-    unsigned char getRenderLayer() const { return renderLayer; }
-    virtual void setRenderLayer(unsigned char layer) { renderLayer = layer; }
-    
-    virtual void update(unsigned long deltaTime) = 0;
-    virtual void draw(graphics::Renderer& renderer) = 0;
-};
-
-// Mock Entity implementation for testing
+// Mock Entity implementation for testing real Entity class
 class MockEntity : public Entity {
 public:
     bool updateCalled = false;
@@ -73,7 +27,7 @@ public:
         lastDeltaTime = deltaTime;
     }
     
-    void draw(graphics::Renderer& renderer) override {
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
         (void)renderer;
         drawCalled = true;
     }
@@ -84,12 +38,6 @@ public:
         lastDeltaTime = 0;
     }
 };
-
-}
-}
-
-using namespace pixelroot32::core;
-using namespace pixelroot32::graphics;
 
 void setUp(void) {
     test_setup();
@@ -284,7 +232,11 @@ void test_entity_update_called(void) {
 
 void test_entity_draw_called(void) {
     MockEntity e(0, 0, 10, 10);
-    Renderer r;
+    // Use MockRenderer instead of real Renderer if needed, 
+    // but here we just need any Renderer reference.
+    // Since Renderer is now real, we need a DisplayConfig to init it.
+    DisplayConfig config(DisplayType::NONE, 0, 240, 240, 240, 240, 0, 0);
+    Renderer r(config);
     e.draw(r);
     TEST_ASSERT_TRUE(e.drawCalled);
 }

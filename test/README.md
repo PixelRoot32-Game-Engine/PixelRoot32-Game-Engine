@@ -1,98 +1,119 @@
-# Tests Unitarios - PixelRoot32 Game Engine
+# Unit Testing - PixelRoot32 Game Engine
 
-Este directorio contiene la suite de tests unitarios para el motor de juegos PixelRoot32.
+This directory contains the unit testing suite for the PixelRoot32 game engine.
 
-## Estructura de Directorios
+## Directory Structure
 
-```
+```text
 test/
-├── test_config.h                 # Configuración y utilidades compartidas
-├── unit/                         # Tests unitarios organizados por módulo
-│   ├── test_math/               # Tests matemáticos
-│   ├── test_physics/            # Tests de física (Collision, Actor, etc.)
-│   ├── test_core/               # Tests del núcleo (Entity, Scene, etc.)
-│   ├── test_graphics/           # Tests de gráficos (Color, Camera, Font)
-│   ├── test_input/              # Tests de entrada
-│   └── test_audio/              # Tests de audio
-├── test_engine_integration/      # Tests de integración del motor
-└── test_game_loop/               # Tests de flujo completo (End-to-End)
+├── test_config.h                 # Shared configuration and utilities
+├── unit/                         # Unit tests organized by module
+│   ├── test_math/               # Math tests
+│   ├── test_physics/            # Physics tests (Collision, Actor, etc.)
+│   ├── test_core/               # Core tests (Entity, Scene, etc.)
+│   ├── test_graphics/           # Graphics tests (Color, Camera, Font)
+│   ├── test_ui/                 # UI tests (Elements, Layouts)
+│   ├── test_input/              # Input tests
+│   └── test_audio/              # Audio tests
+├── test_engine_integration/      # Engine integration tests
+└── test_game_loop/               # Full flow tests (End-to-End)
 ```
 
-## Ejecución de Tests
+## Running Tests
 
-### Requisitos
+### Requirements
 
-- [PlatformIO](https://platformio.org/) instalado
-- (Opcional) lcov para generación de reportes de cobertura
+- [PlatformIO](https://platformio.org/) installed
+- (Optional) lcov for coverage report generation
 
-### Comandos
+### Commands
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 pio test -e native_test
 
-# Ejecutar con salida detallada
+# Run with verbose output
 pio test -e native_test --verbose
 
-# Ejecutar con cobertura de código
+# Run with code coverage
 python scripts/coverage_check.py
 
-# Generar reporte HTML de cobertura
+# Generate HTML coverage report
 python scripts/coverage_check.py --report
 ```
 
-### Scripts de Ayuda
+### Helper Scripts
 
 #### Linux/Mac
+
 ```bash
-# Ejecutar tests
+# Run tests
 ./scripts/run_tests.sh
 
-# Ejecutar con cobertura
+# Run with coverage
 ./scripts/run_tests.sh --coverage
 ```
 
 #### Windows
+
 ```batch
-REM Ejecutar tests
+REM Run tests
 scripts\run_tests.bat
 
-REM Ejecutar con cobertura
+REM Run with coverage
 scripts\run_tests.bat --coverage
 ```
 
-## Convenciones de Testing
+### Test Types
 
-### Nomenclatura de Tests
+1. **Unit Tests (`unit/`)**: Validate individual components in isolation.
+    - `test_ui`: Validates interface elements (Label, Button, Checkbox) and layout systems (Vertical, Horizontal, Grid, Anchor).
+2. **Integration Tests (`test_engine_integration/`)**: Verify that systems (Renderer, SceneManager, Input) work together correctly.
+3. **End-to-End Tests (`test_game_loop/`)**: Simulate a full game lifecycle, including state updates, user input, and rendering.
 
-Los tests siguen la convención:
+## Mocks and Simulation
+
+To test components that depend on hardware or complex systems, mocks located in `test/mocks/` are used:
+
+- **MockDrawSurface**: Captures drawing calls (lines, rectangles, text) to validate visual rendering without needing a real screen.
+- **MockAudioBackend**: Simulates the audio backend to validate sample generation and channel states.
+- **MockAudioScheduler**: Allows testing the audio command queue in isolation.
+- **MockEngineInstance**: Provides a global engine instance (`engine`) necessary for components using the singleton pattern or global access (like the particle system).
+
+## Testing Conventions
+
+### Test Naming
+
+Tests follow the convention:
+
 ```cpp
-void test_<modulo>_<funcion>_<escenario>()
+void test_<module>_<function>_<scenario>()
 ```
 
-Ejemplos:
+Examples:
+
 - `test_mathutil_lerp_basic()`
 - `test_rect_intersects_overlapping()`
 - `test_color_black()`
 
-### Estructura de un Archivo de Test
+### Test File Structure
 
 ```cpp
 #include <unity.h>
-#include "modulo/Header.h"
+#include "module/Header.h"
 #include "../test_config.h"
 
-using namespace pixelroot32::modulo;
+using namespace pixelroot32::module;
 
 void setUp(void) {
-    // Inicialización antes de cada test
+    // Initialization before each test
 }
 
 void tearDown(void) {
-    // Limpieza después de cada test
+    // Cleanup after each test
 }
 
-void test_modulo_funcion_escenario(void) {
+void test_module_function_scenario(void) {
     // Arrange
     // Act
     // Assert
@@ -101,32 +122,32 @@ void test_modulo_funcion_escenario(void) {
 
 int main(int argc, char **argv) {
     UNITY_BEGIN();
-    RUN_TEST(test_modulo_funcion_escenario);
+    RUN_TEST(test_module_function_scenario);
     return UNITY_END();
 }
 ```
 
-## Cobertura de Código
+## Code Coverage
 
-### Objetivos
+### Objectives
 
-- **Líneas**: Mínimo 80%
-- **Funciones**: Mínimo 90%
+- **Lines**: Minimum 80%
+- **Functions**: Minimum 90%
 
-### Módulos Cubiertos (Fase 1)
+### Covered Modules (Phase 1)
 
-| Módulo | Archivos | Tests | Cobertura |
-|--------|----------|-------|-----------|
+| Module | Files | Tests | Coverage |
+|--------|-------|-------|----------|
 | math/MathUtil | MathUtil.h | test_mathutil.cpp | 100% |
 | core/Rect | Entity.h | test_rect.cpp | 100% |
 | physics/CollisionTypes | CollisionTypes.h | test_collision_types.cpp | 100% |
 | graphics/Color | Color.h | test_color.cpp | 100% |
 
-## Framework de Testing
+## Testing Framework
 
-Utilizamos [Unity](https://github.com/ThrowTheSwitch/Unity) integrado con PlatformIO.
+We use [Unity](https://github.com/ThrowTheSwitch/Unity) integrated with PlatformIO.
 
-### Asserts Disponibles
+### Available Asserts
 
 - `TEST_ASSERT_EQUAL(expected, actual)`
 - `TEST_ASSERT_EQUAL_FLOAT(expected, actual)`
@@ -135,37 +156,23 @@ Utilizamos [Unity](https://github.com/ThrowTheSwitch/Unity) integrado con Platfo
 - `TEST_ASSERT_NULL(pointer)`
 - `TEST_ASSERT_NOT_NULL(pointer)`
 
-Y muchos más. Ver [documentación de Unity](https://github.com/ThrowTheSwitch/Unity/blob/master/docs/UnityAssertionsReference.md).
+And many more. See [Unity documentation](https://github.com/ThrowTheSwitch/Unity/blob/master/docs/UnityAssertionsReference.md).
 
-## Contribuyendo
+## Contributing
 
-Al agregar nuevos tests:
+When adding new tests:
 
-1. Crear archivo en el directorio correspondiente bajo `test/unit/`
-2. Seguir la convención de nomenclatura
-3. Incluir todos los casos de borde (edge cases)
-4. Documentar con comentarios de doxygen si es necesario
-5. Verificar que los tests pasan: `pio test -e native_test`
-6. Verificar cobertura: `python scripts/coverage_check.py`
+1. Create a file in the corresponding directory under `test/unit/`
+2. Follow the naming convention
+3. Include all edge cases
+4. Document with Doxygen comments if necessary
+5. Verify tests pass: `pio test -e native_test`
+6. Verify coverage: `python scripts/coverage_check.py`
 
-## Plan de Testing
 
-Ver [UNIT_TESTING_PLAN.md](../docs/UNIT_TESTING_PLAN.md) para el plan completo de implementación de tests.
 
-### Fases Completadas
-
-- ✅ **Fase 1**: Fundamentos (Math, Rect, CollisionTypes, Color)
-
-### Próximas Fases
-
-- 🔄 **Fase 2**: Sistema de Física (CollisionPrimitives, CollisionSystem)
-- ⏳ **Fase 3**: Core del Engine (Entity, Actor, Scene)
-- ⏳ **Fase 4**: Sistemas de Gráficos (Camera2D, UI, Fonts)
-- ⏳ **Fase 5**: Input y Audio
-- ⏳ **Fase 6**: Integración y Cobertura 80%+
-
-## Recursos
+## Resources
 
 - [PlatformIO Unit Testing](https://docs.platformio.org/en/latest/advanced/unit-testing/index.html)
 - [Unity Test Framework](https://github.com/ThrowTheSwitch/Unity)
-- [Guía de Contribución](../CONTRIBUTING.md)
+- [Contribution Guide](../CONTRIBUTING.md)

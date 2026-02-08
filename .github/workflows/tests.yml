@@ -1,0 +1,53 @@
+name: PixelRoot32 CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test_native:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio
+          .pio
+        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        restore-keys: |
+          ${{ runner.os }}-pio-
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+        sudo apt-get update
+        sudo apt-get install -y libsdl2-dev lcov
+
+    - name: Run Tests
+      run: pio test -e native_test --verbose
+
+    - name: Generate Coverage Report
+      run: |
+        lcov --capture --directory . --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverage.info
+        lcov --list coverage.info
+        genhtml coverage.info --output-directory coverage_report
+
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage_report/
