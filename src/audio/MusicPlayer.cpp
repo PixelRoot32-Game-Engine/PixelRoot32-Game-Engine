@@ -51,7 +51,7 @@ void MusicPlayer::resume() {
 }
 
 bool MusicPlayer::isPlaying() const {
-    return playing;
+    return playing && !paused;
 }
 
 void MusicPlayer::setTempoFactor(float factor) {

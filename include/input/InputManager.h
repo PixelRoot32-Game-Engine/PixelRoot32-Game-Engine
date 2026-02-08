@@ -15,6 +15,7 @@
     #include <Arduino.h>
 #endif
 #include "InputConfig.h"
+#include <vector>
 
 namespace pixelroot32::input {
 /**
@@ -33,18 +34,23 @@ public:
     InputManager(const InputConfig& config);
 
     /**
+     * @brief Destructor for InputManager.
+     */
+    ~InputManager() = default;
+
+    /**
      * @brief Initializes the input pins.
      */
     void init();
 
-#ifdef PLATFORM_NATIVE
     /**
      * @brief Updates input state based on SDL keyboard state.
      * @param dt Delta time.
      * @param keyboardState Pointer to the SDL keyboard state array.
      */
     void update(unsigned long dt, const uint8_t* keyboardState);
-#else
+
+#ifndef PLATFORM_NATIVE
     /**
      * @brief Updates input state by polling hardware pins.
      * @param dt Delta time.
@@ -83,11 +89,11 @@ public:
 private:
     InputConfig config;
 
-    bool* buttonState;      ///< Current state of buttons (true = pressed).
-    bool* stateChanged;     ///< Flags indicating if state changed this frame.
-    uint16_t* waitTime;     ///< Debounce timers for each button.
-    bool* clickFlag;        ///< Flags for tracking click events.
-    uint8_t* buttonPins;    ///< Array of hardware pin numbers.
+    std::vector<bool> buttonState;      ///< Current state of buttons (true = pressed).
+    std::vector<bool> stateChanged;     ///< Flags indicating if state changed this frame.
+    std::vector<uint16_t> waitTime;     ///< Debounce timers for each button.
+    mutable std::vector<bool> clickFlag;///< Flags for tracking click events.
+    std::vector<uint8_t> buttonPins;    ///< Array of hardware pin numbers.
 };
 
 }

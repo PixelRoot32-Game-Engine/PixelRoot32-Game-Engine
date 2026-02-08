@@ -18,7 +18,7 @@ namespace pixelroot32::audio {
         : config(config), capabilities(caps) {
 #ifdef ESP32
         scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler(caps.audioCoreId, caps.audioPriority));
-#elif defined(PLATFORM_NATIVE)
+#elif defined(PLATFORM_NATIVE) && !defined(UNIT_TEST)
         scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
 #else
         scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
