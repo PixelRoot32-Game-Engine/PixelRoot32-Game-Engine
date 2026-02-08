@@ -9,17 +9,13 @@ test/
 ├── test_config.h                 # Configuración y utilidades compartidas
 ├── unit/                         # Tests unitarios organizados por módulo
 │   ├── test_math/               # Tests matemáticos
-│   │   └── test_mathutil.cpp
-│   ├── test_physics/            # Tests de física
-│   │   └── test_collision_types.cpp
-│   ├── test_core/               # Tests del núcleo
-│   │   └── test_rect.cpp
-│   ├── test_graphics/           # Tests de gráficos
-│   │   └── test_color.cpp
-│   ├── test_input/              # Tests de entrada (pendiente)
-│   └── test_audio/              # Tests de audio (pendiente)
-├── mocks/                        # Mocks y stubs (pendiente)
-└── integration/                  # Tests de integración (pendiente)
+│   ├── test_physics/            # Tests de física (Collision, Actor, etc.)
+│   ├── test_core/               # Tests del núcleo (Entity, Scene, etc.)
+│   ├── test_graphics/           # Tests de gráficos (Color, Camera, Font)
+│   ├── test_input/              # Tests de entrada
+│   └── test_audio/              # Tests de audio
+├── test_engine_integration/      # Tests de integración del motor
+└── test_game_loop/               # Tests de flujo completo (End-to-End)
 ```
 
 ## Ejecución de Tests

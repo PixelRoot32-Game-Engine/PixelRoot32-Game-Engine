@@ -361,7 +361,7 @@ int main(int argc, char **argv) {
 - [x] Tests para Entity visibility y enabled states
 - [x] Tests para Actor collision layers/masks
 - [x] Tests para Actor::getHitBox virtual
-- [ ] Tests para PhysicsActor movement y velocity (Pendiente - requiere mocks complejos)
+- [x] Tests para PhysicsActor movement y velocity
 - [x] Tests para Scene::addEntity/removeEntity
 - [x] Tests para Scene::update con múltiples entidades
 - [x] Tests para Scene::draw con diferentes layers
@@ -390,11 +390,11 @@ int main(int argc, char **argv) {
 - [x] Tests para Camera2D viewport calculations
 - [x] Tests para Camera2D follow target
 - [x] Tests para FontManager loading y rendering
-- [ ] Tests para UIElement posicionamiento (Pendiente)
-- [ ] Tests para UILabel (con mock de renderer) (Pendiente)
-- [ ] Tests para UIButton estados (idle, hover, pressed) (Pendiente)
-- [ ] Tests para layouts (Vertical, Horizontal, Grid) (Pendiente)
-- [ ] Tests para ParticleEmitter lifecycle (Pendiente)
+- [x] Tests para UIElement posicionamiento
+- [x] Tests para UILabel (con mock de renderer)
+- [x] Tests para UIButton estados (idle, hover, pressed)
+- [x] Tests para layouts (Vertical, Horizontal, Grid)
+- [x] Tests para ParticleEmitter lifecycle
 
 ---
 
@@ -426,22 +426,22 @@ int main(int argc, char **argv) {
 **Objetivo**: Tests de integración y alcance de 80% coverage
 
 **Entregables**:
-1. Tests de integración del Engine
-2. Tests para flujos completos de juego
-3. Optimización de tests existentes
-4. Documentación de testing
+1. Tests de integración del Engine [x]
+2. Tests para flujos completos de juego [x]
+3. Optimización de tests existentes [x]
+4. Documentación de testing [x]
 
 **Cobertura esperada**: ~80%+ del proyecto
 
 **Tareas detalladas**:
-- [ ] Tests de integración Engine initialization
-- [ ] Tests de integración Scene-Entity-Renderer
-- [ ] Tests de integración Input-Entity
-- [ ] Tests de integración Collision-PhysicsActor
-- [ ] Tests end-to-end de un game loop simplificado
-- [ ] Revisar y mejorar cobertura de módulos con <80%
-- [ ] Optimizar tiempo de ejecución de tests
-- [ ] Documentar guía de contribución para tests
+- [x] Tests de integración Engine initialization
+- [x] Tests de integración Scene-Entity-Renderer
+- [x] Tests de integración Input-Entity
+- [x] Tests de integración Collision-PhysicsActor
+- [x] Tests end-to-end de un game loop simplificado
+- [x] Revisar y mejorar cobertura de módulos con <80%
+- [x] Optimizar tiempo de ejecución de tests
+- [x] Documentar guía de contribución para tests
 
 ---
 

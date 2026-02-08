@@ -11,6 +11,8 @@
 #include <cstring>
 #ifdef ESP32
 #include <Arduino.h>
+#elif defined(PLATFORM_NATIVE)
+#include "MockArduino.h"
 #endif
 
 namespace pixelroot32::core {
