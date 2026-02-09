@@ -7,7 +7,7 @@
 
 #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
 
-#include "graphics/DrawSurface.h"
+#include "graphics/BaseDrawSurface.h"
 // TFT_esPI pecific includes would go here
 #include <TFT_eSPI.h>
 #include <stdint.h>
@@ -22,7 +22,7 @@ namespace  pixelroot32::drivers::esp32 {
  * This class handles low-level interaction with the display hardware via SPI.
  * It uses a sprite (framebuffer) to minimize flickering and tearing.
  */
-class TFT_eSPI_Drawer : public pixelroot32::graphics::DrawSurface {
+class TFT_eSPI_Drawer : public pixelroot32::graphics::BaseDrawSurface {
 public:
     TFT_eSPI_Drawer();
     virtual ~TFT_eSPI_Drawer();
@@ -50,8 +50,6 @@ public:
      */
     void sendBuffer() override;
 
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override;
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override;
     void drawFilledCircle(int x, int y, int radius, uint16_t color) override;
     void drawCircle(int x, int y, int radius, uint16_t color) override;
     void drawRectangle(int x, int y, int width, int height, uint16_t color) override;
@@ -60,52 +58,15 @@ public:
     void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color) override;
     void drawPixel(int x, int y, uint16_t color) override;
 
-    void setTextColor(uint16_t color) override;
-    void setTextSize(uint8_t size) override;
-    void setCursor(int16_t x, int16_t y) override;
-
-    uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override;
-
-    void setDisplaySize(int w, int h) override;
-
-    /**
-     * @brief Sets contrast. No-op for ST7789 usually.
-     */
-    void setContrast(uint8_t value) override {
-        // ST7789 does not support real contrast control via this API -> noop
-    }
-
     /**
      * @brief Processes system events. Always true for embedded.
      */
     bool processEvents() override;
 
-    /**
-     * @brief Present buffer. Calls sendBuffer().
-     */
-    void present() override;
-
-    /**
-     * @brief Sets the physical display size for scaling operations.
-     * @param w Physical width.
-     * @param h Physical height.
-     */
-    void setPhysicalSize(int w, int h) override;
-
 private:
     TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
     TFT_eSprite spr; ///< The sprite used as a framebuffer.
-    int16_t cursorX, cursorY;
-    uint16_t textColor;
-    uint8_t textSize;
-    uint8_t rotation;
 
-    // Resolution dimensions
-    int logicalWidth = 240;   ///< Logical resolution (framebuffer size)
-    int logicalHeight = 240;
-    int physicalWidth = 240;  ///< Physical resolution (display hardware)
-    int physicalHeight = 240;
-    
     // Scaling support
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
     uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
@@ -130,18 +91,16 @@ private:
      * @brief Frees scaling-related memory.
      */
     void freeScalingBuffers();
-    
+
     /**
-     * @brief Sends the framebuffer scaled to physical resolution.
+     * @brief Sends the buffer using hardware DMA and software scaling.
      */
-    void IRAM_ATTR sendBufferScaled();
-    
+    void sendBufferScaled();
+
     /**
-     * @brief Scales a single logical line to physical width.
-     * @param srcY Source Y coordinate in logical space.
-     * @param dst Destination buffer (physicalWidth pixels).
+     * @brief Scales a single line from 8bpp logical to 16bpp physical.
      */
-    void IRAM_ATTR scaleLine(int srcY, uint16_t* dst);
+    void scaleLine(int srcY, uint16_t* dst);
 };
 
 } // namespace pixelroot32::drivers::esp32

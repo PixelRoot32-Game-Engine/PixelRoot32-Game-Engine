@@ -93,6 +93,17 @@ public:
         }
     }
 
+    /**
+     * @brief Static factory to create a DisplayConfig with a custom DrawSurface.
+     * @param surface Pointer to the custom DrawSurface implementation (ownership is transferred).
+     * @param w Physical and logical width.
+     * @param h Physical and logical height.
+     * @param rot Rotation.
+     */
+    static DisplayConfig createCustom(DrawSurface* surface, uint16_t w, uint16_t h, int rot = 0) {
+        return DisplayConfig(DisplayType::CUSTOM, rot, w, h, w, h, 0, 0, surface);
+    }
+
     DisplayConfig(const DisplayConfig& other)
         : type(other.type), rotation(other.rotation),
           physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
@@ -178,4 +189,15 @@ private:
     std::unique_ptr<DrawSurface> drawSurface;
 };
 
-}
+} // namespace pixelroot32::graphics
+
+/**
+ * @brief Helper macro to create a custom display configuration with ownership transfer.
+ * 
+ * Usage:
+ * @code
+ * Engine engine(PIXELROOT32_CUSTOM_DISPLAY(new MyDriver(), 240, 240));
+ * @endcode
+ */
+#define PIXELROOT32_CUSTOM_DISPLAY(surface_ptr, width, height) \
+    pixelroot32::graphics::DisplayConfig::createCustom(surface_ptr, width, height)
