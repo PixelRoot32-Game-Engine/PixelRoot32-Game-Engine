@@ -4,6 +4,10 @@
  */
 #pragma once
 
+#if defined(ARDUINO_ARCH_ESP32)
+#include <sdkconfig.h>
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================
