@@ -4,7 +4,7 @@
  */
 #include "graphics/ui/UIGridLayout.h"
 #include "graphics/ui/UIButton.h"
-#include "graphics/ui/UICheckBox.h"
+#include "graphics/ui/UICheckbox.h"
 #include "graphics/Renderer.h"
 #include "core/Scene.h"
 #include <algorithm>
