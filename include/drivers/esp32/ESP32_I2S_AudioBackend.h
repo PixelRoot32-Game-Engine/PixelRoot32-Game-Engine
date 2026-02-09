@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "PlatformDefaults.h"
+#include "platforms/PlatformDefaults.h"
 
 #if defined(PIXELROOT32_USE_I2S_AUDIO)
 

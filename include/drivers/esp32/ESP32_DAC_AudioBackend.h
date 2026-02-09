@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "PlatformDefaults.h"
+#include "platforms/PlatformDefaults.h"
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(PIXELROOT32_USE_DAC_AUDIO)
 

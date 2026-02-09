@@ -2,8 +2,8 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#include "core/PlatformCapabilities.h"
-#include "PlatformDefaults.h"
+#include "platforms/PlatformCapabilities.h"
+#include "platforms/PlatformDefaults.h"
 
 #ifdef ESP32
 #include <Arduino.h>

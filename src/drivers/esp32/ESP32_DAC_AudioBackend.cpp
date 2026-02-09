@@ -3,7 +3,7 @@
  * Licensed under the MIT License
  */
 #include "drivers/esp32/ESP32_DAC_AudioBackend.h"
-#include "PlatformDefaults.h"
+#include "platforms/PlatformDefaults.h"
 
 #if defined(PIXELROOT32_USE_DAC_AUDIO)
 #include "audio/AudioEngine.h"

@@ -220,12 +220,14 @@ The system uses a decoupled architecture where an `AudioScheduler` owns the audi
 ### 4.1 AudioScheduler
 
 The `AudioScheduler` is the heart of the decoupled audio system. It:
+
 - Processes the `AudioCommandQueue`.
 - Manages the `AudioChannel` states.
 - Performs the actual software mixing (`generateSamples`).
 - Handles music sequencing (notes, durations, loops).
 
 There are two main implementations:
+
 - **`NativeAudioScheduler`**: Used for SDL2. Runs in a dedicated high-priority thread.
 - **`ESP32AudioScheduler`**: Used for ESP32. Runs as a pinned FreeRTOS task.
 
@@ -237,7 +239,26 @@ The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `Plat
 - **Single-Core ESP32**: Audio task runs on **Core 0** with high priority, allowing the FreeRTOS scheduler to manage time-slicing.
 - **Native (SDL2)**: Uses a standard system thread.
 
-### 4.2 Audio Backends
+### 4.2 Platform Configuration and Build Flags
+
+The audio system behavior can be customized via `platforms/PlatformDefaults.h` or compile-time flags.
+
+#### 4.2.1 Core Affinity
+
+- `PR32_DEFAULT_AUDIO_CORE`: Defines the default core for audio processing (Default: `0` on ESP32).
+- `PR32_DEFAULT_MAIN_CORE`: Defines the default core for the main engine loop (Default: `1` on ESP32).
+
+#### 4.2.2 Build Flags
+
+| Flag | Description |
+|------|-------------|
+| `PIXELROOT32_NO_DAC_AUDIO` | Disables the Internal DAC backend on classic ESP32. |
+| `PIXELROOT32_NO_I2S_AUDIO` | Disables the I2S audio backend. |
+| `PIXELROOT32_USE_U8G2` | Enables support for the U8G2 display driver (future support). |
+| `PIXELROOT32_NO_TFT_ESPI` | Disables the default TFT_eSPI display driver. |
+
+### 4.3 Audio Backends
+
 Backends implement the abstract `AudioBackend` interface:
 
 ```cpp
@@ -289,16 +310,17 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 - **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
--  - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
--  - **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
--  - Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
--  - Works well with small on-board speakers and low-cost mono amps.
+ - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
+ - **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
+ - Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
+ - Works well with small on-board speakers and low-cost mono amps.
 
 ### 4.3 Backend Configuration (in `main.cpp`)
 
 To select a backend, simply instantiate the desired class and pass it to the `AudioConfig` struct.
 
 **Example for Internal DAC (PAM8302A):**
+
 ```cpp
 // 1. Instantiate the backend (GPIO 25, 11025Hz for retro feel)
 pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(25, 11025);
@@ -312,6 +334,7 @@ pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
 ```
 
 **Example for I2S (MAX98357A):**
+
 ```cpp
 // 1. Instantiate the backend (BCLK=26, LRCK=25, DOUT=22)
 pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
@@ -566,18 +589,21 @@ void GeometryJumpScene::init() {
 With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations were addressed, particularly regarding timing and stability.
 
 ### 8.1 Resolved / Improved
+
 - **Sample-Accurate Timing**: The system now uses samples instead of `deltaTime` for all internal logic, eliminating jitter and drift.
 - **Decoupled Execution**: Audio logic is completely isolated from the game's frame rate, preventing audio stuttering during heavy CPU load.
 - **Music Tempo Control**: Added support for real-time tempo changes via `MUSIC_SET_TEMPO`.
 - **Simple Volume Envelopes**: Basic volume interpolation (linear fade) is now supported in the scheduler.
 
 ### 8.2 Remaining Limitations
+
 - No exact cycle-accurate emulation of the NES APU.
 - **Noise Generator**: Still uses a simplified `rand()`-based approach instead of a precise deterministic LFSR.
 - **Pitch Sweeps**: Frequency slides (pitch slides) are not yet implemented.
 - **Complex Envelopes**: ADSR or complex multi-point envelopes are not supported (only linear interpolation).
 
 ### 8.3 Future Extensions
+
 - **Deterministic LFSR**: Replace `rand()` with a proper 15-bit LFSR for authentic NES noise sounds.
 - **Frequency Sweeps**: Add `frequencyDelta` to the scheduler for pitch slides.
 - **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.

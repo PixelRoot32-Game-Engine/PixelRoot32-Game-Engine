@@ -10,7 +10,7 @@ The PR successfully addresses the compilation errors on modern ESP32 variants la
 
 ## 1. Architectural Alignment
 
-The implementation of `PlatformDefaults.h` is a significant improvement:
+The implementation of `platforms/PlatformDefaults.h` is a significant improvement:
 
 - **Modularization**: It separates hardware-specific capabilities from implementation logic.
 - **Maintainability**: It provides a single source of truth for target-dependent features.
@@ -26,21 +26,21 @@ To maximize the value of these changes during the merge, the following improveme
 
 Currently, some drivers still perform manual platform checks (e.g., `TFT_eSPI_Drawer.h` using `#ifdef ESP32`).
 
-- **Suggestion**: Migrate these checks to `PlatformDefaults.h`.
+- **Suggestion**: Migrate these checks to `platforms/PlatformDefaults.h`.
 - **Benefit**: Ensures consistency across the entire engine and simplifies adding support for new architectures (e.g., ESP32-C3, ESP32-P4).
 
 ### B. I2S Backend Consistency
 
 The `ESP32_I2S_AudioBackend` is currently enabled for all ESP32 targets without a specific feature macro.
 
-- **Suggestion**: Add `PIXELROOT32_USE_I2S_AUDIO` to `PlatformDefaults.h`.
+- **Suggestion**: Add `PIXELROOT32_USE_I2S_AUDIO` to `platforms/PlatformDefaults.h`.
 - **Benefit**: Allows users to explicitly disable all audio backends to save flash/RAM if needed, following the same pattern as the DAC backend.
 
 ### C. Configurable Core Affinity
 
 The audio tasks are currently hardcoded to Core 0 in both DAC and I2S backends.
 
-- **Suggestion**: Define a default core macro in `PlatformDefaults.h`:
+- **Suggestion**: Define a default core macro in `platforms/PlatformDefaults.h`:
 
   ```cpp
   #ifndef PIXELROOT32_AUDIO_TASK_CORE

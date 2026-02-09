@@ -11,7 +11,7 @@
 #include "audio/AudioConfig.h"
 #include "audio/AudioEngine.h"
 #include "audio/MusicPlayer.h"
-#include "core/PlatformCapabilities.h"
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::core {
 

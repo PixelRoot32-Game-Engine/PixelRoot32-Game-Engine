@@ -6,7 +6,7 @@
 
 #include "AudioTypes.h"
 #include "AudioBackend.h"
-#include "core/PlatformCapabilities.h"
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::audio {
 

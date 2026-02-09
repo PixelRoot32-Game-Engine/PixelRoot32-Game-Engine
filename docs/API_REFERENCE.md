@@ -4,7 +4,18 @@ This document provides a complete reference for the PixelRoot32 Game Engine publ
 
 ## Global Configuration
 
-The `Config.h` file contains global configuration constants for the engine.
+The engine's behavior can be customized using `platforms/PlatformDefaults.h` and `platforms/EngineConfig.h`, or via compile-time build flags. This allows for fine-tuning performance and hardware support without modifying the core engine code.
+
+### Platform Macros (Build Flags)
+
+| Macro | Description | Default (ESP32) |
+|-------|-------------|-----------------|
+| `PR32_DEFAULT_AUDIO_CORE` | CPU core assigned to audio tasks. | `0` |
+| `PR32_DEFAULT_MAIN_CORE` | CPU core assigned to the main game loop. | `1` |
+| `PIXELROOT32_NO_DAC_AUDIO` | Disable Internal DAC support on classic ESP32. | Enabled |
+| `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Enabled |
+| `PIXELROOT32_USE_U8G2` | Enable future U8G2 display driver support. | Disabled |
+| `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Enabled |
 
 ### Constants
 
@@ -73,7 +84,7 @@ A structure that holds detected hardware capabilities, used to optimize task pin
 - **`int audioPriority`**: Recommended priority for audio tasks.
 
 Static Methods:
-- **`static PlatformCapabilities detect()`**: Automatically detects hardware capabilities based on the platform and configuration (e.g., ESP32 SDK settings).
+- **`static PlatformCapabilities detect()`**: Automatically detects hardware capabilities based on the platform and configuration. It respects the defaults defined in `platforms/PlatformDefaults.h` and any compile-time overrides.
 
 #### Optional: Debug Statistics Overlay (build flag)
 

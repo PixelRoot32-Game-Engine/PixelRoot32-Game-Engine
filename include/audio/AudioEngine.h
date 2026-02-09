@@ -8,7 +8,7 @@
 #include "AudioTypes.h"
 #include "AudioScheduler.h"
 #include "DefaultAudioScheduler.h"
-#include "core/PlatformCapabilities.h"
+#include "platforms/PlatformCapabilities.h"
 #include <cstdint>
 #include <memory>
 

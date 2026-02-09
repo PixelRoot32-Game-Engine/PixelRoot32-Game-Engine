@@ -5,9 +5,11 @@ Based on the technical review of PR-49, this plan outlines the phases required t
 ## Phase 1: Unified Configuration & Platform Detection
 
 - **Task 1.1: Consolidate PlatformDefaults.h**
-  - Define compile-time defaults for Core Affinity (e.g., `PR32_DEFAULT_AUDIO_CORE`).
-  - **New**: Implement Display Driver Selection logic (supporting `TFT_eSPI` and future `U8G2`).
-  - Integrate with `PlatformCapabilities::detect()` so it respects these overrides.
+  - [x] Create/Update `include/platforms/PlatformDefaults.h`.
+  - [x] Define `PR32_DEFAULT_AUDIO_CORE` (default: 0).
+  - [x] Define `PR32_DEFAULT_MAIN_CORE` (default: 1).
+  - [x] Implement driver selection logic (TFT_eSPI vs U8G2).
+  - [x] Add `PIXELROOT32_USE_I2S_AUDIO` to [PlatformDefaults.h](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include/platforms/PlatformDefaults.h).
 - **Task 1.2: Standardize Driver Guards**
   - Refactor [TFT_eSPI_Drawer.h](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include/drivers/esp32/TFT_eSPI_Drawer.h) to use `PIXELROOT32_USE_TFT_ESPI_DRIVER`.
   - Prepare structure for future `U8G2_Drawer.h` integration.
@@ -17,7 +19,7 @@ Based on the technical review of PR-49, this plan outlines the phases required t
 This phase ensures all audio backends follow the same architectural patterns and configuration capabilities.
 
 - **Task 2.1: Implement I2S Feature Guards**
-  - Add `PIXELROOT32_USE_I2S_AUDIO` to [PlatformDefaults.h](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include/PlatformDefaults.h).
+  - Add `PIXELROOT32_USE_I2S_AUDIO` to [PlatformDefaults.h](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include/platforms/PlatformDefaults.h).
   - Update [ESP32_I2S_AudioBackend.h](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include/drivers/esp32/ESP32_I2S_AudioBackend.h) and [ESP32_I2S_AudioBackend.cpp](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/src/drivers/esp32/ESP32_I2S_AudioBackend.cpp) with the new guards.
 - **Task 2.2: Decouple Core Affinity**
   - Replace hardcoded core IDs in [ESP32_DAC_AudioBackend.cpp](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/src/drivers/esp32/ESP32_DAC_AudioBackend.cpp) and [ESP32_I2S_AudioBackend.cpp](file:///c:/Users/gperez88/Documents/Proyects/Games/pixelroot32%20workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/src/drivers/esp32/ESP32_I2S_AudioBackend.cpp) with the `PIXELROOT32_AUDIO_TASK_CORE` macro.
@@ -40,4 +42,4 @@ Final phase to ensure the new features are discoverable and the engine remains s
 
 - Phase 1: [x] Completed
 - Phase 2: [x] Completed
-- Phase 3: [ ] Pending
+- Phase 3: [x] Completed

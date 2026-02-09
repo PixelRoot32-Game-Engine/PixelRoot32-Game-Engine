@@ -75,6 +75,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### 🔊 Audio
 
 - **NES-Style Audio**: Built-in audio subsystem with 2 Pulse channels, 1 Triangle, and 1 Noise
+- **Platform Optimized**: Decoupled audio processing with dynamic core affinity and configurable resolutions via `platforms/EngineConfig.h`.
 - **Music Player**: Lightweight background music system based on notes
 
 ### 🎯 Physics and Collisions
@@ -110,7 +111,8 @@ Watch PixelRoot32 running on ESP32 with example games:
 2. **Open the project in VS Code** and let PlatformIO initialize
 
 3. **Select the environment:**
-   - `env:esp32dev` for ESP32
+   - `env:esp32dev` for Classic ESP32 (Internal DAC)
+   - `env:esp32s3` for ESP32-S3 (I2S Audio)
    - `env:native` for PC (requires SDL2)
 
 4. **Build and run** from PlatformIO
@@ -119,7 +121,12 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ```cpp
 #include <core/Engine.h>
+// Use the appropriate backend for your hardware
+#ifdef CONFIG_IDF_TARGET_ESP32
 #include <drivers/esp32/ESP32_DAC_AudioBackend.h>
+#else
+#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
+#endif
 
 namespace pr32 = pixelroot32;
 
