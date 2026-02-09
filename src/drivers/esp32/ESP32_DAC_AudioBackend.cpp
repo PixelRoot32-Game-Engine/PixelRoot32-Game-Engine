@@ -2,9 +2,9 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef ARDUINO_ARCH_ESP32
-
 #include "drivers/esp32/ESP32_DAC_AudioBackend.h"
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(PIXELROOT32_USE_DAC_AUDIO)
 #include "audio/AudioEngine.h"
 #include <Arduino.h>
 
@@ -91,4 +91,4 @@ namespace pixelroot32::drivers::esp32 {
 
 }
 
-#endif // ARDUINO_ARCH_ESP32
+#endif // ARDUINO_ARCH_ESP32 && PIXELROOT32_USE_DAC_AUDIO
