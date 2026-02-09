@@ -45,6 +45,17 @@ public:
      */
     void update();
 
+    /**
+     * @brief Gets the number of entities in the collision system.
+     * @return The number of entities.
+     */
+    size_t getEntityCount() const { return entities.size(); }
+
+    /**
+     * @brief Clears all entities from the collision system.
+     */
+    void clear() { entities.clear(); }
+
 private:
     std::vector<pixelroot32::core::Entity*> entities; ///< List of entities to check for collisions.
 };

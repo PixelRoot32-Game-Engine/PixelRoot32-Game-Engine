@@ -67,3 +67,11 @@
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,platformio,c++
+
+# Coverage reports
+*.gcov
+*.gcda
+*.gcno
+coverage_report/
+coverage.info
+coverage_filtered.info

@@ -9,9 +9,6 @@
 #include "graphics/Color.h"
 #include <cstdio>
 #include <cstring>
-#ifdef ESP32
-#include <Arduino.h>
-#endif
 
 namespace pixelroot32::core {
 

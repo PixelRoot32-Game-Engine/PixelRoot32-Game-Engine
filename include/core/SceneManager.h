@@ -62,6 +62,18 @@ public:
      */
     Scene* getCurrentScene() const;
 
+    /**
+     * @brief Gets the number of scenes in the stack.
+     * @return The number of scenes.
+     */
+    int getSceneCount() const { return sceneCount; }
+
+    /**
+     * @brief Checks if the scene stack is empty.
+     * @return True if there are no scenes.
+     */
+    bool isEmpty() const { return sceneCount == 0; }
+
 private:
     Scene* sceneStack[MAX_SCENES] = {nullptr};  ///< Fixed-size stack for scenes.
     int sceneCount = 0; ///< Current number of scenes in the stack.

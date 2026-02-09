@@ -19,11 +19,11 @@ namespace pixelroot32::input {
         if (config.count <= 0) return;
 
         // Initialize button pins
-        buttonPins = new uint8_t[config.count];
-        buttonState = new bool[config.count];
-        stateChanged = new bool[config.count];
-        waitTime = new uint16_t[config.count];
-        clickFlag = new bool[config.count];
+        buttonPins.resize(config.count);
+        buttonState.assign(config.count, false);
+        stateChanged.assign(config.count, false);
+        waitTime.assign(config.count, 0);
+        clickFlag.assign(config.count, false);
         
         // Set all pins as INPUT_PULLUP
         for (int i = 0; i < config.count; i++) {
@@ -33,14 +33,9 @@ namespace pixelroot32::input {
                 buttonPins[i] = config.inputPins[i];
             #endif
             pinMode(buttonPins[i], INPUT_PULLUP);
-            buttonState[i] = false;
-            stateChanged[i] = false;
-            waitTime[i] = 0;
-            clickFlag[i] = false;
         }
     }
 
-    #ifdef PLATFORM_NATIVE
     void InputManager::update(unsigned long dt, const uint8_t* keyboardState) {
         if (config.count <= 0) return;
 
@@ -66,7 +61,8 @@ namespace pixelroot32::input {
             }
         }   
     }
-    #else
+
+    #ifndef PLATFORM_NATIVE
     void InputManager::update(unsigned long dt) {
         if (config.count <= 0) return;
 

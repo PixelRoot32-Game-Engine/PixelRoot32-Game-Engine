@@ -2,7 +2,7 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#include "graphics/ui/UICheckBox.h"
+#include "graphics/ui/UICheckbox.h"
 
 namespace pixelroot32::graphics::ui {
 

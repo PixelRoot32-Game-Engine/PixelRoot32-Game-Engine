@@ -1,0 +1,60 @@
+********************************************************************************
+Obsolete PIO Core v6.1.18 is used (previous was 6.1.19)
+Please remove multiple PIO Cores from a system:
+https://docs.platformio.org/en/latest/core/installation/troubleshooting.html
+********************************************************************************
+Verbosity level can be increased via `-v, -vv, or -vvv` option
+Collected 5 tests
+
+Processing unit/test_core in native_test environment
+--------------------------------------------------------------------------------
+Building...
+*** [.pio\build\native_test\unity_config_build\unity_config.o] Error 1
+*** [.pio\build\native_test\test\unit\test_core\test_rect.o] Error 1
+*** [.pio\build\native_test\lib45f\Unity\unity.o] Error 1
+Building stage has failed, see errors above. Use `pio test -vvv` option to enable verbose output.
+------------ native_test:unit/test_core [ERRORED] Took 1.29 seconds ------------
+
+Processing unit/test_graphics in native_test environment
+--------------------------------------------------------------------------------
+Building...
+*** [.pio\build\native_test\unity_config_build\unity_config.o] Error 1
+*** [.pio\build\native_test\test\unit\test_graphics\test_color.o] Error 1
+*** [.pio\build\native_test\lib45f\Unity\unity.o] Error 1
+Building stage has failed, see errors above. Use `pio test -vvv` option to enable verbose output.
+---------- native_test:unit/test_graphics [ERRORED] Took 1.24 seconds ----------
+
+Processing unit/test_input in native_test environment
+--------------------------------------------------------------------------------
+Building...
+Error: Nothing to build. Please put your test suites to the 'C:\Users\gperez88\Documents\Proyects\Games\pixelroot32 workspace\PixelRoot32 Game Samples\lib\PixelRoot32-Game-Engine\test' folder
+Building stage has failed, see errors above. Use `pio test -vvv` option to enable verbose output.
+----------- native_test:unit/test_input [ERRORED] Took 1.05 seconds -----------
+
+Processing unit/test_math in native_test environment
+--------------------------------------------------------------------------------
+Building...
+*** [.pio\build\native_test\unity_config_build\unity_config.o] Error 1
+*** [.pio\build\native_test\test\unit\test_math\test_mathutil.o] Error 1
+*** [.pio\build\native_test\lib45f\Unity\unity.o] Error 1
+Building stage has failed, see errors above. Use `pio test -vvv` option to enable verbose output.
+------------ native_test:unit/test_math [ERRORED] Took 1.23 seconds ------------
+
+Processing unit/test_physics in native_test environment
+--------------------------------------------------------------------------------
+Building...
+*** [.pio\build\native_test\unity_config_build\unity_config.o] Error 1
+*** [.pio\build\native_test\test\unit\test_physics\test_collision_types.o] Error 1
+*** [.pio\build\native_test\lib45f\Unity\unity.o] Error 1
+Building stage has failed, see errors above. Use `pio test -vvv` option to enable verbose output.
+---------- native_test:unit/test_physics [ERRORED] Took 1.26 seconds ----------
+
+=================================== SUMMARY ===================================
+Environment    Test                Status    Duration
+-------------  ------------------  --------  ------------
+native_test    unit/test_core      ERRORED   00:00:01.286
+native_test    unit/test_graphics  ERRORED   00:00:01.241
+native_test    unit/test_input     ERRORED   00:00:01.047
+native_test    unit/test_math      ERRORED   00:00:01.227
+native_test    unit/test_physics   ERRORED   00:00:01.262
+================== 5 test cases: 0 succeeded in 00:00:06.063 ==================

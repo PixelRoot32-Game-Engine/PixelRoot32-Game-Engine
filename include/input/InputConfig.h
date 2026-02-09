@@ -11,6 +11,7 @@
 #pragma once
 #include <cstdarg>
 #include <cstdint>
+#include <vector>
 
 namespace pixelroot32::input {
 
@@ -25,9 +26,9 @@ namespace pixelroot32::input {
  */
 struct InputConfig{
 #ifdef PLATFORM_NATIVE
-    uint8_t* buttonNames = nullptr; ///< Array of button mappings (scancodes) for Native.
+    std::vector<uint8_t> buttonNames; ///< Array of button mappings (scancodes) for Native.
 #else
-    int* inputPins = nullptr ; ///< Array of GPIO pin numbers for ESP32.
+    std::vector<int> inputPins; ///< Array of GPIO pin numbers for ESP32.
 #endif
     int count = 0;         ///< Total number of configured inputs.
 
@@ -39,11 +40,6 @@ struct InputConfig{
     InputConfig(int count, ...): count(count) {
         if (count <= 0) {
             this->count = 0;
-            #ifdef PLATFORM_NATIVE
-                buttonNames = nullptr;
-            #else
-                inputPins = nullptr;
-            #endif
             return;
         }
 
@@ -51,18 +47,23 @@ struct InputConfig{
         va_start(args, count);
 
         #ifdef PLATFORM_NATIVE
-            buttonNames = new uint8_t[count];
+            buttonNames.reserve(count);
             for (int i = 0; i < count; i++) {
-                buttonNames[i] = (uint8_t)va_arg(args, int);
+                buttonNames.push_back((uint8_t)va_arg(args, int));
             }
         #else
-            inputPins = new int[count];
+            inputPins.reserve(count);
             for (int i = 0; i < count; i++) {
-                inputPins[i] = va_arg(args, int);
+                inputPins.push_back(va_arg(args, int));
             }
         #endif
         va_end(args);
     }
+
+    /**
+     * @brief Default constructor.
+     */
+    InputConfig() : count(0) {}
 };
 
 }
