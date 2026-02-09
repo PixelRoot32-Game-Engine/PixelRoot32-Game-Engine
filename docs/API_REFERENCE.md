@@ -84,6 +84,7 @@ A structure that holds detected hardware capabilities, used to optimize task pin
 - **`int audioPriority`**: Recommended priority for audio tasks.
 
 Static Methods:
+
 - **`static PlatformCapabilities detect()`**: Automatically detects hardware capabilities based on the platform and configuration. It respects the defaults defined in `platforms/PlatformDefaults.h` and any compile-time overrides.
 
 #### Optional: Debug Statistics Overlay (build flag)
@@ -91,9 +92,9 @@ Static Methods:
 When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, the engine draws a technical overlay with real-time metrics.
 
 - **Metrics Included**:
-    - **FPS**: Frames per second (green).
-    - **RAM**: Memory used in KB (cyan). ESP32 specific.
-    - **CPU**: Estimated processor load percentage based on frame processing time (yellow).
+  - **FPS**: Frames per second (green).
+  - **RAM**: Memory used in KB (cyan). ESP32 specific.
+  - **CPU**: Estimated processor load percentage based on frame processing time (yellow).
 - **Behavior**: The metrics are drawn in the top-right area of the screen, fixed and independent of the camera.
 - **Performance**: Values are recalculated and formatted only every **16 frames** (`DEBUG_UPDATE_INTERVAL`); the cached strings are drawn every frame. This ensures minimal overhead while providing useful development data.
 - **Usage**: Add to your build flags, e.g. in `platformio.ini`:  
@@ -460,10 +461,10 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 - **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
     Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
-    - **text**: The string to render (ASCII characters 32-126 are supported).
-    - **x, y**: Position where text starts (top-left corner).
-    - **color**: Color from the `Color` enum (uses sprite palette context).
-    - **size**: Scale multiplier (1 = normal, 2 = double, 3 = triple, etc.).
+  - **text**: The string to render (ASCII characters 32-126 are supported).
+  - **x, y**: Position where text starts (top-left corner).
+  - **color**: Color from the `Color` enum (uses sprite palette context).
+  - **size**: Scale multiplier (1 = normal, 2 = double, 3 = triple, etc.).
 
 - **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`**
     Draws text using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
@@ -554,6 +555,7 @@ The engine includes a native bitmap font system that uses 1bpp sprites to render
 Represents a bitmap font containing glyph sprites for ASCII characters.
 
 **Members:**
+
 - **`const Sprite* glyphs`**: Array of sprite structures, one per character.
 - **`uint8_t firstChar`**: First character code in the font (e.g., 32 for space).
 - **`uint8_t lastChar`**: Last character code in the font (e.g., 126 for tilde).
@@ -563,6 +565,7 @@ Represents a bitmap font containing glyph sprites for ASCII characters.
 - **`uint8_t lineHeight`**: Vertical line height (includes spacing between lines).
 
 **Example:**
+
 ```cpp
 #include <graphics/Font.h>
 #include <graphics/Font5x7.h>
@@ -587,24 +590,25 @@ Static utility class for managing fonts and calculating text dimensions.
 
 - **`static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1)`**
     Calculates the pixel width of a text string when rendered with the specified font and size.
-    - **font**: Font to use (or `nullptr` to use default font).
-    - **text**: String to measure.
-    - **size**: Scale multiplier (1 = normal, 2 = double, etc.).
-    - **Returns**: Width in pixels.
+  - **font**: Font to use (or `nullptr` to use default font).
+  - **text**: String to measure.
+  - **size**: Scale multiplier (1 = normal, 2 = double, etc.).
+  - **Returns**: Width in pixels.
 
 - **`static uint8_t getGlyphIndex(char c, const Font* font = nullptr)`**
     Gets the array index of a character's glyph sprite.
-    - **c**: Character code.
-    - **font**: Font to use (or `nullptr` to use default font).
-    - **Returns**: Glyph index (0 to `lastChar - firstChar`), or 255 if character is not supported.
+  - **c**: Character code.
+  - **font**: Font to use (or `nullptr` to use default font).
+  - **Returns**: Glyph index (0 to `lastChar - firstChar`), or 255 if character is not supported.
 
 - **`static bool isCharSupported(char c, const Font* font = nullptr)`**
     Checks if a character is supported by the font.
-    - **c**: Character code.
-    - **font**: Font to use (or `nullptr` to use default font).
-    - **Returns**: `true` if the character is in the font's range.
+  - **c**: Character code.
+  - **font**: Font to use (or `nullptr` to use default font).
+  - **Returns**: `true` if the character is in the font's range.
 
 **Example:**
+
 ```cpp
 #include <graphics/FontManager.h>
 #include <graphics/Font5x7.h>
@@ -628,12 +632,14 @@ if (FontManager::isCharSupported('A')) {
 A built-in 5x7 pixel bitmap font containing ASCII characters from space (32) to tilde (126), for a total of 95 characters.
 
 **Characteristics:**
+
 - **Glyph Size**: 5 pixels wide × 7 pixels tall
 - **Character Range**: ASCII 32-126 (printable characters)
 - **Spacing**: 1 pixel between characters
 - **Line Height**: 8 pixels (7 + 1)
 
 **Usage:**
+
 ```cpp
 #include <graphics/Font5x7.h>
 
@@ -649,6 +655,7 @@ FontManager::setDefaultFont(&pixelroot32::graphics::FONT_5X7);
 #### Text Rendering Examples
 
 **Basic text rendering:**
+
 ```cpp
 // Uses default font (FONT_5X7)
 renderer.drawText("Score: 100", 10, 10, Color::White, 1);
@@ -661,6 +668,7 @@ renderer.drawTextCentered("GAME OVER", 120, Color::Red, 2);
 ```
 
 **Using a custom font:**
+
 ```cpp
 // Define your custom font (must be defined elsewhere)
 extern const Font MY_CUSTOM_FONT;
@@ -674,6 +682,7 @@ renderer.drawText("Now default", 10, 20, Color::White, 1);
 ```
 
 **Calculating text dimensions:**
+
 ```cpp
 // Calculate width for centering
 const char* text = "Hello World";
@@ -752,13 +761,13 @@ A UI element that can be toggled between checked and unchecked states.
 
 - **`UICheckBox(std::string label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
     Constructs a new checkbox.
-    - `label`: Checkbox label text.
-    - `index`: Navigation index (for D-pad navigation).
-    - `x, y`: Position.
-    - `w, h`: Size.
-    - `checked`: Initial state.
-    - `callback`: Function called when state changes.
-    - `fontSize`: Text size multiplier.
+  - `label`: Checkbox label text.
+  - `index`: Navigation index (for D-pad navigation).
+  - `x, y`: Position.
+  - `w, h`: Size.
+  - `checked`: Initial state.
+  - `callback`: Function called when state changes.
+  - `fontSize`: Text size multiplier.
 - **`void setStyle(Color textCol, Color bgCol, bool drawBg = false)`**
     Configures colors and background visibility.
 - **`void setChecked(bool checked)`**
@@ -904,40 +913,40 @@ Enumeration of available color palettes.
 
 - **`static void enableDualPaletteMode(bool enable)`**
     Enables or disables dual palette mode.
-    - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for legacy mode (single palette).
+  - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for legacy mode (single palette).
 
 - **`static void setBackgroundPalette(PaletteType palette)`**
     Sets the background palette (for backgrounds, tilemaps, etc.).
-    - **palette**: The palette type to use for backgrounds.
+  - **palette**: The palette type to use for backgrounds.
 
 - **`static void setSpritePalette(PaletteType palette)`**
     Sets the sprite palette (for sprites, characters, etc.).
-    - **palette**: The palette type to use for sprites.
+  - **palette**: The palette type to use for sprites.
 
 - **`static void setBackgroundCustomPalette(const uint16_t* palette)`**
     Sets a custom background palette.
-    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+  - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
 
 - **`static void setSpriteCustomPalette(const uint16_t* palette)`**
     Sets a custom sprite palette.
-    - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
+  - **palette**: Pointer to an array of 16 `uint16_t` RGB565 color values. Must remain valid.
 
 - **`static void setDualPalette(PaletteType bgPalette, PaletteType spritePalette)`**
     Convenience function that sets both background and sprite palettes at once and automatically enables dual palette mode.
-    - **bgPalette**: The palette type to use for backgrounds.
-    - **spritePalette**: The palette type to use for sprites.
+  - **bgPalette**: The palette type to use for backgrounds.
+  - **spritePalette**: The palette type to use for sprites.
 
 - **`static void setDualCustomPalette(const uint16_t* bgPalette, const uint16_t* spritePal)`**
     Convenience function that sets both custom palettes at once and automatically enables dual palette mode.
-    - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
-    - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
+  - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
+  - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
 - **`static uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (legacy mode).
 
 - **`static uint16_t resolveColor(Color color, PaletteContext context)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (legacy mode).
-    - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
+  - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
 
 #### Color (Enum)
 
@@ -1414,10 +1423,10 @@ A simple text label UI element.
 
 - **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
     Constructs a label.
-    - **t**: Label text.
-    - **x, y**: Position.
-    - **col**: Text color from the `Color` enum.
-    - **sz**: Text size multiplier.
+  - **t**: Label text.
+  - **x, y**: Position.
+  - **col**: Text color from the `Color` enum.
+  - **sz**: Text size multiplier.
 
 - **`void setText(const std::string& t)`**
     Updates the label's text. Recalculates dimensions immediately using the current font metrics.
@@ -1694,9 +1703,9 @@ Enumeration of UI element types for runtime type identification.
 
 - **`UIElement(float x, float y, float w, float h, UIElementType type = UIElementType::GENERIC)`**
     Constructs a new UIElement.
-    - `x, y`: Position.
-    - `w, h`: Dimensions.
-    - `type`: The type of the element (default: `GENERIC`).
+  - `x, y`: Position.
+  - `w, h`: Dimensions.
+  - `type`: The type of the element (default: `GENERIC`).
 
 - **`UIElementType getType() const`**
     Returns the type of the UI element.
@@ -1812,8 +1821,8 @@ Vertical layout container with scroll support. Organizes UI elements vertically,
 
 - **`UIVerticalLayout(float x, float y, float w, float h)`**
     Constructs a new UIVerticalLayout.
-    - `x, y`: Position of the layout container.
-    - `w, h`: Width and height of the layout container (viewport height).
+  - `x, y`: Position of the layout container.
+  - `w, h`: Width and height of the layout container (viewport height).
 
 - **`void addElement(UIElement* element)`**
     Adds a UI element to the layout. The element will be positioned automatically.
@@ -1904,8 +1913,8 @@ Horizontal layout container with scroll support. Organizes UI elements horizonta
 
 - **`UIHorizontalLayout(float x, float y, float w, float h)`**
     Constructs a new UIHorizontalLayout.
-    - `x, y`: Position of the layout container.
-    - `w, h`: Width and height of the layout container (viewport width).
+  - `x, y`: Position of the layout container.
+  - `w, h`: Width and height of the layout container (viewport width).
 
 - **`void addElement(UIElement* element)`**
     Adds a UI element to the layout. The element will be positioned automatically.
@@ -2001,8 +2010,8 @@ Grid layout container for organizing elements in a matrix. Organizes UI elements
 
 - **`UIGridLayout(float x, float y, float w, float h)`**
     Constructs a new UIGridLayout.
-    - `x, y`: Position of the layout container.
-    - `w, h`: Width and height of the layout container.
+  - `x, y`: Position of the layout container.
+  - `w, h`: Width and height of the layout container.
 
 - **`void addElement(UIElement* element)`**
     Adds a UI element to the layout. The element will be positioned automatically based on its index in the grid.
@@ -2082,8 +2091,8 @@ Container that wraps a single UI element and applies padding. This container add
 
 - **`UIPaddingContainer(float x, float y, float w, float h)`**
     Constructs a new UIPaddingContainer.
-    - `x, y`: Position of the container.
-    - `w, h`: Width and height of the container.
+  - `x, y`: Position of the container.
+  - `w, h`: Width and height of the container.
 
 - **`void setChild(UIElement* element)`**
     Sets the child element to wrap. The child's position will be adjusted based on padding.
@@ -2152,8 +2161,8 @@ Visual container that draws a background and border around a child element. Prov
 
 - **`UIPanel(float x, float y, float w, float h)`**
     Constructs a new UIPanel.
-    - `x, y`: Position of the panel.
-    - `w, h`: Width and height of the panel.
+  - `x, y`: Position of the panel.
+  - `w, h`: Width and height of the panel.
 
 - **`void setChild(UIElement* element)`**
     Sets the child element to wrap (typically a UILayout).
@@ -2247,8 +2256,8 @@ Layout that positions elements at fixed anchor points on the screen without refl
 
 - **`UIAnchorLayout(float x, float y, float w, float h)`**
     Constructs a new UIAnchorLayout.
-    - `x, y`: Position of the layout container (usually 0, 0).
-    - `w, h`: Width and height of the layout container (usually screen width and height).
+  - `x, y`: Position of the layout container (usually 0, 0).
+  - `w, h`: Width and height of the layout container (usually screen width and height).
 
 - **`void addElement(UIElement* element, Anchor anchor)`**
     Adds a UI element with a specific anchor point.

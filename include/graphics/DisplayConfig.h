@@ -25,7 +25,8 @@ namespace pixelroot32::graphics {
 enum DisplayType {
     ST7789, // 240x240 TFT
     ST7735, // 128x128 TFT
-    NONE    // for SDL2 native no driver.
+    NONE,   // for SDL2 native no driver.
+    CUSTOM  // User-provided DrawSurface implementation
 }; 
 
 /**
@@ -73,15 +74,22 @@ public:
         uint16_t logW = 0,
         uint16_t logH = 0,
         const int xOff = 0,
-        const int yOff = 0
+        const int yOff = 0,
+        DrawSurface* customSurface = nullptr
     )
         : type(type), rotation(rot),
           physicalWidth(physW), physicalHeight(physH),
           logicalWidth(logW == 0 ? physW : logW),
           logicalHeight(logH == 0 ? physH : logH),
-          xOffset(xOff), yOffset(yOff), drawSurface(nullptr)
+          xOffset(xOff), yOffset(yOff), drawSurface(customSurface)
     {   
-        initDrawSurface();
+        if (type != DisplayType::CUSTOM) {
+            initDrawSurface();
+        } else if (drawSurface == nullptr) {
+            #ifdef PLATFORM_NATIVE
+                throw std::runtime_error("DisplayType::CUSTOM requires a valid DrawSurface instance.");
+            #endif
+        }
     }
 
     // =========================================================================
