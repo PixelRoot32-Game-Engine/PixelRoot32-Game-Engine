@@ -1,6 +1,7 @@
-#ifdef ESP32
-
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
+
+#if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+
 #include <stdio.h>
 #include <cstdarg>
 #include <cstdio>

@@ -3,7 +3,9 @@
 #ifndef TFT_eSPI_DRAEWER_H
 #define TFT_eSPI_DRAEWER_H
 
-#ifdef ESP32
+#include "PlatformDefaults.h"
+
+#if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
 
 #include "graphics/DrawSurface.h"
 // TFT_esPI pecific includes would go here

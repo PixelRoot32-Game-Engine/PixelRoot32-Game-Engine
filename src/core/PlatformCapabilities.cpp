@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include "core/PlatformCapabilities.h"
+#include "PlatformDefaults.h"
 
 #ifdef ESP32
 #include <Arduino.h>
@@ -25,8 +26,8 @@ PlatformCapabilities PlatformCapabilities::detect() {
 #else
     caps.hasDualCore = true;
     caps.coreCount = 2;
-    caps.audioCoreId = 0; // Usually Core 0 is for system/wifi/audio
-    caps.mainCoreId = 1;  // Core 1 is for the app
+    caps.audioCoreId = PR32_DEFAULT_AUDIO_CORE; // Use defaults from PlatformDefaults.h
+    caps.mainCoreId = PR32_DEFAULT_MAIN_CORE;   // Use defaults from PlatformDefaults.h
 #endif
 
     // Basic feature detection
