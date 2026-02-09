@@ -1,26 +1,90 @@
 #!/usr/bin/env python3
 """
-Script para ejecutar tests de PixelRoot32 Game Engine
-Este script maneja mejor los errores de compilación en Windows/Git Bash
+Script to run PixelRoot32 Game Engine tests
+This script handles compilation errors better on Windows/Git Bash
 """
 
 import subprocess
 import sys
 import os
+import shutil
 from pathlib import Path
 
-# Configuración
+# Configuration
 CXX = "g++"
-CXXFLAGS = ["-std=c++17", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST"]
-UNITY_DIR = ".pio/libdeps/native_test/Unity/src"
+CXXFLAGS = ["-std=c++11", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST", "-DSDL_MAIN_HANDLED", "-DTEST_MOCK_GRAPHICS"]
+# Unity might be in different paths depending on whether it was installed via PIO or manually
+UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
+if not UNITY_DIR.exists():
+    # Try to find it in a common alternative path
+    alt_unity = Path("test/lib/Unity/src")
+    if alt_unity.exists():
+        UNITY_DIR = alt_unity
+    else:
+        # Revert to default path for installation
+        UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
+
 BUILD_DIR = Path("build/tests")
 
+def ensure_unity():
+    """Ensures Unity is available, installing it if necessary"""
+    unity_c = UNITY_DIR / "unity.c"
+    unity_h = UNITY_DIR / "unity.h"
+    
+    if unity_c.exists() and unity_h.exists():
+        return True
+        
+    print(f"\n[!] Unity not found in {UNITY_DIR}")
+    print("Attempting to install Unity...")
+    
+    # Attempt 1: Use PlatformIO if available
+    try:
+        print("Attempting via PlatformIO (pio pkg install)...")
+        # Ensure directory exists so pio doesn't fail if there's no environment
+        subprocess.run(["pio", "pkg", "install", "-e", "native_test"], check=True)
+        if unity_c.exists():
+            print("[OK] Unity installed via PlatformIO")
+            return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("[-] PlatformIO not available or installation failed")
+
+    # Attempt 2: Download directly from GitHub (using git)
+    try:
+        print("Attempting to clone Unity from GitHub...")
+        temp_dir = Path("temp_unity")
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+            
+        subprocess.run(["git", "clone", "--depth", "1", "https://github.com/ThrowTheSwitch/Unity.git", str(temp_dir)], check=True)
+        
+        # Create expected directory structure
+        UNITY_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Copy necessary files
+        for f in ["unity.c", "unity.h", "unity_internals.h"]:
+            src = temp_dir / "src" / f
+            if src.exists():
+                shutil.copy(src, UNITY_DIR / f)
+        
+        # Clean up
+        shutil.rmtree(temp_dir)
+        
+        if unity_c.exists():
+            print("[OK] Unity downloaded and configured successfully")
+            return True
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[-] Error attempting to clone with git: {e}")
+
+    print("❌ Could not install Unity automatically.")
+    print("Please install it manually in .pio/libdeps/native_test/Unity/src")
+    return False
+
 def run_command(cmd, description):
-    """Ejecuta un comando y muestra errores"""
+    """Executes a command and shows errors"""
     print(f"\n{'='*60}")
     print(f"{description}")
     print(f"{'='*60}")
-    print(f"Comando: {' '.join(cmd)}")
+    print(f"Command: {' '.join(cmd)}")
     
     try:
         result = subprocess.run(
@@ -37,52 +101,53 @@ def run_command(cmd, description):
             print("STDERR:", result.stderr)
         
         if result.returncode != 0:
-            print(f"[X] Error (codigo {result.returncode})")
+            print(f"[X] Error (code {result.returncode})")
             return False
         
-        print("[OK] Exito")
+        print("[OK] Success")
         return True
         
     except Exception as e:
-        print(f"[X] Excepcion: {e}")
+        print(f"[X] Exception: {e}")
         return False
 
 def compile_and_run(test_name, test_file, output_name, source_files=None):
-    """Compila y ejecuta un test"""
+    """Compiles and runs a test"""
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     
     output_path = BUILD_DIR / output_name
     test_path = Path(test_file)
-    unity_c = Path(UNITY_DIR) / "unity.c"
+    unity_c = UNITY_DIR / "unity.c"
     
-    # Verificar que los archivos existen
+    # Verify files exist
     if not test_path.exists():
-        print(f"❌ No existe: {test_path}")
+        print(f"❌ Does not exist: {test_path}")
         return False
     
-    if not unity_c.exists():
-        print(f"❌ No existe Unity. Instalando...")
-        subprocess.run(["pio", "lib", "install", "--global", "Unity"])
-    
-    # Preparar lista de archivos a compilar
+    # Prepare list of files to compile
     files = [str(test_path), str(unity_c)]
     if source_files:
         files.extend(source_files)
     
-    # Compilar
+    # Compile
     cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + ["-o", str(output_path)]
     
-    if not run_command(cmd, f"Compilando {test_name}"):
+    if not run_command(cmd, f"Compiling {test_name}"):
         return False
     
-    # Ejecutar
-    print(f"\n>> Ejecutando {test_name}...")
-    return run_command([str(output_path)], f"Tests de {test_name}")
+    # Execute
+    print(f"\n>> Running {test_name}...")
+    return run_command([str(output_path)], f"{test_name} Tests")
 
 def main():
     print("="*60)
     print("PixelRoot32 Game Engine - Test Runner")
     print("="*60)
+    
+    # Ensure Unity before starting
+    if not ensure_unity():
+        print("❌ Error: Cannot continue without Unity.")
+        sys.exit(1)
     
     # Simple argument parsing for filtering
     filter_name = None
@@ -92,28 +157,28 @@ def main():
         else:
             filter_name = sys.argv[1]
     
-    # Verificar g++
+    # Verify g++
     try:
         result = subprocess.run([CXX, "--version"], capture_output=True, text=True)
-        print(f"\nCompilador: {result.stdout.splitlines()[0]}")
+        print(f"\nCompiler: {result.stdout.splitlines()[0]}")
     except:
-        print(f"❌ No se encontró {CXX}")
+        print(f"❌ {CXX} not found")
         sys.exit(1)
     
-    # Tests a ejecutar: (nombre, archivo_test, ejecutable, [archivos_fuente_opcionales])
+    # Tests to run: (name, test_file, executable, [optional_source_files])
     tests = [
         ("Math", "test/unit/test_math/test_mathutil.cpp", "test_mathutil", None),
         ("Core-Rect", "test/unit/test_rect/test_rect.cpp", "test_rect", None),
-        ("Core-Entity", "test/unit/test_entity/test_entity.cpp", "test_entity", None),
-        ("Core-Actor", "test/unit/test_actor/test_actor.cpp", "test_actor", None),
-        ("Core-Scene", "test/unit/test_scene/test_scene.cpp", "test_scene", None),
-        ("Core-SceneManager", "test/unit/test_scene_manager/test_scene_manager.cpp", "test_scene_manager", None),
+        ("Core-Entity", "test/unit/test_entity/test_entity.cpp", "test_entity", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
+        ("Core-Actor", "test/unit/test_actor/test_actor.cpp", "test_actor", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
+        ("Core-Scene", "test/unit/test_scene/test_scene.cpp", "test_scene", ["src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
+        ("Core-SceneManager", "test/unit/test_scene_manager/test_scene_manager.cpp", "test_scene_manager", ["src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
         ("Physics-Types", "test/unit/test_collision_types/test_collision_types.cpp", "test_collision_types", None),
-        ("Physics-Primitives", "test/unit/test_collision_primitives/test_collision_primitives.cpp", "test_collision_primitives", None),
-        ("Physics-System", "test/unit/test_collision_system/test_collision_system.cpp", "test_collision_system", None),
-        ("Graphics-Color", "test/unit/test_color/test_color.cpp", "test_color", None),
-        ("Graphics-Camera2D", "test/unit/test_camera2d/test_camera2d.cpp", "test_camera2d", None),
-        ("Graphics-FontManager", "test/unit/test_font_manager/test_font_manager.cpp", "test_font_manager", None),
+        ("Physics-Primitives", "test/unit/test_collision_primitives/test_collision_primitives.cpp", "test_collision_primitives", ["src/physics/CollisionPrimitives.cpp"]),
+        ("Physics-System", "test/unit/test_collision_system/test_collision_system.cpp", "test_collision_system", ["src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp"]),
+        ("Graphics-Color", "test/unit/test_color/test_color.cpp", "test_color", ["src/graphics/Color.cpp"]),
+        ("Graphics-Camera2D", "test/unit/test_camera2d/test_camera2d.cpp", "test_camera2d", ["src/graphics/Camera2D.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
+        ("Graphics-FontManager", "test/unit/test_font_manager/test_font_manager.cpp", "test_font_manager", ["src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
         ("Input-Config", "test/unit/test_input_config/test_input_config.cpp", "test_input_config", None),
         ("Input-Manager", "test/unit/test_input_manager/test_input_manager.cpp", "test_input_manager", ["src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp"]),
         ("Audio-Queue", "test/unit/test_audio_command_queue/test_audio_command_queue.cpp", "test_audio_command_queue", None),
@@ -130,25 +195,25 @@ def main():
         results.append((name, success))
         print()
     
-    # Resumen
+    # Summary
     print("="*60)
-    print("RESUMEN")
+    print("SUMMARY")
     print("="*60)
     
     passed = sum(1 for _, success in results if success)
     total = len(results)
     
     for name, success in results:
-        status = "[OK] PASO" if success else "[X] FALLO"
+        status = "[OK] PASSED" if success else "[X] FAILED"
         print(f"{name:15} {status}")
     
-    print(f"\nTotal: {passed}/{total} tests pasaron")
+    print(f"\nTotal: {passed}/{total} tests passed")
     
     if passed == total:
-        print("\n*** TODOS LOS TESTS PASARON ***")
+        print("\n*** ALL TESTS PASSED ***")
         return 0
     else:
-        print(f"\n[!] {total - passed} test(s) fallaron")
+        print(f"\n[!] {total - passed} test(s) failed")
         return 1
 
 if __name__ == "__main__":
