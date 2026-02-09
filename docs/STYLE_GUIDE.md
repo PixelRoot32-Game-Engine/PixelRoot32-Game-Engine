@@ -11,7 +11,7 @@ PixelRoot32 follows a strict set of conventions to ensure consistency, readabili
 
 ### Language
 
-- C++17
+- C++11
 - Avoid RTTI and exceptions in performance-critical runtime code
 - Prefer deterministic and explicit control flow
 

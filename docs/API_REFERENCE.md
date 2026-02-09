@@ -70,7 +70,7 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
-- **`const PlatformCapabilities& getCapabilities() const`**
+- **`const PlatformCapabilities& getPlatformCapabilities() const`**
     Returns the detected hardware capabilities for the current platform.
 
 ### PlatformCapabilities (Struct)
@@ -121,9 +121,6 @@ The core class managing audio generation and playback.
 
 - **`void init()`**
     Initializes the audio backend.
-
-- **`void update(unsigned long deltaTime)`**
-    Updates audio logic (envelopes, sequencers).
 
 - **`void generateSamples(int16_t* stream, int length)`**
     Fills the buffer with audio samples.
