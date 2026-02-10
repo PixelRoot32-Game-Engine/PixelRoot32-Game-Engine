@@ -25,8 +25,12 @@ public:
     virtual ~BaseDrawSurface() = default;
 
     // Default implementations for deprecated methods
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override {}
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override {}
+    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override {
+        (void)text; (void)x; (void)y; (void)color; (void)size;
+    }
+    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override {
+        (void)text; (void)y; (void)color; (void)size;
+    }
     
     // State management defaults
     void setTextColor(uint16_t color) override { textColor = color; }
