@@ -2,9 +2,10 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef ARDUINO_ARCH_ESP32
-
 #include "drivers/esp32/ESP32_I2S_AudioBackend.h"
+
+#if defined(PIXELROOT32_USE_I2S_AUDIO)
+
 #include "audio/AudioEngine.h"
 #include <Arduino.h>
 
@@ -104,4 +105,4 @@ namespace pixelroot32::drivers::esp32 {
 
 }
 
-#endif // ARDUINO_ARCH_ESP32
+#endif // PIXELROOT32_USE_I2S_AUDIO

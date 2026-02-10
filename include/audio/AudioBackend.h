@@ -3,7 +3,7 @@
  * Licensed under the MIT License
  */
 #pragma once
-#include "core/PlatformCapabilities.h"
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::audio {
 

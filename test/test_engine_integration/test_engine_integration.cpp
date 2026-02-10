@@ -12,11 +12,14 @@
 #include "input/InputConfig.h"
 #include "audio/AudioConfig.h"
 #include "../test_config.h"
+#include "../mocks/MockDrawSurface.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::input;
 using namespace pixelroot32::audio;
+
+int MockDrawSurface::instances = 0;
 
 void setUp(void) {
     // set stuff up here
@@ -58,7 +61,9 @@ public:
 };
 
 void test_engine_initialization(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    // Use custom display to verify driver injection
+    MockDrawSurface* mock = new MockDrawSurface();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
     Engine engine(config);
     
     engine.init();
@@ -74,7 +79,8 @@ void test_engine_initialization(void) {
 }
 
 void test_engine_scene_management(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    MockDrawSurface* mock = new MockDrawSurface();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
     Engine engine(config);
     
     Scene* scene = new Scene();
@@ -86,7 +92,8 @@ void test_engine_scene_management(void) {
 }
 
 void test_engine_update_draw_propagation(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    MockDrawSurface* mock = new MockDrawSurface();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
     TestEngine engine(config);
     engine.init();
     
@@ -108,10 +115,28 @@ void test_engine_update_draw_propagation(void) {
     delete entity;
 }
 
+void test_engine_graphics_ownership(void) {
+    TEST_ASSERT_EQUAL(0, MockDrawSurface::instances);
+    
+    {
+        MockDrawSurface* mock = new MockDrawSurface();
+        DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
+        
+        {
+            Engine engine(config);
+            TEST_ASSERT_EQUAL(1, MockDrawSurface::instances);
+        }
+        
+        // Engine should have deleted the mock via Renderer
+        TEST_ASSERT_EQUAL(0, MockDrawSurface::instances);
+    }
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_engine_initialization);
     RUN_TEST(test_engine_scene_management);
     RUN_TEST(test_engine_update_draw_propagation);
+    RUN_TEST(test_engine_graphics_ownership);
     return UNITY_END();
 }

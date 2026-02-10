@@ -19,13 +19,15 @@
     #include <SPI.h>
 #endif
 #include <stdexcept>
+#include <memory>
 
 namespace pixelroot32::graphics {
 
 enum DisplayType {
     ST7789, // 240x240 TFT
     ST7735, // 128x128 TFT
-    NONE    // for SDL2 native no driver.
+    NONE,   // for SDL2 native no driver.
+    CUSTOM  // User-provided DrawSurface implementation
 }; 
 
 /**
@@ -73,15 +75,64 @@ public:
         uint16_t logW = 0,
         uint16_t logH = 0,
         const int xOff = 0,
-        const int yOff = 0
+        const int yOff = 0,
+        DrawSurface* customSurface = nullptr
     )
         : type(type), rotation(rot),
           physicalWidth(physW), physicalHeight(physH),
           logicalWidth(logW == 0 ? physW : logW),
           logicalHeight(logH == 0 ? physH : logH),
-          xOffset(xOff), yOffset(yOff), drawSurface(nullptr)
+          xOffset(xOff), yOffset(yOff), drawSurface(customSurface)
     {   
-        initDrawSurface();
+        if (type != DisplayType::CUSTOM) {
+            initDrawSurface();
+        } else if (!drawSurface) {
+            #ifdef PLATFORM_NATIVE
+                throw std::runtime_error("DisplayType::CUSTOM requires a valid DrawSurface instance.");
+            #endif
+        }
+    }
+
+    /**
+     * @brief Static factory to create a DisplayConfig with a custom DrawSurface.
+     * @param surface Pointer to the custom DrawSurface implementation (ownership is transferred).
+     * @param w Physical and logical width.
+     * @param h Physical and logical height.
+     * @param rot Rotation.
+     */
+    static DisplayConfig createCustom(DrawSurface* surface, uint16_t w, uint16_t h, int rot = 0) {
+        return DisplayConfig(DisplayType::CUSTOM, rot, w, h, w, h, 0, 0, surface);
+    }
+
+    DisplayConfig(const DisplayConfig& other)
+        : type(other.type), rotation(other.rotation),
+          physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
+          logicalWidth(other.logicalWidth), logicalHeight(other.logicalHeight),
+          xOffset(other.xOffset), yOffset(other.yOffset),
+          drawSurface(nullptr) // Cannot copy the unique_ptr
+    {}
+
+    DisplayConfig(DisplayConfig&& other) noexcept
+        : type(other.type), rotation(other.rotation),
+          physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
+          logicalWidth(other.logicalWidth), logicalHeight(other.logicalHeight),
+          xOffset(other.xOffset), yOffset(other.yOffset),
+          drawSurface(std::move(other.drawSurface))
+    {}
+
+    DisplayConfig& operator=(DisplayConfig&& other) noexcept {
+        if (this != &other) {
+            type = other.type;
+            rotation = other.rotation;
+            physicalWidth = other.physicalWidth;
+            physicalHeight = other.physicalHeight;
+            logicalWidth = other.logicalWidth;
+            logicalHeight = other.logicalHeight;
+            xOffset = other.xOffset;
+            yOffset = other.yOffset;
+            drawSurface = std::move(other.drawSurface);
+        }
+        return *this;
     }
 
     // =========================================================================
@@ -124,58 +175,29 @@ public:
 
     DrawSurface& getDrawSurface() const { return *drawSurface; }
 
-private:
-    DrawSurface* drawSurface = nullptr;
+    void initDrawSurface();
 
-    void initDrawSurface() {
-        #ifdef TEST_MOCK_GRAPHICS
-            class MockDrawer : public DrawSurface {
-            public:
-                void init() override {}
-                void setRotation(uint16_t) override {}
-                void clearBuffer() override {}
-                void sendBuffer() override {}
-                void drawText(const char*, int16_t, int16_t, uint16_t, uint8_t) override {}
-                void drawTextCentered(const char*, int16_t, uint16_t, uint8_t) override {}
-                void drawFilledCircle(int, int, int, uint16_t) override {}
-                void drawCircle(int, int, int, uint16_t) override {}
-                void drawRectangle(int, int, int, int, uint16_t) override {}
-                void drawFilledRectangle(int, int, int, int, uint16_t) override {}
-                void drawLine(int, int, int, int, uint16_t) override {}
-                void drawBitmap(int, int, int, int, const uint8_t*, uint16_t) override {}
-                void drawPixel(int, int, uint16_t) override {}
-                void setContrast(uint8_t) override {}
-                void setTextColor(uint16_t) override {}
-                void setTextSize(uint8_t) override {}
-                void setCursor(int16_t, int16_t) override {}
-                uint16_t color565(uint8_t, uint8_t, uint8_t) override { return 0; }
-                void setDisplaySize(int, int) override {}
-                void setPhysicalSize(int, int) override {}
-                void present() override {}
-            };
-            drawSurface = new MockDrawer();
-        #elif defined(PLATFORM_NATIVE)
-            drawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
-        #else
-            switch (type)
-            {
-            case DisplayType::ST7789:
-            case DisplayType::ST7735:
-            default:
-                drawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
-                break;
-            }
-        #endif
-        
-        if (drawSurface == nullptr) {
-            #ifdef PLATFORM_NATIVE
-                throw std::runtime_error("Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
-            #else
-                // In ESP32, exceptions may not be enabled by default
-                // while(1); 
-            #endif
-        }
+    /**
+     * @brief Transfers ownership of the DrawSurface to the caller.
+     * @return A unique_ptr containing the DrawSurface.
+     */
+    std::unique_ptr<DrawSurface> releaseDrawSurface() {
+        return std::move(drawSurface);
     }
+
+private:
+    std::unique_ptr<DrawSurface> drawSurface;
 };
 
-}
+} // namespace pixelroot32::graphics
+
+/**
+ * @brief Helper macro to create a custom display configuration with ownership transfer.
+ * 
+ * Usage:
+ * @code
+ * Engine engine(PIXELROOT32_CUSTOM_DISPLAY(new MyDriver(), 240, 240));
+ * @endcode
+ */
+#define PIXELROOT32_CUSTOM_DISPLAY(surface_ptr, width, height) \
+    pixelroot32::graphics::DisplayConfig::createCustom(surface_ptr, width, height)

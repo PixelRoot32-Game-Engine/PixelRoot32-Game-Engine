@@ -31,7 +31,7 @@
 
 ## 📖 Overview
 
-**PixelRoot32** is a lightweight, modular 2D game engine written in C++17, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
+**PixelRoot32** is a lightweight, modular 2D game engine written in C++, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
@@ -75,6 +75,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### 🔊 Audio
 
 - **NES-Style Audio**: Built-in audio subsystem with 2 Pulse channels, 1 Triangle, and 1 Noise
+- **Platform Optimized**: Decoupled audio processing with dynamic core affinity and configurable resolutions via `platforms/EngineConfig.h`.
 - **Music Player**: Lightweight background music system based on notes
 
 ### 🎯 Physics and Collisions
@@ -95,7 +96,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### Prerequisites
 
 - **VS Code + PlatformIO extension**
-- **C++17 toolchain**
+- **C++11 toolchain**
 - **ESP32 DevKit** (for hardware) or **SDL2** (for native development)
 
 ### Fast Setup
@@ -110,7 +111,8 @@ Watch PixelRoot32 running on ESP32 with example games:
 2. **Open the project in VS Code** and let PlatformIO initialize
 
 3. **Select the environment:**
-   - `env:esp32dev` for ESP32
+   - `env:esp32dev` for Classic ESP32 (Internal DAC)
+   - `env:esp32s3` for ESP32-S3 (I2S Audio)
    - `env:native` for PC (requires SDL2)
 
 4. **Build and run** from PlatformIO
@@ -119,7 +121,12 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ```cpp
 #include <core/Engine.h>
+// Use the appropriate backend for your hardware
+#ifdef CONFIG_IDF_TARGET_ESP32
 #include <drivers/esp32/ESP32_DAC_AudioBackend.h>
+#else
+#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
+#endif
 
 namespace pr32 = pixelroot32;
 
@@ -150,12 +157,12 @@ void loop() {
 
 ### Official Documentation
 
-- **[📖 Full Documentation](https://pixelroot32-game-engine.github.io)**: Complete online documentation with guides, API reference, examples, and more
-- **[🚀 Getting Started](https://pixelroot32-game-engine.github.io/getting_started/)**: Installation, first project, and fundamental concepts
-- **[📘 Manual](https://pixelroot32-game-engine.github.io/manual/)**: Game development guides, advanced graphics, and optimization
-- **[🔧 API Reference](https://pixelroot32-game-engine.github.io/api_reference/)**: Complete class reference and usage examples
-- **[🎮 Examples](https://pixelroot32-game-engine.github.io/examples/)**: Complete game examples with code analysis
-- **[🛠️ Tools](https://pixelroot32-game-engine.github.io/tools/)**: Sprite compiler and other development tools
+- **[📖 Full Documentation](https://docs.pixelroot32.org)**: Complete online documentation with guides, API reference, examples, and more
+- **[🚀 Getting Started](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/)**: Installation, first project, and fundamental concepts
+- **[📘 Manual](https://docs.pixelroot32.org/manual/game_development/scenes_and_entities/)**: Game development guides, advanced graphics, and optimization
+- **[🔧 API Reference](https://docs.pixelroot32.org/api_reference/core/engine/)**: Complete class reference and usage examples
+- **[🎮 Examples](https://docs.pixelroot32.org/reference/game_examples_guide/)**: Complete game examples with code analysis
+- **[🛠️ Tools](https://docs.pixelroot32.org/tools/sprite_compiler/overview/)**: Sprite compiler and other development tools
 
 ### Local Documentation (Repository)
 
@@ -163,14 +170,6 @@ void loop() {
 - **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: NES-style sound engine architecture
 - **[Style Guide](docs/STYLE_GUIDE.md)**: Coding conventions and best practices
 - **[Contributing Guide](CONTRIBUTING.md)**: How to contribute to the project
-
-### Quick Guides
-
-- **[Getting Started](#-quick-start)**: Initial setup and first project
-- **[Color Palettes](#-color-palettes)**: How to use and customize palettes
-- **[Sprite System](#-sprite-system)**: Creating and using sprites
-- **[UI System](#-ui-system)**: Building user interfaces
-- **[Resolution Scaling](#-resolution-scaling)**: Optimizing performance via logical resolutions
 
 ### Color Palettes
 
@@ -432,6 +431,8 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 ### v0.7.0-dev
 
 - **Decoupled Multi-Core Audio**: New audio architecture that runs on Core 0 (ESP32) or a dedicated thread (Native), providing sample-accurate timing and zero-jitter playback.
+- **Unified Platform Architecture**: Consolidated configurations in `include/platforms/` and introduced configurable core affinity via macros, supporting modern hardware like ESP32-S3.
+- **Graphics Extensibility**: Introduced `BaseDrawSurface` and `unique_ptr` ownership management for easier and safer custom display driver implementation.
 
 ### v0.6.0-dev
 

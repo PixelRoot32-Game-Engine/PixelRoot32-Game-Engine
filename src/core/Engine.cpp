@@ -16,8 +16,48 @@ namespace pixelroot32::core {
     using namespace pixelroot32::input;
     using namespace pixelroot32::audio;
 
+    Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
+    Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig) 
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
+    Engine::Engine(DisplayConfig&& displayConfig) 
+        : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -30,7 +70,8 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -43,7 +84,8 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(displayConfig), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY

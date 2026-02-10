@@ -4,7 +4,9 @@
  */
 #pragma once
 
-#ifdef ARDUINO_ARCH_ESP32
+#include "platforms/PlatformDefaults.h"
+
+#if defined(PIXELROOT32_USE_I2S_AUDIO)
 
 #include "audio/AudioBackend.h"
 #include <driver/i2s.h>
@@ -50,4 +52,4 @@ namespace pixelroot32::drivers::esp32 {
 
 }
 
-#endif // ARDUINO_ARCH_ESP32
+#endif // PIXELROOT32_USE_I2S_AUDIO

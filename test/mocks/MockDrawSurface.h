@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "graphics/DrawSurface.h"
+#include "graphics/BaseDrawSurface.h"
 #include <vector>
 #include <string>
 
@@ -16,8 +16,12 @@ namespace pixelroot32::graphics {
  * 
  * Captures drawing calls so they can be verified in tests.
  */
-class MockDrawSurface : public DrawSurface {
+class MockDrawSurface : public BaseDrawSurface {
 public:
+    static int instances;
+    MockDrawSurface() { instances++; }
+    virtual ~MockDrawSurface() { instances--; }
+
     struct DrawCall {
         std::string type;
         int x, y, x2, y2, w, h, r;
@@ -28,7 +32,6 @@ public:
     std::vector<DrawCall> calls;
 
     void init() override {}
-    void setRotation(uint16_t rotation) override {}
     void clearBuffer() override { calls.clear(); }
     void sendBuffer() override {}
     
@@ -67,18 +70,6 @@ public:
     void drawPixel(int x, int y, uint16_t color) override {
         calls.push_back({"pixel", x, y, 0, 0, 0, 0, 0, color, ""});
     }
-
-    void setContrast(uint8_t level) override {}
-    void setTextColor(uint16_t color) override {}
-    void setTextSize(uint8_t size) override {}
-    void setCursor(int16_t x, int16_t y) override {}
-    
-    uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override {
-        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-    }
-    
-    void setDisplaySize(int w, int h) override {}
-    void present() override {}
 
     // Helper to find if a specific call was made
     bool hasCall(const std::string& type) const {

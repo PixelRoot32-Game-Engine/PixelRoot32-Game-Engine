@@ -4,7 +4,7 @@
  */
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"
-#include "EngineConfig.h"
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::core {
 

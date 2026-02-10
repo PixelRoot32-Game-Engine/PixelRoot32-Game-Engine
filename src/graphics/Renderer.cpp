@@ -37,9 +37,32 @@ namespace pixelroot32::graphics {
           logicalWidth(config.logicalWidth),
           logicalHeight(config.logicalHeight)
     {        
-        drawer = &config.getDrawSurface();
+        // Note: This constructor may be problematic if config is not moved,
+        // as DrawSurface ownership is tied to DisplayConfig.
+        // We cast away const to allow moving the drawer.
+        DisplayConfig& nonConstConfig = const_cast<DisplayConfig&>(config);
+        drawer = nonConstConfig.releaseDrawSurface();
+        
+        // If releaseDrawSurface returned null (meaning it was already moved or not initialized),
+        // we might need to re-initialize it if we want to support multiple Renderers from one Config
+        // (though ownership semantics suggest only one should own it).
+        if (!drawer) {
+            nonConstConfig.initDrawSurface();
+            drawer = nonConstConfig.releaseDrawSurface();
+        }
+
         xOffset = config.xOffset;
         yOffset = config.yOffset;
+    }
+
+    Renderer::Renderer(DisplayConfig&& config)
+        : config(std::move(config)),
+          logicalWidth(this->config.logicalWidth),
+          logicalHeight(this->config.logicalHeight)
+    {
+        drawer = this->config.releaseDrawSurface();
+        xOffset = this->config.xOffset;
+        yOffset = this->config.yOffset;
     }
 
 

@@ -11,7 +11,7 @@
 #include "audio/AudioConfig.h"
 #include "audio/AudioEngine.h"
 #include "audio/MusicPlayer.h"
-#include "core/PlatformCapabilities.h"
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::core {
 
@@ -31,6 +31,10 @@ public:
      * @param inputConfig Configuration settings for the input system (pins, buttons).
      * @param audioConfig Configuration settings for the audio system.
      */
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig);
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig);
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig);
+
     Engine(const pixelroot32::graphics::DisplayConfig& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig);
 
     /**
@@ -87,9 +91,9 @@ public:
     
     /**
      * @brief Replaces the current renderer instance.
-     * @param newRenderer Reference to the new Renderer to use.
+     * @param newRenderer R-value reference to the new Renderer to use.
      */
-    void setRenderer(pixelroot32::graphics::Renderer& newRenderer) { renderer = newRenderer; }
+    void setRenderer(pixelroot32::graphics::Renderer&& newRenderer) { renderer = std::move(newRenderer); }
 
     /**
      * @brief Provides access to the Renderer subsystem.
