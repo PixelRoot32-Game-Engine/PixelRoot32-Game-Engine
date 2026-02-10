@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## v0.7.0-dev
 
+- **Unified Platform Configuration & Hardware Decoupling**:
+  - Consolidated global configuration files into `include/platforms/` (`PlatformCapabilities.h`, `PlatformDefaults.h`, `EngineConfig.h`).
+  - Implemented bridge headers with `#pragma message` warnings for backward compatibility.
+  - Removed hardcoded CPU core IDs, replacing them with `PR32_DEFAULT_AUDIO_CORE` and `PR32_DEFAULT_MAIN_CORE` macros for configurable task affinity.
+  - Added explicit feature guards for audio backends (`PIXELROOT32_USE_I2S_AUDIO`, `PIXELROOT32_NO_DAC_AUDIO`) to support modern ESP32 variants (e.g., ESP32-S3).
+- **Graphics Extensibility & Ownership Management**:
+  - Introduced `BaseDrawSurface` class with default primitive implementations to simplify custom driver development.
+  - Added `PIXELROOT32_CUSTOM_DISPLAY` macro and factory methods for safe custom driver initialization.
+  - Implemented `unique_ptr` ownership transfer for `DrawSurface` instances between `DisplayConfig`, `Renderer`, and `Engine`.
+  - Refactored existing drivers to inherit from `BaseDrawSurface` and removed deprecated text rendering methods.
 - **Decoupled Multi-Core Audio Architecture**:
   - Moved audio generation and sequencing to **Core 0** (ESP32) and dedicated system threads (Native/PC).
   - Implemented **sample-accurate timing**, replacing frame-based `deltaTime` updates for perfect music and SFX synchronization.
@@ -12,7 +22,10 @@ All notable changes to this project will be documented in this file.
   - Refactored `AudioEngine` and `MusicPlayer` into "thin clients" that act as command producers.
   - Removed obsolete `update(deltaTime)` methods from audio classes, simplifying the game loop.
   - Achieved full SDL2 parity with ESP32 multi-core behavior through background thread isolation.
-  - Comprehensive documentation updates in `AUDIO_NES_SUBSYSTEM_REFERENCE.md` and official engine docs.
+- **Documentation & QA**:
+  - Updated technical references in `API_REFERENCE.md` and `README.md` for the new directory structure.
+  - Added documentation for custom display drivers and new build flags.
+  - Verified engine integrity with 260+ test cases across Native and ESP32 environments.
 
 ## v0.6.0-dev
 
