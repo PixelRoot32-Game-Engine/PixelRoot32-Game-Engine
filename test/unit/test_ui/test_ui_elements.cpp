@@ -1,14 +1,13 @@
 #include <unity.h>
 #include "../../test_config.h"
-#define private public
 #include "graphics/DisplayConfig.h"
 #include "graphics/Renderer.h"
-#undef private
 #include "graphics/ui/UILabel.h"
 #include "graphics/ui/UIButton.h"
 #include "graphics/ui/UICheckbox.h"
 #include "graphics/ui/UIPanel.h"
 #include "graphics/FontManager.h"
+#include "graphics/BaseDrawSurface.h"
 #include <vector>
 #include <string>
 
@@ -22,7 +21,7 @@ Sprite dummyGlyphs[128]; // Enough for ASCII
 const Font dummyFont = { dummyGlyphs, 0, 127, 6, 8, 0, 8 };
 
 // Mock DrawSurface to capture drawing calls
-class MockDrawSurface : public DrawSurface {
+class MockDrawSurface : public BaseDrawSurface {
 public:
     struct RectCall {
         int x, y, w, h;
@@ -40,7 +39,6 @@ public:
     std::vector<TextCall> textCalls;
 
     void init() override {}
-    void setRotation(uint16_t rotation) override {}
     void clearBuffer() override {
         rectCalls.clear();
         textCalls.clear();
@@ -50,17 +48,12 @@ public:
     void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override {
         textCalls.push_back({text, x, y, color, size});
     }
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override {}
-    void drawFilledCircle(int x, int y, int radius, uint16_t color) override {}
-    void drawCircle(int x, int y, int radius, uint16_t color) override {}
     void drawRectangle(int x, int y, int width, int height, uint16_t color) override {
         rectCalls.push_back({x, y, width, height, color, false});
     }
     void drawFilledRectangle(int x, int y, int width, int height, uint16_t color) override {
         rectCalls.push_back({x, y, width, height, color, true});
     }
-    void drawLine(int x1, int y1, int x2, int y2, uint16_t color) override {}
-    void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color) override {}
     void drawPixel(int x, int y, uint16_t color) override {
         pixelCalls.push_back({x, y, color});
     }
@@ -69,16 +62,6 @@ public:
         uint16_t color;
     };
     std::vector<PixelCall> pixelCalls;
-    void setContrast(uint8_t level) override {}
-    void setTextColor(uint16_t color) override {}
-    void setTextSize(uint8_t size) override {}
-    void setCursor(int16_t x, int16_t y) override {}
-    uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override { 
-        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-    }
-    void setDisplaySize(int w, int h) override {}
-    void setPhysicalSize(int w, int h) override {}
-    void present() override {}
 };
 
 void test_ui_label_creation_and_position() {
@@ -89,28 +72,22 @@ void test_ui_label_creation_and_position() {
 }
 
 void test_ui_label_draw() {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
     MockDrawSurface* mockDrawer = new MockDrawSurface();
-    
-    // Use the hack to replace the drawer
-    delete config.drawSurface;
-    config.drawSurface = mockDrawer;
-    
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer, 240, 240);
     Renderer renderer(config);
     
-    UILabel label("T", 50, 60, Color::White, 1);
+    UILabel label("Hello", 10, 20, Color::White, 2);
     label.draw(renderer);
     
-    // Label drawing uses drawSprite -> drawPixel in Renderer.cpp
-    // Since dummyGlyph has all 0s (no bits set), it might not call drawPixel.
-    // Let's use a non-zero glyph data for testing.
+    TEST_ASSERT_EQUAL(1, mockDrawer->textCalls.size());
+    TEST_ASSERT_EQUAL_STRING("Hello", mockDrawer->textCalls[0].text.c_str());
+    TEST_ASSERT_EQUAL(10, mockDrawer->textCalls[0].x);
+    TEST_ASSERT_EQUAL(20, mockDrawer->textCalls[0].y);
 }
 
 void test_ui_label_draw_with_data() {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
     MockDrawSurface* mockDrawer = new MockDrawSurface();
-    delete config.drawSurface;
-    config.drawSurface = mockDrawer;
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer, 240, 240);
     Renderer renderer(config);
 
     // Set a glyph with some bits: 0x0001 is bit 0

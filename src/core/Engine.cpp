@@ -56,7 +56,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
-        : renderer(const_cast<DisplayConfig&>(displayConfig).releaseDrawSurface() ? Renderer(const_cast<DisplayConfig&>(displayConfig)) : Renderer(displayConfig)), 
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
           inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
@@ -70,7 +70,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
-        : renderer(const_cast<DisplayConfig&>(displayConfig).releaseDrawSurface() ? Renderer(const_cast<DisplayConfig&>(displayConfig)) : Renderer(displayConfig)), 
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
           inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
@@ -84,7 +84,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(const_cast<DisplayConfig&>(displayConfig).releaseDrawSurface() ? Renderer(const_cast<DisplayConfig&>(displayConfig)) : Renderer(displayConfig)), 
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
           inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;

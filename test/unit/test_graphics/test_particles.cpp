@@ -14,6 +14,8 @@ using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::particles;
 
+int MockDrawSurface::instances = 0;
+
 void setUp(void) {
     test_setup();
 }
@@ -53,17 +55,16 @@ void test_particle_burst(void) {
     
     // We can't directly inspect private particles array, 
     // but we can check if draw() produces calls.
-    DisplayConfig dcfg(DisplayType::NONE);
+    MockDrawSurface* mock = new MockDrawSurface();
+    DisplayConfig dcfg = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
     Renderer renderer(dcfg);
-    MockDrawSurface mockSurface;
-    
-    // Replace the internal drawer with our mock
-    // Note: This requires getDrawSurface() to return a reference that we can't easily swap
-    // but Renderer uses DisplayConfig's surface. 
-    // Since we defined TEST_MOCK_GRAPHICS, it uses a dummy mock.
     
     // For now, let's just test that update() runs without crashing
     emitter.update(16);
+    emitter.draw(renderer);
+    
+    // Check if any draw calls were recorded
+    TEST_ASSERT_TRUE(mock->calls.size() > 0);
 }
 
 void test_particle_emitter_lifecycle(void) {
