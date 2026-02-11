@@ -310,10 +310,10 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 - **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
- - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
- - **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
- - Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
- - Works well with small on-board speakers and low-cost mono amps.
+- Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
+- **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
+- Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
+- Works well with small on-board speakers and low-cost mono amps.
 
 ### 4.3 Backend Configuration (in `main.cpp`)
 

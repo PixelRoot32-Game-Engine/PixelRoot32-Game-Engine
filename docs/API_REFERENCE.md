@@ -1306,14 +1306,25 @@ void EnemyActor::draw(Renderer& renderer) {
 
 **Inherits:** None
 
-Configuration settings for initializing displays.
+Configuration settings for initializing displays. Supports both physical (hardware) and logical (rendering) resolutions.
 
 #### Properties
 
-- **`rotation`**: Display rotation (0-3).
-- **`width`**: Display width in pixels.
-- **`height`**: Display height in pixels.
-- **`xOffset, yOffset`**: Offsets for display rendering.
+- **`type`**: The display type (`ST7789`, `ST7735`, `NONE`, `CUSTOM`).
+- **`rotation`**: Display rotation (0-3 or degrees).
+- **`physicalWidth, physicalHeight`**: Actual hardware resolution.
+- **`logicalWidth, logicalHeight`**: Rendering resolution (game logic).
+- **`xOffset, yOffset`**: Alignment offsets.
+
+#### Custom Displays
+
+To use a custom display driver, use the `PIXELROOT32_CUSTOM_DISPLAY` macro:
+
+```cpp
+auto config = PIXELROOT32_CUSTOM_DISPLAY(new MyDriver(), 240, 240);
+```
+
+For more details, see the [Extensibility Guide](EXTENDING_PIXELROOT32.md).
 
 ---
 
