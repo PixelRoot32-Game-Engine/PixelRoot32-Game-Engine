@@ -113,6 +113,7 @@ Problems:
 ````
 
 SDL2 mirrors this architecture using either:
+
 - A dedicated audio thread, or
 - The existing callback-based model (fallback).
 
@@ -164,9 +165,9 @@ struct AudioCommand {
 
 ### Notes
 
-* AudioEngine::playEvent() becomes a thin wrapper around enqueue().
-* No audio behavior changes in this phase.
-* Existing games remain unchanged.
+- AudioEngine::playEvent() becomes a thin wrapper around enqueue().
+- No audio behavior changes in this phase.
+- Existing games remain unchanged.
 
 ---
 
@@ -174,23 +175,23 @@ struct AudioCommand {
 
 ### Goals
 
-* Centralize all audio state and timing.
-* Make audio execution independent of frame rate.
-* Prepare for multi-core execution without enforcing it.
+- Centralize all audio state and timing.
+- Make audio execution independent of frame rate.
+- Prepare for multi-core execution without enforcing it.
 
 ### AudioScheduler Responsibilities
 
-* Own AudioChannel array.
-* Process AudioCommandQueue.
-* Generate PCM samples.
-* Maintain audio-time in samples.
-* Output to AudioBackend.
+- Own AudioChannel array.
+- Process AudioCommandQueue.
+- Generate PCM samples.
+- Maintain audio-time in samples.
+- Output to AudioBackend.
 
 ### Audio Time Model
 
-* Internal time unit: samples.
-* No milliseconds inside the audio thread.
-* Conversion from seconds/ms happens only at command ingestion.
+- Internal time unit: samples.
+- No milliseconds inside the audio thread.
+- Conversion from seconds/ms happens only at command ingestion.
 
 ```cpp
 uint64_t audioTimeSamples;
@@ -215,35 +216,35 @@ public:
 
 ### Goals
 
-* Remove frame-driven music sequencing.
-* Make music sample-accurate and audio-owned.
-* Preserve MusicPlayer API.
+- Remove frame-driven music sequencing.
+- Make music sample-accurate and audio-owned.
+- Preserve MusicPlayer API.
 
 ### Revised Responsibilities
 
 #### MusicPlayer (Game Thread)
 
-* Thin client.
-* Enqueues:
+- Thin client.
+- Enqueues:
 
-  * play / stop / pause / resume
-  * tempo changes
-* Does NOT advance notes.
+  - play / stop / pause / resume
+  - tempo changes
+- Does NOT advance notes.
 
 #### MusicSequencer (Audio Thread)
 
-* Owns:
+- Owns:
 
-  * current track
-  * note index
-  * remainingSamples
-* Triggers AudioEvents internally.
-* Uses only sample-based timing.
+  - current track
+  - note index
+  - remainingSamples
+- Triggers AudioEvents internally.
+- Uses only sample-based timing.
 
 ### Important Change
 
-* durationMs and remainingMs are removed from runtime audio state.
-* All durations are converted to sample counts at scheduling time.
+- durationMs and remainingMs are removed from runtime audio state.
+- All durations are converted to sample counts at scheduling time.
 
 ---
 
@@ -251,14 +252,14 @@ public:
 
 ### Goals
 
-* Completely separate game-time and audio-time.
-* Ensure render stalls never affect audio pitch or tempo.
+- Completely separate game-time and audio-time.
+- Ensure render stalls never affect audio pitch or tempo.
 
 ### Rules
 
-* Game loop uses deltaTime (ms).
-* Audio uses sample counts only.
-* No cross-domain timing math outside well-defined boundaries.
+- Game loop uses deltaTime (ms).
+- Audio uses sample counts only.
+- No cross-domain timing math outside well-defined boundaries.
 
 ---
 
@@ -266,15 +267,15 @@ public:
 
 ### Goals
 
-* Run audio on Core 0 when available.
-* Keep Core 1 dedicated to game logic and rendering.
-* Allow coexistence with WiFi/Bluetooth.
+- Run audio on Core 0 when available.
+- Keep Core 1 dedicated to game logic and rendering.
+- Allow coexistence with WiFi/Bluetooth.
 
 ### FreeRTOS Strategy
 
-* AudioScheduler runs as a pinned task.
-* Priority configurable at runtime.
-* Optional yielding between buffers.
+- AudioScheduler runs as a pinned task.
+- Priority configurable at runtime.
+- Optional yielding between buffers.
 
 ```cpp
 audioTaskCore = 0;
@@ -283,7 +284,7 @@ audioTaskPriority = configMAX_PRIORITIES - 1;
 
 Fallback:
 
-* If Core 0 unavailable, audio runs on Core 1 at lower priority.
+- If Core 0 unavailable, audio runs on Core 1 at lower priority.
 
 ---
 
@@ -296,18 +297,18 @@ Fallback:
 
 Both modes share:
 
-* Command queue
-* Scheduler logic
-* Sample-based timing
+- Command queue
+- Scheduler logic
+- Sample-based timing
 
 ---
 
 ## Phase 7: Backward Compatibility Guarantees
 
-* AudioEngine::playEvent() remains valid.
-* MusicPlayer public API unchanged.
-* Existing examples compile and behave identically.
-* No required changes in game code.
+- AudioEngine::playEvent() remains valid.
+- MusicPlayer public API unchanged.
+- Existing examples compile and behave identically.
+- No required changes in game code.
 
 ---
 
@@ -315,27 +316,27 @@ Both modes share:
 
 After full migration:
 
-* Input
-* Scene update
-* Rendering
-* MusicPlayer command submission
+- Input
+- Scene update
+- Rendering
+- MusicPlayer command submission
 
 Removed:
 
-* AudioEngine.update()
-* Music sequencing logic
-* Audio timing logic
+- AudioEngine.update()
+- Music sequencing logic
+- Audio timing logic
 
 ---
 
 ## Key Improvements Over Version 1.0
 
-* Stronger ownership guarantees for audio state.
-* Sample-based timing enforced earlier.
-* Clearer separation of MusicPlayer vs MusicSequencer roles.
-* Reduced ambiguity around timing responsibilities.
-* Safer overflow policy for command queue.
-* Lower long-term debugging and maintenance cost.
+- Stronger ownership guarantees for audio state.
+- Sample-based timing enforced earlier.
+- Clearer separation of MusicPlayer vs MusicSequencer roles.
+- Reduced ambiguity around timing responsibilities.
+- Safer overflow policy for command queue.
+- Lower long-term debugging and maintenance cost.
 
 ---
 
@@ -343,11 +344,11 @@ Removed:
 
 This architecture:
 
-* Matches real console audio pipelines.
-* Preserves PixelRoot32’s simplicity.
-* Scales cleanly to WiFi/Bluetooth usage.
-* Maintains SDL2 development ergonomics.
-* Eliminates race conditions by design.
+- Matches real console audio pipelines.
+- Preserves PixelRoot32’s simplicity.
+- Scales cleanly to WiFi/Bluetooth usage.
+- Maintains SDL2 development ergonomics.
+- Eliminates race conditions by design.
 
 Multi-core support becomes an implementation detail, not a structural dependency.
 
