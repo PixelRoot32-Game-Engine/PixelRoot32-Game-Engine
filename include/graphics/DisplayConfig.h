@@ -15,9 +15,15 @@
     #include <drivers/native/SDL2_Drawer.h> 
     #include "DrawSurface.h"
 #else
-    #include <drivers/esp32/TFT_eSPI_Drawer.h>
+    #include "platforms/PlatformDefaults.h"
+    #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+        #include <drivers/esp32/TFT_eSPI_Drawer.h>
+    #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
+        #include <drivers/esp32/U8G2_Drawer.h>
+    #endif
     #include <SPI.h>
 #endif
+#include "platforms/EngineConfig.h"
 #include <stdexcept>
 #include <memory>
 
@@ -26,6 +32,8 @@ namespace pixelroot32::graphics {
 enum DisplayType {
     ST7789, // 240x240 TFT
     ST7735, // 128x128 TFT
+    OLED_SSD1306, // 128x64 OLED (U8G2)
+    OLED_SH1106,  // 128x64 OLED (U8G2)
     NONE,   // for SDL2 native no driver.
     CUSTOM  // User-provided DrawSurface implementation
 }; 
@@ -69,13 +77,13 @@ public:
      */
     DisplayConfig(
         DisplayType type,
-        const int rot = 0,
-        uint16_t physW = 240,
-        uint16_t physH = 240,
-        uint16_t logW = 0,
-        uint16_t logH = 0,
-        const int xOff = 0,
-        const int yOff = 0,
+        const int rot = DISPLAY_ROTATION,
+        uint16_t physW = PHYSICAL_DISPLAY_WIDTH,
+        uint16_t physH = PHYSICAL_DISPLAY_HEIGHT,
+        uint16_t logW = LOGICAL_WIDTH,
+        uint16_t logH = LOGICAL_HEIGHT,
+        const int xOff = X_OFF_SET,
+        const int yOff = Y_OFF_SET,
         DrawSurface* customSurface = nullptr
     )
         : type(type), rotation(rot),

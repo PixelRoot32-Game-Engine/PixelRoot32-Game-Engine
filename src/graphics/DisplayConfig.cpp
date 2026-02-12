@@ -14,10 +14,16 @@
 #ifdef PLATFORM_NATIVE
     #include "drivers/native/SDL2_Drawer.h"
 #else
-    #include "drivers/esp32/TFT_eSPI_Drawer.h"
+    #include "platforms/PlatformDefaults.h"
+    #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+        #include "drivers/esp32/TFT_eSPI_Drawer.h"
+    #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
+        #include "drivers/esp32/U8G2_Drawer.h"
+    #endif
 #endif
 
 #ifdef TEST_MOCK_GRAPHICS
+#include "graphics/BaseDrawSurface.h"
 #include <stdexcept>
 #endif
 
@@ -28,42 +34,48 @@ namespace pixelroot32::graphics {
         
         DrawSurface* rawSurface = nullptr;
         #ifdef TEST_MOCK_GRAPHICS
-            class MockDrawer : public DrawSurface {
+            class MockDrawer : public BaseDrawSurface {
             public:
                 void init() override {}
-                void setRotation(uint16_t) override {}
                 void clearBuffer() override {}
                 void sendBuffer() override {}
-                void drawText(const char*, int16_t, int16_t, uint16_t, uint8_t) override {}
-                void drawTextCentered(const char*, int16_t, uint16_t, uint8_t) override {}
-                void drawFilledCircle(int, int, int, uint16_t) override {}
-                void drawCircle(int, int, int, uint16_t) override {}
-                void drawRectangle(int, int, int, int, uint16_t) override {}
-                void drawFilledRectangle(int, int, int, int, uint16_t) override {}
-                void drawLine(int, int, int, int, uint16_t) override {}
-                void drawBitmap(int, int, int, int, const uint8_t*, uint16_t) override {}
                 void drawPixel(int, int, uint16_t) override {}
-                void setContrast(uint8_t) override {}
-                void setTextColor(uint16_t) override {}
-                void setTextSize(uint8_t) override {}
-                void setCursor(int16_t, int16_t) override {}
-                uint16_t color565(uint8_t, uint8_t, uint8_t) override { return 0; }
-                void setDisplaySize(int, int) override {}
-                void setPhysicalSize(int, int) override {}
-                void present() override {}
+                void drawBitmap(int, int, int, int, const uint8_t*, uint16_t) override {}
             };
             rawSurface = new MockDrawer();
         #elif defined(PLATFORM_NATIVE)
             rawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
         #else
-            switch (type)
-            {
-            case DisplayType::ST7789:
-            case DisplayType::ST7735:
-            default:
-                rawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
-                break;
-            }
+            #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+                switch (type)
+                {
+                case DisplayType::ST7789:
+                case DisplayType::ST7735:
+                default:
+                    rawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
+                    break;
+                }
+            #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
+                U8G2* u8g2_instance = nullptr;
+                switch (type)
+                {
+                case DisplayType::OLED_SSD1306:
+                    // Default configuration for SSD1306 128x64 I2C
+                    u8g2_instance = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+                    break;
+                case DisplayType::OLED_SH1106:
+                    // Default configuration for SH1106 128x64 I2C
+                    u8g2_instance = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+                    break;
+                default:
+                    // If not specified or CUSTOM, we don't instantiate here
+                    break;
+                }
+                
+                if (u8g2_instance) {
+                    rawSurface = new pixelroot32::drivers::esp32::U8G2_Drawer(u8g2_instance, true);
+                }
+            #endif
         #endif
         
         if (rawSurface == nullptr) {
