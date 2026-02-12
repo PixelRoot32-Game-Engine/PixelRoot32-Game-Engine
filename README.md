@@ -53,10 +53,13 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Cross-Platform**: Develop on PC (Windows/Linux/macOS) and deploy on ESP32.
 - **Scene-Entity System**: Intuitive management of Scenes, Entities, and Actors.
 - **High Performance**: Optimized for ESP32 with DMA transfers and IRAM-cached rendering.
+- **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with flipping, rotation, and animation.
+- **Tilemap Support**: Optimized rendering of large maps with viewport culling and multiple layers.
 - **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
 - **NES-Style Audio**: Built-in 4-channel audio subsystem (Pulse, Triangle, Noise).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Simple collision detection and kinematics.
+- **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with dual-palette support.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
 
@@ -103,20 +106,27 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🗺️ Roadmap
 
-- 📟 **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
 - ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
+
+### Completed Features ✅
+
+- ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
+- ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
+- ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
 
 ---
 
 ## 🕒 Changelog
 
+---
+
 ### v0.7.0-dev
 
-- **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing.
-- **Unified Platform Configuration**: Consolidated settings in `include/platforms/` for better hardware support.
-- **Graphics Extensibility**: Introduced `BaseDrawSurface` for easier custom display driver implementation.
+- **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing and improved performance.
+- **Unified Platform Configuration**: Consolidated settings in `include/platforms/` with new `PlatformDefaults.h` for better hardware support (ESP32-S3, etc.).
+- **Graphics Extensibility & U8g2**: Introduced `BaseDrawSurface` and native support for monochromatic OLED displays via the U8G2 library.
 
 ### v0.6.0-dev
 
