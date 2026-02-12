@@ -74,7 +74,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 1. **Clone the samples repository:**
 
    ```bash
-   git clone https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples.git
+   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples.git
    cd PixelRoot32-Game-Engine-Samples
    ```
 
@@ -90,7 +90,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### Online Resources
 
 - **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
-- **[🎮 Game Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)**: Complete examples to start building.
+- **[🎮 Game Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)**: Complete examples to start building.
 - **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
 ### Local Reference
