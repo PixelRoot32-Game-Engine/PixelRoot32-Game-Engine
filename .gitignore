@@ -46,6 +46,7 @@
 .clang_complete
 .gcc-flags.json
 .pio
+build/
 
 ### VisualStudioCode ###
 .vscode/*
@@ -75,3 +76,8 @@
 coverage_report/
 coverage.info
 coverage_filtered.info
+
+# Logs and test outputs
+*.log
+test_output.log
+platformio_test.log

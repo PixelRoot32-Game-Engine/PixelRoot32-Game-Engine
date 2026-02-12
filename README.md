@@ -12,19 +12,20 @@
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
   <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
 
 <p align="center">
+  <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-documentation">Documentation</a> •
-  <a href="#-examples">Examples</a> •
-  <a href="#-build">Build</a> •
-  <a href="#-contribute">Contribute</a> •
-  <a href="#-license">License</a>
+  <a href="#-roadmap">Roadmap</a> •
+  <a href="#-changelog">Changelog</a> •
+  <a href="#-contributing">Contributing</a> •
+  <a href="#-license">License</a> •
+  <a href="#-credits">Credits</a>
 </p>
 
 ---
@@ -35,7 +36,7 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental. Occasional issues or breaking changes are expected, especially in less-tested configurations; feedback and bug reports are welcome.
+> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental.
 
 ---
 
@@ -49,45 +50,15 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## ✨ Key Features
 
-### 🎮 Engine Core
+- **Cross-Platform**: Develop on PC (Windows/Linux/macOS) and deploy on ESP32.
+- **Scene-Entity System**: Intuitive management of Scenes, Entities, and Actors.
+- **High Performance**: Optimized for ESP32 with DMA transfers and IRAM-cached rendering.
+- **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
+- **NES-Style Audio**: Built-in 4-channel audio subsystem (Pulse, Triangle, Noise).
+- **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
+- **AABB Physics**: Simple collision detection and kinematics.
 
-- **Scene and Entity System**: Scene management with Entities, Actors, PhysicsActors, and UI elements
-- **Cross-Platform**: Develop on PC (Windows/Linux via **SDL2**) and deploy on ESP32 using **TFT_eSPI** (ST7735/ILI9341 via SPI/DMA)
-- **High Performance (ESP32)**: Optimized for ESP32 with **DMA transfers**, **IRAM-cached** rendering functions, and viewport culling for high FPS games
-- **Independent Resolution Scaling**: Internal rendering at low logical resolutions (e.g., 128x128) with automatic hardware-accelerated scaling to physical display (e.g., 240x240), significantly reducing memory usage and increasing FPS.
-- **Deterministic Game Loop**: Precise delta-time control and frame updates
-- **Debug Statistics Overlay (optional)**: On-screen real-time metrics showing FPS, RAM usage, and estimated CPU load when built with `PIXELROOT32_ENABLE_DEBUG_OVERLAY`. Value updates are throttled to minimize performance impact.
-  > [!NOTE]
-  > On PC/Native, the CPU load may show 100% due to VSYNC/OS synchronization, which is not reflective of actual CPU hardware usage.
-
-### 🎨 Graphics
-
-- **Sprite System**: Monochrome 1bpp sprites with support for multi-layer sprites, plus optimized 2bpp/4bpp for richer assets (using 16-bit native access)
-- **Advanced Render Optimizations**: Automatic Viewport Culling and Palette LUT Caching for tilemaps
-- **Resolution Scaling**: Support for independent logical and physical resolutions with nearest-neighbor scaling (optimized via LUTs and IRAM on ESP32)
-- **Sprite Animation**: Lightweight, step-based animation system compatible with simple sprites and `MultiSprite`
-- **Color Palettes**: Fixed indexed palette (24 visible colors + Transparent) using RGB565 for fast rendering
-- **Render Layers and Tilemaps**: Simple logical layers (background, gameplay, UI) and a compact 1bpp tilemap helper
-- **2D Camera and Scrolling**: Camera with dead-zone (`Camera2D`) that follows a target horizontally (and optionally vertically)
-- **Fixed Position UI**: UI Layouts can ignore camera scrolling via the `fixedPosition` flag, ideal for HUDs and overlays.
-- **Particle System**: High-performance particles with memory pooling
-
-### 🔊 Audio
-
-- **NES-Style Audio**: Built-in audio subsystem with 2 Pulse channels, 1 Triangle, and 1 Noise
-- **Platform Optimized**: Decoupled audio processing with dynamic core affinity and configurable resolutions via `platforms/EngineConfig.h`.
-- **Music Player**: Lightweight background music system based on notes
-
-### 🎯 Physics and Collisions
-
-- **AABB Collision Detection**: Axis-aligned bounding box collision system
-- **Basic Gravity and Kinematics**: Suitable for arcade and simple platformer games
-
-### 🖥️ User Interface
-
-- **Lightweight UI System**: UI controls (Label, CheckBox, Button) with automatic layout management
-- **Automatic Layouts**: `UIVerticalLayout`, `UIHorizontalLayout`, `UIGridLayout`, `UIPaddingContainer`, `UIPanel`, and `UIAnchorLayout` for organizing elements without manual calculations
-- **Native Bitmap Font**: Text renderer based on 1bpp sprites with an integrated 5x7 font, ensuring pixel-perfect consistency across PC and ESP32
+> 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
 
 ---
 
@@ -95,9 +66,8 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ### Prerequisites
 
-- **VS Code + PlatformIO extension**
-- **C++11 toolchain**
-- **ESP32 DevKit** (for hardware) or **SDL2** (for native development)
+- **VS Code + PlatformIO**
+- **ESP32 DevKit** or **SDL2** (for PC simulation)
 
 ### Fast Setup
 
@@ -108,379 +78,68 @@ Watch PixelRoot32 running on ESP32 with example games:
    cd PixelRoot32-Game-Engine-Samples
    ```
 
-2. **Open the project in VS Code** and let PlatformIO initialize
+2. **Open in VS Code** and select your environment (`env:esp32dev`, `env:esp32s3`, or `env:native`).
+3. **Build and Upload** using PlatformIO.
 
-3. **Select the environment:**
-   - `env:esp32dev` for Classic ESP32 (Internal DAC)
-   - `env:esp32s3` for ESP32-S3 (I2S Audio)
-   - `env:native` for PC (requires SDL2)
-
-4. **Build and run** from PlatformIO
-
-### Minimal Example
-
-```cpp
-#include <core/Engine.h>
-// Use the appropriate backend for your hardware
-#ifdef CONFIG_IDF_TARGET_ESP32
-#include <drivers/esp32/ESP32_DAC_AudioBackend.h>
-#else
-#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
-#endif
-
-namespace pr32 = pixelroot32;
-
-pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(25, 11025);
-pr32::graphics::DisplayConfig displayConfig(
-    pr32::graphics::DisplayDriver::TFT_eSPI, 0, 240, 240
-);
-pr32::input::InputConfig inputConfig(6, 32, 27, 33, 14, 13, 12);
-pr32::audio::AudioConfig audioConfig(&audioBackend, 11025);
-
-pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
-
-void setup() {
-    engine.init();
-    // engine.setScene(&yourScene);
-}
-
-void loop() {
-    engine.run();
-}
-```
-
-> 📚 **More information:** See the [Official Documentation](https://pixelroot32-game-engine.github.io) for detailed guides.
+> 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
 
 ---
 
 ## 📚 Documentation
 
-### Official Documentation
+### Online Resources
 
-- **[📖 Full Documentation](https://docs.pixelroot32.org)**: Complete online documentation with guides, API reference, examples, and more
-- **[🚀 Getting Started](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/)**: Installation, first project, and fundamental concepts
-- **[📘 Manual](https://docs.pixelroot32.org/manual/game_development/scenes_and_entities/)**: Game development guides, advanced graphics, and optimization
-- **[🔧 API Reference](https://docs.pixelroot32.org/api_reference/core/engine/)**: Complete class reference and usage examples
-- **[🎮 Examples](https://docs.pixelroot32.org/reference/game_examples_guide/)**: Complete game examples with code analysis
-- **[🛠️ Tools](https://docs.pixelroot32.org/tools/sprite_compiler/overview/)**: Sprite compiler and other development tools
+- **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
+- **[🎮 Game Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)**: Complete examples to start building.
+- **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
-### Local Documentation (Repository)
+### Local Reference
 
-- **[API Reference](docs/API_REFERENCE.md)**: Complete class reference and usage examples
-- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: NES-style sound engine architecture
-- **[Style Guide](docs/STYLE_GUIDE.md)**: Coding conventions and best practices
-- **[Contributing Guide](CONTRIBUTING.md)**: How to contribute to the project
-
-### Color Palettes
-
-PixelRoot32 uses a fixed indexed palette optimized for embedded hardware:
-
-| Palette | Description | Preview |
-| :--- | :--- | :--- |
-| `PR32` (Default) | PixelRoot32 standard palette | <img src="assets/palette_PR32.png" width="150"/> |
-| `NES` | Nintendo Entertainment System style | <img src="assets/palette_NES.png" width="150"/> |
-| `GB` | GameBoy style (Gray/Green) | <img src="assets/palette_GB.png" width="150"/> |
-| `GBC` | GameBoy Color style | <img src="assets/palette_GBC.png" width="150"/> |
-| `PICO8` | PICO-8 fantasy console style | <img src="assets/palette_PICO8.png" width="150"/> |
-
-**Basic usage:**
-
-```cpp
-#include <graphics/Color.h>
-
-void MyScene::init() {
-    pr32::graphics::setPalette(pr32::graphics::PaletteType::NES);
-}
-```
-
-**Dual-palette mode:**
-
-```cpp
-void MyScene::init() {
-    pr32::graphics::enableDualPaletteMode(true);
-    pr32::graphics::setDualPalette(
-        pr32::graphics::PaletteType::NES,  // Background
-        pr32::graphics::PaletteType::GB    // Sprites
-    );
-}
-```
-
-### Sprite System
-
-Sprites are defined as compact 1bpp bitmaps by default:
-
-- One `uint16_t` per row, each bit represents a pixel (`0` = transparent, `1` = active)
-- `Renderer::drawSprite` draws a monochrome sprite using any palette color
-- `Renderer::drawMultiSprite` composes multiple 1bpp layers to create multicolor sprites NES/GameBoy-style
-
-**Example:**
-
-```cpp
-// Simple 1bpp sprite (16x16)
-static const uint16_t PLAYER_SPRITE[16] = {
-    0b0000111111000000,
-    0b0011111111110000,
-    // ... more rows
-};
-
-// Render
-renderer.drawSprite(PLAYER_SPRITE, 16, 16, x, y, Color::WHITE);
-```
-
-### UI System
-
-The UI system enables building interfaces without manual position calculations:
-
-```cpp
-// Create vertical layout
-auto* layout = new UIVerticalLayout(10, 10, 220, 200);
-layout->setSpacing(5);
-layout->setPadding(10);
-layout->setFixedPosition(true); // Makes the UI stay fixed on screen (ignores camera scroll)
-
-// Add elements
-// ...
-```
-
-### Resolution Scaling
-
-PixelRoot32 allows you to render at a lower resolution than your physical display to save memory and increase FPS. This is especially useful for ESP32.
-
-- **Logical Resolution**: Where the game draws.
-- **Physical Resolution**: Your actual display size.
-
-**Using Presets (Recommended):**
-
-```cpp
-#include <graphics/ResolutionPresets.h>
-
-// 128x128 logical scaled to 240x240 physical
-auto displayConfig = pr32::graphics::ResolutionPresets::create(
-    pr32::graphics::RES_128x128, 
-    pr32::graphics::ST7789
-);
-```
-
-**Manual Configuration:**
-
-```cpp
-pr32::graphics::DisplayConfig displayConfig(
-    pr32::graphics::ST7789, 0, 
-    240, 240, // Physical size
-    160, 160  // Logical size (rendering)
-);
-```
-
-| Preset | Logical | Physical | RAM Savings | FPS Impact |
-| :--- | :--- | :--- | :--- | :--- |
-| `RES_240x240` | 240x240 | 240x240 | 0% | Baseline |
-| `RES_160x160` | 160x160 | 240x240 | ~44% | +20-40% |
-| `RES_128x128` | 128x128 | 240x240 | ~72% | +50-100% |
-
-> [!IMPORTANT]
->
-> ### Final FPS Analysis
->
-> It is very important to understand that at 240x240 physical pixels, your maximum limit is **~14 FPS** due to the SPI bus speed (40MHz).
->
-> - **128x128 physical pixels**: You send 16k pixels → **~43 FPS**.
-> - **240x240 physical pixels**: You send 57k pixels (3.5 times more) → The bus takes 3.5 times longer to transmit, dropping to **~12-14 FPS**.
->
-> Even if you render internally at 128x128 (logical), the system must ultimately send 57,600 pixels to the physical display to fill it. There is no way to bypass this physical limit unless a smaller display or a faster bus is used.
-
----
-
-## 🎮 Examples
-
-The repository [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples) includes several complete examples. See the [Examples Documentation](https://docs.pixelroot32.org/reference/game_examples_guide/) for detailed analysis and code walkthroughs.
-
----
-
-## 🔧 Build
-
-### Native Environment (SDL2)
-
-#### Windows (Recommended: MSYS2)
-
-1. **Install MSYS2**: Download from [msys2.org](https://www.msys2.org/)
-2. **Update package database:**
-
-   ```bash
-   pacman -Syu
-   ```
-
-3. **Install GCC and SDL2:**
-
-   ```bash
-   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
-   ```
-
-4. **Add to PATH**: Ensure `C:\msys64\mingw64\bin` is in your Windows PATH
-
-#### Linux (Debian/Ubuntu)
-
-```bash
-sudo apt-get install libsdl2-dev
-```
-
-#### macOS (Homebrew)
-
-```bash
-brew install sdl2
-```
-
-### ESP32 Configuration
-
-Configure `TFT_eSPI` in your `platformio.ini`:
-
-**Example for ST7789 (240x240):**
-
-```ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-build_flags =
-    -D ST7789_DRIVER
-    -D TFT_WIDTH=240
-    -D TFT_HEIGHT=240
-    -D TFT_MOSI=23
-    -D TFT_SCLK=18
-    -D TFT_DC=2
-    -D TFT_RST=4
-    -D TFT_CS=-1
-    -D SPI_FREQUENCY=40000000
-lib_deps =
-    bodmer/TFT_eSPI@^2.5.43
-```
-
-### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
-
-You can override the default scene limits from your project without modifying the engine. The default of 3 for `MAX_LAYERS` is due to **ESP32 platform constraints** (memory and draw-loop cost); on native/PC you can use a higher value.
-
-**Compiler flags (recommended)** — in `platformio.ini`, add to `build_flags` for your environment:
-
-```ini
-build_flags =
-    -DMAX_LAYERS=5
-    -DMAX_ENTITIES=64
-```
-
-The compiler defines these before any `.cpp` is processed. Because `Scene.h` uses `#ifndef MAX_LAYERS` / `#ifndef MAX_ENTITIES`, your values are used (more render layers drawn, and on Arduino the entity queue capacity when built with `MAX_ENTITIES`). See [API Reference – Scene](docs/API_REFERENCE.md#scene) for details.
-
-### Experimental Build Flags
-
-```ini
-build_flags =
-    -D PIXELROOT32_ENABLE_2BPP_SPRITES    # 2bpp sprites (4 colors)
-    -D PIXELROOT32_ENABLE_4BPP_SPRITES    # 4bpp sprites (16 colors)
-    -D PIXELROOT32_ENABLE_SCENE_ARENA     # Scene memory arena
-```
-
-> ⚠️ **Note:** These features are experimental and may cause performance issues or compilation errors on specific hardware.
-
----
-
-## 🛠️ Asset Tools
-
-### Sprite Compiler (`pr32-sprite-compiler`)
-
-Python tool to convert standard PNG sprite sheets into C headers compatible with PixelRoot32.
-
-**Repository:** [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
-
-**Documentation:** [Sprite Compiler Guide](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/)
-
-**Features:**
-
-- Automatic color detection and 1bpp layer generation
-- Grid-based extraction
-- CLI and GUI available
-- Advanced features: dithering, layer merging, batch processing
-
-**Usage:**
-
-```bash
-python pr32-sprite-compiler.py my_sprites.png --grid 16x16 --out sprites.h
-```
-
-See the [official documentation](https://pixelroot32-game-engine.github.io/tools/sprite_compiler/) for complete usage guide and advanced features.
+- **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
+- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Sound engine details.
+- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
 ---
 
 ## 🗺️ Roadmap
 
-### Planned Features
-
-- 📟 **Driver: u8g2 Support** - Support for monochrome OLEDs (SSD1306, SH1106)
-- 🗺️ **TileMap Editor** - A specialized tool to design multi-layer environments and tilesets with direct C++ export optimized for ESP32 hardware.
-- 🎵 **Music Editor** - A built-in mini DAW to create SFX and music for PixelRoot32 games with direct export to engine-compatible formats.
-- **Persistence (Save/Load)** - Abstract key-value storage (NVS on ESP32)
-- ⚡ **Spatial Partitioning** - Uniform Grid for collision optimization
-
-### Completed Features ✅
-
-- ✅ **Native Bitmap Font System** - Font system based on 1bpp sprites
-- ✅ **UI Layout System** - Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding)
-- ✅ **Decoupled Audio Architecture** - Multi-core (ESP32) and multi-threaded (Native) sample-accurate audio engine with NES-like channels.
+- 📟 **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
+- 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
+- 🎵 **Music Editor**: Mini DAW for SFX and music creation.
+- ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
 
 ---
 
-## Changelog
+## 🕒 Changelog
 
 ### v0.7.0-dev
 
-- **Decoupled Multi-Core Audio**: New audio architecture that runs on Core 0 (ESP32) or a dedicated thread (Native), providing sample-accurate timing and zero-jitter playback.
-- **Unified Platform Architecture**: Consolidated configurations in `include/platforms/` and introduced configurable core affinity via macros, supporting modern hardware like ESP32-S3.
-- **Graphics Extensibility**: Introduced `BaseDrawSurface` and `unique_ptr` ownership management for easier and safer custom display driver implementation.
+- **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing.
+- **Unified Platform Configuration**: Consolidated settings in `include/platforms/` for better hardware support.
+- **Graphics Extensibility**: Introduced `BaseDrawSurface` for easier custom display driver implementation.
 
 ### v0.6.0-dev
 
-- **Independent Resolution Scaling**: Logical/physical resolution decoupling to reduce memory usage and improve performance.
-- **Comprehensive Debug Overlay**: New debug display showing FPS, RAM usage, and estimated CPU load (supersedes FPS overlay).
-- **Standardized Display Rotation**: Unified rotation handling and fixed initialization order across all drivers.
-- **Fixed Position UI Support**: Added support for UI elements that ignore camera scrolling (ideal for HUDs).
+- **Independent Resolution Scaling**: Decoupled logical/physical resolution to improve performance.
+- **Comprehensive Debug Overlay**: Real-time metrics for FPS, RAM, and CPU load.
+- **Fixed Position UI**: Support for HUD elements that ignore camera scrolling.
 
-### v0.5.0-dev
-
-- **Generic Tilemap Support (2bpp & 4bpp)**: Refactored `TileMap` to support different sprite types and automatic palette context.
-- **Rendering & Scene Performance**: Replaced queue with fixed array for O(1) access, added viewport culling, and palette caching.
-- **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions for improved performance on ESP32.
-- **Optional FPS Overlay**: Introduced `PIXELROOT32_ENABLE_FPS_DISPLAY` for real-time FPS monitoring.
-
-See the [full changelog](CHANGELOG.md) for more details.
+> 📝 **Full History:** See the complete [CHANGELOG.md](CHANGELOG.md) for previous versions.
 
 ---
 
 ## 🤝 Contribute
 
-Contributions are welcome! Please:
-
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLE_GUIDE.md](STYLE_GUIDE.md)
-2. Fork the repository
-3. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
-4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-5. Push the branch (`git push origin feature/AmazingFeature`)
-6. Open a Pull Request
-
-### Report Bugs
-
-Use the [issue tracker](https://github.com/Gperez88/PixelRoot32-Game-Engine/issues) to report bugs. Include:
-
-- Clear description of the problem
-- Steps to reproduce
-- Expected vs. observed behavior
-- Platform information (ESP32/PC, version, etc.)
+Contributions are welcome! Read our [Contributing Guide](CONTRIBUTING.md) to get started.
 
 ---
 
 ## 📄 License
 
 PixelRoot32 is an **open-source** project licensed under the **MIT License**.
+Based on [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine) by nbourre.
 
-This project is based on and derived from [ESP32-Game-Engine](https://github.com/nbourre/ESP32-Game-Engine), which is also licensed under the MIT License.
-
-See the [LICENSE](LICENSE) file for the full license text.
+See the [LICENSE](LICENSE) file for the full text.
 
 > ⚠️ The PixelRoot32 Game Engine name and logo are subject to the trademark policy. See [TRADEMARK.md](./TRADEMARK.md).
 ---
@@ -490,16 +149,6 @@ See the [LICENSE](LICENSE) file for the full license text.
 Developed by **Gabriel Perez** as a modular game engine for embedded systems.
 
 Special thanks to **nbourre** for the original ESP32-Game-Engine.
-
----
-
-## 🔗 Useful Links
-
-- **📖 Official Documentation**: [docs.pixelroot32.org](https://docs.pixelroot32.org)
-- **Main Repository**: [PixelRoot32-Game-Engine](https://github.com/Gperez88/PixelRoot32-Game-Engine)
-- **Examples and Samples**: [PixelRoot32-Game-Engine-Samples](https://github.com/Gperez88/PixelRoot32-Game-Engine-Samples)
-- **Sprite Compiler**: [PixelRoot32-Sprite-Sheet-Compiler](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)
-- **Support**: [Ko-fi](https://ko-fi.com/gperez88) • [PayPal](https://www.paypal.com/ncp/payment/THC3PDSRQKZW6)
 
 ---
 
