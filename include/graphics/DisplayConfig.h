@@ -64,6 +64,14 @@ public:
     int xOffset = 0;
     int yOffset = 0;
 
+    // Pin configuration (U8X8_PIN_NONE if not used)
+    uint8_t clockPin = 255;  // I2C SCL / SPI SCK
+    uint8_t dataPin = 255;   // I2C SDA / SPI MOSI
+    uint8_t csPin = 255;     // SPI CS
+    uint8_t dcPin = 255;     // SPI DC
+    uint8_t resetPin = 255;  // Reset
+    bool useHardwareI2C = true;
+
     /**
      * @brief Constructor for initializing display settings.
      * @param type Display type (ST7789, ST7735, NONE).
@@ -98,6 +106,37 @@ public:
             #ifdef PLATFORM_NATIVE
                 throw std::runtime_error("DisplayType::CUSTOM requires a valid DrawSurface instance.");
             #endif
+        }
+    }
+
+    /**
+     * @brief Constructor with pin configuration (for OLED/U8G2).
+     */
+    DisplayConfig(
+        DisplayType type,
+        int rot,
+        uint8_t clk,
+        uint8_t data,
+        uint8_t cs,
+        uint8_t dc,
+        uint8_t rst,
+        uint16_t physW = 128,
+        uint16_t physH = 64,
+        uint16_t logW = 0,
+        uint16_t logH = 0,
+        int xOff = 0,
+        int yOff = 0,
+        bool hwI2C = true
+    ) : type(type), rotation(rot),
+        physicalWidth(physW), physicalHeight(physH),
+        logicalWidth(logW == 0 ? physW : logW), 
+        logicalHeight(logH == 0 ? physH : logH),
+        xOffset(xOff), yOffset(yOff),
+        clockPin(clk), dataPin(data), csPin(cs), dcPin(dc), resetPin(rst),
+        useHardwareI2C(hwI2C)
+    {
+        if (type != DisplayType::CUSTOM) {
+            initDrawSurface();
         }
     }
 

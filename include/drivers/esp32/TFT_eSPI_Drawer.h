@@ -105,6 +105,6 @@ private:
 
 } // namespace pixelroot32::drivers::esp32
 
-#endif // ESP32
+#endif // PIXELROOT32_USE_TFT_ESPI_DRIVER
 
 #endif // TFT_eSPI_DRAEWER_H

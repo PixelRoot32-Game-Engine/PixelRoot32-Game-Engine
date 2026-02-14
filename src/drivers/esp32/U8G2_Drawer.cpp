@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include <drivers/esp32/U8G2_Drawer.h>
+#include <cstring>
 
 #if defined(PIXELROOT32_USE_U8G2_DRIVER)
 
@@ -43,12 +44,15 @@ pr32::drivers::esp32::U8G2_Drawer::~U8G2_Drawer() {
 // Init & configuration
 // --------------------------------------------------
 
-bool pr32::drivers::esp32::U8G2_Drawer::init() {
-    if (!_u8g2) return false;
+void pr32::drivers::esp32::U8G2_Drawer::init() {
+    if (!_u8g2) return;
+
+    Serial.println("[U8G2_Drawer] Initializing U8G2...");
     _u8g2->begin();
+    _u8g2->setContrast(255); // Ensure maximum visibility
     setRotation(rotation); // Apply initial rotation
     buildScaleLUTs();
-    return true;
+    Serial.println("[U8G2_Drawer] Initialization complete.");
 }
 
 void pr32::drivers::esp32::U8G2_Drawer::setRotation(uint16_t rot) {

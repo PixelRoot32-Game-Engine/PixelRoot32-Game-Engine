@@ -57,15 +57,32 @@ namespace pixelroot32::graphics {
                 }
             #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
                 U8G2* u8g2_instance = nullptr;
+                const u8g2_cb_t* rot_cb = U8G2_R0;
+                switch (rotation) {
+                    case 1: case 90:  rot_cb = U8G2_R1; break;
+                    case 2: case 180: rot_cb = U8G2_R2; break;
+                    case 3: case 270: rot_cb = U8G2_R3; break;
+                }
+
                 switch (type)
                 {
                 case DisplayType::OLED_SSD1306:
-                    // Default configuration for SSD1306 128x64 I2C
-                    u8g2_instance = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+                    if (useHardwareI2C) {
+                        u8g2_instance = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(rot_cb, 
+                            resetPin == 255 ? U8X8_PIN_NONE : resetPin, 
+                            clockPin == 255 ? U8X8_PIN_NONE : clockPin, 
+                            dataPin == 255 ? U8X8_PIN_NONE : dataPin);
+                    } else {
+                        u8g2_instance = new U8G2_SSD1306_128X64_NONAME_F_SW_I2C(rot_cb, 
+                            clockPin, dataPin, 
+                            resetPin == 255 ? U8X8_PIN_NONE : resetPin);
+                    }
                     break;
                 case DisplayType::OLED_SH1106:
-                    // Default configuration for SH1106 128x64 I2C
-                    u8g2_instance = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+                    u8g2_instance = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(rot_cb, 
+                        resetPin == 255 ? U8X8_PIN_NONE : resetPin, 
+                        clockPin == 255 ? U8X8_PIN_NONE : clockPin, 
+                        dataPin == 255 ? U8X8_PIN_NONE : dataPin);
                     break;
                 default:
                     // If not specified or CUSTOM, we don't instantiate here

@@ -31,7 +31,7 @@ public:
     ~U8G2_Drawer() override;
 
     // Core DrawSurface implementation
-    bool init() override;
+    void init() override;
     void setRotation(uint16_t rotation) override;
     void drawPixel(int x, int y, uint16_t color) override;
     void clearBuffer() override;
