@@ -3,13 +3,17 @@
  * Licensed under the MIT License
  */
 #include "audio/DefaultAudioScheduler.h"
+#include "audio/AudioMixerLUT.h"
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+
 #ifdef ESP32
 #include <Arduino.h>
+#include <soc/soc_caps.h>
 #endif
-#include <cstring>
-#include <cmath>
-#include <algorithm>
-#include <cstdlib>
 
 namespace pixelroot32::audio {
 
@@ -53,30 +57,85 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
     updateMusicSequencer(length);
 
     static float currentPeak = 0.0f;
-    const float HEADROOM = 0.25f; // Headroom for 4 channels
     const float FINAL_SCALE = 32767.0f;
+
+#if defined(SOC_CPU_HAS_FPU) && SOC_CPU_HAS_FPU
+    // FPU version
+    const float MIXER_SCALE = 0.4f;
+    const float MIXER_K = 0.5f;
 
     for (int i = 0; i < length; ++i) {
         float acc = 0.0f;
         for (int c = 0; c < NUM_CHANNELS; ++c) {
             if (channels[c].enabled) {
-                acc += generateSampleForChannel(channels[c]);
+                acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
             }
         }
 
-        // Apply headroom and master volume
-        float mixed = acc * HEADROOM * masterVolume * FINAL_SCALE;
+        acc *= masterVolume;
+
+        float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+        float finalSample = mixed * FINAL_SCALE;
         
-        // Track peak (Phase 2)
-        float absMixed = std::abs(mixed);
-        if (absMixed > currentPeak) currentPeak = absMixed;
+        float absSample = std::abs(finalSample);
+        if (absSample > currentPeak) currentPeak = absSample;
 
-        // Hard clipper / Limiter
-        if (mixed > 32767.0f) mixed = 32767.0f;
-        if (mixed < -32768.0f) mixed = -32768.0f;
+        if (finalSample > 32767.0f) finalSample = 32767.0f;
+        if (finalSample < -32768.0f) finalSample = -32768.0f;
 
-        stream[i] = (int16_t)mixed;
+        stream[i] = (int16_t)finalSample;
     }
+#elif defined(ESP32)
+    // ESP32 No-FPU version (LUT)
+    for (int i = 0; i < length; ++i) {
+        int32_t sum = 0;
+        for (int c = 0; c < NUM_CHANNELS; ++c) {
+            if (channels[c].enabled) {
+                sum += (int32_t)(generateSampleForChannel(channels[c]) * FINAL_SCALE);
+            }
+        }
+
+        if (masterVolume != 1.0f) {
+            sum = (int32_t)(sum * masterVolume);
+        }
+
+        int32_t index = (sum + 131072) >> 8;
+        if (index < 0) index = 0;
+        if (index > 1024) index = 1024;
+        
+        int16_t finalSample = audio_mixer_lut[index];
+        stream[i] = finalSample;
+
+        float absSample = (float)std::abs((int32_t)finalSample);
+        if (absSample > currentPeak) currentPeak = absSample;
+    }
+#else
+    // Native / Fallback (Always use float for simplicity if not on ESP32)
+    const float MIXER_SCALE = 0.4f;
+    const float MIXER_K = 0.5f;
+
+    for (int i = 0; i < length; ++i) {
+        float acc = 0.0f;
+        for (int c = 0; c < NUM_CHANNELS; ++c) {
+            if (channels[c].enabled) {
+                acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
+            }
+        }
+
+        acc *= masterVolume;
+
+        float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+        float finalSample = mixed * FINAL_SCALE;
+        
+        float absSample = std::abs(finalSample);
+        if (absSample > currentPeak) currentPeak = absSample;
+
+        if (finalSample > 32767.0f) finalSample = 32767.0f;
+        if (finalSample < -32768.0f) finalSample = -32768.0f;
+
+        stream[i] = (int16_t)finalSample;
+    }
+#endif
 
     // Diagnostic logging (Phase 2)
     static uint32_t lastLog = 0;

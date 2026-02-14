@@ -5,10 +5,12 @@
 #ifdef ESP32
 
 #include "drivers/esp32/ESP32AudioScheduler.h"
+#include "audio/AudioMixerLUT.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include <soc/soc_caps.h>
 
 namespace pixelroot32::audio {
 
@@ -63,29 +65,71 @@ namespace pixelroot32::audio {
         updateMusicSequencer(length);
 
         static float currentPeak = 0.0f;
-        const float HEADROOM = 0.25f; // Headroom for 4 channels
         const float FINAL_SCALE = 32767.0f;
+
+#if defined(SOC_CPU_HAS_FPU) && SOC_CPU_HAS_FPU
+        // ---------------------------------------------------------------------
+        // FPU-Optimized Mixing (ESP32, S3)
+        // Uses floating-point non-linear compression
+        // ---------------------------------------------------------------------
+        const float MIXER_SCALE = 0.4f; // 40% per channel (Non-linear)
+        const float MIXER_K = 0.5f;     // Compression factor
 
         for (int j = 0; j < length; j++) {
             float acc = 0.0f;
             for (int i = 0; i < NUM_CHANNELS; i++) {
                 if (channels[i].enabled) {
-                    acc += generateSampleForChannel(channels[i]);
+                    acc += generateSampleForChannel(channels[i]) * MIXER_SCALE;
                 }
             }
 
-            // Apply headroom and master volume
-            float mixed = acc * HEADROOM * masterVolume * FINAL_SCALE;
-            
-            // Track peak before clamping
-            float absMixed = std::abs(mixed);
-            if (absMixed > currentPeak) currentPeak = absMixed;
+            acc *= masterVolume;
 
-            // Clamp once at the end
-            if (mixed > 32767.0f) mixed = 32767.0f;
-            if (mixed < -32768.0f) mixed = -32768.0f;
-            stream[j] = (int16_t)mixed;
+            // Non-linear mixing formula: f(x) = x / (1 + |x| * K)
+            float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+            float finalSample = mixed * FINAL_SCALE;
+            
+            float absSample = std::abs(finalSample);
+            if (absSample > currentPeak) currentPeak = absSample;
+
+            if (finalSample > 32767.0f) finalSample = 32767.0f;
+            if (finalSample < -32768.0f) finalSample = -32768.0f;
+            stream[j] = (int16_t)finalSample;
         }
+#else
+        // ---------------------------------------------------------------------
+        // Integer-Optimized Mixing (ESP32-C3, RISC-V No FPU)
+        // Uses Look-Up Table (LUT) for non-linear compression
+        // ---------------------------------------------------------------------
+        for (int j = 0; j < length; j++) {
+            int32_t sum = 0;
+            for (int i = 0; i < NUM_CHANNELS; i++) {
+                if (channels[i].enabled) {
+                    // Convert float channel output to int32 sum
+                    // Each channel at 1.0 volume contributes +/- 32767
+                    sum += (int32_t)(generateSampleForChannel(channels[i]) * FINAL_SCALE);
+                }
+            }
+
+            // Apply Master Volume
+            if (masterVolume != 1.0f) {
+                sum = (int32_t)(sum * masterVolume);
+            }
+
+            // Map sum [-131072, 131071] to LUT index [0, 1024]
+            // index = (sum + 131072) / 256
+            int32_t index = (sum + 131072) >> 8;
+            if (index < 0) index = 0;
+            if (index > 1024) index = 1024;
+            
+            int16_t finalSample = audio_mixer_lut[index];
+            stream[j] = finalSample;
+
+            // Track peak for diagnostics
+            float absSample = (float)std::abs((int32_t)finalSample);
+            if (absSample > currentPeak) currentPeak = absSample;
+        }
+#endif
 
         // Diagnostic logging (Phase 2)
         static uint32_t lastLog = 0;

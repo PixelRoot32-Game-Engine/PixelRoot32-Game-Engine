@@ -73,7 +73,8 @@ namespace pixelroot32::audio {
 
         auto lastLogTime = std::chrono::steady_clock::now();
         float currentPeak = 0.0f;
-        const float HEADROOM = 0.25f; // Headroom for 4 channels
+        const float MIXER_SCALE = 0.4f; // 40% per channel (Non-linear)
+        const float MIXER_K = 0.5f;     // Compression factor
         const float FINAL_SCALE = 32767.0f;
 
         while (running) {
@@ -85,22 +86,26 @@ namespace pixelroot32::audio {
                     float acc = 0.0f;
                     for (int c = 0; c < NUM_CHANNELS; c++) {
                         if (channels[c].enabled) {
-                            acc += generateSampleForChannel(channels[c]);
+                            acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
                         }
                     }
 
-                    // Apply headroom and master volume
-                    float mixed = acc * HEADROOM * masterVolume * FINAL_SCALE;
+                    // Apply Master Volume before non-linear compression
+                    acc *= masterVolume;
+
+                    // Non-linear mixing formula: f(x) = x / (1 + |x| * K)
+                    float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+                    float finalSample = mixed * FINAL_SCALE;
                     
                     // Track peak (Phase 2)
-                    float absMixed = std::abs(mixed);
-                    if (absMixed > currentPeak) currentPeak = absMixed;
+                    float absSample = std::abs(finalSample);
+                    if (absSample > currentPeak) currentPeak = absSample;
 
                     // Clamp once at the end
-                    if (mixed > 32767.0f) mixed = 32767.0f;
-                    if (mixed < -32768.0f) mixed = -32768.0f;
+                    if (finalSample > 32767.0f) finalSample = 32767.0f;
+                    if (finalSample < -32768.0f) finalSample = -32768.0f;
                     
-                    chunk[i] = (int16_t)mixed;
+                    chunk[i] = (int16_t)finalSample;
                 }
 
                 // Diagnostic logging (Phase 2)

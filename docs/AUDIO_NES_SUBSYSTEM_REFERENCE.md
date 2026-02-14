@@ -186,18 +186,33 @@ return (int16_t)(sample * ch.volume * masterVolume * 12000.0f);
 - The `12000.0f` factor gives a strong output on low-amplitude backends like the ESP32 DAC,
   while the mixer still applies hard clipping after summing all channels.
 
-### 3.4 Mixing all channels
+### 3.4 Mixing all channels (Non-Linear Mixer)
 
 `void AudioEngine::generateSamples(int16_t* stream, int length)`:
 
-- Clears the buffer to 0.
-- For each index from `0` to `length - 1`:
-  - Initializes an accumulator `mixedSample = 0`.
-  - Adds the result of `generateSampleForChannel` for each of the 4 channels.
-  - Applies **hard clipping** to `[-32768, 32767]`.
-  - Writes the result into `stream[i]`.
+The system uses a **non-linear mixing strategy** that adapts to the underlying hardware to maximize volume and quality while preventing digital clipping.
 
-This produces a **mono** 16-bit stream, ready to be sent to SDL2 or I2S.
+#### Strategy A: Floating-Point Soft Clipping (FPU-enabled)
+
+Used on ESP32, ESP32-S3, and Native (SDL2). It applies a compression curve:
+`Output = Sum / (1.0 + |Sum| * 0.5)`
+
+- Each channel is scaled by **0.4x**.
+- Peak volume reaches ~88% of the dynamic range.
+- Provides a natural "analog" saturation.
+
+#### Strategy B: Look-Up Table (LUT) Mixing (No-FPU / ESP32-C3)
+
+Used on architectures without floating-point units.
+
+- Channels are summed using `int32_t`.
+- A precomputed **1025-entry LUT** (`AudioMixerLUT.h`) maps the 32-bit sum to a 16-bit compressed value.
+- Calculated as: `index = (sum + 131072) >> 8`.
+- Zero CPU overhead for floating-point math.
+
+#### Clipping Prevention
+
+The asymptotic nature of the curve ensures that the output **never** exceeds the `int16_t` limits, eliminating the need for hard clipping and reducing harmonic distortion.
 
 ### 3.5 Event playback: playEvent
 
