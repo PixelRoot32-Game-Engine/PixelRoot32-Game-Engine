@@ -126,6 +126,8 @@ Watch PixelRoot32 running on ESP32 with example games:
 ### v0.7.0-dev
 
 - **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing and improved performance.
+- **Advanced Audio Mixing**: Non-linear mixer with soft clipping and high-performance LUT-based mixing for no-FPU hardware (ESP32-C3).
+- **Internal DAC Enhancements**: Optimized software-mode driver with 0.7x scaling for PAM8302A amplifiers and improved stability.
 - **Unified Platform Configuration**: Consolidated settings in `include/platforms/` with new `PlatformDefaults.h` for better hardware support (ESP32-S3, etc.).
 - **Graphics Extensibility & U8g2**: Introduced `BaseDrawSurface` and native support for monochromatic OLED displays via the U8G2 library.
 

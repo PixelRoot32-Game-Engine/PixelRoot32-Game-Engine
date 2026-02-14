@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <cstdio>
 
 namespace pixelroot32::audio {
 
@@ -33,8 +34,8 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
-    this->sampleRate = sampleRate;
-}
+        this->sampleRate = sampleRate;
+    }
 
     void NativeAudioScheduler::submitCommand(const AudioCommand& cmd) {
         commandQueue.enqueue(cmd);
@@ -71,25 +72,53 @@ namespace pixelroot32::audio {
         const int CHUNK_SIZE = 128;
         int16_t chunk[CHUNK_SIZE];
 
+        auto lastLogTime = std::chrono::steady_clock::now();
+        float currentPeak = 0.0f;
+        const float MIXER_SCALE = 0.4f; // 40% per channel (Non-linear)
+        const float MIXER_K = 0.5f;     // Compression factor
+        const float FINAL_SCALE = 32767.0f;
+
         while (running) {
             if (rbAvailableToWrite() >= CHUNK_SIZE) {
                 processCommands();
                 updateMusicSequencer(CHUNK_SIZE);
 
-                memset(chunk, 0, sizeof(chunk));
-
-                for (int c = 0; c < NUM_CHANNELS; c++) {
-                    if (!channels[c].enabled) continue;
-
-                    for (int i = 0; i < CHUNK_SIZE; i++) {
-                        int16_t sample = generateSampleForChannel(channels[c]);
-                        float mixed = (float)chunk[i] + (float)sample * masterVolume;
-                        
-                        if (mixed > 32767.0f) mixed = 32767.0f;
-                        if (mixed < -32768.0f) mixed = -32768.0f;
-                        
-                        chunk[i] = (int16_t)mixed;
+                for (int i = 0; i < CHUNK_SIZE; i++) {
+                    float acc = 0.0f;
+                    for (int c = 0; c < NUM_CHANNELS; c++) {
+                        if (channels[c].enabled) {
+                            acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
+                        }
                     }
+
+                    // Apply Master Volume before non-linear compression
+                    acc *= masterVolume;
+
+                    // Non-linear mixing formula: f(x) = x / (1 + |x| * K)
+                    float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+                    float finalSample = mixed * FINAL_SCALE;
+                    
+                    // Track peak (Phase 2)
+                    float absSample = std::abs(finalSample);
+                    if (absSample > currentPeak) currentPeak = absSample;
+
+                    // Clamp once at the end
+                    if (finalSample > 32767.0f) finalSample = 32767.0f;
+                    if (finalSample < -32768.0f) finalSample = -32768.0f;
+                    
+                    chunk[i] = (int16_t)finalSample;
+                }
+
+                // Diagnostic logging (Phase 2)
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime).count() >= 1) {
+                    if (currentPeak > 32767.0f) {
+                        printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                    } else {
+                        printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                    }
+                    currentPeak = 0.0f;
+                    lastLogTime = now;
                 }
 
                 rbWrite(chunk, CHUNK_SIZE);
@@ -214,8 +243,8 @@ namespace pixelroot32::audio {
         return candidate;
     }
 
-    int16_t NativeAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
-        if (!ch.enabled) return 0;
+    float NativeAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+        if (!ch.enabled) return 0.0f;
 
         float sample = 0.0f;
         switch (ch.type) {
@@ -256,7 +285,7 @@ namespace pixelroot32::audio {
             }
         }
 
-        return (int16_t)(sample * ch.volume * 12000.0f);
+        return sample * ch.volume;
     }
 
     // Ring buffer implementation
