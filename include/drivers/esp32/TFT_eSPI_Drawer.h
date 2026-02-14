@@ -1,7 +1,7 @@
 
 #pragma once
-#ifndef TFT_eSPI_DRAEWER_H
-#define TFT_eSPI_DRAEWER_H
+#ifndef TFT_eSPI_DRAWER_H
+#define TFT_eSPI_DRAWER_H
 
 #include "platforms/PlatformDefaults.h"
 

@@ -148,7 +148,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawPixel(int x, int y, uint16
         }
     } else {
         _u8g2->setDrawColor(c);
-        _u8g2->drawPixel(x, y);
+        _u8g2->drawPixel(x + xOffset, y + yOffset);
     }
 }
 
@@ -158,7 +158,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawLine(int x1, int y1, int x
         BaseDrawSurface::drawLine(x1, y1, x2, y2, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawLine(x1, y1, x2, y2);
+        _u8g2->drawLine(x1 + xOffset, y1 + yOffset, x2 + xOffset, y2 + yOffset);
     }
 }
 
@@ -168,7 +168,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawRectangle(int x, int y, in
         BaseDrawSurface::drawRectangle(x, y, w, h, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawFrame(x, y, w, h);
+        _u8g2->drawFrame(x + xOffset, y + yOffset, w, h);
     }
 }
 
@@ -178,7 +178,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawFilledRectangle(int x, int
         BaseDrawSurface::drawFilledRectangle(x, y, w, h, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawBox(x, y, w, h);
+        _u8g2->drawBox(x + xOffset, y + yOffset, w, h);
     }
 }
 
@@ -188,7 +188,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawCircle(int x0, int y0, int
         BaseDrawSurface::drawCircle(x0, y0, r, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawCircle(x0, y0, r);
+        _u8g2->drawCircle(x0 + xOffset, y0 + yOffset, r);
     }
 }
 
@@ -198,7 +198,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawFilledCircle(int x0, int y
         BaseDrawSurface::drawFilledCircle(x0, y0, r, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawDisc(x0, y0, r);
+        _u8g2->drawDisc(x0 + xOffset, y0 + yOffset, r);
     }
 }
 
@@ -208,7 +208,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawBitmap(int x, int y, int w
         BaseDrawSurface::drawBitmap(x, y, w, h, bitmap, color);
     } else {
         _u8g2->setDrawColor(rgb565To1Bit(color));
-        _u8g2->drawXBM(x, y, w, h, bitmap);
+        _u8g2->drawXBM(x + xOffset, y + yOffset, w, h, bitmap);
     }
 }
 
@@ -263,32 +263,49 @@ void pr32::drivers::esp32::U8G2_Drawer::freeScalingBuffers() {
 }
 
 void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
-    if (!_internalBuffer || !_xLUT || !_yLUT) return;
+    if (!_internalBuffer) return;
 
 #ifdef PIXELROOT32_ENABLE_PROFILING
     uint32_t start = micros();
 #endif
 
     _u8g2->clearBuffer();
-    for (int physY = 0; physY < physicalHeight; ++physY) {
-        int srcY = _yLUT[physY];
-        int rowOffset = srcY * logicalWidth;
-        for (int physX = 0; physX < physicalWidth; ++physX) {
-            int srcX = _xLUT[physX];
-            int idx = rowOffset + srcX;
-            if (_internalBuffer[idx >> 3] & (1 << (idx & 7))) {
-                _u8g2->setDrawColor(1);
-                _u8g2->drawPixel(physX, physY);
+
+    // If we have offsets, we render the logical buffer at that offset (1:1 mapping).
+    // If no offsets are present, we use the scaling LUTs to fill the physical screen.
+    if (xOffset != 0 || yOffset != 0) {
+        for (int y = 0; y < logicalHeight; ++y) {
+            int rowOffset = y * logicalWidth;
+            for (int x = 0; x < logicalWidth; ++x) {
+                int idx = rowOffset + x;
+                if (_internalBuffer[idx >> 3] & (1 << (idx & 7))) {
+                    _u8g2->setDrawColor(1);
+                    _u8g2->drawPixel(x + xOffset, y + yOffset);
+                }
+            }
+        }
+    } else if (_xLUT && _yLUT) {
+        for (int physY = 0; physY < physicalHeight; ++physY) {
+            int srcY = _yLUT[physY];
+            int rowOffset = srcY * logicalWidth;
+            for (int physX = 0; physX < physicalWidth; ++physX) {
+                int srcX = _xLUT[physX];
+                int idx = rowOffset + srcX;
+                if (_internalBuffer[idx >> 3] & (1 << (idx & 7))) {
+                    _u8g2->setDrawColor(1);
+                    _u8g2->drawPixel(physX, physY);
+                }
             }
         }
     }
+    
     _u8g2->sendBuffer();
 
 #ifdef PIXELROOT32_ENABLE_PROFILING
     uint32_t elapsed = micros() - start;
     static uint32_t lastReport = 0;
     if (millis() - lastReport > 1000) {
-        Serial.printf("[PROFILING] U8G2 Scaled Transfer: %u us (%u FPS max)\n", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
+        Serial.printf("[PROFILING] U8G2 Scaled/Offset Transfer: %u us (%u FPS max)\n", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
         lastReport = millis();
     }
 #endif

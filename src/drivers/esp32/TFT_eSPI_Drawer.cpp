@@ -207,7 +207,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     if (!spritePtr) return;
 
     tft.startWrite();
-    tft.setAddrWindow(0, 0, physicalWidth, physicalHeight);
+    tft.setAddrWindow(xOffset, yOffset, physicalWidth, physicalHeight);
     
     const int linesPerBlock = 10;
     currentBuffer = 0;

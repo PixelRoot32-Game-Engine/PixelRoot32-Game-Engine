@@ -95,7 +95,13 @@ namespace pixelroot32::graphics {
             #endif
         #endif
         
-        if (rawSurface == nullptr) {
+        if (rawSurface != nullptr) {
+            rawSurface->setDisplaySize(logicalWidth, logicalHeight);
+            rawSurface->setPhysicalSize(physicalWidth, physicalHeight);
+            rawSurface->setOffset(xOffset, yOffset);
+            rawSurface->setRotation(rotation);
+            drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
+        } else {
             #ifdef PLATFORM_NATIVE
                 throw std::runtime_error("Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
             #else
@@ -103,7 +109,6 @@ namespace pixelroot32::graphics {
                 // while(1); 
             #endif
         }
-        drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
     }
 
 }

@@ -90,12 +90,21 @@ void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // SDL_RenderCopy with nullptr as dstrect will scale to fill the entire renderer viewport (the window)
+    // Calculate destination rectangle based on offsets and logical size
+    // We use windowScale to keep the same relative size as the physical window
+    int windowScale = 2; // Should probably be a member or calculated
+    SDL_Rect dstRect = {
+        xOffset * windowScale,
+        yOffset * windowScale,
+        logicalWidth * windowScale,
+        logicalHeight * windowScale
+    };
+
     if (rotation == 0) {
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
     } else {
         double angle = rotation * 90.0;
-        SDL_RenderCopyEx(renderer, texture, nullptr, nullptr, angle, nullptr, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(renderer, texture, nullptr, &dstRect, angle, nullptr, SDL_FLIP_NONE);
     }
     
     SDL_RenderPresent(renderer);

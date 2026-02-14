@@ -14,7 +14,7 @@ The engine's behavior can be customized using `platforms/PlatformDefaults.h` and
 | `PR32_DEFAULT_MAIN_CORE` | CPU core assigned to the main game loop. | `1` |
 | `PIXELROOT32_NO_DAC_AUDIO` | Disable Internal DAC support on classic ESP32. | Enabled |
 | `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Enabled |
-| `PIXELROOT32_USE_U8G2` | Enable future U8G2 display driver support. | Disabled |
+| `PIXELROOT32_USE_U8G2_DRIVER` | Enable U8G2 display driver support for monochromatic OLEDs. | Disabled |
 | `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Enabled |
 
 ### Constants
@@ -24,6 +24,12 @@ The engine's behavior can be customized using `platforms/PlatformDefaults.h` and
 
 - **`DISPLAY_HEIGHT`**
     The height of the display in pixels. Default is `240`.
+
+- **`int xOffset`**
+    The horizontal offset for the display alignment. Default is `0`.
+
+- **`int yOffset`**
+    The vertical offset for the display alignment. Default is `0`.
 
 ## Core Module
 
@@ -101,6 +107,19 @@ When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBU
   `build_flags = -D PIXELROOT32_ENABLE_DEBUG_OVERLAY`  
   This flag is also available in `EngineConfig.h`.
 - **Internal**: Implemented by the private method `Engine::drawDebugOverlay(Renderer& r)`.
+
+### DisplayConfig (Struct)
+
+Configuration settings for display initialization and scaling.
+
+- **`DisplayType type`**: Type of display (ST7789, ST7735, OLED_SSD1306, etc.).
+- **`int rotation`**: Display rotation (0-3 or degrees).
+- **`uint16_t physicalWidth`**: Actual hardware width.
+- **`uint16_t physicalHeight`**: Actual hardware height.
+- **`uint16_t logicalWidth`**: Virtual rendering width.
+- **`uint16_t logicalHeight`**: Virtual rendering height.
+- **`int xOffset`**: X coordinate offset for hardware alignment.
+- **`int yOffset`**: Y coordinate offset for hardware alignment.
 
 ---
 

@@ -51,8 +51,8 @@ namespace pixelroot32::graphics {
             drawer = nonConstConfig.releaseDrawSurface();
         }
 
-        xOffset = config.xOffset;
-        yOffset = config.yOffset;
+        xOffset = 0;
+        yOffset = 0;
     }
 
     Renderer::Renderer(DisplayConfig&& config)
@@ -61,8 +61,8 @@ namespace pixelroot32::graphics {
           logicalHeight(this->config.logicalHeight)
     {
         drawer = this->config.releaseDrawSurface();
-        xOffset = this->config.xOffset;
-        yOffset = this->config.yOffset;
+        xOffset = 0;
+        yOffset = 0;
     }
 
 
@@ -228,7 +228,9 @@ namespace pixelroot32::graphics {
     void IRAM_ATTR Renderer::drawPixel(int x, int y, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        getDrawSurface().drawPixel(x, y, resolveColor(color, context));
+        int finalX = offsetBypass ? x : xOffset + x;
+        int finalY = offsetBypass ? y : yOffset + y;
+        getDrawSurface().drawPixel(finalX, finalY, resolveColor(color, context));
     }
 
     void IRAM_ATTR Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
@@ -241,10 +243,14 @@ namespace pixelroot32::graphics {
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
+        int startX = offsetBypass ? x : xOffset + x;
+        int startY = offsetBypass ? y : yOffset + y;
+
         for (int row = 0; row < sprite.height; ++row) {
-            const int logicalY = y + row;
-            const int finalY = offsetBypass ? logicalY : yOffset + logicalY;
-            if (finalY < 0 || finalY >= screenH) {
+            const int logicalY = startY + row;
+            // Note: clipping against logicalWidth/Height might be tricky if xOffset is applied,
+            // but the Driver should handle physical clipping. Logical clipping here is for efficiency.
+            if (logicalY < 0 || logicalY >= screenH) {
                 continue;
             }
 
@@ -252,7 +258,6 @@ namespace pixelroot32::graphics {
 
             for (int col = 0; col < sprite.width; ++col) {
                 // Read bits from MSB to LSB (bit (width-1) = leftmost, bit 0 = rightmost)
-                // This matches the original font format where bit 4 = left, bit 0 = right
                 const int bitIndex = sprite.width - 1 - col;
                 const bool bitSet = (bits & (static_cast<uint16_t>(1u) << bitIndex)) != 0;
                 if (!bitSet) {
@@ -260,15 +265,14 @@ namespace pixelroot32::graphics {
                 }
 
                 int logicalX = flipX
-                    ? x + (sprite.width - 1 - col)
-                    : x + col;
+                    ? startX + (sprite.width - 1 - col)
+                    : startX + col;
 
-                const int finalX = offsetBypass ? logicalX : xOffset + logicalX;
-                if (finalX < 0 || finalX >= screenW) {
+                if (logicalX < 0 || logicalX >= screenW) {
                     continue;
                 }
 
-                getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
+                getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
             }
         }
     }
@@ -294,10 +298,14 @@ namespace pixelroot32::graphics {
         const int screenH = logicalHeight;
         const int bitsPerPixel = 2;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
+
+        int startX = offsetBypass ? x : xOffset + x;
+        int startY = offsetBypass ? y : yOffset + y;
+
         // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
         for (int row = 0; row < sprite.height; ++row) {
-            const int finalY = offsetBypass ? (y + row) : (yOffset + y + row);
-            if (finalY < 0 || finalY >= screenH) continue;
+            const int logicalY = startY + row;
+            if (logicalY < 0 || logicalY >= screenH) continue;
 
             const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
 
@@ -308,11 +316,10 @@ namespace pixelroot32::graphics {
 
                 if (val == 0) continue;
 
-                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
-                const int finalX = offsetBypass ? logicalX : (xOffset + logicalX);
-                if (finalX < 0 || finalX >= screenW) continue;
+                const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
+                if (logicalX < 0 || logicalX >= screenW) continue;
 
-                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
+                getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
             }
         }
     }
@@ -340,9 +347,12 @@ namespace pixelroot32::graphics {
         const int bitsPerPixel = 4;
         const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
+        int startX = offsetBypass ? x : xOffset + x;
+        int startY = offsetBypass ? y : yOffset + y;
+
         for (int row = 0; row < sprite.height; ++row) {
-            const int finalY = offsetBypass ? (y + row) : (yOffset + y + row);
-            if (finalY < 0 || finalY >= screenH) continue;
+            const int logicalY = startY + row;
+            if (logicalY < 0 || logicalY >= screenH) continue;
 
             const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
@@ -353,11 +363,10 @@ namespace pixelroot32::graphics {
 
                 if (val == 0) continue;
 
-                const int logicalX = flipX ? x + (sprite.width - 1 - col) : x + col;
-                const int finalX = offsetBypass ? logicalX : (xOffset + logicalX);
-                if (finalX < 0 || finalX >= screenW) continue;
+                const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
+                if (logicalX < 0 || logicalX >= screenW) continue;
 
-                getDrawSurface().drawPixel(finalX, finalY, paletteLUT[val]);
+                getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
             }
         }
     }
@@ -399,10 +408,12 @@ namespace pixelroot32::graphics {
         const int dstWidth = static_cast<int>(std::ceil(sprite.width * scaleX));
         const int dstHeight = static_cast<int>(std::ceil(sprite.height * scaleY));
 
+        int startX = offsetBypass ? x : xOffset + x;
+        int startY = offsetBypass ? y : yOffset + y;
+
         for (int dstRow = 0; dstRow < dstHeight; ++dstRow) {
-            const int logicalY = y + dstRow;
-            const int finalY = offsetBypass ? logicalY : yOffset + logicalY;
-            if (finalY < 0 || finalY >= screenH) {
+            const int logicalY = startY + dstRow;
+            if (logicalY < 0 || logicalY >= screenH) {
                 continue;
             }
 
@@ -426,13 +437,12 @@ namespace pixelroot32::graphics {
                     continue;
                 }
 
-                const int logicalX = x + dstCol;
-                const int finalX = offsetBypass ? logicalX : xOffset + logicalX;
-                if (finalX < 0 || finalX >= screenW) {
+                const int logicalX = startX + dstCol;
+                if (logicalX < 0 || logicalX >= screenW) {
                     continue;
                 }
 
-                getDrawSurface().drawPixel(finalX, finalY, resolvedColor);
+                getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
             }
         }
     }
@@ -473,16 +483,18 @@ namespace pixelroot32::graphics {
         PaletteContext* oldContext = currentRenderContext;
         setRenderContext(&bgContext);
 
+        int viewOriginX = offsetBypass ? originX : xOffset + originX;
+        int viewOriginY = offsetBypass ? originY : yOffset + originY;
+
         // Viewport Culling: Only draw tiles that are within the screen boundaries
-        // Important: We must consider xOffset and yOffset (Camera position) to correctly calculate visibility.
-        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
+        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
         
-        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
+        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         // Clamp to map boundaries
@@ -524,14 +536,17 @@ namespace pixelroot32::graphics {
         PaletteContext* oldContext = currentRenderContext;
         setRenderContext(&bgContext);
 
+        int viewOriginX = offsetBypass ? originX : xOffset + originX;
+        int viewOriginY = offsetBypass ? originY : yOffset + originY;
+
         // Viewport Culling
-        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
+        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
-        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
+        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;
@@ -592,14 +607,17 @@ namespace pixelroot32::graphics {
         PaletteContext* oldContext = currentRenderContext;
         setRenderContext(&bgContext);
 
+        int viewOriginX = offsetBypass ? originX : xOffset + originX;
+        int viewOriginY = offsetBypass ? originY : yOffset + originY;
+
         // Viewport Culling
-        int startCol = (originX + xOffset < 0) ? (-(originX + xOffset) / map.tileWidth) : 0;
-        int endCol = (originX + xOffset + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - (originX + xOffset) + map.tileWidth - 1) / map.tileWidth) 
+        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
+        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
+                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
                      : map.width;
-        int startRow = (originY + yOffset < 0) ? (-(originY + yOffset) / map.tileHeight) : 0;
-        int endRow = (originY + yOffset + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - (originY + yOffset) + map.tileHeight - 1) / map.tileHeight) 
+        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
+        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
+                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
                      : map.height;
 
         if (startCol < 0) startCol = 0;
