@@ -69,7 +69,7 @@ namespace pixelroot32::audio {
         void playCurrentNote();
         
         AudioChannel* findFreeChannel(WaveType type);
-        int16_t generateSampleForChannel(AudioChannel& ch);
+        float generateSampleForChannel(AudioChannel& ch);
 
         // Ring buffer helpers
         size_t rbAvailableToRead() const;

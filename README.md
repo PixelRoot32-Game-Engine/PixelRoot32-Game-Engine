@@ -431,6 +431,8 @@ See the [official documentation](https://pixelroot32-game-engine.github.io/tools
 ### v0.7.0-dev
 
 - **Decoupled Multi-Core Audio**: New audio architecture that runs on Core 0 (ESP32) or a dedicated thread (Native), providing sample-accurate timing and zero-jitter playback.
+- **Advanced Audio Mixing**: Non-linear mixer with soft clipping and high-performance LUT-based mixing for no-FPU hardware (ESP32-C3).
+- **Internal DAC Enhancements**: Optimized software-mode driver with 0.7x scaling for PAM8302A amplifiers and improved stability.
 - **Unified Platform Architecture**: Consolidated configurations in `include/platforms/` and introduced configurable core affinity via macros, supporting modern hardware like ESP32-S3.
 - **Graphics Extensibility**: Introduced `BaseDrawSurface` and `unique_ptr` ownership management for easier and safer custom display driver implementation.
 

@@ -5,9 +5,12 @@
 #ifdef ESP32
 
 #include "drivers/esp32/ESP32AudioScheduler.h"
+#include "audio/AudioMixerLUT.h"
+#include <Arduino.h>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include <soc/soc_caps.h>
 
 namespace pixelroot32::audio {
 
@@ -61,20 +64,84 @@ namespace pixelroot32::audio {
         processCommands();
         updateMusicSequencer(length);
 
-        memset(stream, 0, length * sizeof(int16_t));
+        static float currentPeak = 0.0f;
+        const float FINAL_SCALE = 32767.0f;
 
-        for (int i = 0; i < NUM_CHANNELS; i++) {
-            if (!channels[i].enabled) continue;
+#if defined(SOC_CPU_HAS_FPU) && SOC_CPU_HAS_FPU
+        // ---------------------------------------------------------------------
+        // FPU-Optimized Mixing (ESP32, S3)
+        // Uses floating-point non-linear compression
+        // ---------------------------------------------------------------------
+        const float MIXER_SCALE = 0.4f; // 40% per channel (Non-linear)
+        const float MIXER_K = 0.5f;     // Compression factor
 
-            for (int j = 0; j < length; j++) {
-                int16_t sample = generateSampleForChannel(channels[i]);
-                // Mix sample (simple additive mixing with master volume)
-                float mixed = (float)stream[j] + (float)sample * masterVolume;
-                // Clamp to 16-bit range
-                if (mixed > 32767.0f) mixed = 32767.0f;
-                if (mixed < -32768.0f) mixed = -32768.0f;
-                stream[j] = (int16_t)mixed;
+        for (int j = 0; j < length; j++) {
+            float acc = 0.0f;
+            for (int i = 0; i < NUM_CHANNELS; i++) {
+                if (channels[i].enabled) {
+                    acc += generateSampleForChannel(channels[i]) * MIXER_SCALE;
+                }
             }
+
+            acc *= masterVolume;
+
+            // Non-linear mixing formula: f(x) = x / (1 + |x| * K)
+            float mixed = acc / (1.0f + std::abs(acc) * MIXER_K);
+            float finalSample = mixed * FINAL_SCALE;
+            
+            float absSample = std::abs(finalSample);
+            if (absSample > currentPeak) currentPeak = absSample;
+
+            if (finalSample > 32767.0f) finalSample = 32767.0f;
+            if (finalSample < -32768.0f) finalSample = -32768.0f;
+            stream[j] = (int16_t)finalSample;
+        }
+#else
+        // ---------------------------------------------------------------------
+        // Integer-Optimized Mixing (ESP32-C3, RISC-V No FPU)
+        // Uses Look-Up Table (LUT) for non-linear compression
+        // ---------------------------------------------------------------------
+        for (int j = 0; j < length; j++) {
+            int32_t sum = 0;
+            for (int i = 0; i < NUM_CHANNELS; i++) {
+                if (channels[i].enabled) {
+                    // Convert float channel output to int32 sum
+                    // Each channel at 1.0 volume contributes +/- 32767
+                    sum += (int32_t)(generateSampleForChannel(channels[i]) * FINAL_SCALE);
+                }
+            }
+
+            // Apply Master Volume
+            if (masterVolume != 1.0f) {
+                sum = (int32_t)(sum * masterVolume);
+            }
+
+            // Map sum [-131072, 131071] to LUT index [0, 1024]
+            // index = (sum + 131072) / 256
+            int32_t index = (sum + 131072) >> 8;
+            if (index < 0) index = 0;
+            if (index > 1024) index = 1024;
+            
+            int16_t finalSample = audio_mixer_lut[index];
+            stream[j] = finalSample;
+
+            // Track peak for diagnostics
+            float absSample = (float)std::abs((int32_t)finalSample);
+            if (absSample > currentPeak) currentPeak = absSample;
+        }
+#endif
+
+        // Diagnostic logging (Phase 2)
+        static uint32_t lastLog = 0;
+        uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        if (now - lastLog > 1000) {
+            if (currentPeak > 32767.0f) {
+                Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+            } else {
+                Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            }
+            currentPeak = 0.0f; // Reset peak after logging
+            lastLog = now;
         }
         
         audioTimeSamples += length;
@@ -195,8 +262,8 @@ namespace pixelroot32::audio {
         return candidate;
     }
 
-    int16_t ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
-        if (!ch.enabled) return 0;
+    float ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+        if (!ch.enabled) return 0.0f;
 
         float sample = 0.0f;
         
@@ -240,8 +307,8 @@ namespace pixelroot32::audio {
             }
         }
 
-        // Use 12000.0f factor for mixing headroom as per reference
-        return (int16_t)(sample * ch.volume * 12000.0f);
+        // Return normalized sample multiplied by channel volume
+        return sample * ch.volume;
     }
 
 } // namespace pixelroot32::audio

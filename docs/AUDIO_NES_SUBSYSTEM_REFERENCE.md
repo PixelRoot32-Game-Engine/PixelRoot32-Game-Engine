@@ -186,18 +186,33 @@ return (int16_t)(sample * ch.volume * masterVolume * 12000.0f);
 - The `12000.0f` factor gives a strong output on low-amplitude backends like the ESP32 DAC,
   while the mixer still applies hard clipping after summing all channels.
 
-### 3.4 Mixing all channels
+### 3.4 Mixing all channels (Non-Linear Mixer)
 
 `void AudioEngine::generateSamples(int16_t* stream, int length)`:
 
-- Clears the buffer to 0.
-- For each index from `0` to `length - 1`:
-  - Initializes an accumulator `mixedSample = 0`.
-  - Adds the result of `generateSampleForChannel` for each of the 4 channels.
-  - Applies **hard clipping** to `[-32768, 32767]`.
-  - Writes the result into `stream[i]`.
+The system uses a **non-linear mixing strategy** that adapts to the underlying hardware to maximize volume and quality while preventing digital clipping.
 
-This produces a **mono** 16-bit stream, ready to be sent to SDL2 or I2S.
+#### Strategy A: Floating-Point Soft Clipping (FPU-enabled)
+
+Used on ESP32, ESP32-S3, and Native (SDL2). It applies a compression curve:
+`Output = Sum / (1.0 + |Sum| * 0.5)`
+
+- Each channel is scaled by **0.4x**.
+- Peak volume reaches ~88% of the dynamic range.
+- Provides a natural "analog" saturation.
+
+#### Strategy B: Look-Up Table (LUT) Mixing (No-FPU / ESP32-C3)
+
+Used on architectures without floating-point units.
+
+- Channels are summed using `int32_t`.
+- A precomputed **1025-entry LUT** (`AudioMixerLUT.h`) maps the 32-bit sum to a 16-bit compressed value.
+- Calculated as: `index = (sum + 131072) >> 8`.
+- Zero CPU overhead for floating-point math.
+
+#### Clipping Prevention
+
+The asymptotic nature of the curve ensures that the output **never** exceeds the `int16_t` limits, eliminating the need for hard clipping and reducing harmonic distortion.
 
 ### 3.5 Event playback: playEvent
 
@@ -311,9 +326,23 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
 - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
-- **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
-- Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
-- Works well with small on-board speakers and low-cost mono amps.
+- **Software Mode**: Samples are pushed from a dedicated FreeRTOS task. (I2S-DMA mode is not supported due to hardware instability).
+- **Attenuation**: Includes a **0.7x** scale to prevent saturation on sensitive amplifiers like the PAM8302A.
+- **Limitations**:
+  - 8-bit resolution (inherent background noise).
+  - Residual jitter due to being a software-based driver.
+  - Not recommended for high-fidelity audio.
+- **Recommendation**: For final projects or clean audio, it is recommended to migrate to the **I2S backend with MAX98357A**.
+
+#### C) Reference Pinout (ESP32)
+
+| Backend | Peripheral | ESP32 Pin | Module Connection |
+|---------|------------|-----------|-----------------|
+| **DAC** | DAC1 | GPIO 25 | **PAM8302A**: A+ (IN+) |
+| **DAC** | GND | GND | **PAM8302A**: A- (IN-) |
+| **I2S** | BCLK | GPIO 26 | **MAX98357A**: BCLK |
+| **I2S** | LRCK | GPIO 25 | **MAX98357A**: LRC (WS) |
+| **I2S** | DOUT | GPIO 22 | **MAX98357A**: DIN |
 
 ### 4.3 Backend Configuration (in `main.cpp`)
 

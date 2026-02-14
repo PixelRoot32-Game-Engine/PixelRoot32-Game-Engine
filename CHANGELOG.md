@@ -19,6 +19,14 @@ All notable changes to this project will be documented in this file.
   - Implemented **sample-accurate timing**, replacing frame-based `deltaTime` updates for perfect music and SFX synchronization.
   - Introduced `AudioScheduler` (Native, ESP32, Default) to own audio state, timing, and sequencing logic.
   - Added a lock-free **Single Producer / Single Consumer (SPSC)** `AudioCommandQueue` for thread-safe communication between the game loop and the audio core.
+  - **Hardware-Specific Mixer Optimizations**:
+    - Added a **non-linear mixer** with soft clipping to prevent digital distortion.
+    - Implemented a high-performance **Look-Up Table (LUT)** mixer for no-FPU architectures (e.g., ESP32-C3).
+    - Added automatic hardware detection (via `SOC_CPU_HAS_FPU`) to select the optimal mixing strategy.
+  - **ESP32 DAC Backend Improvements**:
+    - Optimized internal DAC driver with a software-based delivery system for maximum stability.
+    - Added **0.7x output scaling** specifically for the **PAM8302A** amplifier to prevent analog saturation.
+    - Updated documentation with clear wiring diagrams and hardware limitations.
   - Refactored `AudioEngine` and `MusicPlayer` into "thin clients" that act as command producers.
   - Removed obsolete `update(deltaTime)` methods from audio classes, simplifying the game loop.
   - Achieved full SDL2 parity with ESP32 multi-core behavior through background thread isolation.
