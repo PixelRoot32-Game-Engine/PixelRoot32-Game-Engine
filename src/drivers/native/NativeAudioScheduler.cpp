@@ -71,25 +71,48 @@ namespace pixelroot32::audio {
         const int CHUNK_SIZE = 128;
         int16_t chunk[CHUNK_SIZE];
 
+        auto lastLogTime = std::chrono::steady_clock::now();
+        float currentPeak = 0.0f;
+        const float HEADROOM = 0.25f; // Headroom for 4 channels
+        const float FINAL_SCALE = 32767.0f;
+
         while (running) {
             if (rbAvailableToWrite() >= CHUNK_SIZE) {
                 processCommands();
                 updateMusicSequencer(CHUNK_SIZE);
 
-                memset(chunk, 0, sizeof(chunk));
-
-                for (int c = 0; c < NUM_CHANNELS; c++) {
-                    if (!channels[c].enabled) continue;
-
-                    for (int i = 0; i < CHUNK_SIZE; i++) {
-                        int16_t sample = generateSampleForChannel(channels[c]);
-                        float mixed = (float)chunk[i] + (float)sample * masterVolume;
-                        
-                        if (mixed > 32767.0f) mixed = 32767.0f;
-                        if (mixed < -32768.0f) mixed = -32768.0f;
-                        
-                        chunk[i] = (int16_t)mixed;
+                for (int i = 0; i < CHUNK_SIZE; i++) {
+                    float acc = 0.0f;
+                    for (int c = 0; c < NUM_CHANNELS; c++) {
+                        if (channels[c].enabled) {
+                            acc += generateSampleForChannel(channels[c]);
+                        }
                     }
+
+                    // Apply headroom and master volume
+                    float mixed = acc * HEADROOM * masterVolume * FINAL_SCALE;
+                    
+                    // Track peak (Phase 2)
+                    float absMixed = std::abs(mixed);
+                    if (absMixed > currentPeak) currentPeak = absMixed;
+
+                    // Clamp once at the end
+                    if (mixed > 32767.0f) mixed = 32767.0f;
+                    if (mixed < -32768.0f) mixed = -32768.0f;
+                    
+                    chunk[i] = (int16_t)mixed;
+                }
+
+                // Diagnostic logging (Phase 2)
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime).count() >= 1) {
+                    if (currentPeak > 32767.0f) {
+                        printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                    } else {
+                        printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                    }
+                    currentPeak = 0.0f;
+                    lastLogTime = now;
                 }
 
                 rbWrite(chunk, CHUNK_SIZE);
@@ -214,8 +237,8 @@ namespace pixelroot32::audio {
         return candidate;
     }
 
-    int16_t NativeAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
-        if (!ch.enabled) return 0;
+    float NativeAudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+        if (!ch.enabled) return 0.0f;
 
         float sample = 0.0f;
         switch (ch.type) {
@@ -256,7 +279,7 @@ namespace pixelroot32::audio {
             }
         }
 
-        return (int16_t)(sample * ch.volume * 12000.0f);
+        return sample * ch.volume;
     }
 
     // Ring buffer implementation

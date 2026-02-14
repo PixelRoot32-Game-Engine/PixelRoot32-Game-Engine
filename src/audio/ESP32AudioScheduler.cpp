@@ -5,6 +5,7 @@
 #ifdef ESP32
 
 #include "drivers/esp32/ESP32AudioScheduler.h"
+#include <Arduino.h>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -61,20 +62,42 @@ namespace pixelroot32::audio {
         processCommands();
         updateMusicSequencer(length);
 
-        memset(stream, 0, length * sizeof(int16_t));
+        static float currentPeak = 0.0f;
+        const float HEADROOM = 0.25f; // Headroom for 4 channels
+        const float FINAL_SCALE = 32767.0f;
 
-        for (int i = 0; i < NUM_CHANNELS; i++) {
-            if (!channels[i].enabled) continue;
-
-            for (int j = 0; j < length; j++) {
-                int16_t sample = generateSampleForChannel(channels[i]);
-                // Mix sample (simple additive mixing with master volume)
-                float mixed = (float)stream[j] + (float)sample * masterVolume;
-                // Clamp to 16-bit range
-                if (mixed > 32767.0f) mixed = 32767.0f;
-                if (mixed < -32768.0f) mixed = -32768.0f;
-                stream[j] = (int16_t)mixed;
+        for (int j = 0; j < length; j++) {
+            float acc = 0.0f;
+            for (int i = 0; i < NUM_CHANNELS; i++) {
+                if (channels[i].enabled) {
+                    acc += generateSampleForChannel(channels[i]);
+                }
             }
+
+            // Apply headroom and master volume
+            float mixed = acc * HEADROOM * masterVolume * FINAL_SCALE;
+            
+            // Track peak before clamping
+            float absMixed = std::abs(mixed);
+            if (absMixed > currentPeak) currentPeak = absMixed;
+
+            // Clamp once at the end
+            if (mixed > 32767.0f) mixed = 32767.0f;
+            if (mixed < -32768.0f) mixed = -32768.0f;
+            stream[j] = (int16_t)mixed;
+        }
+
+        // Diagnostic logging (Phase 2)
+        static uint32_t lastLog = 0;
+        uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        if (now - lastLog > 1000) {
+            if (currentPeak > 32767.0f) {
+                Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+            } else {
+                Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            }
+            currentPeak = 0.0f; // Reset peak after logging
+            lastLog = now;
         }
         
         audioTimeSamples += length;
@@ -195,8 +218,8 @@ namespace pixelroot32::audio {
         return candidate;
     }
 
-    int16_t ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
-        if (!ch.enabled) return 0;
+    float ESP32AudioScheduler::generateSampleForChannel(AudioChannel& ch) {
+        if (!ch.enabled) return 0.0f;
 
         float sample = 0.0f;
         
@@ -240,8 +263,8 @@ namespace pixelroot32::audio {
             }
         }
 
-        // Use 12000.0f factor for mixing headroom as per reference
-        return (int16_t)(sample * ch.volume * 12000.0f);
+        // Return normalized sample multiplied by channel volume
+        return sample * ch.volume;
     }
 
 } // namespace pixelroot32::audio

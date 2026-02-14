@@ -64,7 +64,7 @@ namespace pixelroot32::audio {
         void playCurrentNote();
         
         AudioChannel* findFreeChannel(WaveType type);
-        int16_t generateSampleForChannel(AudioChannel& ch);
+        float generateSampleForChannel(AudioChannel& ch);
     };
 
 } // namespace pixelroot32::audio
