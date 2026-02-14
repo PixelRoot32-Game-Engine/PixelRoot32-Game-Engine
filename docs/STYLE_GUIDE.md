@@ -176,7 +176,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
   - *Example*: `x += speed * (deltaTime * 0.001f);`
 - **Logic/Visual Decoupling**: For infinite runners, keep logic progression (obstacle spacing) constant in time, even if visual speed increases.
 - **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
- - **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
+- **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
 
 ---
 
