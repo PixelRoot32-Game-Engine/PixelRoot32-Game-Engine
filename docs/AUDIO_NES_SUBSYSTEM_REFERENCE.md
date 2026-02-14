@@ -326,9 +326,23 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
 - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
-- **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
-- Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
-- Works well with small on-board speakers and low-cost mono amps.
+- **Software Mode**: Samples are pushed from a dedicated FreeRTOS task. (I2S-DMA mode is not supported due to hardware instability).
+- **Attenuation**: Includes a **0.7x** scale to prevent saturation on sensitive amplifiers like the PAM8302A.
+- **Limitations**:
+  - 8-bit resolution (inherent background noise).
+  - Residual jitter due to being a software-based driver.
+  - Not recommended for high-fidelity audio.
+- **Recommendation**: For final projects or clean audio, it is recommended to migrate to the **I2S backend with MAX98357A**.
+
+#### C) Reference Pinout (ESP32)
+
+| Backend | Peripheral | ESP32 Pin | Module Connection |
+|---------|------------|-----------|-----------------|
+| **DAC** | DAC1 | GPIO 25 | **PAM8302A**: A+ (IN+) |
+| **DAC** | GND | GND | **PAM8302A**: A- (IN-) |
+| **I2S** | BCLK | GPIO 26 | **MAX98357A**: BCLK |
+| **I2S** | LRCK | GPIO 25 | **MAX98357A**: LRC (WS) |
+| **I2S** | DOUT | GPIO 22 | **MAX98357A**: DIN |
 
 ### 4.3 Backend Configuration (in `main.cpp`)
 
