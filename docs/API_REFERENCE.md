@@ -515,6 +515,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`void drawPixel(int x, int y, uint16_t color)`**
     Draws a single pixel.
 
+- **`void setOffset(int x, int y)`**
+    Sets the hardware alignment offset for the display.
+
+- **`void setRotation(uint8_t rotation)`**
+    Sets the hardware rotation of the display.
+
 - **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
     Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
 

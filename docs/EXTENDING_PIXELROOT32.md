@@ -65,6 +65,7 @@ void setup() {
 | `drawPixel()` | Yes | The foundation of all rendering. |
 | `sendBuffer()` | Yes | Sends data to the display. |
 | `clearBuffer()` | Yes | Clears the screen/buffer. |
+| `setOffset()` | No | Sets X/Y hardware alignment offset. |
 | `setRotation()` | No | Handled internally by `BaseDrawSurface`. |
 | `drawLine()` | No | Optimized in `BaseDrawSurface`. |
 | `drawFilledRectangle()` | No | Optimized in `BaseDrawSurface`. |
