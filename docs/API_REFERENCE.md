@@ -722,6 +722,41 @@ renderer.drawText(text, x, 50, Color::White, 2);
 
 **Inherits:** None
 
+The `Camera2D` class provides a 2D camera system for managing the viewport and scrolling of the game world. It handles coordinate transformations and target following with configurable dead zones.
+
+#### Public Methods
+
+- **`Camera2D(int viewportWidth, int viewportHeight)`**
+    Constructs a new `Camera2D` with the specified viewport dimensions.
+
+- **`void setBounds(float minX, float maxX)`**
+    Sets the horizontal boundaries for the camera. The camera's x position will be clamped within this range.
+
+- **`void setVerticalBounds(float minY, float maxY)`**
+    Sets the vertical boundaries for the camera. The camera's y position will be clamped within this range.
+
+- **`void setPosition(float x, float y)`**
+    Sets the camera's position directly. The position will be clamped to the current bounds.
+
+- **`void followTarget(float targetX)`**
+    Updates the camera position to follow a target's x coordinate. The camera uses a "dead zone" in the center of the screen where the camera won't move.
+
+- **`void followTarget(float targetX, float targetY)`**
+    Updates the camera position to follow a target's x and y coordinates. The camera uses a "dead zone" in the center of the screen where the camera won't move.
+
+- **`float getX() const`**
+    Returns the current x position of the camera.
+
+- **`float getY() const`**
+    Returns the current y position of the camera.
+
+- **`void apply(Renderer& renderer) const`**
+    Applies the camera's transformation to the renderer. This should be called before drawing world objects.
+
+- **`void setViewportSize(int width, int height)`**
+    Updates the viewport size (usually logical resolution).
+
+
 ---
 
 ## UI Module
