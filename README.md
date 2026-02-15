@@ -107,6 +107,9 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🗺️ Roadmap
 
+- 🧮 **Dual Numeric Backend (Float / Fixed-Point)**:
+Optional fixed-point arithmetic layer (Q16.16) to support ESP32 variants without FPU (C3, C2, C6).
+Includes numeric abstraction layer, math refactor, deterministic behavior, and dual build configuration.
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
 - ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
