@@ -137,8 +137,6 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
     }
 #endif
 
-    // Diagnostic logging (Phase 2)
-    static uint32_t lastLog = 0;
     // Using simple counter or clock if available, but for Default we might not have FreeRTOS
     // Let's use a simple sample counter based logging
     static uint64_t totalSamplesProcessed = 0;

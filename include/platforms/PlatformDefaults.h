@@ -32,9 +32,10 @@
 // Display Driver Selection
 // -----------------------------------------------------------------------------
 // Support for multiple display drivers. TFT_eSPI is the default for ESP32.
-// Future support for U8G2 can be enabled via PIXELROOT32_USE_U8G2.
+// U8G2 support can be enabled via PIXELROOT32_USE_U8G2.
 #if defined(ARDUINO_ARCH_ESP32)
     #if defined(PIXELROOT32_USE_U8G2)
+        // U8G2 active, we usually disable TFT_eSPI to save space
         #define PIXELROOT32_USE_U8G2_DRIVER 1
     #else
         #ifndef PIXELROOT32_NO_TFT_ESPI

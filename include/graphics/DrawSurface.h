@@ -109,6 +109,15 @@ public:
     }
 
     /**
+     * @brief Sets the display offset (positioning of the active area).
+     * @param x X offset.
+     * @param y Y offset.
+     */
+    virtual void setOffset(int x, int y) {
+        (void)x; (void)y;
+    }
+
+    /**
      * @brief Processes platform events (e.g., SDL window events).
      * @return false if the application should quit, true otherwise.
      */

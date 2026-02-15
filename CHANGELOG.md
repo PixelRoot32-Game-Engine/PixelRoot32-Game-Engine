@@ -7,10 +7,13 @@ All notable changes to this project will be documented in this file.
 - **Unified Platform Configuration & Hardware Decoupling**:
   - Consolidated global configuration files into `include/platforms/` (`PlatformCapabilities.h`, `PlatformDefaults.h`, `EngineConfig.h`).
   - Implemented bridge headers with `#pragma message` warnings for backward compatibility.
+  - Added `PlatformDefaults.h` to manage target-dependent feature defaults (e.g., DAC support).
+  - Fixed build failures on ESP32-S3 and other modern variants by conditionally compiling the DAC audio backend only for classic ESP32 [PR #49](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pull/49).
   - Removed hardcoded CPU core IDs, replacing them with `PR32_DEFAULT_AUDIO_CORE` and `PR32_DEFAULT_MAIN_CORE` macros for configurable task affinity.
   - Added explicit feature guards for audio backends (`PIXELROOT32_USE_I2S_AUDIO`, `PIXELROOT32_NO_DAC_AUDIO`) to support modern ESP32 variants (e.g., ESP32-S3).
 - **Graphics Extensibility & Ownership Management**:
   - Introduced `BaseDrawSurface` class with default primitive implementations to simplify custom driver development.
+  - Added `U8G2_Drawer` implementation for monochromatic OLED display support via the U8G2 library.
   - Added `PIXELROOT32_CUSTOM_DISPLAY` macro and factory methods for safe custom driver initialization.
   - Implemented `unique_ptr` ownership transfer for `DrawSurface` instances between `DisplayConfig`, `Renderer`, and `Engine`.
   - Refactored existing drivers to inherit from `BaseDrawSurface` and removed deprecated text rendering methods.

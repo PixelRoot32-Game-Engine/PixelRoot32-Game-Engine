@@ -42,6 +42,7 @@ public:
     // Size management defaults
     void setDisplaySize(int w, int h) override { logicalWidth = w; logicalHeight = h; }
     void setPhysicalSize(int w, int h) override { physicalWidth = w; physicalHeight = h; }
+    void setOffset(int x, int y) override { xOffset = x; yOffset = y; }
     void present() override { sendBuffer(); }
 
     // Color conversion default (RGB888 to RGB565)
@@ -126,6 +127,7 @@ protected:
     uint16_t rotation = 0;
     int logicalWidth = 240, logicalHeight = 240;
     int physicalWidth = 240, physicalHeight = 240;
+    int xOffset = 0, yOffset = 0;
 };
 
 } // namespace pixelroot32::graphics
