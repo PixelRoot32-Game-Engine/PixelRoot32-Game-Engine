@@ -8,7 +8,7 @@
 
 #ifdef PLATFORM_NATIVE
 
-#include "graphics/DrawSurface.h"
+#include "graphics/BaseDrawSurface.h"
 // SDL2 specific includes would go here
 #include <SDL2/SDL.h>
 #include <stdint.h>
@@ -17,7 +17,7 @@
 
 namespace pixelroot32::drivers::native {
 
-class SDL2_Drawer : public pixelroot32::graphics::DrawSurface {
+class SDL2_Drawer : public pixelroot32::graphics::BaseDrawSurface {
 public:
     SDL2_Drawer();
     virtual ~SDL2_Drawer();
@@ -32,8 +32,6 @@ public:
     void clearBuffer() override;
     void sendBuffer() override;
 
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override;
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override;
     void drawFilledCircle(int x, int y, int radius, uint16_t color) override;
     void drawCircle(int x, int y, int radius, uint16_t color) override;
     void drawRectangle(int x, int y, int width, int height, uint16_t color) override;
@@ -42,46 +40,13 @@ public:
     void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color) override;
     void drawPixel(int x, int y, uint16_t color) override;
 
-    void setTextColor(uint16_t color) override;
-    void setTextSize(uint8_t size) override;
-    void setCursor(int16_t x, int16_t y) override;
-    
-    uint16_t color565(uint8_t r, uint8_t g, uint8_t b) override;
-
-    void setDisplaySize(int w, int h) override;
-    
-    /**
-     * @brief Sets the physical display size for scaling operations.
-     * @param w Physical width.
-     * @param h Physical height.
-     */
-    void setPhysicalSize(int w, int h) override;
-
-    void present() override;
-
     bool processEvents() override;
-
-    void setContrast(uint8_t value) override {
-        (void)value;
-        // SDL2 no soporta contraste real → noop
-    }
-
 
 private:
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Texture* texture;
     uint16_t* pixels; // Framebuffer (RGB565 format, matches texture)
-    int16_t cursorX, cursorY;
-    uint16_t textColor;
-    uint8_t textSize;
-    uint8_t rotation;
-
-    // Resolution dimensions
-    int logicalWidth = 240;   ///< Logical resolution (framebuffer size)
-    int logicalHeight = 240;
-    int physicalWidth = 240;  ///< Physical resolution (window size)
-    int physicalHeight = 240;
 
     void updateTexture();
 

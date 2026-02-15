@@ -11,6 +11,7 @@
 #include "audio/AudioConfig.h"
 #include "audio/AudioEngine.h"
 #include "audio/MusicPlayer.h"
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::core {
 
@@ -30,6 +31,10 @@ public:
      * @param inputConfig Configuration settings for the input system (pins, buttons).
      * @param audioConfig Configuration settings for the audio system.
      */
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig);
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig);
+    Engine(pixelroot32::graphics::DisplayConfig&& displayConfig);
+
     Engine(const pixelroot32::graphics::DisplayConfig& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig);
 
     /**
@@ -86,9 +91,9 @@ public:
     
     /**
      * @brief Replaces the current renderer instance.
-     * @param newRenderer Reference to the new Renderer to use.
+     * @param newRenderer R-value reference to the new Renderer to use.
      */
-    void setRenderer(pixelroot32::graphics::Renderer& newRenderer) { renderer = newRenderer; }
+    void setRenderer(pixelroot32::graphics::Renderer&& newRenderer) { renderer = std::move(newRenderer); }
 
     /**
      * @brief Provides access to the Renderer subsystem.
@@ -114,16 +119,13 @@ public:
      */
     pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
 
-private:
-    SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
-    pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
-    pixelroot32::input::InputManager inputManager; ///< Manages input device state and events.
-    pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
-    pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
+    /**
+     * @brief Gets the capabilities of the current hardware platform.
+     * @return Reference to the PlatformCapabilities.
+     */
+    const PlatformCapabilities& getPlatformCapabilities() const { return capabilities; }
 
-    unsigned long previousMillis; ///< Timestamp of the previous frame.
-    unsigned long deltaTime;      ///< Calculated time difference between frames.
-
+protected:
     /**
      * @brief Updates the game logic.
      * 
@@ -137,6 +139,17 @@ private:
      * Called once per frame. Clears the buffer, asks the scene to draw itself, and sends the buffer to the display.
      */
     void draw();
+
+protected:
+    SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
+    pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
+    pixelroot32::input::InputManager inputManager; ///< Manages user input.
+    PlatformCapabilities capabilities;             ///< Hardware capabilities of the current platform.
+    pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
+    pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
+
+    unsigned long previousMillis; ///< Timestamp of the previous frame.
+    unsigned long deltaTime;      ///< Calculated time difference between frames.
 
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
     /**

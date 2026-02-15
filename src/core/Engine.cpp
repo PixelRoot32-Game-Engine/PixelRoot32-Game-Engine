@@ -16,8 +16,48 @@ namespace pixelroot32::core {
     using namespace pixelroot32::input;
     using namespace pixelroot32::audio;
 
+    Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
+    Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig) 
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
+    Engine::Engine(DisplayConfig&& displayConfig) 
+        : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        previousMillis = 0;
+        deltaTime = 0;
+#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+        debugUpdateCounter = 0;
+        debugAccumulatedMs = 0;
+        std::strcpy(fpsStr, "FPS: 0");
+        std::strcpy(ramStr, "RAM: 0K");
+        std::strcpy(cpuStr, "CPU: 0%");
+#endif
+    }
+
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(audioConfig), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -30,7 +70,8 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
-        : renderer(displayConfig), inputManager(inputConfig), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -43,7 +84,8 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(displayConfig), inputManager(InputConfig(0)), audioEngine(AudioConfig()), musicPlayer(audioEngine) {
+        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
+          inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
         deltaTime = 0;
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -91,6 +133,12 @@ namespace pixelroot32::core {
                 SDL_Delay(1);
             }
         #else 
+            static uint32_t lastHeartbeat = 0;
+            if (millis() - lastHeartbeat > 1000) {
+                Serial.println("[Engine] Heartbeat...");
+                lastHeartbeat = millis();
+            }
+
             update();
 
             // waitForDMA
@@ -100,6 +148,9 @@ namespace pixelroot32::core {
 
             // Present frame (TFT_eSPI)
             drawer->present();
+
+            // Yield to avoid starving Core 1 system tasks
+            vTaskDelay(1);
 
         #endif // PLATFORM_NATIVE
     }
@@ -123,8 +174,6 @@ namespace pixelroot32::core {
         inputManager.update(deltaTime);
     #endif
         sceneManager.update(deltaTime);
-        audioEngine.update(deltaTime);
-        musicPlayer.update(deltaTime);
     }
 
     void Engine::draw() {

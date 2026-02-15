@@ -14,11 +14,6 @@ pr32::drivers::native::SDL2_Drawer::SDL2_Drawer()
     , renderer(nullptr)
     , texture(nullptr)
     , pixels(nullptr)
-    , cursorX(0)
-    , cursorY(0)
-    , textColor(0xFFFF)
-    , textSize(1)
-    , rotation(0)
 {
 }
 
@@ -95,33 +90,24 @@ void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // SDL_RenderCopy with nullptr as dstrect will scale to fill the entire renderer viewport (the window)
+    // Calculate destination rectangle based on offsets and logical size
+    // We use windowScale to keep the same relative size as the physical window
+    int windowScale = 2; // Should probably be a member or calculated
+    SDL_Rect dstRect = {
+        xOffset * windowScale,
+        yOffset * windowScale,
+        logicalWidth * windowScale,
+        logicalHeight * windowScale
+    };
+
     if (rotation == 0) {
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
     } else {
         double angle = rotation * 90.0;
-        SDL_RenderCopyEx(renderer, texture, nullptr, nullptr, angle, nullptr, SDL_FLIP_NONE);
+        SDL_RenderCopyEx(renderer, texture, nullptr, &dstRect, angle, nullptr, SDL_FLIP_NONE);
     }
     
     SDL_RenderPresent(renderer);
-}
-
-// ---------- TEXTO ----------
-// @deprecated These methods are obsolete. Text rendering is now handled by Renderer
-// using the native bitmap font system. These methods are kept as empty stubs
-// only for interface compatibility (DrawSurface requires them).
-// The Renderer never calls these methods - all text goes through the font system.
-
-void pr32::drivers::native::SDL2_Drawer::drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) {
-    // Obsolete: This method should never be called.
-    // All text rendering is handled by Renderer::drawText() using the font system.
-    (void)text; (void)x; (void)y; (void)color; (void)size;
-}
-
-void pr32::drivers::native::SDL2_Drawer::drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) {
-    // Obsolete: This method should never be called.
-    // All text rendering is handled by Renderer::drawTextCentered() using the font system.
-    (void)text; (void)y; (void)color; (void)size;
 }
 
 // ---------- PRIMITIVAS ----------
@@ -246,37 +232,6 @@ void pr32::drivers::native::SDL2_Drawer::drawBitmap(int x, int y, int w, int h, 
 
 void pr32::drivers::native::SDL2_Drawer::drawPixel(int x, int y, uint16_t color) {
     setPixel(x, y, color);
-}
-
-void pr32::drivers::native::SDL2_Drawer::setTextColor(uint16_t color) {
-    textColor = color;
-}
-
-void pr32::drivers::native::SDL2_Drawer::setTextSize(uint8_t size) {
-    textSize = size;
-}
-
-void pr32::drivers::native::SDL2_Drawer::setCursor(int16_t x, int16_t y) {
-    cursorX = x;
-    cursorY = y;
-}
-
-uint16_t pr32::drivers::native::SDL2_Drawer::color565(uint8_t r, uint8_t g, uint8_t b) {
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
-}
-
-void pr32::drivers::native::SDL2_Drawer::setDisplaySize(int w, int h) {
-    logicalWidth = w;
-    logicalHeight = h;
-}
-
-void pr32::drivers::native::SDL2_Drawer::setPhysicalSize(int w, int h) {
-    physicalWidth = w;
-    physicalHeight = h;
-}
-
-void pr32::drivers::native::SDL2_Drawer::present() {
-    sendBuffer(); // wrapper for compatibility
 }
 
 #endif // PLATFORM_NATIVE

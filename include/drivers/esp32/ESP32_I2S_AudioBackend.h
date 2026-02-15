@@ -4,7 +4,9 @@
  */
 #pragma once
 
-#ifdef ARDUINO_ARCH_ESP32
+#include "platforms/PlatformDefaults.h"
+
+#if defined(PIXELROOT32_USE_I2S_AUDIO)
 
 #include "audio/AudioBackend.h"
 #include <driver/i2s.h>
@@ -33,7 +35,7 @@ namespace pixelroot32::drivers::esp32 {
         ESP32_I2S_AudioBackend(int bclkPin, int wclkPin, int doutPin, int sampleRate = 22050);
         virtual ~ESP32_I2S_AudioBackend();
 
-        void init(pixelroot32::audio::AudioEngine* engine) override;
+        void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) override;
         int getSampleRate() const override { return sampleRate; }
 
         // Internal task function
@@ -50,4 +52,4 @@ namespace pixelroot32::drivers::esp32 {
 
 }
 
-#endif // ARDUINO_ARCH_ESP32
+#endif // PIXELROOT32_USE_I2S_AUDIO

@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #pragma once
+#include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::audio {
 
@@ -23,8 +24,9 @@ namespace pixelroot32::audio {
         /**
          * @brief Initializes the audio backend.
          * @param engine Pointer to the AudioEngine instance to request samples from.
+         * @param caps Platform capabilities to guide backend initialization (e.g., core pinning).
          */
-        virtual void init(AudioEngine* engine) = 0;
+        virtual void init(AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities()) = 0;
 
         /**
          * @brief Returns the configured sample rate of the backend.

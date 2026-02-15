@@ -6,7 +6,11 @@
 
 #include "AudioConfig.h"
 #include "AudioTypes.h"
+#include "AudioScheduler.h"
+#include "DefaultAudioScheduler.h"
+#include "platforms/PlatformCapabilities.h"
 #include <cstdint>
+#include <memory>
 
 namespace pixelroot32::audio {
 
@@ -14,35 +18,14 @@ namespace pixelroot32::audio {
      * @class AudioEngine
      * @brief Core class for the NES-like audio subsystem.
      * 
-     * This class manages the audio channels (Pulse, Triangle, Noise), mixes their output,
-     * and provides the audio stream to the backend.
+     * In Phase 2, this class becomes a facade for the AudioScheduler.
      */
     class AudioEngine {
     public:
-        /**
-         * @brief Constructs the AudioEngine with the given configuration.
-         * @param config Configuration struct containing the backend and parameters.
-         */
-        AudioEngine(const AudioConfig& config);
+        AudioEngine(const AudioConfig& config, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities());
         
-        /**
-         * @brief Initializes the audio subsystem and the backend.
-         */
         void init();
 
-        /**
-         * @brief Updates the audio state based on game time.
-         * This should be called from the main game loop (Engine::update).
-         * @param deltaTime Time elapsed since last frame in milliseconds.
-         */
-        void update(unsigned long deltaTime);
-
-        /**
-         * @brief Fills the provided buffer with mixed audio samples.
-         * This method is typically called by the AudioBackend from an audio callback or task.
-         * @param stream Pointer to the buffer to fill.
-         * @param length Number of samples to generate.
-         */
         void generateSamples(int16_t* stream, int length);
 
         void playEvent(const AudioEvent& event);
@@ -50,17 +33,20 @@ namespace pixelroot32::audio {
         void setMasterVolume(float volume);
         float getMasterVolume() const;
 
+        void submitCommand(const AudioCommand& cmd);
+
+        /**
+         * @brief Sets a custom scheduler.
+         * @param scheduler The scheduler to use.
+         */
+        void setScheduler(std::unique_ptr<AudioScheduler> scheduler);
+
     private:
         AudioConfig config;
-
-        // Fixed channels: 2 Pulse, 1 Triangle, 1 Noise
-        static constexpr int NUM_CHANNELS = 4;
-        AudioChannel channels[NUM_CHANNELS];
-
-        float masterVolume = 1.0f;
-
-        AudioChannel* findFreeChannel(WaveType type);
-        int16_t generateSampleForChannel(AudioChannel& ch);
+        pixelroot32::core::PlatformCapabilities capabilities;
+        std::unique_ptr<AudioScheduler> scheduler;
+        
+        float masterVolume = 1.0f; // Cached for getMasterVolume
     };
 
 }

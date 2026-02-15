@@ -84,13 +84,14 @@ struct AudioChannel {
 
 Key characteristics:
 
-- **No dynamic allocation**: all 4 channels live in a static array inside `AudioEngine`.
+- **No dynamic allocation**: all 4 channels live in a static array inside the audio subsystem (managed by the `AudioScheduler`).
 - `frequency` and `phaseIncrement`:
   - `phaseIncrement = frequency / sampleRate`.
   - Phase runs in `[0.0, 1.0)`.
-- `durationMs` and `remainingMs`:
-  - Control the lifetime of each sound event.
-  - Updated in `AudioEngine::update`.
+- **Sample-based timing**:
+  - `durationSamples` and `remainingSamples`:
+  - Control the lifetime of each sound event in absolute sample counts.
+  - Managed by the `AudioScheduler` during sample generation.
 - `noiseRegister`:
   - Used as internal state for the noise channel.
 
@@ -128,20 +129,20 @@ In the constructor:
 
 Each channel is reset by calling `reset()`.
 
-### 3.2 Lifetime and time model
+### 3.2 Lifetime and time model (Sample-Based)
 
-`AudioEngine::update(unsigned long deltaTime)`:
+The audio system no longer uses `deltaTime` or frame-based updates. Instead, it uses **sample-accurate timing** managed by an `AudioScheduler`:
 
-- Called once per frame from `Engine::update`.
-- For each `AudioChannel`:
-  - If the channel is active (`enabled`) and has `remainingMs > 0`:
-    - Subtracts `deltaTime`.
-    - If the duration is exhausted, disables the channel (`enabled = false`).
+- **Audio Time**: Internal unit is samples (e.g., 1 second = 44100 samples at 44.1kHz).
+- **Decoupled Logic**: The `AudioScheduler` runs in a separate thread (SDL2) or core (ESP32).
+- **Lifetime**: For each active `AudioChannel`, the scheduler subtracts 1 from `remainingSamples` for every sample generated.
+- When `remainingSamples` reaches 0, the channel is automatically disabled.
 
 Important:
 
-- **Game time** is synchronized with the main game loop.
-- The **sample rate** is handled by the backend (audio callback / task).
+- **Game logic** runs at its own frame rate (e.g., 60 FPS).
+- **Audio generation** runs at the hardware sample rate (e.g., 22050 Hz).
+- Render stalls or frame drops **do not affect** audio pitch or tempo.
 
 ### 3.3 Per-channel sample generation
 
@@ -185,38 +186,93 @@ return (int16_t)(sample * ch.volume * masterVolume * 12000.0f);
 - The `12000.0f` factor gives a strong output on low-amplitude backends like the ESP32 DAC,
   while the mixer still applies hard clipping after summing all channels.
 
-### 3.4 Mixing all channels
+### 3.4 Mixing all channels (Non-Linear Mixer)
 
 `void AudioEngine::generateSamples(int16_t* stream, int length)`:
 
-- Clears the buffer to 0.
-- For each index from `0` to `length - 1`:
-  - Initializes an accumulator `mixedSample = 0`.
-  - Adds the result of `generateSampleForChannel` for each of the 4 channels.
-  - Applies **hard clipping** to `[-32768, 32767]`.
-  - Writes the result into `stream[i]`.
+The system uses a **non-linear mixing strategy** that adapts to the underlying hardware to maximize volume and quality while preventing digital clipping.
 
-This produces a **mono** 16-bit stream, ready to be sent to SDL2 or I2S.
+#### Strategy A: Floating-Point Soft Clipping (FPU-enabled)
+
+Used on ESP32, ESP32-S3, and Native (SDL2). It applies a compression curve:
+`Output = Sum / (1.0 + |Sum| * 0.5)`
+
+- Each channel is scaled by **0.4x**.
+- Peak volume reaches ~88% of the dynamic range.
+- Provides a natural "analog" saturation.
+
+#### Strategy B: Look-Up Table (LUT) Mixing (No-FPU / ESP32-C3)
+
+Used on architectures without floating-point units.
+
+- Channels are summed using `int32_t`.
+- A precomputed **1025-entry LUT** (`AudioMixerLUT.h`) maps the 32-bit sum to a 16-bit compressed value.
+- Calculated as: `index = (sum + 131072) >> 8`.
+- Zero CPU overhead for floating-point math.
+
+#### Clipping Prevention
+
+The asymptotic nature of the curve ensures that the output **never** exceeds the `int16_t` limits, eliminating the need for hard clipping and reducing harmonic distortion.
 
 ### 3.5 Event playback: playEvent
 
 `void AudioEngine::playEvent(const AudioEvent& event)`:
 
-- Looks for a free channel of the requested type (`WaveType`) using `findFreeChannel`.
-  - If there is no free channel, applies a **voice stealing** policy:
-    - Uses the channel with the smallest `remainingMs`.
-- Initializes the channel:
-  - `enabled = true`.
-  - `frequency = event.frequency`.
-  - `phase = 0.0f`.
-  - `phaseIncrement = frequency / sampleRate`.
-  - `volume = event.volume`.
-  - `durationMs` and `remainingMs` based on `event.duration`.
-  - If it is `PULSE`, sets `dutyCycle = event.duty`.
+- Now acts as a **Command Producer**.
+- It enqueues an `AudioCommand` into a lock-free **Single Producer / Single Consumer (SPSC)** queue.
+- The `AudioScheduler` (running on Core 0 or a separate thread) consumes this command and:
+  - Looks for a free channel of the requested type (`WaveType`).
+  - Applies **voice stealing** if necessary (using the channel with the smallest `remainingSamples`).
+  - Converts the event's duration (seconds) into `remainingSamples` based on the current sample rate.
+  - Initializes the channel state (`enabled`, `frequency`, `phase`, `volume`, etc.).
 
 ---
 
-## 4. Audio backends
+## 4. Audio Schedulers and Backends
+
+The system uses a decoupled architecture where an `AudioScheduler` owns the audio state and timing, while the `AudioBackend` handles the final hardware output.
+
+### 4.1 AudioScheduler
+
+The `AudioScheduler` is the heart of the decoupled audio system. It:
+
+- Processes the `AudioCommandQueue`.
+- Manages the `AudioChannel` states.
+- Performs the actual software mixing (`generateSamples`).
+- Handles music sequencing (notes, durations, loops).
+
+There are two main implementations:
+
+- **`NativeAudioScheduler`**: Used for SDL2. Runs in a dedicated high-priority thread.
+- **`ESP32AudioScheduler`**: Used for ESP32. Runs as a pinned FreeRTOS task.
+
+#### 4.1.1 Platform-Agnostic Core Management
+
+The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` structure to detect hardware features at startup:
+
+- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop).
+- **Single-Core ESP32**: Audio task runs on **Core 0** with high priority, allowing the FreeRTOS scheduler to manage time-slicing.
+- **Native (SDL2)**: Uses a standard system thread.
+
+### 4.2 Platform Configuration and Build Flags
+
+The audio system behavior can be customized via `platforms/PlatformDefaults.h` or compile-time flags.
+
+#### 4.2.1 Core Affinity
+
+- `PR32_DEFAULT_AUDIO_CORE`: Defines the default core for audio processing (Default: `0` on ESP32).
+- `PR32_DEFAULT_MAIN_CORE`: Defines the default core for the main engine loop (Default: `1` on ESP32).
+
+#### 4.2.2 Build Flags
+
+| Flag | Description |
+|------|-------------|
+| `PIXELROOT32_NO_DAC_AUDIO` | Disables the Internal DAC backend on classic ESP32. |
+| `PIXELROOT32_NO_I2S_AUDIO` | Disables the I2S audio backend. |
+| `PIXELROOT32_USE_U8G2` | Enables support for the U8G2 display driver (future support). |
+| `PIXELROOT32_NO_TFT_ESPI` | Disables the default TFT_eSPI display driver. |
+
+### 4.3 Audio Backends
 
 Backends implement the abstract `AudioBackend` interface:
 
@@ -224,7 +280,7 @@ Backends implement the abstract `AudioBackend` interface:
 class AudioBackend {
 public:
     virtual ~AudioBackend() = default;
-    virtual void init(AudioEngine* engine) = 0;
+    virtual void init(AudioEngine* engine, const PlatformCapabilities& caps) = 0;
     virtual int getSampleRate() const = 0;
 };
 ```
@@ -269,16 +325,31 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 - **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
--  - Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
--  - **No I2S** involved; samples are pushed from a dedicated FreeRTOS task at the configured sample rate.
--  - Lower resolution (8-bit) but perfect for "chiptune" and Game Boy–style sounds.
--  - Works well with small on-board speakers and low-cost mono amps.
+- Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
+- **Software Mode**: Samples are pushed from a dedicated FreeRTOS task. (I2S-DMA mode is not supported due to hardware instability).
+- **Attenuation**: Includes a **0.7x** scale to prevent saturation on sensitive amplifiers like the PAM8302A.
+- **Limitations**:
+  - 8-bit resolution (inherent background noise).
+  - Residual jitter due to being a software-based driver.
+  - Not recommended for high-fidelity audio.
+- **Recommendation**: For final projects or clean audio, it is recommended to migrate to the **I2S backend with MAX98357A**.
+
+#### C) Reference Pinout (ESP32)
+
+| Backend | Peripheral | ESP32 Pin | Module Connection |
+|---------|------------|-----------|-----------------|
+| **DAC** | DAC1 | GPIO 25 | **PAM8302A**: A+ (IN+) |
+| **DAC** | GND | GND | **PAM8302A**: A- (IN-) |
+| **I2S** | BCLK | GPIO 26 | **MAX98357A**: BCLK |
+| **I2S** | LRCK | GPIO 25 | **MAX98357A**: LRC (WS) |
+| **I2S** | DOUT | GPIO 22 | **MAX98357A**: DIN |
 
 ### 4.3 Backend Configuration (in `main.cpp`)
 
 To select a backend, simply instantiate the desired class and pass it to the `AudioConfig` struct.
 
 **Example for Internal DAC (PAM8302A):**
+
 ```cpp
 // 1. Instantiate the backend (GPIO 25, 11025Hz for retro feel)
 pr32::drivers::esp32::ESP32_DAC_AudioBackend audioBackend(25, 11025);
@@ -292,6 +363,7 @@ pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
 ```
 
 **Example for I2S (MAX98357A):**
+
 ```cpp
 // 1. Instantiate the backend (BCLK=26, LRCK=25, DOUT=22)
 pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
@@ -316,29 +388,29 @@ Advantages:
 The central `Engine` is responsible for:
 
 - Creating the `AudioEngine` instance.
-- Providing an `AudioConfig` with the appropriate backend.
-- Calling `audioEngine.update(deltaTime)` every frame.
+- Providing an `AudioConfig` with the appropriate backend and scheduler.
+- Managing the lifecycle of the audio subsystem.
 
 See [`core/Engine.h`](include/core/Engine.h) and
 [`core/Engine.cpp`](src/core/Engine.cpp).
 
-Simplified flow:
+**Decoupled flow:**
 
 1. The game creates `DisplayConfig`, `InputConfig`, and `AudioConfig`.
 2. It constructs `Engine(displayConfig, inputConfig, audioConfig)`.
 3. It calls `engine.init()`:
    - Initializes renderer, input, and audio.
-   - The audio backend opens the device (SDL2) or configures I2S (ESP32).
+   - The audio scheduler starts its dedicated thread/task.
 4. On each frame:
    - `Engine::update`:
      - Computes `deltaTime`.
      - Updates input.
      - Calls `sceneManager.update(deltaTime)`.
-     - Calls `audioEngine.update(deltaTime)`.
+     - **Note**: `AudioEngine` and `MusicPlayer` no longer need frame updates.
    - `Engine::draw`:
      - Renders the scene.
 
-Meanwhile, backends (SDL2/I2S) call `generateSamples` at high frequency.
+Meanwhile, the **Audio Scheduler** (Core 0 / Thread) runs independently at the target sample rate.
 
 ---
 
@@ -478,27 +550,23 @@ octaves consistent per instrument.
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).
 
-Responsibilities:
+**Responsibilities (Thin Client):**
 
-- Maintain the current track, note index and timer.
-- On `update(deltaTime)` advance through the sequence using game time.
-- For each new note, call `AudioEngine::playEvent(...)` with the appropriate
-  frequency, duration and volume.
-- Support `play`, `stop`, `pause`, `resume` and simple looping
-  (`MusicTrack::loop`).
-- Treat `Note::Rest` as silence (no event is fired, only time passes).
+- Acts as a **Command Producer** for the music system.
+- Provides high-level controls: `play`, `stop`, `pause`, `resume`, `setTempoFactor`.
+- Enqueues music commands to the `AudioScheduler`.
 
-Internally, `MusicPlayer` converts each `MusicNote` into an `AudioEvent` using
-`noteToFrequency` and the instrument config.
+**Sequencing (Audio Thread):**
+
+- The actual sequencing (advancing notes, timing) is handled by the **`MusicSequencer`** inside the `AudioScheduler`.
+- Uses **sample-accurate timing** instead of `deltaTime`.
+- Triggers internal audio events directly in the audio thread/core.
 
 ### 7.3 Integration with Engine
 
 `MusicPlayer` is owned by `Engine` alongside `AudioEngine`:
 
-- The `Engine` constructor creates `audioEngine` and `musicPlayer` (passing a
-  reference to `audioEngine`).
-- `Engine::update` calls `musicPlayer.update(deltaTime)` after
-  `audioEngine.update(deltaTime)`.
+- The `Engine` constructor creates `audioEngine` and `musicPlayer`.
 - Games use:
 
 ```cpp
@@ -506,8 +574,7 @@ auto& music = engine.getMusicPlayer();
 music.play(myTrack);
 ```
 
-This keeps music sequencing deterministic and synchronized with the main game
-loop, reusing the same timing model as the rest of the engine.
+This keeps music sequencing **sample-accurate** and completely independent of the game frame rate. Render stalls or logic spikes will not cause music to jitter or slow down.
 
 ### 7.4 Example: GeometryJump background music
 
@@ -548,22 +615,28 @@ void GeometryJumpScene::init() {
 
 ## 8. Current limitations and future extensions
 
-Current limitations (intentional to keep things simple):
+With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations were addressed, particularly regarding timing and stability.
 
-- No exact emulation of the NES APU.
-- Not implemented yet:
-  - Complex volume envelopes.
-  - Frequency sweeps (pitch slides).
-  - Advanced music features (patterns, tempo changes, multi-track songs).
-- Noise uses a simplified `rand()`-based approach instead of a precise LFSR.
+### 8.1 Resolved / Improved
 
-Possible future improvements:
+- **Sample-Accurate Timing**: The system now uses samples instead of `deltaTime` for all internal logic, eliminating jitter and drift.
+- **Decoupled Execution**: Audio logic is completely isolated from the game's frame rate, preventing audio stuttering during heavy CPU load.
+- **Music Tempo Control**: Added support for real-time tempo changes via `MUSIC_SET_TEMPO`.
+- **Simple Volume Envelopes**: Basic volume interpolation (linear fade) is now supported in the scheduler.
 
-- Simple envelopes based on `targetVolume`.
-- More advanced music tooling on top of `MusicPlayer`.
-- Noise using a deterministic LFSR with configurable patterns.
-- High-level helpers such as:
-  - `playJumpSfx()`, `playHitSfx()`, `playCoinSfx()`.
+### 8.2 Remaining Limitations
+
+- No exact cycle-accurate emulation of the NES APU.
+- **Noise Generator**: Still uses a simplified `rand()`-based approach instead of a precise deterministic LFSR.
+- **Pitch Sweeps**: Frequency slides (pitch slides) are not yet implemented.
+- **Complex Envelopes**: ADSR or complex multi-point envelopes are not supported (only linear interpolation).
+
+### 8.3 Future Extensions
+
+- **Deterministic LFSR**: Replace `rand()` with a proper 15-bit LFSR for authentic NES noise sounds.
+- **Frequency Sweeps**: Add `frequencyDelta` to the scheduler for pitch slides.
+- **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.
+- **Advanced Music Tooling**: Better support for patterns and multi-track sequencing in the `MusicPlayer`.
 
 ---
 
@@ -572,8 +645,7 @@ Possible future improvements:
 - The NES-like audio system in PixelRoot32:
   - Uses 4 static channels (2 Pulse, 1 Triangle, 1 Noise).
   - Produces mono 16-bit audio via software mixing.
-  - Is platform-agnostic thanks to the `AudioBackend` interface.
-  - Is integrated with the game loop via `Engine::update`.
-  - Is controlled from games through `AudioEvent` and `AudioEngine::playEvent`.
-  - Provides a lightweight melody layer via `Note`, `MusicTrack` and
-    `MusicPlayer` for background music.
+  - Is platform-agnostic thanks to the `AudioBackend` and `AudioScheduler` interfaces.
+  - Is **decoupled** from the game loop, running on Core 0 (ESP32) or a separate thread (SDL2).
+  - Uses **sample-accurate timing** for both SFX and music.
+  - Is controlled from games through `AudioEngine` (SFX) and `MusicPlayer` (Music) via a lock-free command queue.

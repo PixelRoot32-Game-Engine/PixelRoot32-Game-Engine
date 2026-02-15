@@ -46,6 +46,7 @@
 .clang_complete
 .gcc-flags.json
 .pio
+build/
 
 ### VisualStudioCode ###
 .vscode/*
@@ -67,3 +68,16 @@
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,platformio,c++
+
+# Coverage reports
+*.gcov
+*.gcda
+*.gcno
+coverage_report/
+coverage.info
+coverage_filtered.info
+
+# Logs and test outputs
+*.log
+test_output.log
+platformio_test.log

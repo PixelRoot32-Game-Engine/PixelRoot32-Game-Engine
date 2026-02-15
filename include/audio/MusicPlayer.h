@@ -44,13 +44,6 @@ public:
     void resume();
 
     /**
-     * @brief Updates the player state.
-     * Should be called every frame.
-     * @param deltaTime Time elapsed since last frame in milliseconds.
-     */
-    void update(unsigned long deltaTime);
-
-    /**
      * @brief Checks if a track is currently playing.
      * @return true if playing, false otherwise.
      */
@@ -71,13 +64,9 @@ public:
 private:
     AudioEngine& engine;
     const MusicTrack* currentTrack;
-    size_t currentNoteIndex;
-    float noteTimer; // Accumulated time in seconds
     float tempoFactor; // Global speed multiplier
     bool playing;
     bool paused;
-
-    void playCurrentNote();
 };
 
 } // namespace pixelroot32::audio

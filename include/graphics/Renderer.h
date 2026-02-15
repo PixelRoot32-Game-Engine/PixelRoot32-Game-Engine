@@ -13,6 +13,7 @@
 #include "DisplayConfig.h"
 #include "Color.h"
 #include "Font.h"
+#include <memory>
 
 #ifdef PLATFORM_ESP32
     #include <mock/MockSafeString.h>
@@ -197,10 +198,32 @@ public:
      * @param config The display configuration settings.
      */
     Renderer(const DisplayConfig& config);
+    Renderer(DisplayConfig&& config);
+    Renderer(Renderer&& other) noexcept
+        : drawer(std::move(other.drawer)),
+          config(std::move(other.config)),
+          logicalWidth(other.logicalWidth),
+          logicalHeight(other.logicalHeight),
+          xOffset(other.xOffset),
+          yOffset(other.yOffset),
+          offsetBypass(other.offsetBypass),
+          currentRenderContext(other.currentRenderContext)
+    {}
 
-    ~Renderer() {
-       delete drawer;
+    Renderer& operator=(Renderer&& other) noexcept {
+        if (this != &other) {
+            config = std::move(other.config);
+            drawer = std::move(other.drawer);
+            logicalWidth = other.logicalWidth;
+            logicalHeight = other.logicalHeight;
+            xOffset = other.xOffset;
+            yOffset = other.yOffset;
+            offsetBypass = other.offsetBypass;
+            currentRenderContext = other.currentRenderContext;
+        }
+        return *this;
     }
+    ~Renderer() = default;
 
     /**
      * @brief Initializes the renderer and the underlying draw surface.
@@ -516,7 +539,7 @@ public:
     }
 
 private:
-    DrawSurface* drawer; ///< Pointer to the platform-specific implementation.
+    std::unique_ptr<DrawSurface> drawer; ///< Pointer to the platform-specific implementation.
 
     DisplayConfig config;
 

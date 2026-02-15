@@ -8,7 +8,9 @@
 #ifdef PLATFORM_NATIVE
 
 // Tell SDL2 not to replace main() with SDL_main/WinMain
+#ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
+#endif
 #include <SDL2/SDL.h>
 #include <cstdint>
 #include <cstdio>

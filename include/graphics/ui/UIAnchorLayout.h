@@ -7,7 +7,7 @@
 #include <vector>
 #include <utility>
 
-#include "EngineConfig.h"
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::graphics::ui {
 
