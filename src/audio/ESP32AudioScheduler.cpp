@@ -135,11 +135,13 @@ namespace pixelroot32::audio {
         static uint32_t lastLog = 0;
         uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
         if (now - lastLog > 1000) {
+            #ifdef PIXELROOT32_ENABLE_PROFILING
             if (currentPeak > 32767.0f) {
                 Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
             } else {
                 Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
             }
+            #endif
             currentPeak = 0.0f; // Reset peak after logging
             lastLog = now;
         }

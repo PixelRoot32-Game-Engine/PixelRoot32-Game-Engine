@@ -112,11 +112,13 @@ namespace pixelroot32::audio {
                 // Diagnostic logging (Phase 2)
                 auto now = std::chrono::steady_clock::now();
                 if (std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime).count() >= 1) {
+                    #ifdef PIXELROOT32_ENABLE_PROFILING
                     if (currentPeak > 32767.0f) {
                         printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
                     } else {
                         printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
                     }
+                    #endif
                     currentPeak = 0.0f;
                     lastLogTime = now;
                 }
