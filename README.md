@@ -126,6 +126,13 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ---
 
+### 0.8.0-dev
+
+- **Extreme Display Performance**: Implemented Parallel DMA Pipeline and aggressive optimizations for `TFT_eSPI`, significantly boosting FPS.
+- **Fast 1:1 Rendering**: Added a dedicated 32-bit fast path for non-scaled rendering, bypassing all scaling overhead.
+- **Native XBM Blitting**: Refactored `U8G2` driver to use row-aligned buffers and native XBM calls, eliminating per-pixel draw overhead.
+- **Latency Reduction**: Replaced blocking delays with `yield()` in the engine loop to maximize CPU utilization.
+
 ### v0.7.0-dev
 
 - **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing and improved performance.
@@ -133,14 +140,6 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 - **Internal DAC Enhancements**: Optimized software-mode driver with 0.7x scaling for PAM8302A amplifiers and improved stability.
 - **Unified Platform Configuration**: Consolidated settings in `include/platforms/` with new `PlatformDefaults.h` for better hardware support (ESP32-S3, etc.).
 - **Graphics Extensibility & U8g2**: Introduced `BaseDrawSurface` and native support for monochromatic OLED displays via the U8G2 library.
-
-### v0.6.0-dev
-
-- **Independent Resolution Scaling**: Decoupled logical/physical resolution to improve performance.
-- **Comprehensive Debug Overlay**: Real-time metrics for FPS, RAM, and CPU load.
-- **Fixed Position UI**: Support for HUD elements that ignore camera scrolling.
-
-> 📝 **Full History:** See the complete [CHANGELOG.md](CHANGELOG.md) for previous versions.
 
 ---
 

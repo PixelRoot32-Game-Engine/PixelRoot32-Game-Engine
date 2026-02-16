@@ -130,40 +130,51 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, ui
 void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     freeScalingBuffers();
     
-    // We will use blocks of 10 lines to reduce DMA overhead
-    const int linesPerBlock = 10;
-    size_t blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
+    // We will use blocks of LINES_PER_BLOCK lines to reduce DMA overhead
+    size_t blockSize = physicalWidth * LINES_PER_BLOCK * sizeof(uint16_t);
 
     // Allocate double line buffers for DMA
 #ifdef ESP32
-    lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_8BIT);
+    lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    // Force LUTs to Internal RAM for speed
+    paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    xLUT = (uint16_t*)heap_caps_malloc(physicalWidth * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    yLUT = (uint16_t*)heap_caps_malloc(physicalHeight * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    if (!lineBuffer[0] || !lineBuffer[1] || !paletteLUT) {
-        Serial.println("[ERROR] Failed to allocate DMA or Palette buffers!");
+    if (!lineBuffer[0] || !lineBuffer[1] || !paletteLUT || !xLUT || !yLUT) {
+        Serial.println("[ERROR] Failed to allocate DMA or Palette buffers in Internal RAM!");
     }
 #else
     lineBuffer[0] = new uint16_t[physicalWidth * linesPerBlock];
     lineBuffer[1] = new uint16_t[physicalWidth * linesPerBlock];
     paletteLUT = new uint16_t[256];
+    xLUT = new uint16_t[physicalWidth];
+    yLUT = new uint16_t[physicalHeight];
 #endif
     
     // Pre-calculate palette LUT (8bpp -> 16bpp)
+    // We store the colors in NATIVE endianness to avoid swapping in the inner loop
+    // But pushPixelsDMA expects BIG endian (or whatever the display needs)
+    // The ESP32 is Little Endian. The display is Big Endian usually.
+    // TFT_eSPI handles this by swapping bytes in pushPixels usually, BUT
+    // pushPixelsDMA with raw buffer might just dump memory.
+    //
+    // Let's assume we want to store the PRE-SWAPPED value in the LUT
+    // so the CPU loop does strictly: dst[i] = LUT[src[i]]
     for (int i = 0; i < 256; ++i) {
         uint16_t color16 = spr.color8to16(i);
         // Swap bytes because pushPixelsDMA expects big-endian (TFT order)
+        // Check if SPI_FREQUENCY is high, maybe we need to be careful?
         paletteLUT[i] = (color16 >> 8) | (color16 << 8);
     }
 
-    // Allocate and build X lookup table
-    xLUT = new uint16_t[physicalWidth];
+    // Build X lookup table
     for (int i = 0; i < physicalWidth; ++i) {
         xLUT[i] = (i * logicalWidth) / physicalWidth;
     }
     
-    // Allocate and build Y lookup table
-    yLUT = new uint16_t[physicalHeight];
+    // Build Y lookup table
     for (int i = 0; i < physicalHeight; ++i) {
         yLUT[i] = (i * logicalHeight) / physicalHeight;
     }
@@ -189,11 +200,19 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
         paletteLUT = nullptr;
     }
     if (xLUT) {
+#ifdef ESP32
+        heap_caps_free(xLUT);
+#else
         delete[] xLUT;
+#endif
         xLUT = nullptr;
     }
     if (yLUT) {
+#ifdef ESP32
+        heap_caps_free(yLUT);
+#else
         delete[] yLUT;
+#endif
         yLUT = nullptr;
     }
 }
@@ -209,32 +228,138 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     tft.startWrite();
     tft.setAddrWindow(xOffset, yOffset, physicalWidth, physicalHeight);
     
-    const int linesPerBlock = 10;
     currentBuffer = 0;
+    int startY = 0;
 
-    for (int startY = 0; startY < physicalHeight; startY += linesPerBlock) {
-        int endY = startY + linesPerBlock;
+    // ---------------------------------------------------------
+    // STAGE 1: Pre-fill (First Block)
+    // Calculate the first block before starting any DMA
+    // ---------------------------------------------------------
+    if (startY < physicalHeight) {
+        int endY = startY + LINES_PER_BLOCK;
         if (endY > physicalHeight) endY = physicalHeight;
         int numLines = endY - startY;
 
-        // 1. Wait for previous DMA block to finish
-        tft.dmaWait();
-
-        // 2. Scale a block of lines into the current buffer
+        // Scale block 0
         uint16_t* dst = lineBuffer[currentBuffer];
-        for (int physY = startY; physY < endY; ++physY) {
-            int srcY = yLUT[physY];
-            scaleLine(srcY, dst);
-            dst += physicalWidth;
+
+        if (!needsScaling()) {
+             // 1:1 Optimization for the first block
+             for (int i = 0; i < numLines; ++i) {
+                 uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
+                 const uint16_t* __restrict pLUT = paletteLUT;
+                 int x = 0;
+                 
+                 // EXTREME OPTIMIZATION: 32-bit writes
+                 // Instead of writing uint16_t twice, we write uint32_t once
+                 uint32_t* dst32 = (uint32_t*)dst;
+                 
+                 // Process 8 pixels per iteration (4 writes of 32 bits)
+                 for (; x <= physicalWidth - 8; x += 8) {
+                     uint32_t p01 = ((uint32_t)pLUT[srcRow[x+1]] << 16) | pLUT[srcRow[x]];
+                     uint32_t p23 = ((uint32_t)pLUT[srcRow[x+3]] << 16) | pLUT[srcRow[x+2]];
+                     uint32_t p45 = ((uint32_t)pLUT[srcRow[x+5]] << 16) | pLUT[srcRow[x+4]];
+                     uint32_t p67 = ((uint32_t)pLUT[srcRow[x+7]] << 16) | pLUT[srcRow[x+6]];
+
+                     dst32[x/2]     = p01;
+                     dst32[x/2 + 1] = p23;
+                     dst32[x/2 + 2] = p45;
+                     dst32[x/2 + 3] = p67;
+                 }
+                 for (; x < physicalWidth; ++x) {
+                     dst[x] = pLUT[srcRow[x]];
+                 }
+                 dst += physicalWidth;
+             }
+        } else {
+            // Normal path with scaling
+            for (int physY = startY; physY < endY; ++physY) {
+                int srcY = yLUT[physY];
+                scaleLine(srcY, dst);
+                dst += physicalWidth;
+            }
         }
-        
-        // 3. Start DMA for the WHOLE BLOCK
+
+        // Start DMA transfer of block 0
         tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
 
-        // 4. Swap buffers for next block
+        // Prepare indices for the next one
+        currentBuffer = 1 - currentBuffer; // Switch to the other buffer
+        startY += LINES_PER_BLOCK;
+    }
+
+    // ---------------------------------------------------------
+    // STAGE 2: Pipeline (Main Loop)
+    // While DMA sends the PREVIOUS buffer, CPU calculates the CURRENT one
+    // ---------------------------------------------------------
+    while (startY < physicalHeight) {
+        int endY = startY + LINES_PER_BLOCK;
+        if (endY > physicalHeight) endY = physicalHeight;
+        int numLines = endY - startY;
+
+        // 2. CPU calculates the next block in the free buffer
+        // (SPI hardware is busy sending the opposite buffer in the background)
+        uint16_t* dst = lineBuffer[currentBuffer];
+        
+        // Optimization for 1:1 case (No scaling)
+        // We avoid xLUT and yLUT indirection for maximum speed
+        if (!needsScaling()) {
+             // Process block of lines directly
+             for (int i = 0; i < numLines; ++i) {
+                 uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
+                 const uint16_t* __restrict pLUT = paletteLUT;
+                 int x = 0;
+                 
+                 // EXTREME OPTIMIZATION: 32-bit writes
+                 // Instead of writing uint16_t twice, we write uint32_t once
+                 // This reduces memory access count by half
+                 uint32_t* dst32 = (uint32_t*)dst;
+                 
+                 // Process 8 pixels per iteration (4 writes of 32 bits)
+                 for (; x <= physicalWidth - 8; x += 8) {
+                     // Combine 2 pixels into 1 32-bit word
+                     // Note: ESP32 is Little Endian
+                     uint32_t p01 = ((uint32_t)pLUT[srcRow[x+1]] << 16) | pLUT[srcRow[x]];
+                     uint32_t p23 = ((uint32_t)pLUT[srcRow[x+3]] << 16) | pLUT[srcRow[x+2]];
+                     uint32_t p45 = ((uint32_t)pLUT[srcRow[x+5]] << 16) | pLUT[srcRow[x+4]];
+                     uint32_t p67 = ((uint32_t)pLUT[srcRow[x+7]] << 16) | pLUT[srcRow[x+6]];
+
+                     dst32[x/2]     = p01;
+                     dst32[x/2 + 1] = p23;
+                     dst32[x/2 + 2] = p45;
+                     dst32[x/2 + 3] = p67;
+                 }
+                 
+                 // Remainder
+                 for (; x < physicalWidth; ++x) {
+                     dst[x] = pLUT[srcRow[x]];
+                 }
+                 
+                 // Advance destination pointer to the next line
+                 dst += physicalWidth;
+             }
+        } else {
+            // Normal path with scaling (using LUTs)
+            for (int physY = startY; physY < endY; ++physY) {
+                int srcY = yLUT[physY];
+                scaleLine(srcY, dst);
+                dst += physicalWidth;
+            }
+        }
+
+        // 2. Now we wait for DMA to finish the previous block
+        // If CPU calculation was slower than SPI, this returns immediately.
+        tft.dmaWait();
+
+        // 3. Send the new calculated block
+        tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+
+        // 4. Swap and advance
         currentBuffer = 1 - currentBuffer;
+        startY += LINES_PER_BLOCK;
     }
     
+    // Wait for the last pending transfer to finish
     tft.dmaWait();
     tft.endWrite();
 
@@ -257,8 +382,19 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(int srcY, uint16
     const uint16_t* __restrict pLUT = paletteLUT;
     const uint16_t* __restrict xL = xLUT;
     
-    // Use LUT for X scaling and Palette LUT for color conversion
-    for (int physX = 0; physX < physicalWidth; ++physX) {
+    int physX = 0;
+    
+    // Unroll loop 4x for better pipeline usage
+    // This reduces loop overhead and allows better instruction scheduling
+    for (; physX <= physicalWidth - 4; physX += 4) {
+        dst[physX]     = pLUT[srcRow[xL[physX]]];
+        dst[physX + 1] = pLUT[srcRow[xL[physX + 1]]];
+        dst[physX + 2] = pLUT[srcRow[xL[physX + 2]]];
+        dst[physX + 3] = pLUT[srcRow[xL[physX + 3]]];
+    }
+    
+    // Handle remaining pixels
+    for (; physX < physicalWidth; ++physX) {
         dst[physX] = pLUT[srcRow[xL[physX]]];
     }
 }

@@ -150,7 +150,8 @@ namespace pixelroot32::core {
             drawer->present();
 
             // Yield to avoid starving Core 1 system tasks
-            vTaskDelay(1);
+            // vTaskDelay(1); // REMOVED: Adds 1ms-10ms latency (1 tick) which limits FPS significantly.
+            yield(); // Use yield() instead to feed Watchdog without forcing a full tick wait.
 
         #endif // PLATFORM_NATIVE
     }
