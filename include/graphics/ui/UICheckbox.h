@@ -6,6 +6,7 @@
 #include "graphics/ui/UIElement.h"
 #include "graphics/Color.h"
 #include <string>
+#include <string_view>
 #include <functional>
 #include "input/InputManager.h"
 
@@ -32,7 +33,7 @@ public:
      * @param callback Function to call when the state changes.
      * @param fontSize Text size multiplier.
      */
-    UICheckBox(std::string label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
+    UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
 
     /**
      * @brief Configures the checkbox's visual style.

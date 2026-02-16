@@ -58,11 +58,11 @@ Este documento detalla la estrategia para migrar el motor **PixelRoot32** de C++
 
 - **Justificación:** `if constexpr` compila la rama solo si la condición es verdadera, manteniendo el binario limpio pero permitiendo validación de sintaxis en el código "desactivado".
 
-## Fase 3: Modernización de Memoria (Específico ESP32)
+## Fase 3: Modernización de Memoria (Específico ESP32) (Completado)
 
 **Objetivo:** Reducir uso de RAM y fragmentación del Heap.
 
-### 3.1 Adopción de `std::string_view`
+### 3.1 Adopción de `std::string_view` (Completado)
 
 - **Archivos:** `UIButton.h/cpp`, `UILabel.h/cpp`, `UICheckbox.h/cpp`
 - **Acción:** Cambiar constructores y métodos que reciben `std::string` por valor/referencia a `std::string_view`.
@@ -76,7 +76,7 @@ Este documento detalla la estrategia para migrar el motor **PixelRoot32** de C++
 
 - **Justificación:** Evita copias innecesarias y asignaciones dinámicas de memoria para literales de cadena, crítico para el rendimiento y la estabilidad en ESP32.
 
-### 3.2 Constantes en Flash
+### 3.2 Constantes en Flash (Completado)
 
 - **Acción:** Asegurar que las grandes tablas de datos (si existen, como fuentes o sprites) o constantes globales usar `static constexpr` y atributos de sección si es necesario.
 - **Justificación:** Garantizar que los datos constantes vivan en la Flash (PROGMEM) y no consuman RAM preciosa.

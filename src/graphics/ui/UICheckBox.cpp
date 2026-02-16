@@ -9,7 +9,7 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
 
-    UICheckBox::UICheckBox(std::string label, uint8_t index, float x, float y, float w, float h, bool checked, std::function<void(bool)> callback, int fontSize)
+    UICheckBox::UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked, std::function<void(bool)> callback, int fontSize)
         : UIElement(x, y, w, h, UIElementType::CHECKBOX),
           label(label),
           checked(checked),

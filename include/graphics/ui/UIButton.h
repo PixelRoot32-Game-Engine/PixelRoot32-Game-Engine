@@ -6,6 +6,7 @@
 #include "graphics/ui/UIElement.h"
 #include "graphics/Color.h"
 #include <string>
+#include <string_view>
 #include <functional>
 #include "input/InputManager.h"
 
@@ -51,7 +52,7 @@ public:
         * @param h Height.
         * @param callback Function to call when clicked/pressed.
         */
-    UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
+    UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
 
     /**
         * @brief Configures the button's visual style.
