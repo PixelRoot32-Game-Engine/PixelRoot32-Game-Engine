@@ -64,8 +64,8 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`void setScene(Scene* newScene)`**
     Sets the current active scene.
 
-- **`Scene* getCurrentScene() const`**
-    Retrieves the currently active scene.
+- **`std::optional<Scene*> getCurrentScene() const`**
+    Retrieves the currently active scene, or std::nullopt if no scene is active.
 
 - **`Renderer& getRenderer()`**
     Provides access to the Renderer subsystem.
@@ -428,8 +428,8 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 - **`void popScene()`**
     Removes the top scene from the stack, resuming the previous one.
 
-- **`Scene* getCurrentScene() const`**
-    Gets the currently active scene.
+- **`std::optional<Scene*> getCurrentScene() const`**
+    Gets the currently active scene, or std::nullopt if no scene is active.
 
 ---
 
@@ -616,7 +616,7 @@ Static utility class for managing fonts and calculating text dimensions.
 - **`static const Font* getDefaultFont()`**
     Returns the currently active default font, or `nullptr` if no font is set.
 
-- **`static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1)`**
+- **`static int16_t textWidth(const Font* font, std::string_view text, uint8_t size = 1)`**
     Calculates the pixel width of a text string when rendered with the specified font and size.
   - **font**: Font to use (or `nullptr` to use default font).
   - **text**: String to measure.
