@@ -9,6 +9,7 @@
 #include "graphics/Renderer.h"
 #include "core/Engine.h"
 #include "../../mocks/MockDrawSurface.h"
+#include <memory>
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
@@ -55,8 +56,10 @@ void test_particle_burst(void) {
     
     // We can't directly inspect private particles array, 
     // but we can check if draw() produces calls.
-    MockDrawSurface* mock = new MockDrawSurface();
-    DisplayConfig dcfg = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
+    auto mock = std::make_unique<MockDrawSurface>();
+    // Keep raw pointer for assertions since DisplayConfig takes ownership
+    MockDrawSurface* mockRaw = mock.get();
+    DisplayConfig dcfg = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
     Renderer renderer(dcfg);
     
     // For now, let's just test that update() runs without crashing
@@ -64,7 +67,7 @@ void test_particle_burst(void) {
     emitter.draw(renderer);
     
     // Check if any draw calls were recorded
-    TEST_ASSERT_TRUE(mock->calls.size() > 0);
+    TEST_ASSERT_TRUE(mockRaw->calls.size() > 0);
 }
 
 void test_particle_emitter_lifecycle(void) {

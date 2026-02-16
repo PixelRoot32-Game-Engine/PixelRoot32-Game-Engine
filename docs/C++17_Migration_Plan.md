@@ -118,17 +118,18 @@ Este documento detalla la estrategia para migrar el motor **PixelRoot32** de C++
 - **Estado:** Pospuesto/Omitido.
 - **Razón:** `Scene` utiliza arrays fijos (`Entity* entities[MaxEntities]`) para evitar fragmentación de memoria. Los bucles basados en rango requerirían `std::span` (C++20) o wrappers personalizados que añadirían complejidad innecesaria sobre los bucles indexados existentes. Se mantiene el bucle indexado por simplicidad y eficiencia.
 
-## Fase 5: Seguridad y Estabilidad
+## Fase 5: Seguridad y Estabilidad (Completado)
 
 **Objetivo:** Prevenir fugas de memoria y crashes.
 
-### 5.1 Adopción de `std::make_unique`
+### 5.1 Adopción de `std::make_unique` (Completado)
 
-- **Archivos:** Tests unitarios (`test_ui_layouts.cpp`, etc.) y `Scene` setup.
-- **Acción:** Reemplazar `new` directo por `std::make_unique<T>()` donde se use `std::unique_ptr` o auto-gestión.
-- **Justificación:** Garantiza seguridad ante excepciones (en tiempo de construcción) y previene fugas si se olvida el `delete` (cuando se combina con smart pointers).
+- **Archivos:** Tests unitarios (`test_ui_elements.cpp`, `test_particles.cpp`, `test_audio_engine.cpp`, `test_engine_integration.cpp`, `test_game_loop.cpp`).
+- **Acción:** Reemplazar `new` directo por `std::make_unique<T>()` y uso de `std::move` para transferencia de propiedad.
+- **Justificación:** Garantiza seguridad de memoria automática y previene fugas en los tests, eliminando `delete` manuales propensos a errores.
 
-### 5.2 Confirmación de No-Excepciones
+### 5.2 Confirmación de No-Excepciones (Completado)
 
-- **Acción:** Verificar flag `-fno-exceptions`.
-- **Justificación:** En microcontroladores, el soporte de excepciones añade un peso considerable al binario y overhead en tiempo de ejecución. El código debe diseñarse para no lanzar excepciones.
+- **Acción:** Habilitar flag `-fno-exceptions` en `platformio.ini` (para `esp32c3`, `esp32dev` y `native_test` del engine).
+- **Corrección:** Se eliminó el uso de `throw std::runtime_error` en `DisplayConfig.h/cpp`, reemplazándolo por `assert` para cumplir con la restricción de no excepciones en entornos embebidos y nativos de prueba.
+- **Justificación:** En microcontroladores, el soporte de excepciones añade un peso considerable al binario. El código ahora es seguro y compatible con `-fno-exceptions`.

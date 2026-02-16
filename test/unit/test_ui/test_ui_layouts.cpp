@@ -9,6 +9,7 @@
 #include "graphics/Renderer.h"
 #include "graphics/DisplayConfig.h"
 #include <vector>
+#include <memory>
 
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::ui;
@@ -18,11 +19,11 @@ void test_vertical_layout_positioning() {
     layout.setPadding(10);
     layout.setSpacing(5);
     
-    UILabel* label1 = new UILabel("L1", 0, 0, Color::White, 1); 
-    UILabel* label2 = new UILabel("L2", 0, 0, Color::White, 1); 
+    auto label1 = std::make_unique<UILabel>("L1", 0, 0, Color::White, 1); 
+    auto label2 = std::make_unique<UILabel>("L2", 0, 0, Color::White, 1); 
     
-    layout.addElement(label1);
-    layout.addElement(label2);
+    layout.addElement(label1.get());
+    layout.addElement(label2.get());
     
     // label1 should be centered horizontally: (100 - 12) / 2 = 44
     // label1 should be at y = padding = 10
@@ -33,9 +34,6 @@ void test_vertical_layout_positioning() {
     // label2 should be at y = padding + label1.height + spacing = 10 + 8 + 5 = 23
     TEST_ASSERT_EQUAL_FLOAT(44, label2->x);
     TEST_ASSERT_EQUAL_FLOAT(23, label2->y);
-    
-    delete label1;
-    delete label2;
 }
 
 void test_horizontal_layout_positioning() {
@@ -43,11 +41,11 @@ void test_horizontal_layout_positioning() {
     layout.setPadding(5);
     layout.setSpacing(10);
     
-    UILabel* label1 = new UILabel("L1", 0, 0, Color::White, 1);
-    UILabel* label2 = new UILabel("L2", 0, 0, Color::White, 1);
+    auto label1 = std::make_unique<UILabel>("L1", 0, 0, Color::White, 1);
+    auto label2 = std::make_unique<UILabel>("L2", 0, 0, Color::White, 1);
     
-    layout.addElement(label1);
-    layout.addElement(label2);
+    layout.addElement(label1.get());
+    layout.addElement(label2.get());
     
     // label1: (padding, centeredY) = (5, (50-8)/2 = 21)
     TEST_ASSERT_EQUAL_FLOAT(5, label1->x);
@@ -57,9 +55,6 @@ void test_horizontal_layout_positioning() {
     // 5 + 12 + 10 = 27
     TEST_ASSERT_EQUAL_FLOAT(27, label2->x);
     TEST_ASSERT_EQUAL_FLOAT(21, label2->y);
-    
-    delete label1;
-    delete label2;
 }
 
 void test_grid_layout_positioning() {
@@ -69,13 +64,13 @@ void test_grid_layout_positioning() {
     layout.setPadding(0);
     layout.setSpacing(0);
     
-    UILabel* l1 = new UILabel("1", 0, 0, Color::White, 1);
-    UILabel* l2 = new UILabel("2", 0, 0, Color::White, 1);
-    UILabel* l3 = new UILabel("3", 0, 0, Color::White, 1);
+    auto l1 = std::make_unique<UILabel>("1", 0, 0, Color::White, 1);
+    auto l2 = std::make_unique<UILabel>("2", 0, 0, Color::White, 1);
+    auto l3 = std::make_unique<UILabel>("3", 0, 0, Color::White, 1);
     
-    layout.addElement(l1);
-    layout.addElement(l2);
-    layout.addElement(l3);
+    layout.addElement(l1.get());
+    layout.addElement(l2.get());
+    layout.addElement(l3.get());
     
     // Grid 2 cols, width 100 -> cell width 50, cell height 50
     // l1: col 0, row 0 -> centered in (0,0,50,50) -> (22, 21)
@@ -89,10 +84,6 @@ void test_grid_layout_positioning() {
     // l3: col 0, row 1 -> centered in (0,50,50,50) -> (22, 50+21) = (22, 71)
     TEST_ASSERT_EQUAL_FLOAT(22, l3->x);
     TEST_ASSERT_EQUAL_FLOAT(71, l3->y);
-    
-    delete l1;
-    delete l2;
-    delete l3;
 }
 
 void test_padding_container() {

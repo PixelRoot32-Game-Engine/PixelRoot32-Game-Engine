@@ -24,7 +24,7 @@
     #include <SPI.h>
 #endif
 #include "platforms/EngineConfig.h"
-#include <stdexcept>
+#include <cassert>
 #include <memory>
 
 namespace pixelroot32::graphics {
@@ -104,7 +104,7 @@ public:
             initDrawSurface();
         } else if (!drawSurface) {
             #ifdef PLATFORM_NATIVE
-                throw std::runtime_error("DisplayType::CUSTOM requires a valid DrawSurface instance.");
+                assert(drawSurface && "DisplayType::CUSTOM requires a valid DrawSurface instance.");
             #endif
         }
     }
