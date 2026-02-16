@@ -68,6 +68,17 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🚀 Quick Start
 
+### ⚠️ Configuration Requirement
+
+To compile PixelRoot32, you **must** configure your `platformio.ini` to use C++17 and disable exceptions:
+
+```ini
+build_unflags = -std=gnu++11
+build_flags =
+    -std=gnu++17
+    -fno-exceptions
+```
+
 ### Prerequisites
 
 - **VS Code + PlatformIO**
