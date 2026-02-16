@@ -11,7 +11,7 @@
     "u8g2",
     "sdl2"
   ],
-  "version": "0.8.0-dev",
+  "version": "0.8.1-dev",
   "build": {
     "srcDir": "src",
     "includeDir": "include"
