@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.1-dev
+
+- **Engine Optimization & Fixes**:
+  - **Critical Fix**: Resolved a double-buffer send issue in the ESP32 render loop where `drawer->present()` was being called redundantly after `renderer.endFrame()`, saving ~23ms per frame.
+  - **Performance**: Disabled periodic Serial logs (Heartbeat, DMA Profiling) to eliminate stuttering during gameplay.
+
 ## 0.8.0-dev
 
 - **Display Pipeline Optimization & Scaling**:

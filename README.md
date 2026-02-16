@@ -126,6 +126,11 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ---
 
+### 0.8.1-dev
+
+- **Render Loop Fix**: Resolved critical double-buffer send issue on ESP32, saving ~23ms per frame.
+- **Stutter-Free**: Removed periodic Serial logs (Heartbeat/DMA) for smoother gameplay.
+
 ### 0.8.0-dev
 
 - **Extreme Display Performance**: Implemented Parallel DMA Pipeline and aggressive optimizations for `TFT_eSPI`, significantly boosting FPS.
