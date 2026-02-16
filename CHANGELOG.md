@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0-dev
+
+- **Display Pipeline Optimization & Scaling**:
+  - **TFT_eSPI Driver**:
+    - Implemented **Parallel DMA Pipeline**: Decoupled SPI transmission from CPU rendering, allowing the next block to be processed while the previous one is sending. This significantly improves FPS.
+    - **1:1 Fast Path**: Added a dedicated, optimized rendering path for scenarios where logical resolution matches physical resolution (or uses only offsets), bypassing scaling LUTs and using 32-bit memory writes for speed.
+    - **Optimized `scaleLine`**: Rewrote the scaling logic with aggressive loop unrolling (8x) and forced Lookup Tables (LUTs) into internal RAM (`MALLOC_CAP_INTERNAL`) to eliminate flash latency.
+    - **Reduced Latency**: Removed artificial `vTaskDelay` in the main loop, replacing it with `yield()`, unlocking potential FPS.
+    - **Configurable DMA Buffer**: Added `LINES_PER_BLOCK` constant (tuned to 20 lines) to balance RAM usage vs. interrupt overhead.
+  - **U8G2 Driver (OLED)**:
+    - **Native XBM Support**: Refactored the internal buffer to be row-aligned and compatible with XBM format.
+    - **Zero-Copy Rendering**: Replaced per-pixel drawing with direct `drawXBM` calls, massively reducing CPU overhead for monochrome displays.
+    - **Optimized Scaling**: Implemented a fast scaling algorithm that writes directly to a temporary physical buffer in XBM format, enabling single-call updates to the display.
+
 ## v0.7.0-dev
 
 - **Unified Platform Configuration & Hardware Decoupling**:
