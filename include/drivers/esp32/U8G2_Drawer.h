@@ -62,6 +62,9 @@ private:
     U8G2* _u8g2;
     bool _ownsInstance;
     uint8_t* _internalBuffer = nullptr; ///< Internal buffer for logical resolution (1 bit per pixel)
+    uint8_t* _physicalBuffer = nullptr; ///< Temporary buffer for physical resolution (for XBM blitting)
+    int _logicalStride = 0;             ///< Bytes per row in logical buffer
+    int _physicalStride = 0;            ///< Bytes per row in physical buffer
     uint16_t* _xLUT = nullptr;          ///< Lookup table for X scaling (physical -> logical)
     uint16_t* _yLUT = nullptr;          ///< Lookup table for Y scaling (physical -> logical)
 

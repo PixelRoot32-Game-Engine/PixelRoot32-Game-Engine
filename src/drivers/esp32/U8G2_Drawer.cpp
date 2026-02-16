@@ -102,7 +102,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::clearBuffer() {
     if (!_u8g2) return;
     if (needsScaling()) {
         if (_internalBuffer) {
-            std::memset(_internalBuffer, 0, (logicalWidth * logicalHeight + 7) / 8);
+            std::memset(_internalBuffer, 0, _logicalStride * logicalHeight);
         }
     } else {
         _u8g2->clearBuffer();
@@ -140,11 +140,13 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::drawPixel(int x, int y, uint16
     if (needsScaling()) {
         if (!_internalBuffer) return;
         if (x < 0 || x >= logicalWidth || y < 0 || y >= logicalHeight) return;
-        int idx = y * logicalWidth + x;
+        
+        // Row-aligned access (XBM format)
+        int idx = (y * _logicalStride) + (x >> 3);
         if (c) {
-            _internalBuffer[idx >> 3] |= (1 << (idx & 7));
+            _internalBuffer[idx] |= (1 << (x & 7));
         } else {
-            _internalBuffer[idx >> 3] &= ~(1 << (idx & 7));
+            _internalBuffer[idx] &= ~(1 << (x & 7));
         }
     } else {
         _u8g2->setDrawColor(c);
@@ -220,17 +222,6 @@ void pr32::drivers::esp32::U8G2_Drawer::buildScaleLUTs() {
     freeScalingBuffers();
     if (!needsScaling()) return;
 
-    // Allocate internal buffer (1 bit per pixel)
-    size_t bufferSize = (logicalWidth * logicalHeight + 7) / 8;
-#ifdef ESP32
-    _internalBuffer = (uint8_t*)heap_caps_malloc(bufferSize, MALLOC_CAP_8BIT);
-#else
-    _internalBuffer = new uint8_t[bufferSize];
-#endif
-    if (_internalBuffer) {
-        std::memset(_internalBuffer, 0, bufferSize);
-    }
-
     // Build LUTs
     _xLUT = new uint16_t[physicalWidth];
     _yLUT = new uint16_t[physicalHeight];
@@ -240,6 +231,32 @@ void pr32::drivers::esp32::U8G2_Drawer::buildScaleLUTs() {
     }
     for (int i = 0; i < physicalHeight; ++i) {
         _yLUT[i] = (i * logicalHeight) / physicalHeight;
+    }
+
+    // Allocate internal buffer (1 bit per pixel, row aligned for XBM compatibility)
+    // XBM format requires each row to be byte-aligned.
+    _logicalStride = (logicalWidth + 7) / 8;
+    size_t bufferSize = _logicalStride * logicalHeight;
+
+#ifdef ESP32
+    _internalBuffer = (uint8_t*)heap_caps_malloc(bufferSize, MALLOC_CAP_8BIT);
+#else
+    _internalBuffer = new uint8_t[bufferSize];
+#endif
+    if (_internalBuffer) {
+        std::memset(_internalBuffer, 0, bufferSize);
+    }
+
+    // Allocate physical buffer for scaling (1 bit per pixel, row aligned)
+    _physicalStride = (physicalWidth + 7) / 8;
+    size_t physBufferSize = _physicalStride * physicalHeight;
+#ifdef ESP32
+    _physicalBuffer = (uint8_t*)heap_caps_malloc(physBufferSize, MALLOC_CAP_8BIT);
+#else
+    _physicalBuffer = new uint8_t[physBufferSize];
+#endif
+    if (_physicalBuffer) {
+        std::memset(_physicalBuffer, 0, physBufferSize);
     }
 }
 
@@ -251,6 +268,14 @@ void pr32::drivers::esp32::U8G2_Drawer::freeScalingBuffers() {
         delete[] _internalBuffer;
 #endif
         _internalBuffer = nullptr;
+    }
+    if (_physicalBuffer) {
+#ifdef ESP32
+        heap_caps_free(_physicalBuffer);
+#else
+        delete[] _physicalBuffer;
+#endif
+        _physicalBuffer = nullptr;
     }
     if (_xLUT) {
         delete[] _xLUT;
@@ -271,32 +296,43 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
 
     _u8g2->clearBuffer();
 
-    // If we have offsets, we render the logical buffer at that offset (1:1 mapping).
-    // If no offsets are present, we use the scaling LUTs to fill the physical screen.
+    // 1:1 Mapping with Offset (Logical Resolution matches Physical Resolution)
+    // Optimization: Direct XBM blit if no scaling is needed (just offset)
     if (xOffset != 0 || yOffset != 0) {
-        for (int y = 0; y < logicalHeight; ++y) {
-            int rowOffset = y * logicalWidth;
-            for (int x = 0; x < logicalWidth; ++x) {
-                int idx = rowOffset + x;
-                if (_internalBuffer[idx >> 3] & (1 << (idx & 7))) {
-                    _u8g2->setDrawColor(1);
-                    _u8g2->drawPixel(x + xOffset, y + yOffset);
-                }
-            }
-        }
-    } else if (_xLUT && _yLUT) {
+        _u8g2->setDrawColor(1);
+        _u8g2->drawXBM(xOffset, yOffset, logicalWidth, logicalHeight, _internalBuffer);
+    } 
+    // Scaling needed (Logical != Physical)
+    else if (_xLUT && _yLUT && _physicalBuffer) {
+        // Clear physical buffer first
+        std::memset(_physicalBuffer, 0, _physicalStride * physicalHeight);
+
+        // Map Logical -> Physical using LUTs (Nearest Neighbor)
+        // Optimized to write directly to XBM-formatted physical buffer
         for (int physY = 0; physY < physicalHeight; ++physY) {
             int srcY = _yLUT[physY];
-            int rowOffset = srcY * logicalWidth;
+            // Get pointer to source row
+            const uint8_t* srcRow = _internalBuffer + (srcY * _logicalStride);
+            
+            // Get pointer to dest row
+            uint8_t* dstRow = _physicalBuffer + (physY * _physicalStride);
+
             for (int physX = 0; physX < physicalWidth; ++physX) {
                 int srcX = _xLUT[physX];
-                int idx = rowOffset + srcX;
-                if (_internalBuffer[idx >> 3] & (1 << (idx & 7))) {
-                    _u8g2->setDrawColor(1);
-                    _u8g2->drawPixel(physX, physY);
+                
+                // Check if source pixel is set
+                // srcRow[srcX >> 3] & (1 << (srcX & 7))
+                if (srcRow[srcX >> 3] & (1 << (srcX & 7))) {
+                    // Set destination pixel
+                    // dstRow[physX >> 3] |= (1 << (physX & 7))
+                    dstRow[physX >> 3] |= (1 << (physX & 7));
                 }
             }
         }
+        
+        // Blit the constructed physical buffer
+        _u8g2->setDrawColor(1);
+        _u8g2->drawXBM(0, 0, physicalWidth, physicalHeight, _physicalBuffer);
     }
     
     _u8g2->sendBuffer();

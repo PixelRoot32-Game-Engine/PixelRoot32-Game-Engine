@@ -68,6 +68,7 @@ private:
     TFT_eSprite spr; ///< The sprite used as a framebuffer.
 
     // Scaling support
+    static constexpr int LINES_PER_BLOCK = 20;    ///< Number of lines per DMA transfer block. Larger = less overhead, more RAM.
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
     uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
