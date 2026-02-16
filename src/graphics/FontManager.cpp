@@ -18,6 +18,13 @@ const Font* FontManager::getDefaultFont() {
     return defaultFont;
 }
 
+int16_t FontManager::textWidth(const Font* font, const char* text, uint8_t size) {
+    if (!text) {
+        return 0;
+    }
+    return textWidth(font, std::string_view(text), size);
+}
+
 int16_t FontManager::textWidth(const Font* font, std::string_view text, uint8_t size) {
     if (text.empty()) {
         return 0;
