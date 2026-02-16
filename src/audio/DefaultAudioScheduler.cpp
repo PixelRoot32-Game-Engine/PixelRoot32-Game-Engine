@@ -142,6 +142,7 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
     static uint64_t totalSamplesProcessed = 0;
     totalSamplesProcessed += length;
     if (totalSamplesProcessed >= (uint64_t)sampleRate) { // Approx every second
+#ifdef PIXELROOT32_ENABLE_PROFILING
 #ifdef ESP32
         if (currentPeak > 32767.0f) {
             Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
@@ -154,6 +155,7 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
         } else {
             printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
         }
+#endif
 #endif
         currentPeak = 0.0f;
         totalSamplesProcessed = 0;

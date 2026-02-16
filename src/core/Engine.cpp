@@ -134,20 +134,67 @@ namespace pixelroot32::core {
             }
         #else 
             static uint32_t lastHeartbeat = 0;
+
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            static uint32_t frameCount = 0;
+            static uint32_t totalUpdateTime = 0;
+            static uint32_t totalDrawTime = 0;
+            static uint32_t totalPresentTime = 0;
+            static uint32_t totalEventsTime = 0;
+            uint32_t t0 = micros();
+            #endif
+
             if (millis() - lastHeartbeat > 1000) {
+                #ifdef PIXELROOT32_ENABLE_PROFILING
                 Serial.println("[Engine] Heartbeat...");
+                if (frameCount > 0) {
+                    Serial.printf("[Profiler] FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus\n", 
+                        frameCount,
+                        totalUpdateTime / frameCount,
+                        totalEventsTime / frameCount,
+                        totalDrawTime / frameCount,
+                        totalPresentTime / frameCount
+                    );
+                    frameCount = 0;
+                    totalUpdateTime = 0;
+                    totalDrawTime = 0;
+                    totalPresentTime = 0;
+                    totalEventsTime = 0;
+                }
+                #endif
                 lastHeartbeat = millis();
             }
 
             update();
 
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            uint32_t t1 = micros();
+            #endif
+
             // waitForDMA
             drawer->processEvents();
 
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            uint32_t t2 = micros();
+            #endif
+
             draw();
+
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            uint32_t t3 = micros();
+            #endif
 
             // Present frame (TFT_eSPI)
             drawer->present();
+
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            uint32_t t4 = micros();
+            totalUpdateTime += (t1 - t0);
+            totalEventsTime += (t2 - t1);
+            totalDrawTime += (t3 - t2);
+            totalPresentTime += (t4 - t3);
+            frameCount++;
+            #endif
 
             // Yield to avoid starving Core 1 system tasks
             // vTaskDelay(1); // REMOVED: Adds 1ms-10ms latency (1 tick) which limits FPS significantly.
@@ -183,7 +230,6 @@ namespace pixelroot32::core {
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
         drawDebugOverlay(renderer);
 #endif
-        renderer.endFrame();
     }
 
 #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
