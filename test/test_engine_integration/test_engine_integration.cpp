@@ -75,7 +75,7 @@ void test_engine_initialization(void) {
     TEST_ASSERT_NOT_NULL(&engine.getMusicPlayer());
     
     // Default scene should be null
-    TEST_ASSERT_NULL(engine.getCurrentScene());
+    TEST_ASSERT_FALSE(engine.getCurrentScene().has_value());
 }
 
 void test_engine_scene_management(void) {
@@ -86,7 +86,7 @@ void test_engine_scene_management(void) {
     Scene* scene = new Scene();
     engine.setScene(scene);
     
-    TEST_ASSERT_EQUAL_PTR(scene, engine.getCurrentScene());
+    TEST_ASSERT_EQUAL_PTR(scene, engine.getCurrentScene().value());
     
     delete scene;
 }

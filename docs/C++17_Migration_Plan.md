@@ -81,11 +81,11 @@ Este documento detalla la estrategia para migrar el motor **PixelRoot32** de C++
 - **Acción:** Asegurar que las grandes tablas de datos (si existen, como fuentes o sprites) o constantes globales usar `static constexpr` y atributos de sección si es necesario.
 - **Justificación:** Garantizar que los datos constantes vivan en la Flash (PROGMEM) y no consuman RAM preciosa.
 
-## Fase 4: Refactor de Arquitectura y Sintaxis
+## Fase 4: Refactor de Arquitectura y Sintaxis (Completado)
 
 **Objetivo:** Mejorar legibilidad y seguridad del código.
 
-### 4.1 Structured Bindings
+### 4.1 Structured Bindings (Completado)
 
 - **Archivo:** `src/graphics/ui/UIAnchorLayout.cpp`
 - **Acción:** Modernizar iteración de mapas/pares.
@@ -105,18 +105,18 @@ Este documento detalla la estrategia para migrar el motor **PixelRoot32** de C++
 
 - **Justificación:** Código más limpio y directo, eliminando `first` y `second` que carecen de semántica.
 
-### 4.2 `std::optional` para Retornos Nulos
+### 4.2 `std::optional` para Retornos Nulos (Completado)
 
-- **Archivos:** `SceneManager.cpp`, `UILayout` classes.
+- **Archivos:** `SceneManager.cpp`, `SceneManager.h`, `Engine.h`, `PaddleActor.cpp`, `BallActor.cpp`.
 - **Acción:** Evaluar funciones que retornan `ObjectMapper*` o punteros crudos que pueden fallar.
   - *Nota:* Se usará con cautela en "rutas calientes" (update loop) por el ligero overhead, pero es ideal para lógica de inicialización o configuración.
 - **Justificación:** Explicita la posibilidad de "ausencia de valor" en la firma de la función, obligando a quien llama a manejar el caso de error.
 
-### 4.3 Range-based For Loops
+### 4.3 Range-based For Loops (Evaluado)
 
 - **Archivos:** `Scene.cpp` (`update`, `draw`)
-- **Acción:** Cambiar bucles indexados por bucles de rango donde no se necesite el índice.
-- **Justificación:** Mejora la legibilidad y previene errores "off-by-one".
+- **Estado:** Pospuesto/Omitido.
+- **Razón:** `Scene` utiliza arrays fijos (`Entity* entities[MaxEntities]`) para evitar fragmentación de memoria. Los bucles basados en rango requerirían `std::span` (C++20) o wrappers personalizados que añadirían complejidad innecesaria sobre los bucles indexados existentes. Se mantiene el bucle indexado por simplicidad y eficiencia.
 
 ## Fase 5: Seguridad y Estabilidad
 

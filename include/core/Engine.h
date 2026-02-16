@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "core/SceneManager.h"
+#include <optional>
 #include "graphics/Renderer.h"
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
@@ -85,9 +86,9 @@ public:
 
     /**
      * @brief Retrieves the currently active scene.
-     * @return Pointer to the current Scene, or nullptr if none is set.
+     * @return Optional pointer to the current Scene, or nullopt if none is set.
      */
-    Scene* getCurrentScene() const { return sceneManager.getCurrentScene(); }
+    std::optional<Scene*> getCurrentScene() const { return sceneManager.getCurrentScene(); }
     
     /**
      * @brief Replaces the current renderer instance.

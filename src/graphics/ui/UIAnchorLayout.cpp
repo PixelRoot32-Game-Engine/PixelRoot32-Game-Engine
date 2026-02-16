@@ -119,10 +119,7 @@ void UIAnchorLayout::calculateAnchorPosition(UIElement* element, Anchor anchor, 
 
 void UIAnchorLayout::updateLayout() {
     // Calculate positions for all anchored elements
-    for (auto& pair : anchoredElements) {
-        UIElement* elem = pair.first;
-        Anchor anchor = pair.second;
-        
+    for (const auto& [elem, anchor] : anchoredElements) {
         float elemX, elemY;
         calculateAnchorPosition(elem, anchor, elemX, elemY);
         
