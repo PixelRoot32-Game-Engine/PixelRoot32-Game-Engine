@@ -87,13 +87,13 @@ namespace pixelroot32::graphics {
         getDrawSurface().sendBuffer();
     }
 
-    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
+    void Renderer::drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size) {
         // Legacy method: delegate to new method with default font
         drawText(text, x, y, color, size, nullptr);
     }
 
-    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font) {
-        if (!isDrawable(color) || !text || !*text) {
+    void Renderer::drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || text.empty()) {
             return;
         }
 
@@ -106,11 +106,9 @@ namespace pixelroot32::graphics {
         }
 
         int16_t currentX = x;
-        const char* p = text;
         float scale = static_cast<float>(size);
 
-        while (*p) {
-            char c = *p++;
+        for (char c : text) {
             uint8_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
 
             // Skip unsupported characters
@@ -137,13 +135,13 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
+    void Renderer::drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size) {
         // Legacy method: delegate to new method with default font
         drawTextCentered(text, y, color, size, nullptr);
     }
 
-    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font) {
-        if (!isDrawable(color) || !text || !*text) {
+    void Renderer::drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || text.empty()) {
             return;
         }
 

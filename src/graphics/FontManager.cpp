@@ -18,8 +18,8 @@ const Font* FontManager::getDefaultFont() {
     return defaultFont;
 }
 
-int16_t FontManager::textWidth(const Font* font, const char* text, uint8_t size) {
-    if (!text || !*text) {
+int16_t FontManager::textWidth(const Font* font, std::string_view text, uint8_t size) {
+    if (text.empty()) {
         return 0;
     }
 
@@ -29,16 +29,14 @@ int16_t FontManager::textWidth(const Font* font, const char* text, uint8_t size)
     }
 
     int16_t width = 0;
-    const char* p = text;
     
-    while (*p) {
-        if (isCharSupported(*p, activeFont)) {
+    for (char c : text) {
+        if (isCharSupported(c, activeFont)) {
             width += (activeFont->glyphWidth + activeFont->spacing) * size;
         } else {
             // For unsupported characters, use glyph width as fallback
             width += (activeFont->glyphWidth + activeFont->spacing) * size;
         }
-        p++;
     }
 
     // Subtract last spacing (no spacing after last character)

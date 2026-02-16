@@ -14,6 +14,7 @@
 #include "Color.h"
 #include "Font.h"
 #include <memory>
+#include <string_view>
 
 #ifdef PLATFORM_ESP32
     #include <mock/MockSafeString.h>
@@ -246,7 +247,7 @@ public:
      * @param color Text color.
      * @param size Text size multiplier.
      */
-    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size);
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws a string of text using a specific font.
@@ -257,7 +258,7 @@ public:
      * @param size Text size multiplier.
      * @param font Pointer to the font to use. If nullptr, uses the default font.
      */
-    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
      * @brief Draws text centered horizontally at a given Y coordinate (legacy method, uses default font).
@@ -266,7 +267,7 @@ public:
      * @param color Text color.
      * @param size Text size.
      */
-    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size);
+    void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws text centered horizontally at a given Y coordinate using a specific font.
@@ -276,7 +277,7 @@ public:
      * @param size Text size.
      * @param font Pointer to the font to use. If nullptr, uses the default font.
      */
-    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font);
+    void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
      * @brief Draws a filled circle.
