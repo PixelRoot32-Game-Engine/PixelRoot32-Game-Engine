@@ -410,7 +410,7 @@ void Engine::draw() {
 - `InputManager`: User input
 - `AudioEngine`: Audio system
 - `MusicPlayer`: Music player
-- `PlatformCapabilities`: Hardware capabilities
+- `PlatformCapabilities`: Hardware capabilities (`pixelroot32::platforms`)
 
 #### 3.5.2 SceneManager
 
@@ -616,7 +616,7 @@ AudioBackend
 |------|-------------|
 | `platforms/EngineConfig.h` | Global engine configuration |
 | `platforms/PlatformDefaults.h` | Platform-specific defaults |
-| `platforms/PlatformCapabilities.h` | Hardware detection |
+| `platforms/PlatformCapabilities.h` | Hardware detection (`pixelroot32::platforms`) |
 | `graphics/DisplayConfig.h` | Display configuration |
 | `input/InputConfig.h` | Input configuration |
 | `audio/AudioConfig.h` | Audio configuration |

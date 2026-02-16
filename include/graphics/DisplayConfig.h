@@ -85,13 +85,13 @@ public:
      */
     DisplayConfig(
         DisplayType type,
-        const int rot = DISPLAY_ROTATION,
-        uint16_t physW = PHYSICAL_DISPLAY_WIDTH,
-        uint16_t physH = PHYSICAL_DISPLAY_HEIGHT,
-        uint16_t logW = LOGICAL_WIDTH,
-        uint16_t logH = LOGICAL_HEIGHT,
-        const int xOff = X_OFF_SET,
-        const int yOff = Y_OFF_SET,
+        const int rot = pixelroot32::platforms::config::DisplayRotation,
+        uint16_t physW = pixelroot32::platforms::config::PhysicalDisplayWidth,
+        uint16_t physH = pixelroot32::platforms::config::PhysicalDisplayHeight,
+        uint16_t logW = pixelroot32::platforms::config::LogicalWidth,
+        uint16_t logH = pixelroot32::platforms::config::LogicalHeight,
+        const int xOff = pixelroot32::platforms::config::XOffset,
+        const int yOff = pixelroot32::platforms::config::YOffset,
         DrawSurface* customSurface = nullptr
     )
         : type(type), rotation(rot),

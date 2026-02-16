@@ -70,3 +70,62 @@
 // Enable a discrete debug overlay with FPS, RAM and CPU metrics.
 // Replaces the old PIXELROOT32_ENABLE_FPS_DISPLAY.
 // #define PIXELROOT32_ENABLE_DEBUG_OVERLAY
+
+// =============================================================================
+// Scene Limits
+// =============================================================================
+#ifndef MAX_LAYERS
+    #define MAX_LAYERS 3
+#endif
+#ifndef MAX_ENTITIES
+    #define MAX_ENTITIES 32
+#endif
+
+namespace pixelroot32::platforms::config {
+    // Physical Display
+    inline constexpr int PhysicalDisplayWidth = PHYSICAL_DISPLAY_WIDTH;
+    inline constexpr int PhysicalDisplayHeight = PHYSICAL_DISPLAY_HEIGHT;
+
+    // Logical Display
+    inline constexpr int LogicalWidth = LOGICAL_WIDTH;
+    inline constexpr int LogicalHeight = LOGICAL_HEIGHT;
+    inline constexpr int DisplayRotation = DISPLAY_ROTATION;
+    inline constexpr int XOffset = X_OFF_SET;
+    inline constexpr int YOffset = Y_OFF_SET;
+
+    // Scene Limits
+    inline constexpr int MaxLayers = MAX_LAYERS;
+    inline constexpr int MaxEntities = MAX_ENTITIES;
+
+    // Profiling & Debug
+    #ifdef PIXELROOT32_ENABLE_PROFILING
+    inline constexpr bool EnableProfiling = true;
+    #else
+    inline constexpr bool EnableProfiling = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+    inline constexpr bool EnableDebugOverlay = true;
+    #else
+    inline constexpr bool EnableDebugOverlay = false;
+    #endif
+
+    // Sprites
+    #ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    inline constexpr bool Enable2BppSprites = true;
+    #else
+    inline constexpr bool Enable2BppSprites = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    inline constexpr bool Enable4BppSprites = true;
+    #else
+    inline constexpr bool Enable4BppSprites = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
+    inline constexpr bool EnableSceneArena = true;
+    #else
+    inline constexpr bool EnableSceneArena = false;
+    #endif
+}

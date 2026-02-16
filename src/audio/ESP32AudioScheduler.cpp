@@ -6,6 +6,7 @@
 
 #include "drivers/esp32/ESP32AudioScheduler.h"
 #include "audio/AudioMixerLUT.h"
+#include "platforms/EngineConfig.h"
 #include <Arduino.h>
 #include <algorithm>
 #include <cstring>
@@ -22,7 +23,7 @@ namespace pixelroot32::audio {
         stop();
     }
 
-    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
+    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
         this->backend = backend;
         this->sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -135,13 +136,13 @@ namespace pixelroot32::audio {
         static uint32_t lastLog = 0;
         uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
         if (now - lastLog > 1000) {
-            #ifdef PIXELROOT32_ENABLE_PROFILING
-            if (currentPeak > 32767.0f) {
-                Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
-            } else {
-                Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+                if (currentPeak > 32767.0f) {
+                    Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                } else {
+                    Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                }
             }
-            #endif
             currentPeak = 0.0f; // Reset peak after logging
             lastLog = now;
         }

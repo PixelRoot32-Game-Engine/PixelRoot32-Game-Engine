@@ -10,8 +10,8 @@ namespace pixelroot32::core {
 
 PhysicsActor::PhysicsActor(float x, float y, float w, float h)
     : Actor(x, y, w, h) {
-    worldWidth = LOGICAL_WIDTH;
-    worldHeight = LOGICAL_HEIGHT;
+    worldWidth = pixelroot32::platforms::config::LogicalWidth;
+    worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }
 
 void PhysicsActor::update(unsigned long deltaTime) {
@@ -38,9 +38,9 @@ void PhysicsActor::resolveWorldBounds() {
     int bottom = (limits.bottom != -1 ? limits.bottom : worldHeight);
 
     // If worldSize is still 0 (e.g. if initialized before LOGICAL_WIDTH was available or 
-    // if manual worldWidth/Height weren't set), fallback to LOGICAL_WIDTH/HEIGHT
-    if (right == 0) right = LOGICAL_WIDTH;
-    if (bottom == 0) bottom = LOGICAL_HEIGHT;
+    // if manual worldWidth/Height weren't set), fallback to pixelroot32::platforms::config::LogicalWidth/Height
+    if (right == 0) right = pixelroot32::platforms::config::LogicalWidth;
+    if (bottom == 0) bottom = pixelroot32::platforms::config::LogicalHeight;
 
     resetWorldCollisionInfo();
 

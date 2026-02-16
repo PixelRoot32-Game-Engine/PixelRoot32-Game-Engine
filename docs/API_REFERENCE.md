@@ -80,6 +80,7 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
     Returns the detected hardware capabilities for the current platform.
 
 ### PlatformCapabilities (Struct)
+**Namespace:** `pixelroot32::platforms`
 
 A structure that holds detected hardware capabilities, used to optimize task pinning and threading.
 

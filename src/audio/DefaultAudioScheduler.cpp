@@ -4,6 +4,7 @@
  */
 #include "audio/DefaultAudioScheduler.h"
 #include "audio/AudioMixerLUT.h"
+#include "platforms/EngineConfig.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -28,7 +29,7 @@ DefaultAudioScheduler::DefaultAudioScheduler() {
     }
 }
 
-void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
+void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
     this->sampleRate = sampleRate;
 }
 
@@ -142,21 +143,21 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
     static uint64_t totalSamplesProcessed = 0;
     totalSamplesProcessed += length;
     if (totalSamplesProcessed >= (uint64_t)sampleRate) { // Approx every second
-#ifdef PIXELROOT32_ENABLE_PROFILING
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
 #ifdef ESP32
-        if (currentPeak > 32767.0f) {
-            Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
-        } else {
-            Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
-        }
+            if (currentPeak > 32767.0f) {
+                Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+            } else {
+                Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            }
 #else
-        if (currentPeak > 32767.0f) {
-            printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
-        } else {
-            printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            if (currentPeak > 32767.0f) {
+                printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+            } else {
+                printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+            }
+#endif
         }
-#endif
-#endif
         currentPeak = 0.0f;
         totalSamplesProcessed = 0;
     }
