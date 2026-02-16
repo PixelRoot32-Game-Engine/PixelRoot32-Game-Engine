@@ -137,6 +137,11 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ---
 
+## 0.9.0-dev
+
+- **Modern C++ Migration**:
+  - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
+
 ### 0.8.1-dev
 
 - **Render Loop Fix**: Resolved critical double-buffer send issue on ESP32, saving ~23ms per frame.
