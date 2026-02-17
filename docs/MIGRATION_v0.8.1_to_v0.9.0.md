@@ -53,11 +53,18 @@ For the `native` environment, enabled by default:
 
 ### 1. Header Includes
 
-Add in all files using smart pointers:
+**Smart Pointers**: Add in all files using smart pointers:
 
 ```cpp
 #include <memory>
 ```
+
+**Engine Config**: Replace `#include "EngineConfig.h"` with:
+
+```cpp
+#include "platforms/EngineConfig.h"
+```
+(The deprecated `include/EngineConfig.h` forwarding header has been removed).
 
 ### 2. Replacing Raw Pointers with std::unique_ptr
 
