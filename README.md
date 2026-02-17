@@ -37,7 +37,7 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental.
+> **⚠️ Project Status**: PixelRoot32 is under active development. APIs may change without notice, and some subsystems are experimental or incomplete.
 
 ---
 
@@ -123,7 +123,8 @@ Optional fixed-point arithmetic layer (Q16.16) to support ESP32 variants without
 Includes numeric abstraction layer, math refactor, deterministic behavior, and dual build configuration.
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
-- ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
+- ⚡ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks. Entities interact only with nearby neighbors, improving performance on constrained devices like ESP32.
+- 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 
 ### Completed Features ✅
 
@@ -134,8 +135,6 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 ---
 
 ## 🕒 Changelog
-
----
 
 ## 0.9.0-dev
 
