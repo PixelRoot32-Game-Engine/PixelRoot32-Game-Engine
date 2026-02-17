@@ -142,7 +142,7 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 
-Migration Guide 0.9.0-dev: [MIGRATION_GUIDE_0.9.0](docs/MIGRATION_GUIDE_0.9.0.md)
+> **Migration Guide from v0.8.1-dev → v0.9.0-dev**: [MIGRATION_v0.8.1_to_v0.9.0](docs/MIGRATION_v0.8.1_to_v0.9.0.md)
 
 ### 0.8.1-dev
 
