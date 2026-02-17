@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide documents the changes required to migrate examples from version 0.8.1-dev to 0.9.0-dev. The main migration involves changing the C++ standard from C++11 to C++17 and adopting smart pointers (`std::unique_ptr`) for entity memory management.
+This guide documents the changes required to migrate examples from version 0.8.1-dev to 0.9.0-dev. The main migration involves changing the C++ standard from C++11 to C++17, adopting smart pointers (`std::unique_ptr`) for entity memory management, and implementing the **Scalar Math** system for cross-platform compatibility.
 
 ---
 
@@ -167,6 +167,110 @@ PongScene* pongScene = static_cast<PongScene*>(engine.getCurrentScene().value_or
 
 ---
 
+## Migration to Scalar Math (Fixed-Point Support)
+
+### Overview
+
+Version 0.9.0 introduces the **Math Policy Layer**, which abstracts numerical representations to support both FPU-enabled platforms (ESP32, ESP32-S3) and integer-only platforms (ESP32-C3, ESP32-S2) with a single codebase.
+
+- **`Scalar`**: A type alias that resolves to `float` on FPU platforms and `Fixed16` (16.16 fixed-point) on others.
+- **`Vector2`**: Now uses `Scalar` components instead of `float`.
+
+### 1. Basic Type Replacement
+
+Replace `float` with `Scalar` in your game logic, physics, and entity positions.
+
+**Before:**
+
+```cpp
+float x, y;
+float speed = 2.5f;
+Vector2 velocity; // Previously float-based
+```
+
+**After:**
+
+```cpp
+using pixelroot32::math::Scalar;
+
+Scalar x, y;
+Scalar speed = pixelroot32::math::toScalar(2.5f);
+Vector2 velocity; // Now Scalar-based
+```
+
+### 2. Handling Literals
+
+When assigning floating-point literals to `Scalar` variables, use the `toScalar()` helper or explicit casts to ensure compatibility with `Fixed16`.
+
+```cpp
+// math/Scalar.h
+#include "math/Scalar.h"
+
+// ...
+
+// Preferred:
+Scalar gravity = math::toScalar(9.8f);
+
+// Also valid (but less portable if type changes):
+Scalar damping = Scalar(0.95f);
+```
+
+### 3. Math Functions
+
+Use `pixelroot32::math::MathUtil` or `Scalar` member functions instead of `std::` math functions, as `Fixed16` is not compatible with `std::sin`, `std::sqrt`, etc.
+
+**Before:**
+
+```cpp
+#include <cmath>
+
+float dist = std::sqrt(x*x + y*y);
+float angle = std::atan2(y, x);
+float val = std::abs(input);
+```
+
+**After:**
+
+```cpp
+#include "math/MathUtil.h"
+
+// Use lengthSquared() to avoid sqrt() when comparing distances
+if (pos.lengthSquared() < range * range) { ... }
+
+// If you really need sqrt:
+Scalar dist = math::sqrt(val);
+
+// Absolute value
+Scalar val = math::abs(input);
+```
+
+### 4. Rendering (Scalar to int)
+
+The `Renderer` still works with integer coordinates (`int`). You must convert `Scalar` positions to `int` when drawing.
+
+**Before:**
+
+```cpp
+renderer.drawSprite(sprite, x, y, Color::White); // implicit cast float->int
+```
+
+**After:**
+
+```cpp
+// Explicit cast is safer and clarifies intent
+renderer.drawSprite(sprite, static_cast<int>(x), static_cast<int>(y), Color::White);
+```
+
+### 5. Random Numbers
+
+Use `math::randomScalar()` instead of `rand()` or `float` based random generation to ensure consistent behavior across platforms.
+
+```cpp
+Scalar randVal = math::randomScalar(0, 10); // Returns Scalar between 0 and 10
+```
+
+---
+
 ## Modified Files
 
 ### MenuScene.cpp / MenuScene.h
@@ -178,6 +282,7 @@ PongScene* pongScene = static_cast<PongScene*>(engine.getCurrentScene().value_or
 
 - `PlayerCube* gPlayer` → `std::unique_ptr<PlayerCube> player`
 - Removed global pointer `gPlayer`, now a class member
+- Updated to use `Scalar` for position and movement.
 
 ### Games/BrickBreaker/
 
@@ -199,6 +304,7 @@ PongScene* pongScene = static_cast<PongScene*>(engine.getCurrentScene().value_or
 
 - Conditional use of arena vs smart pointers based on `PIXELROOT32_ENABLE_SCENE_ARENA`
 - `#ifdef` blocks to differentiate memory management
+- **Fixed-Point Migration**: Updated `AlienActor` and `SpaceInvadersScene` to use `Scalar` for coordinates and movement.
 
 ### Games/Metroidvania/
 
@@ -257,6 +363,8 @@ std::unique_ptr<ParticleEmitter> explosionEffect;
 3. **Dangling Pointer Prevention**: `std::unique_ptr` automatically invalidates
 4. **Disabled Exceptions**: `-fno-exceptions` reduces binary size
 5. **Modern C++17**: Access to features like `std::optional`, `if constexpr`, etc.
+6. **Performance (C3/S2)**: `Fixed16` provides hardware-accelerated-like performance on chips without FPU.
+7. **Cross-Platform Compatibility**: Code runs efficiently on both FPU and non-FPU devices without changes.
 
 ---
 
@@ -277,6 +385,7 @@ std::unique_ptr<ParticleEmitter> explosionEffect;
    ```
 
 3. Verify there are no memory leaks (especially in scenes that are recreated)
+4. Verify FPS improvement on ESP32-C3 (should be ~30 FPS vs ~24 FPS before migration).
 
 ---
 
@@ -284,3 +393,5 @@ std::unique_ptr<ParticleEmitter> explosionEffect;
 
 - [C++ Core Guidelines - Smart Pointers](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-resource)
 - [PlatformIO Build Flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/build/build_flags.html)
+- [Fixed-Point Arithmetic (Wikipedia)](https://en.wikipedia.org/wiki/Fixed-point_arithmetic) - Theory behind Q format and integer math.
+- [Q (number format)](https://en.wikipedia.org/wiki/Q_(number_format)) - Understanding the Q16.16 format used in PixelRoot32.

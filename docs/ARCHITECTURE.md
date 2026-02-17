@@ -91,6 +91,10 @@ scene.collisionSystem.update();
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
 │  │MusicPlayer   │  │  UI System   │  │  Particles   │  │   Camera2D      │  │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────────┘  │
+│  ┌──────────────┐                                                           │
+│  │ Math Policy  │                                                           │
+│  │   Layer      │                                                           │
+│  └──────────────┘                                                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           LAYER 2: ABSTRACTION LAYER                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
@@ -363,6 +367,24 @@ Entity
 - Position and zoom
 - Automatic offset for Renderer
 - Support for fixed-position UI elements
+
+#### 3.4.8 Math Policy Layer
+
+**Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
+
+**Responsibility**: Platform-agnostic numerical abstraction layer.
+
+**Features**:
+
+- **Automatic Type Selection**: Selects `float` for FPU-capable platforms (ESP32, S3) and `Fixed16` for integer-only platforms (ESP32-C3, S2).
+- **Unified API**: Provides a consistent `Scalar` type and `MathUtil` functions regardless of the underlying representation.
+- **Performance Optimization**: Ensures optimal performance on all supported hardware without code changes.
+
+**Components**:
+
+- `Scalar`: Type alias (`float` or `Fixed16`).
+- `Fixed16`: 16.16 fixed-point implementation.
+- `MathUtil`: Mathematical helper functions (abs, min, max, sqrt, etc.) compatible with `Scalar`.
 
 ---
 

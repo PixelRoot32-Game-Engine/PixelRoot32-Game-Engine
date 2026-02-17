@@ -31,6 +31,80 @@ The engine's behavior can be customized using `platforms/PlatformDefaults.h` and
 - **`int yOffset`**
     The vertical offset for the display alignment. Default is `0`.
 
+## Math Module
+
+The Math module provides a platform-agnostic numerical abstraction layer (`Scalar`) that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities (FPU presence).
+
+### Scalar
+
+**Namespace:** `pixelroot32::math`
+
+`Scalar` is the fundamental numeric type used throughout the engine for physics, positioning, and logic.
+
+- **On FPU platforms (ESP32, S3):** `Scalar` is an alias for `float`.
+- **On non-FPU platforms (C3, S2):** `Scalar` is an alias for `Fixed16`.
+
+#### Helper Functions
+
+- **`Scalar toScalar(float value)`**
+    Converts a floating-point literal or variable to `Scalar`. 
+    *Usage:* `Scalar speed = toScalar(2.5f);`
+
+- **`Scalar toScalar(int value)`**
+    Converts an integer to `Scalar`.
+
+- **`int toInt(Scalar value)`**
+    Converts a `Scalar` back to an integer (truncating decimals).
+
+- **`float toFloat(Scalar value)`**
+    Converts a `Scalar` to `float`. **Warning:** Use sparingly on non-FPU platforms.
+
+- **`Scalar abs(Scalar v)`**
+    Returns the absolute value.
+
+- **`Scalar sqrt(Scalar v)`**
+    Returns the square root. **Warning:** Expensive operation. Prefer squared distances for comparisons.
+
+- **`Scalar min(Scalar a, Scalar b)`**
+    Returns the smaller of two values.
+
+- **`Scalar max(Scalar a, Scalar b)`**
+    Returns the larger of two values.
+
+- **`Scalar clamp(Scalar v, Scalar minVal, Scalar maxVal)`**
+    Clamps a value between a minimum and maximum.
+
+- **`Scalar lerp(Scalar a, Scalar b, Scalar t)`**
+    Linearly interpolates between `a` and `b` by `t` (where `t` is 0.0 to 1.0).
+
+### Vector2
+
+**Namespace:** `pixelroot32::math`
+
+A 2D vector structure composed of two `Scalar` components.
+
+#### Members
+
+- **`Scalar x`**
+- **`Scalar y`**
+
+#### Methods
+
+- **`Vector2(Scalar x, Scalar y)`**
+    Constructor.
+
+- **`Scalar lengthSquared() const`**
+    Returns the squared magnitude of the vector. **Preferred over `length()` for comparisons.**
+
+- **`Scalar length() const`**
+    Returns the magnitude of the vector.
+
+- **`Vector2 normalized() const`**
+    Returns a normalized (unit length) version of the vector.
+
+- **`Scalar dot(const Vector2& other) const`**
+    Returns the dot product with another vector.
+
 ## Core Module
 
 The Core module provides the fundamental building blocks of the engine, including the main application loop, entity management, and scene organization.

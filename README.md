@@ -21,6 +21,7 @@
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
+  <a href="#-best-practices">Best Practices</a> •
   <a href="#-documentation">Documentation</a> •
   <a href="#-roadmap">Roadmap</a> •
   <a href="#-changelog">Changelog</a> •
@@ -100,6 +101,18 @@ build_flags =
 
 ---
 
+## 🛠️ Best Practices
+
+To ensure high performance on ESP32, PixelRoot32 enforces strict development patterns:
+
+1. **Fixed-Point Math**: Always use `Scalar` instead of `float`. Use `math::toScalar()` for literals.
+2. **Zero Allocation**: Avoid `new`/`malloc` during the game loop. Use **Object Pooling** and `std::unique_ptr`.
+3. **Render Layers**: Organize entities by `renderLayer` (0=Bg, 1=Game, 2=UI) to optimize drawing order.
+
+> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/STYLE_GUIDE.md)** for detailed rules on memory management, performance optimization, and coding style.
+
+---
+
 ## 📚 Documentation
 
 ### Online Resources
@@ -118,9 +131,6 @@ build_flags =
 
 ## 🗺️ Roadmap
 
-- 🧮 **Dual Numeric Backend (Float / Fixed-Point)**:
-Optional fixed-point arithmetic layer (Q16.16) to support ESP32 variants without FPU (C3, C2, C6).
-Includes numeric abstraction layer, math refactor, deterministic behavior, and dual build configuration.
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
 - ⚡ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks. Entities interact only with nearby neighbors, improving performance on constrained devices like ESP32.
@@ -128,6 +138,7 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ### Completed Features ✅
 
+- ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
 - ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
 - ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
@@ -138,6 +149,10 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ## 0.9.0-dev
 
+- **Fixed-Point Math & Scalar Support**:
+  - **Math Policy Layer**: Platform-agnostic numerical abstraction (`float`/`Fixed16`) optimizing performance for both FPU (ESP32/S3) and non-FPU (C3/S2) chips.
+  - **Performance Boost**: ~30% FPS increase on ESP32-C3 by eliminating software floating-point emulation.
+  - **Unified API**: Single codebase support via `Scalar` type alias and `MathUtil` helpers.
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 

@@ -171,7 +171,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **Inlining**:
   - Define trivial accessors (e.g., `getHitBox`, `getX`) in the header (`.h`) to allow compiler inlining.
   - Keep heavy implementation logic in `.cpp`.
-- **Fast Randomness**: `std::rand()` is slow and uses division. Use lightweight PRNGs (like Xorshift) for visual effects (particles).
+- **Fast Randomness**: `std::rand()` is slow and uses division. Use `math::randomScalar()` or `math::randomRange()` (which use optimized Xorshift algorithms compatible with `Fixed16`) for visual effects.
 - **Collision Detection**:
   - Use simple AABB (Axis-Aligned Bounding Box) checks first. Use Collision Layers (`GameLayers.h`) to avoid checking unnecessary pairs.
   - For very fast projectiles (bullets, lasers), prefer lightweight sweep tests:
@@ -187,10 +187,22 @@ These guidelines are derived from practical implementation in `examples/Geometry
 ### 🎮 Game Feel & Logic
 
 - **Frame-Rate Independence**: Always multiply movement by `deltaTime`.
-  - *Example*: `x += speed * (deltaTime * 0.001f);`
+  - *Example*: `x += speed * math::toScalar(deltaTime * 0.001f);`
 - **Logic/Visual Decoupling**: For infinite runners, keep logic progression (obstacle spacing) constant in time, even if visual speed increases.
 - **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
 - **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
+
+### 🧮 Math & Fixed-Point Guidelines
+
+The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU (Fixed-Point) hardware seamlessly.
+
+1. **Use `Scalar` everywhere**: Never use `float` or `double` explicitly in game logic, physics, or positioning. Use `pixelroot32::math::Scalar`.
+2. **Literals**: Use `math::toScalar(0.5f)` for floating-point literals. This ensures they are correctly converted to `Fixed16` on integer-only platforms.
+    - *Bad*: `Scalar speed = 2.5;` (Implicit double conversion, slow/error-prone on Fixed16)
+    - *Good*: `Scalar speed = math::toScalar(2.5f);`
+3. **Renderer Conversion**: The `Renderer` works with pixels (`int`). Keep positions as `Scalar` logic-side and convert to `int` **only** when calling draw methods.
+    - *Example*: `renderer.drawSprite(spr, static_cast<int>(x), static_cast<int>(y), ...)`
+4. **Audio Independence**: The audio subsystem is optimized separately and does **not** use `Scalar`. It continues to use its own internal formats (integer mixing).
 
 ---
 
