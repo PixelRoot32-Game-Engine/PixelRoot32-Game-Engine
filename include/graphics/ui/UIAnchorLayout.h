@@ -44,7 +44,7 @@ public:
      * @param w Width of the layout container (usually screen width).
      * @param h Height of the layout container (usually screen height).
      */
-    UIAnchorLayout(float x, float y, float w, float h);
+    UIAnchorLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
 
     virtual ~UIAnchorLayout() = default;
 
@@ -95,24 +95,24 @@ public:
      * @param screenWidth Screen width in pixels.
      * @param screenHeight Screen height in pixels.
      */
-    void setScreenSize(float screenWidth, float screenHeight);
+    void setScreenSize(pixelroot32::math::Scalar screenWidth, pixelroot32::math::Scalar screenHeight);
 
     /**
      * @brief Gets the screen width.
      * @return Screen width in pixels.
      */
-    float getScreenWidth() const { return screenWidth; }
+    pixelroot32::math::Scalar getScreenWidth() const { return screenWidth; }
 
     /**
      * @brief Gets the screen height.
      * @return Screen height in pixels.
      */
-    float getScreenHeight() const { return screenHeight; }
+    pixelroot32::math::Scalar getScreenHeight() const { return screenHeight; }
 
 private:
     std::vector<std::pair<UIElement*, Anchor>> anchoredElements;  ///< Elements with their anchor points
-    float screenWidth = static_cast<float>(pixelroot32::platforms::config::LogicalWidth);   ///< Screen width for anchor calculations (logical resolution)
-    float screenHeight = static_cast<float>(pixelroot32::platforms::config::LogicalHeight);  ///< Screen height for anchor calculations (logical resolution)
+    pixelroot32::math::Scalar screenWidth = pixelroot32::math::Scalar(pixelroot32::platforms::config::LogicalWidth);   ///< Screen width for anchor calculations (logical resolution)
+    pixelroot32::math::Scalar screenHeight = pixelroot32::math::Scalar(pixelroot32::platforms::config::LogicalHeight);  ///< Screen height for anchor calculations (logical resolution)
 
     /**
      * @brief Calculates position for an element based on its anchor.
@@ -121,7 +121,7 @@ private:
      * @param outX Output parameter for calculated X position.
      * @param outY Output parameter for calculated Y position.
      */
-    void calculateAnchorPosition(UIElement* element, Anchor anchor, float& outX, float& outY) const;
+    void calculateAnchorPosition(UIElement* element, Anchor anchor, pixelroot32::math::Scalar& outX, pixelroot32::math::Scalar& outY) const;
 };
 
 }

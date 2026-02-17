@@ -50,8 +50,8 @@ public:
      * @param h Height.
      * @param t Element type (default: GENERIC).
      */
-    UIElement(float x, float y, float w, float h, UIElementType t = UIElementType::GENERIC) 
-        : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
+    UIElement(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h, UIElementType t = UIElementType::GENERIC) 
+        : pixelroot32::core::Entity(x, y, static_cast<int>(w), static_cast<int>(h), pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
         setRenderLayer(2);
     }
 
@@ -92,7 +92,7 @@ public:
      * @param newX New X coordinate.
      * @param newY New Y coordinate.
      */
-    void setPosition(float newX, float newY) {
+    virtual void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) {
         x = newX;
         y = newY;
     }
@@ -103,9 +103,9 @@ public:
      * @param preferredWidth Output parameter for preferred width (or -1 if flexible).
      * @param preferredHeight Output parameter for preferred height (or -1 if flexible).
      */
-    virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const {
-        preferredWidth = static_cast<float>(width);
-        preferredHeight = static_cast<float>(height);
+    virtual void getPreferredSize(pixelroot32::math::Scalar& preferredWidth, pixelroot32::math::Scalar& preferredHeight) const {
+        preferredWidth = static_cast<int>(width);
+        preferredHeight = static_cast<int>(height);
     }
 };
 

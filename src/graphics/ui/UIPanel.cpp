@@ -7,7 +7,7 @@
 
 namespace pixelroot32::graphics::ui {
 
-UIPanel::UIPanel(float x, float y, float w, float h)
+UIPanel::UIPanel(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
     : UIElement(x, y, w, h) {
 }
 
@@ -18,7 +18,7 @@ void UIPanel::setChild(UIElement* element) {
     }
 }
 
-void UIPanel::setPosition(float newX, float newY) {
+void UIPanel::setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) {
     UIElement::setPosition(newX, newY);
     updateChildPosition();
 }

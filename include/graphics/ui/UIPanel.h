@@ -25,7 +25,7 @@ public:
      * @param w Width of the panel.
      * @param h Height of the panel.
      */
-    UIPanel(float x, float y, float w, float h);
+    UIPanel(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
 
     virtual ~UIPanel() = default;
 
@@ -95,7 +95,7 @@ public:
      * @param newX New X coordinate.
      * @param newY New Y coordinate.
      */
-    void setPosition(float newX, float newY);
+    void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) override;
 
     /**
      * @brief Updates the panel and child element.

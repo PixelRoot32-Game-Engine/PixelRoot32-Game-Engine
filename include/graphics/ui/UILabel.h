@@ -26,7 +26,7 @@ public:
         * @param col Text color.
         * @param sz Text size multiplier.
         */
-    UILabel(std::string_view t, float x, float y, Color col, uint8_t sz);
+    UILabel(std::string_view t, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, Color col, uint8_t sz);
 
     /**
         * @brief Updates the label's text.

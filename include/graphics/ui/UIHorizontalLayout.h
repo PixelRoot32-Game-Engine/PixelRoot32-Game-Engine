@@ -26,7 +26,7 @@ public:
      * @param w Width of the layout container (viewport width).
      * @param h Height of the layout container.
      */
-    UIHorizontalLayout(float x, float y, float w, float h);
+    UIHorizontalLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
 
     virtual ~UIHorizontalLayout() = default;
 
@@ -71,7 +71,7 @@ public:
      */
     void setScrollEnabled(bool enable) {
         UILayout::enableScroll = enable;
-        if (!enable) scrollOffset = 0.0f;
+        if (!enable) scrollOffset = pixelroot32::math::toScalar(0.0f);
     }
     
     /**
@@ -86,7 +86,7 @@ public:
      * @brief Sets the viewport width (visible area).
      * @param w Viewport width in pixels.
      */
-    void setViewportWidth(float w) {
+    void setViewportWidth(pixelroot32::math::Scalar w) {
         width = static_cast<int>(w);
         updateLayout();
     }
@@ -95,19 +95,19 @@ public:
      * @brief Gets the current scroll offset.
      * @return Scroll offset in pixels.
      */
-    float getScrollOffset() const { return scrollOffset; }
+    pixelroot32::math::Scalar getScrollOffset() const { return scrollOffset; }
 
     /**
      * @brief Sets the scroll offset directly.
      * @param offset Scroll offset in pixels.
      */
-    void setScrollOffset(float offset);
+    void setScrollOffset(pixelroot32::math::Scalar offset);
 
     /**
      * @brief Gets the total content width.
      * @return Content width in pixels.
      */
-    float getContentWidth() const { return contentWidth; }
+    pixelroot32::math::Scalar getContentWidth() const { return contentWidth; }
 
     /**
      * @brief Gets the currently selected element index.
@@ -131,7 +131,7 @@ public:
      * @brief Sets the scroll speed for smooth scrolling.
      * @param speed Pixels per millisecond.
      */
-    void setScrollSpeed(float speed) { scrollSpeed = speed; }
+    void setScrollSpeed(pixelroot32::math::Scalar speed) { scrollSpeed = speed; }
 
     /**
      * @brief Sets the navigation button indices.
@@ -156,16 +156,16 @@ public:
                        pixelroot32::graphics::Color unselectedBgCol);
 
 private:
-    float contentWidth = 0.0f;         ///< Total width of all content
-    float targetScrollOffset = 0.0f;   ///< Target scroll position (for smooth scrolling)
-    float scrollSpeed = 0.5f;          ///< Scroll speed in pixels per millisecond
-    int selectedIndex = -1;             ///< Currently selected element index
-    uint8_t navLeftButton = 2;          ///< Button index for LEFT navigation
-    uint8_t navRightButton = 3;         ///< Button index for RIGHT navigation
-    bool wasLeftPressed = false;        ///< Previous state of LEFT button (for rising edge detection)
-    bool wasRightPressed = false;       ///< Previous state of RIGHT button (for rising edge detection)
-    bool needsClear = false;            ///< Flag to indicate if layout area needs clearing (performance optimization)
-    float lastScrollOffset = 0.0f;      ///< Previous scroll offset to detect changes
+    pixelroot32::math::Scalar contentWidth = pixelroot32::math::toScalar(0.0f);         ///< Total width of all content
+    pixelroot32::math::Scalar targetScrollOffset = pixelroot32::math::toScalar(0.0f);   ///< Target scroll position (for smooth scrolling)
+    pixelroot32::math::Scalar scrollSpeed = pixelroot32::math::toScalar(0.5f);          ///< Scroll speed in pixels per millisecond
+    int selectedIndex = -1;                                                             ///< Currently selected element index
+    uint8_t navLeftButton = 2;                                                          ///< Button index for LEFT navigation
+    uint8_t navRightButton = 3;                                                         ///< Button index for RIGHT navigation
+    bool wasLeftPressed = false;                                                        ///< Previous state of LEFT button (for rising edge detection)
+    bool wasRightPressed = false;                                                       ///< Previous state of RIGHT button (for rising edge detection)
+    bool needsClear = false;                                                            ///< Flag to indicate if layout area needs clearing (performance optimization)
+    pixelroot32::math::Scalar lastScrollOffset = pixelroot32::math::toScalar(0.0f);     ///< Previous scroll offset to detect changes
     
     // Style colors for buttons
     pixelroot32::graphics::Color selectedTextColor = pixelroot32::graphics::Color::White;

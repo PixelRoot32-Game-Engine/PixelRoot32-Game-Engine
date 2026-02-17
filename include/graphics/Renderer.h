@@ -66,8 +66,8 @@ struct Sprite4bpp {
  * provide its own bitmap and color.
  */
 struct SpriteLayer {
-    const uint16_t* data; ///< Pointer to packed row data for this layer.
-    Color           color;///< Color used for "on" pixels in this layer.
+    const uint16_t* data;   ///< Pointer to packed row data for this layer.
+    Color           color;  ///< Color used for "on" pixels in this layer.
 };
 
 /**

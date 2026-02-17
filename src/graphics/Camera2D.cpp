@@ -7,28 +7,31 @@
 
 namespace pixelroot32::graphics {
 
+using pixelroot32::math::Scalar;
+using pixelroot32::math::toScalar;
+
 Camera2D::Camera2D(int viewportWidth, int viewportHeight)
-    : x(0.0f)
-    , y(0.0f)
+    : x(0)
+    , y(0)
     , viewportWidth(viewportWidth)
     , viewportHeight(viewportHeight)
-    , minX(0.0f)
-    , maxX(0.0f)
-    , minY(0.0f)
-    , maxY(0.0f) {
+    , minX(0)
+    , maxX(0)
+    , minY(0)
+    , maxY(0) {
 }
 
-void Camera2D::setBounds(float minXValue, float maxXValue) {
+void Camera2D::setBounds(Scalar minXValue, Scalar maxXValue) {
     minX = minXValue;
     maxX = maxXValue;
 }
 
-void Camera2D::setVerticalBounds(float minYValue, float maxYValue) {
+void Camera2D::setVerticalBounds(Scalar minYValue, Scalar maxYValue) {
     minY = minYValue;
     maxY = maxYValue;
 }
 
-void Camera2D::setPosition(float newX, float newY) {
+void Camera2D::setPosition(Scalar newX, Scalar newY) {
     x = newX;
     y = newY;
 
@@ -38,54 +41,54 @@ void Camera2D::setPosition(float newX, float newY) {
     if (y > maxY) y = maxY;
 }
 
-void Camera2D::followTarget(float targetX) {
-    float deadZoneLeft = viewportWidth * 0.3f;
-    float deadZoneRight = viewportWidth * 0.7f;
+void Camera2D::followTarget(Scalar targetX) {
+    Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
+    Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
 
-    float screenX = targetX - x;
+    Scalar screenX = targetX - x;
 
     if (screenX < deadZoneLeft) {
-        float newX = targetX - deadZoneLeft;
+        Scalar newX = targetX - deadZoneLeft;
         setPosition(newX, y);
     } else if (screenX > deadZoneRight) {
-        float newX = targetX - deadZoneRight;
+        Scalar newX = targetX - deadZoneRight;
         setPosition(newX, y);
     }
 }
 
-void Camera2D::followTarget(float targetX, float targetY) {
-    float deadZoneLeft = viewportWidth * 0.3f;
-    float deadZoneRight = viewportWidth * 0.7f;
+void Camera2D::followTarget(Scalar targetX, Scalar targetY) {
+    Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
+    Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
 
-    float screenX = targetX - x;
+    Scalar screenX = targetX - x;
 
     if (screenX < deadZoneLeft) {
-        float newX = targetX - deadZoneLeft;
+        Scalar newX = targetX - deadZoneLeft;
         setPosition(newX, y);
     } else if (screenX > deadZoneRight) {
-        float newX = targetX - deadZoneRight;
+        Scalar newX = targetX - deadZoneRight;
         setPosition(newX, y);
     }
 
-    float deadZoneTop = viewportHeight * 0.3f;
-    float deadZoneBottom = viewportHeight * 0.7f;
+    Scalar deadZoneTop = Scalar(viewportHeight) * Scalar(0.3f);
+    Scalar deadZoneBottom = Scalar(viewportHeight) * Scalar(0.7f);
 
-    float screenY = targetY - y;
+    Scalar screenY = targetY - y;
 
     if (screenY < deadZoneTop) {
-        float newY = targetY - deadZoneTop;
+        Scalar newY = targetY - deadZoneTop;
         setPosition(x, newY);
     } else if (screenY > deadZoneBottom) {
-        float newY = targetY - deadZoneBottom;
+        Scalar newY = targetY - deadZoneBottom;
         setPosition(x, newY);
     }
 }
 
-float Camera2D::getX() const {
+Scalar Camera2D::getX() const {
     return x;
 }
 
-float Camera2D::getY() const {
+Scalar Camera2D::getY() const {
     return y;
 }
 

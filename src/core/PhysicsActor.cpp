@@ -5,32 +5,52 @@
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"
 #include "platforms/EngineConfig.h"
+#include "math/MathUtil.h"
 
 namespace pixelroot32::core {
 
-PhysicsActor::PhysicsActor(float x, float y, float w, float h)
-    : Actor(x, y, w, h) {
+extern unsigned long gProfilerPhysicsIntegrateTime;
+extern unsigned long gProfilerPhysicsIntegrateCount;
+
+PhysicsActor::PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
+    : Actor(x, y, static_cast<int>(w), static_cast<int>(h)) {
     worldWidth = pixelroot32::platforms::config::LogicalWidth;
     worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }
 
 void PhysicsActor::update(unsigned long deltaTime) {
-    float dt = deltaTime * 0.001f;
+    // Convert ms to seconds
+    pixelroot32::math::Scalar dt = pixelroot32::math::toScalar(static_cast<float>(deltaTime) * 0.001f);
 
     integrate(dt);
     resolveWorldBounds();
 }
 
-void PhysicsActor::integrate(float dt) {
-    x += vx * dt;
-    y += vy * dt;
+void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
+    unsigned long t0 = 0;
+    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+        t0 = pixelroot32::platforms::config::profilerMicros();
+    }
+    
+    // Update position using velocity
+    // Entity now uses Scalar for position, so we can add directly
+    x += velocity.x * dt;
+    y += velocity.y * dt;
 
-    // Simple friction
-    vx *= (1.0f - friction);
-    vy *= (1.0f - friction);
+    // Apply friction
+    pixelroot32::math::Scalar one = pixelroot32::math::toScalar(1.0f);
+    velocity *= (one - friction);
+
+    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+        gProfilerPhysicsIntegrateTime += pixelroot32::platforms::config::profilerMicros() - t0;
+        gProfilerPhysicsIntegrateCount++;
+    }
 }
 
 void PhysicsActor::resolveWorldBounds() {
+    using pixelroot32::math::toScalar;
+    using pixelroot32::math::Scalar;
+
     // calculate the final limits
     int left = (limits.left != -1 ? limits.left : 0);
     int top = (limits.top != -1 ? limits.top : 0);
@@ -44,29 +64,37 @@ void PhysicsActor::resolveWorldBounds() {
 
     resetWorldCollisionInfo();
 
-    if (x < left) { 
-        x = left; 
-        vx = -vx * restitution; 
+    Scalar sLeft = toScalar(left);
+    Scalar sTop = toScalar(top);
+    Scalar sRight = toScalar(right);
+    Scalar sBottom = toScalar(bottom);
+    Scalar sWidth = toScalar(width);
+    Scalar sHeight = toScalar(height);
+
+    if (x < sLeft) { 
+        x = sLeft; 
+        velocity.x = -velocity.x * restitution; 
         
         worldCollisionInfo.left = true;
         onWorldCollision(); 
     }
-    if (x + width > right) { 
-        x = right - width; 
-        vx = -vx * restitution; 
+    if (x + sWidth > sRight) { 
+        x = sRight - sWidth; 
+        velocity.x = -velocity.x * restitution; 
 
         worldCollisionInfo.right = true;
         onWorldCollision(); 
     }   
-    if (y < top) { 
-        y = top; vy = -vy * restitution; 
-
+    if (y < sTop) { 
+        y = sTop; 
+        velocity.y = -velocity.y * restitution; 
+        
         worldCollisionInfo.top = true;
         onWorldCollision(); 
     }
-    if (y + height > bottom) { 
-        y = bottom - height; 
-        vy = -vy * restitution;
+    if (y + sHeight > sBottom) { 
+        y = sBottom - sHeight; 
+        velocity.y = -velocity.y * restitution;
 
         worldCollisionInfo.bottom = true;
         onWorldCollision(); 
@@ -77,33 +105,33 @@ void PhysicsActor::onCollision(Actor* other) {
     (void)other;
     
     // Default: simple bounce
-    vx = -vx * restitution;
+    velocity.x = -velocity.x * restitution;
+    // Note: Usually we would bounce based on collision normal, but for simple AABB overlap default,
+    // just reversing X is a placeholder behavior. Real physics would use collision normals.
+}
+
+void PhysicsActor::resetWorldCollisionInfo() {
+    worldCollisionInfo.left = false;
+    worldCollisionInfo.right = false;
+    worldCollisionInfo.top = false;
+    worldCollisionInfo.bottom = false;
 }
 
 void PhysicsActor::onWorldCollision() {
-    // Hook opcional
+    // Default implementation does nothing
 }
 
-void PhysicsActor::setVelocity(float x, float y) {
-    vx = x;
-    vy = y;
+void PhysicsActor::setLimits(int left, int top, int right, int bottom) {
+    limits = LimitRect(left, top, right, bottom);
 }
 
-void PhysicsActor::setRestitution(float r) {
-    restitution = r;
+void PhysicsActor::setWorldBounds(int w, int h) {
+    worldWidth = w;
+    worldHeight = h;
 }
 
-void PhysicsActor::setFriction(float f) {
-    friction = f;
+WorldCollisionInfo PhysicsActor::getWorldCollisionInfo() const {
+    return worldCollisionInfo;
 }
 
-void PhysicsActor::setLimits(LimitRect limits) {
-    this->limits = limits;
-}   
-
-void PhysicsActor::setWorldSize(int width, int height) {
-    worldWidth = width;
-    worldHeight = height;
-}
-
-}
+} // namespace pixelroot32::core

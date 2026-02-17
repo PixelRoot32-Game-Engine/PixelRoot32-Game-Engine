@@ -33,7 +33,7 @@ public:
      * @param callback Function to call when the state changes.
      * @param fontSize Text size multiplier.
      */
-    UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
+    UICheckBox(std::string_view label, uint8_t index, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
 
     /**
      * @brief Configures the checkbox's visual style.

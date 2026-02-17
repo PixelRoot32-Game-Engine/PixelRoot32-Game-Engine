@@ -26,7 +26,7 @@ public:
      * @param w Width of the layout container.
      * @param h Height of the layout container.
      */
-    UIGridLayout(float x, float y, float w, float h);
+    UIGridLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
 
     virtual ~UIGridLayout() = default;
 
@@ -129,19 +129,19 @@ public:
                        pixelroot32::graphics::Color unselectedBgCol);
 
 private:
-    uint8_t columns = 1;              ///< Number of columns in the grid
-    uint8_t rows = 0;                 ///< Number of rows (calculated)
-    float cellWidth = 0.0f;           ///< Width of each cell
-    float cellHeight = 0.0f;          ///< Height of each cell
-    int selectedIndex = -1;            ///< Currently selected element index
-    uint8_t navUpButton = 0;          ///< Button index for UP navigation
-    uint8_t navDownButton = 1;        ///< Button index for DOWN navigation
-    uint8_t navLeftButton = 2;        ///< Button index for LEFT navigation
-    uint8_t navRightButton = 3;       ///< Button index for RIGHT navigation
-    bool wasUpPressed = false;         ///< Previous state of UP button (for rising edge detection)
-    bool wasDownPressed = false;       ///< Previous state of DOWN button (for rising edge detection)
-    bool wasLeftPressed = false;       ///< Previous state of LEFT button (for rising edge detection)
-    bool wasRightPressed = false;      ///< Previous state of RIGHT button (for rising edge detection)
+    uint8_t columns = 1;                                                            ///< Number of columns in the grid
+    uint8_t rows = 0;                                                               ///< Number of rows (calculated)
+    pixelroot32::math::Scalar cellWidth = pixelroot32::math::toScalar(0);           ///< Width of each cell
+    pixelroot32::math::Scalar cellHeight = pixelroot32::math::toScalar(0);          ///< Height of each cell
+    int selectedIndex = -1;                                                         ///< Currently selected element index
+    uint8_t navUpButton = 0;                                                        ///< Button index for UP navigation
+    uint8_t navDownButton = 1;                                                      ///< Button index for DOWN navigation
+    uint8_t navLeftButton = 2;                                                      ///< Button index for LEFT navigation
+    uint8_t navRightButton = 3;                                                      ///< Button index for RIGHT navigation
+    bool wasUpPressed = false;                                                      ///< Previous state of UP button (for rising edge detection)
+    bool wasDownPressed = false;                                                    ///< Previous state of DOWN button (for rising edge detection)
+    bool wasLeftPressed = false;                                                    ///< Previous state of LEFT button (for rising edge detection)
+    bool wasRightPressed = false;                                                   ///< Previous state of RIGHT button (for rising edge detection)
     
     // Style colors for buttons
     pixelroot32::graphics::Color selectedTextColor = pixelroot32::graphics::Color::White;

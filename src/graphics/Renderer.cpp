@@ -13,14 +13,14 @@
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
-#ifdef PLATFORM_NATIVE
-    #include "drivers/native/SDL2_Drawer.h"
-    #include "../../src/platforms/mock/MockSPI.h"
-#else
-    #include "drivers/esp32/TFT_eSPI_Drawer.h"
-    #include <SPI.h>
-    #include <SafeString.h>
-#endif
+// #ifdef PLATFORM_NATIVE
+//     #include "drivers/native/SDL2_Drawer.h"
+//     #include <platforms/mock/MockSPI.h>
+// #else
+//     #include "drivers/esp32/TFT_eSPI_Drawer.h"
+//     #include <SPI.h>
+//     #include <SafeString.h>
+// #endif
 
 #ifndef IRAM_ATTR
 #define IRAM_ATTR

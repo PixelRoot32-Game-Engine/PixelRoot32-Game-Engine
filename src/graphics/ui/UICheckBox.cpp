@@ -8,8 +8,9 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
+    using namespace pixelroot32::math;
 
-    UICheckBox::UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked, std::function<void(bool)> callback, int fontSize)
+    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Scalar x, Scalar y, Scalar w, Scalar h, bool checked, std::function<void(bool)> callback, int fontSize)
         : UIElement(x, y, w, h, UIElementType::CHECKBOX),
           label(label),
           checked(checked),
@@ -55,8 +56,8 @@ namespace pixelroot32::graphics::ui {
     }
 
     bool UICheckBox::isPointInside(int px, int py) const {
-        return (px >= x && px <= x + width && 
-                py >= y && py <= y + height);
+        return (px >= static_cast<int>(x) && px <= static_cast<int>(x + width) && 
+                py >= static_cast<int>(y) && py <= static_cast<int>(y + height));
     }
 
     void UICheckBox::handleInput(const InputManager& input) {

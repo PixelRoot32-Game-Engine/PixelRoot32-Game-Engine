@@ -10,7 +10,9 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
 
-    UIButton::UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
+    using namespace pixelroot32::math;
+
+    UIButton::UIButton(std::string_view t, uint8_t index, Scalar x, Scalar y, Scalar w, Scalar h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
         : UIElement(x, y, w, h, UIElementType::BUTTON), 
             label(t), 
             index(index),
@@ -44,8 +46,8 @@ namespace pixelroot32::graphics::ui {
     }
 
     bool UIButton::isPointInside(int px, int py) const {
-        return (px >= x && px <= x + width && 
-                py >= y && py <= y + height);
+        return (px >= static_cast<int>(x) && px <= static_cast<int>(x + width) && 
+                py >= static_cast<int>(y) && py <= static_cast<int>(y + height));
     }
 
     void UIButton::handleInput(const InputManager& input) {
@@ -88,11 +90,11 @@ namespace pixelroot32::graphics::ui {
         // 1. Draw background only when hasBackground is enabled
         if (hasBackground) {
             // Filled background rectangle
-            renderer.drawFilledRectangle(x, y, width, height, backgroundColor);
+            renderer.drawFilledRectangle(static_cast<int>(x), static_cast<int>(y), static_cast<int>(width), static_cast<int>(height), backgroundColor);
         } else {
             // Without background, indicate selection with a small marker
             if (isSelected) {
-                renderer.drawText(">", x - 10, textY, Color::Yellow, fontSize);
+                renderer.drawText(">", static_cast<int>(x) - 10, textY, Color::Yellow, fontSize);
             }
         }
 
@@ -105,9 +107,9 @@ namespace pixelroot32::graphics::ui {
             int textX = static_cast<int>(x) + (static_cast<int>(width) - textWidth) / 2;
             renderer.drawText(label.c_str(), textX, textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {
-            renderer.drawText(label.c_str(), x + width - 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), static_cast<int>(x + width) - 5, textY, currentTextCol, fontSize);
         } else {
-            renderer.drawText(label.c_str(), x + 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), static_cast<int>(x) + 5, textY, currentTextCol, fontSize);
         }
 
         // Restore bypass state

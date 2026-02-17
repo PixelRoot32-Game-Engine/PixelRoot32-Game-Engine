@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "math/Scalar.h"
+
 namespace pixelroot32::graphics {
 
 class Renderer;
@@ -12,17 +14,17 @@ class Camera2D {
 public:
     Camera2D(int viewportWidth, int viewportHeight);
 
-    void setBounds(float minX, float maxX);
+    void setBounds(pixelroot32::math::Scalar minX, pixelroot32::math::Scalar maxX);
 
-    void setVerticalBounds(float minY, float maxY);
+    void setVerticalBounds(pixelroot32::math::Scalar minY, pixelroot32::math::Scalar maxY);
 
-    void setPosition(float x, float y);
+    void setPosition(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y);
 
-    void followTarget(float targetX);
-    void followTarget(float targetX, float targetY);
+    void followTarget(pixelroot32::math::Scalar targetX);
+    void followTarget(pixelroot32::math::Scalar targetX, pixelroot32::math::Scalar targetY);
 
-    float getX() const;
-    float getY() const;
+    pixelroot32::math::Scalar getX() const;
+    pixelroot32::math::Scalar getY() const;
 
     void apply(Renderer& renderer) const;
 
@@ -34,14 +36,14 @@ public:
     void setViewportSize(int width, int height);
 
 private:
-    float x;
-    float y;
+    pixelroot32::math::Scalar x;
+    pixelroot32::math::Scalar y;
     int viewportWidth;
     int viewportHeight;
-    float minX;
-    float maxX;
-    float minY;
-    float maxY;
+    pixelroot32::math::Scalar minX;
+    pixelroot32::math::Scalar maxX;
+    pixelroot32::math::Scalar minY;
+    pixelroot32::math::Scalar maxY;
 };
 
 } // namespace pixelroot32::graphics

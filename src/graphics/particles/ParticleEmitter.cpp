@@ -36,13 +36,34 @@ namespace pixelroot32::graphics::particles {
             return min + r * (max - min);
         }
 
+        template <typename T>
+        inline T fastRandScalar(T min, T max) {
+            if constexpr (std::is_same_v<T, float>) {
+                return fastRandFloat(min, max);
+            } else {
+                // Fixed16 implementation using integer arithmetic to avoid float conversion
+                 // 0xFFFF is 65535. We treat this as the fractional part.
+                 int32_t randomFraction = fastRand() & 0xFFFF;
+                 
+                 Fixed16 range = max - min;
+                 
+                 // result = min + range * (randomFraction / 65536)
+                 // Use int64_t to prevent overflow during multiplication
+                 int64_t deltaRaw = (static_cast<int64_t>(range.raw) * randomFraction) >> 16;
+                 
+                 Fixed16 result;
+                 result.raw = min.raw + static_cast<int32_t>(deltaRaw);
+                 return result;
+             }
+        }
+
         inline int fastRandInt(int min, int max) {
             if (min >= max) return min;
             return min + (fastRand() % (max - min + 1));
         }
     }
 
-    ParticleEmitter::ParticleEmitter(float x, float y, const ParticleConfig& cfg)
+    ParticleEmitter::ParticleEmitter(Scalar x, Scalar y, const ParticleConfig& cfg)
         : Entity(x, y, 0, 0, EntityType::GENERIC),
             config(cfg) {
              // Seed with something somewhat random if needed, or keep deterministic
@@ -75,7 +96,7 @@ namespace pixelroot32::graphics::particles {
                 p.life--;
 
                 if (config.fadeColor) {
-                    float t = 1.0f - (float)p.life / p.maxLife;
+                    Scalar t = toScalar(1) - (toScalar(p.life) / toScalar(p.maxLife));
                     p.color = lerpColor(resolveColor(p.startColor), resolveColor(p.endColor), t);
                 }
 
@@ -90,11 +111,11 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i]; 
             if (!p.active) continue;
             
-            renderer.drawFilledRectangleW(p.x, p.y, 2, 2, p.color);
+            renderer.drawFilledRectangleW(static_cast<int>(p.x), static_cast<int>(p.y), 2, 2, p.color);
         }
     }
 
-    void ParticleEmitter::burst(float x, float y, int count) {
+    void ParticleEmitter::burst(Scalar x, Scalar y, int count) {
         int activated = 0;
 
         for (int i = 0; i < maxParticles && activated < count; i++) {
@@ -105,12 +126,12 @@ namespace pixelroot32::graphics::particles {
             p.x = x;
             p.y = y;
 
-            float angleDeg = fastRandFloat(config.minAngleDeg, config.maxAngleDeg);
-            float angle = angleDeg * Math::kDegToRad;
-            float speed = fastRandFloat(config.minSpeed, config.maxSpeed);
+            Scalar angleDeg = fastRandScalar(config.minAngleDeg, config.maxAngleDeg);
+            Scalar angle = angleDeg * kDegToRad;
+            Scalar speed = fastRandScalar(config.minSpeed, config.maxSpeed);
 
-            p.vx = cos(angle) * speed;
-            p.vy = sin(angle) * speed;
+            p.vx = pixelroot32::math::cos(angle) * speed;
+            p.vy = pixelroot32::math::sin(angle) * speed;
 
             p.maxLife = fastRandInt(config.minLife, config.maxLife);
             p.life = p.maxLife;

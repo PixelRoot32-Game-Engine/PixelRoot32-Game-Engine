@@ -10,15 +10,18 @@
  */
 #pragma once
 #include "graphics/Renderer.h"
+#include "math/Scalar.h"
 
 namespace pixelroot32::core {
 
 /**
  * @struct Rect
  * @brief Represents a 2D rectangle, typically used for hitboxes or bounds.
+ * 
+ * Uses adaptable Scalar type for coordinates to support both float and fixed-point math.
  */
 struct Rect {
-    float x, y;   ///< Top-left corner coordinates.
+    pixelroot32::math::Scalar x, y;   ///< Top-left corner coordinates.
     int width, height; ///< Dimensions of the rectangle.
 
     /**
@@ -44,10 +47,12 @@ enum class EntityType { GENERIC, ACTOR, UI_ELEMENT };
  *
  * Entities are the fundamental building blocks of the scene. They have a position,
  * size, and lifecycle methods (update, draw).
+ * 
+ * Uses adaptable Scalar type for position to ensure consistent physics across platforms.
  */
 class Entity {
 public:
-    float x, y;        ///< X and Y position in world space.
+    pixelroot32::math::Scalar x, y;        ///< X and Y position in world space.
     int width, height; ///< Width and Height of the entity.
     EntityType type;   ///< The specific type of this entity.
 
@@ -68,7 +73,16 @@ public:
      */
     virtual void setEnabled(bool e) { isEnabled = e; }
 
+    /**
+     * @brief Gets the current render layer.
+     * @return The layer index (0-255).
+     */
     unsigned char getRenderLayer() const { return renderLayer; }
+
+    /**
+     * @brief Sets the render layer.
+     * @param layer The layer index (0-255). Lower layers are drawn first.
+     */
     virtual void setRenderLayer(unsigned char layer) { renderLayer = layer; }
 
     /**
@@ -79,8 +93,16 @@ public:
      * @param h Height.
      * @param t EntityType.
      */
-    Entity(float x, float y, int w, int h, EntityType t) 
+    Entity(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h, EntityType t) 
         : x(x), y(y), width(w), height(h), type(t) {}
+    
+    /**
+     * @brief Constructor with float coordinates for convenience.
+     * Only enabled if Scalar is NOT float to avoid ambiguity.
+     */
+    template <typename T = float, typename std::enable_if<!std::is_same<pixelroot32::math::Scalar, T>::value, int>::type = 0>
+    Entity(float x, float y, int w, int h, EntityType t) 
+        : x(pixelroot32::math::toScalar(x)), y(pixelroot32::math::toScalar(y)), width(w), height(h), type(t) {}
         
     virtual ~Entity() {}
 

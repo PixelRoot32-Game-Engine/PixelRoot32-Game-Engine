@@ -52,7 +52,7 @@ public:
         * @param h Height.
         * @param callback Function to call when clicked/pressed.
         */
-    UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
+    UIButton(std::string_view t, uint8_t index, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
 
     /**
         * @brief Configures the button's visual style.
