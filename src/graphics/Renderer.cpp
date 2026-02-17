@@ -87,13 +87,13 @@ namespace pixelroot32::graphics {
         getDrawSurface().sendBuffer();
     }
 
-    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
+    void Renderer::drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size) {
         // Legacy method: delegate to new method with default font
         drawText(text, x, y, color, size, nullptr);
     }
 
-    void Renderer::drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font) {
-        if (!isDrawable(color) || !text || !*text) {
+    void Renderer::drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || text.empty()) {
             return;
         }
 
@@ -106,11 +106,9 @@ namespace pixelroot32::graphics {
         }
 
         int16_t currentX = x;
-        const char* p = text;
         float scale = static_cast<float>(size);
 
-        while (*p) {
-            char c = *p++;
+        for (char c : text) {
             uint8_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
 
             // Skip unsupported characters
@@ -137,13 +135,13 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
+    void Renderer::drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size) {
         // Legacy method: delegate to new method with default font
         drawTextCentered(text, y, color, size, nullptr);
     }
 
-    void Renderer::drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font) {
-        if (!isDrawable(color) || !text || !*text) {
+    void Renderer::drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font) {
+        if (!isDrawable(color) || text.empty()) {
             return;
         }
 
@@ -277,100 +275,104 @@ namespace pixelroot32::graphics {
         }
     }
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
-        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
-            return;
-        }
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+            if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
+                return;
+            }
 
-        uint16_t paletteLUT[4];
-        uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
-        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], context);
-        }
+            uint16_t paletteLUT[4];
+            uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
+            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+            for (uint8_t i = 0; i < paletteCount; ++i) {
+                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+            }
 
-        drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+            drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+        }
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = logicalWidth;
-        const int screenH = logicalHeight;
-        const int bitsPerPixel = 2;
-        const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+            const int screenW = logicalWidth;
+            const int screenH = logicalHeight;
+            const int bitsPerPixel = 2;
+            const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
-        int startX = offsetBypass ? x : xOffset + x;
-        int startY = offsetBypass ? y : yOffset + y;
+            int startX = offsetBypass ? x : xOffset + x;
+            int startY = offsetBypass ? y : yOffset + y;
 
-        // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
-        for (int row = 0; row < sprite.height; ++row) {
-            const int logicalY = startY + row;
-            if (logicalY < 0 || logicalY >= screenH) continue;
+            // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
+            for (int row = 0; row < sprite.height; ++row) {
+                const int logicalY = startY + row;
+                if (logicalY < 0 || logicalY >= screenH) continue;
 
-            const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
+                const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
 
-            for (int col = 0; col < sprite.width; ++col) {
-                const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
-                const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
-                const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
+                for (int col = 0; col < sprite.width; ++col) {
+                    const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
+                    const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
+                    const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
 
-                if (val == 0) continue;
+                    if (val == 0) continue;
 
-                const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
-                if (logicalX < 0 || logicalX >= screenW) continue;
+                    const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
+                    if (logicalX < 0 || logicalX >= screenW) continue;
 
-                getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                    getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                }
             }
         }
     }
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
-        if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
-            return;
-        }
+        if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+            if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
+                return;
+            }
 
-        uint16_t paletteLUT[16];
-        uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
-        PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
-        for (uint8_t i = 0; i < paletteCount; ++i) {
-            paletteLUT[i] = resolveColor(sprite.palette[i], context);
-        }
+            uint16_t paletteLUT[16];
+            uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
+            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
+            for (uint8_t i = 0; i < paletteCount; ++i) {
+                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+            }
 
-        drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+            drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
+        }
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
-        const int screenW = logicalWidth;
-        const int screenH = logicalHeight;
-        const int bitsPerPixel = 4;
-        const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
+        if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+            const int screenW = logicalWidth;
+            const int screenH = logicalHeight;
+            const int bitsPerPixel = 4;
+            const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
 
-        int startX = offsetBypass ? x : xOffset + x;
-        int startY = offsetBypass ? y : yOffset + y;
+            int startX = offsetBypass ? x : xOffset + x;
+            int startY = offsetBypass ? y : yOffset + y;
 
-        for (int row = 0; row < sprite.height; ++row) {
-            const int logicalY = startY + row;
-            if (logicalY < 0 || logicalY >= screenH) continue;
+            for (int row = 0; row < sprite.height; ++row) {
+                const int logicalY = startY + row;
+                if (logicalY < 0 || logicalY >= screenH) continue;
 
-            const uint8_t* rowData = sprite.data + row * rowStrideBytes;
+                const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
-            for (int col = 0; col < sprite.width; ++col) {
-                const int byteIdx = col >> 1;
-                const int bitOffset = (col & 1) << 2;
-                const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                for (int col = 0; col < sprite.width; ++col) {
+                    const int byteIdx = col >> 1;
+                    const int bitOffset = (col & 1) << 2;
+                    const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
 
-                if (val == 0) continue;
+                    if (val == 0) continue;
 
-                const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
-                if (logicalX < 0 || logicalX >= screenW) continue;
+                    const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
+                    if (logicalX < 0 || logicalX >= screenW) continue;
 
-                getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                    getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                }
             }
         }
     }
-#endif
 
     void Renderer::drawMultiSprite(const MultiSprite& sprite, int x, int y) {
         // Early-out if descriptor is invalid.

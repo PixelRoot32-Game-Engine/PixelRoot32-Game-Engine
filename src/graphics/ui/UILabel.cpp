@@ -9,7 +9,7 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::graphics;
 
-    UILabel::UILabel(std::string t, float x, float y, Color col, uint8_t sz)
+    UILabel::UILabel(std::string_view t, float x, float y, Color col, uint8_t sz)
         : UIElement(x, y, 0, 0, UIElementType::LABEL),
             text(t),
             color(col),
@@ -17,7 +17,7 @@ namespace pixelroot32::graphics::ui {
         recalcSize();
     }
 
-    void UILabel::setText(const std::string& newText) {
+    void UILabel::setText(std::string_view newText) {
         if (text == newText) return;
         text = newText;
         recalcSize();

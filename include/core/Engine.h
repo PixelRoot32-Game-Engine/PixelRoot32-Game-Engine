@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "core/SceneManager.h"
+#include <optional>
 #include "graphics/Renderer.h"
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
@@ -85,9 +86,9 @@ public:
 
     /**
      * @brief Retrieves the currently active scene.
-     * @return Pointer to the current Scene, or nullptr if none is set.
+     * @return Optional pointer to the current Scene, or nullopt if none is set.
      */
-    Scene* getCurrentScene() const { return sceneManager.getCurrentScene(); }
+    std::optional<Scene*> getCurrentScene() const { return sceneManager.getCurrentScene(); }
     
     /**
      * @brief Replaces the current renderer instance.
@@ -118,6 +119,8 @@ public:
      * @return Reference to the MusicPlayer.
      */
     pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
+
+    using PlatformCapabilities = pixelroot32::platforms::PlatformCapabilities;
 
     /**
      * @brief Gets the capabilities of the current hardware platform.
@@ -151,7 +154,6 @@ protected:
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.
 
-#ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
     /**
      * @brief Draws a debug overlay with real-time engine metrics.
      * Shows FPS, CPU usage (estimated), and RAM usage.
@@ -159,14 +161,13 @@ protected:
     void drawDebugOverlay(pixelroot32::graphics::Renderer& r);
 
     static constexpr int DEBUG_UPDATE_INTERVAL = 16;  ///< Update metrics every N frames.
-    int debugUpdateCounter;                         ///< Frame counter for updates.
-    unsigned long debugAccumulatedMs;               ///< Accumulated time for FPS calculation.
+    int debugUpdateCounter = 0;                         ///< Frame counter for updates.
+    unsigned long debugAccumulatedMs = 0;               ///< Accumulated time for FPS calculation.
     
     // Cached strings for rendering to minimize per-frame overhead
-    char fpsStr[12];
-    char ramStr[16];
-    char cpuStr[12];
-#endif
+    char fpsStr[12] = "FPS: 0";
+    char ramStr[16] = "RAM: 0K";
+    char cpuStr[12] = "CPU: 0%";
 };
 
 }

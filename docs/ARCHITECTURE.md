@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-PixelRoot32 is a lightweight, modular 2D game engine written in C++, designed primarily for ESP32 microcontrollers, with a native simulation layer for PC (SDL2) that enables rapid development without hardware.
+PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed primarily for ESP32 microcontrollers, with a native simulation layer for PC (SDL2) that enables rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by Godot Engine, making it intuitive for developers familiar with modern game development workflows.
 
@@ -16,6 +16,7 @@ The engine follows a scene-based architecture inspired by Godot Engine, making i
 - **Portability**: Same code for ESP32 and PC (SDL2)
 - **Performance**: Optimized for resource-constrained hardware
 - **Extensibility**: Plugin architecture for drivers and backends
+- **Modern C++**: Leverages C++17 features (smart pointers, string_view) for safety and efficiency
 
 #### What Does "Modularity" Mean in PixelRoot32?
 
@@ -230,7 +231,7 @@ class Renderer {
     void beginFrame();
     void endFrame();
     void drawSprite(const Sprite& sprite, int x, int y, Color color);
-    void drawText(const char* text, int x, int y, Color color, uint8_t size);
+    void drawText(std::string_view text, int x, int y, Color color, uint8_t size);
     void drawTileMap(const TileMap& map, int originX, int originY);
     void setDisplaySize(int w, int h);
     void setDisplayOffset(int x, int y);
@@ -410,7 +411,7 @@ void Engine::draw() {
 - `InputManager`: User input
 - `AudioEngine`: Audio system
 - `MusicPlayer`: Music player
-- `PlatformCapabilities`: Hardware capabilities
+- `PlatformCapabilities`: Hardware capabilities (`pixelroot32::platforms`)
 
 #### 3.5.2 SceneManager
 
@@ -436,6 +437,11 @@ int sceneCount;
 **Files**: `include/core/Scene.h`, `src/core/Scene.cpp`
 
 **Responsibility**: Entity container representing a level or screen.
+
+**Memory Management**:
+The Scene follows a **non-owning** model for entities. When you call `addEntity(Entity*)`, the scene stores a reference to the entity but **does not take ownership**.
+- You are responsible for the entity's lifetime (typically using `std::unique_ptr` in your Scene subclass).
+- The Scene will NOT delete entities when it is destroyed or when `clearEntities()` is called.
 
 **Features**:
 
@@ -519,9 +525,12 @@ public:
 };
 
 class GameScene : public Scene {
+    std::unique_ptr<Player> player;
+
+public:
     void init() override {
-        player = new Player(100, 100, 16, 16);
-        addEntity(player);
+        player = std::make_unique<Player>(100, 100, 16, 16);
+        addEntity(player.get());
     }
 };
 ```
@@ -616,7 +625,7 @@ AudioBackend
 |------|-------------|
 | `platforms/EngineConfig.h` | Global engine configuration |
 | `platforms/PlatformDefaults.h` | Platform-specific defaults |
-| `platforms/PlatformCapabilities.h` | Hardware detection |
+| `platforms/PlatformCapabilities.h` | Hardware detection (`pixelroot32::platforms`) |
 | `graphics/DisplayConfig.h` | Display configuration |
 | `input/InputConfig.h` | Input configuration |
 | `audio/AudioConfig.h` | Audio configuration |
@@ -704,7 +713,7 @@ class MyCustomWidget : public UIElement {
 
 ## 8. Simplified Class Diagram
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                               Engine                                   │
 ├────────────────────────────────────────────────────────────────────────┤

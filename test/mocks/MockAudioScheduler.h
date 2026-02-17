@@ -22,7 +22,7 @@ public:
     AudioBackend* backend = nullptr;
     int sampleRate = 0;
 
-    void init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& caps) override {
+    void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override {
         this->backend = backend;
         this->sampleRate = sampleRate;
         this->initialized = true;

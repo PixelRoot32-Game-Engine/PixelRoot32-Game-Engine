@@ -13,6 +13,7 @@
 #include "audio/AudioConfig.h"
 #include "../test_config.h"
 #include "../mocks/MockDrawSurface.h"
+#include <memory>
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
@@ -62,8 +63,8 @@ public:
 
 void test_engine_initialization(void) {
     // Use custom display to verify driver injection
-    MockDrawSurface* mock = new MockDrawSurface();
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
     Engine engine(config);
     
     engine.init();
@@ -75,44 +76,39 @@ void test_engine_initialization(void) {
     TEST_ASSERT_NOT_NULL(&engine.getMusicPlayer());
     
     // Default scene should be null
-    TEST_ASSERT_NULL(engine.getCurrentScene());
+    TEST_ASSERT_FALSE(engine.getCurrentScene().has_value());
 }
 
 void test_engine_scene_management(void) {
-    MockDrawSurface* mock = new MockDrawSurface();
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
     Engine engine(config);
     
-    Scene* scene = new Scene();
-    engine.setScene(scene);
+    auto scene = std::make_unique<Scene>();
+    engine.setScene(scene.get());
     
-    TEST_ASSERT_EQUAL_PTR(scene, engine.getCurrentScene());
-    
-    delete scene;
+    TEST_ASSERT_EQUAL_PTR(scene.get(), engine.getCurrentScene().value());
 }
 
 void test_engine_update_draw_propagation(void) {
-    MockDrawSurface* mock = new MockDrawSurface();
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
     TestEngine engine(config);
     engine.init();
     
-    Scene* scene = new Scene();
-    MockEntity* entity = new MockEntity();
-    scene->addEntity(entity);
+    auto scene = std::make_unique<Scene>();
+    auto entity = std::make_unique<MockEntity>();
     
-    engine.setScene(scene);
+    scene->addEntity(entity.get());
+    engine.setScene(scene.get());
     
-    // Test update propagation
     engine.test_update();
     TEST_ASSERT_TRUE(entity->updated);
     
-    // Test draw propagation
     engine.test_draw();
     TEST_ASSERT_TRUE(entity->drawn);
     
-    delete scene;
-    delete entity;
+    // Scene and entity are automatically destroyed
 }
 
 void test_engine_graphics_ownership(void) {

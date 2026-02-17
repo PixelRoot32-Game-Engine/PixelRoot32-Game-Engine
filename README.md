@@ -33,11 +33,11 @@
 
 ## 📖 Overview
 
-**PixelRoot32** is a lightweight, modular 2D game engine written in C++, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
+**PixelRoot32** is a lightweight, modular 2D game engine written in **C++17**, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental.
+> **⚠️ Project Status**: PixelRoot32 is under active development. APIs may change without notice, and some subsystems are experimental or incomplete.
 
 ---
 
@@ -67,6 +67,17 @@ Watch PixelRoot32 running on ESP32 with example games:
 ---
 
 ## 🚀 Quick Start
+
+### ⚠️ Configuration Requirement
+
+To compile PixelRoot32, you **must** configure your `platformio.ini` to use C++17 and disable exceptions:
+
+```ini
+build_unflags = -std=gnu++11
+build_flags =
+    -std=gnu++17
+    -fno-exceptions
+```
 
 ### Prerequisites
 
@@ -112,7 +123,8 @@ Optional fixed-point arithmetic layer (Q16.16) to support ESP32 variants without
 Includes numeric abstraction layer, math refactor, deterministic behavior, and dual build configuration.
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
-- ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
+- ⚡ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks. Entities interact only with nearby neighbors, improving performance on constrained devices like ESP32.
+- 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 
 ### Completed Features ✅
 
@@ -124,7 +136,12 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ## 🕒 Changelog
 
----
+## 0.9.0-dev
+
+- **Modern C++ Migration**:
+  - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
+
+> **Migration Guide from v0.8.1-dev → v0.9.0-dev**: [MIGRATION_v0.8.1_to_v0.9.0](docs/MIGRATION_v0.8.1_to_v0.9.0.md)
 
 ### 0.8.1-dev
 

@@ -12,13 +12,7 @@
 #include <cstddef>
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
-
-#ifndef MAX_LAYERS
-    #define MAX_LAYERS 3
-#endif
-#ifndef MAX_ENTITIES
-    #define MAX_ENTITIES 32
-#endif
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::core {
 
@@ -27,7 +21,6 @@ namespace pixelroot32::core {
     using namespace pixelroot32::graphics;
     
     
-#ifdef PIXELROOT32_ENABLE_SCENE_ARENA
 #include <new> // for placement new
 struct SceneArena {
     unsigned char* buffer;
@@ -49,7 +42,6 @@ T* arenaNew(SceneArena& arena, Args&&... args) {
     }
     return new (mem) T(static_cast<Args&&>(args)...);
 }
-#endif
 
 /**
  * @class Scene
@@ -97,7 +89,7 @@ public:
     void clearEntities();
 
 protected:
-    Entity* entities[MAX_ENTITIES]; ///< Array of entities in the scene.
+    Entity* entities[pixelroot32::platforms::config::MaxEntities]; ///< Array of entities in the scene.
     int entityCount = 0;            ///< Current number of entities.
     bool needsSorting = false;      ///< Flag to trigger sorting by layer.
 
@@ -105,9 +97,7 @@ protected:
     bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer);
 
     pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
-#ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     SceneArena arena;
-#endif
 };
 
 }

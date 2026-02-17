@@ -43,13 +43,13 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 #### Public Methods
 
-- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig)`**
+- **`Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig)`**
     Constructs the engine with custom display, input and audio configurations.
 
-- **`Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig)`**
+- **`Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig)`**
     Constructs the engine with custom display and input configurations.
 
-- **`Engine(const DisplayConfig& displayConfig)`**
+- **`Engine(DisplayConfig&& displayConfig)`**
     Constructs the engine with custom display configuration and default input settings.
 
 - **`void init()`**
@@ -64,8 +64,8 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`void setScene(Scene* newScene)`**
     Sets the current active scene.
 
-- **`Scene* getCurrentScene() const`**
-    Retrieves the currently active scene.
+- **`std::optional<Scene*> getCurrentScene() const`**
+    Retrieves the currently active scene, or std::nullopt if no scene is active.
 
 - **`Renderer& getRenderer()`**
     Provides access to the Renderer subsystem.
@@ -80,6 +80,7 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
     Returns the detected hardware capabilities for the current platform.
 
 ### PlatformCapabilities (Struct)
+**Namespace:** `pixelroot32::platforms`
 
 A structure that holds detected hardware capabilities, used to optimize task pinning and threading.
 
@@ -120,6 +121,7 @@ Configuration settings for display initialization and scaling.
 - **`uint16_t logicalHeight`**: Virtual rendering height.
 - **`int xOffset`**: X coordinate offset for hardware alignment.
 - **`int yOffset`**: Y coordinate offset for hardware alignment.
+- **`std::unique_ptr<DrawSurface> drawSurface`**: Unique pointer to the drawing surface implementation (e.g., ST7789, SDL2Surface).
 
 ---
 
@@ -381,12 +383,13 @@ Represents a game level or screen containing entities. A Scene manages a collect
 
 - **`void addEntity(Entity* entity)`**
     Adds an entity to the scene.
+    > **Note:** The scene does **not** take ownership of the entity. You must ensure the entity remains valid as long as it is in the scene (typically by holding it in a `std::unique_ptr` within your Scene class).
 
 - **`void removeEntity(Entity* entity)`**
-    Removes an entity from the scene.
+    Removes an entity from the scene. Does not delete the entity object.
 
 - **`void clearEntities()`**
-    Removes all entities from the scene.
+    Removes all entities from the scene. Does not delete the entity objects.
 
 #### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
 
@@ -425,8 +428,8 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 - **`void popScene()`**
     Removes the top scene from the stack, resuming the previous one.
 
-- **`Scene* getCurrentScene() const`**
-    Gets the currently active scene.
+- **`std::optional<Scene*> getCurrentScene() const`**
+    Gets the currently active scene, or std::nullopt if no scene is active.
 
 ---
 
@@ -478,20 +481,20 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 - **`bool isOffsetBypassEnabled() const`**
     Returns whether the offset bypass is currently active.
 
-- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size)`**
+- **`void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size)`**
     Draws a string of text using the native bitmap font system. Uses the default font set in `FontManager`, or a custom font if provided via the overloaded version.
   - **text**: The string to render (ASCII characters 32-126 are supported).
   - **x, y**: Position where text starts (top-left corner).
   - **color**: Color from the `Color` enum (uses sprite palette context).
   - **size**: Scale multiplier (1 = normal, 2 = double, 3 = triple, etc.).
 
-- **`void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`**
+- **`void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`**
     Draws text using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
 
-- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size)`**
+- **`void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size)`**
     Draws text centered horizontally at a given Y coordinate using the default font.
 
-- **`void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font)`**
+- **`void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font)`**
     Draws text centered horizontally using a specific font. If `font` is `nullptr`, uses the default font from `FontManager`.
 
 - **`void drawFilledCircle(int x, int y, int radius, uint16_t color)`**
@@ -613,7 +616,7 @@ Static utility class for managing fonts and calculating text dimensions.
 - **`static const Font* getDefaultFont()`**
     Returns the currently active default font, or `nullptr` if no font is set.
 
-- **`static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1)`**
+- **`static int16_t textWidth(const Font* font, std::string_view text, uint8_t size = 1)`**
     Calculates the pixel width of a text string when rendered with the specified font and size.
   - **font**: Font to use (or `nullptr` to use default font).
   - **text**: String to measure.
@@ -788,6 +791,23 @@ Abstract base class for all UI components. UI elements are automatically assigne
 
 ---
 
+### UILabel
+
+**Inherits:** [UIElement](#uielement)
+
+A simple text label UI element that automatically calculates its bounds based on text length and font size.
+
+#### Public Methods
+
+- **`UILabel(std::string_view text, float x, float y, Color color, uint8_t size = 1)`**
+    Constructs a new label.
+- **`void setText(std::string_view text)`**
+    Updates the label's text and recalculates its dimensions.
+- **`void centerX(int screenWidth)`**
+    Centers the label horizontally within the given width.
+
+---
+
 ### UIButton
 
 **Inherits:** [UIElement](#uielement)
@@ -796,7 +816,7 @@ A clickable button that supports both physical button/keyboard input and touch i
 
 #### Public Methods
 
-- **`UIButton(std::string label, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
+- **`UIButton(std::string_view label, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
     Constructs a new button with a navigation index and a click callback.
 - **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
     Configures the button's colors and background visibility.
@@ -819,7 +839,7 @@ A UI element that can be toggled between checked and unchecked states.
 
 #### Public Methods
 
-- **`UICheckBox(std::string label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
+- **`UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
     Constructs a new checkbox.
   - `label`: Checkbox label text.
   - `index`: Navigation index (for D-pad navigation).
@@ -1470,7 +1490,7 @@ A clickable button UI element. Supports callback functions and state management 
 
 #### Public Methods
 
-- **`UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)`**
+- **`UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)`**
     Constructs a button.
 
 - **`void setStyle(uint16_t textCol, uint16_t bgCol, bool drawBg)`**
@@ -1492,14 +1512,14 @@ A simple text label UI element.
 
 #### Public Methods
 
-- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
+- **`UILabel(std::string_view t, float x, float y, Color col, uint8_t sz)`**
     Constructs a label.
   - **t**: Label text.
   - **x, y**: Position.
   - **col**: Text color from the `Color` enum.
   - **sz**: Text size multiplier.
 
-- **`void setText(const std::string& t)`**
+- **`void setText(std::string_view t)`**
     Updates the label's text. Recalculates dimensions immediately using the current font metrics.
 
 - **`void centerX(int screenWidth)`**
@@ -1798,7 +1818,7 @@ A clickable button UI element. Supports both physical (keyboard/gamepad) and tou
 
 #### Public Methods
 
-- **`UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2)`**
+- **`UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2)`**
     Constructs a new UIButton.
   - `t`: Button label text.
   - `index`: Navigation index (for D-pad navigation).
@@ -1834,10 +1854,9 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 #### Public Methods
 
-- **`UILabel(std::string t, float x, float y, Color col, uint8_t sz)`**
+- **`UILabel(std::string_view t, float x, float y, Color col, uint8_t sz)`**
     Constructs a new UILabel.
-
-- **`void setText(const std::string& t)`**
+- **`void setText(std::string_view t)`**
     Updates the label's text. Recalculates dimensions.
 
 - **`void setVisible(bool v)`**

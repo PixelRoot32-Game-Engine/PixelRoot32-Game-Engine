@@ -13,6 +13,7 @@
 
 #ifdef PLATFORM_NATIVE
     #include "drivers/native/SDL2_Drawer.h"
+    #include <cassert>
 #else
     #include "platforms/PlatformDefaults.h"
     #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
@@ -24,7 +25,7 @@
 
 #ifdef TEST_MOCK_GRAPHICS
 #include "graphics/BaseDrawSurface.h"
-#include <stdexcept>
+#include <cassert>
 #endif
 
 namespace pixelroot32::graphics {
@@ -103,7 +104,7 @@ namespace pixelroot32::graphics {
             drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
         } else {
             #ifdef PLATFORM_NATIVE
-                throw std::runtime_error("Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
+                assert(false && "Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
             #else
                 // In ESP32, exceptions may not be enabled by default
                 // while(1); 

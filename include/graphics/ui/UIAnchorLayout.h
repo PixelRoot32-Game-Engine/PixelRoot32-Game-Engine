@@ -111,8 +111,8 @@ public:
 
 private:
     std::vector<std::pair<UIElement*, Anchor>> anchoredElements;  ///< Elements with their anchor points
-    float screenWidth = static_cast<float>(LOGICAL_WIDTH);   ///< Screen width for anchor calculations (logical resolution)
-    float screenHeight = static_cast<float>(LOGICAL_HEIGHT);  ///< Screen height for anchor calculations (logical resolution)
+    float screenWidth = static_cast<float>(pixelroot32::platforms::config::LogicalWidth);   ///< Screen width for anchor calculations (logical resolution)
+    float screenHeight = static_cast<float>(pixelroot32::platforms::config::LogicalHeight);  ///< Screen height for anchor calculations (logical resolution)
 
     /**
      * @brief Calculates position for an element based on its anchor.

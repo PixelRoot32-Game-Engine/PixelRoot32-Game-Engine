@@ -6,6 +6,7 @@
 #include "UIElement.h"
 #include "graphics/Color.h"
 #include <string>
+#include <string_view>
 
 namespace pixelroot32::graphics::ui {
 
@@ -25,14 +26,14 @@ public:
         * @param col Text color.
         * @param sz Text size multiplier.
         */
-    UILabel(std::string t, float x, float y, Color col, uint8_t sz);
+    UILabel(std::string_view t, float x, float y, Color col, uint8_t sz);
 
     /**
         * @brief Updates the label's text.
         * Recalculates dimensions if text changes.
         * @param t New text.
         */
-    void setText(const std::string& t);
+    void setText(std::string_view t);
 
     /**
         * @brief Sets visibility.

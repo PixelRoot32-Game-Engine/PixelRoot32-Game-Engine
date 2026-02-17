@@ -11,9 +11,19 @@ PixelRoot32 follows a strict set of conventions to ensure consistency, readabili
 
 ### Language
 
-- C++11
-- Avoid RTTI and exceptions in performance-critical runtime code
+- C++17
+- Avoid RTTI and exceptions (use `-fno-exceptions`)
 - Prefer deterministic and explicit control flow
+
+### Modern C++ Features (C++17)
+
+PixelRoot32 embraces C++17 to write safer and more expressive code without sacrificing performance.
+
+- **Smart Pointers**: `std::unique_ptr` for exclusive ownership.
+- **String Views**: `std::string_view` for non-owning string references (avoid `std::string` copies).
+- **Optional**: `std::optional` for values that may or may not exist (cleaner than pointer checks or magic values).
+- **Attributes**: Use `[[nodiscard]]` for functions where the return value must not be ignored (e.g., error codes).
+- **Constexpr**: Use `constexpr` for compile-time constants and `if constexpr` for compile-time branching.
 
 ### Files
 
@@ -131,11 +141,15 @@ These guidelines are derived from practical implementation in `examples/Geometry
 
 ### 💾 Memory & Resources
 
+- **Smart Pointers (C++17)**: Prefer `std::unique_ptr` for owning objects (like Scenes, Actors, UI elements) to automate memory management and document ownership.
+  - Use `std::make_unique<T>(...)` to create objects.
+  - Pass raw pointers (via `.get()`) to functions that do *not* take ownership (like `addEntity`).
+  - Use `std::move` only when transferring ownership explicitly.
 - **Object Pooling**: Pre-allocate all game objects (obstacles, particles, enemies) during `init()`.
   - *Pattern*: Use fixed-size arrays (e.g., `Particle particles[50]`) and flags (`isActive`) instead of `std::vector` with `push_back`/`erase`.
   - *Trade-off*: Eliminates runtime allocations and fragmentation at the cost of a slightly higher fixed RAM footprint; dimension pools to realistic worst-case usage.
 - **Zero Runtime Allocation**: Never use `new` or `malloc` inside the game loop (`update` or `draw`).
-- **String Handling**: Avoid `std::string` in `update()`/`draw()`. Use `snprintf` with stack-allocated `char` buffers for UI text.
+- **String Handling**: Avoid `std::string` copies. Use `std::string_view` for passing strings. For formatting, use `snprintf` with stack-allocated `char` buffers.
 
 - **Scene Arenas** (`PIXELROOT32_ENABLE_SCENE_ARENA`):
   - Use a single pre-allocated buffer per scene for temporary entities or scratch data when you need strict zero-allocation guarantees.

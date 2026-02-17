@@ -10,7 +10,7 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
 
-    UIButton::UIButton(std::string t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
+    UIButton::UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
         : UIElement(x, y, w, h, UIElementType::BUTTON), 
             label(t), 
             index(index),

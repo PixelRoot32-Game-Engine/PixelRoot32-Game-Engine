@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.9.0-dev
+
+- **Modern C++ Migration**:
+  - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
+
+> **Migration Guide from v0.8.1-dev → v0.9.0-dev**: [MIGRATION_v0.8.1_to_v0.9.0](docs/MIGRATION_v0.8.1_to_v0.9.0.md)
+
 ## 0.8.1-dev
 
 - **Engine Optimization & Fixes**:

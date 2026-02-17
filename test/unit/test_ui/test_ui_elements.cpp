@@ -10,6 +10,7 @@
 #include "graphics/BaseDrawSurface.h"
 #include <vector>
 #include <string>
+#include <memory>
 
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::ui;
@@ -72,22 +73,26 @@ void test_ui_label_creation_and_position() {
 }
 
 void test_ui_label_draw() {
-    MockDrawSurface* mockDrawer = new MockDrawSurface();
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer, 240, 240);
+    auto mockDrawer = std::make_unique<MockDrawSurface>();
+    // Keep raw pointer for assertions since DisplayConfig takes ownership
+    MockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
     Renderer renderer(config);
     
     UILabel label("Hello", 10, 20, Color::White, 2);
     label.draw(renderer);
     
-    TEST_ASSERT_EQUAL(1, mockDrawer->textCalls.size());
-    TEST_ASSERT_EQUAL_STRING("Hello", mockDrawer->textCalls[0].text.c_str());
-    TEST_ASSERT_EQUAL(10, mockDrawer->textCalls[0].x);
-    TEST_ASSERT_EQUAL(20, mockDrawer->textCalls[0].y);
+    TEST_ASSERT_EQUAL(1, mockRaw->textCalls.size());
+    TEST_ASSERT_EQUAL_STRING("Hello", mockRaw->textCalls[0].text.c_str());
+    TEST_ASSERT_EQUAL(10, mockRaw->textCalls[0].x);
+    TEST_ASSERT_EQUAL(20, mockRaw->textCalls[0].y);
 }
 
 void test_ui_label_draw_with_data() {
-    MockDrawSurface* mockDrawer = new MockDrawSurface();
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer, 240, 240);
+    auto mockDrawer = std::make_unique<MockDrawSurface>();
+    // Keep raw pointer for assertions since DisplayConfig takes ownership
+    MockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
     Renderer renderer(config);
 
     // Set a glyph with some bits: 0x0001 is bit 0
@@ -102,10 +107,10 @@ void test_ui_label_draw_with_data() {
     UILabel label("A", 10, 20, Color::White, 1);
     label.draw(renderer);
     
-    TEST_ASSERT_FALSE(mockDrawer->pixelCalls.empty());
+    TEST_ASSERT_FALSE(mockRaw->pixelCalls.empty());
     // (10, 20) is the position
-    TEST_ASSERT_EQUAL(10, mockDrawer->pixelCalls[0].x);
-    TEST_ASSERT_EQUAL(20, mockDrawer->pixelCalls[0].y);
+    TEST_ASSERT_EQUAL(10, mockRaw->pixelCalls[0].x);
+    TEST_ASSERT_EQUAL(20, mockRaw->pixelCalls[0].y);
     
     FontManager::setDefaultFont(&dummyFont); // Restore
 }
@@ -151,10 +156,10 @@ void test_ui_checkbox_toggle() {
 
 void test_ui_panel_hierarchy() {
     UIPanel panel(10, 10, 100, 100);
-    UILabel* label = new UILabel("Inside", 0, 0, Color::White, 1);
+    auto label = std::make_unique<UILabel>("Inside", 0, 0, Color::White, 1);
     
-    panel.setChild(label);
-    TEST_ASSERT_EQUAL_PTR(label, panel.getChild());
+    panel.setChild(label.get());
+    TEST_ASSERT_EQUAL_PTR(label.get(), panel.getChild());
     
     // Panel at (10,10), child relative (0,0) should be at (10,10)
     TEST_ASSERT_EQUAL_FLOAT(10, label->x);
