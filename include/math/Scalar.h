@@ -21,7 +21,11 @@ constexpr Scalar toScalar(T val) {
     if constexpr (std::is_same_v<Scalar, float>) {
         return static_cast<float>(val);
     } else {
-        return Scalar(val);
+        if constexpr (std::is_integral_v<T>) {
+            return Scalar(static_cast<int>(val));
+        } else {
+            return Scalar(val);
+        }
     }
 }
 
