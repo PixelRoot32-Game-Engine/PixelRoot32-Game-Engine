@@ -11,8 +11,8 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::math;
     using namespace pixelroot32::graphics;
 
-    UILabel::UILabel(std::string_view t, Scalar x, Scalar y, Color col, uint8_t sz)
-        : UIElement(x, y, 0, 0, UIElementType::LABEL),
+    UILabel::UILabel(std::string_view t, Vector2 position, Color col, uint8_t sz)
+        : UIElement(position, 0, 0, UIElementType::LABEL),
             text(t),
             color(col),
             size(sz) {
@@ -27,7 +27,7 @@ namespace pixelroot32::graphics::ui {
 
     void UILabel::centerX(int screenWidth) {
         recalcSize();
-        this->x = toScalar(screenWidth - static_cast<int>(width)) * toScalar(0.5f);
+        this->position.x = toScalar(screenWidth - static_cast<int>(width)) * toScalar(0.5f);
     }
 
     void UILabel::update(unsigned long deltaTime) {
@@ -43,7 +43,7 @@ namespace pixelroot32::graphics::ui {
             renderer.setOffsetBypass(true);
         }
         
-        renderer.drawText(text.c_str(), static_cast<int>(x), static_cast<int>(y), color, size);
+        renderer.drawText(text.c_str(), static_cast<int>(position.x), static_cast<int>(position.y), color, size);
         
         // Restore bypass state
         if (fixedPosition) {

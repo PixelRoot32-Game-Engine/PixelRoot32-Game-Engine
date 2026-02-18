@@ -26,7 +26,15 @@ public:
      * @param w Width of the layout container.
      * @param h Height of the layout container (viewport height).
      */
-    UIVerticalLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    UIVerticalLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y,  int w, int h);
+    
+    /**
+     * @brief Constructs a new UIVerticalLayout.
+     * @param position Position of the layout container.
+     * @param w Width of the layout container.
+     * @param h Height of the layout container (viewport height).
+     */
+    UIVerticalLayout(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIVerticalLayout() = default;
 

@@ -6,6 +6,8 @@
 #include "UILayout.h"
 #include <vector>
 #include <utility>
+#include "math/Scalar.h"
+#include "math/Vector2.h"
 
 #include "platforms/EngineConfig.h"
 
@@ -44,7 +46,15 @@ public:
      * @param w Width of the layout container (usually screen width).
      * @param h Height of the layout container (usually screen height).
      */
-    UIAnchorLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    UIAnchorLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
+
+    /**
+     * @brief Constructs a new UIAnchorLayout.
+     * @param position Position of the layout container (usually (0, 0)).
+     * @param w Width of the layout container (usually screen width).
+     * @param h Height of the layout container (usually screen height).
+     */
+    UIAnchorLayout(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIAnchorLayout() = default;
 
@@ -95,7 +105,7 @@ public:
      * @param screenWidth Screen width in pixels.
      * @param screenHeight Screen height in pixels.
      */
-    void setScreenSize(pixelroot32::math::Scalar screenWidth, pixelroot32::math::Scalar screenHeight);
+    void setScreenSize(int screenWidth, int screenHeight);
 
     /**
      * @brief Gets the screen width.
@@ -111,8 +121,8 @@ public:
 
 private:
     std::vector<std::pair<UIElement*, Anchor>> anchoredElements;  ///< Elements with their anchor points
-    pixelroot32::math::Scalar screenWidth = pixelroot32::math::Scalar(pixelroot32::platforms::config::LogicalWidth);   ///< Screen width for anchor calculations (logical resolution)
-    pixelroot32::math::Scalar screenHeight = pixelroot32::math::Scalar(pixelroot32::platforms::config::LogicalHeight);  ///< Screen height for anchor calculations (logical resolution)
+    int screenWidth = pixelroot32::platforms::config::LogicalWidth;   ///< Screen width for anchor calculations (logical resolution)
+    int screenHeight = pixelroot32::platforms::config::LogicalHeight;  ///< Screen height for anchor calculations (logical resolution)
 
     /**
      * @brief Calculates position for an element based on its anchor.

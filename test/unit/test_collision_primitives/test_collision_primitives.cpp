@@ -33,8 +33,8 @@ void test_collision_circle_vs_circle(void) {
 
 void test_collision_circle_vs_rect(void) {
     Circle c = { 0, 0, 10 };
-    Rect r1 = { 5, 0, 10, 10 };  // Should intersect
-    Rect r2 = { 15, 0, 10, 10 }; // Should not intersect
+    Rect r1 = { {5, 0}, 10, 10 };  // Should intersect
+    Rect r2 = { {15, 0}, 10, 10 }; // Should not intersect
     
     TEST_ASSERT_TRUE(intersects(c, r1));
     TEST_ASSERT_FALSE(intersects(c, r2));
@@ -43,7 +43,7 @@ void test_collision_circle_vs_rect(void) {
 void test_collision_segment_vs_rect(void) {
     Segment s1 = { -10, 5, 20, 5 }; // Crosses rect from left to right
     Segment s2 = { -10, -10, -5, -5 }; // Completely outside
-    Rect r = { 0, 0, 10, 10 };
+    Rect r = { {0, 0}, 10, 10 };
     
     TEST_ASSERT_TRUE(intersects(s1, r));
     TEST_ASSERT_FALSE(intersects(s2, r));
@@ -52,7 +52,7 @@ void test_collision_segment_vs_rect(void) {
 void test_collision_sweep_circle_vs_rect(void) {
     Circle start = { -20, 5, 5 };
     Circle end = { 20, 5, 5 };
-    Rect r = { 0, 0, 10, 10 };
+    Rect r = { {0, 0}, 10, 10 };
     float tHit = 0;
     
     // Should hit the rect

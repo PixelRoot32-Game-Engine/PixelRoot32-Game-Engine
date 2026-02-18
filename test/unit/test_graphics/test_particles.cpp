@@ -14,6 +14,7 @@
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::particles;
+using namespace pixelroot32::math;
 
 int MockDrawSurface::instances = 0;
 
@@ -35,10 +36,10 @@ void test_particle_emitter_initialization(void) {
         0.0f, 360.0f
     };
     
-    ParticleEmitter emitter(100, 100, cfg);
+    ParticleEmitter emitter({100, 100}, cfg);
     
-    TEST_ASSERT_EQUAL_FLOAT(100, emitter.x);
-    TEST_ASSERT_EQUAL_FLOAT(100, emitter.y);
+    TEST_ASSERT_EQUAL_FLOAT(100, emitter.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(100, emitter.position.y);
 }
 
 void test_particle_burst(void) {
@@ -51,8 +52,8 @@ void test_particle_burst(void) {
         0.0f, 360.0f
     };
     
-    ParticleEmitter emitter(0, 0, cfg);
-    emitter.burst(50, 50, 10);
+    ParticleEmitter emitter(Vector2::ZERO(), cfg);
+    emitter.burst({50, 50}, 10);
     
     // We can't directly inspect private particles array, 
     // but we can check if draw() produces calls.
@@ -80,8 +81,8 @@ void test_particle_emitter_lifecycle(void) {
         0.0f, 0.0f // All going right
     };
     
-    ParticleEmitter emitter(0, 0, cfg);
-    emitter.burst(0, 0, 1);
+    ParticleEmitter emitter(Vector2::ZERO(), cfg);
+    emitter.burst(Vector2::ZERO(), 1);
     
     // Update multiple times
     emitter.update(16);

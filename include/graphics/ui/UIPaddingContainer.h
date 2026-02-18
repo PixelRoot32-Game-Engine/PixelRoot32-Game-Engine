@@ -24,7 +24,15 @@ public:
      * @param w Width of the container.
      * @param h Height of the container.
      */
-    UIPaddingContainer(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    UIPaddingContainer(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
+
+    /**
+     * @brief Constructs a new UIPaddingContainer.
+     * @param position Position vector (x, y) of the container.
+     * @param w Width of the container.
+     * @param h Height of the container.
+     */
+    UIPaddingContainer(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIPaddingContainer() = default;
 

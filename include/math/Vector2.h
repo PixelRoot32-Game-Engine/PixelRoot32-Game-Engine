@@ -16,6 +16,16 @@ struct Vector2 {
 
     constexpr Vector2() : x(toScalar(0)), y(toScalar(0)) {}
     constexpr Vector2(Scalar _x, Scalar _y) : x(_x), y(_y) {}
+    constexpr Vector2(const Vector2& other) : x(other.x), y(other.y) {}
+    constexpr Vector2(int _x, int _y) : x(toScalar(_x)), y(toScalar(_y)) {}
+
+    // Common vectors
+    static constexpr Vector2 ZERO() { return {toScalar(0), toScalar(0)}; }
+    static constexpr Vector2 ONE() { return {toScalar(1), toScalar(1)}; }
+    static constexpr Vector2 UP() { return {toScalar(0), toScalar(-1)}; }
+    static constexpr Vector2 DOWN() { return {toScalar(0), toScalar(1)}; }
+    static constexpr Vector2 LEFT() { return {toScalar(-1), toScalar(0)}; }
+    static constexpr Vector2 RIGHT() { return {toScalar(1), toScalar(0)}; }
 
     // Arithmetic operators
     constexpr Vector2 operator+(const Vector2& other) const {

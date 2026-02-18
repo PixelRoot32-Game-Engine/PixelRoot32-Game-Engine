@@ -83,6 +83,14 @@ public:
     PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
 
     /**
+     * @brief Constructs a new PhysicsActor using Vector2 position.
+     * @param position Initial position.
+     * @param w Width of the actor.
+     * @param h Height of the actor.
+     */
+    PhysicsActor(pixelroot32::math::Vector2 position, int w, int h);
+
+    /**
      * @brief Updates the actor state.
      * 
      * Applies physics integration using velocity and checks for world boundary collisions.

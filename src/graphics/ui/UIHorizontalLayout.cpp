@@ -14,8 +14,14 @@ namespace pixelroot32::graphics::ui {
     
     using namespace pixelroot32::math;
         
-    UIHorizontalLayout::UIHorizontalLayout(Scalar x, Scalar y, Scalar w, Scalar h)
+    UIHorizontalLayout::UIHorizontalLayout(Scalar x, Scalar y, int w, int h)
         : UILayout(x, y, w, h) {
+        lastScrollOffset = Scalar(0);
+        needsClear = true; // Clear on first draw
+    }
+
+    UIHorizontalLayout::UIHorizontalLayout(Vector2 position, int w, int h)
+        : UILayout(position, w, h) {
         lastScrollOffset = Scalar(0);
         needsClear = true; // Clear on first draw
     }
@@ -66,18 +72,18 @@ namespace pixelroot32::graphics::ui {
             lastScrollOffset = scrollOffset;
         }
         
-        Scalar currentX = x + padding - scrollOffset;
-        Scalar viewportLeft = x;
-        Scalar viewportRight = x + Scalar(width);
+        Scalar currentX = position.x + padding - scrollOffset;
+        Scalar viewportLeft = position.x;
+        Scalar viewportRight = position.x + Scalar(width);
         
         for (size_t i = 0; i < elements.size(); ++i) {
             UIElement* elem = elements[i];
             
             // Set Y position (centered or top-aligned based on layout height)
-            Scalar elemY = y + padding;
+            Scalar elemY = position.y + padding;
             if (toScalar(elem->height) < toScalar(height) - (padding * toScalar(2))) {
                 // Center element vertically if it's smaller than layout height
-                elemY = y + (toScalar(height) - toScalar(elem->height)) / toScalar(2);
+                elemY = position.y + (toScalar(height) - toScalar(elem->height)) / toScalar(2);
             }
             
             elem->setPosition(currentX, elemY);
@@ -121,12 +127,12 @@ namespace pixelroot32::graphics::ui {
     }
 
     void UIHorizontalLayout::updateElementVisibility() {
-        Scalar viewportLeft = x;
-        Scalar viewportRight = x + Scalar(width);
+        Scalar viewportLeft = position.x;
+        Scalar viewportRight = position.x + Scalar(width);
         
         for (UIElement* elem : elements) {
-            Scalar elemLeft = elem->x;
-            Scalar elemRight = elem->x + Scalar(elem->width);
+            Scalar elemLeft = elem->position.x;
+            Scalar elemRight = elem->position.x + Scalar(elem->width);
             
             // Element is visible if it overlaps with viewport
             // Use strict bounds checking to prevent drawing outside viewport
@@ -153,10 +159,11 @@ namespace pixelroot32::graphics::ui {
         Scalar viewportWidth = Scalar(width);
         
         // Calculate screen positions with current scroll
-        Scalar screenLeft = x + padding + elemLeft - scrollOffset;
-        Scalar screenRight = x + padding + elemRight - scrollOffset;
-        Scalar viewportLeft = x;
-        Scalar viewportRight = x + viewportWidth;
+        Scalar screenLeft = position.x + padding + elemLeft - scrollOffset;
+        Scalar screenRight = position.x + padding + elemRight - scrollOffset;
+        Scalar viewportLeft = position.x;
+        Scalar viewportRight = position.x + viewportWidth;
+
         
         // Calculate required scroll offset to make element visible
         Scalar newScrollOffset = scrollOffset;
@@ -357,7 +364,7 @@ namespace pixelroot32::graphics::ui {
         }
         
         if (shouldClear) {
-            renderer.drawFilledRectangle(static_cast<int>(x), static_cast<int>(y), 
+            renderer.drawFilledRectangle(static_cast<int>(position.x), static_cast<int>(position.y), 
                                         width, height, pixelroot32::graphics::Color::Black);
             needsClear = false;
         }

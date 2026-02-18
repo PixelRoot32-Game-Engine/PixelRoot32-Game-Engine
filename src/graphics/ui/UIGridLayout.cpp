@@ -14,8 +14,13 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::math;
 
-    UIGridLayout::UIGridLayout(Scalar x, Scalar y, Scalar w, Scalar h)
+    UIGridLayout::UIGridLayout(Scalar x, Scalar y, int w, int h)
         : UILayout(x, y, w, h) {
+        if (columns == 0) columns = 1; // Ensure at least 1 column
+    }
+
+    UIGridLayout::UIGridLayout(Vector2 position, int w, int h)
+        : UILayout(position, w, h) {
         if (columns == 0) columns = 1; // Ensure at least 1 column
     }
 
@@ -93,8 +98,8 @@ namespace pixelroot32::graphics::ui {
             int col = static_cast<int>(i) % static_cast<int>(columns);
             
             // Calculate position
-            Scalar elemX = x + padding + Scalar(col) * (cellWidth + spacing);
-            Scalar elemY = y + padding + Scalar(row) * (cellHeight + spacing);
+            Scalar elemX = position.x + padding + Scalar(col) * (cellWidth + spacing);
+            Scalar elemY = position.y + padding + Scalar(row) * (cellHeight + spacing);
             
             // Center element within cell if it's smaller than the cell
             Scalar elemXCentered = elemX;
@@ -110,10 +115,10 @@ namespace pixelroot32::graphics::ui {
             elem->setPosition(elemXCentered, elemYCentered);
             
             // Update visibility (viewport culling)
-            Scalar viewportLeft = x;
-            Scalar viewportRight = x + Scalar(width);
-            Scalar viewportTop = y;
-            Scalar viewportBottom = y + Scalar(height);
+            Scalar viewportLeft = position.x;
+            Scalar viewportRight = position.x + Scalar(width);
+            Scalar viewportTop = position.y;
+            Scalar viewportBottom = position.y + Scalar(height);
             
             Scalar elemLeft = elemXCentered;
             Scalar elemRight = elemXCentered + Scalar(elem->width);

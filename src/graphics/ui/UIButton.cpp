@@ -12,8 +12,8 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::math;
 
-    UIButton::UIButton(std::string_view t, uint8_t index, Scalar x, Scalar y, Scalar w, Scalar h, std::function<void()> callback, TextAlignment textAlign, int fontSize)
-        : UIElement(x, y, w, h, UIElementType::BUTTON), 
+    UIButton::UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, std::function<void()> callback, TextAlignment textAlign, int fontSize)
+        : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::BUTTON), 
             label(t), 
             index(index),
             textAlign(textAlign),
@@ -46,8 +46,8 @@ namespace pixelroot32::graphics::ui {
     }
 
     bool UIButton::isPointInside(int px, int py) const {
-        return (px >= static_cast<int>(x) && px <= static_cast<int>(x + width) && 
-                py >= static_cast<int>(y) && py <= static_cast<int>(y + height));
+        return (px >= static_cast<int>(position.x) && px <= static_cast<int>(position.x + width) && 
+                py >= static_cast<int>(position.y) && py <= static_cast<int>(position.y + height));
     }
 
     void UIButton::handleInput(const InputManager& input) {
@@ -82,7 +82,7 @@ namespace pixelroot32::graphics::ui {
         }
 
         int intHeight = static_cast<int>(height);
-        int intY = static_cast<int>(y);
+        int intY = static_cast<int>(position.y);
         int textPixelHeight = fontSize * 8;
         if (textPixelHeight > intHeight) textPixelHeight = intHeight;
         int textY = intY + (intHeight - textPixelHeight) / 2;
@@ -90,11 +90,11 @@ namespace pixelroot32::graphics::ui {
         // 1. Draw background only when hasBackground is enabled
         if (hasBackground) {
             // Filled background rectangle
-            renderer.drawFilledRectangle(static_cast<int>(x), static_cast<int>(y), static_cast<int>(width), static_cast<int>(height), backgroundColor);
+            renderer.drawFilledRectangle(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(width), static_cast<int>(height), backgroundColor);
         } else {
             // Without background, indicate selection with a small marker
             if (isSelected) {
-                renderer.drawText(">", static_cast<int>(x) - 10, textY, Color::Yellow, fontSize);
+                renderer.drawText(">", static_cast<int>(position.x) - 10, textY, Color::Yellow, fontSize);
             }
         }
 
@@ -104,12 +104,12 @@ namespace pixelroot32::graphics::ui {
         if (textAlign == TextAlignment::CENTER) {
             // Calculate text width using FontManager
             int textWidth = FontManager::textWidth(nullptr, label.c_str(), fontSize);
-            int textX = static_cast<int>(x) + (static_cast<int>(width) - textWidth) / 2;
+            int textX = static_cast<int>(position.x) + (static_cast<int>(width) - textWidth) / 2;
             renderer.drawText(label.c_str(), textX, textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {
-            renderer.drawText(label.c_str(), static_cast<int>(x + width) - 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), static_cast<int>(position.x + width) - 5, textY, currentTextCol, fontSize);
         } else {
-            renderer.drawText(label.c_str(), static_cast<int>(x) + 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label.c_str(), static_cast<int>(position.x) + 5, textY, currentTextCol, fontSize);
         }
 
         // Restore bypass state

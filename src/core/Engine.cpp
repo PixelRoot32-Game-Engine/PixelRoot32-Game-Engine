@@ -193,6 +193,10 @@ namespace pixelroot32::core {
         return renderer;
     }
 
+    unsigned long Engine::getMillis() const {
+        return millis();
+    }
+
     void Engine::update() {
         unsigned long currentMillis = millis();
         deltaTime = currentMillis - previousMillis;

@@ -46,13 +46,11 @@ public:
         * @param textAlign Text alignment.
         * @param fontSize Text size multiplier.
         * @param index Navigation index (for D-pad navigation).
-        * @param x X position.
-        * @param y Y position.
-        * @param w Width.
-        * @param h Height.
+        * @param position Position.
+        * @param size Size.
         * @param callback Function to call when clicked/pressed.
         */
-    UIButton(std::string_view t, uint8_t index, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
+    UIButton(std::string_view t, uint8_t index, pixelroot32::math::Vector2 position, pixelroot32::math::Vector2 size, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
 
     /**
         * @brief Configures the button's visual style.

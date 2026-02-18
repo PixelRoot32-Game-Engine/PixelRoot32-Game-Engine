@@ -88,10 +88,10 @@ namespace pixelroot32::core {
         int viewH = renderer.getLogicalHeight();
 
         // Check intersection
-        return !(entity->x + entity->width < viewX || 
-                 entity->x > viewX + viewW ||
-                 entity->y + entity->height < viewY || 
-                 entity->y > viewY + viewH);
+        return !(entity->position.x + entity->width < viewX || 
+                 entity->position.x > viewX + viewW ||
+                 entity->position.y + entity->height < viewY || 
+                 entity->position.y > viewY + viewH);
     }
 
     void Scene::draw(Renderer& renderer) {

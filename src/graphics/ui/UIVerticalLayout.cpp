@@ -14,8 +14,14 @@ namespace pixelroot32::graphics::ui {
 
 using namespace pixelroot32::math;
 
-    UIVerticalLayout::UIVerticalLayout(Scalar x, Scalar y, Scalar w, Scalar h)
+    UIVerticalLayout::UIVerticalLayout(Scalar x, Scalar y, int w, int h)
         : UILayout(x, y, w, h) {
+        lastScrollOffset = toScalar(0);
+        needsClear = true; // Clear on first draw
+    }
+
+    UIVerticalLayout::UIVerticalLayout(Vector2 position, int w, int h)
+        : UILayout(position, w, h) {
         lastScrollOffset = toScalar(0);
         needsClear = true; // Clear on first draw
     }
@@ -66,18 +72,18 @@ using namespace pixelroot32::math;
             lastScrollOffset = scrollOffset;
         }
         
-        Scalar currentY = y + padding - scrollOffset;
-        Scalar viewportTop = y;
-        Scalar viewportBottom = y + height;
+        Scalar currentY = position.y + padding - scrollOffset;
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + height;
         
         for (size_t i = 0; i < elements.size(); ++i) {
             UIElement* elem = elements[i];
             
             // Set X position (centered or left-aligned based on layout width)
-            Scalar elemX = x + padding;
+            Scalar elemX = position.x + padding;
             if (toScalar(elem->width) < toScalar(width) - (padding * toScalar(2))) {
                 // Center element if it's smaller than layout width
-                elemX = x + (toScalar(width) - toScalar(elem->width)) * toScalar(0.5f);
+                elemX = position.x + (toScalar(width) - toScalar(elem->width)) * toScalar(0.5f);
             }
             
             elem->setPosition(elemX, currentY);
@@ -121,12 +127,12 @@ using namespace pixelroot32::math;
     }
 
     void UIVerticalLayout::updateElementVisibility() {
-        Scalar viewportTop = y;
-        Scalar viewportBottom = y + toScalar(height);
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + toScalar(height);
         
         for (UIElement* elem : elements) {
-            Scalar elemTop = elem->y;
-            Scalar elemBottom = elem->y + toScalar(elem->height);
+            Scalar elemTop = elem->position.y;
+            Scalar elemBottom = elem->position.y + toScalar(elem->height);
             
             // Element is visible if it overlaps with viewport
             // Use strict bounds checking to prevent drawing outside viewport
@@ -153,10 +159,11 @@ using namespace pixelroot32::math;
         Scalar viewportHeight = toScalar(height);
         
         // Calculate screen positions with current scroll
-        Scalar screenTop = y + padding + elemTop - scrollOffset;
-        Scalar screenBottom = y + padding + elemBottom - scrollOffset;
-        Scalar viewportTop = y;
-        Scalar viewportBottom = y + viewportHeight;
+        Scalar screenTop = position.y + padding + elemTop - scrollOffset;
+        Scalar screenBottom = position.y + padding + elemBottom - scrollOffset;
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + viewportHeight;
+
         
         // Calculate required scroll offset to make element visible
         Scalar newScrollOffset = scrollOffset;

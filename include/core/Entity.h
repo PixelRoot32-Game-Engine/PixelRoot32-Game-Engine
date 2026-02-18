@@ -11,6 +11,7 @@
 #pragma once
 #include "graphics/Renderer.h"
 #include "math/Scalar.h"
+#include "math/Vector2.h"
 
 namespace pixelroot32::core {
 
@@ -21,7 +22,7 @@ namespace pixelroot32::core {
  * Uses adaptable Scalar type for coordinates to support both float and fixed-point math.
  */
 struct Rect {
-    pixelroot32::math::Scalar x, y;   ///< Top-left corner coordinates.
+    pixelroot32::math::Vector2 position;   ///< Top-left corner coordinates.
     int width, height; ///< Dimensions of the rectangle.
 
     /**
@@ -30,8 +31,8 @@ struct Rect {
      * @return true if the rectangles overlap, false otherwise.
      */
     bool intersects(const Rect& other) const {
-        return !(x + width < other.x || x > other.x + other.width ||
-                 y + height < other.y || y > other.y + other.height);
+        return !(position.x + width < other.position.x || position.x > other.position.x + other.width ||
+                 position.y + height < other.position.y || position.y > other.position.y + other.height);
     }
 };
 
@@ -52,7 +53,7 @@ enum class EntityType { GENERIC, ACTOR, UI_ELEMENT };
  */
 class Entity {
 public:
-    pixelroot32::math::Scalar x, y;        ///< X and Y position in world space.
+    pixelroot32::math::Vector2 position;        ///< Position in world space.
     int width, height; ///< Width and Height of the entity.
     EntityType type;   ///< The specific type of this entity.
 
@@ -87,6 +88,16 @@ public:
 
     /**
      * @brief Constructor.
+     * @param position Initial position.
+     * @param w Width.
+     * @param h Height.
+     * @param t EntityType.
+     */
+    Entity(pixelroot32::math::Vector2 pos, int w, int h, EntityType t) 
+        : position(pos), width(w), height(h), type(t) {}
+
+    /**
+     * @brief Constructor.
      * @param x Initial X position.
      * @param y Initial Y position.
      * @param w Width.
@@ -94,7 +105,7 @@ public:
      * @param t EntityType.
      */
     Entity(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h, EntityType t) 
-        : x(x), y(y), width(w), height(h), type(t) {}
+        : position(x, y), width(w), height(h), type(t) {}
     
     /**
      * @brief Constructor with float coordinates for convenience.
@@ -102,7 +113,8 @@ public:
      */
     template <typename T = float, typename std::enable_if<!std::is_same<pixelroot32::math::Scalar, T>::value, int>::type = 0>
     Entity(float x, float y, int w, int h, EntityType t) 
-        : x(pixelroot32::math::toScalar(x)), y(pixelroot32::math::toScalar(y)), width(w), height(h), type(t) {}
+        : position(pixelroot32::math::toScalar(x), pixelroot32::math::toScalar(y)), width(w), height(h), type(t) {}
+
         
     virtual ~Entity() {}
 

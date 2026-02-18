@@ -21,12 +21,11 @@ public:
     /**
         * @brief Constructs a new UILabel.
         * @param t Initial text.
-        * @param x X position.
-        * @param y Y position.
+        * @param position Position.
         * @param col Text color.
         * @param sz Text size multiplier.
         */
-    UILabel(std::string_view t, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, Color col, uint8_t sz);
+    UILabel(std::string_view t, pixelroot32::math::Vector2 position, Color col, uint8_t sz);
 
     /**
         * @brief Updates the label's text.

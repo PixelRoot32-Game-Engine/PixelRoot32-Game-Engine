@@ -29,6 +29,15 @@ public:
         : Entity(x, y, w, h, EntityType::ACTOR) {}
 
     /**
+     * @brief Constructor using Vector2 position.
+     * @param pos Initial position.
+     * @param w Width.
+     * @param h Height.
+     */
+    Actor(pixelroot32::math::Vector2 pos, int w, int h)
+        : Entity(pos, w, h, EntityType::ACTOR) {}
+
+    /**
      * @brief Constructor using float coordinates.
      * Only enabled if Scalar is NOT float to avoid ambiguity.
      */

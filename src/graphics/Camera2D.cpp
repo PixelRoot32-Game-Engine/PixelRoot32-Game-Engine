@@ -9,10 +9,10 @@ namespace pixelroot32::graphics {
 
 using pixelroot32::math::Scalar;
 using pixelroot32::math::toScalar;
+using pixelroot32::math::Vector2;
 
 Camera2D::Camera2D(int viewportWidth, int viewportHeight)
-    : x(0)
-    , y(0)
+    : position(0, 0)
     , viewportWidth(viewportWidth)
     , viewportHeight(viewportHeight)
     , minX(0)
@@ -31,69 +31,69 @@ void Camera2D::setVerticalBounds(Scalar minYValue, Scalar maxYValue) {
     maxY = maxYValue;
 }
 
-void Camera2D::setPosition(Scalar newX, Scalar newY) {
-    x = newX;
-    y = newY;
+void Camera2D::setPosition(Vector2 newPos) {
+    position = newPos;
 
-    if (x < minX) x = minX;
-    if (x > maxX) x = maxX;
-    if (y < minY) y = minY;
-    if (y > maxY) y = maxY;
+    if (position.x < minX) position.x = minX;
+    if (position.x > maxX) position.x = maxX;
+    if (position.y < minY) position.y = minY;
+    if (position.y > maxY) position.y = maxY;
 }
 
 void Camera2D::followTarget(Scalar targetX) {
     Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
     Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
 
-    Scalar screenX = targetX - x;
+    Scalar screenX = targetX - position.x;
 
     if (screenX < deadZoneLeft) {
-        Scalar newX = targetX - deadZoneLeft;
-        setPosition(newX, y);
+        position.x = targetX - deadZoneLeft;
+        // Re-clamp
+        if (position.x < minX) position.x = minX;
+        if (position.x > maxX) position.x = maxX;
     } else if (screenX > deadZoneRight) {
-        Scalar newX = targetX - deadZoneRight;
-        setPosition(newX, y);
+        position.x = targetX - deadZoneRight;
+        // Re-clamp
+        if (position.x < minX) position.x = minX;
+        if (position.x > maxX) position.x = maxX;
     }
 }
 
-void Camera2D::followTarget(Scalar targetX, Scalar targetY) {
-    Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
-    Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
+void Camera2D::followTarget(Vector2 target) {
+    // Horizontal follow
+    followTarget(target.x);
 
-    Scalar screenX = targetX - x;
-
-    if (screenX < deadZoneLeft) {
-        Scalar newX = targetX - deadZoneLeft;
-        setPosition(newX, y);
-    } else if (screenX > deadZoneRight) {
-        Scalar newX = targetX - deadZoneRight;
-        setPosition(newX, y);
-    }
-
+    // Vertical follow
     Scalar deadZoneTop = Scalar(viewportHeight) * Scalar(0.3f);
     Scalar deadZoneBottom = Scalar(viewportHeight) * Scalar(0.7f);
 
-    Scalar screenY = targetY - y;
+    Scalar screenY = target.y - position.y;
 
     if (screenY < deadZoneTop) {
-        Scalar newY = targetY - deadZoneTop;
-        setPosition(x, newY);
+        position.y = target.y - deadZoneTop;
     } else if (screenY > deadZoneBottom) {
-        Scalar newY = targetY - deadZoneBottom;
-        setPosition(x, newY);
+        position.y = target.y - deadZoneBottom;
     }
+
+    // Re-clamp Y
+    if (position.y < minY) position.y = minY;
+    if (position.y > maxY) position.y = maxY;
 }
 
 Scalar Camera2D::getX() const {
-    return x;
+    return position.x;
 }
 
 Scalar Camera2D::getY() const {
-    return y;
+    return position.y;
+}
+
+Vector2 Camera2D::getPosition() const {
+    return position;
 }
 
 void Camera2D::apply(Renderer& renderer) const {
-    renderer.setDisplayOffset(static_cast<int>(-x), static_cast<int>(-y));
+    renderer.setDisplayOffset(static_cast<int>(-position.x), static_cast<int>(-position.y));
 }
 
 void Camera2D::setViewportSize(int width, int height) {

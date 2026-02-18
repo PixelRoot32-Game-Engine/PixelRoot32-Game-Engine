@@ -22,7 +22,7 @@ public:
     TestActor(float x, float y, int w, int h) : Actor(x, y, w, h) {}
 
     Rect getHitBox() override {
-        return {x, y, width, height};
+        return {position, width, height};
     }
 
     void onCollision(Actor* other) override {
@@ -54,8 +54,8 @@ void tearDown(void) {
 void test_actor_initialization(void) {
     TestActor a(10.0f, 20.0f, 30, 40);
     
-    TEST_ASSERT_EQUAL_FLOAT(10.0f, a.x);
-    TEST_ASSERT_EQUAL_FLOAT(20.0f, a.y);
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, a.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20.0f, a.position.y);
     TEST_ASSERT_EQUAL_INT(30, a.width);
     TEST_ASSERT_EQUAL_INT(40, a.height);
     TEST_ASSERT_EQUAL_INT(static_cast<int>(EntityType::ACTOR), static_cast<int>(a.type));
@@ -148,20 +148,20 @@ void test_actor_hitbox_basic(void) {
     TestActor a(10.0f, 20.0f, 30, 40);
     Rect hitbox = a.getHitBox();
     
-    TEST_ASSERT_EQUAL_FLOAT(10.0f, hitbox.x);
-    TEST_ASSERT_EQUAL_FLOAT(20.0f, hitbox.y);
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, hitbox.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20.0f, hitbox.position.y);
     TEST_ASSERT_EQUAL_INT(30, hitbox.width);
     TEST_ASSERT_EQUAL_INT(40, hitbox.height);
 }
 
 void test_actor_hitbox_follows_position(void) {
     TestActor a(0, 0, 10, 10);
-    a.x = 50.0f;
-    a.y = 60.0f;
+    a.position.x = 50.0f;
+    a.position.y = 60.0f;
     
     Rect hitbox = a.getHitBox();
-    TEST_ASSERT_EQUAL_FLOAT(50.0f, hitbox.x);
-    TEST_ASSERT_EQUAL_FLOAT(60.0f, hitbox.y);
+    TEST_ASSERT_EQUAL_FLOAT(50.0f, hitbox.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, hitbox.position.y);
 }
 
 void test_actor_hitbox_size_matches(void) {

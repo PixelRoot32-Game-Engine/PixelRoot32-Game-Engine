@@ -22,8 +22,8 @@ bool intersects(const Circle& a, const Circle& b) {
 bool intersects(const Circle& c, const Rect& r) {
     Scalar closestX = c.x;
     Scalar closestY = c.y;
-    Scalar rX = r.x;
-    Scalar rY = r.y;
+    Scalar rX = r.position.x;
+    Scalar rY = r.position.y;
     Scalar rW = toScalar(r.width);
     Scalar rH = toScalar(r.height);
 
@@ -43,13 +43,14 @@ bool intersects(const Segment& s, const Rect& r) {
     Scalar y1 = s.y1;
     Scalar x2 = s.x2;
     Scalar y2 = s.y2;
-    Scalar rX = r.x;
-    Scalar rY = r.y;
+    Scalar rX = r.position.x;
+    Scalar rY = r.position.y;
     Scalar rW = toScalar(r.width);
     Scalar rH = toScalar(r.height);
 
     Scalar dx = x2 - x1;
     Scalar dy = y2 - y1;
+
 
     Scalar tMin = toScalar(0.0f);
     Scalar tMax = toScalar(1.0f);
@@ -99,14 +100,15 @@ bool sweepCircleVsRect(const Circle& start,
                        const Rect& rect,
                        Scalar& tHit) {
     // Expand the rectangle by the circle radius and perform a segment cast against it.
-    Scalar rxMin = rect.x - start.radius;
-    Scalar ryMin = rect.y - start.radius;
-    Scalar rxMax = rect.x + toScalar(rect.width)  + start.radius;
-    Scalar ryMax = rect.y + toScalar(rect.height) + start.radius;
+    Scalar rxMin = rect.position.x - start.radius;
+    Scalar ryMin = rect.position.y - start.radius;
+    Scalar rxMax = rect.position.x + toScalar(rect.width)  + start.radius;
+    Scalar ryMax = rect.position.y + toScalar(rect.height) + start.radius;
 
     // Early out: if start position already inside expanded rect
     if (start.x >= rxMin && start.x <= rxMax &&
         start.y >= ryMin && start.y <= ryMax) {
+
         tHit = toScalar(0.0f);
         return true;
     }

@@ -24,11 +24,10 @@ public:
 
     /**
      * @brief Constructs a new ParticleEmitter.
-     * @param x Initial X position.
-     * @param y Initial Y position.
+     * @param position Initial position.
      * @param cfg Configuration for the emitted particles.
      */
-    ParticleEmitter(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, const ParticleConfig& cfg);
+    ParticleEmitter(pixelroot32::math::Vector2 position, const ParticleConfig& cfg);
     
     /**
      * @brief Updates all active particles.
@@ -45,11 +44,10 @@ public:
 
     /**
      * @brief Emits a burst of particles from a specific location.
-     * @param x Emission origin X.
-     * @param y Emission origin Y.
+     * @param position Emission origin.
      * @param count Number of particles to spawn.
      */
-    void burst(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int count);
+    void burst(pixelroot32::math::Vector2 position, int count);
 
 private:
     ParticleConfig config;  

@@ -63,8 +63,8 @@ namespace pixelroot32::graphics::particles {
         }
     }
 
-    ParticleEmitter::ParticleEmitter(Scalar x, Scalar y, const ParticleConfig& cfg)
-        : Entity(x, y, 0, 0, EntityType::GENERIC),
+    ParticleEmitter::ParticleEmitter(Vector2 position, const ParticleConfig& cfg)
+        : Entity(position, 0, 0, EntityType::GENERIC),
             config(cfg) {
              // Seed with something somewhat random if needed, or keep deterministic
              s_rngState = (uint32_t)((uintptr_t)this + 12345); 
@@ -80,14 +80,12 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i];
             if (!p.active) continue;
 
-            p.x += p.vx;
-            p.y += p.vy;
+            p.position += p.velocity;
 
-            p.vy += config.gravity;
-            p.vx *= config.friction;
-            p.vy *= config.friction;
+            p.velocity.y += config.gravity;
+            p.velocity *= config.friction;
 
-            if (p.x < 0 || p.x > screenW || p.y < 0 || p.y > screenH) {
+            if (p.position.x < 0 || p.position.x > screenW || p.position.y < 0 || p.position.y > screenH) {
                 p.active = false;
                 continue;
             }
@@ -111,11 +109,11 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i]; 
             if (!p.active) continue;
             
-            renderer.drawFilledRectangleW(static_cast<int>(p.x), static_cast<int>(p.y), 2, 2, p.color);
+            renderer.drawFilledRectangleW(static_cast<int>(p.position.x), static_cast<int>(p.position.y), 2, 2, p.color);
         }
     }
 
-    void ParticleEmitter::burst(Scalar x, Scalar y, int count) {
+    void ParticleEmitter::burst(Vector2 position, int count) {
         int activated = 0;
 
         for (int i = 0; i < maxParticles && activated < count; i++) {
@@ -123,15 +121,14 @@ namespace pixelroot32::graphics::particles {
             if (p.active) continue;
 
             p.active = true;
-            p.x = x;
-            p.y = y;
+            p.position = position;
 
             Scalar angleDeg = fastRandScalar(config.minAngleDeg, config.maxAngleDeg);
             Scalar angle = angleDeg * kDegToRad;
             Scalar speed = fastRandScalar(config.minSpeed, config.maxSpeed);
 
-            p.vx = pixelroot32::math::cos(angle) * speed;
-            p.vy = pixelroot32::math::sin(angle) * speed;
+            p.velocity.x = pixelroot32::math::cos(angle) * speed;
+            p.velocity.y = pixelroot32::math::sin(angle) * speed;
 
             p.maxLife = fastRandInt(config.minLife, config.maxLife);
             p.life = p.maxLife;

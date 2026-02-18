@@ -44,14 +44,26 @@ protected:
 public:
     /**
      * @brief Constructs a new UIElement.
+     * @param position Position.
+     * @param w Width.
+     * @param h Height.
+     * @param t Element type (default: GENERIC).
+     */
+    UIElement(pixelroot32::math::Vector2 position, int w, int h, UIElementType t = UIElementType::GENERIC) 
+        : pixelroot32::core::Entity(position, w, h, pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
+        setRenderLayer(2);
+    }
+
+    /**
+     * @brief Constructs a new UIElement.
      * @param x X position.
      * @param y Y position.
      * @param w Width.
      * @param h Height.
      * @param t Element type (default: GENERIC).
      */
-    UIElement(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h, UIElementType t = UIElementType::GENERIC) 
-        : pixelroot32::core::Entity(x, y, static_cast<int>(w), static_cast<int>(h), pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
+    UIElement(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h, UIElementType t = UIElementType::GENERIC) 
+        : pixelroot32::core::Entity(x, y, w, h, pixelroot32::core::EntityType::UI_ELEMENT), type(t) {
         setRenderLayer(2);
     }
 
@@ -93,8 +105,8 @@ public:
      * @param newY New Y coordinate.
      */
     virtual void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) {
-        x = newX;
-        y = newY;
+        position.x = newX;
+        position.y = newY;
     }
 
     /**

@@ -25,7 +25,15 @@ public:
      * @param w Width of the panel.
      * @param h Height of the panel.
      */
-    UIPanel(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    UIPanel(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
+
+    /**
+     * @brief Constructs a new UIPanel.
+     * @param position Position vector of the panel.
+     * @param w Width of the panel.
+     * @param h Height of the panel.
+     */
+    UIPanel(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIPanel() = default;
 

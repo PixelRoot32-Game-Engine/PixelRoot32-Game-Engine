@@ -5,6 +5,7 @@
 #pragma once
 
 #include "math/Scalar.h"
+#include "math/Vector2.h"
 
 namespace pixelroot32::graphics {
 
@@ -18,13 +19,15 @@ public:
 
     void setVerticalBounds(pixelroot32::math::Scalar minY, pixelroot32::math::Scalar maxY);
 
-    void setPosition(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y);
+    void setPosition(pixelroot32::math::Vector2 position);
 
     void followTarget(pixelroot32::math::Scalar targetX);
-    void followTarget(pixelroot32::math::Scalar targetX, pixelroot32::math::Scalar targetY);
+    void followTarget(pixelroot32::math::Vector2 target);
 
     pixelroot32::math::Scalar getX() const;
     pixelroot32::math::Scalar getY() const;
+
+    pixelroot32::math::Vector2 getPosition() const;
 
     void apply(Renderer& renderer) const;
 
@@ -36,8 +39,7 @@ public:
     void setViewportSize(int width, int height);
 
 private:
-    pixelroot32::math::Scalar x;
-    pixelroot32::math::Scalar y;
+    pixelroot32::math::Vector2 position;
     int viewportWidth;
     int viewportHeight;
     pixelroot32::math::Scalar minX;

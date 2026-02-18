@@ -18,6 +18,12 @@ PhysicsActor::PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scala
     worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }
 
+PhysicsActor::PhysicsActor(pixelroot32::math::Vector2 position, int w, int h)
+    : Actor(position, w, h) {
+    worldWidth = pixelroot32::platforms::config::LogicalWidth;
+    worldHeight = pixelroot32::platforms::config::LogicalHeight;
+}
+
 void PhysicsActor::update(unsigned long deltaTime) {
     // Convert ms to seconds
     pixelroot32::math::Scalar dt = pixelroot32::math::toScalar(static_cast<float>(deltaTime) * 0.001f);
@@ -33,9 +39,8 @@ void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
     }
     
     // Update position using velocity
-    // Entity now uses Scalar for position, so we can add directly
-    x += velocity.x * dt;
-    y += velocity.y * dt;
+    // Entity now uses Vector2 for position, so we can add directly
+    position += velocity * dt;
 
     // Apply friction
     pixelroot32::math::Scalar one = pixelroot32::math::toScalar(1.0f);
@@ -71,29 +76,29 @@ void PhysicsActor::resolveWorldBounds() {
     Scalar sWidth = toScalar(width);
     Scalar sHeight = toScalar(height);
 
-    if (x < sLeft) { 
-        x = sLeft; 
+    if (position.x < sLeft) { 
+        position.x = sLeft; 
         velocity.x = -velocity.x * restitution; 
         
         worldCollisionInfo.left = true;
         onWorldCollision(); 
     }
-    if (x + sWidth > sRight) { 
-        x = sRight - sWidth; 
+    if (position.x + sWidth > sRight) { 
+        position.x = sRight - sWidth; 
         velocity.x = -velocity.x * restitution; 
 
         worldCollisionInfo.right = true;
         onWorldCollision(); 
     }   
-    if (y < sTop) { 
-        y = sTop; 
+    if (position.y < sTop) { 
+        position.y = sTop; 
         velocity.y = -velocity.y * restitution; 
         
         worldCollisionInfo.top = true;
         onWorldCollision(); 
     }
-    if (y + sHeight > sBottom) { 
-        y = sBottom - sHeight; 
+    if (position.y + sHeight > sBottom) { 
+        position.y = sBottom - sHeight; 
         velocity.y = -velocity.y * restitution;
 
         worldCollisionInfo.bottom = true;

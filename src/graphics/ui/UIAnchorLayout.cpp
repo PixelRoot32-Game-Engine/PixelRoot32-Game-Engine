@@ -10,17 +10,23 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::math;
 
-    UIAnchorLayout::UIAnchorLayout(Scalar x, Scalar y, Scalar w, Scalar h)
+    UIAnchorLayout::UIAnchorLayout(Scalar x, Scalar y, int w, int h)
         : UILayout(x, y, w, h) {
         screenWidth = w;
         screenHeight = h;
     }
 
-    void UIAnchorLayout::setScreenSize(Scalar screenW, Scalar screenH) {
+    UIAnchorLayout::UIAnchorLayout(Vector2 position, int w, int h)
+        : UILayout(position, w, h) {
+        screenWidth = w;
+        screenHeight = h;
+    }
+
+    void UIAnchorLayout::setScreenSize(int screenW, int screenH) {
         screenWidth = screenW;
         screenHeight = screenH;
-        width = static_cast<int>(screenW);
-        height = static_cast<int>(screenH);
+        width = screenW;
+        height = screenH;
         updateLayout();
     }
 
@@ -68,8 +74,6 @@ namespace pixelroot32::graphics::ui {
     }
 
     void UIAnchorLayout::calculateAnchorPosition(UIElement* element, Anchor anchor, Scalar& outX, Scalar& outY) const {
-        Scalar elemWidth = Scalar(element->width);
-        Scalar elemHeight = Scalar(element->height);
         
         switch (anchor) {
             case Anchor::TOP_LEFT:
@@ -78,43 +82,43 @@ namespace pixelroot32::graphics::ui {
                 break;
                 
             case Anchor::TOP_RIGHT:
-                outX = screenWidth - elemWidth;
+                outX = toScalar(screenWidth - element->width);
                 outY = Scalar(0);
                 break;
                 
             case Anchor::BOTTOM_LEFT:
                 outX = Scalar(0);
-                outY = screenHeight - elemHeight;
+                outY = toScalar(screenHeight - element->height);
                 break;
                 
             case Anchor::BOTTOM_RIGHT:
-                outX = screenWidth - elemWidth;
-                outY = screenHeight - elemHeight;
+                outX = toScalar(screenWidth - element->width);
+                outY = toScalar(screenHeight - element->height);
                 break;
                 
             case Anchor::CENTER:
-                outX = (screenWidth - elemWidth) / Scalar(2);
-                outY = (screenHeight - elemHeight) / Scalar(2);
+                outX = toScalar(screenWidth - element->width) / Scalar(2);
+                outY = toScalar(screenHeight - element->height) / Scalar(2);
                 break;
                 
             case Anchor::TOP_CENTER:
-                outX = (screenWidth - elemWidth) / Scalar(2);
+                outX = toScalar(screenWidth - element->width) / Scalar(2);
                 outY = Scalar(0);
                 break;
                 
             case Anchor::BOTTOM_CENTER:
-                outX = (screenWidth - elemWidth) / Scalar(2);
-                outY = screenHeight - elemHeight;
+                outX = toScalar(screenWidth - element->width) / Scalar(2);
+                outY = toScalar(screenHeight - element->height);
                 break;
                 
             case Anchor::LEFT_CENTER:
                 outX = Scalar(0);
-                outY = (screenHeight - elemHeight) / Scalar(2);
+                outY = toScalar(screenHeight - element->height) / Scalar(2);
                 break;
                 
             case Anchor::RIGHT_CENTER:
-                outX = screenWidth - elemWidth;
-                outY = (screenHeight - elemHeight) / Scalar(2);
+                outX = toScalar(screenWidth - element->width);
+                outY = toScalar(screenHeight - element->height) / Scalar(2);
                 break;
         }
     }
@@ -157,8 +161,7 @@ namespace pixelroot32::graphics::ui {
         // Auto-update screen size if logical resolution changed in renderer
         if (toScalar(renderer.getLogicalWidth()) != screenWidth || 
             toScalar(renderer.getLogicalHeight()) != screenHeight) {
-            setScreenSize(toScalar(renderer.getLogicalWidth()), 
-                        toScalar(renderer.getLogicalHeight()));
+            setScreenSize(renderer.getLogicalWidth(), renderer.getLogicalHeight());
         }
         
         // Draw all elements (no viewport culling needed for HUD elements)

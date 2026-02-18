@@ -9,9 +9,14 @@ namespace pixelroot32::graphics::ui {
 
 using pixelroot32::math::Scalar;
 using pixelroot32::math::toScalar;
+using Vector2 = pixelroot32::math::Vector2;
 
-UIPaddingContainer::UIPaddingContainer(Scalar x, Scalar y, Scalar w, Scalar h)
+UIPaddingContainer::UIPaddingContainer(Scalar x, Scalar y, int w, int h)
     : UIElement(x, y, w, h) {
+}
+
+UIPaddingContainer::UIPaddingContainer(Vector2 position, int w, int h)
+    : UIElement(position, w, h) {
 }
 
 void UIPaddingContainer::setChild(UIElement* element) {
@@ -46,8 +51,8 @@ void UIPaddingContainer::updateChildPosition() {
     if (!child) return;
     
     // Position child element with padding offset
-    Scalar childX = x + paddingLeft;
-    Scalar childY = y + paddingTop;
+    Scalar childX = position.x + paddingLeft;
+    Scalar childY = position.y + paddingTop;
     
     child->setPosition(childX, childY);
     

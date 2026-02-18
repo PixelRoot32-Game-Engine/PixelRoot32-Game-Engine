@@ -36,12 +36,21 @@ public:
      * @param w Width of the layout container.
      * @param h Height of the layout container.
      */
-    UILayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
+    UILayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
         : UIElement(x, y, w, h, UIElementType::LAYOUT) {}
+
+    /**
+     * @brief Constructs a new UILayout.
+     * @param position Position of the layout container.
+     * @param w Width of the layout container.
+     * @param h Height of the layout container.
+     */
+    UILayout(pixelroot32::math::Vector2 position, int w, int h)
+        : UIElement(position, w, h, UIElementType::LAYOUT) {}
 
     virtual ~UILayout() = default;
 
-    /**
+    /**d
      * @brief Adds a UI element to the layout.
      * @param element Pointer to the element to add.
      */
