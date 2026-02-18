@@ -37,7 +37,7 @@ void tearDown(void) {
  * @expected Returns midpoint between a and b
  */
 void test_mathutil_lerp_basic(void) {
-    float result = Math::lerp(0.0f, 10.0f, 0.5f);
+    float result = lerp(0.0f, 10.0f, 0.5f);
     TEST_ASSERT_FLOAT_EQUAL(5.0f, result);
 }
 
@@ -46,7 +46,7 @@ void test_mathutil_lerp_basic(void) {
  * @expected Returns start value exactly
  */
 void test_mathutil_lerp_start(void) {
-    float result = Math::lerp(0.0f, 10.0f, 0.0f);
+    float result = lerp(0.0f, 10.0f, 0.0f);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, result);
 }
 
@@ -55,7 +55,7 @@ void test_mathutil_lerp_start(void) {
  * @expected Returns end value exactly
  */
 void test_mathutil_lerp_end(void) {
-    float result = Math::lerp(0.0f, 10.0f, 1.0f);
+    float result = lerp(0.0f, 10.0f, 1.0f);
     TEST_ASSERT_EQUAL_FLOAT(10.0f, result);
 }
 
@@ -64,7 +64,7 @@ void test_mathutil_lerp_end(void) {
  * @expected Returns 25% of the way from a to b
  */
 void test_mathutil_lerp_quarter(void) {
-    float result = Math::lerp(0.0f, 10.0f, 0.25f);
+    float result = lerp(0.0f, 10.0f, 0.25f);
     TEST_ASSERT_FLOAT_EQUAL(2.5f, result);
 }
 
@@ -73,7 +73,7 @@ void test_mathutil_lerp_quarter(void) {
  * @expected Returns 75% of the way from a to b
  */
 void test_mathutil_lerp_three_quarters(void) {
-    float result = Math::lerp(0.0f, 10.0f, 0.75f);
+    float result = lerp(0.0f, 10.0f, 0.75f);
     TEST_ASSERT_FLOAT_EQUAL(7.5f, result);
 }
 
@@ -82,7 +82,7 @@ void test_mathutil_lerp_three_quarters(void) {
  * @expected Correctly interpolates with negative numbers
  */
 void test_mathutil_lerp_negative_start(void) {
-    float result = Math::lerp(-10.0f, 10.0f, 0.5f);
+    float result = lerp(-10.0f, 10.0f, 0.5f);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, result);
 }
 
@@ -91,7 +91,7 @@ void test_mathutil_lerp_negative_start(void) {
  * @expected Correctly interpolates to negative numbers
  */
 void test_mathutil_lerp_negative_end(void) {
-    float result = Math::lerp(0.0f, -10.0f, 0.5f);
+    float result = lerp(0.0f, -10.0f, 0.5f);
     TEST_ASSERT_EQUAL_FLOAT(-5.0f, result);
 }
 
@@ -100,7 +100,7 @@ void test_mathutil_lerp_negative_end(void) {
  * @expected Correctly interpolates between negatives
  */
 void test_mathutil_lerp_both_negative(void) {
-    float result = Math::lerp(-20.0f, -10.0f, 0.5f);
+    float result = lerp(-20.0f, -10.0f, 0.5f);
     TEST_ASSERT_EQUAL_FLOAT(-15.0f, result);
 }
 
@@ -109,7 +109,7 @@ void test_mathutil_lerp_both_negative(void) {
  * @expected Extrapolates beyond end value
  */
 void test_mathutil_lerp_extrapolate_forward(void) {
-    float result = Math::lerp(0.0f, 10.0f, 1.5f);
+    float result = lerp(0.0f, 10.0f, 1.5f);
     TEST_ASSERT_EQUAL_FLOAT(15.0f, result);
 }
 
@@ -118,7 +118,7 @@ void test_mathutil_lerp_extrapolate_forward(void) {
  * @expected Extrapolates before start value
  */
 void test_mathutil_lerp_extrapolate_backward(void) {
-    float result = Math::lerp(0.0f, 10.0f, -0.5f);
+    float result = lerp(0.0f, 10.0f, -0.5f);
     TEST_ASSERT_EQUAL_FLOAT(-5.0f, result);
 }
 
@@ -127,7 +127,7 @@ void test_mathutil_lerp_extrapolate_backward(void) {
  * @expected Returns that value for any t
  */
 void test_mathutil_lerp_same_value(void) {
-    float result = Math::lerp(5.0f, 5.0f, 0.5f);
+    float result = lerp(5.0f, 5.0f, 0.5f);
     TEST_ASSERT_EQUAL_FLOAT(5.0f, result);
 }
 
@@ -136,7 +136,7 @@ void test_mathutil_lerp_same_value(void) {
  * @expected Handles small values correctly
  */
 void test_mathutil_lerp_small_range(void) {
-    float result = Math::lerp(0.0f, 0.001f, 0.5f);
+    float result = lerp(0.0f, 0.001f, 0.5f);
     TEST_ASSERT_FLOAT_EQUAL(0.0005f, result);
 }
 
@@ -145,7 +145,7 @@ void test_mathutil_lerp_small_range(void) {
  * @expected Handles large values correctly
  */
 void test_mathutil_lerp_large_range(void) {
-    float result = Math::lerp(0.0f, 1000000.0f, 0.5f);
+    float result = lerp(0.0f, 1000000.0f, 0.5f);
     TEST_ASSERT_EQUAL_FLOAT(500000.0f, result);
 }
 
@@ -158,7 +158,7 @@ void test_mathutil_lerp_large_range(void) {
  * @expected Returns value unchanged
  */
 void test_mathutil_clamp_within_range(void) {
-    float result = Math::clamp(5.0f, 0.0f, 10.0f);
+    float result = clamp(5.0f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(5.0f, result);
 }
 
@@ -167,7 +167,7 @@ void test_mathutil_clamp_within_range(void) {
  * @expected Returns minimum value exactly
  */
 void test_mathutil_clamp_at_minimum(void) {
-    float result = Math::clamp(0.0f, 0.0f, 10.0f);
+    float result = clamp(0.0f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, result);
 }
 
@@ -176,7 +176,7 @@ void test_mathutil_clamp_at_minimum(void) {
  * @expected Returns maximum value exactly
  */
 void test_mathutil_clamp_at_maximum(void) {
-    float result = Math::clamp(10.0f, 0.0f, 10.0f);
+    float result = clamp(10.0f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(10.0f, result);
 }
 
@@ -185,7 +185,7 @@ void test_mathutil_clamp_at_maximum(void) {
  * @expected Returns minimum value
  */
 void test_mathutil_clamp_below_min(void) {
-    float result = Math::clamp(-5.0f, 0.0f, 10.0f);
+    float result = clamp(-5.0f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, result);
 }
 
@@ -194,7 +194,7 @@ void test_mathutil_clamp_below_min(void) {
  * @expected Returns maximum value
  */
 void test_mathutil_clamp_above_max(void) {
-    float result = Math::clamp(15.0f, 0.0f, 10.0f);
+    float result = clamp(15.0f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(10.0f, result);
 }
 
@@ -203,7 +203,7 @@ void test_mathutil_clamp_above_max(void) {
  * @expected Works correctly with negative bounds
  */
 void test_mathutil_clamp_negative_range(void) {
-    float result = Math::clamp(0.0f, -10.0f, -5.0f);
+    float result = clamp(0.0f, -10.0f, -5.0f);
     TEST_ASSERT_EQUAL_FLOAT(-5.0f, result);
 }
 
@@ -212,7 +212,7 @@ void test_mathutil_clamp_negative_range(void) {
  * @expected Returns value unchanged when within negative range
  */
 void test_mathutil_clamp_within_negative_range(void) {
-    float result = Math::clamp(-7.0f, -10.0f, -5.0f);
+    float result = clamp(-7.0f, -10.0f, -5.0f);
     TEST_ASSERT_EQUAL_FLOAT(-7.0f, result);
 }
 
@@ -221,7 +221,7 @@ void test_mathutil_clamp_within_negative_range(void) {
  * @expected Returns min/max value
  */
 void test_mathutil_clamp_zero_range(void) {
-    float result = Math::clamp(5.0f, 10.0f, 10.0f);
+    float result = clamp(5.0f, 10.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(10.0f, result);
 }
 
@@ -230,7 +230,7 @@ void test_mathutil_clamp_zero_range(void) {
  * @expected Returns max value
  */
 void test_mathutil_clamp_epsilon_above_max(void) {
-    float result = Math::clamp(10.0001f, 0.0f, 10.0f);
+    float result = clamp(10.0001f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(10.0f, result);
 }
 
@@ -239,7 +239,7 @@ void test_mathutil_clamp_epsilon_above_max(void) {
  * @expected Returns min value
  */
 void test_mathutil_clamp_epsilon_below_min(void) {
-    float result = Math::clamp(-0.0001f, 0.0f, 10.0f);
+    float result = clamp(-0.0001f, 0.0f, 10.0f);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, result);
 }
 
@@ -252,7 +252,7 @@ void test_mathutil_clamp_epsilon_below_min(void) {
  * @expected PI matches expected value
  */
 void test_mathutil_pi_constant(void) {
-    TEST_ASSERT_FLOAT_EQUAL(3.14159265f, Math::kPi);
+    TEST_ASSERT_FLOAT_EQUAL(3.14159265f, kPi);
 }
 
 /**
@@ -260,8 +260,8 @@ void test_mathutil_pi_constant(void) {
  * @expected Conversion factor is correct
  */
 void test_mathutil_deg_to_rad_constant(void) {
-    float expected = 180.0f / Math::kPi;
-    TEST_ASSERT_FLOAT_EQUAL(expected, Math::kDegToRad);
+    float expected = 3.14159265f / 180.0f;
+    TEST_ASSERT_FLOAT_EQUAL(expected, kDegToRad);
 }
 
 /**
@@ -269,8 +269,8 @@ void test_mathutil_deg_to_rad_constant(void) {
  * @expected Conversion factor is correct
  */
 void test_mathutil_rad_to_deg_constant(void) {
-    float expected = Math::kPi / 180.0f;
-    TEST_ASSERT_FLOAT_EQUAL(expected, Math::kRadToDeg);
+    float expected = 180.0f / 3.14159265f;
+    TEST_ASSERT_FLOAT_EQUAL(expected, kRadToDeg);
 }
 
 // =============================================================================

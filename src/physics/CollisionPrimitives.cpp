@@ -98,38 +98,62 @@ bool sweepCircleVsRect(const Circle& start,
                        const Circle& end,
                        const Rect& rect,
                        Scalar& tHit) {
-    Rect expanded;
-    expanded.x = rect.x - start.radius;
-    expanded.y = rect.y - start.radius;
-    // width/height are int in Rect, but radius is Scalar.
-    // We cast to int for Rect storage, but this might lose precision if radius is fractional.
-    // However, Rect is pixel-aligned usually.
-    // Using static_cast<int> on Scalar (Fixed16) works via explicit operator int().
-    expanded.width = rect.width + static_cast<int>(start.radius * toScalar(2.0f));
-    expanded.height = rect.height + static_cast<int>(start.radius * toScalar(2.0f));
+    // Expand the rectangle by the circle radius and perform a segment cast against it.
+    Scalar rxMin = rect.x - start.radius;
+    Scalar ryMin = rect.y - start.radius;
+    Scalar rxMax = rect.x + toScalar(rect.width)  + start.radius;
+    Scalar ryMax = rect.y + toScalar(rect.height) + start.radius;
 
-    Segment path;
-    path.x1 = start.x;
-    path.y1 = start.y;
-    path.x2 = end.x;
-    path.y2 = end.y;
-
-    if (intersects(path, expanded)) {
-        // Simple approximation: check if start is already inside
-        Circle test = start;
-        if (intersects(test, rect)) {
-            tHit = toScalar(0.0f);
-            return true;
-        }
-        // This is a placeholder for actual sweep logic which requires solving quadratic equations or raycasting
-        // For now, if path intersects expanded rect, we return true (very rough approximation)
-        // Ideally we should calculate tHit.
-        // Given the original code ended abruptly, I will assume a basic intersection check is sufficient or I should implement raycast.
-        // Since I don't have the original full implementation, I'll leave it as a check.
-        tHit = toScalar(0.0f); // Should be calculated
-        return true; 
+    // Early out: if start position already inside expanded rect
+    if (start.x >= rxMin && start.x <= rxMax &&
+        start.y >= ryMin && start.y <= ryMax) {
+        tHit = toScalar(0.0f);
+        return true;
     }
-    return false;
+
+    Scalar x1 = start.x;
+    Scalar y1 = start.y;
+    Scalar x2 = end.x;
+    Scalar y2 = end.y;
+
+    Scalar dx = x2 - x1;
+    Scalar dy = y2 - y1;
+
+    Scalar tEnter = toScalar(0.0f);
+    Scalar tExit  = toScalar(1.0f);
+    Scalar zero   = toScalar(0.0f);
+
+    // X slab
+    if (dx != zero) {
+        Scalar invDx = toScalar(1.0f) / dx;
+        Scalar tx1 = (rxMin - x1) * invDx;
+        Scalar tx2 = (rxMax - x1) * invDx;
+        if (tx1 > tx2) { Scalar tmp = tx1; tx1 = tx2; tx2 = tmp; }
+        if (tx1 > tEnter) tEnter = tx1;
+        if (tx2 < tExit)  tExit  = tx2;
+        if (tEnter > tExit) return false;
+    } else {
+        // Parallel to Y axis: must be within the slab
+        if (x1 < rxMin || x1 > rxMax) return false;
+    }
+
+    // Y slab
+    if (dy != zero) {
+        Scalar invDy = toScalar(1.0f) / dy;
+        Scalar ty1 = (ryMin - y1) * invDy;
+        Scalar ty2 = (ryMax - y1) * invDy;
+        if (ty1 > ty2) { Scalar tmp = ty1; ty1 = ty2; ty2 = tmp; }
+        if (ty1 > tEnter) tEnter = ty1;
+        if (ty2 < tExit)  tExit  = ty2;
+        if (tEnter > tExit) return false;
+    } else {
+        // Parallel to X axis: must be within the slab
+        if (y1 < ryMin || y1 > ryMax) return false;
+    }
+
+    if (tEnter < toScalar(0.0f) || tEnter > toScalar(1.0f)) return false;
+    tHit = tEnter;
+    return true;
 }
 
 }
