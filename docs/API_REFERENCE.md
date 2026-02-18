@@ -77,6 +77,23 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 - **`Scalar lerp(Scalar a, Scalar b, Scalar t)`**
     Linearly interpolates between `a` and `b` by `t` (where `t` is 0.0 to 1.0).
 
+- **`Scalar sin(Scalar x)`**
+    Returns the sine of the angle `x` (in radians).
+
+- **`Scalar cos(Scalar x)`**
+    Returns the cosine of the angle `x` (in radians).
+
+#### Constants
+
+- **`Scalar kPi`**
+    Value of PI (3.14159...).
+
+- **`Scalar kDegToRad`**
+    Conversion factor from degrees to radians.
+
+- **`Scalar kRadToDeg`**
+    Conversion factor from radians to degrees.
+
 ### Vector2
 
 **Namespace:** `pixelroot32::math`
@@ -150,6 +167,9 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
 
+- **`MusicPlayer& getMusicPlayer()`**
+    Provides access to the MusicPlayer subsystem.
+
 - **`const PlatformCapabilities& getPlatformCapabilities() const`**
     Returns the detected hardware capabilities for the current platform.
 
@@ -187,7 +207,7 @@ When the engine is built with the preprocessor define **`PIXELROOT32_ENABLE_DEBU
 
 Configuration settings for display initialization and scaling.
 
-- **`DisplayType type`**: Type of display (ST7789, ST7735, OLED_SSD1306, etc.).
+- **`DisplayType type`**: Type of display (ST7789, ST7735, OLED_SSD1306, OLED_SH1106, NONE, CUSTOM).
 - **`int rotation`**: Display rotation (0-3 or degrees).
 - **`uint16_t physicalWidth`**: Actual hardware width.
 - **`uint16_t physicalHeight`**: Actual hardware height.
@@ -195,7 +215,14 @@ Configuration settings for display initialization and scaling.
 - **`uint16_t logicalHeight`**: Virtual rendering height.
 - **`int xOffset`**: X coordinate offset for hardware alignment.
 - **`int yOffset`**: Y coordinate offset for hardware alignment.
-- **`std::unique_ptr<DrawSurface> drawSurface`**: Unique pointer to the drawing surface implementation (e.g., ST7789, SDL2Surface).
+
+#### Pin Configuration (Optional)
+- **`uint8_t clockPin`**: SPI SCK / I2C SCL.
+- **`uint8_t dataPin`**: SPI MOSI / I2C SDA.
+- **`uint8_t csPin`**: SPI CS (Chip Select).
+- **`uint8_t dcPin`**: SPI DC (Data/Command).
+- **`uint8_t resetPin`**: Reset pin.
+- **`bool useHardwareI2C`**: If true, uses hardware I2C peripheral (default true).
 
 ---
 
@@ -312,6 +339,7 @@ These helpers reduce boilerplate when defining melodies and keep instruments con
 **Inherits:** None
 
 High-level sequencer for playing `MusicTrack` instances as background music.
+Music timing is handled internally by the `AudioEngine`.
 
 #### Public Methods
 
@@ -330,12 +358,17 @@ High-level sequencer for playing `MusicTrack` instances as background music.
 - **`void resume()`**
     Resumes playback after pause.
 
-- **`void update(unsigned long deltaTime)`**
-    Advances the internal timer and moves to the next note when its duration
-    expires. Intended to be called once per frame from the main `Engine`.
-
 - **`bool isPlaying() const`**
     Returns true if a track is currently playing and not finished.
+
+- **`void setTempoFactor(float factor)`**
+    Sets the global tempo scaling factor.
+    - `1.0f` is normal speed.
+    - `2.0f` is double speed.
+    - `0.5f` is half speed.
+
+- **`float getTempoFactor() const`**
+    Gets the current tempo scaling factor (default 1.0f).
 
 Typical usage from a scene:
 
@@ -379,7 +412,7 @@ Abstract base class for all game objects. Entities are the fundamental building 
 
 #### Properties
 
-- **`float x, y`**: Position in world space.
+- **`Scalar x, y`**: Position in world space.
 - **`int width, height`**: Dimensions of the entity.
 - **`bool isVisible`**: If false, the entity is skipped during rendering.
 - **`bool isEnabled`**: If false, the entity is skipped during updates.
@@ -387,7 +420,7 @@ Abstract base class for all game objects. Entities are the fundamental building 
 
 #### Public Methods
 
-- **`Entity(float x, float y, int w, int h, EntityType t)`**
+- **`Entity(Scalar x, Scalar y, int w, int h, EntityType t)`**
     Constructs a new Entity.
 
 - **`void setVisible(bool v)`**
@@ -418,7 +451,7 @@ An Entity capable of physical interaction and collision. Actors extend Entity wi
 
 #### Public Methods
 
-- **`Actor(float x, float y, int w, int h)`**
+- **`Actor(Scalar x, Scalar y, int w, int h)`**
     Constructs a new Actor.
 
 - **`void setCollisionLayer(CollisionLayer l)`**
@@ -467,7 +500,7 @@ Represents a game level or screen containing entities. A Scene manages a collect
 
 #### Overriding scene limits (MAX_LAYERS / MAX_ENTITIES)
 
-The engine defines default limits in `core/Scene.h`: `MAX_LAYERS` (default 3) and `MAX_ENTITIES` (default 32). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
+The engine defines default limits in `platforms/EngineConfig.h`: `MAX_LAYERS` (default 3) and `MAX_ENTITIES` (default 32). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
 
 > **Note:** The default of 3 for `MAX_LAYERS` is due to ESP32 platform constraints (memory and draw-loop cost). On native/PC you can safely use a higher value; on ESP32, increasing it may affect performance or memory.
 
@@ -1677,7 +1710,21 @@ Handles input polling, debouncing, and state tracking.
 
 **Inherits:** None
 
-Configuration structure for `InputManager`. Defines the mapping between logical inputs and physical pins.
+Configuration structure for `InputManager`. Defines the mapping between logical inputs and physical pins (ESP32) or keyboard keys (Native/SDL2).
+
+- **`std::vector<int> inputPins`**: (ESP32) List of GPIO pins.
+- **`std::vector<uint8_t> buttonNames`**: (Native) List of scancodes/keys.
+- **`int count`**: Total number of configured inputs.
+
+**Constructor:**
+- **`InputConfig(int count, ...)`**
+    Variadic constructor to easily list pins/keys.
+
+Example:
+```cpp
+// 3 inputs: Left, Right, Jump
+InputConfig input(3, 12, 14, 27); 
+```
 
 ---
 
@@ -1713,14 +1760,14 @@ Lightweight geometric primitives and helpers used by the physics and collision s
 - **`struct Circle`**
     Represents a circle in 2D space.
 
-  - `float x, y` – center position.
-  - `float radius` – circle radius.
+  - `Scalar x, y` – center position.
+  - `Scalar radius` – circle radius.
 
 - **`struct Segment`**
     Represents a line segment between two points.
 
-  - `float x1, y1` – start point.
-  - `float x2, y2` – end point.
+  - `Scalar x1, y1` – start point.
+  - `Scalar x2, y2` – end point.
 
 #### Helper Functions
 
@@ -1733,8 +1780,8 @@ Lightweight geometric primitives and helpers used by the physics and collision s
 - **`bool intersects(const Segment& s, const Rect& r)`**
     Returns true if a line segment intersects an axis-aligned rectangle.
 
-- **`bool sweepCircleVsRect(const Circle& start, const Circle& end, const Rect& rect, float& tHit)`**
-    Performs a simple sweep test between two circle positions against a rectangle, using a segment cast against an expanded rectangle.  
+- **`bool sweepCircleVsRect(const Circle& start, const Circle& end, const Rect& rect, Scalar& tHit)`**
+    Performs a simple sweep test between two circle positions against a rectangle.  
     Returns true if a collision occurs between `start` and `end`, writing the normalized hit time in `tHit` (`0.0f` = at `start`, `1.0f` = at `end`).
 
 ---
@@ -1758,7 +1805,7 @@ An actor with basic 2D physics properties similar to a RigidBody2D. It extends t
 
 #### Public Methods
 
-- **`PhysicsActor(float x, float y, float w, float h)`**
+- **`PhysicsActor(Scalar x, Scalar y, Scalar w, Scalar h)`**
     Constructs a PhysicsActor.
 
 - **`void update(unsigned long deltaTime)`**
