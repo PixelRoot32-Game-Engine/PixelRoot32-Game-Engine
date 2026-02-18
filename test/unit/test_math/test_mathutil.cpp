@@ -274,6 +274,85 @@ void test_mathutil_rad_to_deg_constant(void) {
 }
 
 // =============================================================================
+// Tests for Math::abs
+// =============================================================================
+
+void test_mathutil_abs_positive(void) {
+    TEST_ASSERT_EQUAL_FLOAT(5.0f, pixelroot32::math::abs(5.0f));
+}
+
+void test_mathutil_abs_negative(void) {
+    TEST_ASSERT_EQUAL_FLOAT(5.0f, pixelroot32::math::abs(-5.0f));
+}
+
+void test_mathutil_abs_zero(void) {
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, pixelroot32::math::abs(0.0f));
+}
+
+// =============================================================================
+// Tests for Math::sign
+// =============================================================================
+
+void test_mathutil_sign_positive(void) {
+    TEST_ASSERT_EQUAL_FLOAT(1.0f, sign(10.0f));
+}
+
+void test_mathutil_sign_negative(void) {
+    TEST_ASSERT_EQUAL_FLOAT(-1.0f, sign(-10.0f));
+}
+
+void test_mathutil_sign_zero(void) {
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, sign(0.0f));
+}
+
+// =============================================================================
+// Tests for Math::is_equal_approx
+// =============================================================================
+
+void test_mathutil_is_equal_approx_exact(void) {
+    TEST_ASSERT_TRUE(is_equal_approx(1.0f, 1.0f));
+}
+
+void test_mathutil_is_equal_approx_close(void) {
+    TEST_ASSERT_TRUE(is_equal_approx(1.0f, 1.000001f));
+}
+
+void test_mathutil_is_equal_approx_not_close(void) {
+    TEST_ASSERT_FALSE(is_equal_approx(1.0f, 1.1f));
+}
+
+// =============================================================================
+// Tests for Math::is_zero_approx
+// =============================================================================
+
+void test_mathutil_is_zero_approx_zero(void) {
+    TEST_ASSERT_TRUE(is_zero_approx(0.0f));
+}
+
+void test_mathutil_is_zero_approx_close(void) {
+    TEST_ASSERT_TRUE(is_zero_approx(0.000001f));
+}
+
+void test_mathutil_is_zero_approx_not_close(void) {
+    TEST_ASSERT_FALSE(is_zero_approx(0.1f));
+}
+
+// =============================================================================
+// Tests for Math::atan2
+// =============================================================================
+
+void test_mathutil_atan2_basic(void) {
+    // atan2(0, 1) = 0
+    TEST_ASSERT_FLOAT_WITHIN(kEpsilon, 0.0f, pixelroot32::math::atan2(0.0f, 1.0f));
+    // atan2(1, 0) = PI/2
+    TEST_ASSERT_FLOAT_WITHIN(kEpsilon, kPi / 2.0f, pixelroot32::math::atan2(1.0f, 0.0f));
+    // atan2(0, -1) = PI
+    TEST_ASSERT_FLOAT_WITHIN(kEpsilon, kPi, pixelroot32::math::atan2(0.0f, -1.0f));
+    // atan2(-1, 0) = -PI/2
+    TEST_ASSERT_FLOAT_WITHIN(kEpsilon, -kPi / 2.0f, pixelroot32::math::atan2(-1.0f, 0.0f));
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -313,6 +392,27 @@ int main(int argc, char **argv) {
     RUN_TEST(test_mathutil_pi_constant);
     RUN_TEST(test_mathutil_deg_to_rad_constant);
     RUN_TEST(test_mathutil_rad_to_deg_constant);
+
+    // Abs tests
+    RUN_TEST(test_mathutil_abs_positive);
+    RUN_TEST(test_mathutil_abs_negative);
+    RUN_TEST(test_mathutil_abs_zero);
+
+    // Sign tests
+    RUN_TEST(test_mathutil_sign_positive);
+    RUN_TEST(test_mathutil_sign_negative);
+    RUN_TEST(test_mathutil_sign_zero);
+
+    // Approximation tests
+    RUN_TEST(test_mathutil_is_equal_approx_exact);
+    RUN_TEST(test_mathutil_is_equal_approx_close);
+    RUN_TEST(test_mathutil_is_equal_approx_not_close);
+    RUN_TEST(test_mathutil_is_zero_approx_zero);
+    RUN_TEST(test_mathutil_is_zero_approx_close);
+    RUN_TEST(test_mathutil_is_zero_approx_not_close);
+
+    // Atan2 tests
+    RUN_TEST(test_mathutil_atan2_basic);
     
     return UNITY_END();
 }

@@ -40,11 +40,21 @@ namespace detail {
             return static_cast<T>(std::cos(x.toFloat()));
         }
     }
+
+    template <typename T>
+    inline T atan2_impl(T y, T x) {
+        if constexpr (std::is_same_v<T, float>) {
+            return std::atan2(y, x);
+        } else {
+            return static_cast<T>(std::atan2(y.toFloat(), x.toFloat()));
+        }
+    }
 }
 
 constexpr Scalar kPi = toScalar(3.14159265f);
 constexpr Scalar kDegToRad = toScalar(3.14159265f / 180.0f);
 constexpr Scalar kRadToDeg = toScalar(180.0f / 3.14159265f);
+constexpr Scalar kEpsilon = toScalar(0.00001f);
 
 /**
  * @brief Square root function adaptable for float or Fixed16.
@@ -64,6 +74,13 @@ inline Scalar sin(Scalar x) {
  */
 inline Scalar cos(Scalar x) {
     return detail::cos_impl(x);
+}
+
+/**
+ * @brief Arc Tangent 2 function.
+ */
+inline Scalar atan2(Scalar y, Scalar x) {
+    return detail::atan2_impl(y, x);
 }
 
 /**
@@ -93,6 +110,27 @@ inline Scalar clamp(Scalar v, Scalar min, Scalar max) {
  */
 inline Scalar abs(Scalar x) {
     return (x < toScalar(0)) ? -x : x;
+}
+
+/**
+ * @brief Returns the sign of the value (-1, 0, or 1).
+ */
+inline Scalar sign(Scalar x) {
+    return (x < toScalar(0)) ? toScalar(-1) : (x > toScalar(0) ? toScalar(1) : toScalar(0));
+}
+
+/**
+ * @brief Checks if two values are approximately equal.
+ */
+inline bool is_equal_approx(Scalar a, Scalar b) {
+    return abs(a - b) < kEpsilon;
+}
+
+/**
+ * @brief Checks if a value is approximately zero.
+ */
+inline bool is_zero_approx(Scalar x) {
+    return abs(x) < kEpsilon;
 }
 
 } // namespace pixelroot32::math

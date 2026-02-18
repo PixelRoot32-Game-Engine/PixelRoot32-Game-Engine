@@ -172,6 +172,37 @@ PongScene* pongScene = static_cast<PongScene*>(engine.getCurrentScene());
 PongScene* pongScene = static_cast<PongScene*>(engine.getCurrentScene().value_or(nullptr));
 ```
 
+### 7. Entity Position Refactoring (x, y -> position)
+
+The `Entity` class (and all subclasses like `Actor`) has been refactored to use `Vector2` for positioning instead of separate `x` and `y` scalars. This improves vector math operations and physics integration.
+
+**Member Access:**
+
+**Before:**
+```cpp
+entity->x += speed;
+if (entity->y > 200) { ... }
+```
+
+**After:**
+```cpp
+entity->position.x += speed;
+if (entity->position.y > 200) { ... }
+// Or using Vector2 methods:
+entity->position += Vector2(speed, 0);
+```
+
+**Constructors:**
+Constructors still support passing `x` and `y` as separate arguments for convenience, but they are stored in `position`.
+
+```cpp
+// Still valid:
+MyEntity(Scalar x, Scalar y) : Entity(x, y, 16, 16, EntityType::ACTOR) {}
+
+// New alternative:
+MyEntity(Vector2 pos) : Entity(pos, 16, 16, EntityType::ACTOR) {}
+```
+
 ---
 
 ## Migration to Scalar Math (Fixed-Point Support)
