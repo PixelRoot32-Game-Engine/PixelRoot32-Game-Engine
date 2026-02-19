@@ -50,8 +50,8 @@ private:
     
     // Simpler approach for ESP32: fixed max entities per cell.
     static constexpr int kMaxEntitiesPerCell = pixelroot32::platforms::config::SpatialGridMaxEntitiesPerCell; 
-    pixelroot32::core::Actor* cells[kMaxCells][kMaxEntitiesPerCell];
-    int cellCounts[kMaxCells];
+    static pixelroot32::core::Actor* cells[kMaxCells][kMaxEntitiesPerCell];
+    static int cellCounts[kMaxCells];
 
     int getCellIndex(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y) const;
 };

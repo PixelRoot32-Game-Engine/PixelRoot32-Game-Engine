@@ -95,6 +95,14 @@
     #define SPATIAL_GRID_MAX_ENTITIES_PER_CELL 24
 #endif
 
+#ifndef PHYSICS_MAX_PAIRS
+    #define PHYSICS_MAX_PAIRS 128
+#endif
+
+#ifndef PHYSICS_RELAXATION_ITERATIONS
+    #define PHYSICS_RELAXATION_ITERATIONS 8
+#endif
+
 // =============================================================================
 // Hardware Capabilities
 // =============================================================================
@@ -143,6 +151,10 @@ namespace pixelroot32::platforms::config {
     // Spatial Grid
     inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
     inline constexpr int SpatialGridMaxEntitiesPerCell = SPATIAL_GRID_MAX_ENTITIES_PER_CELL;
+
+    // Physics
+    inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
+    inline constexpr int PhysicsRelaxationIterations = PHYSICS_RELAXATION_ITERATIONS;
 
     // Profiling & Debug
     #ifdef PIXELROOT32_ENABLE_PROFILING

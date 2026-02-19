@@ -21,6 +21,15 @@ enum class PhysicsBodyType {
 };
 
 /**
+ * @enum CollisionShape
+ * @brief Defines the geometric shape used for collision detection.
+ */
+enum class CollisionShape {
+    AABB,   ///< Axis-Aligned Bounding Box (Default)
+    CIRCLE  ///< Circular collider
+};
+
+/**
  * @struct LimitRect
  * @brief Defines a rectangular boundary for actor movement.
  * 
@@ -85,6 +94,9 @@ protected:
     pixelroot32::math::Scalar gravityScale  = pixelroot32::math::toScalar(1.0f);
     pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(1.0f);
     pixelroot32::math::Scalar friction    = pixelroot32::math::toScalar(0.0f);
+
+    CollisionShape shape = CollisionShape::AABB;
+    pixelroot32::math::Scalar radius = pixelroot32::math::toScalar(0.0f);
 
 
 public:
@@ -282,6 +294,34 @@ public:
      * @param f Friction value (0.0 means no friction).
      */
     void setFriction(float f) { friction = pixelroot32::math::toScalar(f); }
+
+    /**
+     * @brief Gets the collision shape type.
+     * @return The CollisionShape of this actor.
+     */
+    CollisionShape getShape() const { return shape; }
+
+    /**
+     * @brief Sets the collision shape type.
+     * @param s The new CollisionShape.
+     */
+    void setShape(CollisionShape s) { shape = s; }
+
+    /**
+     * @brief Gets the radius (only for Shape::CIRCLE).
+     * @return Radius as Scalar.
+     */
+    pixelroot32::math::Scalar getRadius() const { return radius; }
+
+    /**
+     * @brief Sets the radius and updates width/height to match diameter.
+     * @param r Radius value.
+     */
+    void setRadius(float r) { 
+        radius = pixelroot32::math::toScalar(r); 
+        width = static_cast<int>(r * 2.0f);
+        height = static_cast<int>(r * 2.0f);
+    }
 
     /**
      * @brief Callback triggered when this actor collides with another actor.

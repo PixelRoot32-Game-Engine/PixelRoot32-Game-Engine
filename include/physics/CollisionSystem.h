@@ -63,8 +63,8 @@ public:
     bool checkCollision(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
 
 private:
-    static constexpr int kMaxPairs = 128;
-    static constexpr int kRelaxationIterations = 3;
+    static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
+    static constexpr int kRelaxationIterations = pixelroot32::platforms::config::PhysicsRelaxationIterations;
 
     struct CollisionPair {
         pixelroot32::core::Actor* a;

@@ -10,6 +10,9 @@ namespace pixelroot32::physics {
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::math;
+    
+Actor* SpatialGrid::cells[SpatialGrid::kMaxCells][SpatialGrid::kMaxEntitiesPerCell];
+int SpatialGrid::cellCounts[SpatialGrid::kMaxCells];
 
 void SpatialGrid::clear() {
     for (int i = 0; i < kMaxCells; ++i) {
