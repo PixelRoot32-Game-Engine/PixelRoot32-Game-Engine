@@ -309,6 +309,86 @@ Scalar randVal = math::randomScalar(0, 10); // Returns Scalar between 0 and 10
 
 ---
 
+## Physics System Migration
+
+### Overview
+
+Version 0.9.0 refines the physics API to better distinguish between static and dynamic actors, and integrates the **Scalar Math** system for consistent physics simulation across platforms.
+
+### 1. Actor Types
+
+Explicitly choose the correct actor type for your entity:
+
+- **`RigidActor`**: For dynamic objects that move, bounce, and respond to gravity (e.g., Balls, Player characters, Debris).
+- **`StaticActor`**: For immovable environmental objects (e.g., Walls, Floors, Platforms). These are optimized and do not run physics integration.
+- **`KinematicActor`**: For moving objects that ignore forces but push other objects (e.g., Moving Platforms, Elevators).
+
+**Before:**
+
+```cpp
+class Wall : public PhysicsActor { ... }; // Generic PhysicsActor used for everything
+```
+
+**After:**
+
+```cpp
+class Wall : public StaticActor { ... }; // Specialized for static objects
+```
+
+### 2. Initialization and Properties
+
+Physics properties must now be set using `Scalar` values.
+
+**Before:**
+
+```cpp
+setRestitution(1.0f);
+setFriction(0.5f);
+setGravityScale(1.0f);
+```
+
+**After:**
+
+```cpp
+using pixelroot32::math::toScalar;
+
+setRestitution(toScalar(1.0f));
+setFriction(toScalar(0.0f));
+setGravityScale(toScalar(1.0f));
+```
+
+### 3. Collision Configuration
+
+Use `setShape` to define the collision geometry (default is `BOX`) and configure collision layers using bitmasks.
+
+```cpp
+// Set shape
+setShape(pixelroot32::core::CollisionShape::CIRCLE);
+
+// Set Layers
+setCollisionLayer(Layers::BALL);
+setCollisionMask(Layers::PADDLE | Layers::WALL);
+```
+
+### 4. Position & Rendering
+
+`RigidActor` maintains the position of the **top-left corner** of the bounding box (AABB), even for Circles. When rendering a Circle, you may need to offset to the center.
+
+**Example (BallActor):**
+
+```cpp
+// Constructor passes top-left position to RigidActor
+BallActor::BallActor(Vector2 pos, int radius)
+    : RigidActor(Vector2(pos.x - radius, pos.y - radius), radius * 2, radius * 2) { ... }
+
+// Draw needs to offset back to center if drawing a circle from center
+void BallActor::draw(Renderer& renderer) {
+    renderer.drawFilledCircle((int)position.x + radius, (int)position.y + radius, radius, Color::White);
+}
+```
+
+---
+
 ## Modified Files
 
 ### MenuScene.cpp / MenuScene.h
