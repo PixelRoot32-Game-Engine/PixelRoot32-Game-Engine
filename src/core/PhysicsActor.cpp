@@ -56,28 +56,30 @@ void PhysicsActor::resolveWorldBounds() {
     Scalar sBottom = toScalar(bottom);
     Scalar sWidth = toScalar(width);
     Scalar sHeight = toScalar(height);
+    
+    Scalar effectiveRestitution = bounce ? restitution : toScalar(0.0f);
 
     if (position.x < sLeft) { 
         position.x = sLeft; 
-        velocity.x = -velocity.x * restitution; 
+        velocity.x = -velocity.x * effectiveRestitution; 
         worldCollisionInfo.left = true;
         onWorldCollision(); 
     }
     if (position.x + sWidth > sRight) { 
         position.x = sRight - sWidth; 
-        velocity.x = -velocity.x * restitution; 
+        velocity.x = -velocity.x * effectiveRestitution; 
         worldCollisionInfo.right = true;
         onWorldCollision(); 
     }   
     if (position.y < sTop) { 
         position.y = sTop; 
-        velocity.y = -velocity.y * restitution; 
+        velocity.y = -velocity.y * effectiveRestitution; 
         worldCollisionInfo.top = true;
         onWorldCollision(); 
     }
     if (position.y + sHeight > sBottom) { 
         position.y = sBottom - sHeight; 
-        velocity.y = -velocity.y * restitution;
+        velocity.y = -velocity.y * effectiveRestitution;
         worldCollisionInfo.bottom = true;
         onWorldCollision(); 
     }
