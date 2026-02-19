@@ -133,11 +133,12 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
-- ⚡ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks. Entities interact only with nearby neighbors, improving performance on constrained devices like ESP32.
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 
 ### Completed Features ✅
 
+- ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
+- ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
 - ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
 - ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
@@ -153,6 +154,11 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
   - **Math Policy Layer**: Platform-agnostic numerical abstraction (`float`/`Fixed16`) optimizing performance for both FPU (ESP32/S3) and non-FPU (C3/S2) chips.
   - **Performance Boost**: ~30% FPS increase on ESP32-C3 by eliminating software floating-point emulation.
   - **Unified API**: Single codebase support via `Scalar` type alias and `MathUtil` helpers.
+- **Physics System Overhaul (The Flat Solver)**:
+  - **Spatial Partitioning (Uniform Grid)**: Implemented a broadphase optimization that divides the world into fixed-size cells (default 32px), reducing collision checks to local neighbors. Optimized for ESP32 with static shared buffers to save significant DRAM.
+  - **Enhanced KinematicActor**: Completely rewrote `moveAndSlide` and `moveAndCollide` with binary search precision, proper wall sliding logic, and accurate collision normal detection.
+  - **Stable Stacking**: Introduced iterative position relaxation to handle object stacking without jitter, even on low-resource hardware.
+  - **Godot-style API**: Aligned collision reporting (`KinematicCollision`) and actor types (`Static`, `Kinematic`, `Rigid`) with industry standards.
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 
@@ -169,14 +175,6 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - **Fast 1:1 Rendering**: Added a dedicated 32-bit fast path for non-scaled rendering, bypassing all scaling overhead.
 - **Native XBM Blitting**: Refactored `U8G2` driver to use row-aligned buffers and native XBM calls, eliminating per-pixel draw overhead.
 - **Latency Reduction**: Replaced blocking delays with `yield()` in the engine loop to maximize CPU utilization.
-
-### v0.7.0-dev
-
-- **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing and improved performance.
-- **Advanced Audio Mixing**: Non-linear mixer with soft clipping and high-performance LUT-based mixing for no-FPU hardware (ESP32-C3).
-- **Internal DAC Enhancements**: Optimized software-mode driver with 0.7x scaling for PAM8302A amplifiers and improved stability.
-- **Unified Platform Configuration**: Consolidated settings in `include/platforms/` with new `PlatformDefaults.h` for better hardware support (ESP32-S3, etc.).
-- **Graphics Extensibility & U8g2**: Introduced `BaseDrawSurface` and native support for monochromatic OLED displays via the U8G2 library.
 
 ---
 

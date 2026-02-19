@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
   - **Performance Boost**: Achieved ~30% FPS increase and massive reduction in physics calculation time on ESP32-C3/S2 by eliminating software floating-point emulation.
   - **Unified API**: Updated `Vector2`, `Rect`, and physics systems to use `Scalar`, ensuring a single codebase works optimally across all supported chips.
   - **Math Helpers**: Added `MathUtil` with optimized `fixed_sqrt`, `fixed_sin`, `fixed_cos` and helper functions like `toScalar()` for easy literal conversion.
+- **Physics System Overhaul (The Flat Solver)**:
+  - **Spatial Partitioning (Uniform Grid)**: Implemented a broadphase optimization that divides the world into fixed-size cells (default 32px), reducing collision checks to local neighbors. Optimized for ESP32 with static shared buffers to save significant DRAM.
+  - **Enhanced KinematicActor**: Completely rewrote `moveAndSlide` and `moveAndCollide` with binary search precision, proper wall sliding logic, and accurate collision normal detection.
+  - **Stable Stacking**: Introduced iterative position relaxation to handle object stacking without jitter, even on low-resource hardware.
+  - **Godot-style API**: Aligned collision reporting (`KinematicCollision`) and actor types (`Static`, `Kinematic`, `Rigid`) with industry standards.
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 
