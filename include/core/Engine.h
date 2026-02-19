@@ -77,6 +77,12 @@ public:
      * @return The delta time in milliseconds.
      */
     unsigned long getDeltaTime() const { return deltaTime; }
+
+    /**
+     * @brief Gets the number of milliseconds since the engine started.
+     * @return The time in milliseconds.
+     */
+    unsigned long getMillis() const;
     
     /**
      * @brief Sets the current active scene.

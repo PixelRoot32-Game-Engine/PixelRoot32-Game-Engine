@@ -26,7 +26,15 @@ public:
      * @param w Width of the layout container.
      * @param h Height of the layout container (viewport height).
      */
-    UIVerticalLayout(float x, float y, float w, float h);
+    UIVerticalLayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y,  int w, int h);
+    
+    /**
+     * @brief Constructs a new UIVerticalLayout.
+     * @param position Position of the layout container.
+     * @param w Width of the layout container.
+     * @param h Height of the layout container (viewport height).
+     */
+    UIVerticalLayout(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIVerticalLayout() = default;
 
@@ -71,7 +79,7 @@ public:
      */
     void setScrollEnabled(bool enable) {
         UILayout::enableScroll = enable;
-        if (!enable) scrollOffset = 0.0f;
+        if (!enable) scrollOffset = pixelroot32::math::toScalar(0.0f);
     }
     
     /**
@@ -86,7 +94,7 @@ public:
      * @brief Sets the viewport height (visible area).
      * @param h Viewport height in pixels.
      */
-    void setViewportHeight(float h) {
+    void setViewportHeight(pixelroot32::math::Scalar h) {
         height = static_cast<int>(h);
         updateLayout();
     }
@@ -95,19 +103,19 @@ public:
      * @brief Gets the current scroll offset.
      * @return Scroll offset in pixels.
      */
-    float getScrollOffset() const { return scrollOffset; }
+    pixelroot32::math::Scalar getScrollOffset() const { return scrollOffset; }
 
     /**
      * @brief Sets the scroll offset directly.
      * @param offset Scroll offset in pixels.
      */
-    void setScrollOffset(float offset);
+    void setScrollOffset(pixelroot32::math::Scalar offset);
 
     /**
      * @brief Gets the total content height.
      * @return Content height in pixels.
      */
-    float getContentHeight() const { return contentHeight; }
+    pixelroot32::math::Scalar getContentHeight() const { return contentHeight; }
 
     /**
      * @brief Gets the currently selected element index.
@@ -131,7 +139,7 @@ public:
      * @brief Sets the scroll speed for smooth scrolling.
      * @param speed Pixels per millisecond.
      */
-    void setScrollSpeed(float speed) { scrollSpeed = speed; }
+    void setScrollSpeed(pixelroot32::math::Scalar speed) { scrollSpeed = speed; }
 
     /**
      * @brief Sets the navigation button indices.
@@ -156,16 +164,16 @@ public:
                        pixelroot32::graphics::Color unselectedBgCol);
 
 private:
-    float contentHeight = 0.0f;        ///< Total height of all content
-    float targetScrollOffset = 0.0f;   ///< Target scroll position (for smooth scrolling)
-    float scrollSpeed = 0.5f;          ///< Scroll speed in pixels per millisecond
+    pixelroot32::math::Scalar contentHeight = pixelroot32::math::toScalar(0.0f);        ///< Total height of all content
+    pixelroot32::math::Scalar targetScrollOffset = pixelroot32::math::toScalar(0.0f);   ///< Target scroll position (for smooth scrolling)
+    pixelroot32::math::Scalar scrollSpeed = pixelroot32::math::toScalar(0.5f);          ///< Scroll speed in pixels per millisecond
     int selectedIndex = -1;             ///< Currently selected element index
     uint8_t navUpButton = 0;            ///< Button index for UP navigation
     uint8_t navDownButton = 1;          ///< Button index for DOWN navigation
     bool wasUpPressed = false;          ///< Previous state of UP button (for rising edge detection)
     bool wasDownPressed = false;        ///< Previous state of DOWN button (for rising edge detection)
     bool needsClear = false;            ///< Flag to indicate if layout area needs clearing (performance optimization)
-    float lastScrollOffset = 0.0f;      ///< Previous scroll offset to detect changes
+    pixelroot32::math::Scalar lastScrollOffset = pixelroot32::math::toScalar(0.0f);      ///< Previous scroll offset to detect changes
     
     // Style colors for buttons
     pixelroot32::graphics::Color selectedTextColor = pixelroot32::graphics::Color::White;

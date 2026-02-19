@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Configuration
 CXX = "g++"
-CXXFLAGS = ["-std=c++11", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST", "-DSDL_MAIN_HANDLED", "-DTEST_MOCK_GRAPHICS"]
+CXXFLAGS = ["-std=c++17", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST", "-DSDL_MAIN_HANDLED", "-DTEST_MOCK_GRAPHICS"]
 # Unity might be in different paths depending on whether it was installed via PIO or manually
 UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
 if not UNITY_DIR.exists():

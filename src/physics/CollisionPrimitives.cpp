@@ -4,51 +4,64 @@
  */
 #include "physics/CollisionTypes.h"
 #include "core/Entity.h"
+#include "math/MathUtil.h"
 
 namespace pixelroot32::physics {
 
 using pixelroot32::core::Rect;
+using pixelroot32::math::Scalar;
+using pixelroot32::math::toScalar;
 
 bool intersects(const Circle& a, const Circle& b) {
-    float dx = a.x - b.x;
-    float dy = a.y - b.y;
-    float r = a.radius + b.radius;
+    Scalar dx = a.x - b.x;
+    Scalar dy = a.y - b.y;
+    Scalar r = a.radius + b.radius;
     return dx * dx + dy * dy <= r * r;
 }
 
 bool intersects(const Circle& c, const Rect& r) {
-    float closestX = c.x;
-    float closestY = c.y;
+    Scalar closestX = c.x;
+    Scalar closestY = c.y;
+    Scalar rX = r.position.x;
+    Scalar rY = r.position.y;
+    Scalar rW = toScalar(r.width);
+    Scalar rH = toScalar(r.height);
 
-    if (closestX < r.x) closestX = r.x;
-    else if (closestX > r.x + r.width) closestX = r.x + r.width;
+    if (closestX < rX) closestX = rX;
+    else if (closestX > rX + rW) closestX = rX + rW;
 
-    if (closestY < r.y) closestY = r.y;
-    else if (closestY > r.y + r.height) closestY = r.y + r.height;
+    if (closestY < rY) closestY = rY;
+    else if (closestY > rY + rH) closestY = rY + rH;
 
-    float dx = c.x - closestX;
-    float dy = c.y - closestY;
+    Scalar dx = c.x - closestX;
+    Scalar dy = c.y - closestY;
     return dx * dx + dy * dy <= c.radius * c.radius;
 }
 
 bool intersects(const Segment& s, const Rect& r) {
-    float x1 = s.x1;
-    float y1 = s.y1;
-    float x2 = s.x2;
-    float y2 = s.y2;
+    Scalar x1 = s.x1;
+    Scalar y1 = s.y1;
+    Scalar x2 = s.x2;
+    Scalar y2 = s.y2;
+    Scalar rX = r.position.x;
+    Scalar rY = r.position.y;
+    Scalar rW = toScalar(r.width);
+    Scalar rH = toScalar(r.height);
 
-    float dx = x2 - x1;
-    float dy = y2 - y1;
+    Scalar dx = x2 - x1;
+    Scalar dy = y2 - y1;
 
-    float tMin = 0.0f;
-    float tMax = 1.0f;
 
-    if (dx != 0.0f) {
-        float invDx = 1.0f / dx;
-        float tx1 = (r.x - x1) * invDx;
-        float tx2 = (r.x + r.width - x1) * invDx;
+    Scalar tMin = toScalar(0.0f);
+    Scalar tMax = toScalar(1.0f);
+    Scalar zero = toScalar(0.0f);
+
+    if (dx != zero) {
+        Scalar invDx = toScalar(1.0f) / dx;
+        Scalar tx1 = (rX - x1) * invDx;
+        Scalar tx2 = (rX + rW - x1) * invDx;
         if (tx1 > tx2) {
-            float tmp = tx1;
+            Scalar tmp = tx1;
             tx1 = tx2;
             tx2 = tmp;
         }
@@ -56,17 +69,17 @@ bool intersects(const Segment& s, const Rect& r) {
         if (tx2 < tMax) tMax = tx2;
         if (tMin > tMax) return false;
     } else {
-        if (x1 < r.x || x1 > r.x + r.width) {
+        if (x1 < rX || x1 > rX + rW) {
             return false;
         }
     }
 
-    if (dy != 0.0f) {
-        float invDy = 1.0f / dy;
-        float ty1 = (r.y - y1) * invDy;
-        float ty2 = (r.y + r.height - y1) * invDy;
+    if (dy != zero) {
+        Scalar invDy = toScalar(1.0f) / dy;
+        Scalar ty1 = (rY - y1) * invDy;
+        Scalar ty2 = (rY + rH - y1) * invDy;
         if (ty1 > ty2) {
-            float tmp = ty1;
+            Scalar tmp = ty1;
             ty1 = ty2;
             ty2 = tmp;
         }
@@ -74,84 +87,75 @@ bool intersects(const Segment& s, const Rect& r) {
         if (ty2 < tMax) tMax = ty2;
         if (tMin > tMax) return false;
     } else {
-        if (y1 < r.y || y1 > r.y + r.height) {
+        if (y1 < rY || y1 > rY + rH) {
             return false;
         }
     }
 
-    return tMax >= 0.0f && tMin <= 1.0f;
+    return tMax >= zero && tMin <= toScalar(1.0f);
 }
 
 bool sweepCircleVsRect(const Circle& start,
                        const Circle& end,
                        const Rect& rect,
-                       float& tHit) {
-    Rect expanded;
-    expanded.x = rect.x - start.radius;
-    expanded.y = rect.y - start.radius;
-    expanded.width = rect.width + static_cast<int>(start.radius * 2.0f);
-    expanded.height = rect.height + static_cast<int>(start.radius * 2.0f);
+                       Scalar& tHit) {
+    // Expand the rectangle by the circle radius and perform a segment cast against it.
+    Scalar rxMin = rect.position.x - start.radius;
+    Scalar ryMin = rect.position.y - start.radius;
+    Scalar rxMax = rect.position.x + toScalar(rect.width)  + start.radius;
+    Scalar ryMax = rect.position.y + toScalar(rect.height) + start.radius;
 
-    Segment path;
-    path.x1 = start.x;
-    path.y1 = start.y;
-    path.x2 = end.x;
-    path.y2 = end.y;
+    // Early out: if start position already inside expanded rect
+    if (start.x >= rxMin && start.x <= rxMax &&
+        start.y >= ryMin && start.y <= ryMax) {
 
-    float x1 = path.x1;
-    float y1 = path.y1;
-    float x2 = path.x2;
-    float y2 = path.y2;
+        tHit = toScalar(0.0f);
+        return true;
+    }
 
-    float dx = x2 - x1;
-    float dy = y2 - y1;
+    Scalar x1 = start.x;
+    Scalar y1 = start.y;
+    Scalar x2 = end.x;
+    Scalar y2 = end.y;
 
-    float tMin = 0.0f;
-    float tMax = 1.0f;
+    Scalar dx = x2 - x1;
+    Scalar dy = y2 - y1;
 
-    if (dx != 0.0f) {
-        float invDx = 1.0f / dx;
-        float tx1 = (expanded.x - x1) * invDx;
-        float tx2 = (expanded.x + expanded.width - x1) * invDx;
-        if (tx1 > tx2) {
-            float tmp = tx1;
-            tx1 = tx2;
-            tx2 = tmp;
-        }
-        if (tx1 > tMin) tMin = tx1;
-        if (tx2 < tMax) tMax = tx2;
-        if (tMin > tMax) return false;
+    Scalar tEnter = toScalar(0.0f);
+    Scalar tExit  = toScalar(1.0f);
+    Scalar zero   = toScalar(0.0f);
+
+    // X slab
+    if (dx != zero) {
+        Scalar invDx = toScalar(1.0f) / dx;
+        Scalar tx1 = (rxMin - x1) * invDx;
+        Scalar tx2 = (rxMax - x1) * invDx;
+        if (tx1 > tx2) { Scalar tmp = tx1; tx1 = tx2; tx2 = tmp; }
+        if (tx1 > tEnter) tEnter = tx1;
+        if (tx2 < tExit)  tExit  = tx2;
+        if (tEnter > tExit) return false;
     } else {
-        if (x1 < expanded.x || x1 > expanded.x + expanded.width) {
-            return false;
-        }
+        // Parallel to Y axis: must be within the slab
+        if (x1 < rxMin || x1 > rxMax) return false;
     }
 
-    if (dy != 0.0f) {
-        float invDy = 1.0f / dy;
-        float ty1 = (expanded.y - y1) * invDy;
-        float ty2 = (expanded.y + expanded.height - y1) * invDy;
-        if (ty1 > ty2) {
-            float tmp = ty1;
-            ty1 = ty2;
-            ty2 = tmp;
-        }
-        if (ty1 > tMin) tMin = ty1;
-        if (ty2 < tMax) tMax = ty2;
-        if (tMin > tMax) return false;
+    // Y slab
+    if (dy != zero) {
+        Scalar invDy = toScalar(1.0f) / dy;
+        Scalar ty1 = (ryMin - y1) * invDy;
+        Scalar ty2 = (ryMax - y1) * invDy;
+        if (ty1 > ty2) { Scalar tmp = ty1; ty1 = ty2; ty2 = tmp; }
+        if (ty1 > tEnter) tEnter = ty1;
+        if (ty2 < tExit)  tExit  = ty2;
+        if (tEnter > tExit) return false;
     } else {
-        if (y1 < expanded.y || y1 > expanded.y + expanded.height) {
-            return false;
-        }
+        // Parallel to X axis: must be within the slab
+        if (y1 < ryMin || y1 > ryMax) return false;
     }
 
-    if (tMax < 0.0f || tMin > 1.0f) {
-        return false;
-    }
-
-    tHit = tMin;
+    if (tEnter < toScalar(0.0f) || tEnter > toScalar(1.0f)) return false;
+    tHit = tEnter;
     return true;
 }
 
 }
-

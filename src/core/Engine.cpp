@@ -16,6 +16,10 @@ namespace pixelroot32::core {
     using namespace pixelroot32::input;
     using namespace pixelroot32::audio;
 
+    unsigned long gProfilerCollisionTime = 0;
+    unsigned long gProfilerPhysicsIntegrateTime = 0;
+    unsigned long gProfilerPhysicsIntegrateCount = 0;
+
     Engine::Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig) 
         : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
         previousMillis = 0;
@@ -100,25 +104,41 @@ namespace pixelroot32::core {
             static uint32_t totalEventsTime = 0;
             uint32_t t0 = 0;
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t0 = micros();
+                t0 = pixelroot32::platforms::config::profilerMicros();
             }
 
             if (millis() - lastHeartbeat > 1000) {
                 if constexpr (pixelroot32::platforms::config::EnableProfiling) {
                     Serial.println("[Engine] Heartbeat...");
                     if (frameCount > 0) {
-                        Serial.printf("[Profiler] FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus\n", 
+                        unsigned long avgCollision = 0;
+                        if (gProfilerCollisionTime > 0) {
+                            avgCollision = gProfilerCollisionTime / frameCount;
+                        }
+                        unsigned long avgPhysicsIntegrate = 0;
+                        if (gProfilerPhysicsIntegrateCount > 0) {
+                            avgPhysicsIntegrate = gProfilerPhysicsIntegrateTime / gProfilerPhysicsIntegrateCount;
+                        }
+                        unsigned long physicsIntegrateCount = gProfilerPhysicsIntegrateCount;
+
+                        Serial.printf("[Profiler] FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus | Collision: %luus | PhysicsInt: %luus (%lu)\n",
                             frameCount,
                             totalUpdateTime / frameCount,
                             totalEventsTime / frameCount,
                             totalDrawTime / frameCount,
-                            totalPresentTime / frameCount
+                            totalPresentTime / frameCount,
+                            avgCollision,
+                            avgPhysicsIntegrate,
+                            physicsIntegrateCount
                         );
                         frameCount = 0;
                         totalUpdateTime = 0;
                         totalDrawTime = 0;
                         totalPresentTime = 0;
                         totalEventsTime = 0;
+                        gProfilerCollisionTime = 0;
+                        gProfilerPhysicsIntegrateTime = 0;
+                        gProfilerPhysicsIntegrateCount = 0;
                     }
                 }
                 lastHeartbeat = millis();
@@ -128,7 +148,7 @@ namespace pixelroot32::core {
 
             uint32_t t1 = 0;
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t1 = micros();
+                t1 = pixelroot32::platforms::config::profilerMicros();
             }
 
             // waitForDMA
@@ -136,21 +156,21 @@ namespace pixelroot32::core {
 
             uint32_t t2 = 0;
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t2 = micros();
+                t2 = pixelroot32::platforms::config::profilerMicros();
             }
 
             draw();
 
             uint32_t t3 = 0;
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t3 = micros();
+                t3 = pixelroot32::platforms::config::profilerMicros();
             }
 
             // Present frame (TFT_eSPI)
             drawer->present();
 
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                uint32_t t4 = micros();
+                uint32_t t4 = pixelroot32::platforms::config::profilerMicros();
                 totalUpdateTime += (t1 - t0);
                 totalEventsTime += (t2 - t1);
                 totalDrawTime += (t3 - t2);
@@ -171,6 +191,10 @@ namespace pixelroot32::core {
 
     Renderer& Engine::getRenderer() {
         return renderer;
+    }
+
+    unsigned long Engine::getMillis() const {
+        return millis();
     }
 
     void Engine::update() {

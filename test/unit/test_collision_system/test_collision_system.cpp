@@ -24,12 +24,12 @@ public:
     Rect hitbox;
 
     MockActor(float x, float y, int w, int h) : Actor(x, y, w, h) {
-        hitbox = {x, y, w, h};
+        hitbox = {{x, y}, w, h};
     }
 
     Rect getHitBox() override {
-        hitbox.x = x;
-        hitbox.y = y;
+        hitbox.position.x = position.x;
+        hitbox.position.y = position.y;
         hitbox.width = width;
         hitbox.height = height;
         return hitbox;
@@ -52,7 +52,7 @@ public:
 // Generic Entity for testing
 class GenericEntity : public Entity {
 public:
-    GenericEntity(float x, float y, int w, int h) : Entity(x, y, w, h, EntityType::GENERIC) {}
+    GenericEntity(float x, float y, int w, int h) : Entity(pixelroot32::math::Vector2(x, y), w, h, EntityType::GENERIC) {}
     void update(unsigned long deltaTime) override { (void)deltaTime; }
     void draw(pixelroot32::graphics::Renderer& renderer) override { (void)renderer; }
 };

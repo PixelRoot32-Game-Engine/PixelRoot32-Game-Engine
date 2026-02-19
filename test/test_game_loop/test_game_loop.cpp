@@ -37,13 +37,13 @@ public:
     bool drawCalled = false;
 
     MovingEntity(float x, float y, float vx, float vy) 
-        : Entity(x, y, 10, 10, EntityType::GENERIC), vx(vx), vy(vy) {
+        : Entity({x, y}, 10, 10, EntityType::GENERIC), vx(vx), vy(vy) {
     }
 
     void update(unsigned long dt) override {
         // Move based on velocity and dt (in seconds)
-        x += vx * (dt / 1000.0f);
-        y += vy * (dt / 1000.0f);
+        position.x += vx * (dt / 1000.0f);
+        position.y += vy * (dt / 1000.0f);
     }
 
     void draw(Renderer& r) override {
@@ -105,8 +105,8 @@ void test_game_loop_movement(void) {
     engine.updateManual(1000);
     
     // Expect x to be 10 + 100 = 110
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 110.0f, entity->x);
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 10.0f, entity->y);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 110.0f, entity->position.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 10.0f, entity->position.y);
     
     engine.drawManual();
     TEST_ASSERT_TRUE(entity->drawCalled);

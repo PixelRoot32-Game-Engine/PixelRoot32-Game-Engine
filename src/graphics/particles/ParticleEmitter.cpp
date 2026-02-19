@@ -36,14 +36,35 @@ namespace pixelroot32::graphics::particles {
             return min + r * (max - min);
         }
 
+        template <typename T>
+        inline T fastRandScalar(T min, T max) {
+            if constexpr (std::is_same_v<T, float>) {
+                return fastRandFloat(min, max);
+            } else {
+                // Fixed16 implementation using integer arithmetic to avoid float conversion
+                 // 0xFFFF is 65535. We treat this as the fractional part.
+                 int32_t randomFraction = fastRand() & 0xFFFF;
+                 
+                 Fixed16 range = max - min;
+                 
+                 // result = min + range * (randomFraction / 65536)
+                 // Use int64_t to prevent overflow during multiplication
+                 int64_t deltaRaw = (static_cast<int64_t>(range.raw) * randomFraction) >> 16;
+                 
+                 Fixed16 result;
+                 result.raw = min.raw + static_cast<int32_t>(deltaRaw);
+                 return result;
+             }
+        }
+
         inline int fastRandInt(int min, int max) {
             if (min >= max) return min;
             return min + (fastRand() % (max - min + 1));
         }
     }
 
-    ParticleEmitter::ParticleEmitter(float x, float y, const ParticleConfig& cfg)
-        : Entity(x, y, 0, 0, EntityType::GENERIC),
+    ParticleEmitter::ParticleEmitter(Vector2 position, const ParticleConfig& cfg)
+        : Entity(position, 0, 0, EntityType::GENERIC),
             config(cfg) {
              // Seed with something somewhat random if needed, or keep deterministic
              s_rngState = (uint32_t)((uintptr_t)this + 12345); 
@@ -59,14 +80,12 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i];
             if (!p.active) continue;
 
-            p.x += p.vx;
-            p.y += p.vy;
+            p.position += p.velocity;
 
-            p.vy += config.gravity;
-            p.vx *= config.friction;
-            p.vy *= config.friction;
+            p.velocity.y += config.gravity;
+            p.velocity *= config.friction;
 
-            if (p.x < 0 || p.x > screenW || p.y < 0 || p.y > screenH) {
+            if (p.position.x < 0 || p.position.x > screenW || p.position.y < 0 || p.position.y > screenH) {
                 p.active = false;
                 continue;
             }
@@ -75,7 +94,7 @@ namespace pixelroot32::graphics::particles {
                 p.life--;
 
                 if (config.fadeColor) {
-                    float t = 1.0f - (float)p.life / p.maxLife;
+                    Scalar t = toScalar(1) - (toScalar(p.life) / toScalar(p.maxLife));
                     p.color = lerpColor(resolveColor(p.startColor), resolveColor(p.endColor), t);
                 }
 
@@ -90,11 +109,11 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i]; 
             if (!p.active) continue;
             
-            renderer.drawFilledRectangleW(p.x, p.y, 2, 2, p.color);
+            renderer.drawFilledRectangleW(static_cast<int>(p.position.x), static_cast<int>(p.position.y), 2, 2, p.color);
         }
     }
 
-    void ParticleEmitter::burst(float x, float y, int count) {
+    void ParticleEmitter::burst(Vector2 position, int count) {
         int activated = 0;
 
         for (int i = 0; i < maxParticles && activated < count; i++) {
@@ -102,15 +121,14 @@ namespace pixelroot32::graphics::particles {
             if (p.active) continue;
 
             p.active = true;
-            p.x = x;
-            p.y = y;
+            p.position = position;
 
-            float angleDeg = fastRandFloat(config.minAngleDeg, config.maxAngleDeg);
-            float angle = angleDeg * Math::kDegToRad;
-            float speed = fastRandFloat(config.minSpeed, config.maxSpeed);
+            Scalar angleDeg = fastRandScalar(config.minAngleDeg, config.maxAngleDeg);
+            Scalar angle = angleDeg * kDegToRad;
+            Scalar speed = fastRandScalar(config.minSpeed, config.maxSpeed);
 
-            p.vx = cos(angle) * speed;
-            p.vy = sin(angle) * speed;
+            p.velocity.x = pixelroot32::math::cos(angle) * speed;
+            p.velocity.y = pixelroot32::math::sin(angle) * speed;
 
             p.maxLife = fastRandInt(config.minLife, config.maxLife);
             p.life = p.maxLife;

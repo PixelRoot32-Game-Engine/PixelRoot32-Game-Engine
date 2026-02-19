@@ -5,8 +5,11 @@
 #pragma once
 #include <cstdint>
 #include "graphics/Color.h"
+#include "math/Scalar.h"
+#include "math/Vector2.h"
 
 namespace pixelroot32::graphics::particles {
+
 /**
  * @struct Particle
  * @brief Represents a single particle in the particle system.
@@ -14,8 +17,8 @@ namespace pixelroot32::graphics::particles {
  * Designed to be lightweight to fit many instances in memory (RAM optimization).
  */
 struct Particle {
-    float x, y;     ///< Current position.
-    float vx, vy;   ///< Velocity vector.
+    pixelroot32::math::Vector2 position; ///< Current position.
+    pixelroot32::math::Vector2 velocity; ///< Velocity vector.
 
     uint16_t color;      ///< Current color (RGB565).
     Color startColor; ///< Initial color for interpolation.
@@ -27,4 +30,4 @@ struct Particle {
     bool active = false; ///< Whether the particle is currently in use.
 };
 
-}
+} // namespace pixelroot32::graphics::particles

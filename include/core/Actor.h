@@ -5,6 +5,7 @@
 #pragma once
 #include "Entity.h"
 #include "physics/CollisionTypes.h"
+#include "math/Scalar.h"
 
 namespace pixelroot32::core {
 
@@ -18,13 +19,32 @@ namespace pixelroot32::core {
 class Actor : public Entity {
 public:
     /**
-     * @brief Constructor.
+     * @brief Constructor using Scalar coordinates.
      * @param x Initial X position.
      * @param y Initial Y position.
      * @param w Width.
      * @param h Height.
      */
-    Actor(float x, float y, int w, int h) : Entity(x, y, w, h, EntityType::ACTOR) {}
+    Actor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) 
+        : Entity(x, y, w, h, EntityType::ACTOR) {}
+
+    /**
+     * @brief Constructor using Vector2 position.
+     * @param pos Initial position.
+     * @param w Width.
+     * @param h Height.
+     */
+    Actor(pixelroot32::math::Vector2 pos, int w, int h)
+        : Entity(pos, w, h, EntityType::ACTOR) {}
+
+    /**
+     * @brief Constructor using float coordinates.
+     * Only enabled if Scalar is NOT float to avoid ambiguity.
+     */
+    template <typename T = float, typename std::enable_if<!std::is_same<pixelroot32::math::Scalar, T>::value, int>::type = 0>
+    Actor(float x, float y, int w, int h) 
+        : Entity(x, y, w, h, EntityType::ACTOR) {}
+        
     virtual ~Actor() = default;
 
     pixelroot32::physics::CollisionLayer layer = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layer this actor belongs to.

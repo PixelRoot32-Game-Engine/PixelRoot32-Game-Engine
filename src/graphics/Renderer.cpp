@@ -13,14 +13,6 @@
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
-#ifdef PLATFORM_NATIVE
-    #include "drivers/native/SDL2_Drawer.h"
-    #include "../../src/platforms/mock/MockSPI.h"
-#else
-    #include "drivers/esp32/TFT_eSPI_Drawer.h"
-    #include <SPI.h>
-    #include <SafeString.h>
-#endif
 
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
@@ -524,8 +516,8 @@ namespace pixelroot32::graphics {
         setRenderContext(oldContext);
     }
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     void IRAM_ATTR Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -592,12 +584,12 @@ namespace pixelroot32::graphics {
 
         // Restore context
         setRenderContext(oldContext);
+        }
     }
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     void IRAM_ATTR Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
-        if (map.indices == nullptr || map.tiles == nullptr ||
+        if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+            if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
             map.tileCount == 0) {
@@ -663,6 +655,6 @@ namespace pixelroot32::graphics {
 
         // Restore context
         setRenderContext(oldContext);
+        }
     }
-#endif
 }

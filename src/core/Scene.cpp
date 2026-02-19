@@ -16,6 +16,8 @@ namespace pixelroot32::core {
     using namespace pixelroot32::graphics;
     using namespace pixelroot32::physics;
 
+    extern unsigned long gProfilerCollisionTime;
+
     void SceneArena::init(void* memory, std::size_t size) {
         if constexpr (pixelroot32::platforms::config::EnableSceneArena) {
             buffer = static_cast<unsigned char*>(memory);
@@ -52,8 +54,14 @@ namespace pixelroot32::core {
             }
         }
 
-        // update collision system
+        unsigned long t0 = 0;
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            t0 = pixelroot32::platforms::config::profilerMicros();
+        }
         collisionSystem.update();
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            gProfilerCollisionTime += pixelroot32::platforms::config::profilerMicros() - t0;
+        }
     }
 
     void Scene::sortEntities() {
@@ -80,10 +88,10 @@ namespace pixelroot32::core {
         int viewH = renderer.getLogicalHeight();
 
         // Check intersection
-        return !(entity->x + entity->width < viewX || 
-                 entity->x > viewX + viewW ||
-                 entity->y + entity->height < viewY || 
-                 entity->y > viewY + viewH);
+        return !(entity->position.x + entity->width < viewX || 
+                 entity->position.x > viewX + viewW ||
+                 entity->position.y + entity->height < viewY || 
+                 entity->position.y > viewY + viewH);
     }
 
     void Scene::draw(Renderer& renderer) {

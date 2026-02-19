@@ -7,370 +7,334 @@
 #include "graphics/ui/UICheckbox.h"
 #include "graphics/Renderer.h"
 #include "core/Scene.h"
+#include "math/MathUtil.h"
 #include <algorithm>
 
 namespace pixelroot32::graphics::ui {
 
-UIVerticalLayout::UIVerticalLayout(float x, float y, float w, float h)
-    : UILayout(x, y, w, h) {
-    lastScrollOffset = 0.0f;
-    needsClear = true; // Clear on first draw
-}
+using namespace pixelroot32::math;
 
-void UIVerticalLayout::addElement(UIElement* element) {
-    if (!element) return;
-    
-    // Check if element is already in the layout
-    auto it = std::find(elements.begin(), elements.end(), element);
-    if (it != elements.end()) return;
-    
-    elements.push_back(element);
-    updateLayout();
-}
+    UIVerticalLayout::UIVerticalLayout(Scalar x, Scalar y, int w, int h)
+        : UILayout(x, y, w, h) {
+        lastScrollOffset = toScalar(0);
+        needsClear = true; // Clear on first draw
+    }
 
-void UIVerticalLayout::removeElement(UIElement* element) {
-    if (!element) return;
-    
-    auto it = std::find(elements.begin(), elements.end(), element);
-    if (it != elements.end()) {
-        elements.erase(it);
-        // If removed element was selected, adjust selection
-        if (selectedIndex >= static_cast<int>(elements.size())) {
-            selectedIndex = static_cast<int>(elements.size()) - 1;
-        }
+    UIVerticalLayout::UIVerticalLayout(Vector2 position, int w, int h)
+        : UILayout(position, w, h) {
+        lastScrollOffset = toScalar(0);
+        needsClear = true; // Clear on first draw
+    }
+
+    void UIVerticalLayout::addElement(UIElement* element) {
+        if (!element) return;
+        
+        // Check if element is already in the layout
+        auto it = std::find(elements.begin(), elements.end(), element);
+        if (it != elements.end()) return;
+        
+        elements.push_back(element);
         updateLayout();
     }
-}
 
-void UIVerticalLayout::calculateContentHeight() {
-    contentHeight = padding * 2.0f; // Top and bottom padding
-    
-    for (size_t i = 0; i < elements.size(); ++i) {
-        contentHeight += static_cast<float>(elements[i]->height);
-        if (i < elements.size() - 1) {
-            contentHeight += spacing; // Spacing between elements (not after last)
+    void UIVerticalLayout::removeElement(UIElement* element) {
+        if (!element) return;
+        
+        auto it = std::find(elements.begin(), elements.end(), element);
+        if (it != elements.end()) {
+            elements.erase(it);
+            // If removed element was selected, adjust selection
+            if (selectedIndex >= static_cast<int>(elements.size())) {
+                selectedIndex = static_cast<int>(elements.size()) - 1;
+            }
+            updateLayout();
         }
     }
-}
 
-void UIVerticalLayout::updateLayout() {
-    calculateContentHeight();
-    
-    // Check if scroll changed (for performance optimization: only clear when needed)
-    // Use a small threshold to catch all scroll changes, including instant scrolls
-    if (std::abs(scrollOffset - lastScrollOffset) > 0.01f) {
-        needsClear = true;
-        lastScrollOffset = scrollOffset;
-    }
-    
-    float currentY = y + padding - scrollOffset;
-    float viewportTop = y;
-    float viewportBottom = y + static_cast<float>(height);
-    
-    for (size_t i = 0; i < elements.size(); ++i) {
-        UIElement* elem = elements[i];
+    void UIVerticalLayout::calculateContentHeight() {
+        contentHeight = padding * toScalar(2); // Top and bottom padding
         
-        // Set X position (centered or left-aligned based on layout width)
-        float elemX = x + padding;
-        if (elem->width < width - (padding * 2)) {
-            // Center element if it's smaller than layout width
-            elemX = x + (width - elem->width) / 2.0f;
+        for (size_t i = 0; i < elements.size(); ++i) {
+            contentHeight += elements[i]->height;
+            if (i < elements.size() - 1) {
+                contentHeight += spacing; // Spacing between elements (not after last)
+            }
+        }
+    }
+
+    void UIVerticalLayout::updateLayout() {
+        calculateContentHeight();
+        
+        // Check if scroll changed (for performance optimization: only clear when needed)
+        // Use a small threshold to catch all scroll changes, including instant scrolls
+        if (math::abs(scrollOffset - lastScrollOffset) > toScalar(0.01f)) {
+            needsClear = true;
+            lastScrollOffset = scrollOffset;
         }
         
-        elem->setPosition(elemX, currentY);
+        Scalar currentY = position.y + padding - scrollOffset;
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + height;
         
-        // Update visibility immediately based on current position
-        float elemTop = currentY;
-        float elemBottom = currentY + static_cast<float>(elem->height);
-        bool visible = (elemTop < viewportBottom && elemBottom > viewportTop);
-        elem->setVisible(visible);
+        for (size_t i = 0; i < elements.size(); ++i) {
+            UIElement* elem = elements[i];
+            
+            // Set X position (centered or left-aligned based on layout width)
+            Scalar elemX = position.x + padding;
+            if (toScalar(elem->width) < toScalar(width) - (padding * toScalar(2))) {
+                // Center element if it's smaller than layout width
+                elemX = position.x + (toScalar(width) - toScalar(elem->width)) * toScalar(0.5f);
+            }
+            
+            elem->setPosition(elemX, currentY);
+            
+            // Update visibility immediately based on current position
+            Scalar elemTop = currentY;
+            Scalar elemBottom = currentY + toScalar(elem->height);
+            bool visible = (elemTop < viewportBottom && elemBottom > viewportTop);
+            elem->setVisible(visible);
+            
+            currentY += toScalar(elem->height) + spacing;
+        }
         
-        currentY += static_cast<float>(elem->height) + spacing;
+        clampScrollOffset();
     }
-    
-    clampScrollOffset();
-}
 
-void UIVerticalLayout::setButtonStyle(pixelroot32::graphics::Color selectedTextCol,
-                                     pixelroot32::graphics::Color selectedBgCol,
-                                     pixelroot32::graphics::Color unselectedTextCol,
-                                     pixelroot32::graphics::Color unselectedBgCol) {
-    selectedTextColor = selectedTextCol;
-    selectedBgColor = selectedBgCol;
-    unselectedTextColor = unselectedTextCol;
-    unselectedBgColor = unselectedBgCol;
-    
-    // Update styles of existing buttons
-    setSelectedIndex(selectedIndex); // This will update all button styles
-}
-
-void UIVerticalLayout::clampScrollOffset() {
-    float maxScroll = contentHeight - static_cast<float>(height);
-    if (maxScroll < 0.0f) maxScroll = 0.0f;
-    
-    if (scrollOffset < 0.0f) {
-        scrollOffset = 0.0f;
-    } else if (scrollOffset > maxScroll) {
-        scrollOffset = maxScroll;
-    }
-    
-    targetScrollOffset = scrollOffset;
-}
-
-void UIVerticalLayout::updateElementVisibility() {
-    float viewportTop = y;
-    float viewportBottom = y + static_cast<float>(height);
-    
-    for (UIElement* elem : elements) {
-        float elemTop = elem->y;
-        float elemBottom = elem->y + static_cast<float>(elem->height);
+    void UIVerticalLayout::setButtonStyle(pixelroot32::graphics::Color selectedTextCol,
+                                        pixelroot32::graphics::Color selectedBgCol,
+                                        pixelroot32::graphics::Color unselectedTextCol,
+                                        pixelroot32::graphics::Color unselectedBgCol) {
+        selectedTextColor = selectedTextCol;
+        selectedBgColor = selectedBgCol;
+        unselectedTextColor = unselectedTextCol;
+        unselectedBgColor = unselectedBgCol;
         
-        // Element is visible if it overlaps with viewport
-        // Use strict bounds checking to prevent drawing outside viewport
-        bool visible = (elemTop < viewportBottom && elemBottom > viewportTop);
-        elem->setVisible(visible);
+        // Update styles of existing buttons
+        setSelectedIndex(selectedIndex); // This will update all button styles
     }
-}
 
-void UIVerticalLayout::ensureSelectedVisible() {
-    if (selectedIndex < 0 || selectedIndex >= static_cast<int>(elements.size())) {
-        return;
+    void UIVerticalLayout::clampScrollOffset() {
+        Scalar maxScroll = contentHeight - toScalar(height);
+        if (maxScroll < toScalar(0.0f)) maxScroll = toScalar(0);
+        
+        if (scrollOffset < toScalar(0.0f)) {
+            scrollOffset = toScalar(0.0f);
+        } else if (scrollOffset > maxScroll) {
+            scrollOffset = maxScroll;
+        }
+        
+        targetScrollOffset = scrollOffset;
     }
-    
-    // Calculate absolute position of selected element in content space (from top of content)
-    float absoluteY = padding;
-    for (int i = 0; i < selectedIndex; ++i) {
-        absoluteY += static_cast<float>(elements[i]->height) + spacing;
+
+    void UIVerticalLayout::updateElementVisibility() {
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + toScalar(height);
+        
+        for (UIElement* elem : elements) {
+            Scalar elemTop = elem->position.y;
+            Scalar elemBottom = elem->position.y + toScalar(elem->height);
+            
+            // Element is visible if it overlaps with viewport
+            // Use strict bounds checking to prevent drawing outside viewport
+            bool visible = (elemTop < viewportBottom && elemBottom > viewportTop);
+            elem->setVisible(visible);
+        }
     }
-    
-    float elemHeight = static_cast<float>(elements[selectedIndex]->height);
-    float elemTop = absoluteY;
-    float elemBottom = absoluteY + elemHeight;
-    
-    float viewportHeight = static_cast<float>(height);
-    
-    // Calculate screen positions with current scroll
-    float screenTop = y + padding + elemTop - scrollOffset;
-    float screenBottom = y + padding + elemBottom - scrollOffset;
-    float viewportTop = y;
-    float viewportBottom = y + viewportHeight;
-    
-    // Calculate required scroll offset to make element visible
-    float newScrollOffset = scrollOffset;
-    bool needsScroll = false;
-    
-    // If element top is above viewport, scroll up (decrease scroll offset)
-    if (screenTop < viewportTop) {
-        // Scroll so element top aligns with viewport top
-        newScrollOffset = elemTop;
-        needsScroll = true;
+
+    void UIVerticalLayout::ensureSelectedVisible() {
+        if (selectedIndex < 0 || selectedIndex >= static_cast<int>(elements.size())) {
+            return;
+        }
+        
+        // Calculate absolute position of selected element in content space (from top of content)
+        Scalar absoluteY = padding;
+        for (int i = 0; i < selectedIndex; ++i) {
+            absoluteY += toScalar(elements[i]->height) + spacing;
+        }
+        
+        Scalar elemHeight = toScalar(elements[selectedIndex]->height);
+        Scalar elemTop = absoluteY;
+        Scalar elemBottom = absoluteY + elemHeight;
+        
+        Scalar viewportHeight = toScalar(height);
+        
+        // Calculate screen positions with current scroll
+        Scalar screenTop = position.y + padding + elemTop - scrollOffset;
+        Scalar screenBottom = position.y + padding + elemBottom - scrollOffset;
+        Scalar viewportTop = position.y;
+        Scalar viewportBottom = position.y + viewportHeight;
+
+        
+        // Calculate required scroll offset to make element visible
+        Scalar newScrollOffset = scrollOffset;
+        bool needsScroll = false;
+        
+        // If element top is above viewport, scroll up (decrease scroll offset)
+        if (screenTop < viewportTop) {
+            // Scroll so element top aligns with viewport top
+            newScrollOffset = elemTop;
+            needsScroll = true;
+        }
+        // If element bottom is below viewport, scroll down (increase scroll offset)
+        else if (screenBottom > viewportBottom) {
+            // Scroll so element bottom aligns with viewport bottom
+            newScrollOffset = elemBottom - (viewportHeight - padding * toScalar(2));
+            needsScroll = true;
+        }
+        
+        // Apply scroll immediately (NES-style: instant scroll on selection change)
+        if (needsScroll && UILayout::enableScroll) {
+            // Mark for clearing before changing scroll (important for instant scroll)
+            needsClear = true;
+            scrollOffset = newScrollOffset;
+            targetScrollOffset = newScrollOffset;
+            lastScrollOffset = newScrollOffset; // Update immediately to prevent false detection
+            clampScrollOffset();
+            updateLayout();
+        }
     }
-    // If element bottom is below viewport, scroll down (increase scroll offset)
-    else if (screenBottom > viewportBottom) {
-        // Scroll so element bottom aligns with viewport bottom
-        newScrollOffset = elemBottom - (viewportHeight - padding * 2);
-        needsScroll = true;
-    }
-    
-    // Apply scroll immediately (NES-style: instant scroll on selection change)
-    if (needsScroll && UILayout::enableScroll) {
-        // Mark for clearing before changing scroll (important for instant scroll)
-        needsClear = true;
-        scrollOffset = newScrollOffset;
-        targetScrollOffset = newScrollOffset;
-        lastScrollOffset = newScrollOffset; // Update immediately to prevent false detection
+
+    void UIVerticalLayout::setScrollOffset(Scalar offset) {
+        // Mark for clearing when scroll changes
+        if (math::abs(offset - scrollOffset) > toScalar(0.01f)) {
+            needsClear = true;
+        }
+        scrollOffset = offset;
+        targetScrollOffset = offset;
+        lastScrollOffset = offset; // Update immediately
         clampScrollOffset();
         updateLayout();
     }
-}
 
-void UIVerticalLayout::setScrollOffset(float offset) {
-    // Mark for clearing when scroll changes
-    if (std::abs(offset - scrollOffset) > 0.01f) {
-        needsClear = true;
-    }
-    scrollOffset = offset;
-    targetScrollOffset = offset;
-    lastScrollOffset = offset; // Update immediately
-    clampScrollOffset();
-    updateLayout();
-}
-
-void UIVerticalLayout::setSelectedIndex(int index) {
-    if (index < -1) index = -1;
-    if (index >= static_cast<int>(elements.size())) {
-        index = static_cast<int>(elements.size()) - 1;
-    }
-    
-    // Mark for clearing if selection changed (scroll will happen)
-    if (selectedIndex != index) {
-        needsClear = true;
-    }
-    
-    selectedIndex = index;
-    
-    // Update element selection states and styles
-    for (size_t i = 0; i < elements.size(); ++i) {
-        UIElement* elem = elements[i];
-        bool isSelected = (static_cast<int>(i) == selectedIndex);
+    void UIVerticalLayout::setSelectedIndex(int index) {
+        if (index < -1) index = -1;
+        if (index >= static_cast<int>(elements.size())) index = static_cast<int>(elements.size()) - 1;
         
-        if (elem->getType() == UIElement::UIElementType::BUTTON) {
-            UIButton* btn = static_cast<UIButton*>(elem);
-            if (btn) {
+        int prevIndex = selectedIndex;
+        selectedIndex = index;
+        
+        // Update button styles
+        for (size_t i = 0; i < elements.size(); ++i) {
+            bool isSelected = (static_cast<int>(i) == selectedIndex);
+
+            if (elements[i]->getType() == UIElement::UIElementType::BUTTON) {
+                UIButton* btn = static_cast<UIButton*>(elements[i]);
                 btn->setSelected(isSelected);
                 if (isSelected) {
-                    btn->setStyle(selectedTextColor, selectedBgColor, true);
+                     btn->setStyle(selectedTextColor, selectedBgColor, true);
                 } else {
                     btn->setStyle(unselectedTextColor, unselectedBgColor, false);
                 }
+            } else if (elements[i]->getType() == UIElement::UIElementType::CHECKBOX) {
+                UICheckBox* cb = static_cast<UICheckBox*>(elements[i]);
+                cb->setSelected(isSelected);
+                if (isSelected) {
+                    cb->setStyle(selectedTextColor, selectedBgColor, true);
+                } else {
+                    cb->setStyle(unselectedTextColor, unselectedBgColor, false);
+                }
             }
-        } else if (elem->getType() == UIElement::UIElementType::CHECKBOX) {
-             UICheckBox* cb = static_cast<UICheckBox*>(elem);
-             if (cb) {
-                 cb->setSelected(isSelected);
-                 if (isSelected) {
-                      cb->setStyle(selectedTextColor, selectedBgColor, true);
-                  } else {
-                      cb->setStyle(unselectedTextColor, unselectedBgColor, false);
-                  }
-             }
-         }
+        }
+        
+        // If selection changed, ensure visible
+        if (prevIndex != selectedIndex) {
+            ensureSelectedVisible();
+        }
     }
-    
-    if (selectedIndex >= 0) {
-        ensureSelectedVisible();
-    }
-}
 
-UIElement* UIVerticalLayout::getSelectedElement() const {
-    if (selectedIndex < 0 || selectedIndex >= static_cast<int>(elements.size())) {
+    UIElement* UIVerticalLayout::getSelectedElement() const {
+        if (selectedIndex >= 0 && selectedIndex < static_cast<int>(elements.size())) {
+            return elements[selectedIndex];
+        }
         return nullptr;
     }
-    return elements[selectedIndex];
-}
 
-void UIVerticalLayout::handleInput(const pixelroot32::input::InputManager& input) {
-    if (elements.empty()) {
-        selectedIndex = -1;
-        return;
-    }
-    
-    bool selectionChanged = false;
-    
-    // Handle UP navigation with rising edge detection (workaround for InputManager debounce bug)
-    bool isUp = input.isButtonDown(navUpButton);
-    if (isUp && !wasUpPressed) { // UP Rising Edge
-        if (selectedIndex > 0) {
-            selectedIndex--;
-            selectionChanged = true;
-        } else if (selectedIndex == -1) {
-            selectedIndex = static_cast<int>(elements.size()) - 1;
-            selectionChanged = true;
-        } else {
-            selectedIndex = static_cast<int>(elements.size()) - 1; // Wrap to last
-            selectionChanged = true;
-        }
-    }
-    wasUpPressed = isUp;
-    
-    // Handle DOWN navigation with rising edge detection
-    bool isDown = input.isButtonDown(navDownButton);
-    if (isDown && !wasDownPressed) { // DOWN Rising Edge
-        if (selectedIndex < static_cast<int>(elements.size()) - 1) {
-            selectedIndex++;
-            selectionChanged = true;
-        } else if (selectedIndex == -1) {
-            selectedIndex = 0;
-            selectionChanged = true;
-        } else {
-            selectedIndex = 0; // Wrap to first
-            selectionChanged = true;
-        }
-    }
-    wasDownPressed = isDown;
-    
-    if (selectionChanged) {
-        setSelectedIndex(selectedIndex);
-    }
-    
-    // Forward input to selected element (for button callbacks and checkbox toggles)
-    if (selectedIndex >= 0 && selectedIndex < static_cast<int>(elements.size())) {
-        UIElement* selected = elements[selectedIndex];
-        if (selected->getType() == UIElement::UIElementType::BUTTON) {
-            UIButton* btn = static_cast<UIButton*>(selected);
-            if (btn) {
-                btn->handleInput(input);
+    void UIVerticalLayout::handleInput(const pixelroot32::input::InputManager& input) {
+        if (elements.empty()) return;
+        
+        // Navigation
+        if (input.isButtonPressed(navUpButton)) {
+            if (selectedIndex > 0) {
+                setSelectedIndex(selectedIndex - 1);
+            } else if (selectedIndex == -1 && !elements.empty()) {
+                setSelectedIndex(static_cast<int>(elements.size()) - 1); // Wrap to bottom
             }
-        } else if (selected->getType() == UIElement::UIElementType::CHECKBOX) {
-            UICheckBox* cb = static_cast<UICheckBox*>(selected);
-            if (cb) {
-                cb->handleInput(input);
+        } else if (input.isButtonPressed(navDownButton)) {
+            if (selectedIndex < static_cast<int>(elements.size()) - 1) {
+                setSelectedIndex(selectedIndex + 1);
+            } else if (selectedIndex == -1 && !elements.empty()) {
+                setSelectedIndex(0);
+            }
+        }
+        
+        // Pass input to selected element
+        UIElement* selected = getSelectedElement();
+        if (selected) {
+            // Handle specific element input logic here if needed
+            // For buttons/checkboxes, they usually handle their own input via their update/handleInput methods
+            // But since we are managing selection, we might need to trigger actions here
+            
+            // For now, let's assume the scene or main loop calls handleInput on the selected element too?
+            // Or we should forward it?
+            // Since UIElement doesn't have handleInput in base, we cast?
+            
+            if (selected->getType() == UIElement::UIElementType::BUTTON) {
+                static_cast<UIButton*>(selected)->handleInput(input);
+            } else if (selected->getType() == UIElement::UIElementType::CHECKBOX) {
+                static_cast<UICheckBox*>(selected)->handleInput(input);
             }
         }
     }
-}
 
-void UIVerticalLayout::update(unsigned long deltaTime) {
-    // Smooth scroll interpolation (only for manual scrolling, not for selection-based scrolling)
-    // Selection-based scrolling is instant (NES-style)
-    if (UILayout::enableScroll && std::abs(targetScrollOffset - scrollOffset) > 0.1f) {
-        float delta = targetScrollOffset - scrollOffset;
-        float maxDelta = scrollSpeed * static_cast<float>(deltaTime);
-        
-        if (std::abs(delta) <= maxDelta) {
-            scrollOffset = targetScrollOffset;
-        } else {
-            scrollOffset += (delta > 0.0f ? maxDelta : -maxDelta);
+    void UIVerticalLayout::update(unsigned long deltaTime) {
+        // Smooth scrolling
+        if (this->UILayout::enableScroll && math::abs(targetScrollOffset - scrollOffset) > toScalar(0.5f)) {
+            Scalar diff = targetScrollOffset - scrollOffset;
+            Scalar move = diff * toScalar(0.2f); // Simple ease-out
+            
+            // Clamp min movement
+            if (math::abs(move) < toScalar(0.5f)) {
+                move = (diff > toScalar(0)) ? toScalar(0.5f) : toScalar(-0.5f);
+            }
+            
+            scrollOffset += move;
+            if (math::abs(targetScrollOffset - scrollOffset) < toScalar(1.0f)) {
+                scrollOffset = targetScrollOffset;
+            }
+            
+            clampScrollOffset();
+            updateLayout();
         }
         
-        updateLayout();
-    }
-    
-    // Update child elements
-    for (UIElement* elem : elements) {
-        if (elem->isEnabled) {
+        // Update children
+        for (auto* elem : elements) {
             elem->update(deltaTime);
         }
     }
-}
 
-void UIVerticalLayout::draw(pixelroot32::graphics::Renderer& renderer) {
-    if (!isVisible) return;
-    
-    // Save current bypass state and apply fixedPosition if enabled
-    bool oldBypass = renderer.isOffsetBypassEnabled();
-    if (fixedPosition) {
-        renderer.setOffsetBypass(true);
-    }
-    
-    // Performance optimization: Only clear layout area when scroll/selection changed
-    // This avoids expensive fillRect() call every frame on ESP32
-    // However, we must clear when scroll is enabled and there's content to scroll
-    bool shouldClear = needsClear;
-    if (UILayout::enableScroll && contentHeight > static_cast<float>(height)) {
-        // If scroll is enabled and content exceeds viewport, always clear to prevent artifacts
-        // This is necessary because elements can move outside viewport
-        shouldClear = true;
-    }
-    
-    if (shouldClear) {
-        renderer.drawFilledRectangle(static_cast<int>(x), static_cast<int>(y), 
-                                     width, height, pixelroot32::graphics::Color::Black);
-        needsClear = false;
-    }
-    
-    // Draw only visible elements (visibility already calculated in updateLayout)
-    // Skip double-checking for performance - we trust updateLayout() visibility calculation
-    for (UIElement* elem : elements) {
-        if (elem->isVisible) {
-            elem->draw(renderer);
+    void UIVerticalLayout::draw(pixelroot32::graphics::Renderer& renderer) {
+        // Optional: Draw background or border
+        
+        // Draw visible elements
+        // Since we handle visibility in updateLayout/updateElementVisibility, 
+        // we can just draw visible elements.
+        // However, for clipping, we might need a scissor test or similar if the renderer supports it.
+        // The current renderer is simple, so we rely on visibility toggling.
+        
+        // If we need to clear the area (e.g. for scrolling artifacts on some displays), do it here
+        if (needsClear) {
+            // This is a hacky way to "clear" the previous positions if we don't redraw the whole screen
+            // ideally the Scene clears the background.
+            // If the background is static, we might leave trails.
+            // Assuming Scene clears screen every frame, we don't need this.
+            needsClear = false; 
+        }
+        
+        for (auto* elem : elements) {
+            if (elem->isVisible) {
+                elem->draw(renderer);
+            }
         }
     }
-
-    // Restore bypass state
-    if (fixedPosition) {
-        renderer.setOffsetBypass(oldBypass);
-    }
-}
 
 }

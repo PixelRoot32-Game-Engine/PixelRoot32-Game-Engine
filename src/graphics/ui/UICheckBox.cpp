@@ -8,8 +8,21 @@ namespace pixelroot32::graphics::ui {
 
     using namespace pixelroot32::input;
     using namespace pixelroot32::graphics;
+    using namespace pixelroot32::math;
 
-    UICheckBox::UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked, std::function<void(bool)> callback, int fontSize)
+    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked, std::function<void(bool)> callback, int fontSize)
+        : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::CHECKBOX),
+          label(label),
+          checked(checked),
+          fontSize(fontSize),
+          index(index),
+          onCheckChanged(callback) {
+        
+        textColor = Color::White;
+        backgroundColor = Color::Black;
+    }
+
+    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Scalar x, Scalar y, int w, int h, bool checked, std::function<void(bool)> callback, int fontSize)
         : UIElement(x, y, w, h, UIElementType::CHECKBOX),
           label(label),
           checked(checked),
@@ -55,8 +68,8 @@ namespace pixelroot32::graphics::ui {
     }
 
     bool UICheckBox::isPointInside(int px, int py) const {
-        return (px >= x && px <= x + width && 
-                py >= y && py <= y + height);
+        return (px >= static_cast<int>(position.x) && px <= static_cast<int>(position.x + width) && 
+                py >= static_cast<int>(position.y) && py <= static_cast<int>(position.y + height));
     }
 
     void UICheckBox::handleInput(const InputManager& input) {
@@ -88,8 +101,8 @@ namespace pixelroot32::graphics::ui {
             renderer.setOffsetBypass(true);
         }
 
-        int intX = static_cast<int>(x);
-        int intY = static_cast<int>(y);
+        int intX = static_cast<int>(position.x);
+        int intY = static_cast<int>(position.y);
         int intHeight = static_cast<int>(height);
         int intWidth = static_cast<int>(width);
         

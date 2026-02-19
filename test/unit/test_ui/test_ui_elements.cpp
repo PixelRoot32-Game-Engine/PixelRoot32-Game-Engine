@@ -14,6 +14,8 @@
 
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::ui;
+using namespace pixelroot32::math;
+
 
 // Mock font data
 const uint16_t dummyGlyphData[] = { 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 };
@@ -66,10 +68,10 @@ public:
 };
 
 void test_ui_label_creation_and_position() {
-    UILabel label("Hello", 10, 20, Color::White, 2);
+    UILabel label("Hello", {10, 20}, Color::White, 2);
     
-    TEST_ASSERT_EQUAL_FLOAT(10, label.x);
-    TEST_ASSERT_EQUAL_FLOAT(20, label.y);
+    TEST_ASSERT_EQUAL_FLOAT(10, label.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20, label.position.y);
 }
 
 void test_ui_label_draw() {
@@ -79,7 +81,7 @@ void test_ui_label_draw() {
     DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
     Renderer renderer(config);
     
-    UILabel label("Hello", 10, 20, Color::White, 2);
+    UILabel label("Hello", {10, 20}, Color::White, 2);
     label.draw(renderer);
     
     TEST_ASSERT_EQUAL(1, mockRaw->textCalls.size());
@@ -104,7 +106,7 @@ void test_ui_label_draw_with_data() {
     
     FontManager::setDefaultFont(&font);
     
-    UILabel label("A", 10, 20, Color::White, 1);
+    UILabel label("A", {10, 20}, Color::White, 1);
     label.draw(renderer);
     
     TEST_ASSERT_FALSE(mockRaw->pixelCalls.empty());
@@ -117,10 +119,10 @@ void test_ui_label_draw_with_data() {
 
 void test_ui_button_creation() {
     bool clicked = false;
-    UIButton button("Click Me", 0, 10, 10, 100, 30, [&](){ clicked = true; });
+    UIButton button("Click Me", 0, {10, 10}, {100, 30}, [&](){ clicked = true; });
     
-    TEST_ASSERT_EQUAL_FLOAT(10, button.x);
-    TEST_ASSERT_EQUAL_FLOAT(10, button.y);
+    TEST_ASSERT_EQUAL_FLOAT(10, button.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(10, button.position.y);
     TEST_ASSERT_EQUAL_FLOAT(100, (float)button.width);
     TEST_ASSERT_EQUAL_FLOAT(30, (float)button.height);
     TEST_ASSERT_FALSE(button.getSelected());
@@ -130,7 +132,7 @@ void test_ui_button_creation() {
 }
 
 void test_ui_button_selection() {
-    UIButton button("Btn", 0, 0, 0, 50, 20, nullptr);
+    UIButton button("Btn", 0, {0, 0}, {50, 20}, nullptr);
     
     button.setSelected(true);
     TEST_ASSERT_TRUE(button.getSelected());
@@ -156,18 +158,18 @@ void test_ui_checkbox_toggle() {
 
 void test_ui_panel_hierarchy() {
     UIPanel panel(10, 10, 100, 100);
-    auto label = std::make_unique<UILabel>("Inside", 0, 0, Color::White, 1);
+    auto label = std::make_unique<UILabel>("Inside", Vector2::ZERO(), Color::White, 1);
     
     panel.setChild(label.get());
     TEST_ASSERT_EQUAL_PTR(label.get(), panel.getChild());
     
     // Panel at (10,10), child relative (0,0) should be at (10,10)
-    TEST_ASSERT_EQUAL_FLOAT(10, label->x);
-    TEST_ASSERT_EQUAL_FLOAT(10, label->y);
+    TEST_ASSERT_EQUAL_FLOAT(10, label->position.x);
+    TEST_ASSERT_EQUAL_FLOAT(10, label->position.y);
     
     panel.setPosition(20, 30);
-    TEST_ASSERT_EQUAL_FLOAT(20, label->x);
-    TEST_ASSERT_EQUAL_FLOAT(30, label->y);
+    TEST_ASSERT_EQUAL_FLOAT(20, label->position.x);
+    TEST_ASSERT_EQUAL_FLOAT(30, label->position.y);
 }
 
 void setUp(void) {

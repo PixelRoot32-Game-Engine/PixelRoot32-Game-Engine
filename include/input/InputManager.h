@@ -10,7 +10,7 @@
  */
 #pragma once
 #ifdef PLATFORM_NATIVE
-    #include "../../src/platforms/mock/MockArduino.h"  // Defines SDL_MAIN_HANDLED before SDL.h
+    #include <platforms/mock/MockArduino.h>  // Defines SDL_MAIN_HANDLED before SDL.h
 #else
     #include <Arduino.h>
 #endif

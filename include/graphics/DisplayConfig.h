@@ -11,7 +11,7 @@
 #pragma once
 
 #ifdef PLATFORM_NATIVE
-    #include "../../src/platforms/mock/MockSPI.h"
+    #include <platforms/mock/MockSPI.h>
     #include <drivers/native/SDL2_Drawer.h> 
     #include "DrawSurface.h"
 #else

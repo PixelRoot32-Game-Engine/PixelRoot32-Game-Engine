@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## 0.9.0-dev
 
+- **Fixed-Point Math & Scalar Support**:
+  - **Math Policy Layer**: Introduced a platform-agnostic numerical abstraction layer that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities.
+  - **Scalar Type**: Added `Scalar` type alias which resolves to `float` on FPU-enabled platforms (ESP32, S3) and `Fixed16` (Q16.16) on integer-only platforms (ESP32-C3, S2, C6).
+  - **Performance Boost**: Achieved ~30% FPS increase and massive reduction in physics calculation time on ESP32-C3/S2 by eliminating software floating-point emulation.
+  - **Unified API**: Updated `Vector2`, `Rect`, and physics systems to use `Scalar`, ensuring a single codebase works optimally across all supported chips.
+  - **Math Helpers**: Added `MathUtil` with optimized `fixed_sqrt`, `fixed_sin`, `fixed_cos` and helper functions like `toScalar()` for easy literal conversion.
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 

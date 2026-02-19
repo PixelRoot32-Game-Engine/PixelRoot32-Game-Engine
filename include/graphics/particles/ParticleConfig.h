@@ -5,8 +5,10 @@
 #pragma once
 #include <cstdint>
 #include "graphics/Color.h"
+#include "math/Scalar.h"
 
 namespace pixelroot32::graphics::particles {
+
 /**
  * @struct ParticleConfig
  * @brief Configuration parameters for a particle emitter.
@@ -18,18 +20,19 @@ struct ParticleConfig {
     Color startColor; ///< Color at the beginning of the particle's life.   
     Color endColor;   ///< Color at the end of the particle's life.
 
-    float minSpeed; ///< Minimum initial speed.
-    float maxSpeed; ///< Maximum initial speed.
+    pixelroot32::math::Scalar minSpeed; ///< Minimum initial speed.
+    pixelroot32::math::Scalar maxSpeed; ///< Maximum initial speed.
 
-    float gravity;  ///< Gravity force applied to Y velocity each frame.
-    float friction; ///< Air resistance factor (0.0 - 1.0) applied to velocity.
+    pixelroot32::math::Scalar gravity;  ///< Gravity force applied to Y velocity each frame.
+    pixelroot32::math::Scalar friction; ///< Air resistance factor (0.0 - 1.0) applied to velocity.
 
     uint8_t minLife; ///< Minimum lifetime in frames/ticks.
     uint8_t maxLife; ///< Maximum lifetime in frames/ticks.
 
     bool fadeColor; ///< If true, interpolates color from startColor to endColor.
-    float minAngleDeg; ///< Minimum emission angle in degrees (0 = right).
-    float maxAngleDeg; ///< Maximum emission angle in degrees.
+
+    pixelroot32::math::Scalar minAngleDeg; ///< Minimum emission angle in degrees (0 = right).
+    pixelroot32::math::Scalar maxAngleDeg; ///< Maximum emission angle in degrees.
 };
 
-}
+} // namespace pixelroot32::graphics::particles

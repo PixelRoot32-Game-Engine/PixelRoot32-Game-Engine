@@ -6,6 +6,7 @@
 #include "core/Entity.h"
 #include "Particle.h"
 #include "ParticleConfig.h"
+#include "math/Scalar.h"
 
 #define MAX_PARTICLES_PER_EMITTER 50
 
@@ -23,11 +24,10 @@ public:
 
     /**
      * @brief Constructs a new ParticleEmitter.
-     * @param x Initial X position.
-     * @param y Initial Y position.
+     * @param position Initial position.
      * @param cfg Configuration for the emitted particles.
      */
-    ParticleEmitter(float x, float y, const ParticleConfig& cfg);
+    ParticleEmitter(pixelroot32::math::Vector2 position, const ParticleConfig& cfg);
     
     /**
      * @brief Updates all active particles.
@@ -44,11 +44,10 @@ public:
 
     /**
      * @brief Emits a burst of particles from a specific location.
-     * @param x Emission origin X.
-     * @param y Emission origin Y.
+     * @param position Emission origin.
      * @param count Number of particles to spawn.
      */
-    void burst(float x, float y, int count);
+    void burst(pixelroot32::math::Vector2 position, int count);
 
 private:
     ParticleConfig config;  
@@ -63,7 +62,7 @@ private:
      * @param t Interpolation factor (0.0 - 1.0).
      * @return Interpolated RGB565 color.
      */
-    inline uint16_t lerpColor(uint16_t c1, uint16_t c2, float t) {
+    inline uint16_t lerpColor(uint16_t c1, uint16_t c2, pixelroot32::math::Scalar t) {
         uint8_t r1 = (c1 >> 11) & 0x1F;
         uint8_t g1 = (c1 >> 5)  & 0x3F;
         uint8_t b1 = c1 & 0x1F;
@@ -72,12 +71,12 @@ private:
         uint8_t g2 = (c2 >> 5)  & 0x3F;
         uint8_t b2 = c2 & 0x1F;
 
-        uint8_t r = r1 + (r2 - r1) * t;
-        uint8_t g = g1 + (g2 - g1) * t;
-        uint8_t b = b1 + (b2 - b1) * t;
+        uint8_t r = static_cast<uint8_t>(static_cast<int>(pixelroot32::math::toScalar(r1) + pixelroot32::math::toScalar(r2 - r1) * t));
+        uint8_t g = static_cast<uint8_t>(static_cast<int>(pixelroot32::math::toScalar(g1) + pixelroot32::math::toScalar(g2 - g1) * t));
+        uint8_t b = static_cast<uint8_t>(static_cast<int>(pixelroot32::math::toScalar(b1) + pixelroot32::math::toScalar(b2 - b1) * t));
 
         return (r << 11) | (g << 5) | b;
     }
 };
 
-}
+} // namespace pixelroot32::graphics::particles

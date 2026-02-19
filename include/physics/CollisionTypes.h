@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <cstdint>
+#include "math/Scalar.h"
 
 namespace pixelroot32 {
 namespace core {
@@ -21,16 +22,16 @@ namespace DefaultLayers {
 }
 
 struct Circle {
-    float x;
-    float y;
-    float radius;
+    pixelroot32::math::Scalar x;
+    pixelroot32::math::Scalar y;
+    pixelroot32::math::Scalar radius;
 };
 
 struct Segment {
-    float x1;
-    float y1;
-    float x2;
-    float y2;
+    pixelroot32::math::Scalar x1;
+    pixelroot32::math::Scalar y1;
+    pixelroot32::math::Scalar x2;
+    pixelroot32::math::Scalar y2;
 };
 
 bool intersects(const Circle& a, const Circle& b);
@@ -42,6 +43,6 @@ bool intersects(const Segment& s, const pixelroot32::core::Rect& r);
 bool sweepCircleVsRect(const Circle& start,
                        const Circle& end,
                        const pixelroot32::core::Rect& rect,
-                       float& tHit);
+                       pixelroot32::math::Scalar& tHit);
 
 }

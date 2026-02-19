@@ -4,6 +4,12 @@
  */
 #pragma once
 
+#ifdef PLATFORM_NATIVE
+    #include <platforms/mock/MockArduino.h>
+#else
+    #include <Arduino.h>
+#endif
+
 // =============================================================================
 // Physical Display Configuration (Hardware)
 // =============================================================================
@@ -81,7 +87,36 @@
     #define MAX_ENTITIES 32
 #endif
 
+// =============================================================================
+// Hardware Capabilities
+// =============================================================================
+
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // ESP32 (Xtensa LX6), ESP32-S3 (Xtensa LX7), ESP32-P4 (RISC-V with FPU) have hardware FPU
+    #define PR32_HAS_FPU_MACRO 1
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32S2)
+    // ESP32-C series (RISC-V) and S2 lack FPU
+    #undef PR32_HAS_FPU_MACRO
+#else
+    // Default fallback (e.g. desktop/native build usually has FPU)
+    #define PR32_HAS_FPU_MACRO 1
+#endif
+
+// Allow manual override for testing/benchmarking
+#if defined(PR32_FORCE_FIXED)
+    #undef PR32_HAS_FPU_MACRO
+#endif
+
 namespace pixelroot32::platforms::config {
+    // ... existing configs ...
+
+    // Hardware Capabilities
+    #if defined(PR32_HAS_FPU_MACRO)
+    inline constexpr bool HasFPU = true;
+    #else
+    inline constexpr bool HasFPU = false;
+    #endif
+
     // Physical Display
     inline constexpr int PhysicalDisplayWidth = PHYSICAL_DISPLAY_WIDTH;
     inline constexpr int PhysicalDisplayHeight = PHYSICAL_DISPLAY_HEIGHT;
@@ -128,4 +163,8 @@ namespace pixelroot32::platforms::config {
     #else
     inline constexpr bool EnableSceneArena = false;
     #endif
+
+    inline unsigned long profilerMicros() {
+        return micros();
+    }
 }

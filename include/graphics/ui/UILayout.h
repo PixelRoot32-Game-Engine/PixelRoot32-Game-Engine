@@ -36,11 +36,21 @@ public:
      * @param w Width of the layout container.
      * @param h Height of the layout container.
      */
-    UILayout(float x, float y, float w, float h);
+    UILayout(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
+        : UIElement(x, y, w, h, UIElementType::LAYOUT) {}
+
+    /**
+     * @brief Constructs a new UILayout.
+     * @param position Position of the layout container.
+     * @param w Width of the layout container.
+     * @param h Height of the layout container.
+     */
+    UILayout(pixelroot32::math::Vector2 position, int w, int h)
+        : UIElement(position, w, h, UIElementType::LAYOUT) {}
 
     virtual ~UILayout() = default;
 
-    /**
+    /**d
      * @brief Adds a UI element to the layout.
      * @param element Pointer to the element to add.
      */
@@ -68,25 +78,25 @@ public:
      * @brief Sets the padding (internal spacing) of the layout.
      * @param p Padding value in pixels.
      */
-    void setPadding(float p) { padding = p; updateLayout(); }
+    void setPadding(pixelroot32::math::Scalar p) { padding = p; updateLayout(); }
 
     /**
      * @brief Gets the current padding.
      * @return Padding value in pixels.
      */
-    float getPadding() const { return padding; }
+    pixelroot32::math::Scalar getPadding() const { return padding; }
 
     /**
      * @brief Sets the spacing between elements.
      * @param s Spacing value in pixels.
      */
-    void setSpacing(float s) { spacing = s; updateLayout(); }
+    void setSpacing(pixelroot32::math::Scalar s) { spacing = s; updateLayout(); }
 
     /**
      * @brief Gets the current spacing.
      * @return Spacing value in pixels.
      */
-    float getSpacing() const { return spacing; }
+    pixelroot32::math::Scalar getSpacing() const { return spacing; }
 
     /**
      * @brief Gets the number of elements in the layout.
@@ -111,9 +121,9 @@ public:
 
 protected:
     std::vector<UIElement*> elements;  ///< List of child elements
-    float padding = 0.0f;              ///< Internal padding
-    float spacing = 4.0f;              ///< Spacing between elements
-    float scrollOffset = 0.0f;         ///< Current scroll offset
+    pixelroot32::math::Scalar padding = pixelroot32::math::toScalar(0.0f);              ///< Internal padding
+    pixelroot32::math::Scalar spacing = pixelroot32::math::toScalar(4.0f);              ///< Spacing between elements
+    pixelroot32::math::Scalar scrollOffset = pixelroot32::math::toScalar(0.0f);         ///< Current scroll offset
     bool enableScroll = false;         ///< Whether scrolling is enabled
     ScrollBehavior scrollBehavior = ScrollBehavior::CLAMP; ///< Scroll behavior mode
 };
