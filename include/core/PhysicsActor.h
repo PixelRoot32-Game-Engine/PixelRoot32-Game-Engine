@@ -202,7 +202,7 @@ public:
      * @brief Sets the gravity scale.
      * @param scale Multiplier for the world gravity.
      */
-    void setGravityScale(float scale) { gravityScale = pixelroot32::math::toScalar(scale); }
+    void setGravityScale(pixelroot32::math::Scalar scale) { gravityScale = scale; }
 
     /**
      * @brief Gets the gravity scale.
@@ -281,7 +281,7 @@ public:
      * @brief Sets the restitution (bounciness) of the actor.
      * @param r Restitution value (0.0 to 1.0+). 1.0 means no energy is lost on bounce.
      */
-    void setRestitution(float r) { restitution = pixelroot32::math::toScalar(r); }
+    void setRestitution(pixelroot32::math::Scalar r) { restitution = r; }
 
     /**
      * @brief Gets the restitution (bounciness) of the actor.
@@ -293,7 +293,7 @@ public:
      * @brief Sets the friction coefficient.
      * @param f Friction value (0.0 means no friction).
      */
-    void setFriction(float f) { friction = pixelroot32::math::toScalar(f); }
+    void setFriction(pixelroot32::math::Scalar f) { friction = f; }
 
     /**
      * @brief Gets the collision shape type.
@@ -317,10 +317,12 @@ public:
      * @brief Sets the radius and updates width/height to match diameter.
      * @param r Radius value.
      */
-    void setRadius(float r) { 
-        radius = pixelroot32::math::toScalar(r); 
-        width = static_cast<int>(r * 2.0f);
-        height = static_cast<int>(r * 2.0f);
+    void setRadius(pixelroot32::math::Scalar r) { 
+        pixelroot32::math::Scalar dm = pixelroot32::math::Scalar(2);
+
+        radius = r; 
+        width = static_cast<int>(r * dm);
+        height = static_cast<int>(r * dm);
     }
 
     /**

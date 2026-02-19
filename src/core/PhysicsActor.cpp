@@ -1,6 +1,9 @@
 /*
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
+ * 
+ * Flat Solver v3.0 - PhysicsActor Base Class
+ * Position integration removed - handled by CollisionSystem
  */
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"
@@ -29,32 +32,21 @@ void PhysicsActor::update(unsigned long deltaTime) {
         return;
     }
 
-    // Convert ms to seconds
-    pixelroot32::math::Scalar dt = pixelroot32::math::toScalar(static_cast<float>(deltaTime) * 0.001f);
-
-    integrate(dt);
-    // NOTE: resolveWorldBounds() intentionally removed.
-    // World boundaries are now handled exclusively by StaticActor walls
-    // resolved in CollisionSystem. This prevents state corruption.
+    // Flat Solver v3.0: Base PhysicsActor doesn't integrate
+    // Position is handled by CollisionSystem
+    // Derived classes (RigidActor) handle velocity integration
+    
+    // For KinematicActor, no automatic integration
+    // For RigidActor, override handles force integration
 }
 
 void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
-    unsigned long t0 = 0;
-    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-        t0 = pixelroot32::platforms::config::profilerMicros();
-    }
+    // Flat Solver v3.0: Base class does nothing
+    // Derived classes override to implement specific integration
+    // RigidActor: integrates forces -> velocity (NOT position)
+    // Position is integrated by CollisionSystem::integratePositions()
     
-    // Update position using velocity
-    position += velocity * dt;
-
-    // Apply friction
-    pixelroot32::math::Scalar one = pixelroot32::math::toScalar(1.0f);
-    velocity *= (one - friction);
-
-    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-        gProfilerPhysicsIntegrateTime += pixelroot32::platforms::config::profilerMicros() - t0;
-        gProfilerPhysicsIntegrateCount++;
-    }
+    (void)dt;
 }
 
 void PhysicsActor::resolveWorldBounds() {

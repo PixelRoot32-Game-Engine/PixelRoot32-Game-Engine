@@ -49,15 +49,18 @@ namespace pixelroot32::core {
     }
 
     void Scene::update(unsigned long deltaTime) {
-        // 1. Logic update — entities integrate, but do NOT resolve world bounds
+        // Flat Solver v3.0 Pipeline
+        // Physics integration and collision resolution now handled entirely by CollisionSystem
+        
+        // 1. Logic update — entities update game logic only (no physics integration)
         for (int i = 0; i < entityCount; i++) {
             if (entities[i]->isEnabled) {
                 entities[i]->update(deltaTime);
             }
         }
 
-        // 2. Collision detection + resolution (Flat Solver — single call)
-        // The solver internally does: detect → N relaxation iterations → velocity response
+        // 2. Physics update (Flat Solver v3.0)
+        // Pipeline: Detect → Solve Velocity → Integrate Position → Solve Penetration → Callbacks
         unsigned long t0 = 0;
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {
             t0 = pixelroot32::platforms::config::profilerMicros();
