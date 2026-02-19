@@ -67,7 +67,8 @@ scene.collisionSystem.update();
 - Rendering with logical resolution independent of physical resolution
 - NES-style 4-channel audio subsystem
 - UI system with automatic layouts
-- AABB (Axis-Aligned Bounding Box) physics
+- "Flat Solver" physics with specialized Actor types (Static, Kinematic, Rigid)
+- Circular and AABB collision support
 - Multi-platform support through driver abstraction
 
 ---
@@ -249,16 +250,19 @@ AudioEngine (Facade)
 
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
-**Responsibility**: AABB collision detection between Actors.
+**Responsibility**: High-performance "Flat Solver" that resolves collisions between Actors.
 
-**Features**:
+**System Architecture**:
+The engine uses a **Flat Solver** design optimized for the ESP32 (especially non-FPU variants like the C3). Unlike traditional sub-stepping solvers, the Flat Solver performs a single broadphase pass followed by multiple **relaxation iterations** to resolve penetration stably without excessive CPU overhead.
 
-- Collision layer and mask system
-- `onCollision()` callbacks in Actors
-- Based on `std::vector` for entity registration
+**Key Features**:
+- **Broadphase**: Uniform Spatial Grid (reaches O(1) cell hashing).
+- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, and Circle vs AABB manifolds.
+- **Iterative Relaxation**: Multi-pass position correction to prevent "jitter" in stacked objects.
+- **Static Arbiter**: Immovable objects (`StaticActor`) are resolved last, acting as the final authority on world boundaries.
+- **Memory Optimized**: Reclaims ~100KB of DRAM by using shared static buffers for the collision grid across all scene instances.
 
 **Collision Layers**:
-
 ```cpp
 enum DefaultLayers {
     kNone = 0,
@@ -458,19 +462,31 @@ virtual void update(unsigned long deltaTime) = 0;
 virtual void draw(Renderer& renderer) = 0;
 ```
 
-#### 3.5.5 Actor
+#### 3.5.5 Actor / PhysicsActor Hierarchy
 
-**Files**: `include/core/Actor.h`
+Following the Godot Engine philosophy, physical actors are specialized into distinct types based on their movement requirements.
 
-**Responsibility**: Entity with physical collision capabilities.
+**Hierarchy**:
+```
+Entity
+└── Actor
+    └── PhysicsActor (Base)
+        ├── StaticActor    (Immovable walls/floors)
+        ├── KinematicActor (Character movement, move_and_slide)
+        └── RigidActor     (Props, physical objects with gravity)
+```
+
+**Actor Roles**:
+- **StaticActor**: Optimized for scenery. They skip the spatial grid and act as "anchors" that other objects cannot penetrate.
+- **KinematicActor**: Specifically for logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()` to interact with the world manually.
+- **RigidActor**: Fully automatic. They integrate velocity and gravity, responding to collisions using restitution and friction.
+- **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:
-
-- Inherits from `Entity`
 - `CollisionLayer layer`: Own collision layer
 - `CollisionLayer mask`: Layers it collides with
-- `getHitBox()`: Gets bounding box for collision
-- `onCollision(Actor* other)`: Collision callback
+- `bool bounce`: Optional bouncing behavior
+- `onCollision(Actor* other)`: Notification-only callback (non-interruptive)
 
 ---
 

@@ -31,6 +31,18 @@ The engine's behavior can be customized using `platforms/PlatformDefaults.h` and
 - **`int yOffset`**
     The vertical offset for the display alignment. Default is `0`.
 
+- **`PHYSICS_MAX_PAIRS`**
+    Maximum number of simultaneous collision pairs tracked by the solver. Lower values save static DRAM. Default is `128`.
+
+- **`PHYSICS_RELAXATION_ITERATIONS`**
+    Number of position correction passes per frame. Higher values improve stacking stability but increase CPU load. Default is `8`.
+
+- **`SPATIAL_GRID_CELL_SIZE`**
+    Size of each cell in the broadphase grid (in pixels). Default is `32`.
+
+- **`SPATIAL_GRID_MAX_ENTITIES_PER_CELL`**
+    Maximum entities stored in a single grid cell. Default is `24`.
+
 ## Math Module
 
 The Math module provides a platform-agnostic numerical abstraction layer (`Scalar`) that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities (FPU presence).
@@ -513,13 +525,25 @@ Abstract base class for all game objects. Entities are the fundamental building 
 - **`virtual void draw(Renderer& renderer)`**
     Renders the entity. Must be overridden by subclasses.
 
----
-
 ### Actor
 
 **Inherits:** [Entity](#entity)
 
-An Entity capable of physical interaction and collision. Actors extend Entity with collision layers and masks. They are used for dynamic game objects like players, enemies, and projectiles.
+The base class for all objects capable of collision. Actors extend Entity with collision layers, masks, and shape definitions. Note: You should typically use a specialized subclass like `RigidActor` or `KinematicActor` instead of this base class.
+
+#### Constants
+
+- **`enum CollisionShape`**
+  - `AABB`: Axis-aligned bounding box (Rectangle).
+  - `CIRCLE`: Circular collision body.
+
+#### Properties
+
+- **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
+- **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
+- **`CollisionLayer layer`**: Bitmask representing the layers this actor belongs to.
+- **`CollisionLayer mask`**: Bitmask representing the layers this actor scans for collisions.
+- **`bool bounce`**: If `true`, the actor will bounce off surfaces based on its restitution (Default: `false`).
 
 #### Public Methods
 
@@ -536,10 +560,124 @@ An Entity capable of physical interaction and collision. Actors extend Entity wi
     Checks if the Actor belongs to a specific collision layer.
 
 - **`virtual Rect getHitBox()`**
-    Gets the hitbox for collision detection. Must be implemented by subclasses.
+    Returns the bounding rectangle for AABB detection or the bounding box of the circle.
 
 - **`virtual void onCollision(Actor* other)`**
-    Callback invoked when a collision occurs with another Actor.
+    Callback invoked when a collision is detected. **Note:** All collision responses (velocity/position changes) are handled by the `CollisionSystem`. This method is for gameplay notifications only.
+
+---
+
+## Physics Module
+
+The Physics module provides a high-performance "Flat Solver" optimized for microcontrollers. It handles collision detection, position resolution, and physical integration for different types of bodies.
+
+### PhysicsActor
+
+**Inherits:** [Actor](#actor)
+
+Base class for all physics-enabled bodies. It provides the core integration and response logic used by the `CollisionSystem`.
+
+#### Properties
+
+- **`Vector2 velocity`**: Current movement speed in pixels/second.
+- **`Scalar mass`**: Mass of the body (Default: `1.0`).
+- **`Scalar restitution`**: Bounciness factor (0.0 = no bounce, 1.0 = perfect bounce).
+- **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
+- **`Scalar gravityScale`**: Multiplier for global gravity (Default: `1.0`).
+
+---
+
+### StaticActor
+
+**Inherits:** [PhysicsActor](#physicsactor)
+
+An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. `StaticActor` is optimized to skip the spatial grid and act as a fixed boundary.
+
+**Example:**
+```cpp
+auto floor = std::make_unique<StaticActor>(0, 230, 240, 10);
+floor->setCollisionLayer(Layers::kWall);
+scene->addEntity(floor.get());
+```
+
+---
+
+### KinematicActor
+
+**Inherits:** [PhysicsActor](#physicsactor)
+
+A body that is moved manually via code but still interacts with the physics world (stops at walls, pushes objects). Ideal for players and moving platforms.
+
+#### Public Methods
+
+- **`bool moveAndCollide(Vector2 relativeMove)`**
+    Moves the actor by `relativeMove`. If a collision occurs, it stops at the point of contact and returns `true`.
+- **`Vector2 moveAndSlide(Vector2 velocity)`**
+    Moves the actor, sliding along surfaces if it hits a wall or floor. Returns the remaining velocity.
+
+**Example:**
+```cpp
+void Player::update(unsigned long dt) {
+    Vector2 motion(0, 0);
+    if (input.isButtonDown(0)) motion.x += 100 * dt / 1000.0f;
+    
+    // Automatic sliding against walls
+    moveAndSlide(motion);
+}
+```
+
+---
+
+### RigidActor
+
+**Inherits:** [PhysicsActor](#physicsactor)
+
+A body fully simulated by the physics engine. It is affected by gravity, forces, and collisions with other bodies. Ideal for debris, boxes, and physical props.
+
+#### Properties
+- **`bool bounce`**: Whether the object should use restitution for bounces.
+
+**Example:**
+```cpp
+auto box = std::make_unique<RigidActor>(100, 0, 16, 16);
+box->setCollisionLayer(Layers::kProps);
+box->setCollisionMask(Layers::kWall | Layers::kProps);
+box->bounce = true; // Make it bouncy
+scene->addEntity(box.get());
+```
+
+---
+
+### CircleActor (Pattern)
+
+While the engine defines `RigidActor` and `StaticActor`, creating a circular object is done by setting the `shape` property.
+
+**Structure:**
+```cpp
+class MyCircle : public RigidActor {
+public:
+    MyCircle(Scalar x, Scalar y, Scalar r) : RigidActor(x, y, r*2, r*2) {
+        shape = CollisionShape::CIRCLE;
+        radius = r;
+    }
+};
+```
+
+---
+
+### CollisionSystem
+
+**Inherits:** None
+
+The central system that manages broadphase detection and narrowphase resolution.
+
+#### Key Logic: "The Flat Solver"
+The solver executes in `Scene::update()` and follows these steps:
+1. **Detection**: Queries the `SpatialGrid` for potential overlaps.
+2. **Manifold Generation**: Calculates the exact penetration normal and depth for AABB-AABB, Circle-Circle, or Circle-AABB pairs.
+3. **Relaxation**: Performs multiple iterations of position correction to resolve overlaps without "teleporting" objects through walls.
+4. **Static Resolution**: `StaticActor` objects act as infinite-mass arbiters, resolving any remaining penetration at the end of the step.
+5. **Impulse Response**: Updates velocities based on `restitution` and `bounce` flags.
 
 ---
 
