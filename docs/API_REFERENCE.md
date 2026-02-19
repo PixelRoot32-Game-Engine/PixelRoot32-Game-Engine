@@ -59,7 +59,7 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 #### Helper Functions
 
 - **`Scalar toScalar(float value)`**
-    Converts a floating-point literal or variable to `Scalar`. 
+    Converts a floating-point literal or variable to `Scalar`.
     *Usage:* `Scalar speed = toScalar(2.5f);`
 
 - **`Scalar toScalar(int value)`**
@@ -258,6 +258,7 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
     Returns the detected hardware capabilities for the current platform.
 
 ### PlatformCapabilities (Struct)
+
 **Namespace:** `pixelroot32::platforms`
 
 A structure that holds detected hardware capabilities, used to optimize task pinning and threading.
@@ -301,6 +302,7 @@ Configuration settings for display initialization and scaling.
 - **`int yOffset`**: Y coordinate offset for hardware alignment.
 
 #### Pin Configuration (Optional)
+
 - **`uint8_t clockPin`**: SPI SCK / I2C SCL.
 - **`uint8_t dataPin`**: SPI MOSI / I2C SDA.
 - **`uint8_t csPin`**: SPI CS (Chip Select).
@@ -447,9 +449,9 @@ Music timing is handled internally by the `AudioEngine`.
 
 - **`void setTempoFactor(float factor)`**
     Sets the global tempo scaling factor.
-    - `1.0f` is normal speed.
-    - `2.0f` is double speed.
-    - `0.5f` is half speed.
+  - `1.0f` is normal speed.
+  - `2.0f` is double speed.
+  - `0.5f` is half speed.
 
 - **`float getTempoFactor() const`**
     Gets the current tempo scaling factor (default 1.0f).
@@ -585,6 +587,14 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
 - **`Scalar gravityScale`**: Multiplier for global gravity (Default: `1.0`).
 
+#### Constructors
+
+- **`PhysicsActor(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new PhysicsActor.
+
+- **`PhysicsActor(Vector2 position, int w, int h)`**
+    Constructs a new PhysicsActor using a position vector.
+
 ---
 
 ### StaticActor
@@ -593,7 +603,16 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 
 An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. `StaticActor` is optimized to skip the spatial grid and act as a fixed boundary.
 
+#### Constructors
+
+- **`StaticActor(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new StaticActor.
+
+- **`StaticActor(Vector2 position, int w, int h)`**
+    Constructs a new StaticActor using a position vector.
+
 **Example:**
+
 ```cpp
 auto floor = std::make_unique<StaticActor>(0, 230, 240, 10);
 floor->setCollisionLayer(Layers::kWall);
@@ -608,6 +627,14 @@ scene->addEntity(floor.get());
 
 A body that is moved manually via code but still interacts with the physics world (stops at walls, pushes objects). Ideal for players and moving platforms.
 
+#### Constructors
+
+- **`KinematicActor(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new KinematicActor.
+
+- **`KinematicActor(Vector2 position, int w, int h)`**
+    Constructs a new KinematicActor using a position vector.
+
 #### Public Methods
 
 - **`bool moveAndCollide(Vector2 relativeMove)`**
@@ -616,6 +643,7 @@ A body that is moved manually via code but still interacts with the physics worl
     Moves the actor, sliding along surfaces if it hits a wall or floor. Returns the remaining velocity.
 
 **Example:**
+
 ```cpp
 void Player::update(unsigned long dt) {
     Vector2 motion(0, 0);
@@ -634,10 +662,20 @@ void Player::update(unsigned long dt) {
 
 A body fully simulated by the physics engine. It is affected by gravity, forces, and collisions with other bodies. Ideal for debris, boxes, and physical props.
 
+#### Constructors
+
+- **`RigidActor(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new RigidActor.
+
+- **`RigidActor(Vector2 position, int w, int h)`**
+    Constructs a new RigidActor using a position vector.
+
 #### Properties
+
 - **`bool bounce`**: Whether the object should use restitution for bounces.
 
 **Example:**
+
 ```cpp
 auto box = std::make_unique<RigidActor>(100, 0, 16, 16);
 box->setCollisionLayer(Layers::kProps);
@@ -653,6 +691,7 @@ scene->addEntity(box.get());
 While the engine defines `RigidActor` and `StaticActor`, creating a circular object is done by setting the `shape` property.
 
 **Structure:**
+
 ```cpp
 class MyCircle : public RigidActor {
 public:
@@ -672,7 +711,9 @@ public:
 The central system that manages broadphase detection and narrowphase resolution.
 
 #### Key Logic: "The Flat Solver"
+
 The solver executes in `Scene::update()` and follows these steps:
+
 1. **Detection**: Queries the `SpatialGrid` for potential overlaps.
 2. **Manifold Generation**: Calculates the exact penetration normal and depth for AABB-AABB, Circle-Circle, or Circle-AABB pairs.
 3. **Relaxation**: Performs multiple iterations of position correction to resolve overlaps without "teleporting" objects through walls.
@@ -1075,7 +1116,6 @@ The `Camera2D` class provides a 2D camera system for managing the viewport and s
 
 - **`void setViewportSize(int width, int height)`**
     Updates the viewport size (usually logical resolution).
-
 
 ---
 
@@ -1927,10 +1967,12 @@ Configuration structure for `InputManager`. Defines the mapping between logical 
 - **`int count`**: Total number of configured inputs.
 
 **Constructor:**
+
 - **`InputConfig(int count, ...)`**
     Variadic constructor to easily list pins/keys.
 
 Example:
+
 ```cpp
 // 3 inputs: Left, Right, Jump
 InputConfig input(3, 12, 14, 27); 

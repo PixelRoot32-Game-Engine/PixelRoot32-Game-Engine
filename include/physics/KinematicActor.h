@@ -25,15 +25,28 @@ public:
      * @param w Width.
      * @param h Height.
      */
-    KinematicActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    KinematicActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
+
+    /**
+     * @brief Constructs a new KinematicActor.
+     * @param position Position vector.
+     * @param w Width.
+     * @param h Height.
+     */
+    KinematicActor(pixelroot32::math::Vector2 position, int w, int h);
 
     /**
      * @brief Moves the body along a vector and stops at the first collision.
      * @param motion The relative movement vector.
      * @param outCollision Pointer to store collision data if a hit occurs.
+     * @param testOnly If true, checks for collision without moving.
+     * @param safeMargin Extra margin for collision recovery.
+     * @param recoveryAsCollision If true, depenetration is reported as collision.
      * @return true if a collision occurred.
      */
-    bool moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision = nullptr);
+    bool moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision = nullptr, 
+                        bool testOnly = false, pixelroot32::math::Scalar safeMargin = pixelroot32::math::Scalar(0.08f), 
+                        bool recoveryAsCollision = false);
 
     /**
      * @brief Moves the body while sliding along surfaces.

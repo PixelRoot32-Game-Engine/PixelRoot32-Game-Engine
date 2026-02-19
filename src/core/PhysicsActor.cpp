@@ -12,8 +12,8 @@ namespace pixelroot32::core {
 extern unsigned long gProfilerPhysicsIntegrateTime;
 extern unsigned long gProfilerPhysicsIntegrateCount;
 
-PhysicsActor::PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
-    : Actor(x, y, static_cast<int>(w), static_cast<int>(h)) {
+PhysicsActor::PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
+    : Actor(x, y, w, h) {
     worldWidth = pixelroot32::platforms::config::LogicalWidth;
     worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }

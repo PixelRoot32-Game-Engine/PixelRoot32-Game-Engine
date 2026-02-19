@@ -24,7 +24,7 @@ public:
      * @param w Width.
      * @param h Height.
      */
-    StaticActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    StaticActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
 
     /**
      * @brief Constructs a new StaticActor.

@@ -37,6 +37,10 @@ struct Vector2 {
         return Vector2(x - other.x, y - other.y);
     }
 
+    constexpr Vector2 operator-() const {
+        return Vector2(-x, -y);
+    }
+
     constexpr Vector2 operator*(Scalar scalar) const {
         return Vector2(x * scalar, y * scalar);
     }

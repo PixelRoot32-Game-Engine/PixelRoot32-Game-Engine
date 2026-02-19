@@ -108,7 +108,7 @@ public:
      * @param w Width of the actor.
      * @param h Height of the actor.
      */
-    PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
 
     /**
      * @brief Constructs a new PhysicsActor using Vector2 position.

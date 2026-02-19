@@ -26,10 +26,10 @@ public:
      * @param w Width.
      * @param h Height.
      */
-    RigidActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h);
+    RigidActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
 
     /**
-     * @brief Constructs a new RigidActor.
+     * @brief Constructs a new RigidActor.  
      * @param position Position vector.
      * @param w Width.
      * @param h Height.

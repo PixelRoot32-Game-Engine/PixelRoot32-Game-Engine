@@ -6,101 +6,141 @@
 
 namespace pixelroot32::physics {
 
-KinematicActor::KinematicActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
+KinematicActor::KinematicActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
     : pixelroot32::core::PhysicsActor(x, y, w, h) {
     setBodyType(pixelroot32::core::PhysicsBodyType::KINEMATIC);
 }
 
-bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision) {
-    if (!collisionSystem) {
-        position += motion;
+KinematicActor::KinematicActor(pixelroot32::math::Vector2 position, int w, int h)
+    : pixelroot32::core::PhysicsActor(position, w, h) {
+    setBodyType(pixelroot32::core::PhysicsBodyType::KINEMATIC);
+}
+
+bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision, bool testOnly, pixelroot32::math::Scalar safeMargin, bool recoveryAsCollision) {
+    (void)recoveryAsCollision; // Not fully implemented
+    (void)safeMargin;          // Handled via binary search precision
+
+    if (!collisionSystem || motion.is_zero_approx()) {
+        if (!testOnly) position += motion;
         return false;
     }
 
-    int steps = 4;
-    pixelroot32::math::Vector2 step = motion * pixelroot32::math::toScalar(1.0f / (float)steps);
-    bool collided = false;
-
-    for (int i = 0; i < steps; ++i) {
-        pixelroot32::math::Vector2 prevPos = position;
-        pixelroot32::core::Rect prevBox = getHitBox();
-        position += step;
+    using namespace pixelroot32::math;
+    
+    Vector2 startPos = position;
+    Vector2 targetPos = startPos + motion;
+    
+    // Use a static array for collision query to avoid allocation
+    static pixelroot32::core::Actor* collisions[16];
+    int collisionCount = 0;
+    
+    // Helper to check collision at specific position with filtering
+    auto checkCollisionRefined = [&](Vector2 pos) -> bool {
+        position = pos;
+        if (!collisionSystem->checkCollision(this, collisions, collisionCount, 16)) return false;
         
-        // Zero-allocation collision check using static array
-        static pixelroot32::core::Actor* collisions[16];
-        int collisionCount = 0;
-        
-        if (collisionSystem->checkCollision(this, collisions, collisionCount, 16)) {
-            bool shouldBackUp = false;
-
-            for (int ci = 0; ci < collisionCount; ++ci) {
-                auto* other = collisions[ci];
-                // Determine if this is a collision we must respect
-                bool rigid = false;
-                if (other->isPhysicsBody()) {
-                    if (static_cast<pixelroot32::core::PhysicsActor*>(other)->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) {
-                        rigid = true;
-                    }
-                }
-
-                if (rigid) continue; // Allow overlap with rigid bodies so solver can push them
-
-                // It's a static/kinematic collider. Check if moving closer.
-                pixelroot32::core::Rect otherBox = other->getHitBox();
-                
-                if (!prevBox.intersects(otherBox)) {
-                    shouldBackUp = true;
-                    break;
-                } else {
-                    using namespace pixelroot32::math;
-                    Scalar hw = toScalar((width + otherBox.width) / 2.0f);
-                    Scalar hh = toScalar((height + otherBox.height) / 2.0f);
-                    
-                    Scalar prevDistX = (prevPos.x + toScalar(width/2.0f)) - (otherBox.position.x + toScalar(otherBox.width/2.0f));
-                    Scalar prevDistY = (prevPos.y + toScalar(height/2.0f)) - (otherBox.position.y + toScalar(otherBox.height/2.0f));
-                    Scalar prevAbsX = (prevDistX < toScalar(0) ? -prevDistX : prevDistX);
-                    Scalar prevAbsY = (prevDistY < toScalar(0) ? -prevDistY : prevDistY);
-                    
-                    Scalar currDistX = (position.x + toScalar(width/2.0f)) - (otherBox.position.x + toScalar(otherBox.width/2.0f));
-                    Scalar currDistY = (position.y + toScalar(height/2.0f)) - (otherBox.position.y + toScalar(otherBox.height/2.0f));
-                    Scalar currAbsX = (currDistX < toScalar(0) ? -currDistX : currDistX);
-                    Scalar currAbsY = (currDistY < toScalar(0) ? -currDistY : currDistY);
-
-                    Scalar prevOverlapX = hw - prevAbsX;
-                    Scalar prevOverlapY = hh - prevAbsY;
-                    Scalar currOverlapX = hw - currAbsX;
-                    Scalar currOverlapY = hh - currAbsY;
-
-                    if (currOverlapX > prevOverlapX || currOverlapY > prevOverlapY) {
-                         shouldBackUp = true;
-                         break;
-                    }
-                }
+        for (int i = 0; i < collisionCount; ++i) {
+            auto* other = collisions[i];
+            // Ignore rigid bodies for kinematic movement (they get pushed)
+            if (other->isPhysicsBody()) {
+                 auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
+                 if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) {
+                     continue; 
+                 }
             }
-
-            if (shouldBackUp) {
-                position = prevPos;
-                collided = true;
-                if (outCollision && collisionCount > 0) {
-                    outCollision->collider = collisions[0];
-                    if (step.x > 0) outCollision->normal = {-1, 0};
-                    else if (step.x < 0) outCollision->normal = {1, 0};
-                    else if (step.y > 0) outCollision->normal = {0, -1};
-                    else if (step.y < 0) outCollision->normal = {0, 1};
-                }
-                break;
-            }
+            return true; // Found a valid blocker
         }
+        return false;
+    };
+
+    // First check at target
+    if (!checkCollisionRefined(targetPos)) {
+        if (testOnly) position = startPos;
+        else position = targetPos;
+        return false; 
     }
 
-    return collided;
+    // Collision detected. Perform binary search to find safe position.
+    Vector2 low = startPos;
+    Vector2 high = targetPos;
+    Vector2 safePos = startPos;
+    
+    // 8 iterations gives adequate precision
+    for (int i = 0; i < 8; ++i) {
+        Vector2 mid = (low + high) * toScalar(0.5f);
+        if (checkCollisionRefined(mid)) {
+            high = mid; // Collision, move back
+        } else {
+            safePos = mid; // Safe, try moving further
+            low = mid;
+        }
+    }
+    
+    // Determine normal
+    position = high; // Move to colliding position
+    checkCollisionRefined(high); // Refresh collisions
+    
+    pixelroot32::core::Actor* hitActor = nullptr;
+    for (int i = 0; i < collisionCount; ++i) {
+         auto* other = collisions[i];
+         if (other->isPhysicsBody() && static_cast<pixelroot32::core::PhysicsActor*>(other)->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) continue;
+         hitActor = other;
+         break;
+    }
+    
+    Vector2 normal = Vector2(0, 0);
+    if (hitActor) {
+         pixelroot32::core::Rect otherBox = hitActor->getHitBox();
+         pixelroot32::core::Rect myBox = getHitBox(); // at 'high' position
+         
+         Scalar hw = toScalar((myBox.width + otherBox.width) / 2.0f);
+         Scalar hh = toScalar((myBox.height + otherBox.height) / 2.0f);
+         Scalar distX = (myBox.position.x + toScalar(myBox.width/2.0f)) - (otherBox.position.x + toScalar(otherBox.width/2.0f));
+         Scalar distY = (myBox.position.y + toScalar(myBox.height/2.0f)) - (otherBox.position.y + toScalar(otherBox.height/2.0f));
+         Scalar absX = (distX < toScalar(0) ? -distX : distX);
+         Scalar absY = (distY < toScalar(0) ? -distY : distY);
+         
+         Scalar overlapX = hw - absX;
+         Scalar overlapY = hh - absY;
+         
+         if (overlapX < overlapY) {
+             normal = (distX < toScalar(0)) ? Vector2(-1, 0) : Vector2(1, 0);
+         } else {
+             normal = (distY < toScalar(0)) ? Vector2(0, -1) : Vector2(0, 1);
+         }
+    } else {
+        normal = -motion.normalized();
+    }
+    
+    if (outCollision) {
+        outCollision->collider = hitActor;
+        outCollision->normal = normal;
+        outCollision->position = safePos;
+        outCollision->travel = (safePos - startPos).length();
+        outCollision->remainder = (motion.length() - outCollision->travel);
+        if (outCollision->remainder < toScalar(0)) outCollision->remainder = toScalar(0);
+    }
+    
+    position = testOnly ? startPos : safePos;
+    return true;
 }
 
 void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection) {
     (void)upDirection;
-    KinematicCollision collision;
-    if (moveAndCollide(velocity, &collision)) {
-        // Sliding logic could be added here
+    using namespace pixelroot32::math;
+    
+    Vector2 currentMotion = velocity;
+    int maxSlides = 4;
+    
+    for(int i=0; i<maxSlides; ++i) {
+        KinematicCollision col;
+        if (moveAndCollide(currentMotion, &col)) {
+            Vector2 remainderVector = currentMotion.normalized() * col.remainder;
+            currentMotion = remainderVector.slide(col.normal);
+            if (currentMotion.is_zero_approx()) break;
+        } else {
+            break;
+        }
     }
 }
 

@@ -6,7 +6,7 @@
 
 namespace pixelroot32::physics {
 
-StaticActor::StaticActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)
+StaticActor::StaticActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
     : pixelroot32::core::PhysicsActor(x, y, w, h) {
     setBodyType(pixelroot32::core::PhysicsBodyType::STATIC);
 }
