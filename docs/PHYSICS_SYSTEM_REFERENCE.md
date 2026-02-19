@@ -1,125 +1,295 @@
-# PixelRoot32 / PR32: Physics System Reference – "The Flat Solver"
+# PixelRoot32 Physics System Reference – Flat Solver v3.0
 
-This document describes the design and implementation of the PixelRoot32 physics system, known as the **Flat Solver**. It covers the architectural decisions made to support stable, multi-object simulations on resource-constrained hardware like the ESP32.
-
-- **Design Philosophy**:
-  - **Deterministic**: Consistent behavior across different hardware targets.
-  - **Low-Cost**: Optimized for non-FPU microcontrollers (using `Scalar` fixed-point).
-  - **Memory-Efficient**: Drastically reduced DRAM footprint through shared spatial partitioning.
-  - **Stable**: Uses iterative relaxation to handle stacked objects without excessive sub-stepping.
-  - **Godot-Inspired**: Uses a familiar specialized actor hierarchy (Static, Kinematic, Rigid).
+This document describes the **Flat Solver v3.0**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
 
 ---
 
-## 1. Overview: The Flat Solver Architecture
+## 1. Overview: Flat Solver v3.0
 
-The physics system is designed as a "Flat Solver," meaning it performs resolution in a clear, sequential pipeline without the complexity of deep recursive sub-stepping.
+### 1.1 Design Philosophy
 
-### 1.1 The Simulation Pipeline
+- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware
+- **Stable**: Proper separation of velocity and position solvers eliminates jitter
+- **Microcontroller-Optimized**: No recursive sub-stepping, minimal memory overhead
+- **Correct**: Implements proper impulse-based collision response
 
-Every frame, the `Scene` executes the physics step in the following order:
+### 1.2 The Simulation Pipeline
 
-1. **Gravity Integration**: Applies global gravity to all `RigidActor` entities.
-2. **Broadphase (Spatial Grid)**: Efficiently identifies potential colliding pairs using a uniform grid.
-3. **Narrowphase**: Calculates collision manifolds (overlap normal and depth) for AABB and Circle shapes.
-4. **Iterative Relaxation**: Performs multiple passes (controlled by `PHYSICS_RELAXATION_ITERATIONS`) of position correction to resolve penetration.
-5. **Static Arbiter**: Forces `StaticActor` objects to be immovable, pushing dynamic bodies out.
-6. **Velocity Correction**: Updates velocities for bouncing and sliding based on the final contact normals.
+Every frame, the `CollisionSystem` executes physics in strict order:
 
----
+```
+1. Detect Collisions       → Identify all overlapping pairs
+2. Solve Velocity          → Apply impulse-based collision response
+3. Integrate Positions     → Update positions: p = p + v * dt
+4. Solve Penetration       → Baumgarte stabilization + Slop
+5. Trigger Callbacks       → Notify gameplay code (onCollision)
+```
 
-## 2. Spatial Partitioning: Uniform Grid
+This order is critical:
 
-To avoid $O(N^2)$ checks, the engine uses a **Uniform Spatial Grid**.
-
-- **Grid Hashing**: Actors are mapped to cells based on their bounding boxes.
-- **Cell Size**: Configurable via `SPATIAL_GRID_CELL_SIZE` (default 32px).
-- **Shared Memory Optimization**:
-  - On memory-dense platforms, each scene has its own grid.
-  - **ESP32 Optimization**: The engine uses **Static Shared Buffers** for `cells` and `cellCounts`. Since scenes update sequentially and the grid is cleared every frame, this reclaims ~100KB of DRAM.
-
----
-
-## 3. Specialized Actor Hierarchy
-
-Following modern engine standards, bodies are specialized to reduce logical complexity in the solver.
-
-### 3.1 StaticActor
-
-- **Role**: World geometry (floors, walls).
-- **Behavior**: Infinite mass. Never moves.
-- **Solver Logic**: Skipped during grid insertion if they are too large, or treated as the "ground truth" during relaxation.
-
-### 3.2 KinematicActor
-
-- **Role**: Players, moving platforms.
-- **Behavior**: Movement is driven by game logic, not the solver.
-- **Key Methods**:
-  - `moveAndCollide()`: Moves the body along a vector and stops at the first point of contact. Supports `testOnly`, `safeMargin`, and `recoveryAsCollision` parameters.
-  - `moveAndSlide()`: Automatically slides along surfaces, handling slopes and walls, ideal for platformers. Uses an iterative sliding algorithm (up to 4 slides).
-
-### 3.3 RigidActor
-
-- **Role**: Props, debris, physics-driven objects.
-- **Behavior**: Fully automatic. Responds to gravity, impulses, and collisions.
-- **Properties**: `mass`, `restitution` (bounciness), and `gravityScale`.
+- **Velocity is solved before position integration** (prevents energy loss)
+- **Position integration happens before penetration correction** (allows proper separation)
+- **Callbacks happen last** (gameplay can inspect final state)
 
 ---
 
-## 4. Collision Shapes and Manifolds
-
-The engine supports mixed-shape collisions with optimized narrowphase algorithms.
-
-| Interaction | Logic |
-| :--- | :--- |
-| **AABB vs AABB** | Standard SAT (Separating Axis Theorem) for axis-aligned rectangles. |
-| **Circle vs Circle** | Distance check with overlap fallback to prevent "fusion" in perfectly aligned centers. |
-| **Circle vs AABB** | Clamping the circle center to the box edges to find the closest point. |
-
-### 4.1 Penetration Fallback
-
-When centers of two circles overlap perfectly, the solver applies a vertical normal fallback to "break" the singularity and push objects apart stably.
-
----
-
-## 5. Iterative Relaxation (Position Correction)
-
-Unlike impulse-only solvers that suffer from "jitter" or "explosive" stacking, PixelRoot32 uses **Position Relaxation**.
-
-1. Calculate penetration depth $d$ and normal $n$.
-2. Move objects apart by $d \times k$, where $k$ is the relaxation factor.
-3. Repeat this $M$ times (where $M = PHYSICS\_RELAXATION\_ITERATIONS$).
-
-This allows for very stable stacks of boxes or circles even at high gravity, as the solver converges on a non-penetrating state before the frame is rendered.
-
----
-
-## 6. Configuration (EngineConfig.h)
-
-Developers can tune the physics system for their specific hardware and game needs:
+## 2. Key Constants
 
 ```cpp
-// Maximum simultaneous collisions tracked
-#define PHYSICS_MAX_PAIRS 128
-
-// Accuracy vs Performance (Default: 8)
-#define PHYSICS_RELAXATION_ITERATIONS 8
-
-// Typical cell size for broadphase
-#define SPATIAL_GRID_CELL_SIZE 32
+static constexpr Scalar FIXED_DT = toScalar(1.0f / 60.0f);  // Fixed timestep
+static constexpr Scalar SLOP = toScalar(0.02f);              // Ignore penetration < 2cm
+static constexpr Scalar BIAS = toScalar(0.2f);               // 20% correction per frame
+static constexpr Scalar VELOCITY_THRESHOLD = toScalar(0.5f); // Zero restitution below this
+static constexpr int VELOCITY_ITERATIONS = 2;                // Impulse solver iterations
+static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation threshold
 ```
 
 ---
 
-## 7. Performance Tips for ESP32
+## 3. Collision Detection
 
-1. **Use StaticActors Whenever Possible**: They are significantly cheaper than dynamic bodies.
-2. **Limit Rigid Bodies**: On the ESP32-C3, aim for <20 simultaneous `RigidActor` objects for a stable 60 FPS.
-3. **Adjust Cell Size**: If your game has very large or very small sprites, matching `SPATIAL_GRID_CELL_SIZE` to the average actor size improves broadphase efficiency.
-4. **Shape Awareness**: AABB vs AABB is the cheapest check. Circle vs AABB is slightly more expensive due to square root operations (even with fixed-point optimizations).
+### 3.1 Broadphase: Spatial Grid
+
+- Uniform grid with configurable cell size (default: 32px)
+- Shared static buffers on ESP32 (saves ~100KB DRAM)
+- Detects:
+  - Rigid vs Rigid
+  - Rigid vs Static
+  - Rigid vs Kinematic (new in v3.0)
+
+### 3.2 Narrowphase: Shape Interactions
+
+| Interaction | Algorithm |
+|-------------|-----------|
+| AABB vs AABB | SAT (Separating Axis Theorem) |
+| Circle vs Circle | Distance check with vertical fallback for perfect overlap |
+| Circle vs AABB | Closest point clamping |
 
 ---
 
-## 8. Summary
+## 4. The Solver
 
-The PixelRoot32 Physics System provides a balance between retro feel and modern stability. By combining a **Flat Solver** with **Spatial Partitioning** and **Specialized Actor Types**, it delivers a robust physics experience that fits within the tight memory constraints of the ESP32 while providing a professional, Godot-like API for developers.
+### 4.1 Velocity Solver (Impulse-Based)
+
+```cpp
+// Sequential impulse solver (2 iterations)
+for (int iter = 0; iter < 2; iter++) {
+    for (auto& contact : contacts) {
+        // Calculate relative velocity along normal
+        Vector2 rv = bodyA->velocity - bodyB->velocity;
+        Scalar vn = rv.dot(contact.normal);
+        
+        // Only resolve approaching velocities
+        if (vn > 0) continue;
+        
+        // Apply velocity threshold for restitution
+        Scalar e = (abs(vn) < VELOCITY_THRESHOLD) ? 0 : contact.restitution;
+        
+        // Calculate impulse
+        Scalar j = -(1 + e) * vn / (invMassA + invMassB);
+        
+        // Apply to bodies
+        bodyA->velocity += contact.normal * j * invMassA;
+        bodyB->velocity -= contact.normal * j * invMassB;
+    }
+}
+```
+
+### 4.2 Position Integration
+
+```cpp
+// Only for Rigid bodies
+pa->position = pa->position + velocity * FIXED_DT;
+```
+
+Note: Position integration is done **after** velocity solver but **before** penetration correction.
+
+### 4.3 Penetration Solver (Baumgarte + Slop)
+
+```cpp
+// Skip small penetrations (slop)
+if (contact.penetration <= SLOP) continue;
+
+// Baumgarte stabilization: correct only a portion per frame
+Scalar correction = (contact.penetration - SLOP) * BIAS;
+Vector2 correctionVec = contact.normal * correction / totalInvMass;
+
+// Apply position correction (doesn't affect velocity!)
+bodyA->position += correctionVec * invMassA;
+bodyB->position -= correctionVec * invMassB;
+```
+
+---
+
+## 5. Actor Types
+
+### 5.1 RigidActor
+
+- Fully simulated: gravity, forces, collisions
+- Position integrated by CollisionSystem
+- Supports both CIRCLE and AABB shapes
+- Use for: Balls, props, debris
+
+### 5.2 StaticActor
+
+- Immovable, infinite mass
+- Participates in collisions but never moves
+- Use for: Walls, floors, platforms
+
+### 5.3 KinematicActor
+
+- Moved by game logic, not physics
+- Participates in collisions (pushes Rigid actors)
+- Use for: Player, moving platforms
+- **New in v3.0**: Properly detected in broadphase vs Rigid
+
+---
+
+## 6. Continuous Collision Detection (CCD)
+
+### 6.1 When It Activates
+
+CCD is used only when necessary:
+
+```cpp
+bool needsCCD(PhysicsActor* body) {
+    // Only for circles
+    if (body->getShape() != CIRCLE) return false;
+    
+    // Activate when: velocity * dt > radius * 3
+    Scalar speed = body->getVelocity().length();
+    Scalar movement = speed * FIXED_DT;
+    Scalar threshold = body->getRadius() * CCD_THRESHOLD;
+    
+    return movement > threshold;
+}
+```
+
+### 6.2 Swept Test Algorithm
+
+```cpp
+// Simple swept circle vs AABB
+// Samples 2-8 positions along movement vector
+// Returns collision time and normal
+bool sweptCircleVsAABB(circle, box, outTime, outNormal);
+```
+
+Use case: Prevents tunneling when ball moves extremely fast (> 3x radius per frame).
+
+---
+
+## 7. Configuration
+
+### 7.1 Physics Constants
+
+Tune in `CollisionSystem.h`:
+
+```cpp
+// For more stable stacking (slower)
+static constexpr int VELOCITY_ITERATIONS = 4;  // Default: 2
+static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
+
+// For looser collision (faster)
+static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
+```
+
+### 7.2 Per-Actor Properties
+
+```cpp
+// Restitution (bounciness): 0.0 to 1.0+
+actor->setRestitution(toScalar(1.0f));  // Perfect bounce
+
+// Friction: 0.0 (none) to 1.0 (high)
+actor->setFriction(toScalar(0.0f));
+
+// Gravity scale: 0.0 (no gravity) to 1.0+ (heavy)
+actor->setGravityScale(toScalar(0.0f)); // No gravity
+
+// Shape
+actor->setShape(CollisionShape::CIRCLE);
+actor->setRadius(toScalar(6));
+```
+
+---
+
+## 8. Performance Guide
+
+### 8.1 ESP32-C3 (Non-FPU)
+
+- **Target**: < 20 dynamic bodies @ 60 FPS
+- **Use AABB** over Circle when possible (cheaper)
+- **CCD has overhead**: Only triggers when needed
+- **Slop helps**: Skip unnecessary corrections
+
+### 8.2 ESP32 (With FPU)
+
+- **Target**: < 50 dynamic bodies @ 60 FPS
+- Circles are fine
+- Can increase VELOCITY_ITERATIONS to 4 for better stability
+
+---
+
+## 9. Migration from v0.8.x / v0.9.0
+
+### 9.1 Key Changes
+
+| Old (v0.8.x) | New (v3.0) |
+|--------------|------------|
+| Position integrated in `Actor::update()` | Position integrated in `CollisionSystem::integratePositions()` |
+| Relaxation-based solver | Impulse-based velocity solver + Baumgarte position solver |
+| `PHYSICS_RELAXATION_ITERATIONS` | `VELOCITY_ITERATIONS` (default: 2) |
+| No CCD | CCD for fast circles |
+| Kinematic vs Rigid detection broken | Fixed and working |
+| Variable timestep | Fixed timestep (1/60s) |
+
+### 9.2 Code Changes Required
+
+**Before:**
+
+```cpp
+void RigidActor::update(unsigned long dt) {
+    // Integrated position here
+    position += velocity * dt;
+}
+```
+
+**After:**
+
+```cpp
+void RigidActor::update(unsigned long deltaTime) {
+    // Only integrate velocity (forces)
+    // Position handled by CollisionSystem
+    integrate(CollisionSystem::FIXED_DT);
+}
+```
+
+### 9.3 Behavior Differences
+
+1. **More stable stacking**: Impulse solver handles multiple contacts better
+2. **Perfect elastic collisions**: Restitution 1.0 actually works now
+3. **No more sticking**: Proper separation of velocity/position phases
+4. **Deterministic**: Same inputs always produce same outputs
+
+---
+
+## 10. Best Practices
+
+1. **Always set shape**: `setShape(CollisionShape::CIRCLE)` or `AABB`
+2. **Set radius for circles**: `setRadius(toScalar(r))` (critical for CCD)
+3. **Use collision layers**: Don't rely on expensive broadphase checks
+4. **Keep callbacks light**: `onCollision()` should only notify, not modify physics
+5. **Test on target hardware**: Physics feels different on ESP32-C3 vs PC
+
+---
+
+## References
+
+- [API Reference](API_REFERENCE.md) - Class documentation
+- [Architecture](ARCHITECTURE.md) - System design
+- [PHYSICS_IMPROVEMENT_PLAN.md](../../../../../PHYSICS_IMPROVEMENT_PLAN.md) - Development history
+
+---
+
+**Document Version**: Flat Solver v3.0  
+**Last Updated**: February 2026  
+**Engine Version**: v0.9.1-dev

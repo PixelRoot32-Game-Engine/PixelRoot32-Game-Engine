@@ -3,7 +3,6 @@
  * Licensed under the MIT License
  * 
  * Flat Solver v3.0 - PhysicsActor Base Class
- * Position integration removed - handled by CollisionSystem
  */
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"
@@ -31,21 +30,9 @@ void PhysicsActor::update(unsigned long deltaTime) {
     if (bodyType == PhysicsBodyType::STATIC) {
         return;
     }
-
-    // Flat Solver v3.0: Base PhysicsActor doesn't integrate
-    // Position is handled by CollisionSystem
-    // Derived classes (RigidActor) handle velocity integration
-    
-    // For KinematicActor, no automatic integration
-    // For RigidActor, override handles force integration
 }
 
 void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
-    // Flat Solver v3.0: Base class does nothing
-    // Derived classes override to implement specific integration
-    // RigidActor: integrates forces -> velocity (NOT position)
-    // Position is integrated by CollisionSystem::integratePositions()
-    
     (void)dt;
 }
 
@@ -97,8 +84,6 @@ void PhysicsActor::resolveWorldBounds() {
 }
 
 void PhysicsActor::onCollision(Actor* other) {
-    // Notification-only callback. No velocity or position changes.
-    // Override in subclass for game logic (e.g., damage, sound effects).
     (void)other;
 }
 
@@ -110,7 +95,6 @@ void PhysicsActor::resetWorldCollisionInfo() {
 }
 
 void PhysicsActor::onWorldCollision() {
-    // Default implementation does nothing
 }
 
 void PhysicsActor::setLimits(int left, int top, int right, int bottom) {
@@ -129,4 +113,4 @@ WorldCollisionInfo PhysicsActor::getWorldCollisionInfo() const {
 pixelroot32::core::Rect PhysicsActor::getHitBox() {
     return {position, width, height};
 }
-} // namespace pixelroot32::core
+}

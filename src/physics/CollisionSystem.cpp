@@ -15,10 +15,6 @@ namespace pixelroot32::physics {
     using namespace pixelroot32::core;
     using namespace pixelroot32::math;
 
-    // ============================================================================
-    // Entity Management
-    // ============================================================================
-    
     void CollisionSystem::addEntity(Entity* e) { 
         entities.push_back(e); 
     }
@@ -27,18 +23,7 @@ namespace pixelroot32::physics {
         entities.erase(std::remove(entities.begin(), entities.end(), e), entities.end());
     }
 
-    // ============================================================================
-    // Main Update - Pipeline Entry Point
-    // ============================================================================
-    
     void CollisionSystem::update() {
-        // Flat Solver v3.0 Pipeline:
-        // 1. Detect collisions
-        // 2. Solve velocity (impulse-based)
-        // 3. Integrate positions
-        // 4. Solve penetration (Baumgarte + Slop)
-        // 5. Trigger callbacks
-        
         detectCollisions();
         solveVelocity();
         integratePositions();
@@ -46,33 +31,10 @@ namespace pixelroot32::physics {
         triggerCallbacks();
     }
 
-    // ============================================================================
-    // Step 1: Detect Collisions
-    // ============================================================================
-    
     void CollisionSystem::detectCollisions() {
         contacts.clear();
         grid.clear();
         
-        // DEBUG: Count entity types
-        int rigidCount = 0;
-        int kinematicCount = 0;
-        int staticCount = 0;
-        int otherCount = 0;
-        for (auto e : entities) {
-            if (e->type != EntityType::ACTOR) continue;
-            Actor* actor = static_cast<Actor*>(e);
-            if (!actor->isPhysicsBody()) { otherCount++; continue; }
-            PhysicsActor* pa = static_cast<PhysicsActor*>(actor);
-            switch(pa->getBodyType()) {
-                case PhysicsBodyType::RIGID: rigidCount++; break;
-                case PhysicsBodyType::KINEMATIC: kinematicCount++; break;
-                case PhysicsBodyType::STATIC: staticCount++; break;
-            }
-        }
-        // Puedes agregar un breakpoint o log aquí para ver los conteos
-        
-        // Insert non-static actors into spatial grid
         for (auto e : entities) {
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
@@ -83,7 +45,6 @@ namespace pixelroot32::physics {
             grid.insert(actor);
         }
         
-        // Detect dynamic vs dynamic collisions
         static Actor* potential[64];
         
         for (auto e : entities) {
@@ -107,10 +68,11 @@ namespace pixelroot32::physics {
                 }
             }
             
-            // Detect dynamic vs static collisions
             if (!actorA->isPhysicsBody()) continue;
             PhysicsActor* pA = static_cast<PhysicsActor*>(actorA);
             if (pA->getBodyType() == PhysicsBodyType::STATIC) continue;
+            
+            bool useCCD = needsCCD(pA);
             
             for (auto se : entities) {
                 if (se->type != EntityType::ACTOR) continue;
@@ -121,12 +83,26 @@ namespace pixelroot32::physics {
                 if (pStatic->getBodyType() != PhysicsBodyType::STATIC) continue;
                 
                 if ((actorA->mask & sActor->layer) || (sActor->mask & actorA->layer)) {
-                    generateContact(pA, pStatic);
+                    if (useCCD && pA->getShape() == CollisionShape::CIRCLE && 
+                        pStatic->getShape() == CollisionShape::AABB) {
+                        Scalar hitTime;
+                        Vector2 hitNormal;
+                        if (sweptCircleVsAABB(pA, pStatic, hitTime, hitNormal)) {
+                            Contact contact;
+                            contact.bodyA = pA;
+                            contact.bodyB = pStatic;
+                            contact.normal = hitNormal;
+                            contact.restitution = min(pA->getRestitution(), pStatic->getRestitution());
+                            contact.penetration = toScalar(0.01f);
+                            contact.contactPoint = pA->position + pA->getVelocity() * FIXED_DT * hitTime;
+                            contacts.push_back(contact);
+                        }
+                    } else {
+                        generateContact(pA, pStatic);
+                    }
                 }
             }
             
-            // Detect Rigid vs Kinematic collisions
-            // This is critical for gameplay (e.g., ball hitting paddles in PONG)
             if (pA->getBodyType() == PhysicsBodyType::RIGID) {
                 for (auto ke : entities) {
                     if (ke->type != EntityType::ACTOR) continue;
@@ -136,10 +112,7 @@ namespace pixelroot32::physics {
                     PhysicsActor* pKinematic = static_cast<PhysicsActor*>(kActor);
                     if (pKinematic->getBodyType() != PhysicsBodyType::KINEMATIC) continue;
                     
-                    // DEBUG: Check layer/mask matching
-                    bool layerMatch = (actorA->mask & kActor->layer) || (kActor->mask & actorA->layer);
-                    
-                    if (layerMatch) {
+                    if ((actorA->mask & kActor->layer) || (kActor->mask & actorA->layer)) {
                         generateContact(pA, pKinematic);
                     }
                 }
@@ -147,16 +120,10 @@ namespace pixelroot32::physics {
         }
     }
 
-    // ============================================================================
-    // Contact Generation
-    // ============================================================================
-    
     void CollisionSystem::generateContact(PhysicsActor* a, PhysicsActor* b) {
         Contact contact;
         contact.bodyA = a;
         contact.bodyB = b;
-        
-        // Combined restitution (minimum of both)
         contact.restitution = min(a->getRestitution(), b->getRestitution());
         
         CollisionShape shapeA = a->getShape();
@@ -172,7 +139,6 @@ namespace pixelroot32::physics {
             generateCircleVsAABBContact(contact, circle, box);
         }
         
-        // Only add if there's actual penetration
         if (contact.penetration > 0) {
             contacts.push_back(contact);
         }
@@ -195,7 +161,6 @@ namespace pixelroot32::physics {
                 contact.normal = d / dist;
                 contact.penetration = radiusSum - dist;
             } else {
-                // Perfect overlap - push apart vertically
                 contact.normal = Vector2(0, -1);
                 contact.penetration = radiusSum;
             }
@@ -227,7 +192,6 @@ namespace pixelroot32::physics {
             contact.penetration = overlapY;
         }
         
-        // Contact point is midpoint of intersection
         contact.contactPoint = Vector2(
             (max(rectA.position.x, rectB.position.x) + min(rectA.position.x + toScalar(rectA.width), rectB.position.x + toScalar(rectB.width))) / 2,
             (max(rectA.position.y, rectB.position.y) + min(rectA.position.y + toScalar(rectA.height), rectB.position.y + toScalar(rectB.height))) / 2
@@ -255,7 +219,6 @@ namespace pixelroot32::physics {
                 contact.normal = v / dist;
                 contact.penetration = r - dist;
             } else {
-                // Circle center inside box - find closest edge
                 Scalar dLeft = centerC.x - boxRec.position.x;
                 Scalar dRight = (boxRec.position.x + toScalar(boxRec.width)) - centerC.x;
                 Scalar dTop = centerC.y - boxRec.position.y;
@@ -270,37 +233,28 @@ namespace pixelroot32::physics {
             
             contact.contactPoint = closestP;
             
-            // Flip normal if circle is bodyB
             if (circle == contact.bodyB) {
                 contact.normal = -contact.normal;
             }
         }
     }
 
-    // ============================================================================
-    // Step 2: Solve Velocity (Impulse-Based)
-    // ============================================================================
-    
     void CollisionSystem::solveVelocity() {
         for (int iter = 0; iter < VELOCITY_ITERATIONS; iter++) {
             for (auto& contact : contacts) {
                 PhysicsActor* bodyA = contact.bodyA;
                 PhysicsActor* bodyB = contact.bodyB;
                 
-                // Skip if both are static or kinematic
                 if (bodyA->getBodyType() == PhysicsBodyType::STATIC && 
                     bodyB->getBodyType() == PhysicsBodyType::STATIC) {
                     continue;
                 }
                 
-                // Relative velocity
                 Vector2 rv = bodyA->getVelocity() - bodyB->getVelocity();
                 Scalar vn = rv.dot(contact.normal);
                 
-                // Only resolve if velocities are separating
                 if (vn > 0) continue;
                 
-                // Calculate total inverse mass
                 Scalar invMassA = (bodyA->getBodyType() == PhysicsBodyType::RIGID) ? 
                                  (toScalar(1.0f) / bodyA->getMass()) : toScalar(0.0f);
                 Scalar invMassB = (bodyB->getBodyType() == PhysicsBodyType::RIGID) ? 
@@ -309,17 +263,14 @@ namespace pixelroot32::physics {
                 Scalar totalInvMass = invMassA + invMassB;
                 if (totalInvMass <= kEpsilon) continue;
                 
-                // Apply velocity threshold for restitution
                 Scalar e = contact.restitution;
                 if (abs(vn) < VELOCITY_THRESHOLD) {
-                    e = toScalar(0.0f); // Zero restitution for small velocities
+                    e = toScalar(0.0f);
                 }
                 
-                // Calculate impulse scalar
                 Scalar j = -(toScalar(1.0f) + e) * vn;
                 j /= totalInvMass;
                 
-                // Apply impulse
                 Vector2 impulse = contact.normal * j;
                 
                 if (bodyA->getBodyType() == PhysicsBodyType::RIGID) {
@@ -332,10 +283,6 @@ namespace pixelroot32::physics {
         }
     }
 
-    // ============================================================================
-    // Step 3: Integrate Positions
-    // ============================================================================
-    
     void CollisionSystem::integratePositions() {
         for (auto e : entities) {
             if (e->type != EntityType::ACTOR) continue;
@@ -345,21 +292,15 @@ namespace pixelroot32::physics {
             PhysicsActor* pa = static_cast<PhysicsActor*>(actor);
             if (pa->getBodyType() != PhysicsBodyType::RIGID) continue;
             
-            // Apply minimum velocity threshold (sleep lite)
             Vector2 vel = pa->getVelocity();
             if (abs(vel.x) < MIN_VELOCITY) vel.x = toScalar(0.0f);
             if (abs(vel.y) < MIN_VELOCITY) vel.y = toScalar(0.0f);
             pa->setVelocity(vel);
             
-            // Integrate position: p = p + v * dt
             pa->position = pa->position + vel * FIXED_DT;
         }
     }
 
-    // ============================================================================
-    // Step 4: Solve Penetration (Baumgarte + Slop)
-    // ============================================================================
-    
     void CollisionSystem::solvePenetration() {
         for (auto& contact : contacts) {
             if (contact.penetration <= SLOP) continue;
@@ -367,7 +308,6 @@ namespace pixelroot32::physics {
             PhysicsActor* bodyA = contact.bodyA;
             PhysicsActor* bodyB = contact.bodyB;
             
-            // Calculate inverse masses
             Scalar invMassA = (bodyA->getBodyType() == PhysicsBodyType::RIGID) ? 
                              (toScalar(1.0f) / bodyA->getMass()) : toScalar(0.0f);
             Scalar invMassB = (bodyB->getBodyType() == PhysicsBodyType::RIGID) ? 
@@ -376,11 +316,9 @@ namespace pixelroot32::physics {
             Scalar totalInvMass = invMassA + invMassB;
             if (totalInvMass <= kEpsilon) continue;
             
-            // Baumgarte stabilization: correction = (penetration - slop) * bias
             Scalar correction = (contact.penetration - SLOP) * BIAS;
             Vector2 correctionVec = contact.normal * (correction / totalInvMass);
             
-            // Apply position correction
             if (bodyA->getBodyType() == PhysicsBodyType::RIGID) {
                 bodyA->position = bodyA->position + correctionVec * invMassA;
             }
@@ -390,12 +328,7 @@ namespace pixelroot32::physics {
         }
     }
 
-    // ============================================================================
-    // Step 5: Trigger Callbacks
-    // ============================================================================
-    
     void CollisionSystem::triggerCallbacks() {
-        // Trigger callbacks for each contact
         for (const auto& contact : contacts) {
             if (contact.bodyA && contact.bodyB) {
                 contact.bodyA->onCollision(static_cast<Actor*>(contact.bodyB));
@@ -404,10 +337,6 @@ namespace pixelroot32::physics {
         }
     }
 
-    // ============================================================================
-    // Legacy Support - Check Collision for KinematicActor
-    // ============================================================================
-    
     bool CollisionSystem::checkCollision(Actor* actor, Actor** outArray, int& count, int maxCount) {
         count = 0;
         for (auto e : entities) {
@@ -442,6 +371,65 @@ namespace pixelroot32::physics {
             }
         }
         return count > 0;
+    }
+
+    bool CollisionSystem::needsCCD(PhysicsActor* body) const {
+        if (body->getShape() != CollisionShape::CIRCLE) return false;
+        
+        Scalar speed = body->getVelocity().length();
+        Scalar movement = speed * FIXED_DT;
+        Scalar threshold = body->getRadius() * CCD_THRESHOLD;
+        
+        return movement > threshold;
+    }
+    
+    bool CollisionSystem::sweptCircleVsAABB(PhysicsActor* circle,
+                                           PhysicsActor* box,
+                                           Scalar& outTime,
+                                           Vector2& outNormal) {
+        Vector2 startPos = circle->position;
+        Vector2 endPos = startPos + circle->getVelocity() * FIXED_DT;
+        Scalar radius = circle->getRadius();
+        Rect boxRect = box->getHitBox();
+        
+        Vector2 delta = endPos - startPos;
+        Scalar distance = delta.length();
+        
+        int steps = 2;
+        if (distance > radius * 2) steps = 4;
+        if (distance > radius * 4) steps = 8;
+        
+        Vector2 prevPos = startPos;
+        
+        for (int i = 1; i <= steps; i++) {
+            Scalar t = static_cast<Scalar>(i) / steps;
+            Vector2 samplePos = startPos + delta * t;
+            
+            Circle tempCircle = {samplePos.x + radius, samplePos.y + radius, radius};
+            
+            if (intersects(tempCircle, boxRect)) {
+                outTime = static_cast<Scalar>(i - 1) / steps;
+                
+                Vector2 center = Vector2(samplePos.x + radius, samplePos.y + radius);
+                Vector2 boxCenter = Vector2(
+                    boxRect.position.x + toScalar(boxRect.width) / 2,
+                    boxRect.position.y + toScalar(boxRect.height) / 2
+                );
+                Vector2 toBox = boxCenter - center;
+                
+                if (abs(toBox.x) > abs(toBox.y)) {
+                    outNormal = (toBox.x > 0) ? Vector2(-1, 0) : Vector2(1, 0);
+                } else {
+                    outNormal = (toBox.y > 0) ? Vector2(0, -1) : Vector2(0, 1);
+                }
+                
+                return true;
+            }
+            
+            prevPos = samplePos;
+        }
+        
+        return false;
     }
 
 }

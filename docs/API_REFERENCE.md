@@ -708,17 +708,58 @@ public:
 
 **Inherits:** None
 
-The central system that manages broadphase detection and narrowphase resolution.
+The central physics system implementing **Flat Solver v3.0**. Manages collision detection and resolution with fixed timestep for deterministic behavior.
 
-#### Key Logic: "The Flat Solver"
+#### Key Logic: "The Flat Solver v3.0"
 
-The solver executes in `Scene::update()` and follows these steps:
+The solver executes in strict order:
 
-1. **Detection**: Queries the `SpatialGrid` for potential overlaps.
-2. **Manifold Generation**: Calculates the exact penetration normal and depth for AABB-AABB, Circle-Circle, or Circle-AABB pairs.
-3. **Relaxation**: Performs multiple iterations of position correction to resolve overlaps without "teleporting" objects through walls.
-4. **Static Resolution**: `StaticActor` objects act as infinite-mass arbiters, resolving any remaining penetration at the end of the step.
-5. **Impulse Response**: Updates velocities based on `restitution` and `bounce` flags.
+1. **Detect Collisions**: Queries the `SpatialGrid` for potential overlaps
+2. **Solve Velocity**: Impulse-based collision response (2 iterations by default)
+3. **Integrate Positions**: Updates positions: `p = p + v * dt`
+4. **Solve Penetration**: Baumgarte stabilization with slop threshold
+5. **Trigger Callbacks**: Calls `onCollision()` for gameplay notifications
+
+#### Public Constants
+
+- **`FIXED_DT`**: Fixed timestep (`1/60s`)
+- **`SLOP`**: Minimum penetration to correct (`0.02f`)
+- **`BIAS`**: Position correction factor (`0.2f`)
+- **`VELOCITY_ITERATIONS`**: Impulse solver iterations (`2`)
+- **`VELOCITY_THRESHOLD`**: Zero restitution below this speed (`0.5f`)
+- **`CCD_THRESHOLD`**: CCD activation threshold (`3.0f`)
+
+#### Public Methods
+
+- **`void update()`**  
+  Executes the full physics pipeline. Called automatically by `Scene::update()`.
+
+- **`void detectCollisions()`**  
+  Broadphase and narrowphase detection. Populates contact list.
+
+- **`void solveVelocity()`**  
+  Impulse-based velocity solver. Applies collision response.
+
+- **`void integratePositions()`**  
+  Updates positions using velocity. Only affects `RigidActor`.
+
+- **`void solvePenetration()`**  
+  Position correction using Baumgarte stabilization.
+
+- **`void triggerCallbacks()`**  
+  Invokes `onCollision()` for all contacts.
+
+- **`bool needsCCD(PhysicsActor* body)`**  
+  Returns true if body needs Continuous Collision Detection (fast-moving circles).
+
+- **`bool sweptCircleVsAABB(PhysicsActor* circle, PhysicsActor* box, Scalar& outTime, Vector2& outNormal)`**  
+  Performs swept test for CCD. Returns collision time (0.0-1.0) and normal.
+
+- **`size_t getEntityCount() const`**  
+  Returns number of entities in the system.
+
+- **`void clear()`**  
+  Removes all entities and contacts.
 
 ---
 

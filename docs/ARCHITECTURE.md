@@ -246,21 +246,31 @@ AudioEngine (Facade)
 - `MusicPlayer`: Music sequencing system
 - `AudioMixerLUT`: Optimized mixer with lookup tables
 
-#### 3.4.4 CollisionSystem
+#### 3.4.4 CollisionSystem (Flat Solver v3.0)
 
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
-**Responsibility**: High-performance "Flat Solver" that resolves collisions between Actors.
+**Responsibility**: High-performance physics solver optimized for ESP32 microcontrollers.
 
 **System Architecture**:
-The engine uses a **Flat Solver** design optimized for the ESP32 (especially non-FPU variants like the C3). Unlike traditional sub-stepping solvers, the Flat Solver performs a single broadphase pass followed by multiple **relaxation iterations** to resolve penetration stably without excessive CPU overhead.
+The **Flat Solver v3.0** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
+
+```
+1. Detect Collisions       → Broadphase + Narrowphase
+2. Solve Velocity          → Impulse-based response (2 iterations)
+3. Integrate Positions     → p = p + v * dt
+4. Solve Penetration       → Baumgarte stabilization + Slop
+5. Trigger Callbacks       → onCollision notifications
+```
 
 **Key Features**:
-- **Broadphase**: Uniform Spatial Grid (reaches O(1) cell hashing).
-- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, and Circle vs AABB manifolds.
-- **Iterative Relaxation**: Multi-pass position correction to prevent "jitter" in stacked objects.
-- **Static Arbiter**: Immovable objects (`StaticActor`) are resolved last, acting as the final authority on world boundaries.
-- **Memory Optimized**: Reclaims ~100KB of DRAM by using shared static buffers for the collision grid across all scene instances.
+- **Fixed Timestep**: Deterministic 1/60s simulation
+- **Broadphase**: Uniform Spatial Grid (O(1) cell hashing)
+- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, Circle vs AABB
+- **Impulse Solver**: Proper velocity-based collision response
+- **Baumgarte Stabilization**: Position correction without energy loss
+- **CCD**: Selective continuous collision detection for fast-moving circles
+- **Memory Optimized**: Shared static buffers save ~100KB DRAM
 
 **Collision Layers**:
 ```cpp
@@ -272,6 +282,16 @@ enum DefaultLayers {
     kWall = 1 << 3,
     // ... up to 16 layers
 };
+```
+
+**Physics Constants**:
+```cpp
+FIXED_DT = 1/60s           // Timestep
+SLOP = 0.02f               // Ignore penetration < 2cm
+BIAS = 0.2f                // 20% position correction
+VELOCITY_THRESHOLD = 0.5f  // Zero restitution below this
+VELOCITY_ITERATIONS = 2    // Impulse solver passes
+CCD_THRESHOLD = 3.0f       // CCD activation threshold
 ```
 
 #### 3.4.5 UI System

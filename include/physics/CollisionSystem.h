@@ -26,82 +26,46 @@ struct KinematicCollision {
     pixelroot32::math::Scalar remainder;
 };
 
-/**
- * @struct Contact
- * @brief Collision contact information for solver
- */
 struct Contact {
     pixelroot32::core::PhysicsActor* bodyA = nullptr;
     pixelroot32::core::PhysicsActor* bodyB = nullptr;
-    pixelroot32::math::Vector2 normal;           // Normal from B to A
-    pixelroot32::math::Vector2 contactPoint;     // World space contact point
-    pixelroot32::math::Scalar penetration = pixelroot32::math::toScalar(0);   // Penetration depth
-    pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(0);   // Combined restitution
+    pixelroot32::math::Vector2 normal;
+    pixelroot32::math::Vector2 contactPoint;
+    pixelroot32::math::Scalar penetration = pixelroot32::math::toScalar(0);
+    pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(0);
 };
 
-/**
- * @class CollisionSystem
- * @brief Flat Solver v3.0 - Minimalist physics for ESP32
- * 
- * Pipeline:
- *   1. Detect collisions (broadphase + narrowphase)
- *   2. Solve velocity (impulse-based, 2 iterations)
- *   3. Integrate positions
- *   4. Solve penetration (Baumgarte + Slop)
- *   5. Callbacks
- */
 class CollisionSystem {
 public:
-    // Physics constants
     static constexpr pixelroot32::math::Scalar FIXED_DT = pixelroot32::math::toScalar(1.0f / 60.0f);
     static constexpr pixelroot32::math::Scalar SLOP = pixelroot32::math::toScalar(0.02f);
     static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
     static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
     static constexpr pixelroot32::math::Scalar MIN_VELOCITY = pixelroot32::math::toScalar(0.01f);
     static constexpr int VELOCITY_ITERATIONS = 2;
+    static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
     
     void addEntity(pixelroot32::core::Entity* e);
     void removeEntity(pixelroot32::core::Entity* e);
-
-    /**
-     * @brief Main update - runs full pipeline
-     */
     void update();
-    
-    /**
-     * @brief Step 1: Detect all collisions
-     */
     void detectCollisions();
-    
-    /**
-     * @brief Step 2: Solve velocity constraints (impulse-based)
-     */
     void solveVelocity();
-    
-    /**
-     * @brief Step 3: Integrate positions
-     */
     void integratePositions();
-    
-    /**
-     * @brief Step 4: Solve penetration (Baumgarte + Slop)
-     */
     void solvePenetration();
-    
-    /**
-     * @brief Step 5: Trigger collision callbacks
-     */
     void triggerCallbacks();
 
     size_t getEntityCount() const { return entities.size(); }
     void clear() { entities.clear(); contacts.clear(); }
 
-    /**
-     * @brief Checks for collisions for a specific actor (used by KinematicActor)
-     */
     bool checkCollision(pixelroot32::core::Actor* actor, 
                        pixelroot32::core::Actor** outArray, 
                        int& count, int maxCount);
+
+    bool needsCCD(pixelroot32::core::PhysicsActor* body) const;
+    bool sweptCircleVsAABB(pixelroot32::core::PhysicsActor* circle,
+                          pixelroot32::core::PhysicsActor* box,
+                          pixelroot32::math::Scalar& outTime,
+                          pixelroot32::math::Vector2& outNormal);
 
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
@@ -117,7 +81,6 @@ private:
     std::vector<Contact> contacts;
     SpatialGrid grid;
     
-    // Contact generation
     void generateContact(pixelroot32::core::PhysicsActor* a, 
                         pixelroot32::core::PhysicsActor* b);
     void generateCircleVsCircleContact(Contact& contact);

@@ -507,6 +507,102 @@ std::unique_ptr<ParticleEmitter> explosionEffect;
 
 ---
 
+## Physics System Migration (v0.9.0 → v0.9.1)
+
+### Overview
+
+Version 0.9.1 introduces **Flat Solver v3.0**, a major architectural overhaul of the physics system. This is NOT a breaking API change, but behavior will differ significantly.
+
+### Key Changes
+
+| Aspect | v0.9.0 | v0.9.1 (v3.0) |
+|--------|---------|---------------|
+| **Solver Type** | Relaxation-based position solver | Impulse-based velocity + Baumgarte position |
+| **Timestep** | Variable deltaTime | Fixed 1/60s |
+| **Pipeline** | Integrated → Detect → Relax | Detect → Velocity → Position → Penetration |
+| **Iterations** | `PHYSICS_RELAXATION_ITERATIONS` (8) | `VELOCITY_ITERATIONS` (2) |
+| **CCD** | None | Selective for fast circles |
+| **Kinematic vs Rigid** | Broken detection | Fixed |
+
+### Behavioral Differences
+
+#### 1. Perfect Elastic Collisions Work
+
+**Before:** Restitution 1.0 would lose energy or cause sticking.
+
+**After:**
+```cpp
+ball->setRestitution(toScalar(1.0f));  // Actually works now!
+ball->setFriction(toScalar(0.0f));     // No energy loss
+```
+
+#### 2. Position Integration Location
+
+**Before:**
+```cpp
+void RigidActor::update(unsigned long dt) {
+    // You integrated position here
+    position += velocity * dt;  // WRONG in v3.0
+}
+```
+
+**After:**
+```cpp
+void RigidActor::update(unsigned long deltaTime) {
+    // Only integrate velocity (forces)
+    integrate(CollisionSystem::FIXED_DT);
+    // Position handled by CollisionSystem::integratePositions()
+}
+```
+
+#### 3. No More Manual Position Integration
+
+Do NOT integrate position in your Actor's update method. The CollisionSystem handles it.
+
+#### 4. CCD for Fast Objects
+
+If your objects move extremely fast (> 3x their radius per frame), CCD automatically activates:
+
+```cpp
+// CCD_THRESHOLD = 3.0
+// Activates when: velocity * dt > radius * 3
+```
+
+No code changes needed - it just works.
+
+#### 5. Improved Kinematic Detection
+
+KinematicActor vs RigidActor collisions now work correctly.
+
+### Migration Checklist
+
+- [ ] Remove any manual position integration from `update()` methods
+- [ ] Use `CollisionSystem::FIXED_DT` instead of `deltaTime` for physics calculations
+- [ ] Test restitution behavior (should be more stable)
+- [ ] Verify Kinematic vs Rigid collisions work
+- [ ] Test with high-speed objects (should not tunnel)
+
+### Performance Notes
+
+- **Faster**: Fewer iterations (2 vs 8) but better stability
+- **Deterministic**: Fixed timestep means reproducible physics
+- **Lower Memory**: No change
+- **ESP32-C3**: ~10-15% faster due to reduced iterations
+
+### References
+
+- [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) - Complete v3.0 documentation
+- [PHYSICS_IMPROVEMENT_PLAN.md](../../../../../../PHYSICS_IMPROVEMENT_PLAN.md) - Development history
+
+---
+
+## Physics System Migration
+
+For physics system changes between v0.9.0 and v0.9.1, see:  
+**[MIGRATION_PHYSICS_v0.9.0_to_v0.9.1.md](MIGRATION_PHYSICS_v0.9.0_to_v0.9.1.md)**
+
+---
+
 ## References
 
 - [C++ Core Guidelines - Smart Pointers](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-resource)
