@@ -25,11 +25,17 @@ PhysicsActor::PhysicsActor(pixelroot32::math::Vector2 position, int w, int h)
 }
 
 void PhysicsActor::update(unsigned long deltaTime) {
+    if (bodyType == PhysicsBodyType::STATIC) {
+        return;
+    }
+
     // Convert ms to seconds
     pixelroot32::math::Scalar dt = pixelroot32::math::toScalar(static_cast<float>(deltaTime) * 0.001f);
 
     integrate(dt);
-    resolveWorldBounds();
+    // NOTE: resolveWorldBounds() intentionally removed.
+    // World boundaries are now handled exclusively by StaticActor walls
+    // resolved in CollisionSystem. This prevents state corruption.
 }
 
 void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
@@ -39,7 +45,6 @@ void PhysicsActor::integrate(pixelroot32::math::Scalar dt) {
     }
     
     // Update position using velocity
-    // Entity now uses Vector2 for position, so we can add directly
     position += velocity * dt;
 
     // Apply friction
@@ -56,14 +61,11 @@ void PhysicsActor::resolveWorldBounds() {
     using pixelroot32::math::toScalar;
     using pixelroot32::math::Scalar;
 
-    // calculate the final limits
     int left = (limits.left != -1 ? limits.left : 0);
     int top = (limits.top != -1 ? limits.top : 0);
     int right = (limits.right != -1 ? limits.right : worldWidth);
     int bottom = (limits.bottom != -1 ? limits.bottom : worldHeight);
 
-    // If worldSize is still 0 (e.g. if initialized before LOGICAL_WIDTH was available or 
-    // if manual worldWidth/Height weren't set), fallback to pixelroot32::platforms::config::LogicalWidth/Height
     if (right == 0) right = pixelroot32::platforms::config::LogicalWidth;
     if (bottom == 0) bottom = pixelroot32::platforms::config::LogicalHeight;
 
@@ -79,40 +81,33 @@ void PhysicsActor::resolveWorldBounds() {
     if (position.x < sLeft) { 
         position.x = sLeft; 
         velocity.x = -velocity.x * restitution; 
-        
         worldCollisionInfo.left = true;
         onWorldCollision(); 
     }
     if (position.x + sWidth > sRight) { 
         position.x = sRight - sWidth; 
         velocity.x = -velocity.x * restitution; 
-
         worldCollisionInfo.right = true;
         onWorldCollision(); 
     }   
     if (position.y < sTop) { 
         position.y = sTop; 
         velocity.y = -velocity.y * restitution; 
-        
         worldCollisionInfo.top = true;
         onWorldCollision(); 
     }
     if (position.y + sHeight > sBottom) { 
         position.y = sBottom - sHeight; 
         velocity.y = -velocity.y * restitution;
-
         worldCollisionInfo.bottom = true;
         onWorldCollision(); 
     }
 }
 
 void PhysicsActor::onCollision(Actor* other) {
+    // Notification-only callback. No velocity or position changes.
+    // Override in subclass for game logic (e.g., damage, sound effects).
     (void)other;
-    
-    // Default: simple bounce
-    velocity.x = -velocity.x * restitution;
-    // Note: Usually we would bounce based on collision normal, but for simple AABB overlap default,
-    // just reversing X is a placeholder behavior. Real physics would use collision normals.
 }
 
 void PhysicsActor::resetWorldCollisionInfo() {
@@ -139,4 +134,7 @@ WorldCollisionInfo PhysicsActor::getWorldCollisionInfo() const {
     return worldCollisionInfo;
 }
 
+pixelroot32::core::Rect PhysicsActor::getHitBox() {
+    return {position, width, height};
+}
 } // namespace pixelroot32::core

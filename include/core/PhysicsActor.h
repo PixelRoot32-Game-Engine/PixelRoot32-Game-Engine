@@ -11,6 +11,16 @@
 namespace pixelroot32::core {
 
 /**
+ * @enum PhysicsBodyType
+ * @brief Defines the simulation behavior of a PhysicsActor.
+ */
+enum class PhysicsBodyType {
+    STATIC,    ///< Immovable body, not affected by forces or gravity.
+    KINEMATIC, ///< Body moved manually or via script, stops at obstacles.
+    RIGID      ///< Fully simulated physics body, affected by forces and gravity.
+};
+
+/**
  * @struct LimitRect
  * @brief Defines a rectangular boundary for actor movement.
  * 
@@ -63,16 +73,22 @@ class PhysicsActor : public Actor {
 protected:
     pixelroot32::math::Vector2 velocity;
 
+    PhysicsBodyType bodyType = PhysicsBodyType::KINEMATIC;
+
     LimitRect limits;
     int worldWidth = 0;
     int worldHeight = 0;
 
     WorldCollisionInfo worldCollisionInfo;
 
+    pixelroot32::math::Scalar mass          = pixelroot32::math::toScalar(1.0f);
+    pixelroot32::math::Scalar gravityScale  = pixelroot32::math::toScalar(1.0f);
     pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(1.0f);
     pixelroot32::math::Scalar friction    = pixelroot32::math::toScalar(0.0f);
 
+
 public:
+    bool bounce = false; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
     /**
      * @brief Constructs a new PhysicsActor.
      * @param x Initial X position.
@@ -136,15 +152,57 @@ public:
     WorldCollisionInfo getWorldCollisionInfo() const;
 
     /**
+     * @brief Checks if this actor is a physics-enabled body.
+     * @return true.
+     */
+    bool isPhysicsBody() const override { return true; }
+
+    /**
      * @brief Resets the world collision flags for the current frame.
      */
     void resetWorldCollisionInfo();
 
     /**
+     * @brief Gets the simulation body type.
+     * @return The PhysicsBodyType of this actor.
+     */
+    PhysicsBodyType getBodyType() const { return bodyType; }
+
+    /**
+     * @brief Sets the simulation body type.
+     * @param type The new PhysicsBodyType.
+     */
+    void setBodyType(PhysicsBodyType type) { bodyType = type; }
+
+    /**
+     * @brief Sets the mass of the actor.
+     * @param m Mass value.
+     */
+    void setMass(float m) { mass = pixelroot32::math::toScalar(m); }
+
+    /**
+     * @brief Gets the mass of the actor.
+     * @return Mass as Scalar.
+     */
+    pixelroot32::math::Scalar getMass() const { return mass; }
+
+    /**
+     * @brief Sets the gravity scale.
+     * @param scale Multiplier for the world gravity.
+     */
+    void setGravityScale(float scale) { gravityScale = pixelroot32::math::toScalar(scale); }
+
+    /**
+     * @brief Gets the gravity scale.
+     * @return Gravity scale as Scalar.
+     */
+    pixelroot32::math::Scalar getGravityScale() const { return gravityScale; }
+
+    /**
      * @brief Integrates velocity to update position.
      * @param dt Delta time in seconds (as Scalar).
      */
-    void integrate(pixelroot32::math::Scalar dt);
+    virtual void integrate(pixelroot32::math::Scalar dt);
     
     /**
      * @brief Resolves collisions with the defined world or custom bounds.
@@ -153,6 +211,12 @@ public:
      * based on restitution if a collision occurs.
      */
     virtual void resolveWorldBounds();
+
+    /**
+     * @brief Gets the axis-aligned bounding box (AABB) hitbox of the actor.
+     * @return Rect representing the hitbox.
+     */
+    pixelroot32::core::Rect getHitBox() override;
 
     /**
      * @brief Sets the linear velocity of the actor using floats.
@@ -206,6 +270,12 @@ public:
      * @param r Restitution value (0.0 to 1.0+). 1.0 means no energy is lost on bounce.
      */
     void setRestitution(float r) { restitution = pixelroot32::math::toScalar(r); }
+
+    /**
+     * @brief Gets the restitution (bounciness) of the actor.
+     * @return Restitution as Scalar.
+     */
+    pixelroot32::math::Scalar getRestitution() const { return restitution; }
 
     /**
      * @brief Sets the friction coefficient.

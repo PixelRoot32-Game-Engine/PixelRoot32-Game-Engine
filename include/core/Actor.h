@@ -7,6 +7,8 @@
 #include "physics/CollisionTypes.h"
 #include "math/Scalar.h"
 
+namespace pixelroot32::physics { class CollisionSystem; }
+
 namespace pixelroot32::core {
 
 /**
@@ -20,19 +22,12 @@ class Actor : public Entity {
 public:
     /**
      * @brief Constructor using Scalar coordinates.
-     * @param x Initial X position.
-     * @param y Initial Y position.
-     * @param w Width.
-     * @param h Height.
      */
     Actor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) 
         : Entity(x, y, w, h, EntityType::ACTOR) {}
 
     /**
      * @brief Constructor using Vector2 position.
-     * @param pos Initial position.
-     * @param w Width.
-     * @param h Height.
      */
     Actor(pixelroot32::math::Vector2 pos, int w, int h)
         : Entity(pos, w, h, EntityType::ACTOR) {}
@@ -47,47 +42,30 @@ public:
         
     virtual ~Actor() = default;
 
+    int queryId = 0;                         ///< Used for optimized grid queries.
+
     pixelroot32::physics::CollisionLayer layer = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layer this actor belongs to.
     pixelroot32::physics::CollisionLayer mask  = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layers this actor interacts with.
 
-    /**
-     * @brief Sets the collision layer for this actor.
-     * @param l The layer to set.
-     */
-    void setCollisionLayer(pixelroot32::physics::CollisionLayer l) { layer = l; }
+    pixelroot32::physics::CollisionSystem* collisionSystem = nullptr; ///< Reference to the collision system.
 
-    /**
-     * @brief Sets the collision mask for this actor.
-     * @param m The mask to set.
-     */
+    void setCollisionLayer(pixelroot32::physics::CollisionLayer l) { layer = l; }
     void setCollisionMask(pixelroot32::physics::CollisionLayer m)  { mask = m; }
 
-    /**
-     * @brief Updates the actor logic.
-     * @param deltaTime Time elapsed in ms.
-     */
     void update(unsigned long deltaTime) override {
         (void)deltaTime;
     }
 
-    /**
-     * @brief Checks if the Actor belongs to a specific collision layer.
-     * @param targetLayer The bit(s) to check (e.g., Layers::BALL).
-     * @return true if the bit is set in the actor's layer.
-     */
     bool isInLayer(uint16_t targetLayer) const {
-        // Bitwise AND operation: If result is not 0, the bit exists.
         return (layer & targetLayer) != 0;
     }
 
-    /**
-     * @brief Gets the hitbox for collision detection.
-     * @return A Rect representing the collision bounds.
-     */
     virtual Rect getHitBox() = 0;
 
+    virtual bool isPhysicsBody() const { return false; }
+
     /**
-     * @brief Callback invoked when a collision occurs.
+     * @brief Callback invoked when a collision occurs. Notification only — no physics changes.
      * @param other The actor that this actor collided with.
      */
     virtual void onCollision(Actor* other) = 0;
