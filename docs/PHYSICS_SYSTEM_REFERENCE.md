@@ -65,6 +65,19 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 | Circle vs Circle | Distance check with vertical fallback for perfect overlap |
 | Circle vs AABB | Closest point clamping |
 
+### 3.3 Contact Generation
+
+When a contact is generated, the solver pre-calculates the restitution coefficient:
+
+```cpp
+// Combined restitution
+if (a->bounce && b->bounce) {
+    contact.restitution = min(a->getRestitution(), b->getRestitution());
+} else {
+    contact.restitution = 0.0f; // No bounce if either body is absorbent
+}
+```
+
 ---
 
 ## 4. The Solver

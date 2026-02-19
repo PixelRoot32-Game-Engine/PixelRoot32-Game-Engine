@@ -100,7 +100,7 @@ protected:
 
 
 public:
-    bool bounce = false; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
+    bool bounce = true; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
     /**
      * @brief Constructs a new PhysicsActor.
      * @param x Initial X position.
