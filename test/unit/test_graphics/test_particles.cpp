@@ -18,6 +18,12 @@ using namespace pixelroot32::math;
 
 int MockDrawSurface::instances = 0;
 
+// Global engine instance required by ParticleEmitter
+// We use a separate mock surface for the global engine instance
+MockDrawSurface* globalMockSurface = new MockDrawSurface();
+DisplayConfig globalDcfg = PIXELROOT32_CUSTOM_DISPLAY(globalMockSurface, 320, 240);
+pixelroot32::core::Engine engine(globalDcfg);
+
 void setUp(void) {
     test_setup();
 }

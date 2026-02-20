@@ -143,7 +143,7 @@ namespace pixelroot32::physics {
             generateCircleVsAABBContact(contact, circle, box);
         }
         
-        if (contact.penetration > 0) {
+        if (contact.penetration >= 0) {
             contacts.push_back(contact);
         }
     }
