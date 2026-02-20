@@ -70,7 +70,7 @@ public:
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
     static constexpr int kRelaxationIterations = pixelroot32::platforms::config::PhysicsRelaxationIterations;
-    static constexpr pixelroot32::math::Scalar kEpsilon = 0.0001f;
+    static constexpr pixelroot32::math::Scalar kEpsilon = pixelroot32::math::toScalar(0.0001f);
 
     struct CollisionPair {
         pixelroot32::core::Actor* a;
