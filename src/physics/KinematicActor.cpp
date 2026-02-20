@@ -126,15 +126,43 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
 }
 
 void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection) {
-    (void)upDirection;
     using namespace pixelroot32::math;
     
+    // Reset collision flags
+    onFloor = false;
+    onCeiling = false;
+    onWall = false;
+
     Vector2 currentMotion = velocity;
-    int maxSlides = 4;
+    // Threshold for 45 degrees
+    Scalar floorThreshold = toScalar(0.70710678f);
     
     for(int i=0; i<maxSlides; ++i) {
         KinematicCollision col;
         if (moveAndCollide(currentMotion, &col)) {
+            // Determine surface type based on normal and upDirection
+            Scalar dot = col.normal.dot(upDirection);
+
+            // If normal is roughly in the same direction as up (angle < 45 deg), it's a floor (if we consider up as surface normal)
+            // Wait, standard:
+            // Floor normal points UP. upDirection points UP (e.g. 0, -1).
+            // If we are on floor, normal is (0, -1). dot((0,-1), (0,-1)) = 1.
+            // If we are on ceiling, normal is (0, 1). dot((0,1), (0,-1)) = -1.
+            // If we are on wall, normal is (1, 0). dot((1,0), (0,-1)) = 0.
+            
+            // So:
+            // dot > threshold -> Floor (normals are similar)
+            // dot < -threshold -> Ceiling (normals are opposite)
+            // else -> Wall
+            
+            if (dot > floorThreshold) {
+                onFloor = true;
+            } else if (dot < -floorThreshold) {
+                onCeiling = true;
+            } else {
+                onWall = true;
+            }
+
             Vector2 remainderVector = currentMotion.normalized() * col.remainder;
             currentMotion = remainderVector.slide(col.normal);
             if (currentMotion.is_zero_approx()) break;

@@ -1,6 +1,6 @@
 # PixelRoot32 – Plan de Mejora del Sistema de Física
 
-## Flat Solver v3.0 (Microcontroller-Oriented)
+## Flat Solver (Microcontroller-Oriented)
 
 **Objetivo:**
 Corregir los problemas estructurales (rebote pegado, pérdida de energía, inestabilidad)
@@ -89,7 +89,7 @@ void PhysicsWorld::update() {
 }
 ```
 
-### Beneficios:
+### Beneficios
 
 * Determinismo total
 * Sin tunneling por frame drop
@@ -270,7 +270,8 @@ Sin pegado.
 🎯 Resultado:
 Evitar tunneling en bolas rápidas. Activado cuando: `velocity * dt > radius * 3`
 
-### Implementación:
+### Implementación
+
 ```cpp
 // CollisionSystem.h
 static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);
@@ -279,10 +280,12 @@ bool sweptCircleVsAABB(PhysicsActor* circle, PhysicsActor* box,
                        Scalar& outTime, Vector2& outNormal);
 ```
 
-### Uso en PONG:
-- CCD se activa automáticamente cuando la bola va muy rápida (> 360 px/s)
-- Previene tunneling contra paredes y paddles
-- Overhead mínimo: solo para cuerpos que lo necesitan
+### Uso en PONG
+
+* CCD se activa automáticamente cuando la bola va muy rápida (> 360 px/s)
+
+* Previene tunneling contra paredes y paddles
+* Overhead mínimo: solo para cuerpos que lo necesitan
 
 ---
 
@@ -306,6 +309,7 @@ Total aceptable para 60 FPS en:
 ## Tests Ejecutados
 
 ### Test 1: Juego Competitivo (Player vs AI)
+
 ```
 Total Frames: 6725
 Total Bounces: 342
@@ -315,6 +319,7 @@ No Sticking: PASS ✓
 ```
 
 ### Test 2: Sin Competencia (Stress Test)
+
 ```
 Total Frames: 1528
 Total Bounces: 92
@@ -323,7 +328,7 @@ Frames Stuck: 0 ✓
 Overall: ALL TESTS PASS ✓
 ```
 
-## PONG cumple:
+## PONG cumple
 
 * ✅ **No quedarse pegado jamás** - 0 frames stuck en todas las pruebas
 * ✅ **Sin pérdida de energía** - < 2% pérdida cuando no hay aumento intencional
@@ -332,12 +337,16 @@ Overall: ALL TESTS PASS ✓
 * ✅ **Sin tunneling** - CCD activo para bolas rápidas
 
 ## Nota sobre "Energy Conserved: FAIL"
+
 El aumento de velocidad (120 → 360 px/s) es **INTENCIONAL** en el gameplay de PONG:
+
 ```cpp
 // BallActor.cpp - Línea 117
 currentSpeed *= 1.05f;  // Aumenta 5% por cada golpe a paleta
 ```
+
 Esto es diseño de juego, no un bug de física.
+
 * Ser determinista 100%
 
 ---
@@ -347,31 +356,41 @@ Esto es diseño de juego, no un bug de física.
 ## Estado: PRODUCCIÓN-READY
 
 ### ✅ Sistema Estable
-- 6,725+ frames testeados sin stuck
-- 342 rebotes perfectamente elásticos
-- 0 casos de tunneling
+
+* 6,725+ frames testeados sin stuck
+
+* 342 rebotes perfectamente elásticos
+* 0 casos de tunneling
 
 ### ✅ Determinista
-- Fixed timestep: 1/60s
-- Pipeline ordenado consistentemente
-- Comportamiento reproducible
+
+* Fixed timestep: 1/60s
+
+* Pipeline ordenado consistentemente
+* Comportamiento reproducible
 
 ### ✅ Microcontroller-friendly
-- ESP32-C3 compatible (Fixed16)
-- 2 iteraciones de solver (ligero)
-- Sin warm starting (menos RAM)
-- CCD selectivo (solo cuando se necesita)
+
+* ESP32-C3 compatible (Fixed16)
+
+* 2 iteraciones de solver (ligero)
+* Sin warm starting (menos RAM)
+* CCD selectivo (solo cuando se necesita)
 
 ### ✅ Sin hacks en gameplay
-- PONG funciona con restitución 1.0 puro
-- Sin lógica manual de rebote en paredes
-- Física arcade solo en paletas (diseño intencional)
+
+* PONG funciona con restitución 1.0 puro
+
+* Sin lógica manual de rebote en paredes
+* Física arcade solo en paletas (diseño intencional)
 
 ### ✅ Código limpio
-- Comentarios esenciales mantenidos
-- Sin separadores visuales innecesarios
-- Sin comentarios obvios
-- Fácil de mantener
+
+* Comentarios esenciales mantenidos
+
+* Sin separadores visuales innecesarios
+* Sin comentarios obvios
+* Fácil de mantener
 
 ---
 
@@ -387,17 +406,19 @@ Esto es diseño de juego, no un bug de física.
 
 # 🎯 Conclusión
 
-**Flat Solver v3.0 está listo para producción.**
+**Flat Solver está listo para producción.**
 
 Todas las fases completadas:
-- ✅ FASE 1: Corrección estructural
-- ✅ FASE 2: Solver minimalista  
-- ✅ FASE 3: CCD especializado
-- ✅ Limpieza de código
+
+* ✅ FASE 1: Corrección estructural
+* ✅ FASE 2: Solver minimalista  
+* ✅ FASE 3: CCD especializado
+* ✅ Limpieza de código
 
 El sistema cumple todos los requisitos:
-- Corrección de arquitectura ✓
-- Simplicidad mantenida ✓
-- Viable en ESP32-C3 ✓
-- No es un clon de Box2D ✓
-- Código limpio y mantenible ✓
+
+* Corrección de arquitectura ✓
+* Simplicidad mantenida ✓
+* Viable en ESP32-C3 ✓
+* No es un clon de Box2D ✓
+* Código limpio y mantenible ✓

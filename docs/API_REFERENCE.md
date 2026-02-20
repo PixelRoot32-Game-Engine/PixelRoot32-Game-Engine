@@ -642,6 +642,15 @@ A body that is moved manually via code but still interacts with the physics worl
 - **`Vector2 moveAndSlide(Vector2 velocity)`**
     Moves the actor, sliding along surfaces if it hits a wall or floor. Returns the remaining velocity.
 
+- **`bool is_on_ceiling() const`**
+    Returns true if the body collided with the ceiling during the last `moveAndSlide` call.
+
+- **`bool is_on_floor() const`**
+    Returns true if the body collided with the floor during the last `moveAndSlide` call.
+
+- **`bool is_on_wall() const`**
+    Returns true if the body collided with a wall during the last `moveAndSlide` call.
+
 **Example:**
 
 ```cpp
@@ -708,9 +717,9 @@ public:
 
 **Inherits:** None
 
-The central physics system implementing **Flat Solver v3.0**. Manages collision detection and resolution with fixed timestep for deterministic behavior.
+The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior.
 
-#### Key Logic: "The Flat Solver v3.0"
+#### Key Logic: "The Flat Solver"
 
 The solver executes in strict order:
 

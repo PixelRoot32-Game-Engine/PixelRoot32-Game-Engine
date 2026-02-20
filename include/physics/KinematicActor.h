@@ -56,6 +56,21 @@ public:
     void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1});
 
     /**
+     * @brief Returns true if the body collided with the ceiling.
+     */
+    inline bool is_on_ceiling() const { return onCeiling; }
+
+    /**
+     * @brief Returns true if the body collided with the floor.
+     */
+    inline bool is_on_floor() const { return onFloor; }
+
+    /**
+     * @brief Returns true if the body collided with a wall.
+     */
+    inline bool is_on_wall() const { return onWall; }
+
+    /**
      * @brief Draws the actor.
      * @param renderer Reference to the renderer.
      */
@@ -63,6 +78,9 @@ public:
 
 private:
     int maxSlides = 4; ///< Maximum number of slide iterations to prevent infinite loops.
+    bool onFloor = false;
+    bool onCeiling = false;
+    bool onWall = false;
 };
 
 } // namespace pixelroot32::physics

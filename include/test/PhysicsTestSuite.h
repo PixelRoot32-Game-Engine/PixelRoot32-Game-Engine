@@ -33,7 +33,7 @@ struct PhysicsSnapshot {
 
 /**
  * @class PhysicsTestSuite
- * @brief Comprehensive testing for Flat Solver v3.0
+ * @brief Comprehensive testing for Flat Solver
  */
 class PhysicsTestSuite {
 public:

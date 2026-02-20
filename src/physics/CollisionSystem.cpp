@@ -2,7 +2,7 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  * 
- * Flat Solver v3.0 - Minimalist Physics Pipeline
+ * Flat Solver - Minimalist Physics Pipeline
  * Order: Detect → Solve Velocity → Integrate Position → Solve Penetration
  */
 #include "physics/CollisionSystem.h"

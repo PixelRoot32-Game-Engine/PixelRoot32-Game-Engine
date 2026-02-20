@@ -2,7 +2,7 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  * 
- * Flat Solver v3.0 - RigidActor
+ * Flat Solver - RigidActor
  */
 #include "physics/RigidActor.h"
 #include "physics/CollisionSystem.h"

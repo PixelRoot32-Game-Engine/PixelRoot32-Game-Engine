@@ -2,7 +2,7 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  * 
- * Flat Solver v3.0 - PhysicsActor Base Class
+ * Flat Solver - PhysicsActor Base Class
  */
 #include "core/PhysicsActor.h"
 #include "core/Engine.h"

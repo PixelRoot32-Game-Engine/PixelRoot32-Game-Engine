@@ -246,14 +246,14 @@ AudioEngine (Facade)
 - `MusicPlayer`: Music sequencing system
 - `AudioMixerLUT`: Optimized mixer with lookup tables
 
-#### 3.4.4 CollisionSystem (Flat Solver v3.0)
+#### 3.4.4 CollisionSystem (Flat Solver)
 
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
 **Responsibility**: High-performance physics solver optimized for ESP32 microcontrollers.
 
 **System Architecture**:
-The **Flat Solver v3.0** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
+The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
 
 ```
 1. Detect Collisions       → Broadphase + Narrowphase

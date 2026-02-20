@@ -1,10 +1,10 @@
-# PixelRoot32 Physics System Reference – Flat Solver v3.0
+# PixelRoot32 Physics System Reference – Flat Solver
 
-This document describes the **Flat Solver v3.0**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
+This document describes the **Flat Solver**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
 
 ---
 
-## 1. Overview: Flat Solver v3.0
+## 1. Overview: Flat Solver
 
 ### 1.1 Design Philosophy
 
@@ -20,7 +20,7 @@ Every frame, the `CollisionSystem` executes physics in strict order:
 ```
 1. Detect Collisions       → Identify all overlapping pairs
 2. Solve Velocity          → Apply impulse-based collision response
-3. Integrate Positions     → Update positions: p = p + v * dt
+3. Integrate Positions     → Update positions: p = p + v * FIXED_DT
 4. Solve Penetration       → Baumgarte stabilization + Slop
 5. Trigger Callbacks       → Notify gameplay code (onCollision)
 ```
@@ -55,7 +55,7 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 - Detects:
   - Rigid vs Rigid
   - Rigid vs Static
-  - Rigid vs Kinematic (new in v3.0)
+  - Rigid vs Kinematic
 
 ### 3.2 Narrowphase: Shape Interactions
 
@@ -112,7 +112,7 @@ for (int iter = 0; iter < 2; iter++) {
 
 ```cpp
 // Only for Rigid bodies
-pa->position = pa->position + velocity * FIXED_DT;
+body->position += body->velocity * FIXED_DT;
 ```
 
 Note: Position integration is done **after** velocity solver but **before** penetration correction.
@@ -154,7 +154,7 @@ bodyB->position -= correctionVec * invMassB;
 - Moved by game logic, not physics
 - Participates in collisions (pushes Rigid actors)
 - Use for: Player, moving platforms
-- **New in v3.0**: Properly detected in broadphase vs Rigid
+- Properly detected in broadphase vs Rigid
 
 ---
 
@@ -303,6 +303,6 @@ void RigidActor::update(unsigned long deltaTime) {
 
 ---
 
-**Document Version**: Flat Solver v3.0  
+**Document Version**: Flat Solver  
 **Last Updated**: February 2026  
 **Engine Version**: v0.9.1-dev
