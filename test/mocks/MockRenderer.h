@@ -32,12 +32,12 @@ public:
     MockRenderer(const DisplayConfig& config) : Renderer(config) {}
 
     // Override common drawing methods to capture calls
-    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size) {
-        rendererCalls.push_back({"text", x, y, 0, 0, 0, 0, 0, color, text, 1.0f, 1.0f});
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size) {
+        rendererCalls.push_back({"text", x, y, 0, 0, 0, 0, 0, color, std::string(text), 1.0f, 1.0f});
     }
 
-    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size) {
-        rendererCalls.push_back({"text_centered", 0, y, 0, 0, 0, 0, 0, color, text, 1.0f, 1.0f});
+    void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size) {
+        rendererCalls.push_back({"text_centered", 0, y, 0, 0, 0, 0, 0, color, std::string(text), 1.0f, 1.0f});
     }
 
     void drawFilledCircle(int x, int y, int radius, Color color) {

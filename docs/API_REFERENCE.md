@@ -6,6 +6,8 @@ This document provides a complete reference for the PixelRoot32 Game Engine publ
 
 The engine's behavior can be customized using `platforms/PlatformDefaults.h` and `platforms/EngineConfig.h`, or via compile-time build flags. This allows for fine-tuning performance and hardware support without modifying the core engine code.
 
+For detailed platform-specific capabilities and limitations, see [Platform Compatibility Guide](PLATFORM_COMPATIBILITY.md).
+
 ### Platform Macros (Build Flags)
 
 | Macro | Description | Default (ESP32) |
@@ -142,6 +144,21 @@ A 2D vector structure composed of two `Scalar` components.
 
 - **`Vector2 normalized() const`**
     Returns a normalized (unit length) version of the vector.
+
+d---
+
+### MathUtil
+
+**Inherits:** None
+
+Collection of helper functions.
+
+#### Public Methods
+
+- **`float lerp(float a, float b, float t)`**
+    Linear interpolation.
+- **`float clamp(float v, float min, float max)`**
+    Clamps a value between min and max.
 
 - **`Scalar dot(const Vector2& other) const`**
     Returns the dot product with another vector.
@@ -336,6 +353,12 @@ The core class managing audio generation and playback.
 
 - **`void playEvent(const AudioEvent& event)`**
     Plays a one-shot audio event on the first available channel of the requested type.
+
+- **`void setMasterVolume(float volume)`**
+    Sets the master volume level (0.0 to 1.0).
+
+- **`float getMasterVolume() const`**
+    Gets the current master volume level.
 
 Typical usage from a scene:
 
@@ -595,6 +618,70 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`PhysicsActor(Vector2 position, int w, int h)`**
     Constructs a new PhysicsActor using a position vector.
 
+#### Public Methods
+
+- **`void update(unsigned long deltaTime)`**
+    Updates the actor state, applying physics integration and checking world boundary collisions.
+
+- **`void setVelocity(const Vector2& v)`**
+    Sets the linear velocity of the actor. Also supports `(Scalar x, Scalar y)` and `(float x, float y)`.
+
+- **`const Vector2& getVelocity() const`**
+    Gets the current velocity vector.
+
+- **`void setRestitution(Scalar r)`**
+    Sets the restitution (bounciness). 1.0 means perfect bounce, < 1.0 means energy loss.
+
+- **`void setFriction(Scalar f)`**
+    Sets the friction coefficient (0.0 means no friction).
+
+- **`void setLimits(const LimitRect& limits)`**
+    Sets custom movement limits for the actor.
+
+- **`void setWorldBounds(int w, int h)`**
+    Defines the world size for boundary checking, used as default limits.
+
+- **`WorldCollisionInfo getWorldCollisionInfo() const`**
+    Gets information about collisions with the world boundaries.
+
+- **`void resetWorldCollisionInfo()`**
+    Resets the world collision flags for the current frame.
+
+---
+
+### LimitRect
+
+**Inherits:** None
+
+Bounding rectangle for world-collision resolution. Defines the limits of the play area.
+
+#### Properties
+
+- **`left`**: Left boundary (-1 for no limit).
+- **`top`**: Top boundary (-1 for no limit).
+- **`right`**: Right boundary (-1 for no limit).
+- **`bottom`**: Bottom boundary (-1 for no limit).
+
+#### Constructors
+
+- **`LimitRect(int l, int t, int r, int b)`**
+    Constructs a LimitRect with specific bounds.
+
+---
+
+### WorldCollisionInfo
+
+**Inherits:** None
+
+Information about world collisions in the current frame. Holds flags indicating which sides of the play area the actor collided with.
+
+#### Properties
+
+- **`left`**: True if collided with the left boundary.
+- **`right`**: True if collided with the right boundary.
+- **`top`**: True if collided with the top boundary.
+- **`bottom`**: True if collided with the bottom boundary.
+
 ---
 
 ### StaticActor
@@ -710,6 +797,54 @@ public:
     }
 };
 ```
+
+---
+
+### Collision Primitives
+
+**Inherits:** None
+
+Lightweight geometric primitives and helpers used by the physics and collision systems.
+
+#### Types
+
+- **`struct Circle`**
+    Represents a circle in 2D space.
+
+  - `Scalar x, y` – center position.
+  - `Scalar radius` – circle radius.
+
+- **`struct Segment`**
+    Represents a line segment between two points.
+
+  - `Scalar x1, y1` – start point.
+  - `Scalar x2, y2` – end point.
+
+#### Helper Functions
+
+- **`bool intersects(const Circle& a, const Circle& b)`**
+    Returns true if two circles overlap.
+
+- **`bool intersects(const Circle& c, const Rect& r)`**
+    Returns true if a circle overlaps an axis-aligned rectangle.
+
+- **`bool intersects(const Segment& s, const Rect& r)`**
+    Returns true if a line segment intersects an axis-aligned rectangle.
+
+- **`bool sweepCircleVsRect(const Circle& start, const Circle& end, const Rect& rect, Scalar& tHit)`**
+    Performs a simple sweep test between two circle positions against a rectangle.  
+    Returns true if a collision occurs between `start` and `end`, writing the normalized hit time in `tHit` (`0.0f` = at `start`, `1.0f` = at `end`).
+
+---
+
+### DefaultLayers
+
+**Inherits:** None
+
+Namespace with common collision layer constants:
+
+- `kNone`: 0 (No collision)
+- `kAll`: 0xFFFF (Collides with everything)
 
 ---
 
@@ -975,9 +1110,6 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 - **`void setContrast(uint8_t level)`**
     Sets the display contrast/brightness (0-255).
 
-- **`void setFont(const uint8_t* font)`**
-    @deprecated This method is obsolete. The engine now uses the native bitmap font system. Use `FontManager::setDefaultFont()` to set the default font, or pass a `Font*` directly to `drawText()` overloads.
-
 ---
 
 ### Font System
@@ -1169,206 +1301,11 @@ The `Camera2D` class provides a 2D camera system for managing the viewport and s
 
 ---
 
-## UI Module
 
-The UI module provides elements for building user interfaces, including buttons, checkboxes, and automatic layout containers. All UI elements inherit from `UIElement`, which itself inherits from `Entity`, allowing them to be easily integrated into any `Scene`.
 
-### UIElement
 
-**Inherits:** [Entity](#entity)
 
-Abstract base class for all UI components. UI elements are automatically assigned to render layer `2` (UI layer).
 
-#### Public Methods
-
-- **`UIElement(float x, float y, float w, float h, UIElementType t = UIElementType::GENERIC)`**
-    Constructs a new UI element.
-- **`UIElementType getType() const`**
-    Returns the type of the UI element (e.g., `BUTTON`, `CHECKBOX`, `LAYOUT`).
-- **`virtual bool isFocusable() const`**
-    Returns whether the element can receive focus/selection for navigation.
-- **`void setPosition(float newX, float newY)`**
-    Updates the element's position.
-- **`void setFixedPosition(bool fixed)`**
-    Enables or disables fixed position for the element. When `true`, the element and its children (if it's a layout) will ignore `Camera2D` scroll and stay fixed at their logical screen coordinates.
-- **`bool isFixedPosition() const`**
-    Returns whether the element is in a fixed position.
-- **`virtual void getPreferredSize(float& preferredWidth, float& preferredHeight) const`**
-    Returns the size the element prefers to have (used by layouts).
-
----
-
-### UILabel
-
-**Inherits:** [UIElement](#uielement)
-
-A simple text label UI element that automatically calculates its bounds based on text length and font size.
-
-#### Public Methods
-
-- **`UILabel(std::string_view text, float x, float y, Color color, uint8_t size = 1)`**
-    Constructs a new label.
-- **`void setText(std::string_view text)`**
-    Updates the label's text and recalculates its dimensions.
-- **`void centerX(int screenWidth)`**
-    Centers the label horizontally within the given width.
-
----
-
-### UIButton
-
-**Inherits:** [UIElement](#uielement)
-
-A clickable button that supports both physical button/keyboard input and touch input.
-
-#### Public Methods
-
-- **`UIButton(std::string_view label, uint8_t index, float x, float y, float w, float h, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
-    Constructs a new button with a navigation index and a click callback.
-- **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
-    Configures the button's colors and background visibility.
-- **`void setSelected(bool selected)`**
-    Sets the focus state of the button (typically called by a layout).
-- **`bool getSelected() const`**
-    Returns whether the button is currently focused.
-- **`void handleInput(const InputManager& input)`**
-    Processes input events. If focused and the action button is pressed, the callback is triggered.
-- **`void press()`**
-    Manually triggers the button's click callback.
-
----
-
-### UICheckBox
-
-**Inherits:** [UIElement](#uielement)
-
-A UI element that can be toggled between checked and unchecked states.
-
-#### Public Methods
-
-- **`UICheckBox(std::string_view label, uint8_t index, float x, float y, float w, float h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
-    Constructs a new checkbox.
-  - `label`: Checkbox label text.
-  - `index`: Navigation index (for D-pad navigation).
-  - `x, y`: Position.
-  - `w, h`: Size.
-  - `checked`: Initial state.
-  - `callback`: Function called when state changes.
-  - `fontSize`: Text size multiplier.
-- **`void setStyle(Color textCol, Color bgCol, bool drawBg = false)`**
-    Configures colors and background visibility.
-- **`void setChecked(bool checked)`**
-    Sets the current state of the checkbox.
-- **`bool isChecked() const`**
-    Returns `true` if the checkbox is checked.
-- **`void setSelected(bool selected)`**
-    Sets the focus state.
-- **`bool getSelected() const`**
-    Returns whether the checkbox is focused.
-- **`void toggle()`**
-    Inverts the current state and triggers the callback.
-- **`void handleInput(const InputManager& input)`**
-    Processes input events. If focused and the action button is pressed, it toggles the state.
-
----
-
-### UILayout
-
-**Inherits:** [UIElement](#uielement)
-
-Base class for UI containers that automatically organize child elements.
-
-#### Public Methods
-
-- **`virtual void addElement(UIElement* element)`**
-    Adds a new element to the layout.
-- **`virtual void removeElement(UIElement* element)`**
-    Removes an element from the layout.
-- **`virtual void updateLayout()`**
-    Forces a recalculation of all child element positions.
-- **`void setPadding(float p)`**
-    Sets internal padding for the container.
-- **`void setSpacing(float s)`**
-    Sets spacing between elements.
-- **`void clearElements()`**
-    Removes all elements from the container.
-
-- **`void setFixedPosition(bool fixed)`**
-    Enables or disables fixed positioning for the layout. When `true`, the layout and all its children will ignore the `Camera2D` scroll/offset and remain at their specified screen coordinates.
-
-- **`bool isFixedPosition() const`**
-    Returns whether the layout is currently in fixed position mode.
-
----
-
-### UIHorizontalLayout & UIVerticalLayout
-
-**Inherits:** [UILayout](#uilayout)
-
-Specific layout implementations that organize elements in a row or column. Both support automatic scrolling when elements exceed the viewport size.
-
-#### Public Methods (Specific to Horizontal/Vertical)
-
-- **`void enableScroll(bool enable)`**
-    Enables or disables scrolling support.
-- **`void setViewportWidth(float w)`** (Horizontal) / **`void setViewportHeight(float h)`** (Vertical)
-    Sets the visible area dimensions for scrolling calculations.
-- **`float getScrollOffset() const`**
-    Returns the current scroll position in pixels.
-- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton)`**
-    Sets the button indices used for layout navigation (e.g., UP/DOWN for vertical, LEFT/RIGHT for horizontal).
-- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
-    Sets the colors used for child buttons when they are selected or unselected.
-
----
-
-### Data Structures
-
-#### ScrollBehavior (Enum)
-
-- `NONE`: No scrolling allowed.
-- `SCROLL`: Free scrolling within content bounds.
-- `CLAMP`: Scrolling that stops at the edges of the content.
-
-#### TextAlignment (Enum)
-
-- `LEFT`
-- `CENTER`
-- `RIGHT`
-
-#### UIElementType (Enum)
-
-- `GENERIC`, `BUTTON`, `LABEL`, `CHECKBOX`, `LAYOUT`
-
-Dead-zone 2D camera used for side-scrolling and simple platformer levels. It controls the world-to-screen offset by driving `Renderer::setDisplayOffset`.
-
-#### Public Methods
-
-- **`Camera2D(int viewportWidth, int viewportHeight)`**  
-    Constructs a camera for a given viewport size in pixels.
-
-- **`void setBounds(float minX, float maxX)`**  
-    Sets horizontal limits for the camera position. The internal `x` value is clamped to this range whenever it changes. Use this to keep the camera inside the level width.
-
-- **`void setVerticalBounds(float minY, float maxY)`**  
-    Sets vertical limits for the camera position. Pass the same value for `minY` and `maxY` to lock vertical movement (for example, in pure side-scrollers).
-
-- **`void setPosition(float x, float y)`**  
-    Sets the camera origin in world coordinates and applies both horizontal and vertical bounds.
-
-- **`void followTarget(float targetX)`**  
-    Horizontally follows a target using a dead zone expressed as a fraction of the viewport width (by default, between 30% and 70% of the screen). The camera only moves when the target leaves this region.
-
-- **`void followTarget(float targetX, float targetY)`**  
-    2D variant that follows a target in both axes using horizontal and vertical dead zones (also expressed as fractions of the viewport size), respecting the configured bounds on each axis.
-
-- **`float getX() const`**, **`float getY() const`**  
-    Returns the current camera position in world space.
-
-- **`void apply(Renderer& renderer) const`**  
-    Applies the camera by calling `renderer.setDisplayOffset(-x, -y)`, so subsequent draw calls are automatically shifted by the camera.
-
----
 
 ### Color
 
@@ -1389,18 +1326,18 @@ Enumeration of available color palettes.
 #### Public Methods
 
 - **`static void setPalette(PaletteType type)`**
-    Sets the active color palette for the engine (legacy mode).
+    Sets the active color palette for the engine (Single Palette Mode).
     *Note: This sets both background and sprite palettes to the same value. Does not enable dual palette mode. This should typically be called once during game initialization (e.g., in the first Scene's `init()` method).*
 
 - **`static void setCustomPalette(const uint16_t* palette)`**
-    Sets a custom color palette defined by the user (legacy mode).
-  - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
-  - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
-  - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
+    Sets a custom color palette defined by the user (Single Palette Mode).
+    - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
+    - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
+    - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
 
 - **`static void enableDualPaletteMode(bool enable)`**
     Enables or disables dual palette mode.
-  - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for legacy mode (single palette).
+    - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for Single Palette Mode.
 
 - **`static void setBackgroundPalette(PaletteType palette)`**
     Sets the background palette (for backgrounds, tilemaps, etc.).
@@ -1429,10 +1366,10 @@ Enumeration of available color palettes.
   - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
 - **`static uint16_t resolveColor(Color color)`**
-    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (legacy mode).
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (Single Palette Mode).
 
 - **`static uint16_t resolveColor(Color color, PaletteContext context)`**
-    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (legacy mode).
+    Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (Single Palette Mode).
   - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
 
 #### Color (Enum)
@@ -1837,12 +1774,6 @@ Abstract interface for platform-specific drawing operations. Implementations of 
 - **`virtual void sendBuffer()`**
     Sends the frame buffer to the physical display.
 
-- **`virtual void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size)`**
-    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawText()` which uses the font system.
-
-- **`virtual void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size)`**
-    @deprecated **This method is obsolete.** Text rendering is now handled by `Renderer` using the native bitmap font system. This method is kept only for interface compatibility and should never be called. All text rendering goes through `Renderer::drawTextCentered()` which uses the font system.
-
 - **`virtual void drawPixel(int x, int y, uint16_t color)`**
     Draws a single pixel at the specified coordinates.
 
@@ -1881,58 +1812,11 @@ Abstract interface for platform-specific drawing operations. Implementations of 
 
 ---
 
-### UIElement
 
-**Inherits:** [Entity](#entity)
 
-Base class for all user interface elements.
 
----
 
-### UIButton
 
-**Inherits:** [UIElement](#uielement)
-
-A clickable button UI element. Supports callback functions and state management (selected/pressed).
-
-#### Public Methods
-
-- **`UIButton(std::string_view t, uint8_t index, float x, float y, float w, float h, std::function<void()> callback)`**
-    Constructs a button.
-
-- **`void setStyle(uint16_t textCol, uint16_t bgCol, bool drawBg)`**
-    Configures visual style.
-
-- **`void setSelected(bool selected)`**
-    Sets the selection state.
-
-- **`void press()`**
-    Manually triggers the button's action.
-
----
-
-### UILabel
-
-**Inherits:** [UIElement](#uielement)
-
-A simple text label UI element.
-
-#### Public Methods
-
-- **`UILabel(std::string_view t, float x, float y, Color col, uint8_t sz)`**
-    Constructs a label.
-  - **t**: Label text.
-  - **x, y**: Position.
-  - **col**: Text color from the `Color` enum.
-  - **sz**: Text size multiplier.
-
-- **`void setText(std::string_view t)`**
-    Updates the label's text. Recalculates dimensions immediately using the current font metrics.
-
-- **`void centerX(int screenWidth)`**
-    Centers the label horizontally within the specified width. Recalculates dimensions before positioning to ensure precision.
-
----
 
 ### ParticleEmitter
 
@@ -1942,10 +1826,10 @@ Manages a pool of particles to create visual effects (fire, smoke, explosions).
 
 #### Public Methods
 
-- **`ParticleEmitter(float x, float y, const ParticleConfig& cfg)`**
+- **`ParticleEmitter(Vector2 position, const ParticleConfig& cfg)`**
     Constructs a new emitter with specific configuration.
 
-- **`void burst(float x, float y, int count)`**
+- **`void burst(Vector2 position, int count)`**
     Emits a burst of particles from a specific location.
 
 ---
@@ -1958,11 +1842,17 @@ Configuration parameters for a particle emitter.
 
 #### Properties
 
-- **`startColor, endColor`**: Life cycle colors.
-- **`minSpeed, maxSpeed`**: Speed range.
-- **`gravity`**: Y-axis force.
-- **`friction`**: Velocity damping.
-- **`minLife, maxLife`**: Lifetime range.
+- **`Color startColor`**: Color at the beginning of the particle's life.
+- **`Color endColor`**: Color at the end of the particle's life.
+- **`Scalar minSpeed`**: Minimum initial speed.
+- **`Scalar maxSpeed`**: Maximum initial speed.
+- **`Scalar gravity`**: Y-axis force applied to particles.
+- **`Scalar friction`**: Velocity damping factor (0.0 - 1.0).
+- **`uint8_t minLife`**: Minimum lifetime in frames/ticks.
+- **`uint8_t maxLife`**: Maximum lifetime in frames/ticks.
+- **`bool fadeColor`**: If true, interpolates color from startColor to endColor.
+- **`Scalar minAngleDeg`**: Minimum emission angle in degrees.
+- **`Scalar maxAngleDeg`**: Maximum emission angle in degrees.
 
 ---
 
@@ -2029,172 +1919,6 @@ InputConfig input(3, 12, 14, 27);
 ```
 
 ---
-
-## Physics Module
-
-### CollisionSystem
-
-**Inherits:** None
-
-Manages collision detection between entities using AABB checks and collision layers.
-
-#### Public Methods
-
-- **`void addEntity(Entity* e)`**
-    Registers an entity for collision checks.
-
-- **`void removeEntity(Entity* e)`**
-    Unregisters an entity.
-
-- **`void update()`**
-    Performs collision detection checks and triggers `onCollision` callbacks.
-
----
-
-### Collision Primitives
-
-**Inherits:** None
-
-Lightweight geometric primitives and helpers used by the physics and collision systems.
-
-#### Types
-
-- **`struct Circle`**
-    Represents a circle in 2D space.
-
-  - `Scalar x, y` – center position.
-  - `Scalar radius` – circle radius.
-
-- **`struct Segment`**
-    Represents a line segment between two points.
-
-  - `Scalar x1, y1` – start point.
-  - `Scalar x2, y2` – end point.
-
-#### Helper Functions
-
-- **`bool intersects(const Circle& a, const Circle& b)`**
-    Returns true if two circles overlap.
-
-- **`bool intersects(const Circle& c, const Rect& r)`**
-    Returns true if a circle overlaps an axis-aligned rectangle.
-
-- **`bool intersects(const Segment& s, const Rect& r)`**
-    Returns true if a line segment intersects an axis-aligned rectangle.
-
-- **`bool sweepCircleVsRect(const Circle& start, const Circle& end, const Rect& rect, Scalar& tHit)`**
-    Performs a simple sweep test between two circle positions against a rectangle.  
-    Returns true if a collision occurs between `start` and `end`, writing the normalized hit time in `tHit` (`0.0f` = at `start`, `1.0f` = at `end`).
-
----
-
-### DefaultLayers
-
-**Inherits:** None
-
-Namespace with common collision layer constants:
-
-- `kNone`: 0 (No collision)
-- `kAll`: 0xFFFF (Collides with everything)
-
----
-
-### PhysicsActor
-
-**Inherits:** [Actor](#actor)
-
-An actor with basic 2D physics properties similar to a RigidBody2D. It extends the base Actor class by adding velocity, acceleration, friction, restitution (bounciness), and world boundary collision resolution.
-
-#### Public Methods
-
-- **`PhysicsActor(Scalar x, Scalar y, Scalar w, Scalar h)`**
-    Constructs a PhysicsActor.
-
-- **`void update(unsigned long deltaTime)`**
-    Updates the actor state, applying physics integration and checking world boundary collisions.
-
-- **`WorldCollisionInfo getWorldCollisionInfo() const`**
-    Gets information about collisions with the world boundaries.
-
-- **`virtual void onWorldCollision()`**
-    Callback triggered when this actor collides with world boundaries.
-
-- **`void setVelocity(float x, float y)`**
-    Sets the linear velocity of the actor.
-
-- **`void setRestitution(float r)`**
-    Sets the restitution (bounciness). 1.0 means perfect bounce, < 1.0 means energy loss.
-
-- **`void setFriction(float f)`**
-    Sets the friction coefficient (0.0 means no friction).
-
-- **`void setLimits(LimitRect limits)`**
-    Sets custom movement limits for the actor.
-
-- **`void setWorldSize(int width, int height)`**
-    Defines the world size for boundary checking, used as default limits.
-
----
-
-### LimitRect
-
-**Inherits:** None
-
-Bounding rectangle for world-collision resolution. Defines the limits of the play area.
-
-#### Properties
-
-- **`left`**: Left boundary (-1 for no limit).
-- **`top`**: Top boundary (-1 for no limit).
-- **`right`**: Right boundary (-1 for no limit).
-- **`bottom`**: Bottom boundary (-1 for no limit).
-
-#### Public Methods
-
-- **`LimitRect(int l, int t, int r, int b)`**
-    Constructs a LimitRect with specific bounds.
-
-- **`int width() const`**
-    Calculates the width of the limit area.
-
-- **`int height() const`**
-    Calculates the height of the limit area.
-
----
-
-### WorldCollisionInfo
-
-**Inherits:** None
-
-Information about world collisions in the current frame. Holds flags indicating which sides of the play area the actor collided with.
-
-#### Properties
-
-- **`left`**: True if collided with the left boundary.
-- **`right`**: True if collided with the right boundary.
-- **`top`**: True if collided with the top boundary.
-- **`bottom`**: True if collided with the bottom boundary.
-
----
-
-## Math Module
-
-### MathUtil
-
-**Inherits:** None
-
-Collection of helper functions.
-
-#### Public Methods
-
-- **`float lerp(float a, float b, float t)`**
-    Linear interpolation.
-- **`float clamp(float v, float min, float max)`**
-    Clamps a value between min and max.
-
----
-
-## UI Module
 
 The UI module provides classes for creating user interfaces.
 

@@ -250,7 +250,7 @@ namespace pixelroot32::core {
             int oldY = r.getYOffset();
             r.setDisplayOffset(0, 0);
 
-            int16_t x = r.getWidth() - 55;
+            int16_t x = r.getLogicalWidth() - 55;
             if (x < 0) x = 0;
             
             r.drawText(fpsStr, x, 4, Color::Green, 1);

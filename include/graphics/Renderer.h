@@ -240,7 +240,7 @@ public:
     DrawSurface& getDrawSurface() { return *drawer; }
 
     /**
-     * @brief Draws a string of text (legacy method, uses default font).
+     * @brief Draws a string of text using the default font.
      * @param text The text to draw.
      * @param x X coordinate.
      * @param y Y coordinate.
@@ -261,7 +261,7 @@ public:
     void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
-     * @brief Draws text centered horizontally at a given Y coordinate (legacy method, uses default font).
+     * @brief Draws text centered horizontally at a given Y coordinate using the default font.
      * @param text The text to draw.
      * @param y Y coordinate.
      * @param color Text color.
@@ -371,12 +371,6 @@ public:
     
     /// @brief Gets the logical rendering height.
     int getLogicalHeight() const { return logicalHeight; }
-    
-    /// @deprecated Use getLogicalWidth() instead.
-    int getWidth() const { return logicalWidth; }
-    
-    /// @deprecated Use getLogicalHeight() instead.
-    int getHeight() const { return logicalHeight; }
 
     /**
      * @brief Sets a global offset for all drawing operations.

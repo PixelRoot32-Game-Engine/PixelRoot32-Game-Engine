@@ -73,8 +73,8 @@ namespace pixelroot32::graphics::particles {
     void ParticleEmitter::update(unsigned long deltaTime) {
         (void)deltaTime;
 
-        int screenW = engine.getRenderer().getWidth();
-        int screenH = engine.getRenderer().getHeight();
+        int screenW = engine.getRenderer().getLogicalWidth();
+        int screenH = engine.getRenderer().getLogicalHeight();
 
         for (int i = 0; i < maxParticles; i++) {
             Particle& p = particles[i];

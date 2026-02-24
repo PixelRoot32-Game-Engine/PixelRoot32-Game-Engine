@@ -2,6 +2,8 @@
 
 This directory contains the unit testing suite for the PixelRoot32 game engine.
 
+**📖 For comprehensive testing guide, see [Testing Guide](../docs/TESTING_GUIDE.md)**
+
 ## Directory Structure
 
 ```text
