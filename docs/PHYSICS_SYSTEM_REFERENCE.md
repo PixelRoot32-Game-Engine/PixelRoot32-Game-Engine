@@ -246,7 +246,7 @@ actor->setRadius(toScalar(6));
 
 ### 9.1 Key Changes
 
-| Old (v0.8.x) | New (v3.0) |
+| Old (v0.8.x) | New |
 |--------------|------------|
 | Position integrated in `Actor::update()` | Position integrated in `CollisionSystem::integratePositions()` |
 | Relaxation-based solver | Impulse-based velocity solver + Baumgarte position solver |
@@ -299,7 +299,6 @@ void RigidActor::update(unsigned long deltaTime) {
 
 - [API Reference](API_REFERENCE.md) - Class documentation
 - [Architecture](ARCHITECTURE.md) - System design
-- [PHYSICS_IMPROVEMENT_PLAN.md](../../../../../PHYSICS_IMPROVEMENT_PLAN.md) - Development history
 
 ---
 
