@@ -27,6 +27,8 @@ PhysicsActor::PhysicsActor(pixelroot32::math::Vector2 position, int w, int h)
 }
 
 void PhysicsActor::update(unsigned long deltaTime) {
+    (void)deltaTime;
+    
     if (bodyType == PhysicsBodyType::STATIC) {
         return;
     }
