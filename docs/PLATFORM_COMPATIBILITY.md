@@ -362,4 +362,27 @@ if (!caps.hasFPU) {
 
 ---
 
+---
+
+## Display Performance Best Practices
+
+### SSD1306 / SH1106 OLED (I2C)
+
+For monochromatic OLED displays using the U8G2 driver, the default I2C clock speed is often limited to 400kHz. On ESP32 platforms, you can significantly improve FPS (often doubling it from ~30 to 60 FPS) by increasing the bus clock to 1MHz.
+
+**Recommendation:**
+
+In your `DisplayConfig` setup or driver initialization, explicitly set the bus clock:
+
+```cpp
+if (u8g2_instance) {
+    u8g2_instance->setBusClock(1000000); // Set to 1MHz
+}
+```
+
+> [!TIP]
+> While most modern SSD1306 modules support 1MHz, if you experience visual glitches or "frozen" frames, try reducing the clock to 400kHz or 800kHz.
+
+---
+
 **Note:** This document is updated regularly as new ESP32 variants are released and tested with the PixelRoot32 engine. Always check the latest version for the most current information.
