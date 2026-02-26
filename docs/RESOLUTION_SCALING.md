@@ -60,10 +60,11 @@ To avoid the massive RAM overhead of a full-size physical framebuffer (which wou
 
 ### 3. Optimization Techniques (ESP32)
 
-- **Lookup Tables (LUTs):** Pre-calculated arrays for X and Y mapping to eliminate division operations in the hot loop.
-- **IRAM_ATTR:** Scaling functions are marked to reside in Internal RAM to avoid SPI Flash latency.
-- **DMA Alignment:** Line buffers are allocated using `MALLOC_CAP_DMA` to ensure compatibility with high-speed SPI transfers.
 - **8-bit to 16-bit Conversion:** Optimized color conversion from the engine's 8-bit palette to the hardware's RGB565.
+- **Fast-Path Switching (v0.9.1+):**
+    - **1:1 Native:** Directly volcates the buffer if logical and physical match, supporting offsets for centering.
+    - **2x Integer Scaling:** Uses a Bit-Expansion LUT (OLED) or 32-bit register writes (TFT) to duplicate pixels without recalculating indices.
+    - **Generic NN:** Fallback for fractional scales (e.g., 1.5x) using optimized LUTs.
 
 ---
 

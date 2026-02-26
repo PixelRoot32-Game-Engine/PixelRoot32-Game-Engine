@@ -42,7 +42,7 @@ public:
     static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
     static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
     static constexpr pixelroot32::math::Scalar MIN_VELOCITY = pixelroot32::math::toScalar(0.01f);
-    static constexpr int VELOCITY_ITERATIONS = 2;
+    static constexpr int VELOCITY_ITERATIONS = pixelroot32::platforms::config::VelocityIterations;
     static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
     
     void addEntity(pixelroot32::core::Entity* e);
@@ -69,7 +69,7 @@ public:
 
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
-    static constexpr int kRelaxationIterations = pixelroot32::platforms::config::PhysicsRelaxationIterations;
+    static constexpr int kVelocityIterations = pixelroot32::platforms::config::VelocityIterations;
     
     struct CollisionPair {
         pixelroot32::core::Actor* a;

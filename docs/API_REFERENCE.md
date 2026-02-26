@@ -36,8 +36,8 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 - **`PHYSICS_MAX_PAIRS`**
     Maximum number of simultaneous collision pairs tracked by the solver. Lower values save static DRAM. Default is `128`.
 
-- **`PHYSICS_RELAXATION_ITERATIONS`**
-    Number of position correction passes per frame. Higher values improve stacking stability but increase CPU load. Default is `8`.
+- **`VELOCITY_ITERATIONS`**
+    Number of impulse solver passes per frame. Higher values improve stacking stability but increase CPU load. Default is `2`.
 
 - **`SPATIAL_GRID_CELL_SIZE`**
     Size of each cell in the broadphase grid (in pixels). Default is `32`.

@@ -662,17 +662,26 @@ AudioBackend
 
 ### 6.1 Implemented Strategies
 
-1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with scaling to physical display (e.g., 240x240)
+1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with high-performance scaling to physical display (e.g., 240x240).
 
-2. **Multi-Core Audio (ESP32)**:
-   - Core 0: Audio scheduling and generation
-   - Core 1: Main game loop
+2. **Scaling Pipeline (v0.9.1)**:
+   - **Fast-Path Switching**: Specialized routines for 1:1 and 2x integer scaling that avoid expensive bit/byte calculations.
+   - **Bit-Expansion LUTs**: OLED horizontal expansion via 16-entry lookup tables.
+   - **32-bit Register Writes**: TFT vertical duplication via optimized 32-bit `memcpy` and register access.
 
-3. **Mixer LUT**: Lookup tables for mixing without FPU
+3. **Multi-Core Audio (ESP32)**:
+   - Core 0: Audio scheduling and generation.
+   - Core 1: Main game loop.
 
-4. **DMA Transfers**: DMA transfers for displays
+4. **Mixer LUT**: Lookup tables for mixing without FPU.
 
-5. **IRAM-Cached Rendering**: Critical functions in internal RAM
+5. **DMA Pipelining (TFT)**:
+   - **Double Buffering**: CPU calculates next block while DMA sends the previous one.
+   - **Large Block Sizes**: Using 60-line blocks to minimize interrupt frequency.
+
+6. **I2C 1MHz (OLED)**: Sustained 60 FPS on monochrome screens via bus overclocking.
+
+7. **IRAM-Cached Rendering**: Critical functions in internal RAM.
 
 6. **Viewport Culling**: Only render visible entities
 

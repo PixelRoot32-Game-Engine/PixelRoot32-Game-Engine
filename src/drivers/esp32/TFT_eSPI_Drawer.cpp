@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
@@ -233,8 +234,9 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
 
     // ---------------------------------------------------------
     // STAGE 1: Pre-fill (First Block)
-    // Calculate the first block before starting any DMA
     // ---------------------------------------------------------
+    bool is2x = (physicalWidth == logicalWidth * 2 && physicalHeight == logicalHeight * 2);
+
     if (startY < physicalHeight) {
         int endY = startY + LINES_PER_BLOCK;
         if (endY > physicalHeight) endY = physicalHeight;
@@ -249,12 +251,8 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
                  uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
                  const uint16_t* __restrict pLUT = paletteLUT;
                  int x = 0;
-                 
-                 // EXTREME OPTIMIZATION: 32-bit writes
-                 // Instead of writing uint16_t twice, we write uint32_t once
                  uint32_t* dst32 = (uint32_t*)dst;
                  
-                 // Process 8 pixels per iteration (4 writes of 32 bits)
                  for (; x <= physicalWidth - 8; x += 8) {
                      uint32_t p01 = ((uint32_t)pLUT[srcRow[x+1]] << 16) | pLUT[srcRow[x]];
                      uint32_t p23 = ((uint32_t)pLUT[srcRow[x+3]] << 16) | pLUT[srcRow[x+2]];
@@ -271,6 +269,22 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
                  }
                  dst += physicalWidth;
              }
+        } else if (is2x) {
+            // 2x Fast-Path: Duplicate pixels and rows using 32-bit writes
+            for (int physY = startY; physY < endY; physY += 2) {
+                int srcY = physY / 2;
+                uint8_t* srcRow = (uint8_t*)spr.getPointer() + (srcY * logicalWidth);
+                const uint16_t* __restrict pLUT = paletteLUT;
+                uint32_t* dst32 = (uint32_t*)dst;
+
+                for (int lx = 0; lx < logicalWidth; ++lx) {
+                    uint16_t color = pLUT[srcRow[lx]];
+                    dst32[lx] = (color << 16) | color; // Store two identical pixels
+                }
+                // Duplicate this line for the next physical row
+                std::memcpy(dst + physicalWidth, dst, physicalWidth * sizeof(uint16_t));
+                dst += physicalWidth * 2;
+            }
         } else {
             // Normal path with scaling
             for (int physY = startY; physY < endY; ++physY) {
@@ -309,16 +323,9 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
                  uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
                  const uint16_t* __restrict pLUT = paletteLUT;
                  int x = 0;
-                 
-                 // EXTREME OPTIMIZATION: 32-bit writes
-                 // Instead of writing uint16_t twice, we write uint32_t once
-                 // This reduces memory access count by half
                  uint32_t* dst32 = (uint32_t*)dst;
                  
-                 // Process 8 pixels per iteration (4 writes of 32 bits)
                  for (; x <= physicalWidth - 8; x += 8) {
-                     // Combine 2 pixels into 1 32-bit word
-                     // Note: ESP32 is Little Endian
                      uint32_t p01 = ((uint32_t)pLUT[srcRow[x+1]] << 16) | pLUT[srcRow[x]];
                      uint32_t p23 = ((uint32_t)pLUT[srcRow[x+3]] << 16) | pLUT[srcRow[x+2]];
                      uint32_t p45 = ((uint32_t)pLUT[srcRow[x+5]] << 16) | pLUT[srcRow[x+4]];
@@ -329,15 +336,26 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
                      dst32[x/2 + 2] = p45;
                      dst32[x/2 + 3] = p67;
                  }
-                 
-                 // Remainder
                  for (; x < physicalWidth; ++x) {
                      dst[x] = pLUT[srcRow[x]];
                  }
-                 
-                 // Advance destination pointer to the next line
                  dst += physicalWidth;
              }
+        } else if (is2x) {
+            // 2x Fast-Path for the main loop blocks
+            for (int physY = startY; physY < endY; physY += 2) {
+                int srcY = physY / 2;
+                uint8_t* srcRow = (uint8_t*)spr.getPointer() + (srcY * logicalWidth);
+                const uint16_t* __restrict pLUT = paletteLUT;
+                uint32_t* dst32 = (uint32_t*)dst;
+
+                for (int lx = 0; lx < logicalWidth; ++lx) {
+                    uint16_t color = pLUT[srcRow[lx]];
+                    dst32[lx] = (color << 16) | color;
+                }
+                std::memcpy(dst + physicalWidth, dst, physicalWidth * sizeof(uint16_t));
+                dst += physicalWidth * 2;
+            }
         } else {
             // Normal path with scaling (using LUTs)
             for (int physY = startY; physY < endY; ++physY) {

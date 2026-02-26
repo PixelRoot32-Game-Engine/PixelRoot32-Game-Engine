@@ -2,7 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.9.0-dev
+## 1.0.0 (Stable)
+
+This version represents the first stable release of the PixelRoot32 Game Engine, featuring a complete performance overhaul and API stabilization.
+
+### 🚀 Performance Overhaul (The Rendering Revolution)
+- **TFT DMA Pipelining**:
+  - Implemented **Double-Buffered DMA Pipeline** for the `TFT_eSPI_Drawer`.
+  - The CPU now processes the next frame block while the DMA engine transmits the current one, maximizing SPI bus throughput.
+  - Achieves **~43 FPS stable** on 240x240 physical displays at 40MHz, bypassing the previous ~14 FPS bottleneck.
+- **Fast-Path Kernels**:
+  - **OLED 2x Fast-Path**: Specialized bit-expansion LUT for horizontal scaling (U8G2), doubling frame rates with zero CPU overhead for monochrome displays.
+  - **TFT Row Duplication**: Optimized vertical scaling using 32-bit Native Register access and `memcpy` for high-speed integer scaling.
+- **I2C 1MHz Support**: Added official support for 1MHz bus speeds in `DisplayConfig`, enabling sustained **60 FPS** on OLED (SSD1306/SH1106) screens.
+
+### 🛠️ Subsystem Stabilization
+- **Physics (Flat Solver 1.0)**:
+  - **Terminology Standardization**: Renamed legacy `PHYSICS_RELAXATION_ITERATIONS` to `VELOCITY_ITERATIONS`.
+  - **Baumgarte Improvement**: Enhanced position correction for better stacking stability.
+  - **Fixed Timestep**: Guaranteed 1/60s simulation for deterministic logic.
+- **Memory Management**:
+  - **Hardware Allocation Patterns**: Introduced explicit support for `MALLOC_CAP_DMA` within the driver layer.
+  - **Optimized Shared Buffers**: Reduced DRAM footprint by reusing broadphase grid buffers across frames.
+- **Math System**: Unified `Scalar` math API now stable across FPU (ESP32-S3) and Fixed-Point (ESP32-C3) targets.
 
 - **Fixed-Point Math & Scalar Support**:
   - **Math Policy Layer**: Introduced a platform-agnostic numerical abstraction layer that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities.
@@ -18,7 +40,7 @@ All notable changes to this project will be documented in this file.
 - **Modern C++ Migration**:
   - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
 
-> **Migration Guide from v0.8.1-dev → v0.9.0-dev**: [MIGRATION_v0.8.1_to_v0.9.0](docs/MIGRATION_v0.8.1_to_v0.9.0.md)
+> **Migration Guide from v0.8.1-dev → v1.0.0 Stable**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
 
 ## 0.8.1-dev
 

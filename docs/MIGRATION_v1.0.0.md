@@ -1,8 +1,27 @@
-# Migration Guide: v0.8.1-dev → v0.9.0-dev
+# Migration Guide: Legacy (v0.8.x) → v1.0.0 Stable
 
 ## Overview
 
-This guide documents the changes required to migrate examples from version 0.8.1-dev to 0.9.0-dev. The main migration involves changing the C++ standard from C++11 to C++17, adopting smart pointers (`std::unique_ptr`) for entity memory management, implementing the **Scalar Math** system for cross-platform compatibility, and the introduction of the **Flat Solver** physics engine.
+This guide consolidates all critical changes required to upgrade your projects to the official **v1.0.0 Stable** release. It covers the evolution from C++11 to C++17, the adoption of smart pointers, the new Scalar Math system, and the revolutionary Flat Solver physics engine.
+
+---
+
+## 🚀 Performance Overhaul (v1.0.0)
+
+Version 1.0.0 introduces massive rendering optimizations for the ESP32 platform, focusing on maximizing frame rates on both OLED and TFT hardware.
+
+### 1. Integer Scaling Fast-Paths
+The rendering pipeline now includes specialized assembly-like loops for 1:1 and 2x scaling.
+- **U8G2 (OLED)**: Uses a 16-entry bit-expansion LUT to double horizontal resolution with zero bit-shifting per pixel.
+- **TFT_eSPI**: Uses 32-bit register writes and optimized `memcpy` for row duplication.
+
+### 2. DMA Pipelining (TFT)
+The `TFT_eSPI_Drawer` now uses double-buffering for DMA transfers. While the DMA engine sends one block, the CPU calculates the next one.
+- **Configurable Throughput**: Default `LINES_PER_BLOCK` set to 60 to minimize interrupt overhead.
+
+### 3. I2C Bus Overclocking
+Official support for 1MHz I2C was added to `DisplayConfig`.
+- **Impact**: Doubles OLED framerate from ~30 FPS to **60 FPS**.
 
 ---
 
@@ -208,11 +227,27 @@ MyEntity(Vector2 pos) : Entity(pos, 16, 16, EntityType::ACTOR) {}
 
 ---
 
-## Migration to Scalar Math (Fixed-Point Support)
+## 5. Rendering & DMA Awareness
+
+### Fast-Path Kernels
+If you were using custom scaling logic, it is now recommended to use the engine's built-in fast-paths.
+- **TFT**: Automatically uses 32-bit register writes for vertical scaling.
+- **OLED**: Uses 1MHz bus support and LUT bit-expansion.
+
+### DMA Awareness
+When allocating large buffers for custom drivers, always use `MALLOC_CAP_DMA` within the driver layer to ensure compatibility with high-speed transfers.
+
+```cpp
+uint8_t* buf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+```
+
+---
+
+## 6. Migration to Scalar Math (v1.0.0)
 
 ### Overview
 
-Version 0.9.0 introduces the **Math Policy Layer**, which abstracts numerical representations to support both FPU-enabled platforms (ESP32, ESP32-S3) and integer-only platforms (ESP32-C3, ESP32-S2) with a single codebase.
+Finalized in v1.0.0, the **Math Policy Layer** abstracts numerical representations to support both FPU-enabled platforms and integer-only platforms with a single codebase.
 
 - **`Scalar`**: A type alias that resolves to `float` on FPU platforms and `Fixed16` (16.16 fixed-point) on others.
 - **`Vector2`**: Now uses `Scalar` components instead of `float`.

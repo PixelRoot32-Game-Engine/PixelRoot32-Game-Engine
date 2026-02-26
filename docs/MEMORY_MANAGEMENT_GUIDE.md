@@ -259,6 +259,40 @@ public:
 
 ---
 
+## Hardware-Specific Memory (ESP32)
+
+When working with high-performance drivers (TFT, I2S), memory must be allocated with specific capabilities.
+
+### DMA-Capable Memory
+For SPI or I2S transfers to work without CPU intervention, the buffers must be in a specific region of SRAM.
+
+```cpp
+// Correct way to allocate a DMA buffer
+uint16_t* dmaBuffer = (uint16_t*)heap_caps_malloc(
+    bufferSize, 
+    MALLOC_CAP_DMA | MALLOC_CAP_8BIT
+);
+
+// Always check for success
+if (dmaBuffer == nullptr) {
+    // Fallback or error
+}
+
+// Memory allocated with heap_caps_malloc must be freed with heap_caps_free
+heap_caps_free(dmaBuffer);
+```
+
+### Memory-Performance Trade-offs (v0.9.1)
+In v0.9.1, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
+- **Baseline**: 20 lines = ~10KB (at 240 width)
+- **Optimized**: 60 lines = ~30KB
+- **Max**: 120 lines = ~60KB (Half frame)
+
+> [!IMPORTANT]
+> Non-FPU platforms like ESP32-C3 have more limited SRAM. Be cautious when increasing DMA block sizes or logical resolutions.
+
+---
+
 ## Migration from Manual Memory Management
 
 ### Before (C++11 Style)

@@ -99,9 +99,12 @@
     #define PHYSICS_MAX_PAIRS 128
 #endif
 
-#ifndef PHYSICS_RELAXATION_ITERATIONS
-    #define PHYSICS_RELAXATION_ITERATIONS 8
+#ifndef PR32_VELOCITY_ITERATIONS
+    #define PR32_VELOCITY_ITERATIONS 2
 #endif
+
+// Deprecated alias for backward compatibility
+#define PHYSICS_RELAXATION_ITERATIONS PR32_VELOCITY_ITERATIONS
 
 // =============================================================================
 // Hardware Capabilities
@@ -154,7 +157,10 @@ namespace pixelroot32::platforms::config {
 
     // Physics
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
-    inline constexpr int PhysicsRelaxationIterations = PHYSICS_RELAXATION_ITERATIONS;
+    inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
+    
+    // Deprecated for backward compatibility
+    inline constexpr int PhysicsRelaxationIterations = VelocityIterations;
 
     // Profiling & Debug
     #ifdef PIXELROOT32_ENABLE_PROFILING

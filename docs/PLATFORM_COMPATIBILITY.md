@@ -380,6 +380,18 @@ if (u8g2_instance) {
 }
 ```
 
+#### Integer Scaling Fast-Path (v0.9.1+)
+The engine includes a "Fast-Path" for 2x scaling that bypasses the generic bit-by-bit loop. This LUT-based expansion doubles the horizontal processing speed.
+
+### TFT Displays (SPI/DMA)
+
+#### SPI DMA Pipelining
+For TFT displays using `TFT_eSPI`, the engine uses double-buffering and DMA. To minimize interrupt overhead, the engine processes data in large blocks (default: 60 lines).
+
+**Recommendation:**
+- Keep your `SPI_FREQUENCY` at the maximum stable value for your panel (typically 40MHz or 80MHz). 
+- Use exact 2x scaling (e.g., 120x120 -> 240x240) to trigger the hardware-optimized blit path.
+
 > [!TIP]
 > While most modern SSD1306 modules support 1MHz, if you experience visual glitches or "frozen" frames, try reducing the clock to 400kHz or 800kHz.
 
