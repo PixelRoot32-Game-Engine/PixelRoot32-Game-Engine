@@ -1,32 +1,38 @@
 # Testing Guide - PixelRoot32 Game Engine
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** February 2026  
 **Engine Version:** v0.9.0-dev  
 
 ## Overview
 
-This comprehensive guide covers testing practices for the PixelRoot32 Game Engine. It includes unit testing, integration testing, platform-specific testing, and continuous integration setup.
+This comprehensive guide covers testing practices for the PixelRoot32 Game Engine. It includes unit testing, integration testing, platform-specific testing, and continuous integration setup. The test suite uses the **Unity** framework and runs on the **native** platform by default (`native_test`).
+
+**Recent updates (v1.1):** Document structure aligned with the current test tree: full list of unit test suites under `test/unit/`, correct include paths (`../../test_config.h`, `../../mocks/` from unit tests), coverage scripts split into `coverage_win.py` and `coverage_linux.py` (with `--report` and `--no-tests`), and PlatformIO details (default env, `test_ignore`, coverage build flags).
 
 ## Quick Start
 
 ### Running Tests
 
 ```bash
-# Run all tests on native platform
+# Run all tests on native platform (default env)
 pio test -e native_test
 
 # Run tests with verbose output
 pio test -e native_test --verbose
 
-# Run specific test file
-pio test -e native_test -f test_mathutil
+# Run a specific test suite (e.g. only test_physics_actor)
+pio test -e native_test -f test_physics_actor
 
 # Run tests with coverage report (Windows)
 python scripts/coverage_win.py --report
 
 # Run tests with coverage report (Linux)
 python scripts/coverage_linux.py --report
+
+# Generate coverage without re-running tests
+python scripts/coverage_win.py --no-tests --report
+python scripts/coverage_linux.py --no-tests --report
 ```
 
 ### Platform-Specific Testing
@@ -48,30 +54,66 @@ pio test -e native_test
 
 ### Directory Organization
 
+Each test suite lives in its own folder under `test/unit/<suite_name>/` with one or more `.cpp` files. Integration and game-loop tests live at the top level of `test/`. PlatformIO compiles each unit test folder separately (unit test sources are excluded from the main build via `build_src_filter`).
+
 ```
 test/
-├── test_config.h                 # Shared test utilities
-├── unit/                        # Unit tests by module
-│   ├── test_math/              # Math utilities
-│   ├── test_physics/           # Physics system
-│   ├── test_core/             # Core engine
-│   ├── test_graphics/         # Graphics & rendering
-│   ├── test_ui/               # User interface
-│   ├── test_audio/            # Audio system
-│   └── test_input/            # Input handling
-├── test_engine_integration/    # Integration tests
-├── test_game_loop/            # End-to-end tests
-└── mocks/                     # Mock implementations
+├── test_config.h                    # Shared test utilities and macros
+├── unit/                            # Unit tests (one folder per suite)
+│   ├── test_actor/                  # Actor entity
+│   ├── test_audio_command_queue/    # Audio command queue
+│   ├── test_audio_engine/           # Audio engine
+│   ├── test_audio_scheduler/        # Audio scheduler
+│   ├── test_camera2d/               # 2D camera
+│   ├── test_collision_primitives/   # Collision primitives (AABB, circle, etc.)
+│   ├── test_collision_system/       # Collision system
+│   ├── test_collision_types/        # Collision types
+│   ├── test_color/                  # Color utilities
+│   ├── test_entity/                 # Entity base
+│   ├── test_font_manager/           # Font manager
+│   ├── test_graphics/               # Graphics (e.g. particles)
+│   ├── test_graphics_ownership/     # Graphics ownership
+│   ├── test_input_config/           # Input configuration
+│   ├── test_input_manager/          # Input manager
+│   ├── test_kinematic_actor/        # Kinematic actor
+│   ├── test_math/                   # Math utilities (MathUtil, Scalar, etc.)
+│   ├── test_music_player/           # Music player
+│   ├── test_physics_actor/          # PhysicsActor (body type, bounds, bounce)
+│   ├── test_physics_expansion/      # Physics expansion
+│   ├── test_rect/                   # Rect type
+│   ├── test_scene/                  # Scene
+│   ├── test_scene_manager/           # Scene manager
+│   ├── test_ui/                     # UI elements and layouts
+│   └── ...
+├── test_engine_integration/         # Engine integration tests
+├── test_game_loop/                  # Game loop / end-to-end tests
+└── mocks/                           # Mock implementations
+    ├── MockAudioBackend.h
+    ├── MockAudioScheduler.h
+    ├── MockDisplay.h
+    ├── MockDrawSurface.h
+    └── MockRenderer.h
 ```
+
+**PlatformIO configuration (relevant):**
+
+- **Default env:** `native_test` (`[platformio] default_envs = native_test`).
+- **Test framework:** Unity.
+- **Ignored tests:** `test_embedded` is excluded via `test_ignore` (embedded-only tests).
+- **Coverage:** Build uses `--coverage` and `-lgcov`; scripts are `scripts/coverage_win.py` (Windows) and `scripts/coverage_linux.py` (Linux). The previous single `coverage_check.py` has been replaced by these two platform-specific scripts.
 
 ### Test File Naming
 
+- **Folder:** `test/unit/test_<module>/` (e.g. `test_physics_actor/`, `test_ui/`).
+- **Source file(s):** Typically `test_<module>.cpp` or `test_<module>_<topic>.cpp` (e.g. `test_physics_actor.cpp`, `test_ui_elements.cpp`, `test_ui_layouts.cpp`).
+
 ```cpp
-// Format: test_<module>_<function>_<scenario>.cpp
-test_mathutil_basic.cpp
-test_physics_collision_circle.cpp
-test_ui_button_click.cpp
-test_audio_engine_init.cpp
+// Function naming: test_<module>_<function>_<scenario>
+test_mathutil_lerp_basic
+test_physics_actor_set_velocity_float
+test_physics_actor_resolve_left_boundary
+test_ui_button_click
+test_audio_engine_play_event
 ```
 
 ---
@@ -80,10 +122,12 @@ test_audio_engine_init.cpp
 
 ### Basic Test Structure
 
+Tests use Unity and the shared `test_config.h`, which provides float comparison helpers (`float_eq`, `TEST_ASSERT_FLOAT_EQUAL`), `test_setup()`/`test_teardown()`, and common data (`test_data::PI`, `test_data::SCREEN_WIDTH`, etc.). From a file under `test/unit/<suite>/`, include the config as `../../test_config.h` (or `../test_config.h` from `test_engine_integration/`).
+
 ```cpp
 #include <unity.h>
 #include "module/Header.h"
-#include "../test_config.h"
+#include "../../test_config.h"
 
 using namespace pixelroot32::module;
 
@@ -109,10 +153,13 @@ void test_mathutil_lerp_basic(void) {
     
     // Assert
     TEST_ASSERT_EQUAL_FLOAT(5.0f, toFloat(result));
+    // Or use test_config.h helper: TEST_ASSERT_FLOAT_EQUAL(5.0f, toFloat(result));
 }
 
 // Main function - test runner
 int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
     UNITY_BEGIN();
     RUN_TEST(test_mathutil_lerp_basic);
     return UNITY_END();
@@ -124,8 +171,8 @@ int main(int argc, char **argv) {
 ```cpp
 #include <unity.h>
 #include "audio/AudioEngine.h"
-#include "../mocks/MockAudioBackend.h"
-#include "../test_config.h"
+#include "../../mocks/MockAudioBackend.h"
+#include "../../test_config.h"
 
 using namespace pixelroot32::audio;
 
@@ -266,6 +313,18 @@ void test_scalar_math_consistency(void) {
 
 ### Coverage Analysis
 
+Coverage is handled by two platform-specific scripts (the former single `coverage_check.py` script has been removed):
+
+| Platform | Script | Notes |
+|----------|--------|--------|
+| Windows  | `scripts/coverage_win.py` | Prefers **gcovr** (e.g. `pip install gcovr`), falls back to **lcov**. Excludes `src/drivers/native/` and `include/drivers/native/` from coverage. |
+| Linux    | `scripts/coverage_linux.py` | Uses **lcov** / **genhtml**. Same exclusions for drivers and test code. |
+
+**Options (both scripts):**
+
+- `--report` — Generate HTML report in `coverage_report/`.
+- `--no-tests` — Skip running tests; only generate/parse coverage from existing build.
+
 ```bash
 # Generate coverage report (Windows)
 python scripts/coverage_win.py --report
@@ -273,13 +332,17 @@ python scripts/coverage_win.py --report
 # Generate coverage report (Linux)
 python scripts/coverage_linux.py --report
 
+# Coverage without re-running tests (e.g. after pio test)
+python scripts/coverage_win.py --no-tests --report
+python scripts/coverage_linux.py --no-tests --report
+
 # View HTML report (Windows)
 start coverage_report/index.html
 
 # View HTML report (Linux)
 xdg-open coverage_report/index.html
 
-# Check specific file coverage
+# Check specific file coverage (gcov)
 gcov -f src/math/MathUtil.cpp
 ```
 
@@ -338,15 +401,16 @@ jobs:
 ### Local CI Simulation
 
 ```bash
-# Run all unit tests
-python run_tests.py
+# Run all native unit and integration tests
+pio test -e native_test
 
-# Check for test failures in the console output
+# Run with verbose output to see failures clearly
+pio test -e native_test --verbose
 
-# Run coverage check and generate report (Windows)
+# Run coverage check and generate HTML report (Windows)
 python scripts/coverage_win.py --report
 
-# Run coverage check and generate report (Linux)
+# Run coverage check and generate HTML report (Linux)
 python scripts/coverage_linux.py --report
 ```
 
@@ -503,9 +567,10 @@ void test_with_debug_output(void) {
 - **PlatformIO Test Explorer**: VS Code extension
 
 ### Examples
-- See `test/unit/` for implementation examples
-- Check `examples/` for tested game code
-- Review `scripts/coverage_win.py` or `coverage_linux.py` for automation
+- See `test/unit/` for all unit test suites (e.g. `test_physics_actor/`, `test_ui/`, `test_math/`).
+- See `test/test_engine_integration/` and `test/test_game_loop/` for integration and game-loop tests.
+- See `test/test_config.h` for shared macros and helpers (`TEST_ASSERT_FLOAT_EQUAL`, `test_data`, `test_setup`/`test_teardown`).
+- Review `scripts/coverage_win.py` and `scripts/coverage_linux.py` for coverage automation (no longer a single `coverage_check.py`).
 
 ---
 
