@@ -38,7 +38,9 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **⚠️ Project Status**: PixelRoot32 is under active development. APIs may change without notice, and some subsystems are experimental or incomplete.
+> **✅ Project Status**: PixelRoot32 v1.0.0 is the first stable release.
+The core rendering and physics systems are production-ready.
+New features and optimizations will continue to evolve in future minor versions.
 
 ---
 
