@@ -126,6 +126,7 @@ namespace pixelroot32::physics {
         Contact contact;
         contact.bodyA = a;
         contact.bodyB = b;
+        contact.penetration = toScalar(-1.0f);  // Sentinel: no collision detected
         Scalar rA = a->bounce ? a->getRestitution() : toScalar(0.0f);
         Scalar rB = b->bounce ? b->getRestitution() : toScalar(0.0f);
         contact.restitution = min(rA, rB);
@@ -143,6 +144,7 @@ namespace pixelroot32::physics {
             generateCircleVsAABBContact(contact, circle, box);
         }
         
+        // Accept contact if collision was detected (penetration >= 0). Reject sentinel (-1).
         if (contact.penetration >= -kEpsilon) {
             contacts.push_back(contact);
         }
@@ -158,7 +160,7 @@ namespace pixelroot32::physics {
         Scalar distSqr = d.lengthSquared();
         Scalar radiusSum = pA->getRadius() + pB->getRadius();
         
-        if (distSqr <= radiusSum * radiusSum) {
+        if (distSqr < radiusSum * radiusSum) {
             Scalar dist = sqrt(distSqr);
             
             if (dist > kEpsilon) {
@@ -216,7 +218,7 @@ namespace pixelroot32::physics {
         Vector2 v = centerC - closestP;
         Scalar distSqr = v.lengthSquared();
         
-        if (distSqr <= r * r) {
+        if (distSqr < r * r) {
             Scalar dist = sqrt(distSqr);
             
             if (dist > kEpsilon) {
