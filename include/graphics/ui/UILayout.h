@@ -119,6 +119,18 @@ public:
      */
     void clearElements();
 
+    /**
+     * @brief Enables or disables scrolling for this layout.
+     * @param enabled True to enable scrolling, false to disable.
+     */
+    void setScrollingEnabled(bool enabled) { enableScroll = enabled; updateLayout(); }
+
+    /**
+     * @brief Checks if scrolling is enabled.
+     * @return True if scrolling is enabled.
+     */
+    bool isScrollingEnabled() const { return enableScroll; }
+
 protected:
     std::vector<UIElement*> elements;  ///< List of child elements
     pixelroot32::math::Scalar padding = pixelroot32::math::toScalar(0.0f);              ///< Internal padding

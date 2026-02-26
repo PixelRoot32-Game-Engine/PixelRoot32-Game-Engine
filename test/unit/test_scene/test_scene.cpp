@@ -151,6 +151,22 @@ void test_scene_draw_propagation(void) {
     TEST_ASSERT_FALSE(e2.drawCalled);
 }
 
+void test_scene_draw_with_offset_and_layers(void) {
+    Scene scene;
+    MockEntity e1(0, 0, 20, 20);
+    MockEntity e2(50, 50, 20, 20);
+    e1.setRenderLayer(0);
+    e2.setRenderLayer(1);
+    scene.addEntity(&e1);
+    scene.addEntity(&e2);
+    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    Renderer renderer(config);
+    renderer.setDisplayOffset(10, 10);
+    scene.draw(renderer);
+    TEST_ASSERT_TRUE(e1.drawCalled);
+    TEST_ASSERT_TRUE(e2.drawCalled);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
@@ -159,6 +175,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_scene_entity_sorting);
     RUN_TEST(test_scene_update_propagation);
     RUN_TEST(test_scene_draw_propagation);
+    RUN_TEST(test_scene_draw_with_offset_and_layers);
     
     return UNITY_END();
 }

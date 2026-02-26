@@ -22,8 +22,11 @@ pio test -e native_test --verbose
 # Run specific test file
 pio test -e native_test -f test_mathutil
 
-# Run tests with coverage report
-python scripts/coverage_check.py --report
+# Run tests with coverage report (Windows)
+python scripts/coverage_win.py --report
+
+# Run tests with coverage report (Linux)
+python scripts/coverage_linux.py --report
 ```
 
 ### Platform-Specific Testing
@@ -264,11 +267,17 @@ void test_scalar_math_consistency(void) {
 ### Coverage Analysis
 
 ```bash
-# Generate coverage report
-python scripts/coverage_check.py --report
+# Generate coverage report (Windows)
+python scripts/coverage_win.py --report
 
-# View HTML report
-open coverage_report/index.html
+# Generate coverage report (Linux)
+python scripts/coverage_linux.py --report
+
+# View HTML report (Windows)
+start coverage_report/index.html
+
+# View HTML report (Linux)
+xdg-open coverage_report/index.html
 
 # Check specific file coverage
 gcov -f src/math/MathUtil.cpp
@@ -315,7 +324,7 @@ jobs:
       - uses: actions/setup-python@v2
       - run: pip install platformio
       - run: pio test -e native_test
-      - run: python scripts/coverage_check.py
+      - run: python scripts/coverage_linux.py
 
   test-esp32:
     runs-on: ubuntu-latest
@@ -329,14 +338,16 @@ jobs:
 ### Local CI Simulation
 
 ```bash
-# Run all tests like CI would
-./scripts/run_tests.sh --coverage --strict
+# Run all unit tests
+python run_tests.py
 
-# Check for test failures
-grep -r "FAIL" test_results/
+# Check for test failures in the console output
 
-# Generate coverage badge
-python scripts/generate_coverage_badge.py
+# Run coverage check and generate report (Windows)
+python scripts/coverage_win.py --report
+
+# Run coverage check and generate report (Linux)
+python scripts/coverage_linux.py --report
 ```
 
 ---
@@ -494,7 +505,7 @@ void test_with_debug_output(void) {
 ### Examples
 - See `test/unit/` for implementation examples
 - Check `examples/` for tested game code
-- Review `scripts/coverage_check.py` for automation
+- Review `scripts/coverage_win.py` or `coverage_linux.py` for automation
 
 ---
 

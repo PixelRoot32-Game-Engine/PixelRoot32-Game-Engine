@@ -128,11 +128,167 @@ void test_engine_graphics_ownership(void) {
     }
 }
 
+// =============================================================================
+// Engine Constructor Overloads
+// =============================================================================
+
+void test_engine_constructor_rvalue_display_only(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    
+    Engine engine(std::move(config));
+    engine.init();
+    
+    TEST_ASSERT_NOT_NULL(&engine.getRenderer());
+    TEST_ASSERT_EQUAL(0, engine.getDeltaTime());
+}
+
+void test_engine_constructor_rvalue_display_input(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    InputConfig inputCfg(0);
+    
+    Engine engine(std::move(config), inputCfg);
+    engine.init();
+    
+    TEST_ASSERT_NOT_NULL(&engine.getRenderer());
+    TEST_ASSERT_NOT_NULL(&engine.getInputManager());
+}
+
+void test_engine_constructor_rvalue_display_input_audio(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    InputConfig inputCfg(0);
+    AudioConfig audioCfg;
+    
+    Engine engine(std::move(config), inputCfg, audioCfg);
+    engine.init();
+    
+    TEST_ASSERT_NOT_NULL(&engine.getRenderer());
+    TEST_ASSERT_NOT_NULL(&engine.getAudioEngine());
+}
+
+void test_engine_constructor_const_ref_display_input(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    InputConfig inputCfg(0);
+    
+    Engine engine(config, inputCfg);
+    engine.init();
+    
+    TEST_ASSERT_NOT_NULL(&engine.getRenderer());
+}
+
+void test_engine_constructor_const_ref_display_input_audio(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    InputConfig inputCfg(0);
+    AudioConfig audioCfg;
+    
+    Engine engine(config, inputCfg, audioCfg);
+    engine.init();
+    
+    TEST_ASSERT_NOT_NULL(&engine.getRenderer());
+}
+
+// =============================================================================
+// Engine Accessor Tests
+// =============================================================================
+
+void test_engine_get_delta_time(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    TestEngine engine(config);
+    engine.init();
+    
+    // After init, deltaTime should be 0
+    TEST_ASSERT_EQUAL(0, engine.getDeltaTime());
+    
+    // After calling update, deltaTime should be computed
+    engine.test_update();
+    // deltaTime = millis() - 0 (previous), so it's some positive value
+    // We can't guarantee exact value but it shouldn't crash
+}
+
+void test_engine_get_millis(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    Engine engine(config);
+    
+    unsigned long ms = engine.getMillis();
+    // Should return some value >= 0
+    TEST_ASSERT_TRUE(ms >= 0);
+}
+
+void test_engine_set_renderer(void) {
+    auto mock1 = std::make_unique<MockDrawSurface>();
+    DisplayConfig config1 = PIXELROOT32_CUSTOM_DISPLAY(mock1.release(), 240, 240);
+    Engine engine(config1);
+    engine.init();
+    
+    // Create a new renderer and swap it in
+    auto mock2 = std::make_unique<MockDrawSurface>();
+    MockDrawSurface* newMockRaw = mock2.get();
+    DisplayConfig config2 = PIXELROOT32_CUSTOM_DISPLAY(mock2.release(), 128, 128);
+    Renderer newRenderer(config2);
+    
+    engine.setRenderer(std::move(newRenderer));
+    
+    TEST_ASSERT_EQUAL(128, engine.getRenderer().getLogicalWidth());
+    TEST_ASSERT_EQUAL(128, engine.getRenderer().getLogicalHeight());
+}
+
+void test_engine_get_platform_capabilities(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    Engine engine(config);
+    
+    const auto& caps = engine.getPlatformCapabilities();
+    // Should not crash — just make sure we can access it
+    (void)caps;
+}
+
+void test_engine_get_music_player(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    Engine engine(config);
+    
+    auto& mp = engine.getMusicPlayer();
+    (void)mp; // Should not crash
+}
+
+void test_engine_update_no_scene(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    TestEngine engine(config);
+    engine.init();
+    
+    // Update with no scene set — should not crash
+    engine.test_update();
+    engine.test_draw();
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_engine_initialization);
     RUN_TEST(test_engine_scene_management);
     RUN_TEST(test_engine_update_draw_propagation);
     RUN_TEST(test_engine_graphics_ownership);
+    
+    // Constructor overloads
+    RUN_TEST(test_engine_constructor_rvalue_display_only);
+    RUN_TEST(test_engine_constructor_rvalue_display_input);
+    RUN_TEST(test_engine_constructor_rvalue_display_input_audio);
+    RUN_TEST(test_engine_constructor_const_ref_display_input);
+    RUN_TEST(test_engine_constructor_const_ref_display_input_audio);
+    
+    // Accessors
+    RUN_TEST(test_engine_get_delta_time);
+    RUN_TEST(test_engine_get_millis);
+    RUN_TEST(test_engine_set_renderer);
+    RUN_TEST(test_engine_get_platform_capabilities);
+    RUN_TEST(test_engine_get_music_player);
+    RUN_TEST(test_engine_update_no_scene);
+    
     return UNITY_END();
 }

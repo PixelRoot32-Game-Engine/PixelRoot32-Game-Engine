@@ -39,6 +39,15 @@ public:
     }
 };
 
+// Actor that does NOT override update() so base Actor::update() is called
+class ActorBaseUpdateOnly : public Actor {
+public:
+    ActorBaseUpdateOnly(float x, float y, int w, int h) : Actor(x, y, w, h) {}
+    Rect getHitBox() override { return {position, width, height}; }
+    void onCollision(Actor* other) override { (void)other; }
+    void draw(pixelroot32::graphics::Renderer& r) override { (void)r; }
+};
+
 void setUp(void) {
     test_setup();
 }
@@ -197,6 +206,16 @@ void test_actor_collision_callback_reset(void) {
     TEST_ASSERT_NULL(a.collidedActor);
 }
 
+void test_actor_base_update_called(void) {
+    ActorBaseUpdateOnly a(0, 0, 10, 10);
+    a.update(16);
+}
+
+void test_actor_is_physics_body_false(void) {
+    TestActor a(0, 0, 10, 10);
+    TEST_ASSERT_FALSE(a.isPhysicsBody());
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -220,6 +239,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_actor_hitbox_size_matches);
     RUN_TEST(test_actor_on_collision_called);
     RUN_TEST(test_actor_collision_callback_reset);
+    RUN_TEST(test_actor_base_update_called);
+    RUN_TEST(test_actor_is_physics_body_false);
 
     return UNITY_END();
 }

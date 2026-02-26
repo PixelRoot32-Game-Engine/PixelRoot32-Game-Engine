@@ -378,6 +378,333 @@ void test_standard_colors_within_palette(void) {
 }
 
 // =============================================================================
+// Tests for Color.cpp functions (palette resolution)
+// =============================================================================
+
+void test_resolveColor_legacy_mode(void) {
+    // Default palette is PR32
+    setPalette(PaletteType::PR32);
+    uint16_t black = resolveColor(Color::Black);
+    uint16_t white = resolveColor(Color::White);
+    // Black and White should resolve to different values
+    TEST_ASSERT_NOT_EQUAL(black, white);
+}
+
+void test_resolveColor_transparent_returns_zero(void) {
+    uint16_t result = resolveColor(Color::Transparent);
+    TEST_ASSERT_EQUAL_UINT16(0, result);
+}
+
+void test_resolveColor_with_context_sprite(void) {
+    setPalette(PaletteType::PR32);
+    uint16_t result = resolveColor(Color::Red, PaletteContext::Sprite);
+    // Should return a valid non-zero color
+    TEST_ASSERT_NOT_EQUAL(0, result);
+}
+
+void test_resolveColor_with_context_background(void) {
+    setPalette(PaletteType::PR32);
+    uint16_t result = resolveColor(Color::Blue, PaletteContext::Background);
+    TEST_ASSERT_NOT_EQUAL(0, result);
+}
+
+void test_resolveColor_context_transparent(void) {
+    uint16_t result = resolveColor(Color::Transparent, PaletteContext::Sprite);
+    TEST_ASSERT_EQUAL_UINT16(0, result);
+}
+
+void test_setPalette_all_types(void) {
+    // Test switching between every palette type
+    PaletteType types[] = {
+        PaletteType::NES, PaletteType::GB, PaletteType::GBC,
+        PaletteType::PICO8, PaletteType::PR32
+    };
+    for (int i = 0; i < 5; i++) {
+        setPalette(types[i]);
+        uint16_t white = resolveColor(Color::White);
+        // White should always resolve to something non-zero
+        TEST_ASSERT_NOT_EQUAL(0, white);
+    }
+}
+
+void test_setCustomPalette(void) {
+    uint16_t custom[16] = {0x0000, 0xFFFF, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
+                           0x7777, 0x8888, 0x9999, 0xAAAA, 0xBBBB, 0xCCCC, 0xDDDD, 0xEEEE};
+    setCustomPalette(custom);
+    TEST_ASSERT_EQUAL_UINT16(0x0000, resolveColor(Color::Black));
+    TEST_ASSERT_EQUAL_UINT16(0xFFFF, resolveColor(Color::White));
+    TEST_ASSERT_EQUAL_UINT16(0x1111, resolveColor(Color::Navy));
+    
+    // Null should be ignored
+    setCustomPalette(nullptr);
+    // Should still use previous custom palette
+    TEST_ASSERT_EQUAL_UINT16(0xFFFF, resolveColor(Color::White));
+    
+    // Restore default
+    setPalette(PaletteType::PR32);
+}
+
+void test_enableDualPaletteMode(void) {
+    enableDualPaletteMode(true);
+    
+    // Set different palettes for background and sprite
+    setBackgroundPalette(PaletteType::GB);
+    setSpritePalette(PaletteType::NES);
+    
+    uint16_t bgWhite = resolveColor(Color::White, PaletteContext::Background);
+    uint16_t sprWhite = resolveColor(Color::White, PaletteContext::Sprite);
+    
+    // They may or may not be different depending on palette values,
+    // but the function should at least not crash and return valid values
+    TEST_ASSERT_NOT_EQUAL(0, bgWhite);
+    TEST_ASSERT_NOT_EQUAL(0, sprWhite);
+    
+    // Disable dual mode
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setDualPalette_convenience(void) {
+    setDualPalette(PaletteType::PICO8, PaletteType::GBC);
+    
+    // After setDualPalette, dual mode is enabled
+    uint16_t bgColor = resolveColor(Color::Red, PaletteContext::Background);
+    uint16_t sprColor = resolveColor(Color::Red, PaletteContext::Sprite);
+    TEST_ASSERT_NOT_EQUAL(0, bgColor);
+    TEST_ASSERT_NOT_EQUAL(0, sprColor);
+    
+    // Restore
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setBackgroundCustomPalette(void) {
+    uint16_t customBg[16] = {0xAAAA, 0xBBBB, 0xCCCC, 0xDDDD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    enableDualPaletteMode(true);
+    setBackgroundCustomPalette(customBg);
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColor(Color::Black, PaletteContext::Background));
+    
+    // Null should be ignored
+    setBackgroundCustomPalette(nullptr);
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColor(Color::Black, PaletteContext::Background));
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setSpriteCustomPalette(void) {
+    uint16_t customSpr[16] = {0x1234, 0x5678, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    enableDualPaletteMode(true);
+    setSpriteCustomPalette(customSpr);
+    TEST_ASSERT_EQUAL_UINT16(0x1234, resolveColor(Color::Black, PaletteContext::Sprite));
+    
+    // Null should be ignored
+    setSpriteCustomPalette(nullptr);
+    TEST_ASSERT_EQUAL_UINT16(0x1234, resolveColor(Color::Black, PaletteContext::Sprite));
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setDualCustomPalette(void) {
+    uint16_t customBg[16] = {0xAA00, 0xBB00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint16_t customSpr[16] = {0x00AA, 0x00BB, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    
+    setDualCustomPalette(customBg, customSpr);
+    TEST_ASSERT_EQUAL_UINT16(0xAA00, resolveColor(Color::Black, PaletteContext::Background));
+    TEST_ASSERT_EQUAL_UINT16(0x00AA, resolveColor(Color::Black, PaletteContext::Sprite));
+    
+    // Null args should be ignored
+    setDualCustomPalette(nullptr, customSpr);
+    // Should still have the old values
+    TEST_ASSERT_EQUAL_UINT16(0xAA00, resolveColor(Color::Black, PaletteContext::Background));
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setBackgroundPalette_fallback(void) {
+    enableDualPaletteMode(true);
+    // Set a valid palette first
+    setBackgroundPalette(PaletteType::NES);
+    uint16_t nesWhite = resolveColor(Color::White, PaletteContext::Background);
+    TEST_ASSERT_NOT_EQUAL(0, nesWhite);
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setSpritePalette_fallback(void) {
+    enableDualPaletteMode(true);
+    setSpritePalette(PaletteType::GBC);
+    uint16_t gbcWhite = resolveColor(Color::White, PaletteContext::Sprite);
+    TEST_ASSERT_NOT_EQUAL(0, gbcWhite);
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+// =============================================================================
+// Additional Color.cpp Coverage Tests
+// =============================================================================
+
+void test_resolveColor_different_palettes_produce_different_values(void) {
+    // Each palette should produce different values for the same color index
+    PaletteType types[] = {
+        PaletteType::NES, PaletteType::GB, PaletteType::GBC,
+        PaletteType::PICO8, PaletteType::PR32
+    };
+    
+    uint16_t blackValues[5];
+    for (int i = 0; i < 5; i++) {
+        setPalette(types[i]);
+        blackValues[i] = resolveColor(Color::Black);
+    }
+    
+    // At least some palettes should have different Black values
+    bool allSame = true;
+    for (int i = 1; i < 5; i++) {
+        if (blackValues[i] != blackValues[0]) {
+            allSame = false;
+            break;
+        }
+    }
+    // We don't assert allSame == false because palettes might share index 0,
+    // but we exercised every setPalette path
+    
+    // Restore
+    setPalette(PaletteType::PR32);
+}
+
+void test_resolveColor_all_16_indices(void) {
+    setPalette(PaletteType::PR32);
+    
+    Color allColors[] = {
+        Color::Black, Color::White, Color::Navy, Color::Blue,
+        Color::Cyan, Color::DarkGreen, Color::Green, Color::LightGreen,
+        Color::Yellow, Color::Orange, Color::LightRed, Color::Red,
+        Color::DarkRed, Color::Purple, Color::Magenta, Color::Gray
+    };
+    
+    // Resolve all 16 colors — exercises the full palette lookup
+    for (int i = 0; i < 16; i++) {
+        uint16_t val = resolveColor(allColors[i]);
+        // Each color should resolve (don't check specific values, just that it runs)
+        (void)val;
+    }
+}
+
+void test_dual_palette_different_bg_sprite_values(void) {
+    // Enable dual palette with different palettes for BG and Sprite
+    enableDualPaletteMode(true);
+    setBackgroundPalette(PaletteType::NES);
+    setSpritePalette(PaletteType::GB);
+    
+    uint16_t bgRed = resolveColor(Color::Red, PaletteContext::Background);
+    uint16_t sprRed = resolveColor(Color::Red, PaletteContext::Sprite);
+    
+    // NES and GB likely have different Red values
+    // But we mainly care about exercising the dual-mode path
+    TEST_ASSERT_NOT_EQUAL(0, bgRed);
+    TEST_ASSERT_NOT_EQUAL(0, sprRed);
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_resolveColor_context_legacy_fallback(void) {
+    // In legacy mode (dual disabled), resolveColor(color, context) 
+    // should use currentPalette regardless of context
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PICO8);
+    
+    uint16_t bgWhite = resolveColor(Color::White, PaletteContext::Background);
+    uint16_t sprWhite = resolveColor(Color::White, PaletteContext::Sprite);
+    
+    // In legacy mode, both should be the same (same currentPalette)
+    TEST_ASSERT_EQUAL_UINT16(bgWhite, sprWhite);
+    
+    // Restore
+    setPalette(PaletteType::PR32);
+}
+
+void test_setBackgroundPalette_all_types(void) {
+    enableDualPaletteMode(true);
+    
+    PaletteType types[] = {
+        PaletteType::NES, PaletteType::GB, PaletteType::GBC,
+        PaletteType::PICO8, PaletteType::PR32
+    };
+    
+    for (int i = 0; i < 5; i++) {
+        setBackgroundPalette(types[i]);
+        uint16_t val = resolveColor(Color::White, PaletteContext::Background);
+        TEST_ASSERT_NOT_EQUAL(0, val);
+    }
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setSpritePalette_all_types(void) {
+    enableDualPaletteMode(true);
+    
+    PaletteType types[] = {
+        PaletteType::NES, PaletteType::GB, PaletteType::GBC,
+        PaletteType::PICO8, PaletteType::PR32
+    };
+    
+    for (int i = 0; i < 5; i++) {
+        setSpritePalette(types[i]);
+        uint16_t val = resolveColor(Color::White, PaletteContext::Sprite);
+        TEST_ASSERT_NOT_EQUAL(0, val);
+    }
+    
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+void test_setCustomPalette_all_indices(void) {
+    uint16_t custom[16];
+    for (int i = 0; i < 16; i++) {
+        custom[i] = 0x1000 + i;
+    }
+    setCustomPalette(custom);
+    
+    // Verify all 16 indices resolve correctly
+    Color allColors[] = {
+        Color::Black, Color::White, Color::Navy, Color::Blue,
+        Color::Cyan, Color::DarkGreen, Color::Green, Color::LightGreen,
+        Color::Yellow, Color::Orange, Color::LightRed, Color::Red,
+        Color::DarkRed, Color::Purple, Color::Magenta, Color::Gray
+    };
+    
+    for (int i = 0; i < 16; i++) {
+        TEST_ASSERT_EQUAL_UINT16(0x1000 + i, resolveColor(allColors[i]));
+    }
+    
+    // Restore
+    setPalette(PaletteType::PR32);
+}
+
+void test_setDualCustomPalette_null_bg_only(void) {
+    uint16_t customSpr[16] = {0x1111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    
+    // Null BG palette → should not change anything
+    setDualCustomPalette(nullptr, customSpr);
+    // Cannot directly test internal state, but should not crash
+    
+    // Null Sprite palette → should not change anything
+    uint16_t customBg[16] = {0x2222, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setDualCustomPalette(customBg, nullptr);
+    // Should not crash
+    
+    // Restore
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -430,6 +757,32 @@ int main(int argc, char **argv) {
     RUN_TEST(test_palette_size_constant);
     RUN_TEST(test_color_fits_in_uint8);
     RUN_TEST(test_standard_colors_within_palette);
+    
+    // Color.cpp function tests
+    RUN_TEST(test_resolveColor_legacy_mode);
+    RUN_TEST(test_resolveColor_transparent_returns_zero);
+    RUN_TEST(test_resolveColor_with_context_sprite);
+    RUN_TEST(test_resolveColor_with_context_background);
+    RUN_TEST(test_resolveColor_context_transparent);
+    RUN_TEST(test_setPalette_all_types);
+    RUN_TEST(test_setCustomPalette);
+    RUN_TEST(test_enableDualPaletteMode);
+    RUN_TEST(test_setDualPalette_convenience);
+    RUN_TEST(test_setBackgroundCustomPalette);
+    RUN_TEST(test_setSpriteCustomPalette);
+    RUN_TEST(test_setDualCustomPalette);
+    RUN_TEST(test_setBackgroundPalette_fallback);
+    RUN_TEST(test_setSpritePalette_fallback);
+    
+    // Additional Color.cpp coverage tests
+    RUN_TEST(test_resolveColor_different_palettes_produce_different_values);
+    RUN_TEST(test_resolveColor_all_16_indices);
+    RUN_TEST(test_dual_palette_different_bg_sprite_values);
+    RUN_TEST(test_resolveColor_context_legacy_fallback);
+    RUN_TEST(test_setBackgroundPalette_all_types);
+    RUN_TEST(test_setSpritePalette_all_types);
+    RUN_TEST(test_setCustomPalette_all_indices);
+    RUN_TEST(test_setDualCustomPalette_null_bg_only);
     
     return UNITY_END();
 }

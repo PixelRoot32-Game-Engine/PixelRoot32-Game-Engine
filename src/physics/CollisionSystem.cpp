@@ -143,7 +143,7 @@ namespace pixelroot32::physics {
             generateCircleVsAABBContact(contact, circle, box);
         }
         
-        if (contact.penetration > kEpsilon) {
+        if (contact.penetration >= -kEpsilon) {
             contacts.push_back(contact);
         }
     }
@@ -158,7 +158,7 @@ namespace pixelroot32::physics {
         Scalar distSqr = d.lengthSquared();
         Scalar radiusSum = pA->getRadius() + pB->getRadius();
         
-        if (distSqr < radiusSum * radiusSum) {
+        if (distSqr <= radiusSum * radiusSum) {
             Scalar dist = sqrt(distSqr);
             
             if (dist > kEpsilon) {
@@ -216,7 +216,7 @@ namespace pixelroot32::physics {
         Vector2 v = centerC - closestP;
         Scalar distSqr = v.lengthSquared();
         
-        if (distSqr < r * r) {
+        if (distSqr <= r * r) {
             Scalar dist = sqrt(distSqr);
             
             if (dist > kEpsilon) {
