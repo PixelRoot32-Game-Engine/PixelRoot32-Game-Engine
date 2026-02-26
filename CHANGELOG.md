@@ -4,43 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ## 1.0.0 (Stable)
 
-This version represents the first stable release of the PixelRoot32 Game Engine, featuring a complete performance overhaul and API stabilization.
+First stable release. Complete performance overhaul and API stabilization.
 
-### 🚀 Performance Overhaul (The Rendering Revolution)
-- **TFT DMA Pipelining**:
-  - Implemented **Double-Buffered DMA Pipeline** for the `TFT_eSPI_Drawer`.
-  - The CPU now processes the next frame block while the DMA engine transmits the current one, maximizing SPI bus throughput.
-  - Achieves **~43 FPS stable** on 240x240 physical displays at 40MHz, bypassing the previous ~14 FPS bottleneck.
-- **Fast-Path Kernels**:
-  - **OLED 2x Fast-Path**: Specialized bit-expansion LUT for horizontal scaling (U8G2), doubling frame rates with zero CPU overhead for monochrome displays.
-  - **TFT Row Duplication**: Optimized vertical scaling using 32-bit Native Register access and `memcpy` for high-speed integer scaling.
-- **I2C 1MHz Support**: Added official support for 1MHz bus speeds in `DisplayConfig`, enabling sustained **60 FPS** on OLED (SSD1306/SH1106) screens.
+### 🚀 Rendering Performance
+- **TFT DMA Pipelining**: Double-buffered pipeline for `TFT_eSPI_Drawer` — CPU processes next block while DMA transmits current one. **~43 FPS** stable on 240×240 displays @ 40MHz (up from ~14 FPS).
+- **Fast-Path Kernels**: OLED 2x bit-expansion LUT (U8G2); TFT row duplication with 32-bit native access and `memcpy` for vertical scaling.
+- **I2C 1MHz**: Official support in `DisplayConfig` for sustained **60 FPS** on OLED (SSD1306/SH1106).
 
-### 🛠️ Subsystem Stabilization
-- **Physics (Flat Solver 1.0)**:
-  - **Terminology Standardization**: Renamed legacy `PHYSICS_RELAXATION_ITERATIONS` to `VELOCITY_ITERATIONS`.
-  - **Baumgarte Improvement**: Enhanced position correction for better stacking stability.
-  - **Fixed Timestep**: Guaranteed 1/60s simulation for deterministic logic.
-- **Memory Management**:
-  - **Hardware Allocation Patterns**: Introduced explicit support for `MALLOC_CAP_DMA` within the driver layer.
-  - **Optimized Shared Buffers**: Reduced DRAM footprint by reusing broadphase grid buffers across frames.
-- **Math System**: Unified `Scalar` math API now stable across FPU (ESP32-S3) and Fixed-Point (ESP32-C3) targets.
+### 🎮 Physics (Flat Solver 1.0)
+- **Broadphase**: Uniform grid (32px cells) with static shared buffers to reduce DRAM usage.
+- **KinematicActor**: Rewrote `moveAndSlide` and `moveAndCollide` with binary search, wall sliding, and accurate collision normal detection.
+- **Stable stacking**: Baumgarte correction, iterative position relaxation, fixed timestep 1/60s.
+- **Godot-style API**: `KinematicCollision`, actor types `Static`/`Kinematic`/`Rigid`. Renamed `PHYSICS_RELAXATION_ITERATIONS` → `VELOCITY_ITERATIONS`.
 
-- **Fixed-Point Math & Scalar Support**:
-  - **Math Policy Layer**: Introduced a platform-agnostic numerical abstraction layer that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities.
-  - **Scalar Type**: Added `Scalar` type alias which resolves to `float` on FPU-enabled platforms (ESP32, S3) and `Fixed16` (Q16.16) on integer-only platforms (ESP32-C3, S2, C6).
-  - **Performance Boost**: Achieved ~30% FPS increase and massive reduction in physics calculation time on ESP32-C3/S2 by eliminating software floating-point emulation.
-  - **Unified API**: Updated `Vector2`, `Rect`, and physics systems to use `Scalar`, ensuring a single codebase works optimally across all supported chips.
-  - **Math Helpers**: Added `MathUtil` with optimized `fixed_sqrt`, `fixed_sin`, `fixed_cos` and helper functions like `toScalar()` for easy literal conversion.
-- **Physics System Overhaul (The Flat Solver)**:
-  - **Spatial Partitioning (Uniform Grid)**: Implemented a broadphase optimization that divides the world into fixed-size cells (default 32px), reducing collision checks to local neighbors. Optimized for ESP32 with static shared buffers to save significant DRAM.
-  - **Enhanced KinematicActor**: Completely rewrote `moveAndSlide` and `moveAndCollide` with binary search precision, proper wall sliding logic, and accurate collision normal detection.
-  - **Stable Stacking**: Introduced iterative position relaxation to handle object stacking without jitter, even on low-resource hardware.
-  - **Godot-style API**: Aligned collision reporting (`KinematicCollision`) and actor types (`Static`, `Kinematic`, `Rigid`) with industry standards.
-- **Modern C++ Migration**:
-  - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
+### 🔢 Math System (Scalar / Fixed-Point)
+- Numeric abstraction layer: `Scalar` = `float` on ESP32-S3 (FPU) or `Fixed16` (Q16.16) on C3/S2/C6.
+- `Vector2`, `Rect`, and physics unified under `Scalar`. ~30% FPS gain on C3/S2 by eliminating software float emulation.
+- `MathUtil`: `fixed_sqrt`, `fixed_sin`, `fixed_cos`, `toScalar()`.
 
-> **Migration Guide from v0.8.1-dev → v1.0.0 Stable**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
+### 🛠️ Other
+- **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
+- **C++17**: Migrated from C++11.
+
+> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
 
 ## 0.8.1-dev
 
