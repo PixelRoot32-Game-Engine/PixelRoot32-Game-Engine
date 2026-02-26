@@ -192,6 +192,8 @@ First stable release. Complete performance overhaul and API stabilization.
 - **Native XBM Blitting**: Refactored `U8G2` driver to use row-aligned buffers and native XBM calls, eliminating per-pixel draw overhead.
 - **Latency Reduction**: Replaced blocking delays with `yield()` in the engine loop to maximize CPU utilization.
 
+Full changelog: [CHANGELOG.md](CHANGELOG.md)
+
 ---
 
 ## 🤝 Contribute
