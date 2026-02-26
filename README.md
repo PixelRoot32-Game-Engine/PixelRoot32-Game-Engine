@@ -153,22 +153,26 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 First stable release. Complete performance overhaul and API stabilization.
 
 ### 🚀 Rendering Performance
+
 - **TFT DMA Pipelining**: Double-buffered pipeline for `TFT_eSPI_Drawer` — CPU processes next block while DMA transmits current one. **~43 FPS** stable on 240×240 displays @ 40MHz (up from ~14 FPS).
 - **Fast-Path Kernels**: OLED 2x bit-expansion LUT (U8G2); TFT row duplication with 32-bit native access and `memcpy` for vertical scaling.
 - **I2C 1MHz**: Official support in `DisplayConfig` for sustained **60 FPS** on OLED (SSD1306/SH1106).
 
 ### 🎮 Physics (Flat Solver 1.0)
+
 - **Broadphase**: Uniform grid (32px cells) with static shared buffers to reduce DRAM usage.
 - **KinematicActor**: Rewrote `moveAndSlide` and `moveAndCollide` with binary search, wall sliding, and accurate collision normal detection.
 - **Stable stacking**: Baumgarte correction, iterative position relaxation, fixed timestep 1/60s.
 - **Godot-style API**: `KinematicCollision`, actor types `Static`/`Kinematic`/`Rigid`. Renamed `PHYSICS_RELAXATION_ITERATIONS` → `VELOCITY_ITERATIONS`.
 
 ### 🔢 Math System (Scalar / Fixed-Point)
+
 - Numeric abstraction layer: `Scalar` = `float` on ESP32-S3 (FPU) or `Fixed16` (Q16.16) on C3/S2/C6.
 - `Vector2`, `Rect`, and physics unified under `Scalar`. ~30% FPS gain on C3/S2 by eliminating software float emulation.
 - `MathUtil`: `fixed_sqrt`, `fixed_sin`, `fixed_cos`, `toScalar()`.
 
 ### 🛠️ Other
+
 - **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
 - **C++17**: Migrated from C++11.
 
