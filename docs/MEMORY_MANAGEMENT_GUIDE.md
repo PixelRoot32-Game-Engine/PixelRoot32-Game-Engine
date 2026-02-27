@@ -2,7 +2,7 @@
 
 **Document Version:** 1.0  
 **Last Updated:** February 2026  
-**Engine Version:** v0.9.0-dev  
+**Engine Version:** v1.0.0
 
 ## Overview
 
@@ -58,6 +58,7 @@ Understanding the engine's memory limits is crucial for developing stable games 
 ### Configuration Examples
 
 **For maximum performance (128x128, low entity count):**
+
 ```cpp
 // platformio.ini build_flags
 -D LOGICAL_WIDTH=128
@@ -67,6 +68,7 @@ Understanding the engine's memory limits is crucial for developing stable games 
 ```
 
 **For richer scenes (with PSRAM):**
+
 ```cpp
 // platformio.ini build_flags
 -D LOGICAL_WIDTH=240
@@ -99,11 +101,13 @@ void debugMemory() {
 ### Heap Fragmentation Warning
 
 Long-running games may experience heap fragmentation. Symptoms:
+
 - Gradual decrease in free heap despite stable entity count
 - Sudden crashes when allocating new objects
 - Performance degradation over time
 
 **Mitigation strategies:**
+
 1. Use **Object Pooling** for bullets/particles
 2. Pre-allocate in `Scene::init()`, not during gameplay
 3. Use **SceneArena** for temporary allocations
@@ -367,6 +371,7 @@ public:
 When working with high-performance drivers (TFT, I2S), memory must be allocated with specific capabilities.
 
 ### DMA-Capable Memory
+
 For SPI or I2S transfers to work without CPU intervention, the buffers must be in a specific region of SRAM.
 
 ```cpp
@@ -385,8 +390,10 @@ if (dmaBuffer == nullptr) {
 heap_caps_free(dmaBuffer);
 ```
 
-### Memory-Performance Trade-offs (v0.9.1)
-In v0.9.1, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
+### Memory-Performance Trade-offs (v1.0.0)
+
+In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
+
 - **Baseline**: 20 lines = ~10KB (at 240 width)
 - **Optimized**: 60 lines = ~30KB
 - **Max**: 120 lines = ~60KB (Half frame)
