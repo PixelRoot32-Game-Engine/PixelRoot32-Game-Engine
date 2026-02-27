@@ -80,21 +80,21 @@ enum class Color : uint8_t {
 // -----------------------------------------------------------------------------
 //
 // The engine supports two modes:
-// - Legacy mode (default): Single global palette for all rendering
-// - Dual palette mode: Separate palettes for backgrounds and sprites
+// - Single Palette Mode (default): Single global palette for all rendering
+// - Dual Palette Mode: Separate palettes for backgrounds and sprites
 //
-// In legacy mode, setPalette() and setCustomPalette() set a single palette
+// In Single Palette Mode, setPalette() and setCustomPalette() set a single palette
 // that is used for all rendering operations.
 //
-// In dual palette mode, backgrounds use backgroundPalette and sprites use spritePalette.
+// In Dual Palette Mode, backgrounds use backgroundPalette and sprites use spritePalette.
 // Custom palettes are not copied; the provided palette pointer must remain valid.
 //
 // Usage Examples:
 //
-// Legacy mode (single palette):
+// Single Palette Mode:
 //   setPalette(PaletteType::GB);  // Sets same palette for backgrounds and sprites
 //
-// Dual palette mode:
+// Dual Palette Mode:
 //   enableDualPaletteMode(true);
 //   setBackgroundPalette(PaletteType::NES);
 //   setSpritePalette(PaletteType::GB);

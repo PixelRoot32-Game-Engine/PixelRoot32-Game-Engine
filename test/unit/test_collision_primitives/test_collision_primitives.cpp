@@ -65,6 +65,43 @@ void test_collision_sweep_circle_vs_rect(void) {
     TEST_ASSERT_FALSE(sweepCircleVsRect(start, end2, r, tHit));
 }
 
+void test_collision_circle_vs_rect_right_of(void) {
+    Rect r = { {0, 0}, 10, 10 };
+    Circle cRight = { 20, 5, 3 };
+    Circle cInside = { 5, 5, 2 };
+    TEST_ASSERT_FALSE(intersects(cRight, r));
+    TEST_ASSERT_TRUE(intersects(cInside, r));
+}
+
+void test_collision_segment_vertical_outside(void) {
+    Segment s = { 5, -10, 5, 5 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_TRUE(intersects(s, r));
+    Segment sOutside = { 50, 5, 50, 10 };
+    TEST_ASSERT_FALSE(intersects(sOutside, r));
+}
+
+void test_collision_segment_dx_zero_inside(void) {
+    Segment s = { 5, 0, 5, 10 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_TRUE(intersects(s, r));
+}
+
+void test_collision_segment_dx_zero_outside(void) {
+    Segment s = { -1, 5, -1, 10 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_FALSE(intersects(s, r));
+}
+
+void test_collision_sweep_start_inside_rect(void) {
+    Circle start = { 5, 5, 2 };
+    Circle end = { 5, 5, 2 };
+    Rect r = { {0, 0}, 10, 10 };
+    float tHit = -1.0f;
+    TEST_ASSERT_TRUE(sweepCircleVsRect(start, end, r, tHit));
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, tHit);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
@@ -72,6 +109,11 @@ int main(int argc, char **argv) {
     RUN_TEST(test_collision_circle_vs_rect);
     RUN_TEST(test_collision_segment_vs_rect);
     RUN_TEST(test_collision_sweep_circle_vs_rect);
+    RUN_TEST(test_collision_circle_vs_rect_right_of);
+    RUN_TEST(test_collision_segment_vertical_outside);
+    RUN_TEST(test_collision_segment_dx_zero_inside);
+    RUN_TEST(test_collision_segment_dx_zero_outside);
+    RUN_TEST(test_collision_sweep_start_inside_rect);
     
     return UNITY_END();
 }

@@ -547,6 +547,8 @@ octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
 
+**📖 For comprehensive MusicPlayer integration guide, see [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md)**
+
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).
 

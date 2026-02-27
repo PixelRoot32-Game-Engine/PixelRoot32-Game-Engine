@@ -87,6 +87,25 @@
     #define MAX_ENTITIES 32
 #endif
 
+#ifndef SPATIAL_GRID_CELL_SIZE
+    #define SPATIAL_GRID_CELL_SIZE 32
+#endif
+
+#ifndef SPATIAL_GRID_MAX_ENTITIES_PER_CELL
+    #define SPATIAL_GRID_MAX_ENTITIES_PER_CELL 24
+#endif
+
+#ifndef PHYSICS_MAX_PAIRS
+    #define PHYSICS_MAX_PAIRS 128
+#endif
+
+#ifndef PR32_VELOCITY_ITERATIONS
+    #define PR32_VELOCITY_ITERATIONS 2
+#endif
+
+// Deprecated alias for backward compatibility
+#define PHYSICS_RELAXATION_ITERATIONS PR32_VELOCITY_ITERATIONS
+
 // =============================================================================
 // Hardware Capabilities
 // =============================================================================
@@ -131,6 +150,17 @@ namespace pixelroot32::platforms::config {
     // Scene Limits
     inline constexpr int MaxLayers = MAX_LAYERS;
     inline constexpr int MaxEntities = MAX_ENTITIES;
+
+    // Spatial Grid
+    inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
+    inline constexpr int SpatialGridMaxEntitiesPerCell = SPATIAL_GRID_MAX_ENTITIES_PER_CELL;
+
+    // Physics
+    inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
+    inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
+    
+    // Deprecated for backward compatibility
+    inline constexpr int PhysicsRelaxationIterations = VelocityIterations;
 
     // Profiling & Debug
     #ifdef PIXELROOT32_ENABLE_PROFILING

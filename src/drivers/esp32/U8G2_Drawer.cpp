@@ -296,37 +296,69 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
 
     _u8g2->clearBuffer();
 
-    // 1:1 Mapping with Offset (Logical Resolution matches Physical Resolution)
-    // Optimization: Direct XBM blit if no scaling is needed (just offset)
+    // 1:1 Mapping with Offset (Bypass scaling if offsets are defined)
+    // This allows centering a logical resolution on a larger physical screen without stretching.
+    // 1:1 Mapping with Offset (Bypass scaling if offsets are defined)
+    // This allows centering a logical resolution on a larger physical screen without stretching.
     if (xOffset != 0 || yOffset != 0) {
+        // Zero-copy attempt: If no rotation and 1:1, we could write to u8g2 buffer.
+        // For now, keep drawXBM as it handles the "Page/Tile" conversion which is complex.
         _u8g2->setDrawColor(1);
         _u8g2->drawXBM(xOffset, yOffset, logicalWidth, logicalHeight, _internalBuffer);
     } 
+    // Optimized 2x Fast-Path (Logical -> Physical 2x)
+    else if (_internalBuffer && physicalWidth == logicalWidth * 2 && physicalHeight == logicalHeight * 2) {
+        // Pre-calculated nibble-to-byte expansion table
+        // Map 4 bits ABCD -> Byte AABBCCDD (XBM order: bit 0 is leftmost)
+        static const uint8_t expandLUT[16] = {
+            0x00, 0x03, 0x0C, 0x0F, 0x30, 0x33, 0x3C, 0x3F,
+            0xC0, 0xC3, 0xCC, 0xCF, 0xF0, 0xF3, 0xFC, 0xFF
+        };
+
+        for (int ly = 0; ly < logicalHeight; ++ly) {
+            const uint8_t* srcRow = _internalBuffer + (ly * _logicalStride);
+            uint8_t* dstRow1 = _physicalBuffer + ((ly * 2) * _physicalStride);
+            uint8_t* dstRow2 = _physicalBuffer + ((ly * 2 + 1) * _physicalStride);
+
+            for (int lx = 0; lx < _logicalStride; ++lx) {
+                uint8_t s = srcRow[lx];
+                // Expand 8 bits to 2 bytes (16 bits)
+                uint8_t d1 = expandLUT[s & 0x0F];       // Low nibble (pixels 0-3)
+                uint8_t d2 = expandLUT[(s >> 4) & 0x0F]; // High nibble (pixels 4-7)
+                
+                dstRow1[lx * 2] = d1;
+                dstRow1[lx * 2 + 1] = d2;
+                dstRow2[lx * 2] = d1;
+                dstRow2[lx * 2 + 1] = d2;
+            }
+        }
+        _u8g2->setDrawColor(1);
+        _u8g2->drawXBM(0, 0, physicalWidth, physicalHeight, _physicalBuffer);
+    }
     // Scaling needed (Logical != Physical)
     else if (_xLUT && _yLUT && _physicalBuffer) {
-        // Clear physical buffer first
-        std::memset(_physicalBuffer, 0, _physicalStride * physicalHeight);
-
         // Map Logical -> Physical using LUTs (Nearest Neighbor)
-        // Optimized to write directly to XBM-formatted physical buffer
+        // Optimized: Process by PHYSICAL bytes instead of bits to reduce stores and avoid memset
         for (int physY = 0; physY < physicalHeight; ++physY) {
-            int srcY = _yLUT[physY];
-            // Get pointer to source row
-            const uint8_t* srcRow = _internalBuffer + (srcY * _logicalStride);
-            
-            // Get pointer to dest row
+            const uint8_t* srcRow = _internalBuffer + (_yLUT[physY] * _logicalStride);
             uint8_t* dstRow = _physicalBuffer + (physY * _physicalStride);
 
-            for (int physX = 0; physX < physicalWidth; ++physX) {
-                int srcX = _xLUT[physX];
-                
-                // Check if source pixel is set
-                // srcRow[srcX >> 3] & (1 << (srcX & 7))
-                if (srcRow[srcX >> 3] & (1 << (srcX & 7))) {
-                    // Set destination pixel
-                    // dstRow[physX >> 3] |= (1 << (physX & 7))
-                    dstRow[physX >> 3] |= (1 << (physX & 7));
+            for (int physByte = 0; physByte < _physicalStride; ++physByte) {
+                uint8_t b = 0;
+                int basePhysX = physByte << 3;
+
+                // Build a physical byte from 8 logical samples
+                for (int bit = 0; bit < 8; ++bit) {
+                    int px = basePhysX + bit;
+                    if (px >= physicalWidth) break;
+                    
+                    int sx = _xLUT[px];
+                    // Check bit in logical row: srcRow[sx / 8] & (1 << (sx % 8))
+                    if (srcRow[sx >> 3] & (1 << (sx & 7))) {
+                        b |= (1 << bit);
+                    }
                 }
+                dstRow[physByte] = b;
             }
         }
         

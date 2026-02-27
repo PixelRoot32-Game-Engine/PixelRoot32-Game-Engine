@@ -67,7 +67,8 @@ scene.collisionSystem.update();
 - Rendering with logical resolution independent of physical resolution
 - NES-style 4-channel audio subsystem
 - UI system with automatic layouts
-- AABB (Axis-Aligned Bounding Box) physics
+- "Flat Solver" physics with specialized Actor types (Static, Kinematic, Rigid)
+- Circular and AABB collision support
 - Multi-platform support through driver abstraction
 
 ---
@@ -245,20 +246,33 @@ AudioEngine (Facade)
 - `MusicPlayer`: Music sequencing system
 - `AudioMixerLUT`: Optimized mixer with lookup tables
 
-#### 3.4.4 CollisionSystem
+#### 3.4.4 CollisionSystem (Flat Solver)
 
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
-**Responsibility**: AABB collision detection between Actors.
+**Responsibility**: High-performance physics solver optimized for ESP32 microcontrollers.
 
-**Features**:
+**System Architecture**:
+The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
 
-- Collision layer and mask system
-- `onCollision()` callbacks in Actors
-- Based on `std::vector` for entity registration
+```
+1. Detect Collisions       → Broadphase + Narrowphase
+2. Solve Velocity          → Impulse-based response (2 iterations)
+3. Integrate Positions     → p = p + v * dt
+4. Solve Penetration       → Baumgarte stabilization + Slop
+5. Trigger Callbacks       → onCollision notifications
+```
+
+**Key Features**:
+- **Fixed Timestep**: Deterministic 1/60s simulation
+- **Broadphase**: Uniform Spatial Grid (O(1) cell hashing)
+- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, Circle vs AABB
+- **Impulse Solver**: Proper velocity-based collision response
+- **Baumgarte Stabilization**: Position correction without energy loss
+- **CCD**: Selective continuous collision detection for fast-moving circles
+- **Memory Optimized**: Shared static buffers save ~100KB DRAM
 
 **Collision Layers**:
-
 ```cpp
 enum DefaultLayers {
     kNone = 0,
@@ -268,6 +282,16 @@ enum DefaultLayers {
     kWall = 1 << 3,
     // ... up to 16 layers
 };
+```
+
+**Physics Constants**:
+```cpp
+FIXED_DT = 1/60s           // Timestep
+SLOP = 0.02f               // Ignore penetration < 2cm
+BIAS = 0.2f                // 20% position correction
+VELOCITY_THRESHOLD = 0.5f  // Zero restitution below this
+VELOCITY_ITERATIONS = 2    // Impulse solver passes
+CCD_THRESHOLD = 3.0f       // CCD activation threshold
 ```
 
 #### 3.4.5 UI System
@@ -458,19 +482,31 @@ virtual void update(unsigned long deltaTime) = 0;
 virtual void draw(Renderer& renderer) = 0;
 ```
 
-#### 3.5.5 Actor
+#### 3.5.5 Actor / PhysicsActor Hierarchy
 
-**Files**: `include/core/Actor.h`
+Following the Godot Engine philosophy, physical actors are specialized into distinct types based on their movement requirements.
 
-**Responsibility**: Entity with physical collision capabilities.
+**Hierarchy**:
+```
+Entity
+└── Actor
+    └── PhysicsActor (Base)
+        ├── StaticActor    (Immovable walls/floors)
+        ├── KinematicActor (Character movement, move_and_slide)
+        └── RigidActor     (Props, physical objects with gravity)
+```
+
+**Actor Roles**:
+- **StaticActor**: Optimized for scenery. They skip the spatial grid and act as "anchors" that other objects cannot penetrate.
+- **KinematicActor**: Specifically for logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()` to interact with the world manually.
+- **RigidActor**: Fully automatic. They integrate velocity and gravity, responding to collisions using restitution and friction.
+- **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:
-
-- Inherits from `Entity`
 - `CollisionLayer layer`: Own collision layer
 - `CollisionLayer mask`: Layers it collides with
-- `getHitBox()`: Gets bounding box for collision
-- `onCollision(Actor* other)`: Collision callback
+- `bool bounce`: Optional bouncing behavior
+- `onCollision(Actor* other)`: Notification-only callback (non-interruptive)
 
 ---
 
@@ -626,17 +662,26 @@ AudioBackend
 
 ### 6.1 Implemented Strategies
 
-1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with scaling to physical display (e.g., 240x240)
+1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with high-performance scaling to physical display (e.g., 240x240).
 
-2. **Multi-Core Audio (ESP32)**:
-   - Core 0: Audio scheduling and generation
-   - Core 1: Main game loop
+2. **Scaling Pipeline (v1.0.0)**:
+   - **Fast-Path Switching**: Specialized routines for 1:1 and 2x integer scaling that avoid expensive bit/byte calculations.
+   - **Bit-Expansion LUTs**: OLED horizontal expansion via 16-entry lookup tables.
+   - **32-bit Register Writes**: TFT vertical duplication via optimized 32-bit `memcpy` and register access.
 
-3. **Mixer LUT**: Lookup tables for mixing without FPU
+3. **Multi-Core Audio (ESP32)**:
+   - Core 0: Audio scheduling and generation.
+   - Core 1: Main game loop.
 
-4. **DMA Transfers**: DMA transfers for displays
+4. **Mixer LUT**: Lookup tables for mixing without FPU.
 
-5. **IRAM-Cached Rendering**: Critical functions in internal RAM
+5. **DMA Pipelining (TFT)**:
+   - **Double Buffering**: CPU calculates next block while DMA sends the previous one.
+   - **Large Block Sizes**: Using 60-line blocks to minimize interrupt frequency.
+
+6. **I2C 1MHz (OLED)**: Sustained 60 FPS on monochrome screens via bus overclocking.
+
+7. **IRAM-Cached Rendering**: Critical functions in internal RAM.
 
 6. **Viewport Culling**: Only render visible entities
 

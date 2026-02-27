@@ -91,6 +91,9 @@ namespace pixelroot32::graphics {
                 }
                 
                 if (u8g2_instance) {
+                    // Optimize I2C transfer: Set bus clock to 1MHz (Max for ESP32/SSD1306). 
+                    // Note: If display glitches occur, reduce to 400kHz or 800kHz.
+                    u8g2_instance->setBusClock(1000000);
                     rawSurface = new pixelroot32::drivers::esp32::U8G2_Drawer(u8g2_instance, true);
                 }
             #endif

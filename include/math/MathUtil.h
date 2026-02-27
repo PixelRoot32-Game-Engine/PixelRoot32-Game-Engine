@@ -57,6 +57,20 @@ constexpr Scalar kRadToDeg = toScalar(180.0f / 3.14159265f);
 constexpr Scalar kEpsilon = toScalar(0.00001f);
 
 /**
+ * @brief Returns the smaller of two values.
+ */
+inline Scalar min(Scalar a, Scalar b) {
+    return (a < b) ? a : b;
+}
+
+/**
+ * @brief Returns the larger of two values.
+ */
+inline Scalar max(Scalar a, Scalar b) {
+    return (a > b) ? a : b;
+}
+
+/**
  * @brief Square root function adaptable for float or Fixed16.
 */
 inline Scalar sqrt(Scalar x) {

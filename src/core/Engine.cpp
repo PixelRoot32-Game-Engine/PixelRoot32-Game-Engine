@@ -3,12 +3,14 @@
  * Licensed under the MIT License
  */
 #include "core/Engine.h"
+#include "core/Scene.h"
 #include "input/InputConfig.h"
 #include "graphics/FontManager.h"
 #include "graphics/Font5x7.h"
 #include "graphics/Color.h"
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 
 namespace pixelroot32::core {
 
@@ -62,6 +64,9 @@ namespace pixelroot32::core {
     Engine::~Engine() {}
 
     void Engine::init() {
+        assert(renderer.getLogicalWidth() > 0 && "Engine init failed: renderer has invalid width");
+        assert(renderer.getLogicalHeight() > 0 && "Engine init failed: renderer has invalid height");
+        
         // Initialize Serial for debugging (ESP32 only)
         #ifndef PLATFORM_NATIVE
             Serial.begin(115200);
@@ -178,14 +183,13 @@ namespace pixelroot32::core {
                 frameCount++;
             }
 
-            // Yield to avoid starving Core 1 system tasks
-            // vTaskDelay(1); // REMOVED: Adds 1ms-10ms latency (1 tick) which limits FPS significantly.
-            yield(); // Use yield() instead to feed Watchdog without forcing a full tick wait.
+            yield();
 
         #endif // PLATFORM_NATIVE
     }
 
     void Engine::setScene(Scene* newScene) {
+        assert(newScene != nullptr && "Cannot set null scene in engine");
         sceneManager.setCurrentScene(newScene);
     }
 
@@ -224,30 +228,20 @@ namespace pixelroot32::core {
             debugUpdateCounter++;
 
             if (debugUpdateCounter >= DEBUG_UPDATE_INTERVAL) {
-                // 1. Calculate FPS
-                // Average over N frames
-                // FPS = (1000 ms / (AccumulatedTime / N)) = (1000 * N) / AccumulatedTime
                 if (debugAccumulatedMs > 0) {
                     float fps = (1000.0f * debugUpdateCounter) / debugAccumulatedMs;
                     std::snprintf(fpsStr, sizeof(fpsStr), "FPS: %.1f", fps);
                 }
 
-                // 2. Calculate RAM Usage
-                // Platform dependent
                 #ifdef PLATFORM_NATIVE
-                    // On PC/Native, actual RAM usage is complex, show a placeholder or static info
                     std::strcpy(ramStr, "RAM: N/A");
                 #else
-                    // On ESP32
                     uint32_t freeHeap = ESP.getFreeHeap();
                     uint32_t totalHeap = ESP.getHeapSize();
                     uint32_t usedHeapK = (totalHeap - freeHeap) / 1024;
                     std::snprintf(ramStr, sizeof(ramStr), "RAM: %uK", usedHeapK);
                 #endif
 
-                // 3. Calculate "CPU Usage" (Estimated based on frame time)
-                // This is a simplified metric: (Processing Time / Target Frame Time)
-                // Assuming 60 FPS target (16.6ms)
                 float load = (float)debugAccumulatedMs / (DEBUG_UPDATE_INTERVAL * 16.6f);
                 int cpuPercent = (int)(load * 100);
                 if (cpuPercent > 100) cpuPercent = 100;
@@ -256,23 +250,18 @@ namespace pixelroot32::core {
                 debugUpdateCounter = 0;
                 debugAccumulatedMs = 0;
             }
-
-            // Render Overlay (Independent of camera/scrolling)
-            // Since this is called at the end of draw(), we render directly on top
             
-            // Save current offset to restore it later (though endFrame follows)
             int oldX = r.getXOffset();
             int oldY = r.getYOffset();
             r.setDisplayOffset(0, 0);
 
-            int16_t x = r.getWidth() - 55;
+            int16_t x = r.getLogicalWidth() - 55;
             if (x < 0) x = 0;
             
             r.drawText(fpsStr, x, 4, Color::Green, 1);
             r.drawText(ramStr, x, 12, Color::Cyan, 1);
             r.drawText(cpuStr, x, 20, Color::Yellow, 1);
 
-            // Restore offset
             r.setDisplayOffset(oldX, oldY);
         }
     }

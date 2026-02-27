@@ -2,18 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
-## 0.9.0-dev
+## 1.0.0 (Stable)
 
-- **Fixed-Point Math & Scalar Support**:
-  - **Math Policy Layer**: Introduced a platform-agnostic numerical abstraction layer that automatically selects the most efficient representation (`float` or `Fixed16`) based on the target hardware's capabilities.
-  - **Scalar Type**: Added `Scalar` type alias which resolves to `float` on FPU-enabled platforms (ESP32, S3) and `Fixed16` (Q16.16) on integer-only platforms (ESP32-C3, S2, C6).
-  - **Performance Boost**: Achieved ~30% FPS increase and massive reduction in physics calculation time on ESP32-C3/S2 by eliminating software floating-point emulation.
-  - **Unified API**: Updated `Vector2`, `Rect`, and physics systems to use `Scalar`, ensuring a single codebase works optimally across all supported chips.
-  - **Math Helpers**: Added `MathUtil` with optimized `fixed_sqrt`, `fixed_sin`, `fixed_cos` and helper functions like `toScalar()` for easy literal conversion.
-- **Modern C++ Migration**:
-  - **C++17 Support**: Migrated the codebase from C++11 to C++17 to leverage modern language features and improvements.
+First stable release. Complete performance overhaul and API stabilization.
 
-> **Migration Guide from v0.8.1-dev → v0.9.0-dev**: [MIGRATION_v0.8.1_to_v0.9.0](docs/MIGRATION_v0.8.1_to_v0.9.0.md)
+### 🚀 Rendering Performance
+
+- **TFT DMA Pipelining**: Double-buffered pipeline for `TFT_eSPI_Drawer` — CPU processes next block while DMA transmits current one. **~43 FPS** stable on 240×240 displays @ 40MHz (up from ~14 FPS).
+- **Fast-Path Kernels**: OLED 2x bit-expansion LUT (U8G2); TFT row duplication with 32-bit native access and `memcpy` for vertical scaling.
+- **I2C 1MHz**: Official support in `DisplayConfig` for sustained **60 FPS** on OLED (SSD1306/SH1106).
+
+### 🎮 Physics (Flat Solver 1.0)
+
+- **Broadphase**: Uniform grid (32px cells) with static shared buffers to reduce DRAM usage.
+- **KinematicActor**: Rewrote `moveAndSlide` and `moveAndCollide` with binary search, wall sliding, and accurate collision normal detection.
+- **Stable stacking**: Baumgarte correction, iterative position relaxation, fixed timestep 1/60s.
+- **Godot-style API**: `KinematicCollision`, actor types `Static`/`Kinematic`/`Rigid`. Renamed `PHYSICS_RELAXATION_ITERATIONS` → `VELOCITY_ITERATIONS`.
+
+### 🔢 Math System (Scalar / Fixed-Point)
+
+- Numeric abstraction layer: `Scalar` = `float` on ESP32-S3 (FPU) or `Fixed16` (Q16.16) on C3/S2/C6.
+- `Vector2`, `Rect`, and physics unified under `Scalar`. ~30% FPS gain on C3/S2 by eliminating software float emulation.
+- `MathUtil`: `fixed_sqrt`, `fixed_sin`, `fixed_cos`, `toScalar()`.
+
+### 🛠️ Other
+
+- **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
+- **C++17**: Migrated from C++11.
+
+> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
 
 ## 0.8.1-dev
 

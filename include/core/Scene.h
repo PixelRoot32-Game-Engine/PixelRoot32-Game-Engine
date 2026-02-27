@@ -20,7 +20,7 @@ namespace pixelroot32::core {
     using namespace pixelroot32::physics;
     using namespace pixelroot32::graphics;
     
-    
+
 #include <new> // for placement new
 struct SceneArena {
     unsigned char* buffer;
@@ -46,9 +46,6 @@ T* arenaNew(SceneArena& arena, Args&&... args) {
 /**
  * @class Scene
  * @brief Represents a game level or screen containing entities.
- *
- * A Scene manages a collection of Entities and a CollisionSystem. It is responsible
- * for updating and drawing all entities it contains.
  */
 class Scene {
 public:
