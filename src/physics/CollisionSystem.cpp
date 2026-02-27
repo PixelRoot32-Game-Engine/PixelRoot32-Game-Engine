@@ -9,17 +9,20 @@
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
 #include "math/MathUtil.h"
+#include <cassert>
 
 namespace pixelroot32::physics {
 
     using namespace pixelroot32::core;
     using namespace pixelroot32::math;
 
-    void CollisionSystem::addEntity(Entity* e) { 
-        entities.push_back(e); 
+    void CollisionSystem::addEntity(Entity* e) {
+        assert(e != nullptr && "Cannot add null entity to collision system");
+        entities.push_back(e);
     }
     
-    void CollisionSystem::removeEntity(Entity* e) { 
+    void CollisionSystem::removeEntity(Entity* e) {
+        assert(e != nullptr && "Cannot remove null entity from collision system");
         entities.erase(std::remove(entities.begin(), entities.end(), e), entities.end());
     }
 
@@ -123,6 +126,10 @@ namespace pixelroot32::physics {
     }
 
     void CollisionSystem::generateContact(PhysicsActor* a, PhysicsActor* b) {
+        assert(a != nullptr && "generateContact: bodyA is null");
+        assert(b != nullptr && "generateContact: bodyB is null");
+        assert(a != b && "generateContact: bodyA and bodyB are the same actor");
+        
         Contact contact;
         contact.bodyA = a;
         contact.bodyB = b;
@@ -344,6 +351,9 @@ namespace pixelroot32::physics {
     }
 
     bool CollisionSystem::checkCollision(Actor* actor, Actor** outArray, int& count, int maxCount) {
+        assert(actor != nullptr && "checkCollision: actor is null");
+        assert(outArray != nullptr && "checkCollision: outArray is null");
+        assert(maxCount > 0 && "checkCollision: maxCount must be > 0");
         count = 0;
         for (auto e : entities) {
             if (e == actor || e->type != EntityType::ACTOR) continue;

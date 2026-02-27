@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
+#include <cassert>
 
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
@@ -28,7 +29,10 @@ namespace pixelroot32::graphics {
         : config(config),
           logicalWidth(config.logicalWidth),
           logicalHeight(config.logicalHeight)
-    {        
+    {
+        assert(logicalWidth > 0 && "Renderer: logical width must be > 0");
+        assert(logicalHeight > 0 && "Renderer: logical height must be > 0");
+        
         // Note: This constructor may be problematic if config is not moved,
         // as DrawSurface ownership is tied to DisplayConfig.
         // We cast away const to allow moving the drawer.
@@ -52,6 +56,9 @@ namespace pixelroot32::graphics {
           logicalWidth(this->config.logicalWidth),
           logicalHeight(this->config.logicalHeight)
     {
+        assert(logicalWidth > 0 && "Renderer: logical width must be > 0");
+        assert(logicalHeight > 0 && "Renderer: logical height must be > 0");
+        
         drawer = this->config.releaseDrawSurface();
         xOffset = 0;
         yOffset = 0;

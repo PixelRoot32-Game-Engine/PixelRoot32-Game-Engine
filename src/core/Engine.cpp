@@ -10,6 +10,7 @@
 #include "graphics/Color.h"
 #include <cstdio>
 #include <cstring>
+#include <cassert>
 
 namespace pixelroot32::core {
 
@@ -63,6 +64,9 @@ namespace pixelroot32::core {
     Engine::~Engine() {}
 
     void Engine::init() {
+        assert(renderer.getLogicalWidth() > 0 && "Engine init failed: renderer has invalid width");
+        assert(renderer.getLogicalHeight() > 0 && "Engine init failed: renderer has invalid height");
+        
         // Initialize Serial for debugging (ESP32 only)
         #ifndef PLATFORM_NATIVE
             Serial.begin(115200);
@@ -185,6 +189,7 @@ namespace pixelroot32::core {
     }
 
     void Engine::setScene(Scene* newScene) {
+        assert(newScene != nullptr && "Cannot set null scene in engine");
         sceneManager.setCurrentScene(newScene);
     }
 

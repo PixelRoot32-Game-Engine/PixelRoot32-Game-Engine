@@ -8,6 +8,109 @@
 
 This guide covers modern memory management practices in PixelRoot32 using C++17 features. The engine has transitioned from manual memory management to smart pointers and RAII (Resource Acquisition Is Initialization) patterns for improved safety and maintainability.
 
+---
+
+## Engine Memory Limits
+
+Understanding the engine's memory limits is crucial for developing stable games on resource-constrained platforms.
+
+### Hard Limits (Compile-Time Constants)
+
+| Limit | Default Value | Configurable | Description |
+|-------|--------------|--------------|-------------|
+| **Max Entities** | 32 | ✅ via `MAX_ENTITIES` | Maximum entities per scene |
+| **Max Layers** | 3 | ✅ via `MAX_LAYERS` | Maximum render layers (0=Bg, 1=Game, 2=UI) |
+| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs per frame |
+| **Spatial Grid Cell Size** | 32px | ✅ via `SPATIAL_GRID_CELL_SIZE` | Size of uniform grid cells |
+| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Grid cell capacity |
+| **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
+
+### Memory Footprint by Resolution
+
+| Resolution | Framebuffer | Scaling LUTs | Total (approx) |
+|------------|-------------|--------------|----------------|
+| **128x128** | ~16 KB | ~1 KB | **~17 KB** |
+| **160x160** | ~25 KB | ~1.5 KB | **~26.5 KB** |
+| **240x240** | ~57 KB | ~2 KB | **~59 KB** |
+
+> **Note:** These values are for TFT (16-bit) displays. OLED displays use significantly less memory.
+
+### Per-Entity Memory Costs
+
+| Component | Memory Cost |
+|-----------|-------------|
+| **Base Entity** | ~32 bytes |
+| **Actor** | ~64 bytes |
+| **PhysicsActor** | ~128 bytes |
+| **KinematicActor** | ~144 bytes |
+| **Sprite (1bpp)** | (width * height / 8) bytes |
+| **Sprite (2bpp)** | (width * height / 4) bytes |
+| **Sprite (4bpp)** | (width * height / 2) bytes |
+
+### Recommended Maximums for Stable Performance
+
+| Platform | Entities | Dynamic Physics Objects | Sprites | Notes |
+|----------|----------|------------------------|---------|-------|
+| **ESP32 (classic)** | 32 | 16 | 64 | 520KB SRAM total |
+| **ESP32-S3** | 48 | 24 | 96 | 512KB SRAM + PSRAM |
+| **ESP32-C3** | 24 | 12 | 48 | 400KB SRAM, no FPU |
+
+### Configuration Examples
+
+**For maximum performance (128x128, low entity count):**
+```cpp
+// platformio.ini build_flags
+-D LOGICAL_WIDTH=128
+-D LOGICAL_HEIGHT=128
+-D MAX_ENTITIES=24
+-D PHYSICS_MAX_PAIRS=64
+```
+
+**For richer scenes (with PSRAM):**
+```cpp
+// platformio.ini build_flags
+-D LOGICAL_WIDTH=240
+-D LOGICAL_HEIGHT=240
+-D MAX_ENTITIES=64
+-D PHYSICS_MAX_PAIRS=256
+```
+
+### Runtime Memory Monitoring
+
+```cpp
+// In your scene or debug overlay
+void debugMemory() {
+    #ifndef PLATFORM_NATIVE
+        uint32_t freeHeap = ESP.getFreeHeap();
+        uint32_t totalHeap = ESP.getHeapSize();
+        uint32_t minFreeHeap = ESP.getMinFreeHeap();  // Since boot
+        
+        Serial.printf("Heap: %u/%u bytes free (min: %u)\n", 
+                      freeHeap, totalHeap, minFreeHeap);
+                      
+        // Warn if below safety threshold (e.g., 20KB)
+        if (freeHeap < 20480) {
+            Serial.println("WARNING: Low memory!");
+        }
+    #endif
+}
+```
+
+### Heap Fragmentation Warning
+
+Long-running games may experience heap fragmentation. Symptoms:
+- Gradual decrease in free heap despite stable entity count
+- Sudden crashes when allocating new objects
+- Performance degradation over time
+
+**Mitigation strategies:**
+1. Use **Object Pooling** for bullets/particles
+2. Pre-allocate in `Scene::init()`, not during gameplay
+3. Use **SceneArena** for temporary allocations
+4. Avoid frequent `std::vector` reallocations (reserve capacity upfront)
+
+---
+
 ## Key Changes in v0.9.0
 
 The engine migrated from C++11 to C++17 and adopted modern memory management patterns:

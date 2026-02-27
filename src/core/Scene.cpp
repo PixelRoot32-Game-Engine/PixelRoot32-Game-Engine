@@ -11,6 +11,7 @@
 #include "core/Scene.h"
 #include "core/Actor.h"
 #include "graphics/Color.h"
+#include <cassert>
 
 namespace pixelroot32::core {
 
@@ -130,6 +131,7 @@ namespace pixelroot32::core {
     }
 
     void Scene::addEntity(Entity* entity) {
+        assert(entity != nullptr && "Cannot add null entity to scene");
         if (entityCount < pixelroot32::platforms::config::MaxEntities) {
             entities[entityCount++] = entity;
             needsSorting = true;
@@ -141,6 +143,7 @@ namespace pixelroot32::core {
     }
 
     void Scene::removeEntity(Entity* entity) {
+        assert(entity != nullptr && "Cannot remove null entity from scene");
         for (int i = 0; i < entityCount; i++) {
             if (entities[i] == entity) {
                 collisionSystem.removeEntity(entity);

@@ -8,6 +8,7 @@
 #include "core/Engine.h"
 #include "platforms/EngineConfig.h"
 #include "math/MathUtil.h"
+#include <cassert>
 
 namespace pixelroot32::core {
 
@@ -102,10 +103,14 @@ void PhysicsActor::onWorldCollision() {
 }
 
 void PhysicsActor::setLimits(int left, int top, int right, int bottom) {
+    assert(right >= left && "Invalid limits: right must be >= left");
+    assert(bottom >= top && "Invalid limits: bottom must be >= top");
     limits = LimitRect(left, top, right, bottom);
 }
 
 void PhysicsActor::setWorldBounds(int w, int h) {
+    assert(w >= 0 && "Invalid world bounds: width must be >= 0");
+    assert(h >= 0 && "Invalid world bounds: height must be >= 0");
     worldWidth = w;
     worldHeight = h;
 }

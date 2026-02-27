@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include "physics/KinematicActor.h"
+#include <cassert>
 
 namespace pixelroot32::physics {
 
@@ -17,6 +18,7 @@ KinematicActor::KinematicActor(pixelroot32::math::Vector2 position, int w, int h
 }
 
 bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision, bool testOnly, pixelroot32::math::Scalar safeMargin, bool recoveryAsCollision) {
+    assert(collisionSystem != nullptr && "KinematicActor: collision system is null. Did you add the actor to a scene?");
     (void)recoveryAsCollision; // Not fully implemented
     (void)safeMargin;          // Handled via binary search precision
 
