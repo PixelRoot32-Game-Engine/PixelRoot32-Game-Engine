@@ -28,7 +28,7 @@ namespace pixelroot32::audio {
          * @param sampleRate The output sample rate.
          * @param caps Platform capabilities to guide core pinning or threading.
          */
-        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities()) = 0;
+        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities()) = 0;
 
         /**
          * @brief Submits a command to the scheduler.

@@ -20,7 +20,7 @@ public:
     unsigned long lastDeltaTime = 0;
     
     MockEntity(float x, float y, int w, int h, EntityType t = EntityType::GENERIC)
-        : Entity(x, y, w, h, t) {}
+        : Entity(pixelroot32::math::Vector2(x, y), w, h, t) {}
     
     void update(unsigned long deltaTime) override {
         updateCalled = true;
@@ -54,8 +54,8 @@ void tearDown(void) {
 void test_entity_initialization(void) {
     MockEntity e(10.0f, 20.0f, 30, 40, EntityType::GENERIC);
     
-    TEST_ASSERT_EQUAL_FLOAT(10.0f, e.x);
-    TEST_ASSERT_EQUAL_FLOAT(20.0f, e.y);
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, e.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20.0f, e.position.y);
     TEST_ASSERT_EQUAL_INT(30, e.width);
     TEST_ASSERT_EQUAL_INT(40, e.height);
     TEST_ASSERT_EQUAL_INT(static_cast<int>(EntityType::GENERIC), static_cast<int>(e.type));
@@ -158,22 +158,22 @@ void test_entity_render_layer_max(void) {
 
 void test_entity_position_change(void) {
     MockEntity e(0, 0, 10, 10);
-    e.x = 100.0f;
-    e.y = 200.0f;
-    TEST_ASSERT_EQUAL_FLOAT(100.0f, e.x);
-    TEST_ASSERT_EQUAL_FLOAT(200.0f, e.y);
+    e.position.x = 100.0f;
+    e.position.y = 200.0f;
+    TEST_ASSERT_EQUAL_FLOAT(100.0f, e.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(200.0f, e.position.y);
 }
 
 void test_entity_negative_position(void) {
     MockEntity e(-50.0f, -100.0f, 10, 10);
-    TEST_ASSERT_EQUAL_FLOAT(-50.0f, e.x);
-    TEST_ASSERT_EQUAL_FLOAT(-100.0f, e.y);
+    TEST_ASSERT_EQUAL_FLOAT(-50.0f, e.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(-100.0f, e.position.y);
 }
 
 void test_entity_decimal_position(void) {
     MockEntity e(10.5f, 20.75f, 10, 10);
-    TEST_ASSERT_EQUAL_FLOAT(10.5f, e.x);
-    TEST_ASSERT_EQUAL_FLOAT(20.75f, e.y);
+    TEST_ASSERT_EQUAL_FLOAT(10.5f, e.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20.75f, e.position.y);
 }
 
 // =============================================================================

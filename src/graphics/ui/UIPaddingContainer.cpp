@@ -7,8 +7,16 @@
 
 namespace pixelroot32::graphics::ui {
 
-UIPaddingContainer::UIPaddingContainer(float x, float y, float w, float h)
+using pixelroot32::math::Scalar;
+using pixelroot32::math::toScalar;
+using Vector2 = pixelroot32::math::Vector2;
+
+UIPaddingContainer::UIPaddingContainer(Scalar x, Scalar y, int w, int h)
     : UIElement(x, y, w, h) {
+}
+
+UIPaddingContainer::UIPaddingContainer(Vector2 position, int w, int h)
+    : UIElement(position, w, h) {
 }
 
 void UIPaddingContainer::setChild(UIElement* element) {
@@ -18,7 +26,7 @@ void UIPaddingContainer::setChild(UIElement* element) {
     }
 }
 
-void UIPaddingContainer::setPadding(float p) {
+void UIPaddingContainer::setPadding(Scalar p) {
     paddingLeft = p;
     paddingRight = p;
     paddingTop = p;
@@ -26,7 +34,7 @@ void UIPaddingContainer::setPadding(float p) {
     updateChildPosition();
 }
 
-void UIPaddingContainer::setPadding(float left, float right, float top, float bottom) {
+void UIPaddingContainer::setPadding(Scalar left, Scalar right, Scalar top, Scalar bottom) {
     paddingLeft = left;
     paddingRight = right;
     paddingTop = top;
@@ -34,7 +42,7 @@ void UIPaddingContainer::setPadding(float left, float right, float top, float bo
     updateChildPosition();
 }
 
-void UIPaddingContainer::setPosition(float newX, float newY) {
+void UIPaddingContainer::setPosition(Scalar newX, Scalar newY) {
     UIElement::setPosition(newX, newY);
     updateChildPosition();
 }
@@ -43,8 +51,8 @@ void UIPaddingContainer::updateChildPosition() {
     if (!child) return;
     
     // Position child element with padding offset
-    float childX = x + paddingLeft;
-    float childY = y + paddingTop;
+    Scalar childX = position.x + paddingLeft;
+    Scalar childY = position.y + paddingTop;
     
     child->setPosition(childX, childY);
     
@@ -82,4 +90,4 @@ void UIPaddingContainer::draw(pixelroot32::graphics::Renderer& renderer) {
     }
 }
 
-}
+} // namespace pixelroot32::graphics::ui

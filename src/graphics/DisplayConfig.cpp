@@ -13,6 +13,7 @@
 
 #ifdef PLATFORM_NATIVE
     #include "drivers/native/SDL2_Drawer.h"
+    #include <cassert>
 #else
     #include "platforms/PlatformDefaults.h"
     #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
@@ -24,7 +25,7 @@
 
 #ifdef TEST_MOCK_GRAPHICS
 #include "graphics/BaseDrawSurface.h"
-#include <stdexcept>
+#include <cassert>
 #endif
 
 namespace pixelroot32::graphics {
@@ -90,6 +91,9 @@ namespace pixelroot32::graphics {
                 }
                 
                 if (u8g2_instance) {
+                    // Optimize I2C transfer: Set bus clock to 1MHz (Max for ESP32/SSD1306). 
+                    // Note: If display glitches occur, reduce to 400kHz or 800kHz.
+                    u8g2_instance->setBusClock(1000000);
                     rawSurface = new pixelroot32::drivers::esp32::U8G2_Drawer(u8g2_instance, true);
                 }
             #endif
@@ -103,7 +107,7 @@ namespace pixelroot32::graphics {
             drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
         } else {
             #ifdef PLATFORM_NATIVE
-                throw std::runtime_error("Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
+                assert(false && "Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
             #else
                 // In ESP32, exceptions may not be enabled by default
                 // while(1); 

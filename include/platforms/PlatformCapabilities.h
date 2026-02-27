@@ -4,7 +4,7 @@
  */
 #pragma once
 
-namespace pixelroot32::core {
+namespace pixelroot32::platforms {
 
     /**
      * @struct PlatformCapabilities
@@ -45,4 +45,4 @@ namespace pixelroot32::core {
         static PlatformCapabilities detect();
     };
 
-} // namespace pixelroot32::core
+} // namespace pixelroot32::platforms

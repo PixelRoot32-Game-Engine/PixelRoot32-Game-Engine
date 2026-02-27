@@ -4,7 +4,7 @@
  */
 #ifdef PLATFORM_NATIVE
 
-#include "MockArduino.h"
+#include "platforms/mock/MockArduino.h"
 
 // Define the global Serial instance (only once)
 SerialClass Serial;

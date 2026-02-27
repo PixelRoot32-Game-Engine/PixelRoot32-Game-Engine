@@ -27,7 +27,7 @@ namespace pixelroot32::drivers::native {
         }
     }
 
-    void SDL2_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
+    void SDL2_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
         this->engineInstance = engine;
 
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {

@@ -11,6 +11,7 @@
 #pragma once
 #include "Scene.h"
 #include "graphics/Renderer.h"
+#include <optional>
 
 namespace pixelroot32::core {
 
@@ -58,9 +59,9 @@ public:
 
     /**
      * @brief Gets the currently active scene.
-     * @return Pointer to the top scene on the stack.
+     * @return Optional pointer to the top scene on the stack.
      */
-    Scene* getCurrentScene() const;
+    std::optional<Scene*> getCurrentScene() const;
 
     /**
      * @brief Gets the number of scenes in the stack.

@@ -51,13 +51,7 @@ public:
         bufferSent = true;
     }
     
-    void drawText(const char* text, int16_t x, int16_t y, uint16_t color, uint8_t size) override {
-        calls.push_back({"text", x, y, 0, 0, 0, 0, 0, color, text});
-    }
-    
-    void drawTextCentered(const char* text, int16_t y, uint16_t color, uint8_t size) override {
-        calls.push_back({"text_centered", 0, y, 0, 0, 0, 0, 0, color, text});
-    }
+
     
     void drawFilledCircle(int x, int y, int radius, uint16_t color) override {
         calls.push_back({"filled_circle", x, y, 0, 0, 0, 0, radius, color, ""});

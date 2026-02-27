@@ -26,7 +26,7 @@ namespace pixelroot32::audio {
          * @param engine Pointer to the AudioEngine instance to request samples from.
          * @param caps Platform capabilities to guide backend initialization (e.g., core pinning).
          */
-        virtual void init(AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities()) = 0;
+        virtual void init(AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities()) = 0;
 
         /**
          * @brief Returns the configured sample rate of the backend.

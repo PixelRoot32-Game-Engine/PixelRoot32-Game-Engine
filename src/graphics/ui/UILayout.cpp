@@ -6,9 +6,7 @@
 
 namespace pixelroot32::graphics::ui {
 
-UILayout::UILayout(float x, float y, float w, float h)
-    : UIElement(x, y, w, h) {
-}
+
 
 void UILayout::clearElements() {
     elements.clear();

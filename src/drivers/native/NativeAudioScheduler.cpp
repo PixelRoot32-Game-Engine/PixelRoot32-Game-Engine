@@ -6,6 +6,7 @@
 
 #include "drivers/native/NativeAudioScheduler.h"
 #include "audio/AudioMusicTypes.h"
+#include "platforms/EngineConfig.h"
 #include <cstring>
 #include <cmath>
 #include <algorithm>
@@ -33,7 +34,7 @@ namespace pixelroot32::audio {
         stop();
     }
 
-    void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::core::PlatformCapabilities& /*caps*/) {
+    void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
         this->sampleRate = sampleRate;
     }
 
@@ -112,13 +113,13 @@ namespace pixelroot32::audio {
                 // Diagnostic logging (Phase 2)
                 auto now = std::chrono::steady_clock::now();
                 if (std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime).count() >= 1) {
-                    #ifdef PIXELROOT32_ENABLE_PROFILING
-                    if (currentPeak > 32767.0f) {
-                        printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
-                    } else {
-                        printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+                        if (currentPeak > 32767.0f) {
+                            printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                        } else {
+                            printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                        }
                     }
-                    #endif
                     currentPeak = 0.0f;
                     lastLogTime = now;
                 }

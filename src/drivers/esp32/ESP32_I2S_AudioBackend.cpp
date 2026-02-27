@@ -30,7 +30,7 @@ namespace pixelroot32::drivers::esp32 {
         i2s_driver_uninstall(I2S_NUM_0);
     }
 
-    void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) {
+    void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps) {
         this->engineInstance = engine;
 
         // I2S Configuration

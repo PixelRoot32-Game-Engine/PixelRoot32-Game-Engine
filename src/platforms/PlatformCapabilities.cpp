@@ -11,7 +11,7 @@
 #include <sdkconfig.h>
 #endif
 
-namespace pixelroot32::core {
+namespace pixelroot32::platforms {
 
 PlatformCapabilities PlatformCapabilities::detect() {
     PlatformCapabilities caps;
@@ -60,4 +60,4 @@ PlatformCapabilities PlatformCapabilities::detect() {
     return caps;
 }
 
-} // namespace pixelroot32::core
+} // namespace pixelroot32::platforms

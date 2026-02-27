@@ -29,7 +29,7 @@ namespace pixelroot32::drivers::esp32 {
         }
     }
 
-    void ESP32_DAC_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) {
+    void ESP32_DAC_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps) {
         this->engineInstance = engine;
 
         // Ensure pin is valid for DAC (25 or 26)

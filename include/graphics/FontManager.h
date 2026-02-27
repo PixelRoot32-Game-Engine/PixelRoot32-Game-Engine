@@ -6,6 +6,7 @@
 
 #include "Font.h"
 #include <cstdint>
+#include <string_view>
 
 namespace pixelroot32::graphics {
 
@@ -44,6 +45,15 @@ public:
      * @return Width in pixels, or 0 if font is invalid or text is empty.
      */
     static int16_t textWidth(const Font* font, const char* text, uint8_t size = 1);
+
+    /**
+     * @brief Calculates the width in pixels of a text string when rendered.
+     * @param font Pointer to the font to use. If nullptr, uses the default font.
+     * @param text The text string to measure.
+     * @param size Text size multiplier (1 = normal, 2 = double size, etc.).
+     * @return Width in pixels, or 0 if font is invalid or text is empty.
+     */
+    static int16_t textWidth(const Font* font, std::string_view text, uint8_t size = 1);
 
     /**
      * @brief Gets the glyph index for a character code.

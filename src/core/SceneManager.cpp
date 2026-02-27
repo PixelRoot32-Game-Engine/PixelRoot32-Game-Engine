@@ -51,10 +51,10 @@ namespace pixelroot32::core {
         }
     }
 
-    Scene* SceneManager::getCurrentScene() const {
+    std::optional<Scene*> SceneManager::getCurrentScene() const {
         if (sceneCount > 0) {
             return sceneStack[sceneCount - 1];
         }
-        return nullptr;
+        return std::nullopt;
     }
 }

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-PixelRoot32 is a lightweight, modular 2D game engine written in C++, designed primarily for ESP32 microcontrollers, with a native simulation layer for PC (SDL2) that enables rapid development without hardware.
+PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed primarily for ESP32 microcontrollers, with a native simulation layer for PC (SDL2) that enables rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by Godot Engine, making it intuitive for developers familiar with modern game development workflows.
 
@@ -16,6 +16,7 @@ The engine follows a scene-based architecture inspired by Godot Engine, making i
 - **Portability**: Same code for ESP32 and PC (SDL2)
 - **Performance**: Optimized for resource-constrained hardware
 - **Extensibility**: Plugin architecture for drivers and backends
+- **Modern C++**: Leverages C++17 features (smart pointers, string_view) for safety and efficiency
 
 #### What Does "Modularity" Mean in PixelRoot32?
 
@@ -66,55 +67,15 @@ scene.collisionSystem.update();
 - Rendering with logical resolution independent of physical resolution
 - NES-style 4-channel audio subsystem
 - UI system with automatic layouts
-- AABB (Axis-Aligned Bounding Box) physics
+- "Flat Solver" physics with specialized Actor types (Static, Kinematic, Rigid)
+- Circular and AABB collision support
 - Multi-platform support through driver abstraction
 
 ---
 
 ## 2. Layer Hierarchy Diagram
 
-```txt
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           LAYER 5: GAME LAYER                               │
-│                     (User-specific game logic)                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                           LAYER 4: SCENE LAYER                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │    Scene     │  │   Entity     │  │    Actor     │  │  SceneManager   │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────────┘  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                           LAYER 3: SYSTEM LAYER                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │   Renderer   │  │InputManager  │  │ AudioEngine  │  │CollisionSystem  │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────────┘  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │MusicPlayer   │  │  UI System   │  │  Particles   │  │   Camera2D      │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────────┘  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                           LAYER 2: ABSTRACTION LAYER                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
-│  │ DrawSurface  │  │AudioScheduler│  │   Font       │  │ PlatformCaps    │  │
-│  │  (Bridge)    │  │  (Strategy)  │  │  (Strategy)  │  │                 │  │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────────┘  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                           LAYER 1: DRIVER LAYER                             │
-│  ┌─────────────────────────────────┐  ┌─────────────────────────────────┐   │
-│  │        ESP32 Drivers            │  │        Native Drivers           │   │
-│  │  ┌────────────┐ ┌────────────┐  │  │  ┌────────────┐ ┌────────────┐  │   │
-│  │  │TFT_eSPI    │ │   U8G2     │  │  │  │   SDL2     │ │   SDL2     │  │   │
-│  │  │_Drawer     │ │  _Drawer   │  │  │  │ _Drawer    │ │_AudioBack  │  │   │
-│  │  └────────────┘ └────────────┘  │  │  └────────────┘ └────────────┘  │   │
-│  │  ┌────────────┐ ┌────────────┐  │  │  ┌────────────┐                 │   │
-│  │  │ESP32_I2S   │ │ESP32_DAC   │  │  │  │   Mock     │                 │   │
-│  │  │_AudioBack  │ │_AudioBack  │  │  │  │  Arduino   │                 │   │
-│  │  └────────────┘ └────────────┘  │  │  └────────────┘                 │   │
-│  └─────────────────────────────────┘  └─────────────────────────────────┘   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                           LAYER 0: HARDWARE LAYER                           │
-│         ESP32 / ESP32-S3                    │          PC/Native            │
-│  (ST7789, SSD1306, PAM8302A, etc.)          │      (SDL2, Windows, etc.)    │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+![Architecture Diagram](../assets/architecture.png)
 
 ---
 
@@ -230,7 +191,7 @@ class Renderer {
     void beginFrame();
     void endFrame();
     void drawSprite(const Sprite& sprite, int x, int y, Color color);
-    void drawText(const char* text, int x, int y, Color color, uint8_t size);
+    void drawText(std::string_view text, int x, int y, Color color, uint8_t size);
     void drawTileMap(const TileMap& map, int originX, int originY);
     void setDisplaySize(int w, int h);
     void setDisplayOffset(int x, int y);
@@ -285,20 +246,33 @@ AudioEngine (Facade)
 - `MusicPlayer`: Music sequencing system
 - `AudioMixerLUT`: Optimized mixer with lookup tables
 
-#### 3.4.4 CollisionSystem
+#### 3.4.4 CollisionSystem (Flat Solver)
 
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
-**Responsibility**: AABB collision detection between Actors.
+**Responsibility**: High-performance physics solver optimized for ESP32 microcontrollers.
 
-**Features**:
+**System Architecture**:
+The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
 
-- Collision layer and mask system
-- `onCollision()` callbacks in Actors
-- Based on `std::vector` for entity registration
+```
+1. Detect Collisions       → Broadphase + Narrowphase
+2. Solve Velocity          → Impulse-based response (2 iterations)
+3. Integrate Positions     → p = p + v * dt
+4. Solve Penetration       → Baumgarte stabilization + Slop
+5. Trigger Callbacks       → onCollision notifications
+```
+
+**Key Features**:
+- **Fixed Timestep**: Deterministic 1/60s simulation
+- **Broadphase**: Uniform Spatial Grid (O(1) cell hashing)
+- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, Circle vs AABB
+- **Impulse Solver**: Proper velocity-based collision response
+- **Baumgarte Stabilization**: Position correction without energy loss
+- **CCD**: Selective continuous collision detection for fast-moving circles
+- **Memory Optimized**: Shared static buffers save ~100KB DRAM
 
 **Collision Layers**:
-
 ```cpp
 enum DefaultLayers {
     kNone = 0,
@@ -308,6 +282,16 @@ enum DefaultLayers {
     kWall = 1 << 3,
     // ... up to 16 layers
 };
+```
+
+**Physics Constants**:
+```cpp
+FIXED_DT = 1/60s           // Timestep
+SLOP = 0.02f               // Ignore penetration < 2cm
+BIAS = 0.2f                // 20% position correction
+VELOCITY_THRESHOLD = 0.5f  // Zero restitution below this
+VELOCITY_ITERATIONS = 2    // Impulse solver passes
+CCD_THRESHOLD = 3.0f       // CCD activation threshold
 ```
 
 #### 3.4.5 UI System
@@ -363,6 +347,24 @@ Entity
 - Automatic offset for Renderer
 - Support for fixed-position UI elements
 
+#### 3.4.8 Math Policy Layer
+
+**Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
+
+**Responsibility**: Platform-agnostic numerical abstraction layer.
+
+**Features**:
+
+- **Automatic Type Selection**: Selects `float` for FPU-capable platforms (ESP32, S3) and `Fixed16` for integer-only platforms (ESP32-C3, S2).
+- **Unified API**: Provides a consistent `Scalar` type and `MathUtil` functions regardless of the underlying representation.
+- **Performance Optimization**: Ensures optimal performance on all supported hardware without code changes.
+
+**Components**:
+
+- `Scalar`: Type alias (`float` or `Fixed16`).
+- `Fixed16`: 16.16 fixed-point implementation.
+- `MathUtil`: Mathematical helper functions (abs, min, max, sqrt, etc.) compatible with `Scalar`.
+
 ---
 
 ### 3.5 LAYER 4: Scene Layer
@@ -410,7 +412,7 @@ void Engine::draw() {
 - `InputManager`: User input
 - `AudioEngine`: Audio system
 - `MusicPlayer`: Music player
-- `PlatformCapabilities`: Hardware capabilities
+- `PlatformCapabilities`: Hardware capabilities (`pixelroot32::platforms`)
 
 #### 3.5.2 SceneManager
 
@@ -436,6 +438,11 @@ int sceneCount;
 **Files**: `include/core/Scene.h`, `src/core/Scene.cpp`
 
 **Responsibility**: Entity container representing a level or screen.
+
+**Memory Management**:
+The Scene follows a **non-owning** model for entities. When you call `addEntity(Entity*)`, the scene stores a reference to the entity but **does not take ownership**.
+- You are responsible for the entity's lifetime (typically using `std::unique_ptr` in your Scene subclass).
+- The Scene will NOT delete entities when it is destroyed or when `clearEntities()` is called.
 
 **Features**:
 
@@ -475,19 +482,31 @@ virtual void update(unsigned long deltaTime) = 0;
 virtual void draw(Renderer& renderer) = 0;
 ```
 
-#### 3.5.5 Actor
+#### 3.5.5 Actor / PhysicsActor Hierarchy
 
-**Files**: `include/core/Actor.h`
+Following the Godot Engine philosophy, physical actors are specialized into distinct types based on their movement requirements.
 
-**Responsibility**: Entity with physical collision capabilities.
+**Hierarchy**:
+```
+Entity
+└── Actor
+    └── PhysicsActor (Base)
+        ├── StaticActor    (Immovable walls/floors)
+        ├── KinematicActor (Character movement, move_and_slide)
+        └── RigidActor     (Props, physical objects with gravity)
+```
+
+**Actor Roles**:
+- **StaticActor**: Optimized for scenery. They skip the spatial grid and act as "anchors" that other objects cannot penetrate.
+- **KinematicActor**: Specifically for logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()` to interact with the world manually.
+- **RigidActor**: Fully automatic. They integrate velocity and gravity, responding to collisions using restitution and friction.
+- **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:
-
-- Inherits from `Entity`
 - `CollisionLayer layer`: Own collision layer
 - `CollisionLayer mask`: Layers it collides with
-- `getHitBox()`: Gets bounding box for collision
-- `onCollision(Actor* other)`: Collision callback
+- `bool bounce`: Optional bouncing behavior
+- `onCollision(Actor* other)`: Notification-only callback (non-interruptive)
 
 ---
 
@@ -519,9 +538,12 @@ public:
 };
 
 class GameScene : public Scene {
+    std::unique_ptr<Player> player;
+
+public:
     void init() override {
-        player = new Player(100, 100, 16, 16);
-        addEntity(player);
+        player = std::make_unique<Player>(100, 100, 16, 16);
+        addEntity(player.get());
     }
 };
 ```
@@ -616,7 +638,7 @@ AudioBackend
 |------|-------------|
 | `platforms/EngineConfig.h` | Global engine configuration |
 | `platforms/PlatformDefaults.h` | Platform-specific defaults |
-| `platforms/PlatformCapabilities.h` | Hardware detection |
+| `platforms/PlatformCapabilities.h` | Hardware detection (`pixelroot32::platforms`) |
 | `graphics/DisplayConfig.h` | Display configuration |
 | `input/InputConfig.h` | Input configuration |
 | `audio/AudioConfig.h` | Audio configuration |
@@ -640,17 +662,26 @@ AudioBackend
 
 ### 6.1 Implemented Strategies
 
-1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with scaling to physical display (e.g., 240x240)
+1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with high-performance scaling to physical display (e.g., 240x240).
 
-2. **Multi-Core Audio (ESP32)**:
-   - Core 0: Audio scheduling and generation
-   - Core 1: Main game loop
+2. **Scaling Pipeline (v1.0.0)**:
+   - **Fast-Path Switching**: Specialized routines for 1:1 and 2x integer scaling that avoid expensive bit/byte calculations.
+   - **Bit-Expansion LUTs**: OLED horizontal expansion via 16-entry lookup tables.
+   - **32-bit Register Writes**: TFT vertical duplication via optimized 32-bit `memcpy` and register access.
 
-3. **Mixer LUT**: Lookup tables for mixing without FPU
+3. **Multi-Core Audio (ESP32)**:
+   - Core 0: Audio scheduling and generation.
+   - Core 1: Main game loop.
 
-4. **DMA Transfers**: DMA transfers for displays
+4. **Mixer LUT**: Lookup tables for mixing without FPU.
 
-5. **IRAM-Cached Rendering**: Critical functions in internal RAM
+5. **DMA Pipelining (TFT)**:
+   - **Double Buffering**: CPU calculates next block while DMA sends the previous one.
+   - **Large Block Sizes**: Using 60-line blocks to minimize interrupt frequency.
+
+6. **I2C 1MHz (OLED)**: Sustained 60 FPS on monochrome screens via bus overclocking.
+
+7. **IRAM-Cached Rendering**: Critical functions in internal RAM.
 
 6. **Viewport Culling**: Only render visible entities
 
@@ -704,7 +735,7 @@ class MyCustomWidget : public UIElement {
 
 ## 8. Simplified Class Diagram
 
-```
+```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                               Engine                                   │
 ├────────────────────────────────────────────────────────────────────────┤

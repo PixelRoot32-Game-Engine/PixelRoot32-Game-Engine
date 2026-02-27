@@ -11,9 +11,19 @@ PixelRoot32 follows a strict set of conventions to ensure consistency, readabili
 
 ### Language
 
-- C++11
-- Avoid RTTI and exceptions in performance-critical runtime code
+- C++17
+- Avoid RTTI and exceptions (use `-fno-exceptions`)
 - Prefer deterministic and explicit control flow
+
+### Modern C++ Features (C++17)
+
+PixelRoot32 embraces C++17 to write safer and more expressive code without sacrificing performance.
+
+- **Smart Pointers**: `std::unique_ptr` for exclusive ownership.
+- **String Views**: `std::string_view` for non-owning string references (avoid `std::string` copies).
+- **Optional**: `std::optional` for values that may or may not exist (cleaner than pointer checks or magic values).
+- **Attributes**: Use `[[nodiscard]]` for functions where the return value must not be ignored (e.g., error codes).
+- **Constexpr**: Use `constexpr` for compile-time constants and `if constexpr` for compile-time branching.
 
 ### Files
 
@@ -131,11 +141,17 @@ These guidelines are derived from practical implementation in `examples/Geometry
 
 ### 💾 Memory & Resources
 
+**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md)**
+
+- **Smart Pointers (C++17)**: Prefer `std::unique_ptr` for owning objects (like Scenes, Actors, UI elements) to automate memory management and document ownership.
+  - Use `std::make_unique<T>(...)` to create objects.
+  - Pass raw pointers (via `.get()`) to functions that do *not* take ownership (like `addEntity`).
+  - Use `std::move` only when transferring ownership explicitly.
 - **Object Pooling**: Pre-allocate all game objects (obstacles, particles, enemies) during `init()`.
   - *Pattern*: Use fixed-size arrays (e.g., `Particle particles[50]`) and flags (`isActive`) instead of `std::vector` with `push_back`/`erase`.
   - *Trade-off*: Eliminates runtime allocations and fragmentation at the cost of a slightly higher fixed RAM footprint; dimension pools to realistic worst-case usage.
 - **Zero Runtime Allocation**: Never use `new` or `malloc` inside the game loop (`update` or `draw`).
-- **String Handling**: Avoid `std::string` in `update()`/`draw()`. Use `snprintf` with stack-allocated `char` buffers for UI text.
+- **String Handling**: Avoid `std::string` copies. Use `std::string_view` for passing strings. For formatting, use `snprintf` with stack-allocated `char` buffers.
 
 - **Scene Arenas** (`PIXELROOT32_ENABLE_SCENE_ARENA`):
   - Use a single pre-allocated buffer per scene for temporary entities or scratch data when you need strict zero-allocation guarantees.
@@ -157,7 +173,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **Inlining**:
   - Define trivial accessors (e.g., `getHitBox`, `getX`) in the header (`.h`) to allow compiler inlining.
   - Keep heavy implementation logic in `.cpp`.
-- **Fast Randomness**: `std::rand()` is slow and uses division. Use lightweight PRNGs (like Xorshift) for visual effects (particles).
+- **Fast Randomness**: `std::rand()` is slow and uses division. Use `math::randomScalar()` or `math::randomRange()` (which use optimized Xorshift algorithms compatible with `Fixed16`) for visual effects.
 - **Collision Detection**:
   - Use simple AABB (Axis-Aligned Bounding Box) checks first. Use Collision Layers (`GameLayers.h`) to avoid checking unnecessary pairs.
   - For very fast projectiles (bullets, lasers), prefer lightweight sweep tests:
@@ -173,10 +189,22 @@ These guidelines are derived from practical implementation in `examples/Geometry
 ### 🎮 Game Feel & Logic
 
 - **Frame-Rate Independence**: Always multiply movement by `deltaTime`.
-  - *Example*: `x += speed * (deltaTime * 0.001f);`
+  - *Example*: `x += speed * math::toScalar(deltaTime * 0.001f);`
 - **Logic/Visual Decoupling**: For infinite runners, keep logic progression (obstacle spacing) constant in time, even if visual speed increases.
 - **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
 - **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
+
+### 🧮 Math & Fixed-Point Guidelines
+
+The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU (Fixed-Point) hardware seamlessly.
+
+1. **Use `Scalar` everywhere**: Never use `float` or `double` explicitly in game logic, physics, or positioning. Use `pixelroot32::math::Scalar`.
+2. **Literals**: Use `math::toScalar(0.5f)` for floating-point literals. This ensures they are correctly converted to `Fixed16` on integer-only platforms.
+    - *Bad*: `Scalar speed = 2.5;` (Implicit double conversion, slow/error-prone on Fixed16)
+    - *Good*: `Scalar speed = math::toScalar(2.5f);`
+3. **Renderer Conversion**: The `Renderer` works with pixels (`int`). Keep positions as `Scalar` logic-side and convert to `int` **only** when calling draw methods.
+    - *Example*: `renderer.drawSprite(spr, static_cast<int>(x), static_cast<int>(y), ...)`
+4. **Audio Independence**: The audio subsystem is optimized separately and does **not** use `Scalar`. It continues to use its own internal formats (integer mixing).
 
 ---
 

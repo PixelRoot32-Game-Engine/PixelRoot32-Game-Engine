@@ -3,6 +3,6 @@
  * Licensed under the MIT License
  */
 #ifdef PLATFORM_NATIVE
-#include "MockSPI.h"
+#include "platforms/mock/MockSPI.h"
 SPIClass SPI;
 #endif  

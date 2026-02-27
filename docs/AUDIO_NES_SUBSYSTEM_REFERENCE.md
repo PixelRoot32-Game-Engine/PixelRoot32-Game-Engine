@@ -248,7 +248,7 @@ There are two main implementations:
 
 #### 4.1.1 Platform-Agnostic Core Management
 
-The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` structure to detect hardware features at startup:
+The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` (`pixelroot32::platforms`) structure to detect hardware features at startup:
 
 - **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop).
 - **Single-Core ESP32**: Audio task runs on **Core 0** with high priority, allowing the FreeRTOS scheduler to manage time-slicing.
@@ -280,7 +280,7 @@ Backends implement the abstract `AudioBackend` interface:
 class AudioBackend {
 public:
     virtual ~AudioBackend() = default;
-    virtual void init(AudioEngine* engine, const PlatformCapabilities& caps) = 0;
+    virtual void init(AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps) = 0;
     virtual int getSampleRate() const = 0;
 };
 ```
@@ -546,6 +546,8 @@ These helpers reduce boilerplate when defining tracks and keep note volumes and
 octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
+
+**📖 For comprehensive MusicPlayer integration guide, see [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md)**
 
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).

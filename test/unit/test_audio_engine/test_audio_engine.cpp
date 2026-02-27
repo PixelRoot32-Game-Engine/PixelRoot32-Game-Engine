@@ -8,6 +8,7 @@
 #include "audio/AudioEngine.h"
 #include "audio/AudioConfig.h"
 #include "mocks/MockAudioScheduler.h"
+#include <memory>
 
 using namespace pixelroot32::audio;
 
@@ -34,10 +35,10 @@ void test_audio_engine_custom_scheduler(void) {
     AudioConfig config(nullptr, 22050);
     AudioEngine engine(config);
     
-    auto mockSchedulerPtr = new MockAudioScheduler();
-    MockAudioScheduler& mockScheduler = *mockSchedulerPtr;
+    auto mockScheduler = std::make_unique<MockAudioScheduler>();
+    MockAudioScheduler& mockRef = *mockScheduler;
     
-    engine.setScheduler(std::unique_ptr<AudioScheduler>(mockSchedulerPtr));
+    engine.setScheduler(std::move(mockScheduler));
     engine.init();
     
     // Submit a command and check if it reached the mock scheduler
@@ -45,7 +46,7 @@ void test_audio_engine_custom_scheduler(void) {
     cmd.type = AudioCommandType::PLAY_EVENT;
     engine.submitCommand(cmd);
     
-    TEST_ASSERT_TRUE(mockScheduler.hasCommand(AudioCommandType::PLAY_EVENT));
+    TEST_ASSERT_TRUE(mockRef.hasCommand(AudioCommandType::PLAY_EVENT));
 }
 
 void test_audio_engine_master_volume(void) {
@@ -64,9 +65,9 @@ void test_audio_engine_play_event(void) {
     AudioConfig config(nullptr, 22050);
     AudioEngine engine(config);
     
-    auto mockSchedulerPtr = new MockAudioScheduler();
-    MockAudioScheduler& mockScheduler = *mockSchedulerPtr;
-    engine.setScheduler(std::unique_ptr<AudioScheduler>(mockSchedulerPtr));
+    auto mockScheduler = std::make_unique<MockAudioScheduler>();
+    MockAudioScheduler& mockRef = *mockScheduler;
+    engine.setScheduler(std::move(mockScheduler));
     engine.init();
     
     AudioEvent event;
@@ -76,7 +77,7 @@ void test_audio_engine_play_event(void) {
     engine.playEvent(event);
     
     // playEvent should submit a PLAY_EVENT command
-    TEST_ASSERT_TRUE(mockScheduler.hasCommand(AudioCommandType::PLAY_EVENT));
+    TEST_ASSERT_TRUE(mockRef.hasCommand(AudioCommandType::PLAY_EVENT));
 }
 
 int main(int argc, char **argv) {

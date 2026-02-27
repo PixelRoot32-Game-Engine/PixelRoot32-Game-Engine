@@ -34,10 +34,13 @@ void test_camera_set_position(void) {
     camera.setBounds(-1000.0f, 1000.0f);
     camera.setVerticalBounds(-1000.0f, 1000.0f);
     
-    camera.setPosition(100.5f, 200.7f);
+    camera.setPosition({100.5f, 200.7f});
     
     TEST_ASSERT_FLOAT_EQUAL(100.5f, camera.getX());
     TEST_ASSERT_FLOAT_EQUAL(200.7f, camera.getY());
+    pixelroot32::math::Vector2 pos = camera.getPosition();
+    TEST_ASSERT_FLOAT_EQUAL(100.5f, pos.x);
+    TEST_ASSERT_FLOAT_EQUAL(200.7f, pos.y);
 }
 
 void test_camera_bounds_clamping(void) {
@@ -46,12 +49,12 @@ void test_camera_bounds_clamping(void) {
     camera.setVerticalBounds(0.0f, 500.0f);
     
     // Test clamping to min
-    camera.setPosition(-10.0f, -20.0f);
+    camera.setPosition({-10.0f, -20.0f});
     TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getX());
     TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getY());
     
     // Test clamping to max
-    camera.setPosition(600.0f, 700.0f);
+    camera.setPosition({600.0f, 700.0f});
     TEST_ASSERT_FLOAT_EQUAL(500.0f, camera.getX());
     TEST_ASSERT_FLOAT_EQUAL(500.0f, camera.getY());
 }
@@ -64,17 +67,17 @@ void test_camera_follow_target_dead_zone(void) {
     // Initial position 0,0. Dead zones: 30 to 70
     
     // Target inside dead zone - camera shouldn't move
-    camera.followTarget(50.0f, 50.0f);
+    camera.followTarget({50.0f, 50.0f});
     TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getX());
     TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getY());
     
     // Target moves past right dead zone (70)
-    camera.followTarget(80.0f, 50.0f);
+    camera.followTarget({80.0f, 50.0f});
     // 80 - 70 = 10. Camera should move to 10 to keep target at 70% of viewport
     TEST_ASSERT_FLOAT_EQUAL(10.0f, camera.getX());
     
     // Target moves past left dead zone (30 on screen, which is 10 + 30 = 40 in world)
-    camera.followTarget(35.0f, 50.0f);
+    camera.followTarget({35.0f, 50.0f});
     // Target is at 35 in world. Camera is at 10. Screen pos is 25.
     // 35 - 30 = 5. Camera should move to 5.
     TEST_ASSERT_FLOAT_EQUAL(5.0f, camera.getX());
@@ -85,12 +88,34 @@ void test_camera_apply_to_renderer(void) {
     DisplayConfig config(DisplayType::NONE, 0, 240, 240);
     Renderer renderer(config);
     
-    camera.setPosition(100.0f, 150.0f);
+    camera.setPosition({100.0f, 150.0f});
     camera.apply(renderer);
     
     // Since we don't have getDisplayOffset in Renderer, we can't verify directly
     // but we can check if it compiles and runs without crashing.
     // In a more complex mock we could verify Renderer internal state.
+}
+
+void test_camera_set_viewport_size(void) {
+    Camera2D camera(100, 100);
+    camera.setViewportSize(200, 150);
+    camera.setBounds(0.0f, 500.0f);
+    camera.setVerticalBounds(0.0f, 500.0f);
+    camera.followTarget({50.0f, 50.0f});
+    TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getX());
+    TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getY());
+}
+
+void test_camera_follow_vertical_dead_zone(void) {
+    Camera2D camera(100, 100);
+    camera.setBounds(-1000.0f, 1000.0f);
+    camera.setVerticalBounds(-1000.0f, 1000.0f);
+    camera.followTarget({50.0f, 50.0f});
+    TEST_ASSERT_FLOAT_EQUAL(0.0f, camera.getY());
+    camera.followTarget({50.0f, 85.0f});
+    TEST_ASSERT_FLOAT_EQUAL(15.0f, camera.getY());
+    camera.followTarget({50.0f, 25.0f});
+    TEST_ASSERT_FLOAT_EQUAL(25.0f - 30.0f, camera.getY());
 }
 
 int main(int argc, char **argv) {
@@ -101,6 +126,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_camera_bounds_clamping);
     RUN_TEST(test_camera_follow_target_dead_zone);
     RUN_TEST(test_camera_apply_to_renderer);
+    RUN_TEST(test_camera_set_viewport_size);
+    RUN_TEST(test_camera_follow_vertical_dead_zone);
     
     return UNITY_END();
 }

@@ -22,7 +22,7 @@ namespace pixelroot32::audio {
      */
     class AudioEngine {
     public:
-        AudioEngine(const AudioConfig& config, const pixelroot32::core::PlatformCapabilities& caps = pixelroot32::core::PlatformCapabilities());
+        AudioEngine(const AudioConfig& config, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities());
         
         void init();
 
@@ -43,7 +43,7 @@ namespace pixelroot32::audio {
 
     private:
         AudioConfig config;
-        pixelroot32::core::PlatformCapabilities capabilities;
+        pixelroot32::platforms::PlatformCapabilities capabilities;
         std::unique_ptr<AudioScheduler> scheduler;
         
         float masterVolume = 1.0f; // Cached for getMasterVolume

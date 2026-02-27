@@ -7,8 +7,12 @@
 
 namespace pixelroot32::graphics::ui {
 
-UIPanel::UIPanel(float x, float y, float w, float h)
+UIPanel::UIPanel(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
     : UIElement(x, y, w, h) {
+}
+
+UIPanel::UIPanel(pixelroot32::math::Vector2 position, int w, int h)
+    : UIElement(position, w, h) {
 }
 
 void UIPanel::setChild(UIElement* element) {
@@ -18,7 +22,7 @@ void UIPanel::setChild(UIElement* element) {
     }
 }
 
-void UIPanel::setPosition(float newX, float newY) {
+void UIPanel::setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) {
     UIElement::setPosition(newX, newY);
     updateChildPosition();
 }
@@ -28,7 +32,7 @@ void UIPanel::updateChildPosition() {
     
     // Position child element at panel position (child can be smaller or larger)
     // The child's position is relative to the panel
-    child->setPosition(x, y);
+    child->setPosition(position.x, position.y);
 }
 
 void UIPanel::update(unsigned long deltaTime) {
@@ -52,8 +56,8 @@ void UIPanel::draw(pixelroot32::graphics::Renderer& renderer) {
     // Draw background (filled rectangle)
     if (backgroundColor != pixelroot32::graphics::Color::Transparent) {
         renderer.drawFilledRectangle(
-            static_cast<int>(x),
-            static_cast<int>(y),
+            static_cast<int>(position.x),
+            static_cast<int>(position.y),
             width,
             height,
             backgroundColor
@@ -66,8 +70,8 @@ void UIPanel::draw(pixelroot32::graphics::Renderer& renderer) {
         // Top
         if (borderWidth > 0) {
             renderer.drawFilledRectangle(
-                static_cast<int>(x),
-                static_cast<int>(y),
+                static_cast<int>(position.x),
+                static_cast<int>(position.y),
                 width,
                 borderWidth,
                 borderColor
@@ -76,8 +80,8 @@ void UIPanel::draw(pixelroot32::graphics::Renderer& renderer) {
         // Bottom
         if (borderWidth > 0) {
             renderer.drawFilledRectangle(
-                static_cast<int>(x),
-                static_cast<int>(y + height - borderWidth),
+                static_cast<int>(position.x),
+                static_cast<int>(position.y + height - borderWidth),
                 width,
                 borderWidth,
                 borderColor
@@ -86,8 +90,8 @@ void UIPanel::draw(pixelroot32::graphics::Renderer& renderer) {
         // Left
         if (borderWidth > 0) {
             renderer.drawFilledRectangle(
-                static_cast<int>(x),
-                static_cast<int>(y + borderWidth),
+                static_cast<int>(position.x),
+                static_cast<int>(position.y + borderWidth),
                 borderWidth,
                 height - (borderWidth * 2),
                 borderColor
@@ -96,8 +100,8 @@ void UIPanel::draw(pixelroot32::graphics::Renderer& renderer) {
         // Right
         if (borderWidth > 0) {
             renderer.drawFilledRectangle(
-                static_cast<int>(x + width - borderWidth),
-                static_cast<int>(y + borderWidth),
+                static_cast<int>(position.x + width - borderWidth),
+                static_cast<int>(position.y + borderWidth),
                 borderWidth,
                 height - (borderWidth * 2),
                 borderColor

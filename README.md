@@ -21,6 +21,7 @@
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
   <a href="#-quick-start">Quick Start</a> •
+  <a href="#-best-practices">Best Practices</a> •
   <a href="#-documentation">Documentation</a> •
   <a href="#-roadmap">Roadmap</a> •
   <a href="#-changelog">Changelog</a> •
@@ -33,11 +34,13 @@
 
 ## 📖 Overview
 
-**PixelRoot32** is a lightweight, modular 2D game engine written in C++, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
+**PixelRoot32** is a lightweight, modular 2D game engine written in **C++17**, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **⚠️ Project Status:** PixelRoot32 is under active development. APIs may change and some subsystems are still experimental.
+> **✅ Project Status**: PixelRoot32 v1.0.0 is the first stable release.
+The core rendering and physics systems are production-ready.
+New features and optimizations will continue to evolve in future minor versions.
 
 ---
 
@@ -68,6 +71,17 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🚀 Quick Start
 
+### ⚠️ Configuration Requirement
+
+To compile PixelRoot32, you **must** configure your `platformio.ini` to use C++17 and disable exceptions:
+
+```ini
+build_unflags = -std=gnu++11
+build_flags =
+    -std=gnu++17
+    -fno-exceptions
+```
+
 ### Prerequisites
 
 - **VS Code + PlatformIO**
@@ -89,6 +103,18 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ---
 
+## 🛠️ Best Practices
+
+To ensure high performance on ESP32, PixelRoot32 enforces strict development patterns:
+
+1. **Fixed-Point Math**: Always use `Scalar` instead of `float`. Use `math::toScalar()` for literals.
+2. **Zero Allocation**: Avoid `new`/`malloc` during the game loop. Use **Object Pooling** and `std::unique_ptr`.
+3. **Render Layers**: Organize entities by `renderLayer` (0=Bg, 1=Game, 2=UI) to optimize drawing order.
+
+> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/STYLE_GUIDE.md)** for detailed rules on memory management, performance optimization, and coding style.
+
+---
+
 ## 📚 Documentation
 
 ### Online Resources
@@ -107,15 +133,15 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🗺️ Roadmap
 
-- 🧮 **Dual Numeric Backend (Float / Fixed-Point)**:
-Optional fixed-point arithmetic layer (Q16.16) to support ESP32 variants without FPU (C3, C2, C6).
-Includes numeric abstraction layer, math refactor, deterministic behavior, and dual build configuration.
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
-- ⚡ **Spatial Partitioning**: Uniform Grid for collision optimization.
+- 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 
 ### Completed Features ✅
 
+- ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
+- ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
+- ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
 - ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
 - ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
@@ -124,7 +150,35 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 
 ## 🕒 Changelog
 
----
+## 1.0.0 (Stable)
+
+First stable release. Complete performance overhaul and API stabilization.
+
+### 🚀 Rendering Performance
+
+- **TFT DMA Pipelining**: Double-buffered pipeline for `TFT_eSPI_Drawer` — CPU processes next block while DMA transmits current one. **~43 FPS** stable on 240×240 displays @ 40MHz (up from ~14 FPS).
+- **Fast-Path Kernels**: OLED 2x bit-expansion LUT (U8G2); TFT row duplication with 32-bit native access and `memcpy` for vertical scaling.
+- **I2C 1MHz**: Official support in `DisplayConfig` for sustained **60 FPS** on OLED (SSD1306/SH1106).
+
+### 🎮 Physics (Flat Solver 1.0)
+
+- **Broadphase**: Uniform grid (32px cells) with static shared buffers to reduce DRAM usage.
+- **KinematicActor**: Rewrote `moveAndSlide` and `moveAndCollide` with binary search, wall sliding, and accurate collision normal detection.
+- **Stable stacking**: Baumgarte correction, iterative position relaxation, fixed timestep 1/60s.
+- **Godot-style API**: `KinematicCollision`, actor types `Static`/`Kinematic`/`Rigid`. Renamed `PHYSICS_RELAXATION_ITERATIONS` → `VELOCITY_ITERATIONS`.
+
+### 🔢 Math System (Scalar / Fixed-Point)
+
+- Numeric abstraction layer: `Scalar` = `float` on ESP32-S3 (FPU) or `Fixed16` (Q16.16) on C3/S2/C6.
+- `Vector2`, `Rect`, and physics unified under `Scalar`. ~30% FPS gain on C3/S2 by eliminating software float emulation.
+- `MathUtil`: `fixed_sqrt`, `fixed_sin`, `fixed_cos`, `toScalar()`.
+
+### 🛠️ Other
+
+- **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
+- **C++17**: Migrated from C++11.
+
+> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
 
 ### 0.8.1-dev
 
@@ -138,13 +192,7 @@ Includes numeric abstraction layer, math refactor, deterministic behavior, and d
 - **Native XBM Blitting**: Refactored `U8G2` driver to use row-aligned buffers and native XBM calls, eliminating per-pixel draw overhead.
 - **Latency Reduction**: Replaced blocking delays with `yield()` in the engine loop to maximize CPU utilization.
 
-### v0.7.0-dev
-
-- **Decoupled Multi-Core Audio**: New architecture running on Core 0 (ESP32) for sample-accurate timing and improved performance.
-- **Advanced Audio Mixing**: Non-linear mixer with soft clipping and high-performance LUT-based mixing for no-FPU hardware (ESP32-C3).
-- **Internal DAC Enhancements**: Optimized software-mode driver with 0.7x scaling for PAM8302A amplifiers and improved stability.
-- **Unified Platform Configuration**: Consolidated settings in `include/platforms/` with new `PlatformDefaults.h` for better hardware support (ESP32-S3, etc.).
-- **Graphics Extensibility & U8g2**: Introduced `BaseDrawSurface` and native support for monochromatic OLED displays via the U8G2 library.
+Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 

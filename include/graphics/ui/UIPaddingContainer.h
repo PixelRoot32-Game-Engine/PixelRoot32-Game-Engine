@@ -24,7 +24,15 @@ public:
      * @param w Width of the container.
      * @param h Height of the container.
      */
-    UIPaddingContainer(float x, float y, float w, float h);
+    UIPaddingContainer(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h);
+
+    /**
+     * @brief Constructs a new UIPaddingContainer.
+     * @param position Position vector (x, y) of the container.
+     * @param w Width of the container.
+     * @param h Height of the container.
+     */
+    UIPaddingContainer(pixelroot32::math::Vector2 position, int w, int h);
 
     virtual ~UIPaddingContainer() = default;
 
@@ -44,7 +52,7 @@ public:
      * @brief Sets uniform padding on all sides.
      * @param p Padding value in pixels.
      */
-    void setPadding(float p);
+    void setPadding(pixelroot32::math::Scalar p);
 
     /**
      * @brief Sets asymmetric padding.
@@ -53,31 +61,31 @@ public:
      * @param top Top padding in pixels.
      * @param bottom Bottom padding in pixels.
      */
-    void setPadding(float left, float right, float top, float bottom);
+    void setPadding(pixelroot32::math::Scalar left, pixelroot32::math::Scalar right, pixelroot32::math::Scalar top, pixelroot32::math::Scalar bottom);
 
     /**
      * @brief Gets the left padding.
      * @return Left padding in pixels.
      */
-    float getPaddingLeft() const { return paddingLeft; }
+    pixelroot32::math::Scalar getPaddingLeft() const { return paddingLeft; }
 
     /**
      * @brief Gets the right padding.
      * @return Right padding in pixels.
      */
-    float getPaddingRight() const { return paddingRight; }
+    pixelroot32::math::Scalar getPaddingRight() const { return paddingRight; }
 
     /**
      * @brief Gets the top padding.
      * @return Top padding in pixels.
      */
-    float getPaddingTop() const { return paddingTop; }
+    pixelroot32::math::Scalar getPaddingTop() const { return paddingTop; }
 
     /**
      * @brief Gets the bottom padding.
      * @return Bottom padding in pixels.
      */
-    float getPaddingBottom() const { return paddingBottom; }
+    pixelroot32::math::Scalar getPaddingBottom() const { return paddingBottom; }
 
     /**
      * @brief Sets the position of the container.
@@ -85,7 +93,7 @@ public:
      * @param newX New X coordinate.
      * @param newY New Y coordinate.
      */
-    void setPosition(float newX, float newY);
+    void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) override;
 
     /**
      * @brief Updates the container and child element.
@@ -101,10 +109,10 @@ public:
 
 private:
     UIElement* child = nullptr;  ///< Child element
-    float paddingLeft = 0.0f;     ///< Left padding
-    float paddingRight = 0.0f;   ///< Right padding
-    float paddingTop = 0.0f;     ///< Top padding
-    float paddingBottom = 0.0f;  ///< Bottom padding
+    pixelroot32::math::Scalar paddingLeft = pixelroot32::math::toScalar(0);     ///< Left padding
+    pixelroot32::math::Scalar paddingRight = pixelroot32::math::toScalar(0);   ///< Right padding
+    pixelroot32::math::Scalar paddingTop = pixelroot32::math::toScalar(0);     ///< Top padding
+    pixelroot32::math::Scalar paddingBottom = pixelroot32::math::toScalar(0);  ///< Bottom padding
 
     /**
      * @brief Updates the child element's position based on padding.

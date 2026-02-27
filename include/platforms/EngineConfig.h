@@ -4,6 +4,12 @@
  */
 #pragma once
 
+#ifdef PLATFORM_NATIVE
+    #include <platforms/mock/MockArduino.h>
+#else
+    #include <Arduino.h>
+#endif
+
 // =============================================================================
 // Physical Display Configuration (Hardware)
 // =============================================================================
@@ -70,3 +76,125 @@
 // Enable a discrete debug overlay with FPS, RAM and CPU metrics.
 // Replaces the old PIXELROOT32_ENABLE_FPS_DISPLAY.
 // #define PIXELROOT32_ENABLE_DEBUG_OVERLAY
+
+// =============================================================================
+// Scene Limits
+// =============================================================================
+#ifndef MAX_LAYERS
+    #define MAX_LAYERS 3
+#endif
+#ifndef MAX_ENTITIES
+    #define MAX_ENTITIES 32
+#endif
+
+#ifndef SPATIAL_GRID_CELL_SIZE
+    #define SPATIAL_GRID_CELL_SIZE 32
+#endif
+
+#ifndef SPATIAL_GRID_MAX_ENTITIES_PER_CELL
+    #define SPATIAL_GRID_MAX_ENTITIES_PER_CELL 24
+#endif
+
+#ifndef PHYSICS_MAX_PAIRS
+    #define PHYSICS_MAX_PAIRS 128
+#endif
+
+#ifndef PR32_VELOCITY_ITERATIONS
+    #define PR32_VELOCITY_ITERATIONS 2
+#endif
+
+// Deprecated alias for backward compatibility
+#define PHYSICS_RELAXATION_ITERATIONS PR32_VELOCITY_ITERATIONS
+
+// =============================================================================
+// Hardware Capabilities
+// =============================================================================
+
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // ESP32 (Xtensa LX6), ESP32-S3 (Xtensa LX7), ESP32-P4 (RISC-V with FPU) have hardware FPU
+    #define PR32_HAS_FPU_MACRO 1
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32S2)
+    // ESP32-C series (RISC-V) and S2 lack FPU
+    #undef PR32_HAS_FPU_MACRO
+#else
+    // Default fallback (e.g. desktop/native build usually has FPU)
+    #define PR32_HAS_FPU_MACRO 1
+#endif
+
+// Allow manual override for testing/benchmarking
+#if defined(PR32_FORCE_FIXED)
+    #undef PR32_HAS_FPU_MACRO
+#endif
+
+namespace pixelroot32::platforms::config {
+    // ... existing configs ...
+
+    // Hardware Capabilities
+    #if defined(PR32_HAS_FPU_MACRO)
+    inline constexpr bool HasFPU = true;
+    #else
+    inline constexpr bool HasFPU = false;
+    #endif
+
+    // Physical Display
+    inline constexpr int PhysicalDisplayWidth = PHYSICAL_DISPLAY_WIDTH;
+    inline constexpr int PhysicalDisplayHeight = PHYSICAL_DISPLAY_HEIGHT;
+
+    // Logical Display
+    inline constexpr int LogicalWidth = LOGICAL_WIDTH;
+    inline constexpr int LogicalHeight = LOGICAL_HEIGHT;
+    inline constexpr int DisplayRotation = DISPLAY_ROTATION;
+    inline constexpr int XOffset = X_OFF_SET;
+    inline constexpr int YOffset = Y_OFF_SET;
+
+    // Scene Limits
+    inline constexpr int MaxLayers = MAX_LAYERS;
+    inline constexpr int MaxEntities = MAX_ENTITIES;
+
+    // Spatial Grid
+    inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
+    inline constexpr int SpatialGridMaxEntitiesPerCell = SPATIAL_GRID_MAX_ENTITIES_PER_CELL;
+
+    // Physics
+    inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
+    inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
+    
+    // Deprecated for backward compatibility
+    inline constexpr int PhysicsRelaxationIterations = VelocityIterations;
+
+    // Profiling & Debug
+    #ifdef PIXELROOT32_ENABLE_PROFILING
+    inline constexpr bool EnableProfiling = true;
+    #else
+    inline constexpr bool EnableProfiling = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_DEBUG_OVERLAY
+    inline constexpr bool EnableDebugOverlay = true;
+    #else
+    inline constexpr bool EnableDebugOverlay = false;
+    #endif
+
+    // Sprites
+    #ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
+    inline constexpr bool Enable2BppSprites = true;
+    #else
+    inline constexpr bool Enable2BppSprites = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+    inline constexpr bool Enable4BppSprites = true;
+    #else
+    inline constexpr bool Enable4BppSprites = false;
+    #endif
+
+    #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
+    inline constexpr bool EnableSceneArena = true;
+    #else
+    inline constexpr bool EnableSceneArena = false;
+    #endif
+
+    inline unsigned long profilerMicros() {
+        return micros();
+    }
+}

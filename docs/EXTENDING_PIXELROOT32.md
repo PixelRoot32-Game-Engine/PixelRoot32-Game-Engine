@@ -53,7 +53,7 @@ void setup() {
 
 ## 3. Memory Considerations
 
-- **Ownership**: When using `PIXELROOT32_CUSTOM_DISPLAY`, you transfer object ownership to the engine. Do not attempt to delete the pointer manually.
+- **Ownership**: When using `PIXELROOT32_CUSTOM_DISPLAY`, you transfer object ownership to the engine. The macro wraps the raw pointer in a `std::unique_ptr`, so you should not delete it manually.
 - **Smart Pointers**: Internally, the engine uses `std::unique_ptr` to manage the driver.
 - **Performance**: `BaseDrawSurface` uses generic algorithms for lines and circles that call `drawPixel()`. If your hardware supports acceleration for these primitives, you can override the methods (e.g., `drawLine`, `drawFilledRectangle`) for better performance.
 
@@ -115,10 +115,10 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 void setup() {
     // 2. Wrap it in the PixelRoot32 Drawer
     // Note: Pass 'false' if you want to keep ownership of the u8g2 instance
-    auto drawer = new pixelroot32::drivers::esp32::U8G2_Drawer(&u8g2, false);
+    auto drawer = std::make_unique<pixelroot32::drivers::esp32::U8G2_Drawer>(&u8g2, false);
     
     // 3. Inject into engine
-    auto config = PIXELROOT32_CUSTOM_DISPLAY(drawer, 128, 64);
+    auto config = PIXELROOT32_CUSTOM_DISPLAY(drawer.release(), 128, 64);
     Engine engine(std::move(config));
     // ...
 }

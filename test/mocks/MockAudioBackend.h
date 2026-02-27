@@ -18,7 +18,7 @@ public:
     AudioEngine* engine = nullptr;
     bool initialized = false;
 
-    void init(AudioEngine* engine, const pixelroot32::core::PlatformCapabilities& caps) override {
+    void init(AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps) override {
         this->engine = engine;
         this->initialized = true;
     }

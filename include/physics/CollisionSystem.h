@@ -1,63 +1,92 @@
 /*
- * Original work:
- * Copyright (c) nbourre
- * Licensed under the MIT License
- *
- * Modifications:
  * Copyright (c) 2026 PixelRoot32
- *
- * This file remains licensed under the MIT License.
+ * Licensed under the MIT License
+ * 
+ * Flat Solver - Minimalist Physics Pipeline
+ * Order: Detect → Solve Velocity → Integrate Position → Solve Penetration
  */
 #pragma once
 #include <vector>
 #include <algorithm>
+#include "physics/CollisionTypes.h"
+#include "physics/SpatialGrid.h"
+#include "math/Vector2.h"
 #include "core/Entity.h"
+#include "platforms/EngineConfig.h"
+
+namespace pixelroot32::core { class Actor; class PhysicsActor; }
 
 namespace pixelroot32::physics {
 
-/**
- * @class CollisionSystem
- * @brief Manages collision detection between entities.
- *
- * This system iterates through registered entities, checks if they are Actors,
- * and performs AABB collision checks based on their collision layers and masks.
- */
+struct KinematicCollision {
+    pixelroot32::core::Actor* collider = nullptr;
+    pixelroot32::math::Vector2 normal;
+    pixelroot32::math::Vector2 position;
+    pixelroot32::math::Scalar travel;
+    pixelroot32::math::Scalar remainder;
+};
+
+struct Contact {
+    pixelroot32::core::PhysicsActor* bodyA = nullptr;
+    pixelroot32::core::PhysicsActor* bodyB = nullptr;
+    pixelroot32::math::Vector2 normal;
+    pixelroot32::math::Vector2 contactPoint;
+    pixelroot32::math::Scalar penetration = pixelroot32::math::toScalar(0);
+    pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(0);
+};
+
 class CollisionSystem {
 public:
-    /**
-     * @brief Adds an entity to the collision system.
-     * @param e Pointer to the entity to add.
-     */
+    static constexpr pixelroot32::math::Scalar FIXED_DT = pixelroot32::math::toScalar(1.0f / 60.0f);
+    static constexpr pixelroot32::math::Scalar SLOP = pixelroot32::math::toScalar(0.02f);
+    static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
+    static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
+    static constexpr pixelroot32::math::Scalar MIN_VELOCITY = pixelroot32::math::toScalar(0.01f);
+    static constexpr int VELOCITY_ITERATIONS = pixelroot32::platforms::config::VelocityIterations;
+    static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
+    
     void addEntity(pixelroot32::core::Entity* e);
-
-    /**
-     * @brief Removes an entity from the collision system.
-     * @param e Pointer to the entity to remove.
-     */
     void removeEntity(pixelroot32::core::Entity* e);
-
-    /**
-     * @brief Performs collision detection for all registered entities.
-     * 
-     * Iterates through all pairs of entities. If both are Actors and their
-     * collision masks overlap, it checks for AABB intersection. If they intersect,
-     * the onCollision() callback is triggered on both actors.
-     */
     void update();
+    void detectCollisions();
+    void solveVelocity();
+    void integratePositions();
+    void solvePenetration();
+    void triggerCallbacks();
 
-    /**
-     * @brief Gets the number of entities in the collision system.
-     * @return The number of entities.
-     */
     size_t getEntityCount() const { return entities.size(); }
+    void clear() { entities.clear(); contacts.clear(); }
 
-    /**
-     * @brief Clears all entities from the collision system.
-     */
-    void clear() { entities.clear(); }
+    bool checkCollision(pixelroot32::core::Actor* actor, 
+                       pixelroot32::core::Actor** outArray, 
+                       int& count, int maxCount);
+
+    bool needsCCD(pixelroot32::core::PhysicsActor* body) const;
+    bool sweptCircleVsAABB(pixelroot32::core::PhysicsActor* circle,
+                          pixelroot32::core::PhysicsActor* box,
+                          pixelroot32::math::Scalar& outTime,
+                          pixelroot32::math::Vector2& outNormal);
 
 private:
-    std::vector<pixelroot32::core::Entity*> entities; ///< List of entities to check for collisions.
+    static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
+    static constexpr int kVelocityIterations = pixelroot32::platforms::config::VelocityIterations;
+    
+    struct CollisionPair {
+        pixelroot32::core::Actor* a;
+        pixelroot32::core::Actor* b;
+    };
+
+    std::vector<pixelroot32::core::Entity*> entities;
+    std::vector<Contact> contacts;
+    SpatialGrid grid;
+    
+    void generateContact(pixelroot32::core::PhysicsActor* a, 
+                        pixelroot32::core::PhysicsActor* b);
+    void generateCircleVsCircleContact(Contact& contact);
+    void generateAABBVsAABBContact(Contact& contact);
+    void generateCircleVsAABBContact(Contact& contact, 
+                                     pixelroot32::core::PhysicsActor* circle,
+                                     pixelroot32::core::PhysicsActor* box);
 };
 
 }

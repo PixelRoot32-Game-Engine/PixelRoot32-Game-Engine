@@ -11,28 +11,23 @@
 #include <vector>
 #include "../../test_config.h"
 #include "physics/CollisionSystem.h"
+#include "physics/RigidActor.h"
+#include "physics/StaticActor.h"
 #include "core/Actor.h"
+#include "core/PhysicsActor.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::physics;
+using namespace pixelroot32::math;
 
 // Mock Actor for testing
-class MockActor : public Actor {
+class MockActor : public RigidActor {
 public:
     bool collisionCalled = false;
     Actor* collidedWith = nullptr;
-    Rect hitbox;
 
-    MockActor(float x, float y, int w, int h) : Actor(x, y, w, h) {
-        hitbox = {x, y, w, h};
-    }
-
-    Rect getHitBox() override {
-        hitbox.x = x;
-        hitbox.y = y;
-        hitbox.width = width;
-        hitbox.height = height;
-        return hitbox;
+    MockActor(float x, float y, int w, int h) : RigidActor(toScalar(x), toScalar(y), w, h) {
+        // Default shape is AABB
     }
 
     void onCollision(Actor* other) override {
@@ -52,7 +47,7 @@ public:
 // Generic Entity for testing
 class GenericEntity : public Entity {
 public:
-    GenericEntity(float x, float y, int w, int h) : Entity(x, y, w, h, EntityType::GENERIC) {}
+    GenericEntity(float x, float y, int w, int h) : Entity(Vector2(toScalar(x), toScalar(y)), w, h, EntityType::GENERIC) {}
     void update(unsigned long deltaTime) override { (void)deltaTime; }
     void draw(pixelroot32::graphics::Renderer& renderer) override { (void)renderer; }
 };
@@ -316,6 +311,59 @@ void test_collision_system_remove_and_update(void) {
     TEST_ASSERT_FALSE(a2.collisionCalled);
 }
 
+void test_collision_system_circle_vs_circle(void) {
+    CollisionSystem system;
+    MockActor a1(0, 0, 10, 10);
+    MockActor a2(8, 0, 10, 10);
+    a1.setShape(CollisionShape::CIRCLE);
+    a1.setRadius(toScalar(5.0f));
+    a2.setShape(CollisionShape::CIRCLE);
+    a2.setRadius(toScalar(5.0f));
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    system.update();
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+    TEST_ASSERT_TRUE(a2.collisionCalled);
+}
+
+void test_collision_system_circle_vs_aabb(void) {
+    CollisionSystem system;
+    MockActor circle(5, 5, 10, 10);
+    MockActor box(10, 10, 20, 20);
+    circle.setShape(CollisionShape::CIRCLE);
+    circle.setRadius(toScalar(5.0f));
+    circle.setCollisionLayer(1);
+    circle.setCollisionMask(1);
+    box.setCollisionLayer(1);
+    box.setCollisionMask(1);
+    system.addEntity(&circle);
+    system.addEntity(&box);
+    system.update();
+    TEST_ASSERT_TRUE(circle.collisionCalled);
+    TEST_ASSERT_TRUE(box.collisionCalled);
+}
+
+void test_collision_system_swept_circle_vs_aabb_ccd(void) {
+    CollisionSystem system;
+    MockActor circle(0, 10, 10, 10);
+    circle.setShape(CollisionShape::CIRCLE);
+    circle.setRadius(toScalar(5.0f));
+    circle.setMass(toScalar(1.0f));
+    circle.setVelocity(Vector2(toScalar(1000.0f), toScalar(0)));
+    circle.setCollisionLayer(1);
+    circle.setCollisionMask(1);
+    StaticActor wall(toScalar(50), toScalar(0), 20, 20);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    system.addEntity(&wall);
+    system.addEntity(&circle);
+    system.update();
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -340,6 +388,9 @@ int main(int argc, char **argv) {
     
     RUN_TEST(test_collision_system_empty);
     RUN_TEST(test_collision_system_remove_and_update);
+    RUN_TEST(test_collision_system_circle_vs_circle);
+    RUN_TEST(test_collision_system_circle_vs_aabb);
+    RUN_TEST(test_collision_system_swept_circle_vs_aabb_ccd);
     
     return UNITY_END();
 }

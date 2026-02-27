@@ -14,6 +14,7 @@
 #include "Color.h"
 #include "Font.h"
 #include <memory>
+#include <string_view>
 
 #ifdef PLATFORM_ESP32
     #include <mock/MockSafeString.h>
@@ -42,7 +43,6 @@ struct Sprite {
     uint8_t         height; ///< Sprite height in pixels.
 };
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
 struct Sprite2bpp {
     const uint8_t*  data;
     const Color*    palette;
@@ -50,9 +50,7 @@ struct Sprite2bpp {
     uint8_t         height;
     uint8_t         paletteSize;
 };
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
 struct Sprite4bpp {
     const uint8_t*  data;
     const Color*    palette;
@@ -60,7 +58,6 @@ struct Sprite4bpp {
     uint8_t         height;
     uint8_t         paletteSize;
 };
-#endif
 
 /**
  * @brief Single monochrome layer used by layered sprites.
@@ -69,8 +66,8 @@ struct Sprite4bpp {
  * provide its own bitmap and color.
  */
 struct SpriteLayer {
-    const uint16_t* data; ///< Pointer to packed row data for this layer.
-    Color           color;///< Color used for "on" pixels in this layer.
+    const uint16_t* data;   ///< Pointer to packed row data for this layer.
+    Color           color;  ///< Color used for "on" pixels in this layer.
 };
 
 /**
@@ -103,13 +100,9 @@ struct TileMapGeneric {
 
 using TileMap = TileMapGeneric<Sprite>;
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
 using TileMap2bpp = TileMapGeneric<Sprite2bpp>;
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
 using TileMap4bpp = TileMapGeneric<Sprite4bpp>;
-#endif
 
 /**
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
@@ -247,14 +240,14 @@ public:
     DrawSurface& getDrawSurface() { return *drawer; }
 
     /**
-     * @brief Draws a string of text (legacy method, uses default font).
+     * @brief Draws a string of text using the default font.
      * @param text The text to draw.
      * @param x X coordinate.
      * @param y Y coordinate.
      * @param color Text color.
      * @param size Text size multiplier.
      */
-    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size);
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws a string of text using a specific font.
@@ -265,16 +258,16 @@ public:
      * @param size Text size multiplier.
      * @param font Pointer to the font to use. If nullptr, uses the default font.
      */
-    void drawText(const char* text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
-     * @brief Draws text centered horizontally at a given Y coordinate (legacy method, uses default font).
+     * @brief Draws text centered horizontally at a given Y coordinate using the default font.
      * @param text The text to draw.
      * @param y Y coordinate.
      * @param color Text color.
      * @param size Text size.
      */
-    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size);
+    void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size);
 
     /**
      * @brief Draws text centered horizontally at a given Y coordinate using a specific font.
@@ -284,7 +277,7 @@ public:
      * @param size Text size.
      * @param font Pointer to the font to use. If nullptr, uses the default font.
      */
-    void drawTextCentered(const char* text, int16_t y, Color color, uint8_t size, const Font* font);
+    void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font);
 
     /**
      * @brief Draws a filled circle.
@@ -378,12 +371,6 @@ public:
     
     /// @brief Gets the logical rendering height.
     int getLogicalHeight() const { return logicalHeight; }
-    
-    /// @deprecated Use getLogicalWidth() instead.
-    int getWidth() const { return logicalWidth; }
-    
-    /// @deprecated Use getLogicalHeight() instead.
-    int getHeight() const { return logicalHeight; }
 
     /**
      * @brief Sets a global offset for all drawing operations.
@@ -466,13 +453,9 @@ public:
      */
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false);
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false);
-#endif
 
     /**
      * @brief Draws a multi-layer sprite composed of several 1bpp layers.
@@ -504,19 +487,15 @@ public:
      */
     void drawTileMap(const TileMap& map, int originX, int originY, Color color = Color::White);
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     /**
      * @brief Draws a tilemap of 2bpp sprites.
      */
     void drawTileMap(const TileMap2bpp& map, int originX, int originY);
-#endif
 
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     /**
      * @brief Draws a tilemap of 4bpp sprites.
      */
     void drawTileMap(const TileMap4bpp& map, int originX, int originY);
-#endif
 
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
@@ -553,12 +532,8 @@ private:
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
 
-#ifdef PIXELROOT32_ENABLE_2BPP_SPRITES
     void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
-#endif
-#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
     void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
-#endif
 };
 
 }

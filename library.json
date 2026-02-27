@@ -1,6 +1,6 @@
 {
   "name": "PixelRoot32-Game-Engine",
-  "description": "PixelRoot32-Game-Engine is an entity-based game engine with scene management, designed for embedded systems. The engine ships with a reference driver based on TFT_eSPI.",
+  "description": "PixelRoot32-Game-Engine is a lightweight, modular 2D game engine written in C++17, designed primarily for ESP32 microcontrollers, with a native simulation layer for PC (SDL2) to enable rapid development without hardware.",
   "keywords": [
     "esp32",
     "game-engine",
@@ -11,7 +11,7 @@
     "u8g2",
     "sdl2"
   ],
-  "version": "0.8.1-dev",
+  "version": "1.0.0",
   "build": {
     "srcDir": "src",
     "includeDir": "include"
@@ -32,7 +32,10 @@
     "OneButton": "^2.6.1"
   },
   "frameworks": [],
-  "platforms": ["espressif32", "native"],
+  "platforms": [
+    "espressif32",
+    "native"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git"
