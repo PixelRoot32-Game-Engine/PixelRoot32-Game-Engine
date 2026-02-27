@@ -664,7 +664,7 @@ AudioBackend
 
 1. **Logical vs Physical Resolution**: Rendering at low resolution (e.g., 128x128) with high-performance scaling to physical display (e.g., 240x240).
 
-2. **Scaling Pipeline (v0.9.1)**:
+2. **Scaling Pipeline (v1.0.0)**:
    - **Fast-Path Switching**: Specialized routines for 1:1 and 2x integer scaling that avoid expensive bit/byte calculations.
    - **Bit-Expansion LUTs**: OLED horizontal expansion via 16-entry lookup tables.
    - **32-bit Register Writes**: TFT vertical duplication via optimized 32-bit `memcpy` and register access.

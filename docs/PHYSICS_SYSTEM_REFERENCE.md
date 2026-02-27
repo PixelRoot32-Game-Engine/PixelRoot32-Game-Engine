@@ -304,4 +304,4 @@ void RigidActor::update(unsigned long deltaTime) {
 
 **Document Version**: Flat Solver  
 **Last Updated**: February 2026  
-**Engine Version**: v0.9.1-dev
+**Engine Version**: v1.0.0
