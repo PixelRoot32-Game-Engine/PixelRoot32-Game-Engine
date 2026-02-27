@@ -2,7 +2,7 @@
 
 **Document Version:** 1.1  
 **Last Updated:** February 2026  
-**Engine Version:** v0.9.0-dev  
+**Engine Version:** v1.0.0
 
 ## Overview
 
@@ -467,6 +467,7 @@ void test_performance_60fps(void) {
 ### Common Issues
 
 1. **Memory Leaks**
+
    ```cpp
    void test_no_memory_leak(void) {
        size_t heapBefore = ESP.getFreeHeap();
@@ -480,6 +481,7 @@ void test_performance_60fps(void) {
    ```
 
 2. **Timing Issues**
+
    ```cpp
    void test_timing_sensitive(void) {
        // Use consistent timing
@@ -491,6 +493,7 @@ void test_performance_60fps(void) {
    ```
 
 3. **Platform Differences**
+
    ```cpp
    void test_platform_consistency(void) {
        #ifdef ESP32
@@ -527,26 +530,31 @@ void test_with_debug_output(void) {
 ## Testing Best Practices
 
 ### 1. Test Naming
+
 - Be descriptive: `test_physics_gravity_acceleration()`
 - Include edge cases: `test_collision_circle_perfect_overlap()`
 - Group related tests in same file
 
 ### 2. Test Independence
+
 - Each test should be independent
 - Use `setUp()` and `tearDown()` for consistent state
 - Avoid relying on test execution order
 
 ### 3. Test Coverage
+
 - Test happy path and error cases
 - Include boundary conditions
 - Test platform-specific behavior when relevant
 
 ### 4. Performance
+
 - Keep individual tests fast (<100ms)
 - Use mocks for slow external dependencies
 - Consider test suite execution time
 
 ### 5. Maintainability
+
 - Write clear, readable test code
 - Document complex test scenarios
 - Update tests when code changes
@@ -556,17 +564,20 @@ void test_with_debug_output(void) {
 ## Resources
 
 ### Documentation
+
 - [Unity Test Framework](https://github.com/ThrowTheSwitch/Unity)
 - [PlatformIO Unit Testing](https://docs.platformio.org/en/latest/advanced/unit-testing/index.html)
 - [Google Test Primer](https://github.com/google/googletest/blob/main/docs/primer.md) (concepts apply)
 
 ### Tools
+
 - **gcov**: Code coverage analysis
 - **Valgrind**: Memory debugging (native)
 - **ESP32 Exception Decoder**: Crash analysis
 - **PlatformIO Test Explorer**: VS Code extension
 
 ### Examples
+
 - See `test/unit/` for all unit test suites (e.g. `test_physics_actor/`, `test_ui/`, `test_math/`).
 - See `test/test_engine_integration/` and `test/test_game_loop/` for integration and game-loop tests.
 - See `test/test_config.h` for shared macros and helpers (`TEST_ASSERT_FLOAT_EQUAL`, `test_data`, `test_setup`/`test_teardown`).

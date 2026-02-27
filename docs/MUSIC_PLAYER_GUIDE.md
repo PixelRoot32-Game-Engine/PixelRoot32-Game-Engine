@@ -2,7 +2,7 @@
 
 **Document Version:** 1.0  
 **Last Updated:** February 2026  
-**Engine Version:** v0.9.0-dev  
+**Engine Version:** v1.0.0
 
 ## Overview
 
