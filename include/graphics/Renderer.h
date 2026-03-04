@@ -105,6 +105,134 @@ using TileMap2bpp = TileMapGeneric<Sprite2bpp>;
 using TileMap4bpp = TileMapGeneric<Sprite4bpp>;
 
 /**
+ * @brief Single attribute key-value pair for tile metadata.
+ *
+ * TileAttribute represents a single metadata entry attached to a tile, such as
+ * collision properties, interaction types, or game-specific data. Both key and
+ * value are stored as PROGMEM strings to minimize RAM usage on ESP32.
+ *
+ * Attributes are exported from the PixelRoot32 Tilemap Editor with final resolved
+ * values (tileset defaults merged with instance overrides). The editor's two-level
+ * attribute system (default + instance) is collapsed at export time, so runtime
+ * code only sees the final merged result.
+ *
+ * Common Use Cases:
+ * - Collision detection: {"solid", "true"}, {"walkable", "false"}
+ * - Interaction: {"type", "door"}, {"interactable", "true"}
+ * - Game logic: {"damage", "10"}, {"health", "50"}
+ * - Tile behavior: {"animated", "true"}, {"speed", "2"}
+ *
+ * Memory Layout:
+ * - Both pointers reference flash memory (PROGMEM/PIXELROOT32_SCENE_FLASH_ATTR)
+ * - No RAM overhead for string storage
+ * - Suitable for ESP32 with limited RAM
+ *
+ * @note All strings are null-terminated C strings stored in flash memory
+ * @note Use strcmp_P() or similar PROGMEM-aware functions to compare keys
+ * @note Values are always strings; convert to int/bool as needed in game code
+ *
+ * @see TileAttributeEntry for tile position association
+ * @see LayerAttributes for layer-level attribute organization
+ */
+struct TileAttribute {
+    const char* key;      ///< Attribute key (PROGMEM string, e.g., "type", "solid")
+    const char* value;    ///< Attribute value (PROGMEM string, e.g., "door", "true")
+};
+
+/**
+ * @brief All attributes for a single tile at a specific position.
+ *
+ * TileAttributeEntry associates a tile position (x, y) with its metadata attributes.
+ * Only tiles that have attributes are included in the exported data (sparse
+ * representation), minimizing memory usage for large tilemaps.
+ *
+ * Attribute Resolution:
+ * - Editor merges tileset default attributes with instance overrides
+ * - Only final resolved attributes are exported (no inheritance logic at runtime)
+ * - Empty tiles (no attributes) are not included in the exported data
+ *
+ * Position Encoding:
+ * - X and Y are tile coordinates (not pixel coordinates)
+ * - Coordinates are relative to the layer's origin (0, 0)
+ * - Maximum coordinate value: 65535 (uint16_t range)
+ *
+ * Query Pattern:
+ * ```cpp
+ * // Find tile at position (10, 5)
+ * for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+ *     if (layer.tiles[i].x == 10 && layer.tiles[i].y == 5) {
+ *         // Found tile, search attributes
+ *         for (uint8_t j = 0; j < layer.tiles[i].num_attributes; j++) {
+ *             if (strcmp_P(layer.tiles[i].attributes[j].key, "solid") == 0) {
+ *                 // Found "solid" attribute
+ *             }
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * @note Attributes array is stored in PROGMEM (flash memory)
+ * @note Maximum 255 attributes per tile (uint8_t limit)
+ * @note Use helper functions like get_tile_attribute() for easier queries
+ *
+ * @see TileAttribute for individual key-value pairs
+ * @see LayerAttributes for layer-level organization
+ */
+struct TileAttributeEntry {
+    uint16_t x;                           ///< Tile X coordinate in layer space
+    uint16_t y;                           ///< Tile Y coordinate in layer space
+    uint8_t num_attributes;               ///< Number of attributes for this tile
+    const TileAttribute* attributes;      ///< PROGMEM array of attribute key-value pairs
+};
+
+/**
+ * @brief All tiles with attributes in a single tilemap layer.
+ *
+ * LayerAttributes organizes all tile metadata for a single layer, providing
+ * efficient lookup of attributes by tile position. Only tiles with non-empty
+ * attributes are included, using a sparse representation to minimize memory.
+ *
+ * Layer Organization:
+ * - Each layer in a scene has its own LayerAttributes structure
+ * - Layers are typically organized as: Background, Midground, Foreground, etc.
+ * - Layer name matches the name defined in the Tilemap Editor
+ *
+ * Memory Efficiency:
+ * - Sparse representation: only tiles with attributes are stored
+ * - All data stored in PROGMEM (flash memory) on ESP32
+ * - No RAM overhead for attribute storage
+ * - Typical size: ~40 bytes per tile with attributes (depends on key/value lengths)
+ *
+ * Query Workflow:
+ * 1. Identify layer by index or name
+ * 2. Search tiles array for matching (x, y) position
+ * 3. If found, iterate through tile's attributes array
+ * 4. Compare keys using strcmp_P() for PROGMEM strings
+ *
+ * Example Usage:
+ * ```cpp
+ * // Query attribute for tile at (10, 5) in layer 0
+ * const char* value = get_tile_attribute(0, 10, 5, "solid");
+ * if (value && strcmp_P(value, "true") == 0) {
+ *     // Tile is solid
+ * }
+ * ```
+ *
+ * @note Layer name is a PROGMEM string (use strcmp_P() for comparison)
+ * @note Tiles array is sorted by position for potential binary search optimization
+ * @note Maximum 65535 tiles with attributes per layer (uint16_t limit)
+ *
+ * @see TileAttributeEntry for individual tile attributes
+ * @see TileAttribute for key-value pairs
+ * @see Generated scene headers for query helper functions
+ */
+struct LayerAttributes {
+    const char* layer_name;               ///< Layer name (PROGMEM string, e.g., "Background")
+    uint16_t num_tiles_with_attributes;   ///< Number of tiles with attributes in this layer
+    const TileAttributeEntry* tiles;      ///< PROGMEM array of tiles with attributes (sparse)
+};
+
+/**
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
  *
  * Exactly one of the pointers is expected to be non-null for a valid frame.

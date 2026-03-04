@@ -347,7 +347,56 @@ Entity
 - Automatic offset for Renderer
 - Support for fixed-position UI elements
 
-#### 3.4.8 Math Policy Layer
+#### 3.4.8 Tile Attribute System
+
+**Files**: `include/graphics/Renderer.h` (structures), Scene headers (generated data)
+
+**Responsibility**: Runtime tile metadata query system for game logic.
+
+**Architecture**:
+
+The tile attribute system provides a lightweight way to attach custom metadata to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures for ESP32 runtime access.
+
+**Design Philosophy**:
+
+- **Editor-Only Defaults**: Tileset default attributes remain in the editor; only final resolved values are exported
+- **Sparse Representation**: Only tiles with attributes are included in exported data
+- **Flash Storage**: All attribute data stored in PROGMEM to minimize RAM usage
+- **Simple Query API**: Position-based lookup without inheritance logic at runtime
+
+**Data Flow**:
+
+```
+Tilemap Editor
+    ├── Tileset Default Attributes (editor-only)
+    └── Canvas Instance Attributes (per-tile overrides)
+            │
+            ▼ (merge at export time)
+    Scene Header (.h)
+            ├── TileAttribute arrays (key-value pairs)
+            ├── TileAttributeEntry arrays (per-position)
+            └── LayerAttributes arrays (per-layer)
+            │
+            ▼ (runtime query)
+    Game Logic
+            └── get_tile_attribute(layer, x, y, key)
+```
+
+**Memory Optimization**:
+
+- Typical overhead: ~40 bytes per tile with attributes (depends on key/value lengths)
+- Empty tiles: 0 bytes (not included in export)
+- String deduplication: Common keys/values stored once in flash
+- No runtime merge logic: All inheritance resolved at export time
+
+**Use Cases**:
+
+- Collision properties: `{"solid", "true"}`, `{"walkable", "false"}`
+- Interaction types: `{"type", "door"}`, `{"interactable", "true"}`
+- Game logic: `{"damage", "10"}`, `{"health", "50"}`
+- Tile behavior: `{"animated", "true"}`, `{"speed", "2"}`
+
+#### 3.4.9 Math Policy Layer
 
 **Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
 

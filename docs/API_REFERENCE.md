@@ -1572,6 +1572,317 @@ Optional 4bpp tilemap, available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defin
 
 ---
 
+### Tile Attribute System
+
+The tile attribute system provides runtime access to custom metadata attached to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures optimized for ESP32.
+
+#### Design Overview
+
+**Key Concepts:**
+
+- **Editor Workflow**: Attributes are defined at two levels in the editor:
+  - **Tileset Defaults**: Common attributes shared by all instances of a tile
+  - **Instance Overrides**: Per-position attributes that override defaults
+- **Export Process**: The editor merges defaults and overrides, exporting only final resolved values
+- **Runtime Access**: Game code queries attributes by layer index and tile position
+- **Memory Efficiency**: Only tiles with attributes are exported (sparse representation)
+
+**Memory Layout:**
+
+All attribute data is stored in flash memory (PROGMEM) on ESP32 to minimize RAM usage:
+
+```
+Flash Memory (PROGMEM)
+├── String literals (keys and values)
+├── TileAttribute arrays (key-value pairs per tile)
+├── TileAttributeEntry arrays (position + attributes per layer)
+└── LayerAttributes arrays (layer metadata)
+```
+
+---
+
+### TileAttribute
+
+**Inherits:** None
+
+Represents a single key-value metadata pair for a tile. Both strings are stored in flash memory (PROGMEM).
+
+#### Properties
+
+- **`const char* key`**  
+  Attribute key (PROGMEM string). Common examples: `"type"`, `"solid"`, `"interactable"`, `"damage"`.
+
+- **`const char* value`**  
+  Attribute value (PROGMEM string). All values are strings; convert to int/bool as needed in game code.
+
+#### Usage Notes
+
+- Use `strcmp_P()` or similar PROGMEM-aware functions to compare keys
+- Values are always strings; parse to appropriate types in game logic
+- Both pointers reference flash memory, not RAM
+
+#### Example
+
+```cpp
+// Querying an attribute
+const char* solidValue = get_tile_attribute(0, 10, 5, "solid");
+if (solidValue && strcmp_P(solidValue, "true") == 0) {
+    // Tile is solid
+}
+
+// Converting string values
+const char* damageValue = get_tile_attribute(0, x, y, "damage");
+if (damageValue) {
+    int damage = atoi(damageValue);
+    player.takeDamage(damage);
+}
+```
+
+---
+
+### TileAttributeEntry
+
+**Inherits:** None
+
+Associates a tile position (x, y) with its metadata attributes. Only tiles with non-empty attributes are included in the exported data.
+
+#### Properties
+
+- **`uint16_t x`**  
+  Tile X coordinate in layer space (not pixel coordinates).
+
+- **`uint16_t y`**  
+  Tile Y coordinate in layer space (not pixel coordinates).
+
+- **`uint8_t num_attributes`**  
+  Number of attributes for this tile (maximum 255).
+
+- **`const TileAttribute* attributes`**  
+  PROGMEM array of attribute key-value pairs.
+
+#### Query Pattern
+
+```cpp
+// Manual query (low-level)
+for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+    const TileAttributeEntry& tile = layer.tiles[i];
+    if (tile.x == targetX && tile.y == targetY) {
+        // Found tile, search attributes
+        for (uint8_t j = 0; j < tile.num_attributes; j++) {
+            if (strcmp_P(tile.attributes[j].key, "solid") == 0) {
+                // Found "solid" attribute
+                const char* value = tile.attributes[j].value;
+                break;
+            }
+        }
+        break;
+    }
+}
+```
+
+#### Performance Notes
+
+- Tiles array is typically small (only tiles with attributes)
+- Linear search is acceptable for most use cases
+- Consider caching frequently accessed attributes in game logic
+
+---
+
+### LayerAttributes
+
+**Inherits:** None
+
+Organizes all tile metadata for a single tilemap layer. Provides efficient lookup of attributes by tile position.
+
+#### Properties
+
+- **`const char* layer_name`**  
+  Layer name (PROGMEM string). Matches the name defined in the Tilemap Editor (e.g., `"Background"`, `"Collision"`).
+
+- **`uint16_t num_tiles_with_attributes`**  
+  Number of tiles with attributes in this layer.
+
+- **`const TileAttributeEntry* tiles`**  
+  PROGMEM array of tiles with attributes (sparse representation).
+
+#### Usage Example
+
+```cpp
+// Typical usage in a scene
+#include "game_assets/level1.h" // Generated scene header
+
+void GameScene::init() {
+    // Query attribute for tile at (10, 5) in layer 0
+    const char* tileType = get_tile_attribute(0, 10, 5, "type");
+    
+    if (tileType && strcmp_P(tileType, "door") == 0) {
+        // Tile is a door, check if it's locked
+        const char* locked = get_tile_attribute(0, 10, 5, "locked");
+        if (locked && strcmp_P(locked, "true") == 0) {
+            // Door is locked
+        }
+    }
+}
+
+void GameScene::checkCollision(int tileX, int tileY) {
+    // Check if tile is solid
+    const char* solid = get_tile_attribute(0, tileX, tileY, "solid");
+    if (solid && strcmp_P(solid, "true") == 0) {
+        // Handle collision with solid tile
+        return true;
+    }
+    return false;
+}
+```
+
+#### Helper Functions
+
+Generated scene headers typically include helper functions for easier attribute access:
+
+```cpp
+// Generated in scene header (e.g., level1.h)
+namespace game_assets {
+
+// Query attribute by layer index, position, and key
+const char* get_tile_attribute(
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y,
+    const char* key
+);
+
+// Check if tile has any attributes
+bool tile_has_attributes(
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y
+);
+
+}
+```
+
+#### Memory Efficiency
+
+**Sparse Representation:**
+
+- Only tiles with attributes are stored
+- Empty tiles: 0 bytes overhead
+- Typical tile with 3 attributes: ~40 bytes (depends on key/value lengths)
+
+**Example Memory Usage:**
+
+```
+Tilemap: 32x32 tiles (1024 total)
+Tiles with attributes: 50 (4.9%)
+Average attributes per tile: 2
+Average key length: 8 bytes
+Average value length: 6 bytes
+
+Memory calculation:
+- TileAttributeEntry: 6 bytes × 50 = 300 bytes
+- TileAttribute: 8 bytes × 100 = 800 bytes
+- String data: (8 + 6) × 100 = 1400 bytes
+Total: ~2.5 KB in flash memory
+```
+
+#### Performance Considerations
+
+**Query Performance:**
+
+- O(n) where n = number of tiles with attributes in layer
+- Typically very fast (n is usually small, < 100)
+- Consider caching frequently accessed attributes
+
+**Optimization Strategies:**
+
+```cpp
+// Cache attributes during scene initialization
+class GameScene : public Scene {
+    struct TileCache {
+        bool isSolid;
+        bool isInteractable;
+        int damage;
+    };
+    
+    std::unordered_map<uint32_t, TileCache> tileCache;
+    
+    void init() override {
+        // Pre-cache attributes for all tiles
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                if (tile_has_attributes(0, x, y)) {
+                    TileCache cache;
+                    
+                    const char* solid = get_tile_attribute(0, x, y, "solid");
+                    cache.isSolid = solid && strcmp_P(solid, "true") == 0;
+                    
+                    const char* interact = get_tile_attribute(0, x, y, "interactable");
+                    cache.isInteractable = interact && strcmp_P(interact, "true") == 0;
+                    
+                    const char* dmg = get_tile_attribute(0, x, y, "damage");
+                    cache.damage = dmg ? atoi(dmg) : 0;
+                    
+                    uint32_t key = (y << 16) | x;
+                    tileCache[key] = cache;
+                }
+            }
+        }
+    }
+    
+    bool isTileSolid(int x, int y) {
+        uint32_t key = (y << 16) | x;
+        auto it = tileCache.find(key);
+        return it != tileCache.end() && it->second.isSolid;
+    }
+};
+```
+
+#### Common Attribute Patterns
+
+**Collision Detection:**
+
+```cpp
+const char* solid = get_tile_attribute(layer, x, y, "solid");
+if (solid && strcmp_P(solid, "true") == 0) {
+    // Tile blocks movement
+}
+```
+
+**Interaction System:**
+
+```cpp
+const char* type = get_tile_attribute(layer, x, y, "type");
+if (type && strcmp_P(type, "door") == 0) {
+    const char* locked = get_tile_attribute(layer, x, y, "locked");
+    if (!locked || strcmp_P(locked, "false") == 0) {
+        // Door is unlocked, can open
+    }
+}
+```
+
+**Damage Zones:**
+
+```cpp
+const char* damage = get_tile_attribute(layer, x, y, "damage");
+if (damage) {
+    int damageAmount = atoi(damage);
+    player.takeDamage(damageAmount);
+}
+```
+
+**Tile Behavior:**
+
+```cpp
+const char* animated = get_tile_attribute(layer, x, y, "animated");
+if (animated && strcmp_P(animated, "true") == 0) {
+    const char* speed = get_tile_attribute(layer, x, y, "speed");
+    int animSpeed = speed ? atoi(speed) : 1;
+    // Update tile animation
+}
+```
+
+---
+
 ### SpriteAnimationFrame
 
 **Inherits:** None
