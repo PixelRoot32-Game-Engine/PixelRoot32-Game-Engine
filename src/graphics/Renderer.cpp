@@ -515,6 +515,14 @@ namespace pixelroot32::graphics {
                     continue;
                 }
 
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    int tileIndex = rowIndexBase + tx;
+                    if (!(map.runtimeMask[tileIndex >> 3] & (1 << (tileIndex & 7)))) {
+                        continue;
+                    }
+                }
+
                 drawSprite(map.tiles[index], baseX, baseY, color, false);
             }
         }
@@ -571,6 +579,14 @@ namespace pixelroot32::graphics {
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {
                     continue;
+                }
+
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    int tileIndex = rowIndexBase + tx;
+                    if (!(map.runtimeMask[tileIndex >> 3] & (1 << (tileIndex & 7)))) {
+                        continue;
+                    }
                 }
 
                 const Sprite2bpp& tile = map.tiles[index];
@@ -642,6 +658,14 @@ namespace pixelroot32::graphics {
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {
                     continue;
+                }
+
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    int tileIndex = rowIndexBase + tx;
+                    if (!(map.runtimeMask[tileIndex >> 3] & (1 << (tileIndex & 7)))) {
+                        continue;
+                    }
                 }
 
                 const Sprite4bpp& tile = map.tiles[index];

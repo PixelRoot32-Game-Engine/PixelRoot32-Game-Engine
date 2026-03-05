@@ -94,6 +94,84 @@ struct TileMapGeneric {
     uint8_t         tileWidth;
     uint8_t         tileHeight;
     uint16_t        tileCount;
+    uint8_t*        runtimeMask;  ///< Bitmask for runtime tile activation (1 bit per tile, nullptr = all active)
+
+    /**
+     * @brief Initialize runtime mask buffer for tile activation control.
+     * 
+     * Allocates memory for tracking tile activation state. All tiles start as active.
+     * Memory usage: (width * height + 7) / 8 bytes.
+     * 
+     * @note Must be called before using isTileActive() or setTileActive()
+     * @note Existing mask is freed if already allocated
+     */
+    inline void initRuntimeMask() {
+        if (runtimeMask) {
+            delete[] runtimeMask;
+        }
+        int bytes = (width * height + 7) / 8;
+        runtimeMask = new uint8_t[bytes];
+        // Set all bits to 1 (all tiles active by default)
+        memset(runtimeMask, 0xFF, bytes);
+    }
+
+    /**
+     * @brief Check if a tile is currently active (visible).
+     * 
+     * @param x Tile X coordinate
+     * @param y Tile Y coordinate
+     * @return true if tile is active, false if inactive
+     * @note Returns true for out-of-bounds coordinates or when no mask is initialized
+     */
+    inline bool isTileActive(int x, int y) const {
+        if (!runtimeMask || x < 0 || x >= width || y < 0 || y >= height) {
+            return true;  // No mask or out of bounds = active by default
+        }
+        int index = y * width + x;
+        return runtimeMask[index >> 3] & (1 << (index & 7));
+    }
+
+    /**
+     * @brief Set tile activation state.
+     * 
+     * @param x Tile X coordinate
+     * @param y Tile Y coordinate  
+     * @param active true to activate tile (visible), false to deactivate (hidden)
+     * @note Out-of-bounds coordinates are ignored
+     */
+    inline void setTileActive(int x, int y, bool active) {
+        if (!runtimeMask || x < 0 || x >= width || y < 0 || y >= height) {
+            return;  // No mask or out of bounds = ignore
+        }
+        int index = y * width + x;
+        if (active) {
+            runtimeMask[index >> 3] |= (1 << (index & 7));
+        } else {
+            runtimeMask[index >> 3] &= ~(1 << (index & 7));
+        }
+    }
+
+    /**
+     * @brief Get pointer to runtime mask buffer.
+     * 
+     * @return Pointer to runtime mask array, or nullptr if not initialized
+     */
+    inline uint8_t* getRuntimeMask() const {
+        return runtimeMask;
+    }
+
+    /**
+     * @brief Destructor cleanup for runtime mask.
+     * 
+     * Note: This is not automatically called since TileMapGeneric is a POD struct.
+     * Users should manually call cleanupRuntimeMask() when destroying tilemaps.
+     */
+    inline void cleanupRuntimeMask() {
+        if (runtimeMask) {
+            delete[] runtimeMask;
+            runtimeMask = nullptr;
+        }
+    }
 };
 
 using TileMap = TileMapGeneric<Sprite>;

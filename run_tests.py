@@ -123,14 +123,26 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
     if not test_path.exists():
         print(f"❌ Does not exist: {test_path}")
         return False
+    if not unity_c.exists():
+        print(f"❌ Unity not found at {unity_c}")
+        return False
     
-    # Prepare list of files to compile
+    # Build file list
     files = [str(test_path), str(unity_c)]
     if source_files:
-        files.extend(source_files)
+        for src in source_files:
+            src_path = Path(src)
+            if src_path.exists():
+                files.append(str(src_path))
+            else:
+                print(f"⚠️  Source file not found: {src_path}")
     
-    # Compile
-    cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + ["-o", str(output_path)]
+    # Add SDL libraries for tests that need them
+    linker_flags = []
+    if test_name in ["Engine-Integration", "Game-Loop"]:
+        linker_flags.extend(["-lSDL2", "-lSDL2main"])
+    
+    cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + linker_flags + ["-o", str(output_path)]
     
     if not run_command(cmd, f"Compiling {test_name}"):
         return False
@@ -186,6 +198,11 @@ def main():
         ("Audio-Music", "test/unit/test_music_player/test_music_player.cpp", "test_music_player", ["src/audio/MusicPlayer.cpp", "src/audio/AudioEngine.cpp", "src/audio/DefaultAudioScheduler.cpp"]),
         ("Physics-Expansion", "test/unit/test_physics_expansion/test_physics_expansion.cpp", "test_physics_expansion", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/RigidActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
         ("TileAttributes-Property", "test/unit/test_tile_attributes/test_tile_attribute_query_property.cpp", "test_tile_attribute_query_property", None),
+        ("TileMask", "test/unit/test_tile_mask/test_tile_mask.cpp", "test_tile_mask", None),
+        ("TileCollection", "test/test_engine_integration/test_tile_collection.cpp", "test_tile_collection", ["src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("TilePerformance", "test/test_engine_integration/test_tile_performance.cpp", "test_tile_performance", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Engine-Integration", "test/test_engine_integration/test_engine_integration.cpp", "test_engine_integration", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
+        ("Game-Loop", "test/test_game_loop/test_game_loop.cpp", "test_game_loop", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
     ]
     
     results = []
