@@ -98,6 +98,20 @@ protected:
     CollisionShape shape = CollisionShape::AABB;
     pixelroot32::math::Scalar radius = pixelroot32::math::toScalar(0.0f);
 
+    /**
+     * @brief Opaque user data pointer for attaching custom metadata.
+     * 
+     * The engine does not interpret, manage, or free this pointer.
+     * Typical use cases:
+     * - Store tile coordinates in tilemap collision (pack x,y into uintptr_t)
+     * - Reference custom actor properties without extending the class
+     * - Debug identifiers or names
+     * 
+     * @warning The caller is responsible for ensuring the pointed data
+     *          remains valid for the lifetime of the actor.
+     */
+    void* userData = nullptr;
+
 
 public:
     bool bounce = true; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
@@ -324,6 +338,18 @@ public:
         width = static_cast<int>(r * dm);
         height = static_cast<int>(r * dm);
     }
+
+    /**
+     * @brief Set user data pointer for custom metadata.
+     * @param data Opaque pointer. Engine does not manage lifetime.
+     */
+    void setUserData(void* data) { userData = data; }
+    
+    /**
+     * @brief Get user data pointer.
+     * @return Pointer set via setUserData, or nullptr if never set.
+     */
+    void* getUserData() const { return userData; }
 
     /**
      * @brief Callback triggered when this actor collides with another actor.
