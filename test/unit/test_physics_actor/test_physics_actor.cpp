@@ -11,6 +11,7 @@
 #include "graphics/Renderer.h"
 #include "math/Scalar.h"
 #include "math/Vector2.h"
+#include "physics/TileAttributes.h"
 #include "../../test_config.h"
 
 using namespace pixelroot32::core;
@@ -174,6 +175,19 @@ void test_physics_actor_set_radius(void) {
 void test_physics_actor_bounce_default(void) {
     TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
     TEST_ASSERT_TRUE(actor.bounce);
+}
+
+void test_physics_actor_one_way_default_false(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    TEST_ASSERT_FALSE(actor.isOneWay());
+}
+
+void test_physics_actor_set_one_way(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    actor.setOneWay(true);
+    TEST_ASSERT_TRUE(actor.isOneWay());
+    actor.setOneWay(false);
+    TEST_ASSERT_FALSE(actor.isOneWay());
 }
 
 // =============================================================================
@@ -572,6 +586,32 @@ void test_user_data_coord_encoding_real_world(void) {
 }
 
 // =============================================================================
+// TileAttributes (Fase 5)
+// =============================================================================
+
+void test_tile_attributes_pack_unpack(void) {
+    using namespace pixelroot32::physics;
+    uint16_t x = 100, y = 200;
+    TileCollisionBehavior beh = TileCollisionBehavior::ONE_WAY_UP;
+    uintptr_t packed = packTileData(x, y, beh);
+    uint16_t x2, y2;
+    TileCollisionBehavior beh2;
+    unpackTileData(packed, x2, y2, beh2);
+    TEST_ASSERT_EQUAL(x, x2);
+    TEST_ASSERT_EQUAL(y, y2);
+    TEST_ASSERT_EQUAL(static_cast<int>(beh), static_cast<int>(beh2));
+}
+
+void test_tile_attributes_behavior_enum(void) {
+    using namespace pixelroot32::physics;
+    TEST_ASSERT_EQUAL(0, static_cast<int>(TileCollisionBehavior::SOLID));
+    TEST_ASSERT_EQUAL(1, static_cast<int>(TileCollisionBehavior::SENSOR));
+    TEST_ASSERT_EQUAL(2, static_cast<int>(TileCollisionBehavior::ONE_WAY_UP));
+    TEST_ASSERT_EQUAL(3, static_cast<int>(TileCollisionBehavior::DAMAGE));
+    TEST_ASSERT_EQUAL(4, static_cast<int>(TileCollisionBehavior::DESTRUCTIBLE));
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -648,6 +688,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_user_data_coord_encoding);
     RUN_TEST(test_user_data_coord_encoding_limits);
     RUN_TEST(test_user_data_coord_encoding_real_world);
+    RUN_TEST(test_physics_actor_one_way_default_false);
+    RUN_TEST(test_physics_actor_set_one_way);
+    RUN_TEST(test_tile_attributes_pack_unpack);
+    RUN_TEST(test_tile_attributes_behavior_enum);
     
     return UNITY_END();
 }

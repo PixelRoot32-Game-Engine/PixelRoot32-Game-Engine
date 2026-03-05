@@ -20,9 +20,12 @@ Understanding the engine's memory limits is crucial for developing stable games 
 |-------|--------------|--------------|-------------|
 | **Max Entities** | 32 | ✅ via `MAX_ENTITIES` | Maximum entities per scene |
 | **Max Layers** | 3 | ✅ via `MAX_LAYERS` | Maximum render layers (0=Bg, 1=Game, 2=UI) |
-| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs per frame |
+| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs considered in broadphase |
+| **Max Physics Contacts** | 128 | ✅ via `PHYSICS_MAX_CONTACTS` | Fixed contact pool size; no heap per frame. Excess contacts are dropped. |
 | **Spatial Grid Cell Size** | 32px | ✅ via `SPATIAL_GRID_CELL_SIZE` | Size of uniform grid cells |
-| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Grid cell capacity |
+| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Legacy single-grid capacity |
+| **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
+| **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
 | **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
 
 ### Memory Footprint by Resolution
@@ -65,6 +68,7 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=128
 -D MAX_ENTITIES=24
 -D PHYSICS_MAX_PAIRS=64
+-D PHYSICS_MAX_CONTACTS=64
 ```
 
 **For richer scenes (with PSRAM):**
@@ -75,7 +79,10 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=240
 -D MAX_ENTITIES=64
 -D PHYSICS_MAX_PAIRS=256
+-D PHYSICS_MAX_CONTACTS=256
 ```
+
+**Collision system memory (v1.0+):** The solver uses a **fixed contact array** (`PHYSICS_MAX_CONTACTS` entries) and a **dual-layer spatial grid** (static + dynamic cells). No heap is allocated during `detectCollisions()`; only the static/dynamic grid buffers and the contact array occupy static memory. Reducing `PHYSICS_MAX_CONTACTS` or the per-cell limits lowers RAM use at the cost of dropping contacts or actors when limits are exceeded.
 
 ### Runtime Memory Monitoring
 

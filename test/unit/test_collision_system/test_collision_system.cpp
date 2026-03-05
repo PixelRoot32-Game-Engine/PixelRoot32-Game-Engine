@@ -364,6 +364,42 @@ void test_collision_system_swept_circle_vs_aabb_ccd(void) {
     system.update();
 }
 
+// =============================================================================
+// Fase 5 — One-way platform
+// =============================================================================
+
+void test_collision_system_one_way_platform_land_from_above(void) {
+    CollisionSystem system;
+    MockActor player(40, 24, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    platform.setCollisionLayer(1);
+    platform.setCollisionMask(1);
+    player.setVelocity(0.0f, 50.0f);
+    system.addEntity(&platform);
+    system.addEntity(&player);
+    system.update();
+    TEST_ASSERT_TRUE(player.collisionCalled);
+}
+
+void test_collision_system_one_way_platform_jump_through_from_below(void) {
+    CollisionSystem system;
+    MockActor player(40, 60, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    platform.setCollisionLayer(1);
+    platform.setCollisionMask(1);
+    player.setVelocity(0.0f, -30.0f);
+    system.addEntity(&platform);
+    system.addEntity(&player);
+    system.update();
+    TEST_ASSERT_FALSE(player.collisionCalled);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -391,6 +427,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_collision_system_circle_vs_circle);
     RUN_TEST(test_collision_system_circle_vs_aabb);
     RUN_TEST(test_collision_system_swept_circle_vs_aabb_ccd);
+    RUN_TEST(test_collision_system_one_way_platform_land_from_above);
+    RUN_TEST(test_collision_system_one_way_platform_jump_through_from_below);
     
     return UNITY_END();
 }

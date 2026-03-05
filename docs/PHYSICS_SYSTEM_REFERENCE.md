@@ -48,14 +48,12 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 
 ## 3. Collision Detection
 
-### 3.1 Broadphase: Spatial Grid
+### 3.1 Broadphase: Dual-Layer Spatial Grid
 
-- Uniform grid with configurable cell size (default: 32px)
-- Shared static buffers on ESP32 (saves ~100KB DRAM)
-- Detects:
-  - Rigid vs Rigid
-  - Rigid vs Static
-  - Rigid vs Kinematic
+- **Static layer**: Contains only STATIC bodies. Rebuilt only when entities are added or removed (`markStaticDirty()`). Not cleared each frame.
+- **Dynamic layer**: Contains RIGID and KINEMATIC bodies. Cleared and refilled every frame.
+- **Query**: `getPotentialColliders()` merges results from both layers (per cell), with deduplication via `Actor::queryId`.
+- **Config**: `SPATIAL_GRID_CELL_SIZE` (default 32px), `SPATIAL_GRID_MAX_STATIC_PER_CELL` (12), `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (12). Reduces per-frame cost when many static tiles are present.
 
 ### 3.2 Narrowphase: Shape Interactions
 
@@ -65,7 +63,13 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 | Circle vs Circle | Distance check with vertical fallback for perfect overlap |
 | Circle vs AABB | Closest point clamping |
 
-### 3.3 Contact Generation
+### 3.3 Contact Generation and Pool
+
+- Contacts are stored in a **fixed-size array** (`PHYSICS_MAX_CONTACTS`, default 128). No heap allocation in the hot path.
+- When the contact count would exceed the maximum, additional contacts are **dropped** (no crash). Tune `PHYSICS_MAX_CONTACTS` in `EngineConfig.h` if needed.
+- Each contact carries `isSensorContact = true` when either body is a sensor; these are skipped in the velocity and penetration solvers.
+
+### 3.4 Contact Restitution
 
 When a contact is generated, the solver pre-calculates the restitution coefficient:
 
@@ -134,22 +138,51 @@ bodyB->position -= correctionVec * invMassB;
 
 ---
 
-## 5. Actor Types
+## 5. Sensors and One-Way Platforms
 
-### 5.1 RigidActor
+### 5.1 Sensors (Triggers)
+
+- **`PhysicsActor::setSensor(true)`**: The body generates collision events and `onCollision()` is called, but **no impulse** and **no penetration correction** are applied.
+- Use for: collectibles, checkpoints, damage zones, area triggers.
+- **SensorActor** (include `physics/SensorActor.h`): A `StaticActor` subclass that calls `setSensor(true)` in the constructor.
+- In `onCollision`, you can check `other->isSensor()` to distinguish triggers from solid bodies.
+
+### 5.2 One-Way Platforms
+
+- **`PhysicsActor::setOneWay(true)`**: The body blocks only when the other body is “landing from above” (contact normal points upward from the platform and the moving body’s velocity has a downward component). Contacts from below (e.g. jumping through the platform) are rejected.
+- Use for: platforms the player can jump through from below and land on from above.
+- Applies in both discrete narrowphase and in the CCD path (swept circle vs static AABB).
+
+---
+
+## 6. Tile Attributes (Physics)
+
+For tile-based colliders, the engine provides **`physics/TileAttributes.h`**:
+
+- **`TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
+- **`packTileData(x, y, behavior)`** / **`unpackTileData()`**: Encode tile coords (10+10 bits) and behavior (4 bits) into a single value for `setUserData()`.
+- **`packCoord`** / **`unpackCoord`**: Legacy 16+16 bit encoding for coords only.
+
+When building colliders from a tilemap, set `setSensor(true)` or `setOneWay(true)` according to the tile behavior, and store metadata with `setUserData(reinterpret_cast<void*>(packTileData(tx, ty, behavior)))`. Destruction and damage logic remain in game code using `getUserData()` and `setEnabled(false)` / tilemap updates.
+
+---
+
+## 7. Actor Types
+
+### 7.1 RigidActor
 
 - Fully simulated: gravity, forces, collisions
 - Position integrated by CollisionSystem
 - Supports both CIRCLE and AABB shapes
 - Use for: Balls, props, debris
 
-### 5.2 StaticActor
+### 7.2 StaticActor
 
 - Immovable, infinite mass
 - Participates in collisions but never moves
 - Use for: Walls, floors, platforms
 
-### 5.3 KinematicActor
+### 7.3 KinematicActor
 
 - Moved by game logic, not physics
 - Participates in collisions (pushes Rigid actors)
@@ -158,9 +191,9 @@ bodyB->position -= correctionVec * invMassB;
 
 ---
 
-## 6. Continuous Collision Detection (CCD)
+## 8. Continuous Collision Detection (CCD)
 
-### 6.1 When It Activates
+### 8.1 When It Activates
 
 CCD is used only when necessary:
 
@@ -178,7 +211,7 @@ bool needsCCD(PhysicsActor* body) {
 }
 ```
 
-### 6.2 Swept Test Algorithm
+### 8.2 Swept Test Algorithm
 
 ```cpp
 // Simple swept circle vs AABB
@@ -191,11 +224,22 @@ Use case: Prevents tunneling when ball moves extremely fast (> 3x radius per fra
 
 ---
 
-## 7. Configuration
+## 9. Configuration
 
-### 7.1 Physics Constants
+### 9.1 Physics Constants
 
-Tune in `CollisionSystem.h`:
+Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build flags:
+
+```cpp
+// Contact pool size (fixed array, no heap)
+#define PHYSICS_MAX_CONTACTS 128
+
+// Grid layers (static = rebuilt when entities change; dynamic = per frame)
+#define SPATIAL_GRID_MAX_STATIC_PER_CELL  12
+#define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
+```
+
+Solver tuning (in code):
 
 ```cpp
 // For more stable stacking (slower)
@@ -206,7 +250,7 @@ static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
 static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
 ```
 
-### 7.2 Per-Actor Properties
+### 9.2 Per-Actor Properties
 
 ```cpp
 // Restitution (bounciness): 0.0 to 1.0+
@@ -225,16 +269,16 @@ actor->setRadius(toScalar(6));
 
 ---
 
-## 8. Performance Guide
+## 10. Performance Guide
 
-### 8.1 ESP32-C3 (Non-FPU)
+### 10.1 ESP32-C3 (Non-FPU)
 
 - **Target**: < 20 dynamic bodies @ 60 FPS
 - **Use AABB** over Circle when possible (cheaper)
 - **CCD has overhead**: Only triggers when needed
 - **Slop helps**: Skip unnecessary corrections
 
-### 8.2 ESP32 (With FPU)
+### 10.2 ESP32 (With FPU)
 
 - **Target**: < 50 dynamic bodies @ 60 FPS
 - Circles are fine
@@ -242,9 +286,9 @@ actor->setRadius(toScalar(6));
 
 ---
 
-## 9. Migration from v0.8.x / v0.9.0
+## 11. Migration from v0.8.x / v0.9.0
 
-### 9.1 Key Changes
+### 11.1 Key Changes
 
 | Old (v0.8.x) | New |
 |--------------|------------|
@@ -255,7 +299,7 @@ actor->setRadius(toScalar(6));
 | Kinematic vs Rigid detection broken | Fixed and working |
 | Variable timestep | Fixed timestep (1/60s) |
 
-### 9.2 Code Changes Required
+### 11.2 Code Changes Required
 
 **Before:**
 
@@ -276,7 +320,7 @@ void RigidActor::update(unsigned long deltaTime) {
 }
 ```
 
-### 9.3 Behavior Differences
+### 11.3 Behavior Differences
 
 1. **More stable stacking**: Impulse solver handles multiple contacts better
 2. **Perfect elastic collisions**: Restitution 1.0 actually works now
@@ -285,7 +329,7 @@ void RigidActor::update(unsigned long deltaTime) {
 
 ---
 
-## 10. Best Practices
+## 12. Best Practices
 
 1. **Always set shape**: `setShape(CollisionShape::CIRCLE)` or `AABB`
 2. **Set radius for circles**: `setRadius(toScalar(r))` (critical for CCD)
