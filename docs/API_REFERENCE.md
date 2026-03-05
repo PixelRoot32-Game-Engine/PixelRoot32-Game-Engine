@@ -329,6 +329,55 @@ Configuration settings for display initialization and scaling.
 
 ---
 
+## Graphics Module
+
+The Graphics module manages rendering, sprites, tilemaps, and associated metadata.
+
+### Tile Attribute System
+
+The tile attribute system allows querying custom metadata attached to tiles at runtime.
+
+#### Data Structures
+
+- **`TileAttribute`**
+    Represents a single key-value pair.
+    - `const char* key`: Attribute key string (PROGMEM).
+    - `const char* value`: Attribute value string (PROGMEM).
+
+- **`TileAttributeEntry`**
+    Represents all attributes for a specific tile position.
+    - `uint16_t x, y`: Tile coordinates.
+    - `uint8_t num_attributes`: Number of attributes for this tile.
+    - `const TileAttribute* attributes`: Pointer to an array of attributes (PROGMEM).
+
+- **`LayerAttributes`**
+    Represents attribute data for an entire layer.
+    - `const char* layer_name`: Name of the layer.
+    - `uint16_t num_tiles_with_attributes`: Number of tiles in this layer that have attributes.
+    - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (PROGMEM).
+
+#### Query Functions
+
+**Namespace:** `pixelroot32::graphics`
+
+These functions are defined as `inline` in `Renderer.h` for maximum performance.
+
+- **`const char* get_tile_attribute(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y, const char* key)`**
+    Returns the value of a specific attribute for a tile. Returns `nullptr` if the attribute or tile does not exist.
+    - `layers`: Pointer to the `layer_attributes` array.
+    - `num_layers`: Total number of layers with attributes.
+    - `layer_idx`: Index of the layer to query.
+    - `x, y`: Tile coordinates.
+    - `key`: The attribute key to search for (supports RAM or PROGMEM strings).
+
+- **`bool tile_has_attributes(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
+    Returns `true` if the tile at the specified position has any attributes.
+
+- **`const TileAttributeEntry* get_tile_entry(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
+    Returns a pointer to the entire `TileAttributeEntry` for a tile. Useful for iterating through all attributes of a tile or performing multiple queries efficiently. Returns `nullptr` if the tile has no attributes.
+
+---
+
 ## Audio Module
 
 The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise

@@ -20,6 +20,24 @@
     #include <mock/MockSafeString.h>
 #endif
 
+// PROGMEM compatibility macros for cross-platform flash memory access
+#if defined(ESP32) || defined(ESP8266)
+    #include <pgmspace.h>
+    #define PIXELROOT32_MEMCPY_P memcpy_P
+    #define PIXELROOT32_STRCMP_P strcmp_P
+#elif defined(__AVR__)
+    #include <avr/pgmspace.h>
+    #define PIXELROOT32_MEMCPY_P memcpy_P
+    #define PIXELROOT32_STRCMP_P strcmp_P
+#else
+    // Fallback for non-embedded platforms (desktop, testing)
+    #define PROGMEM
+    #define PIXELROOT32_MEMCPY_P memcpy
+    #define PIXELROOT32_STRCMP_P strcmp
+#endif
+
+#define PIXELROOT32_SCENE_FLASH_ATTR PROGMEM
+
 namespace pixelroot32::graphics {
 
 /**
@@ -231,6 +249,252 @@ struct LayerAttributes {
     uint16_t num_tiles_with_attributes;   ///< Number of tiles with attributes in this layer
     const TileAttributeEntry* tiles;      ///< PROGMEM array of tiles with attributes (sparse)
 };
+
+/**
+ * @brief Query a tile attribute value by position and key.
+ * 
+ * Searches the layer attributes for a tile at the specified position and
+ * returns the value associated with the given key. All data is read from
+ * PROGMEM (flash memory) to minimize RAM usage.
+ * 
+ * This function performs O(n) linear search through tiles and attributes.
+ * For querying multiple attributes from the same tile, consider caching
+ * the tile lookup or using a more optimized approach.
+ * 
+ * @param layer_attributes Pointer to PROGMEM array of LayerAttributes
+ * @param num_layers Number of layers in the array
+ * @param layer_idx Index of the layer to query (0-based)
+ * @param x Tile X coordinate
+ * @param y Tile Y coordinate
+ * @param key Attribute key to search for (may be RAM or PROGMEM string)
+ * @return Pointer to PROGMEM attribute value string, or nullptr if not found
+ * 
+ * @note Returns nullptr if:
+ *       - layer_idx >= num_layers (out of bounds)
+ *       - Layer is empty (num_tiles_with_attributes == 0)
+ *       - Tile at (x, y) does not exist
+ *       - Tile exists but does not have the specified key
+ * 
+ * @note The returned pointer references PROGMEM. Use strcmp_P() or similar
+ *       functions to compare values.
+ * 
+ * Example usage:
+ * ```cpp
+ * // Query "solid" attribute for tile at (10, 5) in layer 0
+ * const char* value = pixelroot32::graphics::get_tile_attribute(
+ *     layer_attributes, NUM_LAYERS_WITH_ATTRIBUTES, 0, 10, 5, "solid"
+ * );
+ * if (value && strcmp_P(value, "true") == 0) {
+ *     // Tile is solid
+ * }
+ * ```
+ * 
+ * @see tile_has_attributes() for checking if a tile has any attributes
+ * @see LayerAttributes for layer-level organization
+ * @see TileAttributeEntry for tile position association
+ * @see TileAttribute for individual key-value pairs
+ */
+inline const char* get_tile_attribute(
+    const LayerAttributes* layer_attributes,
+    uint8_t num_layers,
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y,
+    const char* key
+) {
+    // Check if layer exists
+    if (layer_idx >= num_layers) {
+        return nullptr;
+    }
+    
+    // Get layer from PROGMEM
+    LayerAttributes layer;
+    PIXELROOT32_MEMCPY_P(&layer, &layer_attributes[layer_idx], sizeof(LayerAttributes));
+    
+    // Search for tile at position (x, y)
+    for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+        TileAttributeEntry tile;
+        PIXELROOT32_MEMCPY_P(&tile, &layer.tiles[i], sizeof(TileAttributeEntry));
+        
+        if (tile.x == x && tile.y == y) {
+            // Found tile, search for attribute key
+            for (uint8_t j = 0; j < tile.num_attributes; j++) {
+                TileAttribute attr;
+                PIXELROOT32_MEMCPY_P(&attr, &tile.attributes[j], sizeof(TileAttribute));
+                
+                // Compare keys using PROGMEM-safe function
+                if (PIXELROOT32_STRCMP_P(key, attr.key) == 0) {
+                    return attr.value;
+                }
+            }
+            break;  // Tile found but key not present
+        }
+    }
+    
+    return nullptr;  // Tile not found or attribute not present
+}
+
+/**
+ * @brief Check if a tile at the given position has any attributes.
+ * 
+ * This function searches for a tile at the specified coordinates in the given
+ * layer and returns true if the tile exists (has any attributes), false otherwise.
+ * All data is read from PROGMEM (flash memory) to minimize RAM usage.
+ * 
+ * This function performs O(n) linear search through tiles. It is more efficient
+ * than calling get_tile_attribute() when you only need to check for tile existence
+ * without querying specific attribute values.
+ * 
+ * @param layer_attributes Pointer to PROGMEM array of LayerAttributes
+ * @param num_layers Number of layers in the array
+ * @param layer_idx Index of the layer to query (0-based)
+ * @param x Tile X coordinate
+ * @param y Tile Y coordinate
+ * @return true if tile has attributes, false otherwise
+ * 
+ * @note Returns false if:
+ *       - layer_idx >= num_layers (out of bounds)
+ *       - Layer is empty (num_tiles_with_attributes == 0)
+ *       - Tile at (x, y) does not exist in the layer
+ * 
+ * @note This function only checks for tile existence. To query specific
+ *       attribute values, use get_tile_attribute().
+ * 
+ * Example usage:
+ * ```cpp
+ * // Check if tile at (10, 5) in layer 0 has any attributes
+ * if (pixelroot32::graphics::tile_has_attributes(
+ *     layer_attributes, NUM_LAYERS_WITH_ATTRIBUTES, 0, 10, 5
+ * )) {
+ *     // Tile has attributes, query specific values
+ *     const char* solid = pixelroot32::graphics::get_tile_attribute(
+ *         layer_attributes, NUM_LAYERS_WITH_ATTRIBUTES, 0, 10, 5, "solid"
+ *     );
+ * }
+ * ```
+ * 
+ * @see get_tile_attribute() for querying specific attribute values
+ * @see LayerAttributes for layer-level organization
+ * @see TileAttributeEntry for tile position association
+ */
+inline bool tile_has_attributes(
+    const LayerAttributes* layer_attributes,
+    uint8_t num_layers,
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y
+) {
+    // Check if layer exists
+    if (layer_idx >= num_layers) {
+        return false;
+    }
+    
+    // Get layer from PROGMEM
+    LayerAttributes layer;
+    PIXELROOT32_MEMCPY_P(&layer, &layer_attributes[layer_idx], sizeof(LayerAttributes));
+    
+    // Search for tile at position (x, y)
+    for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+        TileAttributeEntry tile;
+        PIXELROOT32_MEMCPY_P(&tile, &layer.tiles[i], sizeof(TileAttributeEntry));
+        
+        if (tile.x == x && tile.y == y) {
+            return true;  // Tile found
+        }
+    }
+    
+    return false;  // Tile not found
+}
+
+/**
+ * @brief Get the TileAttributeEntry for a tile at the given position.
+ * 
+ * This function is optimized for cases where multiple attributes need to be
+ * queried from the same tile. Instead of searching for each attribute
+ * individually, get the entry once and iterate through its attributes.
+ * 
+ * This function performs O(n) linear search through tiles to find the matching
+ * position. Once found, it returns a pointer to the TileAttributeEntry in
+ * PROGMEM, allowing the caller to read and iterate through all attributes
+ * efficiently.
+ * 
+ * @param layer_attributes Pointer to PROGMEM array of LayerAttributes
+ * @param num_layers Number of layers in the array
+ * @param layer_idx Index of the layer to query (0-based)
+ * @param x Tile X coordinate
+ * @param y Tile Y coordinate
+ * @return Pointer to TileAttributeEntry in PROGMEM, or nullptr if not found
+ * 
+ * @note Returns nullptr if:
+ *       - layer_idx >= num_layers (out of bounds)
+ *       - Layer is empty (num_tiles_with_attributes == 0)
+ *       - Tile at (x, y) does not exist in the layer
+ * 
+ * @note The returned pointer references PROGMEM. Use PIXELROOT32_MEMCPY_P
+ *       to read the entry into RAM before accessing its fields.
+ * 
+ * @note This function is more efficient than calling get_tile_attribute()
+ *       multiple times for the same tile, as it performs the position lookup
+ *       only once.
+ * 
+ * Example usage:
+ * ```cpp
+ * // Query multiple attributes from tile at (10, 5) in layer 0
+ * const TileAttributeEntry* entry_ptr = pixelroot32::graphics::get_tile_entry(
+ *     layer_attributes, NUM_LAYERS_WITH_ATTRIBUTES, 0, 10, 5
+ * );
+ * 
+ * if (entry_ptr) {
+ *     // Read entry from PROGMEM into RAM
+ *     TileAttributeEntry entry;
+ *     PIXELROOT32_MEMCPY_P(&entry, entry_ptr, sizeof(TileAttributeEntry));
+ *     
+ *     // Iterate through all attributes
+ *     for (uint8_t i = 0; i < entry.num_attributes; i++) {
+ *         TileAttribute attr;
+ *         PIXELROOT32_MEMCPY_P(&attr, &entry.attributes[i], sizeof(TileAttribute));
+ *         
+ *         // Process attribute key and value
+ *         // attr.key and attr.value are PROGMEM pointers
+ *         // Use strcmp_P() or similar functions to compare
+ *     }
+ * }
+ * ```
+ * 
+ * @see get_tile_attribute() for querying a single attribute value
+ * @see tile_has_attributes() for checking tile existence
+ * @see LayerAttributes for layer-level organization
+ * @see TileAttributeEntry for tile attribute structure
+ */
+inline const TileAttributeEntry* get_tile_entry(
+    const LayerAttributes* layer_attributes,
+    uint8_t num_layers,
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y
+) {
+    // Check if layer exists
+    if (layer_idx >= num_layers) {
+        return nullptr;
+    }
+    
+    // Get layer from PROGMEM
+    LayerAttributes layer;
+    PIXELROOT32_MEMCPY_P(&layer, &layer_attributes[layer_idx], sizeof(LayerAttributes));
+    
+    // Search for tile at position (x, y)
+    for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+        TileAttributeEntry tile;
+        PIXELROOT32_MEMCPY_P(&tile, &layer.tiles[i], sizeof(TileAttributeEntry));
+        
+        if (tile.x == x && tile.y == y) {
+            // Return pointer to entry in PROGMEM (not the copied tile)
+            return &layer.tiles[i];
+        }
+    }
+    
+    return nullptr;  // Tile not found
+}
 
 /**
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.

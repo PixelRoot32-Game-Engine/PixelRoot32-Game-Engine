@@ -355,14 +355,15 @@ Entity
 
 **Architecture**:
 
-The tile attribute system provides a lightweight way to attach custom metadata to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures for ESP32 runtime access.
+The tile attribute system provides a lightweight way to attach custom metadata to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures. The query logic is centralized in the engine layer (`Renderer.h`) to minimize code duplication in scene headers.
 
 **Design Philosophy**:
 
-- **Editor-Only Defaults**: Tileset default attributes remain in the editor; only final resolved values are exported
-- **Sparse Representation**: Only tiles with attributes are included in exported data
-- **Flash Storage**: All attribute data stored in PROGMEM to minimize RAM usage
-- **Simple Query API**: Position-based lookup without inheritance logic at runtime
+- **Centralized Query Logic**: Logic for searching attributes is implemented once in the engine as inline functions.
+- **Editor-Only Defaults**: Tileset default attributes remain in the editor; only final resolved values are exported.
+- **Sparse Representation**: Only tiles with attributes are included in exported data.
+- **Flash Storage**: All attribute data stored in PROGMEM to minimize RAM usage.
+- **Simple Query API**: Position-based lookup without inheritance logic at runtime.
 
 **Data Flow**:
 
@@ -377,9 +378,9 @@ Tilemap Editor
             ├── TileAttributeEntry arrays (per-position)
             └── LayerAttributes arrays (per-layer)
             │
-            ▼ (runtime query)
+            ▼ (runtime query calls engine)
     Game Logic
-            └── get_tile_attribute(layer, x, y, key)
+            └── get_tile_attribute(layers, num, idx, x, y, key)
 ```
 
 **Memory Optimization**:
