@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "core/Log.h"
+
 #ifdef PLATFORM_NATIVE
     #include <platforms/mock/MockArduino.h>
 #else

@@ -49,3 +49,71 @@ uint8_t val = PIXELROOT32_READ_BYTE_P(&my_array[i]);
 
 > [!TIP]
 > Using these macros ensures your code remains compatible with the Desktop simulator (Native) without extra `#ifdef` logic, as they automatically resolve to standard C memory operations on non-embedded platforms.
+
+---
+
+## 📝 Unified Logging System
+
+Version 1.1.0 introduces a centralized logging abstraction layer that works consistently across ESP32 and native platforms, eliminating the need for platform-specific `#ifdef` blocks in your logging code.
+
+### 1. Core Logging API
+
+Include **`core/Log.h`** for platform-agnostic logging with different log levels.
+
+**Before:**
+
+```cpp
+#ifdef ESP32
+    Serial.print("[INFO] Player position: ");
+    Serial.println(playerX);
+#else
+    printf("[INFO] Player position: %d\n", playerX);
+#endif
+```
+
+**After:**
+
+```cpp
+#include "core/Log.h"
+
+using namespace pixelroot32::core::logging;
+
+// Log with explicit level
+log(LogLevel::Info, "Player position: %d", playerX);
+
+// Log with default Info level (shorthand)
+log("Player position: %d", playerX);
+```
+
+### 2. Platform Logging (ESP32 Specific)
+
+For ESP32-specific platform code, use **`platforms/PlatformLog.h`** with the same unified API:
+
+```cpp
+#include "platforms/PlatformLog.h"
+
+using namespace pixelroot32::platforms::logging;
+
+// Works on both ESP32 and native
+log(LogLevel::Warning, "Battery low: %d%%", batteryPercent);
+log(LogLevel::Error, "Connection failed");
+```
+
+### 3. Log Levels Mapping
+
+| LogLevel Enum | Output Prefix | Use Case |
+|--------------|---------------|----------|
+| `LogLevel::Info` | `[INFO]` | General information, debug messages |
+| `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
+| `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
+
+### 4. Migration Checklist
+
+- [ ] Replace `#ifdef ESP32 Serial.print/println` blocks with `log()` calls
+- [ ] Replace `printf()` calls in native code with `log()` calls
+- [ ] Remove manual `#ifdef` blocks around logging statements
+- [ ] Use explicit `LogLevel` for warnings and errors
+- [ ] Use the shorthand `log(fmt, ...)` for Info-level messages
+
+> [!TIP]
+> The logging system automatically routes to the appropriate output (Serial for ESP32, stdout for native) without polluting your code with platform checks.

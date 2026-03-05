@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include "drivers/esp32/ESP32_I2S_AudioBackend.h"
+#include "core/Log.h"
 
 #if defined(PIXELROOT32_USE_I2S_AUDIO)
 
@@ -10,6 +11,8 @@
 #include <Arduino.h>
 
 namespace pixelroot32::drivers::esp32 {
+
+    using namespace pixelroot32::core::logging;
 
     // FreeRTOS task wrapper
     static void audioTaskTrampoline(void* arg) {
@@ -58,13 +61,13 @@ namespace pixelroot32::drivers::esp32 {
         // Install and start I2S driver
         esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
         if (err != ESP_OK) {
-            Serial.printf("Failed to install I2S driver: %d\n", err);
+            log("Failed to install I2S driver: %d", err);
             return;
         }
 
         err = i2s_set_pin(I2S_NUM_0, &pin_config);
         if (err != ESP_OK) {
-            Serial.printf("Failed to set I2S pins: %d\n", err);
+            log("Failed to set I2S pins: %d", err);
             return;
         }
 

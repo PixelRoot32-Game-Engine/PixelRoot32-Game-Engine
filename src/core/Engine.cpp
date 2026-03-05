@@ -4,6 +4,7 @@
  */
 #include "core/Engine.h"
 #include "core/Scene.h"
+#include "core/Log.h"
 #include "input/InputConfig.h"
 #include "graphics/FontManager.h"
 #include "graphics/Font5x7.h"
@@ -14,6 +15,7 @@
 
 namespace pixelroot32::core {
 
+    using namespace pixelroot32::core::logging;
     using namespace pixelroot32::graphics;
     using namespace pixelroot32::input;
     using namespace pixelroot32::audio;
@@ -114,7 +116,7 @@ namespace pixelroot32::core {
 
             if (millis() - lastHeartbeat > 1000) {
                 if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                    Serial.println("[Engine] Heartbeat...");
+                    log(LogLevel::Profiling, "[Engine] Heartbeat...");
                     if (frameCount > 0) {
                         unsigned long avgCollision = 0;
                         if (gProfilerCollisionTime > 0) {
@@ -126,7 +128,7 @@ namespace pixelroot32::core {
                         }
                         unsigned long physicsIntegrateCount = gProfilerPhysicsIntegrateCount;
 
-                        Serial.printf("[Profiler] FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus | Collision: %luus | PhysicsInt: %luus (%lu)\n",
+                        log(LogLevel::Profiling, "FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus | Collision: %luus | PhysicsInt: %luus (%lu)\n",
                             frameCount,
                             totalUpdateTime / frameCount,
                             totalEventsTime / frameCount,

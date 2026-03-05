@@ -172,6 +172,29 @@ Structure that detects and exposes hardware capabilities:
 - `audioCoreId`: Recommended core for audio
 - `mainCoreId`: Recommended core for game loop
 
+#### Unified Logging System
+
+**Files**: `include/core/Log.h`, `src/core/Log.cpp`
+
+**Responsibility**: Cross-platform logging abstraction that eliminates `#ifdef` blocks in user code.
+
+**Features**:
+
+- Unified API for ESP32 (Serial) and Native (stdout)
+- Log levels: Info, Warning, Error
+- printf-style formatting
+- Automatic platform routing
+
+**Main API**:
+
+```cpp
+namespace pixelroot32::core::logging {
+    enum class LogLevel { Info, Warning, Error };
+    void log(LogLevel level, const char* format, ...);
+    void log(const char* format, ...); // Info level shorthand
+}
+```
+
 ---
 
 ### 3.4 LAYER 3: System Layer

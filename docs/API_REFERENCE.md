@@ -223,6 +223,89 @@ Collection of helper functions.
 - **`bool is_equal_approx(const Vector2& other) const`**
     Returns true if the vector is approximately equal to `other`.
 
+## Platform Abstractions
+
+Version 1.1.0 introduces unified abstractions for cross-platform operations, eliminating the need for manual `#ifdef` blocks in user code.
+
+### Logging System
+
+**Namespace:** `pixelroot32::core::logging`
+
+The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native).
+
+#### Log Levels
+
+| LogLevel Enum | Output Prefix | Use Case |
+|--------------|---------------|----------|
+| `LogLevel::Info` | `[INFO]` | General information, debug messages |
+| `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
+| `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
+
+#### Functions
+
+- **`void log(LogLevel level, const char* format, ...)`**
+    Logs a message with the specified level and printf-style formatting.
+
+- **`void log(const char* format, ...)`**
+    Logs a message with Info level (shorthand).
+
+**Usage Example:**
+
+```cpp
+#include "core/Log.h"
+
+using namespace pixelroot32::core::logging;
+
+// Log with explicit level
+log(LogLevel::Info, "Player position: %d", playerX);
+
+// Log with default Info level
+log("Player position: %d", playerX);
+```
+
+### Platform Memory Abstraction
+
+**Include:** `platforms/PlatformMemory.h`
+
+Provides a unified API for memory operations that differ between ESP32 (Flash/PROGMEM) and Native (RAM) platforms.
+
+#### Macros
+
+- **`PIXELROOT32_FLASH_ATTR`**
+    Attribute for data stored in Flash memory.
+
+- **`PIXELROOT32_STRCMP_P(dest, src)`**
+    Compare a RAM string with a Flash string.
+
+- **`PIXELROOT32_MEMCPY_P(dest, src, size)`**
+    Copy data from Flash to RAM.
+
+- **`PIXELROOT32_READ_BYTE_P(addr)`**
+    Read an 8-bit value from Flash.
+
+- **`PIXELROOT32_READ_WORD_P(addr)`**
+    Read a 16-bit value from Flash.
+
+- **`PIXELROOT32_READ_DWORD_P(addr)`**
+    Read a 32-bit value from Flash.
+
+- **`PIXELROOT32_READ_FLOAT_P(addr)`**
+    Read a float value from Flash.
+
+- **`PIXELROOT32_READ_PTR_P(addr)`**
+    Read a pointer from Flash.
+
+**Usage Example:**
+
+```cpp
+#include "platforms/PlatformMemory.h"
+
+const char MY_STRING[] PIXELROOT32_FLASH_ATTR = "Hello";
+char buffer[10];
+PIXELROOT32_STRCMP_P(buffer, MY_STRING);
+uint8_t val = PIXELROOT32_READ_BYTE_P(&my_array[i]);
+```
+
 ## Core Module
 
 The Core module provides the fundamental building blocks of the engine, including the main application loop, entity management, and scene organization.
