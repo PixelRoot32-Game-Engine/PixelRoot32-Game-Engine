@@ -341,26 +341,26 @@ The tile attribute system allows querying custom metadata attached to tiles at r
 
 - **`TileAttribute`**
     Represents a single key-value pair.
-    - `const char* key`: Attribute key string (PROGMEM).
-    - `const char* value`: Attribute value string (PROGMEM).
+    - `const char* key`: Attribute key string (`PIXELROOT32_FLASH_ATTR`).
+    - `const char* value`: Attribute value string (`PIXELROOT32_FLASH_ATTR`).
 
 - **`TileAttributeEntry`**
     Represents all attributes for a specific tile position.
     - `uint16_t x, y`: Tile coordinates.
     - `uint8_t num_attributes`: Number of attributes for this tile.
-    - `const TileAttribute* attributes`: Pointer to an array of attributes (PROGMEM).
+    - `const TileAttribute* attributes`: Pointer to an array of attributes (`PIXELROOT32_FLASH_ATTR`).
 
 - **`LayerAttributes`**
     Represents attribute data for an entire layer.
     - `const char* layer_name`: Name of the layer.
     - `uint16_t num_tiles_with_attributes`: Number of tiles in this layer that have attributes.
-    - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (PROGMEM).
+    - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (`PIXELROOT32_FLASH_ATTR`).
 
 #### Query Functions
 
 **Namespace:** `pixelroot32::graphics`
 
-These functions are defined as `inline` in `Renderer.h` for maximum performance.
+These functions are defined as `inline` in `Renderer.h` for maximum performance and use the platform abstraction layer from `platforms/PlatformMemory.h`.
 
 - **`const char* get_tile_attribute(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y, const char* key)`**
     Returns the value of a specific attribute for a tile. Returns `nullptr` if the attribute or tile does not exist.
@@ -368,7 +368,10 @@ These functions are defined as `inline` in `Renderer.h` for maximum performance.
     - `num_layers`: Total number of layers with attributes.
     - `layer_idx`: Index of the layer to query.
     - `x, y`: Tile coordinates.
-    - `key`: The attribute key to search for (supports RAM or PROGMEM strings).
+    - `key`: The attribute key to search for (supports RAM or PROGMEM/Flash strings).
+
+> [!IMPORTANT]
+> Since attributes are stored in Flash memory on ESP32, you must use **`PIXELROOT32_STRCMP_P`** or **`PIXELROOT32_MEMCPY_P`** to compare or copy the returned values to ensure cross-platform compatibility (Native vs ESP32).
 
 - **`bool tile_has_attributes(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
     Returns `true` if the tile at the specified position has any attributes.

@@ -133,6 +133,15 @@ scene.collisionSystem.update();
 
 **Main Components**:
 
+#### PlatformMemory.h (Macro Abstraction)
+
+Provides a unified API for memory operations that differ between ESP32 (Flash/PROGMEM) and Native (RAM) platforms.
+
+- `PIXELROOT32_FLASH_ATTR`: Attribute for Flash storage.
+- `PIXELROOT32_STRCMP_P`: Cross-platform flash string comparison.
+- `PIXELROOT32_MEMCPY_P`: Cross-platform flash memory copy.
+- `PIXELROOT32_READ_*_P`: Cross-platform flash data reading (byte, word, etc.).
+
 #### DrawSurface (Bridge Pattern)
 
 ```cpp

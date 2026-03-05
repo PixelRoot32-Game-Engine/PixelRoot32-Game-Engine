@@ -9,34 +9,14 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+#include "platforms/PlatformMemory.h"
+
 #include "DrawSurface.h"
 #include "DisplayConfig.h"
 #include "Color.h"
 #include "Font.h"
 #include <memory>
 #include <string_view>
-
-#ifdef PLATFORM_ESP32
-    #include <mock/MockSafeString.h>
-#endif
-
-// PROGMEM compatibility macros for cross-platform flash memory access
-#if defined(ESP32) || defined(ESP8266)
-    #include <pgmspace.h>
-    #define PIXELROOT32_MEMCPY_P memcpy_P
-    #define PIXELROOT32_STRCMP_P strcmp_P
-#elif defined(__AVR__)
-    #include <avr/pgmspace.h>
-    #define PIXELROOT32_MEMCPY_P memcpy_P
-    #define PIXELROOT32_STRCMP_P strcmp_P
-#else
-    // Fallback for non-embedded platforms (desktop, testing)
-    #define PROGMEM
-    #define PIXELROOT32_MEMCPY_P memcpy
-    #define PIXELROOT32_STRCMP_P strcmp
-#endif
-
-#define PIXELROOT32_SCENE_FLASH_ATTR PROGMEM
 
 namespace pixelroot32::graphics {
 

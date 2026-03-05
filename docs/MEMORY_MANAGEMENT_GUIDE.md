@@ -390,7 +390,48 @@ if (dmaBuffer == nullptr) {
 heap_caps_free(dmaBuffer);
 ```
 
-### Memory-Performance Trade-offs (v1.0.0)
+### Cross-Platform Flash Memory Access (v1.0.0+)
+
+When developing for ESP32, large static assets like tilemaps, sprites, and melodies are stored in Flash memory (**PROGMEM**) to save limited SRAM. However, standard C functions like `strcmp` or `memcpy` cannot read from Flash memory on some architectures.
+
+The engine provides a platform abstraction layer in **`platforms/PlatformMemory.h`** to handle this transparently.
+
+### Unified Memory API
+
+| Macro | Description | ESP32 Mapping | Native Mapping |
+|-------|-------------|---------------|----------------|
+| `PIXELROOT32_FLASH_ATTR` | Attribute to store data in Flash | `PROGMEM` | (empty) |
+| `PIXELROOT32_STRCMP_P` | Compare string with Flash string | `strcmp_P` | `strcmp` |
+| `PIXELROOT32_MEMCPY_P` | Copy from Flash memory | `memcpy_P` | `memcpy` |
+| `PIXELROOT32_READ_BYTE_P` | Read 8-bit value from Flash | `pgm_read_byte` | direct access |
+| `PIXELROOT32_READ_WORD_P` | Read 16-bit value from Flash | `pgm_read_word` | direct access |
+| `PIXELROOT32_READ_DWORD_P` | Read 32-bit value from Flash | `pgm_read_dword` | direct access |
+| `PIXELROOT32_READ_FLOAT_P` | Read float value from Flash | `pgm_read_float` | direct access |
+| `PIXELROOT32_READ_PTR_P` | Read pointer from Flash | `pgm_read_ptr` | direct access |
+
+### Best Practice Example
+
+When querying tile attributes or using exported scene data:
+
+```cpp
+#include "platforms/PlatformMemory.h"
+
+void checkTile(int x, int y) {
+    // get_tile_attribute returns a pointer to Flash memory on ESP32
+    const char* type = levels::level_1::get_tile_attribute(0, x, y, "type");
+    
+    if (type != nullptr) {
+        // ✅ ALWAYS use PIXELROOT32_STRCMP_P for cross-platform compatibility
+        if (PIXELROOT32_STRCMP_P("lava", type) == 0) {
+            player->takeDamage(100);
+        }
+    }
+}
+```
+
+---
+
+## Memory-Performance Trade-offs (v1.0.0)
 
 In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
 
