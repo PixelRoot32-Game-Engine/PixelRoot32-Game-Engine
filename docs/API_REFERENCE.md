@@ -34,7 +34,10 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
     The vertical offset for the display alignment. Default is `0`.
 
 - **`PHYSICS_MAX_PAIRS`**
-    Maximum number of simultaneous collision pairs tracked by the solver. Lower values save static DRAM. Default is `128`.
+    Maximum number of collision pairs considered in broadphase. Default is `128`.
+
+- **`PHYSICS_MAX_CONTACTS`**
+    Maximum number of simultaneous contacts in the solver (fixed pool, no heap per frame). Default is `128`. When exceeded, additional contacts are dropped.
 
 - **`VELOCITY_ITERATIONS`**
     Number of impulse solver passes per frame. Higher values improve stacking stability but increase CPU load. Default is `2`.
@@ -43,7 +46,13 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
     Size of each cell in the broadphase grid (in pixels). Default is `32`.
 
 - **`SPATIAL_GRID_MAX_ENTITIES_PER_CELL`**
-    Maximum entities stored in a single grid cell. Default is `24`.
+    Legacy: maximum entities per cell when using a single grid. Default is `24`.
+
+- **`SPATIAL_GRID_MAX_STATIC_PER_CELL`**
+    Maximum static (immovable) actors per grid cell. Default is `12`. Used by the static layer of the spatial grid.
+
+- **`SPATIAL_GRID_MAX_DYNAMIC_PER_CELL`**
+    Maximum dynamic (RIGID/KINEMATIC) actors per grid cell. Default is `12`. Used by the dynamic layer of the spatial grid.
 
 ## Math Module
 
@@ -145,7 +154,8 @@ A 2D vector structure composed of two `Scalar` components.
 - **`Vector2 normalized() const`**
     Returns a normalized (unit length) version of the vector.
 
-d---
+---
+
 
 ### MathUtil
 
@@ -699,6 +709,8 @@ The base class for all objects capable of collision. Actors extend Entity with c
 
 #### Properties
 
+- **`uint16_t entityId`**: Unique id assigned by `CollisionSystem::addEntity` (used for pair deduplication). `0` = unregistered.
+- **`int queryId`**: Used internally by the spatial grid for deduplication in `getPotentialColliders`.
 - **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
 - **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
 - **`CollisionLayer layer`**: Bitmask representing the layers this actor belongs to.
@@ -744,6 +756,9 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`Scalar restitution`**: Bounciness factor (0.0 = no bounce, 1.0 = perfect bounce).
 - **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
 - **`Scalar gravityScale`**: Multiplier for global gravity (Default: `1.0`).
+- **`bool sensor`**: When true, the body generates collision events but does not produce physical response (no impulse, no penetration correction). Use for triggers, collectibles.
+- **`bool oneWay`**: When true, the body only blocks from one side (e.g. one-way platform: land from above, pass through from below).
+- **`void* userData`**: Optional pointer or packed value (e.g. tile coordinates) for game logic. Use `physics::packTileData` / `unpackTileData` from `physics/TileAttributes.h` for tile metadata.
 
 #### Constructors
 
@@ -769,6 +784,24 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 
 - **`void setFriction(Scalar f)`**
     Sets the friction coefficient (0.0 means no friction).
+
+- **`void setSensor(bool s)`**
+    Sets whether this body is a sensor (trigger). Sensors fire `onCollision` but do not receive impulse or penetration correction.
+
+- **`bool isSensor() const`**
+    Returns true if this body is a sensor.
+
+- **`void setOneWay(bool w)`**
+    Sets whether this body is a one-way platform (blocks only from one side, e.g. from above).
+
+- **`bool isOneWay() const`**
+    Returns true if this body is a one-way platform.
+
+- **`void setUserData(void* ptr)`**
+    Sets optional user data (e.g. tile coordinates or game-specific pointer).
+
+- **`void* getUserData() const`**
+    Gets the current user data.
 
 - **`void setLimits(const LimitRect& limits)`**
     Sets custom movement limits for the actor.
@@ -823,7 +856,7 @@ Information about world collisions in the current frame. Holds flags indicating 
 
 **Inherits:** [PhysicsActor](#physicsactor)
 
-An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. `StaticActor` is optimized to skip the spatial grid and act as a fixed boundary.
+An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. Static bodies are placed in the **static layer** of the spatial grid (rebuilt only when entities are added or removed), reducing per-frame cost in levels with many tiles.
 
 #### Constructors
 
@@ -839,6 +872,25 @@ An immovable body that other objects can collide with. Ideal for floors, walls, 
 auto floor = std::make_unique<StaticActor>(0, 230, 240, 10);
 floor->setCollisionLayer(Layers::kWall);
 scene->addEntity(floor.get());
+```
+
+---
+
+### SensorActor
+
+**Inherits:** [StaticActor](#staticactor)
+
+A static body that acts as a **trigger**: it generates `onCollision` callbacks but does not produce any physical response (no impulse, no penetration correction). Use for collectibles, checkpoints, damage zones, or area triggers.
+
+**Include:** `physics/SensorActor.h`
+
+**Constructors:** Same as `StaticActor`; internally calls `setSensor(true)`.
+
+```cpp
+SensorActor coin(x, y, 16, 16);
+coin.setCollisionLayer(Layers::kCollectible);
+scene->addEntity(&coin);
+// In player's onCollision: if (other->isSensor()) { collectCoin(other); }
 ```
 
 ---
@@ -983,21 +1035,35 @@ Namespace with common collision layer constants:
 
 ---
 
+### TileAttributes (physics)
+
+**Include:** `physics/TileAttributes.h`  
+**Namespace:** `pixelroot32::physics`
+
+Helpers for encoding tile metadata in `PhysicsActor::userData`, used by tilemap collision builders and game logic.
+
+- **`enum class TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
+- **`packTileData(uint16_t x, uint16_t y, TileCollisionBehavior behavior)`**: Packs tile coords (10+10 bits) and behavior (4 bits) into a single `uintptr_t` for `setUserData(reinterpret_cast<void*>(packed))`.
+- **`unpackTileData(uintptr_t packed, uint16_t& x, uint16_t& y, TileCollisionBehavior& behavior)`**: Unpacks the value.
+- **`packCoord(uint16_t x, uint16_t y)`** / **`unpackCoord(uintptr_t packed, uint16_t& x, uint16_t& y)`**: Legacy 16+16 bit encoding for coords only (no behavior).
+
+---
+
 ### CollisionSystem
 
 **Inherits:** None
 
-The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior.
+The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior. Uses a **dual-layer spatial grid** (static + dynamic) to minimize per-frame work when many static tiles are present, and a **fixed-size contact pool** (`PHYSICS_MAX_CONTACTS`, default 128) to avoid heap allocations in the hot path.
 
 #### Key Logic: "The Flat Solver"
 
 The solver executes in strict order:
 
-1. **Detect Collisions**: Queries the `SpatialGrid` for potential overlaps
-2. **Solve Velocity**: Impulse-based collision response (2 iterations by default)
-3. **Integrate Positions**: Updates positions: `p = p + v * dt`
-4. **Solve Penetration**: Baumgarte stabilization with slop threshold
-5. **Trigger Callbacks**: Calls `onCollision()` for gameplay notifications
+1. **Detect Collisions**: Rebuilds static grid if dirty, clears dynamic layer, inserts RIGID/KINEMATIC into dynamic layer; queries grid for potential pairs; narrowphase and contact generation. Contacts are stored in a fixed array; excess contacts are dropped when the pool is full.
+2. **Solve Velocity**: Impulse-based collision response (2 iterations by default); sensor contacts are skipped.
+3. **Integrate Positions**: Updates positions: `p = p + v * dt` (RIGID only).
+4. **Solve Penetration**: Baumgarte stabilization with slop threshold; sensor contacts skipped.
+5. **Trigger Callbacks**: Calls `onCollision()` for all contacts.
 
 #### Public Constants
 
@@ -1037,8 +1103,8 @@ The solver executes in strict order:
 - **`size_t getEntityCount() const`**  
   Returns number of entities in the system.
 
-- **`void clear()`**  
-  Removes all entities and contacts.
+- **`void clear()`**
+  Removes all entities, resets the contact count, and clears the spatial grid (both static and dynamic layers).
 
 ---
 

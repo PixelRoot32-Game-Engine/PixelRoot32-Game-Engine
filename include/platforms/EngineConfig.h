@@ -75,6 +75,13 @@
 // Uncomment to enable performance profiling in Serial monitor
 // #define PIXELROOT32_ENABLE_PROFILING
 
+#ifndef PIXELROOT32_PROFILE_BEGIN
+#define PIXELROOT32_PROFILE_BEGIN(name) (void)0
+#endif
+#ifndef PIXELROOT32_PROFILE_END
+#define PIXELROOT32_PROFILE_END(name) (void)0
+#endif
+
 // Enable a discrete debug overlay with FPS, RAM and CPU metrics.
 // Replaces the old PIXELROOT32_ENABLE_FPS_DISPLAY.
 // #define PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -95,6 +102,18 @@
 
 #ifndef SPATIAL_GRID_MAX_ENTITIES_PER_CELL
     #define SPATIAL_GRID_MAX_ENTITIES_PER_CELL 24
+#endif
+
+#ifndef SPATIAL_GRID_MAX_STATIC_PER_CELL
+    #define SPATIAL_GRID_MAX_STATIC_PER_CELL 12
+#endif
+
+#ifndef SPATIAL_GRID_MAX_DYNAMIC_PER_CELL
+    #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
+#endif
+
+#ifndef PHYSICS_MAX_CONTACTS
+    #define PHYSICS_MAX_CONTACTS 128
 #endif
 
 #ifndef PHYSICS_MAX_PAIRS
@@ -156,8 +175,11 @@ namespace pixelroot32::platforms::config {
     // Spatial Grid
     inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
     inline constexpr int SpatialGridMaxEntitiesPerCell = SPATIAL_GRID_MAX_ENTITIES_PER_CELL;
+    inline constexpr int SpatialGridMaxStaticPerCell = SPATIAL_GRID_MAX_STATIC_PER_CELL;
+    inline constexpr int SpatialGridMaxDynamicPerCell = SPATIAL_GRID_MAX_DYNAMIC_PER_CELL;
 
     // Physics
+    inline constexpr int PhysicsMaxContacts = PHYSICS_MAX_CONTACTS;
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
     inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
     

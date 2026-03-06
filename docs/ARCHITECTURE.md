@@ -288,21 +288,24 @@ AudioEngine (Facade)
 The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
 
 ```
-1. Detect Collisions       → Broadphase + Narrowphase
-2. Solve Velocity          → Impulse-based response (2 iterations)
-3. Integrate Positions     → p = p + v * dt
-4. Solve Penetration       → Baumgarte stabilization + Slop
-5. Trigger Callbacks       → onCollision notifications
+1. Detect Collisions       → Rebuild static grid if dirty; clear dynamic; insert RIGID/KINEMATIC
+                             → Broadphase (dual-layer grid) + Narrowphase → fixed contact pool
+2. Solve Velocity          → Impulse-based response (2 iterations); sensor contacts skipped
+3. Integrate Positions      → p = p + v * dt (RIGID only)
+4. Solve Penetration        → Baumgarte stabilization + Slop; sensor contacts skipped
+5. Trigger Callbacks        → onCollision notifications
 ```
 
 **Key Features**:
 - **Fixed Timestep**: Deterministic 1/60s simulation
-- **Broadphase**: Uniform Spatial Grid (O(1) cell hashing)
-- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, Circle vs AABB
-- **Impulse Solver**: Proper velocity-based collision response
-- **Baumgarte Stabilization**: Position correction without energy loss
-- **CCD**: Selective continuous collision detection for fast-moving circles
-- **Memory Optimized**: Shared static buffers save ~100KB DRAM
+- **Dual-Layer Spatial Grid**: Static layer (rebuilt only when entities change) + dynamic layer (cleared and refilled every frame); reduces per-frame cost with many static tiles
+- **Fixed Contact Pool**: `Contact contacts[kMaxContacts]` (default 128); no heap allocations in the hot path; overflow drops extra contacts
+- **Narrowphase**: AABB vs AABB, Circle vs Circle, Circle vs AABB; internal `ScalarRect` for consistent Scalar math
+- **Sensors**: `PhysicsActor::setSensor(true)`; contact flag `isSensorContact` skips impulse and penetration; use for triggers, collectibles
+- **One-Way Platforms**: `PhysicsActor::setOneWay(true)`; contact accepted only when landing from above (normal and velocity filter)
+- **Entity Id Deduplication**: `Actor::entityId` assigned by `addEntity`; pair processing uses `entityId` for stable deduplication
+- **CCD**: Selective continuous collision detection for fast-moving circles vs static AABB
+- **Profiling Hooks**: `PIXELROOT32_PROFILE_BEGIN` / `PIXELROOT32_PROFILE_END` around each pipeline stage when `PIXELROOT32_ENABLE_PROFILING` is defined
 
 **Collision Layers**:
 ```cpp
@@ -573,15 +576,18 @@ Following the Godot Engine philosophy, physical actors are specialized into dist
 Entity
 └── Actor
     └── PhysicsActor (Base)
-        ├── StaticActor    (Immovable walls/floors)
+        ├── StaticActor    (Immovable walls/floors; static grid layer)
+        │   └── SensorActor (Trigger: setSensor(true), e.g. collectibles)
         ├── KinematicActor (Character movement, move_and_slide)
         └── RigidActor     (Props, physical objects with gravity)
 ```
 
 **Actor Roles**:
-- **StaticActor**: Optimized for scenery. They skip the spatial grid and act as "anchors" that other objects cannot penetrate.
-- **KinematicActor**: Specifically for logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()` to interact with the world manually.
-- **RigidActor**: Fully automatic. They integrate velocity and gravity, responding to collisions using restitution and friction.
+- **StaticActor**: Immovable scenery. Placed in the **static layer** of the spatial grid (rebuilt only when entities are added/removed). Other bodies collide with them normally.
+- **SensorActor**: Subclass of StaticActor that calls `setSensor(true)`. Generates `onCollision` but no impulse or penetration correction.
+- **KinematicActor**: Logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()`. Inserted into the **dynamic layer** each frame.
+- **RigidActor**: Fully simulated (gravity, forces, collisions). Inserted into the dynamic layer.
+- **One-Way / Sensor Flags**: Any `PhysicsActor` can use `setOneWay(true)` (one-way platforms) or `setSensor(true)` (triggers). Tile metadata can be stored via `setUserData()` and decoded with `physics::packTileData` / `unpackTileData` from `TileAttributes.h`.
 - **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:

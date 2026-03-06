@@ -112,6 +112,11 @@ protected:
      */
     void* userData = nullptr;
 
+    /** When true, this body generates collision events but does not produce physical response (no impulse, no penetration correction). */
+    bool sensor = false;
+
+    /** When true, this body only blocks from one side (e.g. one-way platform: land from above, pass through from below). */
+    bool oneWay = false;
 
 public:
     bool bounce = true; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
@@ -350,6 +355,28 @@ public:
      * @return Pointer set via setUserData, or nullptr if never set.
      */
     void* getUserData() const { return userData; }
+
+    /**
+     * @brief Sets whether this body is a sensor (trigger).
+     * @param s true = sensor (events only, no physics response); false = solid (default).
+     */
+    void setSensor(bool s) { sensor = s; }
+
+    /**
+     * @brief Returns true if this body is a sensor (trigger).
+     */
+    bool isSensor() const { return sensor; }
+
+    /**
+     * @brief Sets whether this body is a one-way platform (blocks only from one side).
+     * @param w true = one-way (e.g. land from above, pass through from below); false = solid from all sides.
+     */
+    void setOneWay(bool w) { oneWay = w; }
+
+    /**
+     * @brief Returns true if this body is a one-way platform.
+     */
+    bool isOneWay() const { return oneWay; }
 
     /**
      * @brief Callback triggered when this actor collides with another actor.
