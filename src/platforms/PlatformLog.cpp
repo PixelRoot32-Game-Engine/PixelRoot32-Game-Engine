@@ -4,6 +4,7 @@
  */
 
 #include "core/Log.h"
+#include "platforms/EngineConfig.h"
 
 #ifdef ESP32
     #include <Arduino.h>
@@ -52,17 +53,24 @@ namespace pixelroot32::core::logging
 
     /**
      * @brief Internal logging function that handles formatted message output.
+     * Only performs formatting and output when config::EnableLogging is true.
      * @param level The log level for the message.
      * @param fmt The format string (printf-style).
      * @param args The va_list of arguments for the format string.
      */
     void logInternal(LogLevel level, const char* fmt, va_list args)
     {
-        char buffer[256];
-        std::vsnprintf(buffer, sizeof(buffer), fmt, args);
+        if constexpr (pixelroot32::platforms::config::EnableLogging) {
+            char buffer[256];
+            std::vsnprintf(buffer, sizeof(buffer), fmt, args);
 
-        platformPrint(levelToString(level));
-        platformPrint(buffer);
-        platformPrint("\n");
+            platformPrint(levelToString(level));
+            platformPrint(buffer);
+            platformPrint("\n");
+        } else {
+            (void)level;
+            (void)fmt;
+            (void)args;
+        }
     }
 } // namespace pixelroot32::core::logging

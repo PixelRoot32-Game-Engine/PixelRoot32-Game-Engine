@@ -384,53 +384,34 @@ Entity
 
 #### 3.4.8 Tile Attribute System
 
-**Files**: `include/graphics/Renderer.h` (structures), Scene headers (generated data)
+**Files**: `include/graphics/Renderer.h` (structures), `include/physics/TileAttributes.h`, `include/physics/TileConsumptionHelper.h`, Scene headers (generated data)
 
-**Responsibility**: Runtime tile metadata query system for game logic.
+**Responsibility**: Runtime tile metadata and collision behavior: (1) **key-value attributes** (PROGMEM, O(n) query) for non–hot-path metadata; (2) **flags-based behavior layer** (dense array, O(1)) for physics and gameplay.
 
 **Architecture**:
 
-The tile attribute system provides a lightweight way to attach custom metadata to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures. The query logic is centralized in the engine layer (`Renderer.h`) to minimize code duplication in scene headers.
+The tile attribute system provides two paths:
 
-**Design Philosophy**:
+1. **Key-value (LayerAttributes)**  
+   Lightweight metadata attached to tiles, defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM. Query with `get_tile_attribute(layer, x, y, key)`. Use for non–collision metadata (e.g. room names, signs). Sparse representation; O(n) search. Data flow: Editor → Scene header (TileAttribute, TileAttributeEntry, LayerAttributes) → `get_tile_attribute()`. Use cases: collision hints, interaction types, game logic values, animation flags.
 
-- **Centralized Query Logic**: Logic for searching attributes is implemented once in the engine as inline functions.
-- **Editor-Only Defaults**: Tileset default attributes remain in the editor; only final resolved values are exported.
-- **Sparse Representation**: Only tiles with attributes are included in exported data.
-- **Flash Storage**: All attribute data stored in PROGMEM to minimize RAM usage.
-- **Simple Query API**: Position-based lookup without inheritance logic at runtime.
+2. **Flags-based (TileFlags + TileBehaviorLayer)**  
+   Dense 1-byte-per-tile layer exported as `uint8_t[]`. O(1) lookup via **`getTileFlags(layer, x, y)`**. Used for collision and real-time gameplay: solid, sensor, damage, collectible, one-way, trigger. Builder creates **StaticActor** or **SensorActor** per tile, sets **`setUserData(packTileData(x, y, flags))`**. In **`onCollision`**, **`unpackTileData`** and test flags (e.g. `TILE_COLLECTIBLE` → collect; `TILE_DAMAGE` → damage player).
 
-**Data Flow**:
+**Consumible tiles**: When a tile is consumed (e.g. coin), call **`scene.removeEntity(tileActor)`** and **`tilemap->setTileActive(tileX, tileY, false)`**. **`physics::TileConsumptionHelper`** (or **`consumeTileFromCollision()`**) encapsulates this and reuses **TileMapGeneric::runtimeMask** (no separate consumed mask). See [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) and [API Reference – TileConsumptionHelper](API_REFERENCE.md).
 
-```
-Tilemap Editor
-    ├── Tileset Default Attributes (editor-only)
-    └── Canvas Instance Attributes (per-tile overrides)
-            │
-            ▼ (merge at export time)
-    Scene Header (.h)
-            ├── TileAttribute arrays (key-value pairs)
-            ├── TileAttributeEntry arrays (per-position)
-            └── LayerAttributes arrays (per-layer)
-            │
-            ▼ (runtime query calls engine)
-    Game Logic
-            └── get_tile_attribute(layers, num, idx, x, y, key)
-```
+**Design philosophy** (key-value path):
 
-**Memory Optimization**:
+- **Centralized query logic** in the engine
+- **Sparse representation**: only tiles with attributes in export
+- **Flash storage** (PROGMEM) to minimize RAM
+- **Simple query API** by position
 
-- Typical overhead: ~40 bytes per tile with attributes (depends on key/value lengths)
-- Empty tiles: 0 bytes (not included in export)
-- String deduplication: Common keys/values stored once in flash
-- No runtime merge logic: All inheritance resolved at export time
+**Design philosophy** (flags path):
 
-**Use Cases**:
-
-- Collision properties: `{"solid", "true"}`, `{"walkable", "false"}`
-- Interaction types: `{"type", "door"}`, `{"interactable", "true"}`
-- Game logic: `{"damage", "10"}`, `{"health", "50"}`
-- Tile behavior: `{"animated", "true"}`, `{"speed", "2"}`
+- **No strings at runtime**; bit operations only
+- **O(1) lookups**; 1 byte per tile
+- **Same pipeline**: Entity, CollisionSystem, **userData**, **onCollision**
 
 #### 3.4.9 Math Policy Layer
 
@@ -920,6 +901,6 @@ The Scene-Entity architecture provides a familiar programming model for game dev
 
 ---
 
-**Document Generated**: February 2026  
-**Engine Version**: v0.7.0-dev  
+**Document Generated**: March 2026  
+**Engine Version**: v1.1.0  
 **Author**: PixelRoot32 Architecture Analysis

@@ -157,13 +157,30 @@ bodyB->position -= correctionVec * invMassB;
 
 ## 6. Tile Attributes (Physics)
 
-For tile-based colliders, the engine provides **`physics/TileAttributes.h`**:
+For tile-based colliders, the engine provides **`physics/TileAttributes.h`** with two APIs:
+
+### 6.1 Flags-based API (recommended)
+
+- **`TileFlags`**: Bit flags (`TILE_NONE`, `TILE_SOLID`, `TILE_SENSOR`, `TILE_DAMAGE`, `TILE_COLLECTIBLE`, `TILE_ONEWAY`, `TILE_TRIGGER`). One byte per tile; no strings at runtime.
+- **`packTileData(x, y, flags)`** / **`unpackTileData(packed, x, y, flags)`**: Encode tile coords (10+10 bits) and flags (8 bits) into a single value for `setUserData()`.
+- **`TileBehaviorLayer`**: Struct holding `data` (dense `uint8_t` array), `width`, `height`. Exported by the Tilemap Editor; use with **`getTileFlags(layer, x, y)`** for O(1) lookup with bounds checking.
+- **`isSensorTile(flags)`** / **`isOneWayTile(flags)`** / **`isSolidTile(flags)`**: Derive sensor/one-way/solid from flags when building `StaticActor` or `SensorActor`.
+
+**Builder workflow:** For each tile with `flags != TILE_NONE`, create `StaticActor` or `SensorActor`, call `setSensor(isSensorTile(flags))`, `setOneWay(isOneWayTile(flags))`, and `setUserData(reinterpret_cast<void*>(packTileData(tx, ty, flags)))`, then `scene.addEntity(...)`.
+
+### 6.2 Legacy behavior enum
 
 - **`TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
-- **`packTileData(x, y, behavior)`** / **`unpackTileData()`**: Encode tile coords (10+10 bits) and behavior (4 bits) into a single value for `setUserData()`.
-- **`packCoord`** / **`unpackCoord`**: Legacy 16+16 bit encoding for coords only.
+- **`packTileData(x, y, behavior)`** / **`unpackTileData(..., behavior)`**: Same encoding with 4-bit behavior (deprecated for new code).
 
-When building colliders from a tilemap, set `setSensor(true)` or `setOneWay(true)` according to the tile behavior, and store metadata with `setUserData(reinterpret_cast<void*>(packTileData(tx, ty, behavior)))`. Destruction and damage logic remain in game code using `getUserData()` and `setEnabled(false)` / tilemap updates.
+### 6.3 Consumible tiles (Phase 7)
+
+When a tile is consumed (e.g. coin collected), remove its body and hide it visually:
+
+1. **`scene.removeEntity(tileActor)`** so the CollisionSystem no longer considers it.
+2. **`tilemap->setTileActive(tileX, tileY, false)`** so `drawTileMap` skips it (reuses `runtimeMask`; no separate consumed mask).
+
+**`physics/TileConsumptionHelper.h`** wraps this: **`TileConsumptionHelper`** (constructor: scene, tilemap, config) provides **`consumeTile(tileActor, tileX, tileY)`** and **`consumeTileFromUserData(tileActor, packedUserData)`** (only consumes if `TILE_COLLECTIBLE`). Convenience **`consumeTileFromCollision(tileActor, packedUserData, scene, tilemap)`** for use inside `onCollision`. Destruction and damage logic remain in game code using `getUserData()` and flags.
 
 ---
 
@@ -228,16 +245,18 @@ Use case: Prevents tunneling when ball moves extremely fast (> 3x radius per fra
 
 ### 9.1 Physics Constants
 
-Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build flags:
+Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build flags (e.g. `-D PHYSICS_MAX_CONTACTS=64`):
 
 ```cpp
 // Contact pool size (fixed array, no heap)
 #define PHYSICS_MAX_CONTACTS 128
 
-// Grid layers (static = rebuilt when entities change; dynamic = per frame)
+// Spatial grid: static = rebuilt when entities change; dynamic = per frame
 #define SPATIAL_GRID_MAX_STATIC_PER_CELL  12
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
+
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md#esp32-dram-and-build-configuration).
 
 Solver tuning (in code):
 
@@ -347,5 +366,5 @@ void RigidActor::update(unsigned long deltaTime) {
 ---
 
 **Document Version**: Flat Solver  
-**Last Updated**: February 2026  
-**Engine Version**: v1.0.0
+**Last Updated**: March 2026  
+**Engine Version**: v1.1.0

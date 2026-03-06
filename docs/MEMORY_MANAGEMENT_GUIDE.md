@@ -1,8 +1,8 @@
 # Memory Management Guide - PixelRoot32 C++17
 
 **Document Version:** 1.0  
-**Last Updated:** February 2026  
-**Engine Version:** v1.0.0
+**Last Updated:** March 2026  
+**Engine Version:** v1.1.0
 
 ## Overview
 
@@ -83,6 +83,33 @@ Understanding the engine's memory limits is crucial for developing stable games 
 ```
 
 **Collision system memory (v1.0+):** The solver uses a **fixed contact array** (`PHYSICS_MAX_CONTACTS` entries) and a **dual-layer spatial grid** (static + dynamic cells). No heap is allocated during `detectCollisions()`; only the static/dynamic grid buffers and the contact array occupy static memory. Reducing `PHYSICS_MAX_CONTACTS` or the per-cell limits lowers RAM use at the cost of dropping contacts or actors when limits are exceeded.
+
+### ESP32 DRAM and Build Configuration
+
+On ESP32 (e.g. `esp32dev`), the linker places static and global data in **`.dram0.bss`**. If the project fails with **`region dram0_0_seg overflowed by N bytes`**, reduce one or more of the following (via `platformio.ini` `build_flags` or scene buffers):
+
+| What to reduce | Flag or change | Effect |
+|----------------|-----------------|--------|
+| **Logical resolution** | `-D LOGICAL_WIDTH=128 -D LOGICAL_HEIGHT=128` (keep `PHYSICAL_DISPLAY_*` at 240) | Smaller SpatialGrid and tilemap indices; rendering scales to physical size. |
+| **Spatial grid per cell** | `-D SPATIAL_GRID_MAX_STATIC_PER_CELL=4 -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4` | Less static RAM for grid (default 12). |
+| **Contact pool** | `-D PHYSICS_MAX_CONTACTS=64 -D PHYSICS_MAX_PAIRS=64` | Smaller contact array per scene (default 128). |
+| **Scene arena / buffers** | Reduce scene static buffers (e.g. `SPACE_INVADERS_SCENE_ARENA_BUFFER`, demo `sceneBuffer`) in scene `.cpp` | Fewer bytes in `.dram0.bss`. |
+
+**Recommended for ESP32 when linking fails (240×240 physical):**
+
+```ini
+build_flags =
+  -D LOGICAL_WIDTH=128
+  -D LOGICAL_HEIGHT=128
+  -D PHYSICAL_DISPLAY_WIDTH=240
+  -D PHYSICAL_DISPLAY_HEIGHT=240
+  -D SPATIAL_GRID_MAX_STATIC_PER_CELL=4
+  -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4
+  -D PHYSICS_MAX_CONTACTS=64
+  -D PHYSICS_MAX_PAIRS=64
+```
+
+The engine library compiles only from its `src/` directory (`library.json` `srcDir`); the `test/` folder is not linked into the firmware.
 
 ### Runtime Memory Monitoring
 

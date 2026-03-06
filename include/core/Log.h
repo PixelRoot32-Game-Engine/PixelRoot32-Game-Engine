@@ -8,6 +8,11 @@
 #include <cstdio>
 
 /**
+ * Logging is controlled by PIXELROOT32_DEBUG_MODE in EngineConfig.h (or build flags).
+ * If PIXELROOT32_DEBUG_MODE is not defined, log() calls are no-ops and nothing is printed.
+ */
+
+/**
  * @namespace pixelroot32::core::logging
  * @brief Core logging utilities for the PixelRoot32 engine.
  *
@@ -49,6 +54,7 @@ namespace pixelroot32::core::logging
      */
     void logInternal(LogLevel level, const char* fmt, va_list args);
 
+#ifdef PIXELROOT32_DEBUG_MODE
     /**
      * @brief Logs a message with the specified level.
      * @param level The log level.
@@ -75,4 +81,11 @@ namespace pixelroot32::core::logging
         logInternal(LogLevel::Info, fmt, args); // default Info
         va_end(args);
     }
+#else
+    /** No-op when PIXELROOT32_DEBUG_MODE is not defined. */
+    inline void log(LogLevel level, const char* fmt, ...) { (void)level; (void)fmt; }
+
+    /** No-op when PIXELROOT32_DEBUG_MODE is not defined. */
+    inline void log(const char* fmt, ...) { (void)fmt; }
+#endif
 } // namespace pixelroot32::core::logging

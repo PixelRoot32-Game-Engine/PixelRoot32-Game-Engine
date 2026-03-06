@@ -4,6 +4,13 @@
  */
 #pragma once
 
+// =============================================================================
+// Logging (must be defined before including Log.h)
+// =============================================================================
+// Uncomment to enable engine logging; log() calls print to platform output.
+// If not defined, log() is a no-op. Can also be set via build flags: -DPIXELROOT32_DEBUG_MODE
+// #define PIXELROOT32_DEBUG_MODE
+
 #include "core/Log.h"
 
 #ifdef PLATFORM_NATIVE
@@ -197,6 +204,12 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableDebugOverlay = true;
     #else
     inline constexpr bool EnableDebugOverlay = false;
+    #endif
+
+    #ifdef PIXELROOT32_DEBUG_MODE
+    inline constexpr bool EnableLogging = true;
+    #else
+    inline constexpr bool EnableLogging = false;
     #endif
 
     // Sprites

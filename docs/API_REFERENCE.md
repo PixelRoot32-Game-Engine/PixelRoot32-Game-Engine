@@ -241,7 +241,7 @@ Version 1.1.0 introduces unified abstractions for cross-platform operations, eli
 
 **Namespace:** `pixelroot32::core::logging`
 
-The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native).
+The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). `PIXELROOT32_DEBUG_MODE` to enable logging.
 
 #### Log Levels
 
@@ -1040,12 +1040,46 @@ Namespace with common collision layer constants:
 **Include:** `physics/TileAttributes.h`  
 **Namespace:** `pixelroot32::physics`
 
-Helpers for encoding tile metadata in `PhysicsActor::userData`, used by tilemap collision builders and game logic.
+Helpers for encoding tile metadata in `PhysicsActor::userData`, used by tilemap collision builders and game logic. Supports both a **flags-based** API (recommended for new code) and a legacy **behavior enum** API.
+
+#### TileFlags (recommended)
+
+- **`enum TileFlags : uint8_t`**: Bit flags for tile behavior (1 byte per tile, no strings at runtime). Values: `TILE_NONE`, `TILE_SOLID`, `TILE_SENSOR`, `TILE_DAMAGE`, `TILE_COLLECTIBLE`, `TILE_ONEWAY`, `TILE_TRIGGER` (bits 6–7 reserved).
+- **`packTileData(uint16_t x, uint16_t y, TileFlags flags)`**: Packs coords (10+10 bits) and flags (8 bits) into `uintptr_t` for `setUserData()`.
+- **`unpackTileData(uintptr_t packed, uint16_t& x, uint16_t& y, TileFlags& flags)`**: Unpacks for use in `onCollision`.
+- **`getTileFlags(const TileBehaviorLayer& layer, int x, int y)`**: O(1) lookup with bounds check; returns `TILE_NONE` (0) when out of bounds.
+- **`isSensorTile(TileFlags flags)`** / **`isOneWayTile(TileFlags flags)`** / **`isSolidTile(TileFlags flags)`**: Derive physics config from flags for the collision builder.
+
+#### TileBehaviorLayer
+
+- **`struct TileBehaviorLayer`**: `const uint8_t* data`, `uint16_t width`, `uint16_t height`. Points to a dense array (1 byte per tile) exported by the Tilemap Editor. Use with `getTileFlags()` for O(1) lookups.
+
+#### Legacy (deprecated for new code)
 
 - **`enum class TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
-- **`packTileData(uint16_t x, uint16_t y, TileCollisionBehavior behavior)`**: Packs tile coords (10+10 bits) and behavior (4 bits) into a single `uintptr_t` for `setUserData(reinterpret_cast<void*>(packed))`.
-- **`unpackTileData(uintptr_t packed, uint16_t& x, uint16_t& y, TileCollisionBehavior& behavior)`**: Unpacks the value.
-- **`packCoord(uint16_t x, uint16_t y)`** / **`unpackCoord(uintptr_t packed, uint16_t& x, uint16_t& y)`**: Legacy 16+16 bit encoding for coords only (no behavior).
+- **`packTileData(x, y, TileCollisionBehavior)`** / **`unpackTileData(..., TileCollisionBehavior&)`**: Same encoding with 4-bit behavior.
+- **`packCoord(x, y)`** / **`unpackCoord(packed, x, y)`**: Legacy 16+16 bit encoding for coords only.
+
+---
+
+### TileConsumptionHelper
+
+**Include:** `physics/TileConsumptionHelper.h`  
+**Namespace:** `pixelroot32::physics`
+
+Helper for **consumible tiles** (e.g. coins, pickups): removes the tile’s physics body from the scene and updates the tilemap’s `runtimeMask` so the tile is no longer drawn. Reuses `TileMapGeneric::runtimeMask` (no separate consumed mask).
+
+- **`struct TileConsumptionConfig`**: Optional config: `updateTilemap`, `logConsumption`, `validateCoordinates`.
+- **`TileConsumptionHelper(Scene& scene, void* tilemap, const TileConsumptionConfig& config)`**: Constructor. `tilemap` is `TileMapGeneric*` (any of `Sprite`, `Sprite2bpp`, `Sprite4bpp`).
+- **`bool consumeTile(Actor* tileActor, uint16_t tileX, uint16_t tileY)`**: Removes `tileActor` from the scene and sets `setTileActive(tileX, tileY, false)` on the tilemap. If `tileActor == nullptr`, only updates the tilemap mask.
+- **`bool consumeTileFromUserData(Actor* tileActor, uintptr_t packedUserData)`**: Unpacks coords/flags from userData and consumes only if `TILE_COLLECTIBLE` is set.
+- **`bool isTileConsumed(uint16_t tileX, uint16_t tileY) const`**: Returns whether the tile is inactive in the tilemap.
+- **`bool restoreTile(uint16_t tileX, uint16_t tileY)`**: Sets the tile active again (visual only; does not re-add a physics body).
+
+**Convenience functions:**
+
+- **`consumeTileFromCollision(tileActor, packedUserData, scene, tilemap, config)`**: One-shot consumption from an `onCollision` callback.
+- **`consumeTilesBatch(scene, tilemap, tiles[][2], count, config)`**: Updates `runtimeMask` for multiple tiles (no entity removal; use for clearing areas or reset).
 
 ---
 
@@ -1053,7 +1087,7 @@ Helpers for encoding tile metadata in `PhysicsActor::userData`, used by tilemap 
 
 **Inherits:** None
 
-The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior. Uses a **dual-layer spatial grid** (static + dynamic) to minimize per-frame work when many static tiles are present, and a **fixed-size contact pool** (`PHYSICS_MAX_CONTACTS`, default 128) to avoid heap allocations in the hot path.
+The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior. Uses a **dual-layer spatial grid** (static + dynamic) to minimize per-frame work when many static tiles are present, and a **fixed-size contact pool** (`PHYSICS_MAX_CONTACTS`, default 128; overridable via build flags) to avoid heap allocations in the hot path.
 
 #### Key Logic: "The Flat Solver"
 
