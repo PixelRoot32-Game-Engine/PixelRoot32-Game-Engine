@@ -49,6 +49,8 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
                  if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) {
                      continue; 
                  }
+                 if (physOther->isSensor())
+                     continue;  // Sensors do not block kinematic movement; overlap will trigger onCollision later.
             }
             return true; // Found a valid blocker
         }
@@ -85,7 +87,11 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     pixelroot32::core::Actor* hitActor = nullptr;
     for (int i = 0; i < collisionCount; ++i) {
          auto* other = collisions[i];
-         if (other->isPhysicsBody() && static_cast<pixelroot32::core::PhysicsActor*>(other)->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) continue;
+         if (other->isPhysicsBody()) {
+             auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
+             if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) continue;
+             if (physOther->isSensor()) continue;
+         }
          hitActor = other;
          break;
     }

@@ -14,17 +14,34 @@ from pathlib import Path
 CXX = "g++"
 CXXFLAGS = ["-std=c++17", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST", "-DSDL_MAIN_HANDLED", "-DTEST_MOCK_GRAPHICS"]
 # Unity might be in different paths depending on whether it was installed via PIO or manually
-UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
-if not UNITY_DIR.exists():
-    # Try to find it in a common alternative path
-    alt_unity = Path("test/lib/Unity/src")
-    if alt_unity.exists():
-        UNITY_DIR = alt_unity
-    else:
-        # Revert to default path for installation
-        UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
+def _find_unity_dir():
+    candidates = [
+        Path(".pio/libdeps/native_test/Unity/src"),
+        Path("test/lib/Unity/src"),
+        # When run from lib/PixelRoot32-Game-Engine, parent project's PIO uses env "native"
+        Path("../.pio/libdeps/native/Unity/src"),
+    ]
+    for p in candidates:
+        if (p / "unity.c").exists() and (p / "unity.h").exists():
+            return p.resolve()
+    return Path(".pio/libdeps/native_test/Unity/src")
+
+UNITY_DIR = _find_unity_dir()
 
 BUILD_DIR = Path("build/tests")
+
+def _rmtree_windows_safe(path):
+    """Remove directory; on Windows, .git files may be locked - don't fail the run."""
+    try:
+        shutil.rmtree(path)
+    except PermissionError:
+        # Windows often locks .git/ files - cleanup is best-effort
+        try:
+            import time
+            time.sleep(0.2)
+            shutil.rmtree(path)
+        except PermissionError:
+            print(f"[!] Could not remove {path} (file in use). You can delete it manually.")
 
 def ensure_unity():
     """Ensures Unity is available, installing it if necessary"""
@@ -53,9 +70,11 @@ def ensure_unity():
         print("Attempting to clone Unity from GitHub...")
         temp_dir = Path("temp_unity")
         if temp_dir.exists():
-            shutil.rmtree(temp_dir)
-            
-        subprocess.run(["git", "clone", "--depth", "1", "https://github.com/ThrowTheSwitch/Unity.git", str(temp_dir)], check=True)
+            _rmtree_windows_safe(temp_dir)
+        
+        # If temp_unity still exists (e.g. previous failed rmtree on Windows), try to use it
+        if not (temp_dir / "src" / "unity.c").exists():
+            subprocess.run(["git", "clone", "--depth", "1", "https://github.com/ThrowTheSwitch/Unity.git", str(temp_dir)], check=True)
         
         # Create expected directory structure
         UNITY_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,8 +85,8 @@ def ensure_unity():
             if src.exists():
                 shutil.copy(src, UNITY_DIR / f)
         
-        # Clean up
-        shutil.rmtree(temp_dir)
+        # Clean up (best-effort on Windows)
+        _rmtree_windows_safe(temp_dir)
         
         if unity_c.exists():
             print("[OK] Unity downloaded and configured successfully")
