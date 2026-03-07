@@ -3,7 +3,8 @@
  * Licensed under the MIT License
  * 
  * Flat Solver - Minimalist Physics Pipeline
- * Order: Detect → Solve Velocity → Integrate Position → Solve Penetration
+ * Order: Integrate Position → Detect → Solve Velocity → Solve Penetration
+ * Note: Integration happens first to enable spatial crossing detection for one-way platforms
  */
 #include "physics/CollisionSystem.h"
 #include "core/Actor.h"
@@ -43,15 +44,28 @@ namespace pixelroot32::physics {
     }
 
     void CollisionSystem::update() {
+        // Store previous positions before integration
+        for (auto e : entities) {
+            if (e->type == EntityType::ACTOR) {
+                Actor* actor = static_cast<Actor*>(e);
+                if (actor->isPhysicsBody()) {
+                    static_cast<PhysicsActor*>(actor)->updatePreviousPosition();
+                }
+            }
+        }
+        
+        // Integrate positions FIRST to enable spatial crossing detection
+        PIXELROOT32_PROFILE_BEGIN(Physics_IntegratePositions);
+        integratePositions();
+        PIXELROOT32_PROFILE_END(Physics_IntegratePositions);
+        
+        // Then detect collisions using previous and current positions
         PIXELROOT32_PROFILE_BEGIN(Physics_DetectCollisions);
         detectCollisions();
         PIXELROOT32_PROFILE_END(Physics_DetectCollisions);
         PIXELROOT32_PROFILE_BEGIN(Physics_SolveVelocity);
         solveVelocity();
         PIXELROOT32_PROFILE_END(Physics_SolveVelocity);
-        PIXELROOT32_PROFILE_BEGIN(Physics_IntegratePositions);
-        integratePositions();
-        PIXELROOT32_PROFILE_END(Physics_IntegratePositions);
         PIXELROOT32_PROFILE_BEGIN(Physics_SolvePenetration);
         solvePenetration();
         PIXELROOT32_PROFILE_END(Physics_SolvePenetration);
@@ -119,25 +133,25 @@ namespace pixelroot32::physics {
                     Scalar hitTime;
                     Vector2 hitNormal;
                     if (sweptCircleVsAABB(moving, staticBody, hitTime, hitNormal)) {
-                        // One-way: accept only when landing from above (normal points up, velocity down).
-                        bool oneWayReject = false;
+                        // One-way platform validation
                         if (staticBody->isOneWay()) {
-                            if (hitNormal.y >= 0 || moving->getVelocity().y < 0) oneWayReject = true;
+                            if (!validateOneWayPlatform(moving, staticBody, hitNormal)) {
+                                continue;  // Skip this collision
+                            }
                         }
-                        if (!oneWayReject) {
-                            Contact contact;
-                            contact.bodyA = moving;
-                            contact.bodyB = staticBody;
-                            contact.normal = hitNormal;
-                            Scalar rA = moving->bounce ? moving->getRestitution() : toScalar(0.0f);
-                            Scalar rB = staticBody->bounce ? staticBody->getRestitution() : toScalar(0.0f);
-                            contact.restitution = min(rA, rB);
-                            contact.penetration = toScalar(0.01f);
-                            contact.contactPoint = moving->position + moving->getVelocity() * FIXED_DT * hitTime;
-                            contact.isSensorContact = moving->isSensor() || staticBody->isSensor();
-                            if (contactCount < kMaxContacts)
-                                contacts[contactCount++] = contact;
-                        }
+                        
+                        Contact contact;
+                        contact.bodyA = moving;
+                        contact.bodyB = staticBody;
+                        contact.normal = hitNormal;
+                        Scalar rA = moving->bounce ? moving->getRestitution() : toScalar(0.0f);
+                        Scalar rB = staticBody->bounce ? staticBody->getRestitution() : toScalar(0.0f);
+                        contact.restitution = min(rA, rB);
+                        contact.penetration = toScalar(0.01f);
+                        contact.contactPoint = moving->position + moving->getVelocity() * FIXED_DT * hitTime;
+                        contact.isSensorContact = moving->isSensor() || staticBody->isSensor();
+                        if (contactCount < kMaxContacts)
+                            contacts[contactCount++] = contact;
                     }
                 } else {
                     generateContact(pA, pB);
@@ -173,12 +187,12 @@ namespace pixelroot32::physics {
             hit = generateCircleVsAABBContact(contact, circle, box);
         }
         
-        // One-way platform filter: accept contact only when moving body is landing from above.
+        // One-way platform filter: validate spatial crossing
         if (hit && b->isOneWay()) {
-            if (contact.normal.y >= 0 || a->getVelocity().y < 0) hit = false;
+            hit = validateOneWayPlatform(a, b, contact.normal);
         }
         if (hit && a->isOneWay()) {
-            if (contact.normal.y <= 0 || b->getVelocity().y < 0) hit = false;
+            hit = validateOneWayPlatform(b, a, -contact.normal);
         }
         
         if (hit) {
@@ -491,6 +505,43 @@ namespace pixelroot32::physics {
         }
         
         return false;
+    }
+
+    bool CollisionSystem::validateOneWayPlatform(
+        PhysicsActor* actor,
+        PhysicsActor* platform,
+        const Vector2& collisionNormal
+    ) {
+        // Not a one-way platform, always valid
+        if (!platform->isOneWay()) return true;
+        
+        // One-way platforms only affect vertical collisions
+        // Reject horizontal collisions (side collisions) completely
+        Scalar absNormalY = (collisionNormal.y < toScalar(0)) ? -collisionNormal.y : collisionNormal.y;
+        if (absNormalY < toScalar(0.1f)) {
+            // Normal is mostly horizontal, ignore this collision for one-way platforms
+            return false;
+        }
+        
+        // One-way platforms only block from above (normal pointing up to push actor up)
+        // In this engine, Y increases downward, so normal.y < 0 means pointing up
+        if (collisionNormal.y >= toScalar(0)) return false;
+        
+        // Check if actor crossed platform surface from above
+        Rect platformBox = platform->getHitBox();
+        Scalar platformTop = platformBox.position.y;
+        
+        Scalar previousBottom = actor->getPreviousPosition().y + toScalar(actor->height);
+        Scalar currentBottom = actor->position.y + toScalar(actor->height);
+        
+        // Must have been above surface and now at/below surface
+        bool crossedFromAbove = (previousBottom <= platformTop) && 
+                               (currentBottom >= platformTop);
+        
+        // Must be moving down or stationary
+        bool movingDown = actor->getVelocity().y >= toScalar(0);
+        
+        return crossedFromAbove && movingDown;
     }
 
 }

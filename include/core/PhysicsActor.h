@@ -81,6 +81,7 @@ struct WorldCollisionInfo {
 class PhysicsActor : public Actor {
 protected:
     pixelroot32::math::Vector2 velocity;
+    pixelroot32::math::Vector2 previousPosition;
 
     PhysicsBodyType bodyType = PhysicsBodyType::KINEMATIC;
 
@@ -377,6 +378,32 @@ public:
      * @brief Returns true if this body is a one-way platform.
      */
     bool isOneWay() const { return oneWay; }
+
+    /**
+     * @brief Updates the previous position to the current position.
+     * 
+     * Should be called at the start of each physics frame to track position history
+     * for spatial crossing detection (e.g., one-way platforms).
+     */
+    void updatePreviousPosition() { previousPosition = position; }
+
+    /**
+     * @brief Gets the previous frame position.
+     * @return The position from the previous physics frame.
+     */
+    pixelroot32::math::Vector2 getPreviousPosition() const { return previousPosition; }
+
+    /**
+     * @brief Sets the position and syncs previous position.
+     * 
+     * When position is set directly (not via physics integration), the previous
+     * position is also updated to prevent false crossing detection.
+     * @param pos The new position.
+     */
+    void setPosition(pixelroot32::math::Vector2 pos) {
+        position = pos;
+        previousPosition = pos;
+    }
 
     /**
      * @brief Callback triggered when this actor collides with another actor.

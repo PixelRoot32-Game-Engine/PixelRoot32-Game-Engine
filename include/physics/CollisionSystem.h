@@ -68,6 +68,12 @@ public:
                           pixelroot32::math::Scalar& outTime,
                           pixelroot32::math::Vector2& outNormal);
 
+    bool validateOneWayPlatform(
+        pixelroot32::core::PhysicsActor* actor,
+        pixelroot32::core::PhysicsActor* platform,
+        const pixelroot32::math::Vector2& collisionNormal
+    );
+
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
     static constexpr int kMaxContacts = pixelroot32::platforms::config::PhysicsMaxContacts;
