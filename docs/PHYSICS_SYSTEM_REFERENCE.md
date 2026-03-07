@@ -149,9 +149,15 @@ bodyB->position -= correctionVec * invMassB;
 
 ### 5.2 One-Way Platforms
 
-- **`PhysicsActor::setOneWay(true)`**: The body blocks only when the other body is “landing from above” (contact normal points upward from the platform and the moving body’s velocity has a downward component). Contacts from below (e.g. jumping through the platform) are rejected.
+- **`PhysicsActor::setOneWay(true)`**: The body blocks only when the other body is "landing from above". The validation uses **spatial crossing detection** to determine approach direction:
+  - Checks if the collision normal points upward (actor above platform)
+  - Verifies the actor crossed the platform surface from above using `previousPosition`
+  - Confirms the actor is moving downward or stationary
+  - **Rejects horizontal collisions** (prevents getting stuck on platform edges/corners)
+- Contacts from below (e.g. jumping through the platform) are rejected.
 - Use for: platforms the player can jump through from below and land on from above.
 - Applies in both discrete narrowphase and in the CCD path (swept circle vs static AABB).
+- **Implementation**: Uses `CollisionSystem::validateOneWayPlatform()` which compares `PhysicsActor::previousPosition` with current position to detect spatial crossing. The validation includes a tolerance check (`abs(normal.y) < 0.1`) to reject side collisions.
 
 ---
 
