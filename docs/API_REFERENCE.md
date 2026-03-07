@@ -752,6 +752,7 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 #### Properties
 
 - **`Vector2 velocity`**: Current movement speed in pixels/second.
+- **`Vector2 previousPosition`**: Position from the previous physics frame (used for spatial crossing detection).
 - **`Scalar mass`**: Mass of the body (Default: `1.0`).
 - **`Scalar restitution`**: Bounciness factor (0.0 = no bounce, 1.0 = perfect bounce).
 - **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
@@ -778,6 +779,15 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 
 - **`const Vector2& getVelocity() const`**
     Gets the current velocity vector.
+
+- **`void updatePreviousPosition()`**
+    Updates the previous position to the current position. Should be called at the start of each physics frame to track position history for spatial crossing detection (e.g., one-way platforms). This is automatically called by `CollisionSystem::update()`.
+
+- **`Vector2 getPreviousPosition() const`**
+    Gets the position from the previous physics frame. Used internally for one-way platform validation.
+
+- **`void setPosition(Vector2 pos)`**
+    Sets the position and syncs previous position. When position is set directly (not via physics integration), the previous position is also updated to prevent false crossing detection.
 
 - **`void setRestitution(Scalar r)`**
     Sets the restitution (bounciness). 1.0 means perfect bounce, < 1.0 means energy loss.
@@ -1133,6 +1143,14 @@ The solver executes in strict order:
 
 - **`bool sweptCircleVsAABB(PhysicsActor* circle, PhysicsActor* box, Scalar& outTime, Vector2& outNormal)`**  
   Performs swept test for CCD. Returns collision time (0.0-1.0) and normal.
+
+- **`bool validateOneWayPlatform(PhysicsActor* actor, PhysicsActor* platform, const Vector2& collisionNormal)`**
+  Validates whether a one-way platform collision should be resolved based on spatial crossing detection. Returns `true` if the collision should be resolved (actor crossed from above), `false` otherwise. This method checks:
+  - If the platform is a one-way platform
+  - If the collision normal points upward (actor above platform)
+  - If the actor crossed the platform surface from above (using previous position)
+  - If the actor is moving downward or stationary
+  - Rejects horizontal collisions (side collisions with one-way platforms)
 
 - **`size_t getEntityCount() const`**  
   Returns number of entities in the system.
