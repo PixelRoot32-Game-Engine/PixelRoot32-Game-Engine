@@ -19,6 +19,24 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_USE_U8G2_DRIVER` | Enable U8G2 display driver support for monochromatic OLEDs. | Disabled |
 | `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Enabled |
 
+### Modular Compilation Flags
+
+| Macro | Description | Default |
+|-------|-------------|---------|
+| `PIXELROOT32_ENABLE_AUDIO` | Enable audio subsystem (AudioEngine + MusicPlayer). | `1` |
+| `PIXELROOT32_ENABLE_PHYSICS` | Enable physics system (CollisionSystem). | `1` |
+| `PIXELROOT32_ENABLE_UI_SYSTEM` | Enable UI system (UIButton, UILabel, etc.). | `1` |
+| `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
+
+**Usage in platformio.ini:**
+```ini
+[esp32_arcade]
+extends = base_esp32, profile_arcade
+build_flags = 
+    ${base_esp32.build_flags}
+    ${profile_arcade.build_flags}
+```
+
 ### Constants
 
 - **`DISPLAY_WIDTH`**
@@ -267,9 +285,11 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
+    - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
 
 - **`MusicPlayer& getMusicPlayer()`**
     Provides access to the MusicPlayer subsystem.
+    - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
 
 - **`const PlatformCapabilities& getPlatformCapabilities() const`**
     Returns the detected hardware capabilities for the current platform.
@@ -549,6 +569,14 @@ Abstract base class for all game objects. Entities are the fundamental building 
 
 - **`virtual void draw(Renderer& renderer)`**
     Renders the entity. Must be overridden by subclasses.
+
+#### Modular Compilation Notes
+
+The Entity class is always available. However, specialized subclasses may be affected by modular compilation flags:
+
+- **UI Elements** (UIButton, UILabel, etc.): Only available if `PIXELROOT32_ENABLE_UI_SYSTEM=1`
+- **Physics Actors** (PhysicsActor, RigidActor, etc.): Only available if `PIXELROOT32_ENABLE_PHYSICS=1`
+- **Particle Systems**: Only available if `PIXELROOT32_ENABLE_PARTICLES=1`
 
 ### Actor
 

@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+
 #include "graphics/ui/UIElement.h"
 #include "graphics/Color.h"
 #include <string>
@@ -94,3 +98,5 @@ public:
     void press();
 };
 }
+
+#endif // PIXELROOT32_ENABLE_UI_SYSTEM

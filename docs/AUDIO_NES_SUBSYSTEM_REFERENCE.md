@@ -25,6 +25,7 @@ high-level architecture and the concrete implementation details.
   - 1 `NOISE` channel.
 - Software mixing into a **mono** 16-bit (`int16_t`) stream.
 - **Event-driven** model: games fire short-lived `AudioEvent` instances (SFX, notes).
+- **Conditionally compiled**: Entire subsystem can be excluded with `PIXELROOT32_ENABLE_AUDIO=0` to save firmware size and RAM.
 - Fully **platform-agnostic** core:
   - Wave, mixing, and timing logic lives in `AudioEngine`.
   - Backends (SDL2, ESP32 I2S/DAC) only request PCM blocks.
@@ -111,6 +112,7 @@ struct AudioEvent {
 
 - It is the basic unit used to trigger a sound.
 - It is passed as a parameter to `AudioEngine::playEvent`.
+- **Note**: Only available when `PIXELROOT32_ENABLE_AUDIO=1`
 
 ---
 
@@ -128,6 +130,8 @@ In the constructor:
 - `channels[3]` → `WaveType::NOISE`
 
 Each channel is reset by calling `reset()`.
+
+**Note**: This entire subsystem is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`.
 
 ### 3.2 Lifetime and time model (Sample-Based)
 
@@ -272,7 +276,7 @@ The audio system behavior can be customized via `platforms/PlatformDefaults.h` o
 | `PIXELROOT32_USE_U8G2` | Enables support for the U8G2 display driver (future support). |
 | `PIXELROOT32_NO_TFT_ESPI` | Disables the default TFT_eSPI display driver. |
 
-### 4.3 Audio Backends
+### 6.3 Audio Backends
 
 Backends implement the abstract `AudioBackend` interface:
 
@@ -284,6 +288,8 @@ public:
     virtual int getSampleRate() const = 0;
 };
 ```
+
+**Note**: Audio backends are only compiled and available when `PIXELROOT32_ENABLE_AUDIO=1`.
 
 ### 4.1 SDL2 backend (Windows / Linux / Mac)
 

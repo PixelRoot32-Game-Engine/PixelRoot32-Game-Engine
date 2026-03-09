@@ -12,9 +12,10 @@ The engine follows a scene-based architecture inspired by Godot Engine, making i
 
 ### 1.1 Design Philosophy
 
-- **Modularity**: Each subsystem can be used independently
+- **Modularity**: Each subsystem can be used independently and compiled conditionally
+- **Selective Compilation**: Subsystems can be excluded at compile time to reduce firmware size and RAM usage
 - **Portability**: Same code for ESP32 and PC (SDL2)
-- **Performance**: Optimized for resource-constrained hardware
+- **Performance**: Optimized for resource-constrained hardware with aggressive dead code elimination
 - **Extensibility**: Plugin architecture for drivers and backends
 - **Modern C++**: Leverages C++17 features (smart pointers, string_view) for safety and efficiency
 
@@ -25,15 +26,18 @@ The engine follows a scene-based architecture inspired by Godot Engine, making i
 - **Independent testing**: Each module can be unit tested
 - **Selective usage**: Use only the modules you need
 - **Easy replacement**: Change implementations without affecting the rest of the code
+- **Conditional compilation**: Exclude entire subsystems at compile time to save firmware size and RAM
 
 **Concrete examples of independence:**
 
 ```cpp
-// 1. AudioEngine works without Renderer or SceneManager
+// 1. AudioEngine works without Renderer or SceneManager (if enabled)
+#if PIXELROOT32_ENABLE_AUDIO
 AudioConfig audioConfig;
 AudioEngine audio(audioConfig);
 audio.init();
 audio.playEvent({WaveType::PULSE, 440.0f, 0.5f, 0.8f});
+#endif
 
 // 2. Renderer can be used without Audio or Input
 DisplayConfig displayConfig;
@@ -50,26 +54,29 @@ input.init();
 input.update(deltaTime);
 if (input.isButtonPressed(0)) { /* ... */ }
 
-// 4. CollisionSystem is optional per scene
+// 4. CollisionSystem is optional per scene (if enabled)
+#if PIXELROOT32_ENABLE_PHYSICS
 Scene scene;
 // You can update physics only if you need it
 scene.collisionSystem.update();
+#endif
 
 // 5. Interchangeable drivers without changing game code
 // Same code works with TFT_eSPI_Drawer, U8G2_Drawer, or SDL2_Drawer
 ```
 
-**Note**: `Engine` is the only component with tight coupling (orchestrates everything), but each subsystem can exist and function independently.
+**Note**: `Engine` is the only component with tight coupling (orchestrates everything), but each subsystem can exist and function independently. The modular compilation system uses `PIXELROOT32_ENABLE_*` flags to conditionally compile subsystems, dramatically reducing firmware size and RAM usage on embedded targets.
 
 ### 1.2 Main Architectural Features
 
 - Stack-based Scene-Entity system
 - Rendering with logical resolution independent of physical resolution
-- NES-style 4-channel audio subsystem
-- UI system with automatic layouts
-- "Flat Solver" physics with specialized Actor types (Static, Kinematic, Rigid)
+- NES-style 4-channel audio subsystem (conditionally compiled)
+- UI system with automatic layouts (conditionally compiled)
+- "Flat Solver" physics with specialized Actor types (conditionally compiled)
 - Circular and AABB collision support
 - Multi-platform support through driver abstraction
+- **Modular compilation** for selective subsystem inclusion
 
 ---
 

@@ -135,7 +135,11 @@ The engine's behavior can be customized using preprocessor macros in your `platf
 | Macro | Description | Default |
 | :--- | :--- | :--- |
 | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Shows real-time FPS and RAM usage on screen. | Disabled |
-| `PIXELROOT32_ENABLE_PROFILING` | Enables low-level timing logs in the Serial monitor. | Disabled |
+| `PIXELROOT32_ENABLE_PROFILING` | Enables low-level timing logs in Serial monitor. | Disabled |
+| `PIXELROOT32_ENABLE_AUDIO` | Enable audio subsystem (AudioEngine + MusicPlayer). | `1` |
+| `PIXELROOT32_ENABLE_PHYSICS` | Enable physics system (CollisionSystem). | `1` |
+| `PIXELROOT32_ENABLE_UI_SYSTEM` | Enable UI system (UIButton, UILabel, etc.). | `1` |
+| `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
 | `MAX_LAYERS` | Maximum number of rendering layers (higher = more RAM). | 4 |
 | `MAX_ENTITIES` | Maximum number of active entities in a scene. | 64 |
 
@@ -148,7 +152,37 @@ The engine's behavior can be customized using preprocessor macros in your `platf
 | `PIXELROOT32_ENABLE_2BPP_SPRITES` | Enables support for 4-color palettes (saves RAM). |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enables support for 16-color palettes (saves RAM). |
 
-### 6.3 ESP32 Specific (TFT_eSPI)
+### 6.2 Modular Compilation Profiles
+
+The modular compilation system allows creating custom engine profiles by combining subsystem flags:
+
+```ini
+[profile_minimal]
+build_flags = 
+    -D PIXELROOT32_ENABLE_AUDIO=0
+    -D PIXELROOT32_ENABLE_PHYSICS=0
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
+    -D PIXELROOT32_ENABLE_PARTICLES=0
+
+[profile_arcade]
+build_flags = 
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=1
+    -D PIXELROOT32_ENABLE_PARTICLES=1
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
+
+[esp32_minimal]
+extends = base_esp32, profile_minimal
+build_flags = 
+    ${base_esp32.build_flags}
+    ${profile_minimal.build_flags}
+```
+
+**Benefits:**
+- **Firmware Size Reduction**: Excluding unused subsystems can reduce final binary size by 30-70%
+- **RAM Savings**: Disabled subsystems don't allocate static buffers or runtime memory
+- **Faster Compilation**: Less code to compile and link
+- **Dead Code Elimination**: Linker can remove entire subsystem object files
 
 When using `TFT_eSPI`, you must provide the hardware configuration in `platformio.ini`. Different displays require specific flags:
 

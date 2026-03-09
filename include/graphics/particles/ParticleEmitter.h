@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_PARTICLES
+
 #include "core/Entity.h"
 #include "Particle.h"
 #include "ParticleConfig.h"
@@ -80,3 +84,5 @@ private:
 };
 
 } // namespace pixelroot32::graphics::particles
+
+#endif // PIXELROOT32_ENABLE_PARTICLES

@@ -4,8 +4,10 @@
  */
 #pragma once
 
+#include "platforms/PlatformDefaults.h"
+
 #ifdef PLATFORM_NATIVE
-    #include <platforms/mock/MockArduino.h>
+    #include "platforms/mock/MockArduino.h"
 #else
     #include <Arduino.h>
 #endif
@@ -81,10 +83,10 @@
 // Scene Limits
 // =============================================================================
 #ifndef MAX_LAYERS
-    #define MAX_LAYERS 3
+    #define MAX_LAYERS 4
 #endif
 #ifndef MAX_ENTITIES
-    #define MAX_ENTITIES 32
+    #define MAX_ENTITIES 64
 #endif
 
 #ifndef SPATIAL_GRID_CELL_SIZE

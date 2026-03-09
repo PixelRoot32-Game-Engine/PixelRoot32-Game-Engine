@@ -2,6 +2,8 @@
 
 This document describes the **Flat Solver**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
 
+**Modular Compilation:** The entire physics system is only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`. When disabled, all physics-related classes, collision detection, and solver components are excluded from the build, significantly reducing firmware size and RAM usage.
+
 ---
 
 ## 1. Overview: Flat Solver
@@ -206,6 +208,8 @@ static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
 static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
 ```
 
+**Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
+
 ### 7.2 Per-Actor Properties
 
 ```cpp
@@ -233,12 +237,16 @@ actor->setRadius(toScalar(6));
 - **Use AABB** over Circle when possible (cheaper)
 - **CCD has overhead**: Only triggers when needed
 - **Slop helps**: Skip unnecessary corrections
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
+
+**Modular Compilation:** On memory-constrained platforms, consider disabling physics entirely with `PIXELROOT32_ENABLE_PHYSICS=0` and using simple AABB checks instead.
 
 ### 8.2 ESP32 (With FPU)
 
 - **Target**: < 50 dynamic bodies @ 60 FPS
 - Circles are fine
 - Can increase VELOCITY_ITERATIONS to 4 for better stability
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
 
 ---
 
@@ -292,6 +300,7 @@ void RigidActor::update(unsigned long deltaTime) {
 3. **Use collision layers**: Don't rely on expensive broadphase checks
 4. **Keep callbacks light**: `onCollision()` should only notify, not modify physics
 5. **Test on target hardware**: Physics feels different on ESP32-C3 vs PC
+6. **Consider modular compilation**: For simple games, disabling physics (`PIXELROOT32_ENABLE_PHYSICS=0`) and using basic AABB checks can save significant RAM and firmware size
 
 ---
 
