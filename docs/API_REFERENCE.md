@@ -86,7 +86,16 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 `Scalar` is the fundamental numeric type used throughout the engine for physics, positioning, and logic.
 
 - **On FPU platforms (ESP32, S3):** `Scalar` is an alias for `float`.
-- **On non-FPU platforms (C3, S2):** `Scalar` is an alias for `Fixed16`.
+- **On non-FPU platforms (C3, S2, C6):** `Scalar` is an alias for `Fixed16`.
+
+#### Fixed16 (16.16 Fixed Point)
+
+On platforms without a Hardware Floating Point Unit (FPU), the engine uses `Fixed16` for all calculations.
+
+- **Storage**: 32-bit signed integer.
+- **Precision**: 16 bits for the integer part, 16 bits for the fractional part (approx. 0.000015 resolution).
+- **Literal**: Use the `_fp` suffix for literals on non-FPU platforms for compile-time conversion.
+  *Example:* `Scalar gravity = 9.8_fp;`
 
 #### Helper Functions
 
@@ -99,6 +108,15 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 
 - **`int toInt(Scalar value)`**
     Converts a `Scalar` back to an integer (truncating decimals).
+
+- **`int roundToInt(Scalar value)`**
+    Converts a `Scalar` to an integer, rounding to the nearest whole number. Essential for mapping logical positions to pixel coordinates without jitter.
+
+- **`int floorToInt(Scalar value)`**
+    Returns the largest integer less than or equal to the scalar value.
+
+- **`int ceilToInt(Scalar value)`**
+    Returns the smallest integer greater than or equal to the scalar value.
 
 - **`float toFloat(Scalar value)`**
     Converts a `Scalar` to `float`. **Warning:** Use sparingly on non-FPU platforms.

@@ -12,10 +12,11 @@ This document describes the **Flat Solver**, the current physics system in Pixel
 
 ### 1.1 Design Philosophy
 
-- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware
-- **Stable**: Proper separation of velocity and position solvers eliminates jitter
-- **Microcontroller-Optimized**: No recursive sub-stepping, minimal memory overhead
-- **Correct**: Implements proper impulse-based collision response
+- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware.
+- **Stable**: Proper separation of velocity and position solvers eliminates jitter.
+- **Hardware-Optimized**: Uses `Fixed16` on non-FPU microcontrollers (ESP32-C3/C6) for high-performance math without the overhead of floating-point emulation.
+- **Precise Rounding**: Uses `MathUtil` rounding functions to ensure that small penetrations and velocities are handled consistently.
+- **Correct**: Implements proper impulse-based collision response.
 
 ### 1.2 The Simulation Pipeline
 

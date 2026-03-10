@@ -41,6 +41,20 @@ struct Fixed16 {
         return static_cast<double>(raw) / ONE;
     }
 
+    constexpr int roundToInt() const {
+        const int32_t half = 1 << (FRACTIONAL_BITS - 1);
+        return (raw + (raw >= 0 ? half : -half)) >> FRACTIONAL_BITS;
+    }
+
+    constexpr int floorToInt() const {
+        return raw >> FRACTIONAL_BITS;
+    }
+
+    constexpr int ceilToInt() const {
+        const int32_t mask = (1 << FRACTIONAL_BITS) - 1;
+        return (raw + mask) >> FRACTIONAL_BITS;
+    }
+
     explicit constexpr operator int() const {
         return toInt();
     }

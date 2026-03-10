@@ -181,6 +181,19 @@ Structure that detects and exposes hardware capabilities:
 - `audioCoreId`: Recommended core for audio
 - `mainCoreId`: Recommended core for game loop
 
+#### Math System (Scalar Abstraction)
+
+**Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
+
+**Responsibility**: Provide deterministic, platform-optimized numerical operations.
+
+**Features**:
+
+- **Hardware Adaptation**: Automatically switches between `float` and `Fixed16` based on FPU presence (ESP32-S3 vs ESP32-C3).
+- **16.16 Fixed Point**: Optimized `Fixed16` implementation for RISC-V targets (C3/C6) providing enough range for physics and sub-pixel precision.
+- **Generic Math API**: Single API for `sin`, `cos`, `sqrt`, `atan2` that resolves to the most efficient implementation per platform.
+- **Stable Rounding**: Explicit `roundToInt`, `floorToInt`, and `ceilToInt` functions to avoid floating-point truncation artifacts in rendering (e.g., camera jitter).
+
 #### Unified Logging System
 
 **Files**: `include/core/Log.h`, `src/core/Log.cpp`
