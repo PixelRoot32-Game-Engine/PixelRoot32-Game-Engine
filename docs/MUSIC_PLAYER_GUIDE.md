@@ -6,7 +6,9 @@
 
 ## Overview
 
-The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with the NES-style audio system and supports tempo control, looping, and dynamic music switching.
+The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with NES-style audio system and supports tempo control, looping, and dynamic music switching.
+
+**Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage.
 
 This guide covers everything from basic music playback to advanced patterns like adaptive soundtracks and smooth transitions.
 
@@ -40,11 +42,13 @@ static const MusicTrack SIMPLE_TRACK = {
 
 // In your scene's init() method
 void MyScene::init() {
-    // Get the music player from the engine
+#if PIXELROOT32_ENABLE_AUDIO
+    // Get music player from engine
     auto& musicPlayer = engine.getMusicPlayer();
     
-    // Start playing the track
+    // Start playing track
     musicPlayer.play(SIMPLE_TRACK);
+#endif
 }
 ```
 
@@ -131,6 +135,7 @@ enum class Note : uint8_t {
 ### 1. Tempo Control
 
 ```cpp
+#if PIXELROOT32_ENABLE_AUDIO
 class AdaptiveMusicScene : public Scene {
 private:
     float currentTempo = 1.0f;
@@ -152,6 +157,7 @@ public:
         }
     }
 };
+#endif
 ```
 
 ### 2. Dynamic Music Switching

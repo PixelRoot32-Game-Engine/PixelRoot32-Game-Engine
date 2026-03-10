@@ -1,8 +1,10 @@
 # Memory Management Guide - PixelRoot32 C++17
 
-**Document Version:** 1.0  
-**Last Updated:** February 2026  
+**Document Version:** 1.1  
+**Last Updated:** March 2026  
 **Engine Version:** v1.0.0
+
+> **Note:** For the complete memory management guide with optimization strategies, visit the [official documentation](https://docs.pixelroot32.org/manual/optimization/memory_management/).
 
 ## Overview
 
@@ -24,6 +26,15 @@ Understanding the engine's memory limits is crucial for developing stable games 
 | **Spatial Grid Cell Size** | 32px | ✅ via `SPATIAL_GRID_CELL_SIZE` | Size of uniform grid cells |
 | **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Grid cell capacity |
 | **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
+
+**Modular Compilation Impact:**
+
+When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allocations are eliminated:
+
+- **Audio Disabled**: No audio buffers, AudioEngine/MusicPlayer objects (~8KB RAM saved)
+- **Physics Disabled**: No collision system, spatial grid, or physics actor buffers (~12KB RAM saved)
+- **UI Disabled**: No UI element containers, layout managers, or UI-specific buffers (~4KB RAM saved)
+- **Particles Disabled**: No particle emitters, particle pools, or particle buffers (~6KB RAM saved)
 
 ### Memory Footprint by Resolution
 
@@ -65,6 +76,8 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=128
 -D MAX_ENTITIES=24
 -D PHYSICS_MAX_PAIRS=64
+-D PIXELROOT32_ENABLE_UI_SYSTEM=0  ; Disable UI for minimal build
+-D PIXELROOT32_ENABLE_PARTICLES=0  ; Disable particles for minimal build
 ```
 
 **For richer scenes (with PSRAM):**
@@ -75,6 +88,21 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=240
 -D MAX_ENTITIES=64
 -D PHYSICS_MAX_PAIRS=256
+-D PIXELROOT32_ENABLE_AUDIO=1     ; Full audio system
+-D PIXELROOT32_ENABLE_PHYSICS=1   ; Full physics System
+```
+
+**Minimal embedded build (ESP32-C3, no audio):**
+
+```cpp
+// platformio.ini build_flags
+-D LOGICAL_WIDTH=128
+-D LOGICAL_HEIGHT=128
+-D MAX_ENTITIES=16
+-D PIXELROOT32_ENABLE_AUDIO=0     ; No audio system
+-D PIXELROOT32_ENABLE_PHYSICS=0   ; Basic collision only
+-D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Keep UI for user interface
+-D PIXELROOT32_ENABLE_PARTICLES=0  ; No particle system
 ```
 
 ### Runtime Memory Monitoring

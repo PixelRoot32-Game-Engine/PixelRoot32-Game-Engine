@@ -114,6 +114,7 @@ public:
      */
     pixelroot32::input::InputManager& getInputManager() { return inputManager; }
 
+#if PIXELROOT32_ENABLE_AUDIO
     /**
      * @brief Provides access to the AudioEngine subsystem.
      * @return Reference to the AudioEngine.
@@ -125,6 +126,7 @@ public:
      * @return Reference to the MusicPlayer.
      */
     pixelroot32::audio::MusicPlayer& getMusicPlayer() { return musicPlayer; }
+#endif
 
     using PlatformCapabilities = pixelroot32::platforms::PlatformCapabilities;
 
@@ -135,6 +137,20 @@ public:
     const PlatformCapabilities& getPlatformCapabilities() const { return capabilities; }
 
 protected:
+    SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
+    pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
+    pixelroot32::input::InputManager inputManager; ///< Manages user input.
+    PlatformCapabilities capabilities;             ///< Hardware capabilities of the current platform.
+    
+    // Audio subsystems
+    #if PIXELROOT32_ENABLE_AUDIO
+        pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
+        pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
+    #endif
+
+    unsigned long previousMillis; ///< Timestamp of the previous frame.
+    unsigned long deltaTime;      ///< Calculated time difference between frames.
+
     /**
      * @brief Updates the game logic.
      * 
@@ -148,17 +164,6 @@ protected:
      * Called once per frame. Clears the buffer, asks the scene to draw itself, and sends the buffer to the display.
      */
     void draw();
-
-protected:
-    SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
-    pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
-    pixelroot32::input::InputManager inputManager; ///< Manages user input.
-    PlatformCapabilities capabilities;             ///< Hardware capabilities of the current platform.
-    pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
-    pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
-
-    unsigned long previousMillis; ///< Timestamp of the previous frame.
-    unsigned long deltaTime;      ///< Calculated time difference between frames.
 
     /**
      * @brief Draws a debug overlay with real-time engine metrics.

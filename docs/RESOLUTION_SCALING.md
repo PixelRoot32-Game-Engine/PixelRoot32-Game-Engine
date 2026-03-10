@@ -107,12 +107,30 @@ pr32::graphics::DisplayConfig config(
 );
 ```
 
+### Modular Compilation Impact
+
+The resolution scaling system is always available, but its memory footprint can be optimized through modular compilation:
+
+- **Lower logical resolutions** (128x128) combined with disabled subsystems can save 50-70% RAM
+- **Higher logical resolutions** (240x240) may require disabling non-essential subsystems on constrained platforms
+- **UI System Impact**: Disabling `PIXELROOT32_ENABLE_UI_SYSTEM=0` reduces scaling buffer requirements
+- **Particles Impact**: Disabling `PIXELROOT32_ENABLE_PARTICLES=0` reduces rendering overhead for scaled displays
+
 ### Profiling
 
-Enable `PIXELROOT32_ENABLE_PROFILING` in `EngineConfig.h` to monitor scaling performance in the Serial console.
+Enable `PIXELROOT32_ENABLE_PROFILING` in `EngineConfig.h` to monitor scaling performance in the Serial console. This is particularly useful when optimizing for different logical resolutions on constrained hardware.
+
+**Modular Compilation Note:** Profiling overhead is minimal and can be safely enabled during performance tuning, even on resource-constrained platforms.
 
 ---
 
 ## Project Impact
 
 This system enables PixelRoot32 to run complex games with rich backgrounds and multiple sprites on standard ESP32 chips without requiring external PSRAM, while maintaining a sharp, consistent pixel-art aesthetic.
+
+### Benefits for Modular Compilation
+
+- **Memory Flexibility**: Lower logical resolutions combined with selective subsystem inclusion enable games to fit within tight memory constraints
+- **Performance Tuning**: Developers can balance visual quality vs. performance by choosing appropriate resolution and subsystem combination
+- **Platform Optimization**: Minimal builds (e.g., 128x128 + disabled audio/physics) can run smoothly on ESP32-C3 with only 400KB SRAM
+- **Scalable Architecture**: Same game code can target different memory budgets by simply changing build flags

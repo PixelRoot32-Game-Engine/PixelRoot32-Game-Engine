@@ -1,3 +1,6 @@
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_PARTICLES
+
 /*
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
@@ -141,3 +144,5 @@ namespace pixelroot32::graphics::particles {
         }
     }
 }
+
+#endif // PIXELROOT32_ENABLE_PARTICLES
