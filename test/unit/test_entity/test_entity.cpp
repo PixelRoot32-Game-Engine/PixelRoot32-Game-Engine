@@ -73,7 +73,7 @@ void test_entity_default_enabled(void) {
 
 void test_entity_default_render_layer(void) {
     MockEntity e(0, 0, 10, 10);
-    TEST_ASSERT_EQUAL_INT(1, e.renderLayer);
+    TEST_ASSERT_EQUAL_INT(1, e.getRenderLayer());
 }
 
 // =============================================================================
@@ -131,12 +131,20 @@ void test_entity_toggle_enabled(void) {
 void test_entity_set_render_layer(void) {
     MockEntity e(0, 0, 10, 10);
     e.setRenderLayer(5);
-    TEST_ASSERT_EQUAL_INT(5, e.renderLayer);
+    // Assuming MaxLayers is default 4, this should be clamped to 3. 
+    // If MaxLayers is overridden in test config, we need to know.
+    // For unit tests, we should check against MaxLayers explicitly.
+    
+    int expected = 5;
+    if (5 >= pixelroot32::platforms::config::MaxLayers) {
+        expected = pixelroot32::platforms::config::MaxLayers - 1;
+    }
+    TEST_ASSERT_EQUAL_INT(expected, e.getRenderLayer());
 }
 
 void test_entity_get_render_layer(void) {
     MockEntity e(0, 0, 10, 10);
-    e.renderLayer = 3;
+    e.setRenderLayer(3);
     TEST_ASSERT_EQUAL_INT(3, e.getRenderLayer());
 }
 
@@ -148,8 +156,8 @@ void test_entity_render_layer_zero(void) {
 
 void test_entity_render_layer_max(void) {
     MockEntity e(0, 0, 10, 10);
-    e.setRenderLayer(255);
-    TEST_ASSERT_EQUAL_INT(255, e.getRenderLayer());
+    e.setRenderLayer(pixelroot32::platforms::config::MaxLayers - 1);
+    TEST_ASSERT_EQUAL_INT(pixelroot32::platforms::config::MaxLayers - 1, e.getRenderLayer());
 }
 
 // =============================================================================

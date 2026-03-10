@@ -12,6 +12,7 @@
 #include "graphics/Renderer.h"
 #include "math/Scalar.h"
 #include "math/Vector2.h"
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::core {
 
@@ -58,8 +59,11 @@ public:
     EntityType type;   ///< The specific type of this entity.
 
     bool isVisible = true; ///< If false, the entity's draw method will not be called.
+    
+protected:
     unsigned char renderLayer = 1;
 
+public:
     /**
      * @brief Sets the visibility of the entity.
      * @param v true to show, false to hide.
@@ -82,9 +86,15 @@ public:
 
     /**
      * @brief Sets the render layer.
-     * @param layer The layer index (0-255). Lower layers are drawn first.
+     * @param layer The layer index (0 to MaxLayers-1). Clamped if exceeded.
      */
-    virtual void setRenderLayer(unsigned char layer) { renderLayer = layer; }
+    virtual void setRenderLayer(unsigned char layer) { 
+        if (layer >= pixelroot32::platforms::config::MaxLayers) {
+            renderLayer = static_cast<unsigned char>(pixelroot32::platforms::config::MaxLayers - 1);
+        } else {
+            renderLayer = layer; 
+        }
+    }
 
     /**
      * @brief Constructor.

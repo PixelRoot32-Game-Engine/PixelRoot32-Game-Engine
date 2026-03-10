@@ -67,7 +67,7 @@ def ensure_unity():
                 shutil.copy(src, UNITY_DIR / f)
         
         # Clean up
-        shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_dir, onerror=handle_remove_readonly)
         
         if unity_c.exists():
             print("[OK] Unity downloaded and configured successfully")

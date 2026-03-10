@@ -31,6 +31,7 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
 
 **Usage in platformio.ini:**
+
 ```ini
 [esp32_arcade]
 extends = base_esp32, profile_arcade
@@ -287,11 +288,11 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
-    - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
+  - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
 
 - **`MusicPlayer& getMusicPlayer()`**
     Provides access to the MusicPlayer subsystem.
-    - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
+  - **Note**: Only available if `PIXELROOT32_ENABLE_AUDIO=1`
 
 - **`const PlatformCapabilities& getPlatformCapabilities() const`**
     Returns the detected hardware capabilities for the current platform.
@@ -364,8 +365,11 @@ The core class managing audio generation and playback.
 
 #### Public Methods
 
+- **`AudioEngine(const AudioConfig& config, const PlatformCapabilities& caps)`**
+    Constructs the AudioEngine with specific configuration and platform capabilities.
+
 - **`AudioEngine(const AudioConfig& config)`**
-    Constructs the AudioEngine.
+    Constructs the AudioEngine with a specific configuration.
 
 - **`void init()`**
     Initializes the audio backend.
@@ -378,6 +382,12 @@ The core class managing audio generation and playback.
 
 - **`void setMasterVolume(float volume)`**
     Sets the master volume level (0.0 to 1.0).
+
+- **`void setScheduler(std::shared_ptr<AudioScheduler> scheduler)`**
+    Sets a custom audio scheduler. For advanced use.
+
+- **`void submitCommand(const Command& command)`**
+    Submits a low-level command to the audio thread. For advanced use.
 
 - **`float getMasterVolume() const`**
     Gets the current master volume level.
@@ -564,7 +574,7 @@ Abstract base class for all game objects. Entities are the fundamental building 
     Returns the current render layer.
 
 - **`void setRenderLayer(unsigned char layer)`**
-    Sets the logical render layer for this entity.
+    Sets the logical render layer for this entity. The value is clamped to the range `[0, MAX_LAYERS - 1]`.
 
 - **`virtual void update(unsigned long deltaTime)`**
     Updates the entity's logic. Must be overridden by subclasses.
@@ -594,11 +604,8 @@ The base class for all objects capable of collision. Actors extend Entity with c
 
 #### Properties
 
-- **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
-- **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
 - **`CollisionLayer layer`**: Bitmask representing the layers this actor belongs to.
 - **`CollisionLayer mask`**: Bitmask representing the layers this actor scans for collisions.
-- **`bool bounce`**: If `true`, the actor will bounce off surfaces based on its restitution (Default: `false`).
 
 #### Public Methods
 
@@ -639,6 +646,9 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`Scalar restitution`**: Bounciness factor (0.0 = no bounce, 1.0 = perfect bounce).
 - **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
 - **`Scalar gravityScale`**: Multiplier for global gravity (Default: `1.0`).
+- **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
+- **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
+- **`bool bounce`**: If `true`, the actor will bounce off surfaces based on its restitution (Default: `false`).
 
 #### Constructors
 
@@ -805,13 +815,6 @@ A body fully simulated by the physics engine. It is affected by gravity, forces,
 ```cpp
 auto box = std::make_unique<RigidActor>(100, 0, 16, 16);
 box->setCollisionLayer(Layers::kProps);
-box->setCollisionMask(Layers::kWall | Layers::kProps);
-box->bounce = true; // Make it bouncy
-scene->addEntity(box.get());
-```
-
----
-
 ### CircleActor (Pattern)
 
 While the engine defines `RigidActor` and `StaticActor`, creating a circular object is done by setting the `shape` property.
@@ -827,6 +830,15 @@ public:
     }
 };
 ```
+
+box->bounce = true; // Make it bouncy
+scene->addEntity(box.get());
+
+```
+
+---
+
+
 
 ---
 
@@ -959,7 +971,7 @@ Represents a game level or screen containing entities. A Scene manages a collect
     > **Note:** The scene does **not** take ownership of the entity. You must ensure the entity remains valid as long as it is in the scene (typically by holding it in a `std::unique_ptr` within your Scene class).
 
 - **`void removeEntity(Entity* entity)`**
-    Removes an entity from the scene. Does not delete the entity object.
+The engine defines default limits in `platforms/EngineConfig.h`: `MAX_LAYERS` (default 4) and `MAX_ENTITIES` (default 64). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
 
 - **`void clearEntities()`**
     Removes all entities from the scene. Does not delete the entity objects.
@@ -1331,12 +1343,6 @@ The `Camera2D` class provides a 2D camera system for managing the viewport and s
 
 ---
 
-
-
-
-
-
-
 ### Color
 
 **Inherits:** None
@@ -1361,13 +1367,13 @@ Enumeration of available color palettes.
 
 - **`static void setCustomPalette(const uint16_t* palette)`**
     Sets a custom color palette defined by the user (Single Palette Mode).
-    - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
-    - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
-    - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
+  - **palette**: Pointer to an array of 16 `uint16_t` values (RGB565).
+  - **Warning**: The array must remain valid for the duration of its use (e.g., use `static const` or global arrays). The engine does not copy the data.
+  - *Note: Sets both background and sprite palettes to the same value. Does not enable dual palette mode.*
 
 - **`static void enableDualPaletteMode(bool enable)`**
     Enables or disables dual palette mode.
-    - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for Single Palette Mode.
+  - **enable**: `true` to enable dual palette mode (separate palettes for backgrounds and sprites), `false` for Single Palette Mode.
 
 - **`static void setBackgroundPalette(PaletteType palette)`**
     Sets the background palette (for backgrounds, tilemaps, etc.).
@@ -1841,12 +1847,6 @@ Abstract interface for platform-specific drawing operations. Implementations of 
     Swaps buffers (for double-buffered systems like SDL).
 
 ---
-
-
-
-
-
-
 
 ### ParticleEmitter
 

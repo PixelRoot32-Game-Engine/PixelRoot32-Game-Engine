@@ -216,17 +216,17 @@ static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
 
 ```cpp
 // Restitution (bounciness): 0.0 to 1.0+
-actor->setRestitution(toScalar(1.0f));  // Perfect bounce
+physicsActor->setRestitution(toScalar(1.0f));  // Perfect bounce
 
 // Friction: 0.0 (none) to 1.0 (high)
-actor->setFriction(toScalar(0.0f));
+physicsActor->setFriction(toScalar(0.0f));
 
 // Gravity scale: 0.0 (no gravity) to 1.0+ (heavy)
-actor->setGravityScale(toScalar(0.0f)); // No gravity
+physicsActor->setGravityScale(toScalar(0.0f)); // No gravity
 
 // Shape
-actor->setShape(CollisionShape::CIRCLE);
-actor->setRadius(toScalar(6));
+physicsActor->setShape(CollisionShape::CIRCLE);
+physicsActor->setRadius(toScalar(6));
 ```
 
 ---
