@@ -1,5 +1,7 @@
 # PixelRoot32 / PR32: NES-like Audio System – Implementation and Usage
 
+> **Note:** For the complete audio system documentation with interactive examples and API reference, visit the [official documentation](https://docs.pixelroot32.org/manual/game_development/audio/).
+
 This document describes how the NES-style audio subsystem is implemented in the
 PixelRoot32 (PR32) engine and how to use it from your games. It covers both the
 high-level architecture and the concrete implementation details.

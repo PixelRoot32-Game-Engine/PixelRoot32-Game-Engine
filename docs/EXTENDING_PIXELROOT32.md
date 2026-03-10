@@ -1,5 +1,7 @@
 # Extensibility Guide: Creating Custom Drivers
 
+> **Note:** For the complete extensibility guide with advanced examples, visit the [official documentation](https://docs.pixelroot32.org/manual/optimization/extensibility/).
+
 This guide explains how to implement a custom display driver (`DrawSurface`) to support hardware not included by default in the PixelRoot32 engine (e.g., monochromatic OLED displays, e-Ink screens, or non-standard SPI displays).
 
 ## 1. Inherit from `BaseDrawSurface`

@@ -2,6 +2,8 @@
 
 This document provides a complete reference for the PixelRoot32 Game Engine public API.
 
+> **Note:** For the most up-to-date and comprehensive API documentation with examples and cross-references, visit the [official documentation](https://docs.pixelroot32.org/api_reference/).
+
 ## Global Configuration
 
 The engine's behavior can be customized using `platforms/PlatformDefaults.h` and `platforms/EngineConfig.h`, or via compile-time build flags. This allows for fine-tuning performance and hardware support without modifying the core engine code.

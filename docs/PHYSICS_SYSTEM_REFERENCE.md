@@ -1,5 +1,7 @@
 # PixelRoot32 Physics System Reference – Flat Solver
 
+> **Note:** For the complete physics system documentation with examples and API reference, visit the [official documentation](https://docs.pixelroot32.org/manual/game_development/physics_and_collisions/).
+
 This document describes the **Flat Solver**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
 
 **Modular Compilation:** The entire physics system is only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`. When disabled, all physics-related classes, collision detection, and solver components are excluded from the build, significantly reducing firmware size and RAM usage.
