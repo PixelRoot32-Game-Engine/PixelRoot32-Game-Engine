@@ -42,8 +42,8 @@ void Camera2D::setPosition(Vector2 newPos) {
 }
 
 void Camera2D::followTarget(Scalar targetX) {
-    Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
-    Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
+    Scalar deadZoneLeft  = toScalar(viewportWidth * 3) / toScalar(10);
+    Scalar deadZoneRight = toScalar(viewportWidth * 7) / toScalar(10);
 
     Scalar screenX = targetX - position.x;
 
@@ -65,8 +65,8 @@ void Camera2D::followTarget(Vector2 target) {
     followTarget(target.x);
 
     // Vertical follow
-    Scalar deadZoneTop = Scalar(viewportHeight) * Scalar(0.3f);
-    Scalar deadZoneBottom = Scalar(viewportHeight) * Scalar(0.7f);
+    Scalar deadZoneTop  = toScalar(viewportHeight * 3) / toScalar(10);
+    Scalar deadZoneBottom = toScalar(viewportHeight * 7) / toScalar(10);
 
     Scalar screenY = target.y - position.y;
 
