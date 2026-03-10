@@ -61,6 +61,7 @@ To avoid the massive RAM overhead of a full-size physical framebuffer (which wou
 ### 3. Optimization Techniques (ESP32)
 
 - **8-bit to 16-bit Conversion:** Optimized color conversion from the engine's 8-bit palette to the hardware's RGB565.
+- **Sub-pixel Stability:** Camera and actors use `Scalar` (float or Fixed16) for movement, and `Camera2D` uses `math::roundToInt` when applying the display offset. This prevents the "jitter" artifacts common when truncating floating-point positions to the integer pixel grid.
 - **Fast-Path Switching (v1.0.0):**
   - **1:1 Native:** Directly volcates the buffer if logical and physical match, supporting offsets for centering.
   - **2x Integer Scaling:** Uses a Bit-Expansion LUT (OLED) or 32-bit register writes (TFT) to duplicate pixels without recalculating indices.

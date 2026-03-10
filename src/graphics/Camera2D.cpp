@@ -10,6 +10,7 @@ namespace pixelroot32::graphics {
 using pixelroot32::math::Scalar;
 using pixelroot32::math::toScalar;
 using pixelroot32::math::Vector2;
+using pixelroot32::math::roundToInt;
 
 Camera2D::Camera2D(int viewportWidth, int viewportHeight)
     : position(0, 0)
@@ -93,7 +94,10 @@ Vector2 Camera2D::getPosition() const {
 }
 
 void Camera2D::apply(Renderer& renderer) const {
-    renderer.setDisplayOffset(static_cast<int>(-position.x), static_cast<int>(-position.y));
+    renderer.setDisplayOffset(
+        -roundToInt(position.x),
+        -roundToInt(position.y)
+    );
 }
 
 void Camera2D::setViewportSize(int width, int height) {
