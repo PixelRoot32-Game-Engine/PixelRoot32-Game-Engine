@@ -306,6 +306,7 @@ The **Flat Solver** uses a fixed-timestep pipeline with proper separation of vel
 ```
 
 **Key Features**:
+
 - **Fixed Timestep**: Deterministic 1/60s simulation
 - **Dual-Layer Spatial Grid**: Static layer (rebuilt only when entities change) + dynamic layer (cleared and refilled every frame); reduces per-frame cost with many static tiles
 - **Fixed Contact Pool**: `Contact contacts[kMaxContacts]` (default 128); no heap allocations in the hot path; overflow drops extra contacts
@@ -317,6 +318,7 @@ The **Flat Solver** uses a fixed-timestep pipeline with proper separation of vel
 - **Profiling Hooks**: `PIXELROOT32_PROFILE_BEGIN` / `PIXELROOT32_PROFILE_END` around each pipeline stage when `PIXELROOT32_ENABLE_PROFILING` is defined
 
 **Collision Layers**:
+
 ```cpp
 enum DefaultLayers {
     kNone = 0,
@@ -329,6 +331,7 @@ enum DefaultLayers {
 ```
 
 **Physics Constants**:
+
 ```cpp
 FIXED_DT = 1/60s           // Timestep
 SLOP = 0.02f               // Ignore penetration < 2cm
@@ -504,7 +507,7 @@ void Engine::draw() {
 **Scene Stack**:
 
 ```cpp
-Scene* sceneStack[MAX_SCENES];  // Maximum 5 scenes by default
+Scene* sceneStack[pixelroot32::platforms::config::MaxScenes];  // Maximum 8 scenes by default
 int sceneCount;
 ```
 
@@ -516,6 +519,7 @@ int sceneCount;
 
 **Memory Management**:
 The Scene follows a **non-owning** model for entities. When you call `addEntity(Entity*)`, the scene stores a reference to the entity but **does not take ownership**.
+
 - You are responsible for the entity's lifetime (typically using `std::unique_ptr` in your Scene subclass).
 - The Scene will NOT delete entities when it is destroyed or when `clearEntities()` is called.
 
@@ -562,6 +566,7 @@ virtual void draw(Renderer& renderer) = 0;
 Following the Godot Engine philosophy, physical actors are specialized into distinct types based on their movement requirements.
 
 **Hierarchy**:
+
 ```
 Entity
 └── Actor
@@ -573,6 +578,7 @@ Entity
 ```
 
 **Actor Roles**:
+
 - **StaticActor**: Immovable scenery. Placed in the **static layer** of the spatial grid (rebuilt only when entities are added/removed). Other bodies collide with them normally.
 - **SensorActor**: Subclass of StaticActor that calls `setSensor(true)`. Generates `onCollision` but no impulse or penetration correction.
 - **KinematicActor**: Logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()`. Inserted into the **dynamic layer** each frame.
@@ -581,6 +587,7 @@ Entity
 - **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:
+
 - `CollisionLayer layer`: Own collision layer
 - `CollisionLayer mask`: Layers it collides with
 - `bool bounce`: Optional bouncing behavior
@@ -761,9 +768,9 @@ AudioBackend
 
 7. **IRAM-Cached Rendering**: Critical functions in internal RAM.
 
-6. **Viewport Culling**: Only render visible entities
+8. **Viewport Culling**: Only render visible entities
 
-7. **Cached Debug Strings**: Text formatting every N frames
+9. **Cached Debug Strings**: Text formatting every N frames
 
 ### 6.2 Performance Metrics
 

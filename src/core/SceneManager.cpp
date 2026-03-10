@@ -9,13 +9,14 @@
  * This file remains licensed under the MIT License.
  */
 #include "core/SceneManager.h"
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::core {
 
     using namespace pixelroot32::graphics;
 
     SceneManager::SceneManager() {
-        for (int i = 0; i < MAX_SCENES; i++) {
+        for (int i = 0; i < pixelroot32::platforms::config::MaxScenes; i++) {
             sceneStack[i] = nullptr;  // Initialize empty stack
         }
     }
@@ -27,7 +28,7 @@ namespace pixelroot32::core {
     }
 
     void SceneManager::pushScene(Scene* newScene) {
-        if (sceneCount < MAX_SCENES) {
+        if (sceneCount < pixelroot32::platforms::config::MaxScenes) {
             sceneStack[sceneCount++] = newScene;
             newScene->init();
         }

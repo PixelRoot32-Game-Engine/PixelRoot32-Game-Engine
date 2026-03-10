@@ -16,6 +16,7 @@
 #include "core/SceneManager.h"
 #include "core/Scene.h"
 #include "graphics/Renderer.h"
+#include "platforms/EngineConfig.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
@@ -127,13 +128,13 @@ void test_scene_manager_push_multiple(void) {
 
 void test_scene_manager_push_beyond_max(void) {
     SceneManager manager;
-    MockScene scenes[MAX_SCENES + 1];
+    MockScene scenes[pixelroot32::platforms::config::MaxScenes + 1];
     
-    for (int i = 0; i < MAX_SCENES + 1; i++) {
+    for (int i = 0; i < pixelroot32::platforms::config::MaxScenes + 1; i++) {
         manager.pushScene(&scenes[i]);
     }
     
-    TEST_ASSERT_EQUAL_INT(MAX_SCENES, manager.getSceneCount());
+    TEST_ASSERT_EQUAL_INT(pixelroot32::platforms::config::MaxScenes, manager.getSceneCount());
 }
 
 // =============================================================================

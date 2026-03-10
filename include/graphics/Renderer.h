@@ -547,7 +547,7 @@ inline const TileAttributeEntry* get_tile_entry(
         
         if (tile.x == x && tile.y == y) {
             // Return pointer to entry in PROGMEM (not the copied tile)
-            return &layer.tiles[i];
+            return layer.tiles + i;
         }
     }
     

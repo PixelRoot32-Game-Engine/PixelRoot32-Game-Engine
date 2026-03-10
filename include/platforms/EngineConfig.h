@@ -5,6 +5,7 @@
 #pragma once
 
 #include "platforms/PlatformDefaults.h"
+#include "core/Log.h"
 
 // =============================================================================
 // Logging (must be defined before including Log.h)
@@ -12,8 +13,6 @@
 // Uncomment to enable engine logging; log() calls print to platform output.
 // If not defined, log() is a no-op. Can also be set via build flags: -DPIXELROOT32_DEBUG_MODE
 // #define PIXELROOT32_DEBUG_MODE
-
-#include "core/Log.h"
 
 #ifdef PLATFORM_NATIVE
     #include "platforms/mock/MockArduino.h"
@@ -98,6 +97,10 @@
 // =============================================================================
 // Scene Limits
 // =============================================================================
+#ifndef MAX_SCENES
+    #define MAX_SCENES 8
+#endif
+
 #ifndef MAX_LAYERS
     #define MAX_LAYERS 4
 #endif
@@ -178,6 +181,7 @@ namespace pixelroot32::platforms::config {
     inline constexpr int YOffset = Y_OFF_SET;
 
     // Scene Limits
+    inline constexpr int MaxScenes = MAX_SCENES;
     inline constexpr int MaxLayers = MAX_LAYERS;
     inline constexpr int MaxEntities = MAX_ENTITIES;
 
