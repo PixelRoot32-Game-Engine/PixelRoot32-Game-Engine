@@ -7,10 +7,7 @@
 
 #ifdef PLATFORM_NATIVE
 
-// Tell SDL2 not to replace main() with SDL_main/WinMain
-#ifndef SDL_MAIN_HANDLED
-#define SDL_MAIN_HANDLED
-#endif
+// SDL_MAIN_HANDLED is defined in platformio.ini build_flags
 #include <SDL2/SDL.h>
 #include <cstdint>
 #include <cstdio>

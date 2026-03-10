@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_PARTICLES
+
 #include "ParticleConfig.h"
 
 
@@ -88,3 +92,5 @@ namespace ParticlePresets {
 }
 
 }
+
+#endif // PIXELROOT32_ENABLE_PARTICLES

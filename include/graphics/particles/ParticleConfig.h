@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_PARTICLES
+
 #include <cstdint>
 #include "graphics/Color.h"
 #include "math/Scalar.h"
@@ -36,3 +40,5 @@ struct ParticleConfig {
 };
 
 } // namespace pixelroot32::graphics::particles
+
+#endif // PIXELROOT32_ENABLE_PARTICLES

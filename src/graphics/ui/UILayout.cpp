@@ -1,3 +1,6 @@
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+
 /*
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
@@ -14,3 +17,5 @@ void UILayout::clearElements() {
 }
 
 }
+
+#endif // PIXELROOT32_ENABLE_UI_SYSTEM

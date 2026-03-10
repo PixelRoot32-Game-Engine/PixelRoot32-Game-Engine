@@ -4,6 +4,7 @@
  */
 #include "core/Engine.h"
 #include "core/Scene.h"
+#include "core/EngineModules.h"
 #include "core/Log.h"
 #include "input/InputConfig.h"
 #include "graphics/FontManager.h"
@@ -15,6 +16,7 @@
 
 namespace pixelroot32::core {
 
+    using namespace pixelroot32::modules;
     using namespace pixelroot32::core::logging;
     using namespace pixelroot32::graphics;
     using namespace pixelroot32::input;
@@ -25,40 +27,64 @@ namespace pixelroot32::core {
     unsigned long gProfilerPhysicsIntegrateCount = 0;
 
     Engine::Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig) 
-        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+        , audioEngine(audioConfig, capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig) 
-        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+        , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(DisplayConfig&& displayConfig) 
-        : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+        : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+        , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
         : renderer(const_cast<DisplayConfig&>(displayConfig)), 
-          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(audioConfig, capabilities), musicPlayer(audioEngine) {
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+          , audioEngine(audioConfig, capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
         : renderer(const_cast<DisplayConfig&>(displayConfig)), 
-          inputManager(inputConfig), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+          inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+          , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
         : renderer(const_cast<DisplayConfig&>(displayConfig)), 
-          inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect()), audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine) {
+          inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect())
+#if PIXELROOT32_ENABLE_AUDIO
+          , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
+#endif
+    {
         previousMillis = 0;
         deltaTime = 0;
     }
@@ -77,7 +103,11 @@ namespace pixelroot32::core {
         
         renderer.init();
         inputManager.init();
-        audioEngine.init();
+
+        // Initialize audio engine if enabled
+        #if PIXELROOT32_ENABLE_AUDIO
+            audioEngine.init();
+        #endif
         
         // Set default font (5x7 bitmap font)
         FontManager::setDefaultFont(&FONT_5X7);
@@ -208,12 +238,13 @@ namespace pixelroot32::core {
         deltaTime = currentMillis - previousMillis;
         previousMillis = currentMillis;
 
-    #ifdef PLATFORM_NATIVE
-        inputManager.update(deltaTime, SDL_GetKeyboardState(nullptr));
-    #else
-        inputManager.update(deltaTime);
-    #endif
-        sceneManager.update(deltaTime);
+        #ifdef PLATFORM_NATIVE
+            inputManager.update(deltaTime, SDL_GetKeyboardState(nullptr));
+        #else
+            inputManager.update(deltaTime);
+        #endif
+        
+        sceneManager.update(deltaTime);    
     }
 
     void Engine::draw() {

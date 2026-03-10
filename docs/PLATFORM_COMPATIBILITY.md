@@ -1,12 +1,14 @@
 # PixelRoot32 Platform Compatibility Guide
 
-**Document Version:** 1.0  
-**Last Updated:** February 2026  
+**Document Version:** 1.1  
+**Last Updated:** March 2026  
 **Engine Version:** v1.0.0
 
 ## Overview
 
 This document provides detailed information about PixelRoot32 Game Engine compatibility across different ESP32 variants and platforms. It helps developers understand which features are available on their target hardware.
+
+For the complete platform compatibility guide with optimization tips and troubleshooting, see the [official documentation](https://docs.pixelroot32.org/manual/optimization/platform_compatibility/).
 
 ---
 
@@ -218,6 +220,9 @@ board = esp32dev
 build_flags = 
     -std=gnu++17
     -fno-exceptions
+    -D PIXELROOT32_ENABLE_AUDIO=1     ; Enable audio subsystem
+    -D PIXELROOT32_ENABLE_PHYSICS=1   ; Enable physics system
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Enable UI system
     ; DAC audio is enabled by default on ESP32
 ```
 
@@ -230,20 +235,27 @@ board = esp32-s3-devkitc-1
 build_flags = 
     -std=gnu++17
     -fno-exceptions
-    -D PIXELROOT32_NO_DAC_AUDIO  ; Explicitly disable DAC
+    -D PIXELROOT32_NO_DAC_AUDIO   ; Explicitly disable DAC
+    -D PIXELROOT32_ENABLE_AUDIO=1     ; Enable audio subsystem
+    -D PIXELROOT32_ENABLE_PHYSICS=1   ; Enable physics system
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Enable UI system
     ; I2S is enabled by default
 ```
 
-### ESP32-C3 (Fixed16 Math)
+### Minimal Build (ESP32-C3, No Audio/Physics)
 
 ```cpp
-[env:esp32c3_fixed16]
+[env:esp32c3_minimal]
 platform = espressif32
 board = esp32-c3-devkitm-1
 build_flags = 
     -std=gnu++17
     -fno-exceptions
-    -D PIXELROOT32_NO_DAC_AUDIO
+    -D PIXELROOT32_NO_DAC_AUDIO   ; No DAC support
+    -D PIXELROOT32_ENABLE_AUDIO=0     ; Disable audio subsystem
+    -D PIXELROOT32_ENABLE_PHYSICS=0   ; Disable physics system
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Keep UI for user interface
+    -D PIXELROOT32_ENABLE_PARTICLES=0  ; No particle system
     ; Fixed16 math is automatic (no FPU)
 ```
 
@@ -264,6 +276,22 @@ build_flags =
 - **ESP32-C3:** 400KB SRAM (most constrained)
 - **ESP32-S2:** 320KB SRAM
 - **ESP32-C6:** 512KB SRAM
+
+### Modular Compilation Memory Impact
+
+The modular compilation system allows significant memory savings by disabling unused subsystems:
+
+| Subsystem Disabled | RAM Saved | Firmware Size Reduction |
+|-------------------|-----------|------------------------|
+| Audio (`PIXELROOT32_ENABLE_AUDIO=0`) | ~8KB | 15-25% |
+| Physics (`PIXELROOT32_ENABLE_PHYSICS=0`) | ~12KB | 20-30% |
+| UI System (`PIXELROOT32_ENABLE_UI_SYSTEM=0`) | ~4KB | 8-15% |
+| Particles (`PIXELROOT32_ENABLE_PARTICLES=0`) | ~6KB | 10-20% |
+| **All Disabled** | ~30KB | **50-70%** |
+
+**Example:** ESP32-C3 minimal build (audio+physics disabled) saves ~20KB RAM compared to full build.
+
+For detailed configuration examples, see [Global Configuration](https://docs.pixelroot32.org/api_reference/core/global_config/).
 
 ### Audio Capabilities
 
@@ -349,12 +377,28 @@ if (!caps.hasFPU) {
     // Use Fixed16-friendly algorithms
     useFixedPointOptimizations();
 }
+
+// Check modular compilation status
+#if PIXELROOT32_ENABLE_AUDIO
+    // Audio subsystem available
+    auto& audioEngine = engine.getAudioEngine();
+    audioEngine.init();
+#endif
+
+#if PIXELROOT32_ENABLE_PHYSICS
+    // Physics system available
+    auto& collisionSystem = scene.getCollisionSystem();
+    collisionSystem.update();
+#endif
 ```
 
 ---
 
 ## References
 
+- **Official Documentation:** <https://docs.pixelroot32.org/>
+- **Platform Compatibility Guide:** <https://docs.pixelroot32.org/manual/optimization/platform_compatibility/>
+- **API Reference:** <https://docs.pixelroot32.org/api_reference/>
 - **ESP32 Arduino Core Documentation:** <https://docs.espressif.com/projects/arduino-esp32/>
 - **PlatformIO ESP32 Platforms:** <https://docs.platformio.org/en/latest/platforms/espressif32.html>
 - **PixelRoot32 Engine Configuration:** See `platforms/PlatformDefaults.h`

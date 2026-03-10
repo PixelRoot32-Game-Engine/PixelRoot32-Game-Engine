@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+
 #include "UIElement.h"
 
 namespace pixelroot32::graphics::ui {
@@ -121,3 +125,5 @@ private:
 };
 
 }
+
+#endif // PIXELROOT32_ENABLE_UI_SYSTEM

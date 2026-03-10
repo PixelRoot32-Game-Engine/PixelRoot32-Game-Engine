@@ -1,6 +1,10 @@
 # PixelRoot32 Physics System Reference – Flat Solver
 
+> **Note:** For the complete physics system documentation with examples and API reference, visit the [official documentation](https://docs.pixelroot32.org/manual/game_development/physics_and_collisions/).
+
 This document describes the **Flat Solver**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
+
+**Modular Compilation:** The entire physics system is only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`. When disabled, all physics-related classes, collision detection, and solver components are excluded from the build, significantly reducing firmware size and RAM usage.
 
 ---
 
@@ -275,21 +279,25 @@ static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
 static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
 ```
 
+**Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
+
+**Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
+
 ### 9.2 Per-Actor Properties
 
 ```cpp
 // Restitution (bounciness): 0.0 to 1.0+
-actor->setRestitution(toScalar(1.0f));  // Perfect bounce
+physicsActor->setRestitution(toScalar(1.0f));  // Perfect bounce
 
 // Friction: 0.0 (none) to 1.0 (high)
-actor->setFriction(toScalar(0.0f));
+physicsActor->setFriction(toScalar(0.0f));
 
 // Gravity scale: 0.0 (no gravity) to 1.0+ (heavy)
-actor->setGravityScale(toScalar(0.0f)); // No gravity
+physicsActor->setGravityScale(toScalar(0.0f)); // No gravity
 
 // Shape
-actor->setShape(CollisionShape::CIRCLE);
-actor->setRadius(toScalar(6));
+physicsActor->setShape(CollisionShape::CIRCLE);
+physicsActor->setRadius(toScalar(6));
 ```
 
 ---
@@ -302,12 +310,16 @@ actor->setRadius(toScalar(6));
 - **Use AABB** over Circle when possible (cheaper)
 - **CCD has overhead**: Only triggers when needed
 - **Slop helps**: Skip unnecessary corrections
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
+
+**Modular Compilation:** On memory-constrained platforms, consider disabling physics entirely with `PIXELROOT32_ENABLE_PHYSICS=0` and using simple AABB checks instead.
 
 ### 10.2 ESP32 (With FPU)
 
 - **Target**: < 50 dynamic bodies @ 60 FPS
 - Circles are fine
 - Can increase VELOCITY_ITERATIONS to 4 for better stability
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
 
 ---
 
@@ -361,6 +373,7 @@ void RigidActor::update(unsigned long deltaTime) {
 3. **Use collision layers**: Don't rely on expensive broadphase checks
 4. **Keep callbacks light**: `onCollision()` should only notify, not modify physics
 5. **Test on target hardware**: Physics feels different on ESP32-C3 vs PC
+6. **Consider modular compilation**: For simple games, disabling physics (`PIXELROOT32_ENABLE_PHYSICS=0`) and using basic AABB checks can save significant RAM and firmware size
 
 ---
 
