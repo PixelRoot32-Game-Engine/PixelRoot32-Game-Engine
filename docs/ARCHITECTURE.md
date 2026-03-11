@@ -235,6 +235,7 @@ namespace pixelroot32::core::logging {
 - Support for 1bpp, 2bpp, 4bpp sprites
 - Sprite animation system
 - Tilemaps with viewport culling
+- Multi-palette tilemaps (2bpp/4bpp): optional per-cell background palette via `paletteIndices` and a background palette slot bank (see Color module)
 - Native bitmap font system
 - Render contexts for dual palettes
 

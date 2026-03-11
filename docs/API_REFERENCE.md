@@ -1398,10 +1398,10 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles. Includes automatic Viewport Culling.
 
 - **`void drawTileMap(const TileMap2bpp& map, int originX, int originY)`**
-    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching. If `map.paletteIndices` is non-null, each cell can use a different background palette slot (0–7); otherwise all cells use the default background palette (slot 0).
 
 - **`void drawTileMap(const TileMap4bpp& map, int originX, int originY)`**
-    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching. If `map.paletteIndices` is non-null, each cell can use a different background palette slot (0–7); otherwise all cells use the default background palette (slot 0).
 
 ---
 
@@ -1411,7 +1411,7 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 
 - **DMA Support**: Buffer transfers to the display are handled via DMA (`pushImageDMA`), allowing the CPU to process the next frame while the current one is being sent to the hardware.
 - **IRAM Execution**: Critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) are decorated with `IRAM_ATTR` to run from internal RAM, bypassing the slow SPI Flash latency.
-- **Palette Caching**: Tilemaps cache the resolved RGB565 palette for each tile to avoid redundant color calculations during the draw loop.
+- **Palette Caching**: Tilemaps cache the resolved RGB565 LUT per tile. The cache key is the pair (tile palette pointer, background palette pointer). When `paletteIndices` is used, the LUT is rebuilt only when either the tile’s palette or the cell’s background palette slot changes (`lastTilePalettePtr` / `lastBackgroundPalettePtr`), minimizing redundant work.
 - **Viewport Culling**: All tilemap rendering functions automatically skip tiles that are outside the current screen boundaries.
 
 - **`void setDisplaySize(int w, int h)`**
@@ -1618,7 +1618,7 @@ The `Camera2D` class provides a 2D camera system for managing the viewport and s
 
 **Inherits:** None
 
-The `Color` module manages the engine's color palettes and provides the `Color` enumeration for referencing colors within the active palette.
+The `Color` module manages the engine's color palettes and provides the `Color` enumeration for referencing colors within the active palette. It also maintains a **background palette slot bank** (number of slots from `MAX_BACKGROUND_PALETTE_SLOTS` in `EngineConfig.h`, default 8) for multi-palette 2bpp/4bpp tilemaps, where each cell can select a slot via the tilemap's optional `paletteIndices` array.
 
 #### PaletteType (Enum)
 
@@ -1672,12 +1672,38 @@ Enumeration of available color palettes.
   - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
   - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
+#### Background palette slot bank (multi-palette tilemaps)
+
+For 2bpp/4bpp tilemaps, the engine supports **multiple background palettes per cell**. A bank of slots (default 8, configurable via **`MAX_BACKGROUND_PALETTE_SLOTS`** in `EngineConfig.h` or build flag `-DMAX_BACKGROUND_PALETTE_SLOTS=N`) holds palette pointers; slot 0 is the default and is kept in sync with `setBackgroundPalette` / `setBackgroundCustomPalette`. If a tilemap provides an optional `paletteIndices` array, each cell can select a slot (0 to N−1) so different areas use different palettes (e.g. ground, water, lava) without changing tile data.
+
+- **`static void initBackgroundPaletteSlots()`**
+    Initializes all background palette slots to the default palette. Call at engine startup if using multi-palette tilemaps; otherwise slots are initialized lazily when setting the background palette.
+
+- **`static void setBackgroundPaletteSlot(uint8_t slotIndex, PaletteType palette)`**
+    Sets a background palette slot by type (for multi-palette tilemaps).
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global background palette.
+  - **palette**: The palette type for this slot.
+
+- **`static void setBackgroundCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette)`**
+    Sets a background palette slot with a custom RGB565 palette.
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global background palette.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 values; must remain valid.
+
+- **`static const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex)`**
+    Returns the palette pointer for a background slot (for renderer use). If the slot is not set, returns slot 0; if slot 0 is not set, returns the global background palette. Never returns `nullptr`.
+  - **slotIndex**: Slot 0–7.
+
 - **`static uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (Single Palette Mode).
 
 - **`static uint16_t resolveColor(Color color, PaletteContext context)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (Single Palette Mode).
   - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
+
+- **`static uint16_t resolveColorWithPalette(Color color, const uint16_t* palette)`**
+    Converts a `Color` enum value to RGB565 using an explicit palette (used internally for per-cell tilemap palette resolution).
+  - **color**: The `Color` enum value.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 palette; if `nullptr`, returns 0.
 
 #### Color (Enum)
 
@@ -1852,6 +1878,12 @@ Generic descriptor for tile-based backgrounds. It stores level data as an array 
 
 - **`uint16_t tileCount`**  
   Number of unique tiles in the `tiles` array.
+
+- **`uint8_t* runtimeMask`**  
+  Optional bitmask for runtime tile activation (1 bit per cell). If non-null, tiles whose bit is 0 are skipped by `drawTileMap`. Use `initRuntimeMask()`, `isTileActive()`, `setTileActive()`; size is `(width * height + 7) / 8` bytes.
+
+- **`const uint8_t* paletteIndices`**  
+  Optional per-cell background palette index (for 2bpp/4bpp multi-palette tilemaps only). If `nullptr`, all cells use the default background palette (slot 0). If non-null, array size must be `width * height`; each byte uses bits 0–2 for the palette slot (0–7), bits 3–7 reserved for future use. Use with `setBackgroundPaletteSlot` / `setBackgroundCustomPaletteSlot` to assign palettes to slots. Typically filled by the editor or export tools; can be stored in PROGMEM.
 
 ---
 

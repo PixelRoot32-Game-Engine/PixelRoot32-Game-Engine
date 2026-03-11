@@ -108,6 +108,13 @@
     #define MAX_ENTITIES 64
 #endif
 
+/** Number of background palette slots for multi-palette tilemaps (2bpp/4bpp).
+ *  Each tilemap cell can select a slot 0..(MAX_BACKGROUND_PALETTE_SLOTS-1) via paletteIndices.
+ *  Override before including this header to change the slot count (e.g. -DMAX_BACKGROUND_PALETTE_SLOTS=4). */
+#ifndef MAX_BACKGROUND_PALETTE_SLOTS
+    #define MAX_BACKGROUND_PALETTE_SLOTS 8
+#endif
+
 #ifndef SPATIAL_GRID_CELL_SIZE
     #define SPATIAL_GRID_CELL_SIZE 32
 #endif
@@ -184,6 +191,8 @@ namespace pixelroot32::platforms::config {
     inline constexpr int MaxScenes = MAX_SCENES;
     inline constexpr int MaxLayers = MAX_LAYERS;
     inline constexpr int MaxEntities = MAX_ENTITIES;
+
+    inline constexpr int kMaxBackgroundPaletteSlots = MAX_BACKGROUND_PALETTE_SLOTS;
 
     // Spatial Grid
     inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
