@@ -80,15 +80,28 @@ namespace pixelroot32::core {
     }
 
     void Scene::sortEntities() {
-        for (int i = 0; i < entityCount - 1; i++) {
-            for (int j = 0; j < entityCount - i - 1; j++) {
-                if (entities[j]->getRenderLayer() > entities[j + 1]->getRenderLayer()) {
-                    Entity* temp = entities[j];
-                    entities[j] = entities[j + 1];
-                    entities[j + 1] = temp;
-                }
+        // for (int i = 0; i < entityCount - 1; i++) {
+        //     for (int j = 0; j < entityCount - i - 1; j++) {
+        //         if (entities[j]->getRenderLayer() > entities[j + 1]->getRenderLayer()) {
+        //             Entity* temp = entities[j];
+        //             entities[j] = entities[j + 1];
+        //             entities[j + 1] = temp;
+        //         }
+        //     }
+        // }
+        // needsSorting = false;
+        for (int i = 1; i < entityCount; i++) {
+            Entity* key = entities[i];
+            int j = i - 1;
+
+            while (j >= 0 && entities[j]->getRenderLayer() > key->getRenderLayer()) {
+                entities[j + 1] = entities[j];
+                j--;
             }
+
+            entities[j + 1] = key;
         }
+
         needsSorting = false;
     }
 
