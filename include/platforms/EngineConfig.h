@@ -115,6 +115,13 @@
     #define MAX_BACKGROUND_PALETTE_SLOTS 8
 #endif
 
+/** Number of sprite palette slots for multi-palette sprites (2bpp/4bpp).
+ *  Each sprite draw call can select a slot 0..(MAX_SPRITE_PALETTE_SLOTS-1) via paletteSlot parameter.
+ *  Override before including this header to change the slot count (e.g. -DMAX_SPRITE_PALETTE_SLOTS=4). */
+#ifndef MAX_SPRITE_PALETTE_SLOTS
+    #define MAX_SPRITE_PALETTE_SLOTS 8
+#endif
+
 #ifndef SPATIAL_GRID_CELL_SIZE
     #define SPATIAL_GRID_CELL_SIZE 32
 #endif
@@ -193,6 +200,7 @@ namespace pixelroot32::platforms::config {
     inline constexpr int MaxEntities = MAX_ENTITIES;
 
     inline constexpr int kMaxBackgroundPaletteSlots = MAX_BACKGROUND_PALETTE_SLOTS;
+    inline constexpr int kMaxSpritePaletteSlots = MAX_SPRITE_PALETTE_SLOTS;
 
     // Spatial Grid
     inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;

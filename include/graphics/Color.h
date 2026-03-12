@@ -220,6 +220,35 @@ void setBackgroundCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette);
 const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex);
 
 /**
+ * @brief Initializes the sprite palette slot bank (all slots to default).
+ * Call at engine startup if using multi-palette sprites; otherwise slots
+ * are initialized lazily when setting sprite palette.
+ */
+void initSpritePaletteSlots();
+
+/**
+ * @brief Sets a sprite palette slot by type (for multi-palette sprites).
+ * @param slotIndex Slot 0..7 (slot 0 is the default; setting it also updates the global sprite palette).
+ * @param palette The palette type for this slot.
+ */
+void setSpritePaletteSlot(uint8_t slotIndex, PaletteType palette);
+
+/**
+ * @brief Sets a sprite palette slot with a custom palette (for multi-palette sprites).
+ * @param slotIndex Slot 0..7 (slot 0 is the default; setting it also updates the global sprite palette).
+ * @param palette Pointer to 16 uint16_t RGB565 values; must remain valid.
+ */
+void setSpriteCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette);
+
+/**
+ * @brief Returns the palette pointer for a sprite slot (for renderer use).
+ * If the slot is not set, returns slot 0; if slot 0 is not set, returns the global sprite palette.
+ * @param slotIndex Slot 0..7.
+ * @return Pointer to RGB565 palette (never nullptr).
+ */
+const uint16_t* getSpritePaletteSlot(uint8_t slotIndex);
+
+/**
  * @brief Resolves a Color to RGB565 using an explicit palette (for per-cell tilemap palette).
  * @param color The Color enum value.
  * @param palette Pointer to 16 uint16_t RGB565 palette; if nullptr returns 0.

@@ -236,8 +236,38 @@ namespace pixelroot32::core::logging {
 - Sprite animation system
 - Tilemaps with viewport culling
 - Multi-palette tilemaps (2bpp/4bpp): optional per-cell background palette via `paletteIndices` and a background palette slot bank (see Color module)
+- Multi-palette sprites (2bpp/4bpp): optional sprite palette slot selection via `paletteSlot` parameter and sprite palette slot context
 - Native bitmap font system
 - Render contexts for dual palettes
+
+#### Multi-Palette Sprites Architecture
+
+The engine supports multiple palettes for 2bpp/4bpp sprites through a sprite palette slot bank, similar to the existing background palette system for tilemaps.
+
+**Data Flow:**
+```
+sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveColorWithPalette(color, palette) → LUT → drawSpriteInternal
+```
+
+**Components:**
+
+- **`spritePaletteSlots[8]`**: Array of palette pointers (slot 0-7) in Color module
+- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive) 
+- **`getSpritePaletteSlot(uint8_t slot)`**: Returns palette pointer with fallback to slot 0
+- **`resolveColorWithPalette(Color, const uint16_t*)`**: Converts Color enum to RGB565 using explicit palette
+- **`setSpritePaletteSlotContext(uint8_t slot)`**: Sets global context that overrides `paletteSlot` parameter
+- **`getSpritePaletteSlotContext()`**: Returns current context slot
+
+**Usage Patterns:**
+
+1. **Per-sprite palette selection**: `drawSprite(sprite, x, y, paletteSlot, flipX)`
+2. **Batch rendering with context**: `setSpritePaletteSlotContext(2)` then `drawSprite(sprite, x, y, 0, flipX)` for multiple sprites
+3. **Backward compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` uses slot 0
+
+**Integration with legacy system:**
+- Slot 0 stays synchronized with `setSpritePalette()` / `setSpriteCustomPalette()`
+- Existing `sprite.palette` fields in Sprite2bpp/Sprite4bpp remain optional
+- `resolveColor(Color, PaletteContext::Sprite)` continues to work for single palette mode
 
 **Main API**:
 

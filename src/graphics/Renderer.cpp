@@ -274,21 +274,31 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
+    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
             if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
                 return;
             }
 
+            // Use context slot if active, otherwise use parameter
+            uint8_t effectiveSlot = (currentSpritePaletteSlot != kSpritePaletteSlotContextInactive) ? 
+                                   currentSpritePaletteSlot : paletteSlot;
+
+            const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
+            
             uint16_t paletteLUT[4];
             uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
-            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
             for (uint8_t i = 0; i < paletteCount; ++i) {
-                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+                paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
         }
+    }
+
+    // Legacy overload for backward compatibility (3-parameter calls)
+    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
+        drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
@@ -324,21 +334,31 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
+    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
                 return;
             }
 
+            // Use context slot if active, otherwise use parameter
+            uint8_t effectiveSlot = (currentSpritePaletteSlot != kSpritePaletteSlotContextInactive) ? 
+                                   currentSpritePaletteSlot : paletteSlot;
+
+            const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
+            
             uint16_t paletteLUT[16];
             uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
-            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
             for (uint8_t i = 0; i < paletteCount; ++i) {
-                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+                paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
         }
+    }
+
+    // Legacy overload for backward compatibility (3-parameter calls)
+    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
+        drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
@@ -697,5 +717,13 @@ namespace pixelroot32::graphics {
         // Restore context
         setRenderContext(oldContext);
         }
+    }
+
+    void Renderer::setSpritePaletteSlotContext(uint8_t slot) {
+        currentSpritePaletteSlot = slot;
+    }
+
+    uint8_t Renderer::getSpritePaletteSlotContext() const {
+        return currentSpritePaletteSlot;
     }
 }

@@ -63,6 +63,9 @@ struct Sprite4bpp {
 static constexpr uint8_t kBackgroundPaletteIndexBits = 3;  // 0..7
 static constexpr uint8_t kTileCellPaletteMask       = 0x07;  // bits 0-2; bits 3-7 reserved
 
+// Multi-palette sprites (2bpp/4bpp): per-draw palette slot
+static constexpr uint8_t kSpritePaletteMask = 0x07;  // bits 0-2; bits 3-7 reserved
+
 /**
  * @brief Single monochrome layer used by layered sprites.
  *
@@ -888,6 +891,23 @@ public:
     }
 
     /**
+     * @brief Sets the sprite palette slot context for multi-palette sprites.
+     * 
+     * When active, all subsequent drawSprite calls for 2bpp/4bpp sprites will
+     * use this slot regardless of the paletteSlot parameter. This is useful
+     * for batch rendering with the same palette.
+     * 
+     * @param slot Palette slot (0-7). To disable context, call with 0 or use default.
+     */
+    void setSpritePaletteSlotContext(uint8_t slot);
+
+    /**
+     * @brief Gets the current sprite palette slot context.
+     * @return Current palette slot, or 0xFF if context is inactive.
+     */
+    uint8_t getSpritePaletteSlotContext() const;
+
+    /**
      * @brief Draws a 1bpp monochrome sprite using the Sprite descriptor.
      *
      * Sprite data is interpreted bit-by-bit using the Sprite convention:
@@ -919,9 +939,14 @@ public:
      */
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
 
-    void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false);
+    void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false);
 
-    void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false);
+    void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false);
+
+    // Legacy overloads for backward compatibility (3-parameter calls)
+    void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX);
+
+    void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX);
 
     /**
      * @brief Draws a multi-layer sprite composed of several 1bpp layers.
@@ -997,6 +1022,10 @@ private:
     bool offsetBypass = false; ///< When true, xOffset and yOffset are ignored
 
     PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
+    
+    // Sprite palette slot context for multi-palette sprites
+    static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF; ///< Sentinel value for inactive context
+    uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive; ///< Current sprite palette slot context (0xFF = inactive)
 
     void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
     void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
