@@ -9,6 +9,8 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+
+#include "platforms/EngineConfig.h"
 #include "platforms/PlatformMemory.h"
 
 #include "DrawSurface.h"
@@ -57,6 +59,10 @@ struct Sprite4bpp {
     uint8_t         paletteSize;
 };
 
+// Multi-palette background (2bpp/4bpp tilemaps): per-cell palette index
+static constexpr uint8_t kBackgroundPaletteIndexBits = 3;  // 0..7
+static constexpr uint8_t kTileCellPaletteMask       = 0x07;  // bits 0-2; bits 3-7 reserved
+
 /**
  * @brief Single monochrome layer used by layered sprites.
  *
@@ -95,6 +101,16 @@ struct TileMapGeneric {
     uint8_t         tileHeight;
     uint16_t        tileCount;
     uint8_t*        runtimeMask;  ///< Bitmask for runtime tile activation (1 bit per tile, nullptr = all active)
+
+    /**
+     * Optional per-cell background palette index (only for 2bpp/4bpp multi-palette).
+     * If nullptr, all tiles use the global background palette (backward compatible).
+     * If non-null, array size must be width * height. Const to allow PROGMEM/flash
+     * and to match tiles; typically filled by editor/export tools.
+     * Byte layout: bits 0-2 = palette slot (0..7); bits 3-7 reserved for future use
+     * (priority, flipX, flipY, effects). Use kTileCellPaletteMask to extract palette.
+     */
+    const uint8_t*  paletteIndices = nullptr;
 
     /**
      * @brief Initialize runtime mask buffer for tile activation control.
