@@ -300,4 +300,204 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
 
 ---
 
+### 🎨 Multi-Palette Systems (Sprites & Backgrounds)
+
+The engine supports multiple palettes for both sprites and backgrounds through palette slot banks. These systems follow consistent naming and usage patterns.
+
+#### Naming Conventions
+
+**Palette Slot Functions:**
+```cpp
+// Background palette slots (for tilemaps)
+initBackgroundPaletteSlots()           // Initialize all slots
+setBackgroundPaletteSlot(slot, type)   // Set slot by PaletteType
+setBackgroundCustomPaletteSlot(slot, palette) // Set slot by custom palette
+getBackgroundPaletteSlot(slot)         // Get palette pointer (never nullptr)
+
+// Sprite palette slots (for sprites)
+initSpritePaletteSlots()               // Initialize all slots  
+setSpritePaletteSlot(slot, type)       // Set slot by PaletteType
+setSpriteCustomPaletteSlot(slot, palette) // Set slot by custom palette
+getSpritePaletteSlot(slot)              // Get palette pointer (never nullptr)
+```
+
+**Context Functions:**
+```cpp
+// Sprite palette slot context (for batch rendering)
+setSpritePaletteSlotContext(slot)       // Set global context slot
+getSpritePaletteSlotContext()           // Get current context slot
+```
+
+**Constants:**
+```cpp
+MAX_BACKGROUND_PALETTE_SLOTS   // Default: 8, configurable
+MAX_SPRITE_PALETTE_SLOTS       // Default: 8, configurable
+```
+
+#### Usage Patterns
+
+**1. Game Initialization - Setup Palette Slots**
+```cpp
+class MyGameScene : public pixelroot32::core::Scene {
+public:
+    void init() override {
+        // Enable dual palette mode for separate sprite/background palettes
+        pixelroot32::graphics::Color::enableDualPaletteMode(true);
+        
+        // Initialize palette slot banks
+        pixelroot32::graphics::Color::initBackgroundPaletteSlots();
+        pixelroot32::graphics::Color::initSpritePaletteSlots();
+        
+        // Setup background palette slots for different tilemap areas
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Default ground
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Water areas  
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);   // Underground
+        
+        // Setup sprite palette slots for different enemy types
+        pixelroot32::graphics::Color::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Player
+        pixelroot32::graphics::Color::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Fire enemies
+        pixelroot32::graphics::Color::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);  // Ice enemies
+        pixelroot32::graphics::Color::setSpritePaletteSlot(3, pixelroot32::graphics::PaletteType::PICO8); // Boss enemies
+    }
+};
+```
+
+**2. Custom Palettes - Define and Apply**
+```cpp
+// Define custom palettes (typically as static const for flash storage)
+static const uint16_t CUSTOM_PLAYER_PALETTE[] = {
+    0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0xFFE0, 0xF81F, 0x07FF,
+    0x8410, 0x0410, 0x0010, 0x8000, 0x8400, 0x8010, 0x841F, 0x0000
+};
+
+static const uint16_t CUSTOM_FIRE_PALETTE[] = {
+    0x0000, 0xFFFF, 0xF800, 0xFC00, 0xFA00, 0xF800, 0xF600, 0xF400,
+    0xF200, 0xF000, 0xE800, 0xE000, 0xC000, 0x8000, 0x4000, 0x0000
+};
+
+class EnemyManager {
+public:
+    void loadCustomPalettes() {
+        // Apply custom palettes to specific slots
+        pixelroot32::graphics::Color::setSpriteCustomPaletteSlot(4, CUSTOM_PLAYER_PALETTE);
+        pixelroot32::graphics::Color::setSpriteCustomPaletteSlot(5, CUSTOM_FIRE_PALETTE);
+    }
+};
+```
+
+**3. Rendering - Use Palette Slots**
+```cpp
+class PlayerActor : public pixelroot32::core::Actor {
+public:
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
+        // Draw player using sprite palette slot 0 (default)
+        renderer.drawSprite(playerSprite, static_cast<int>(x), static_cast<int>(y), 0, facingLeft);
+    }
+};
+
+class EnemyActor : public pixelroot32::core::Actor {
+private:
+    uint8_t enemyType;  // 0=normal, 1=fire, 2=ice, 3=boss
+    
+public:
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
+        // Draw enemy using appropriate palette slot
+        uint8_t paletteSlot = 1 + enemyType;  // Slots 1-4 for different enemy types
+        renderer.drawSprite(enemySprite, static_cast<int>(x), static_cast<int>(y), paletteSlot, facingLeft);
+    }
+};
+
+class TilemapRenderer {
+public:
+    void drawBackground(pixelroot32::graphics::Renderer& renderer, const TileMap2bpp& map) {
+        // Tilemap automatically uses paletteIndices array if present
+        // Each cell can select background palette slot 0-7
+        renderer.drawTileMap(map, originX, originY);
+    }
+};
+```
+
+**4. Batch Rendering - Use Context for Performance**
+```cpp
+class BulletManager {
+public:
+    void drawAllBullets(pixelroot32::graphics::Renderer& renderer) {
+        // Set context once for all bullets (same palette slot)
+        renderer.setSpritePaletteSlotContext(1);  // Use fire palette for all bullets
+        
+        for (auto& bullet : bullets) {
+            renderer.drawSprite(bulletSprite, bullet.x, bullet.y, 0, false);  // paletteSlot ignored
+        }
+        
+        // Reset context (optional, good practice)
+        renderer.setSpritePaletteSlotContext(0xFF);  // 0xFF = inactive
+    }
+};
+```
+
+**5. Comments and Documentation**
+```cpp
+// Background palette slot assignments:
+// Slot 0: Default ground tiles (PR32 palette)
+// Slot 1: Water tiles (NES palette - blue tones)
+// Slot 2: Underground tiles (GB palette - green tones)
+// Slot 3: Lava tiles (custom red palette)
+// Slots 4-7: Reserved for future use
+
+// Sprite palette slot assignments:
+// Slot 0: Player character (PR32 palette)
+// Slot 1: Fire enemies (NES palette)
+// Slot 2: Ice enemies (GBC palette)  
+// Slot 3: Boss enemies (PICO8 palette)
+// Slot 4: Custom player palette (power-up form)
+// Slot 5: Custom fire palette (enhanced fire enemies)
+// Slots 6-7: Reserved for future use
+
+class PaletteManager {
+private:
+    bool isInitialized = false;
+    
+public:
+    void initializeGamePalettes() {
+        if (isInitialized) return;  // Prevent double initialization
+        
+        // Initialize slot banks
+        pixelroot32::graphics::Color::initBackgroundPaletteSlots();
+        pixelroot32::graphics::Color::initSpritePaletteSlots();
+        
+        // Setup standard palette assignments
+        setupBackgroundPalettes();
+        setupSpritePalettes();
+        
+        isInitialized = true;
+    }
+    
+private:
+    void setupBackgroundPalettes() {
+        // Configure background palette slots for different level areas
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::Color::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);
+    }
+    
+    void setupSpritePalettes() {
+        // Configure sprite palette slots for different character types
+        pixelroot32::graphics::Color::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::Color::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::Color::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);
+    }
+};
+```
+
+#### Best Practices
+
+1. **Document Slot Assignments**: Always comment which slots are used for what purpose
+2. **Initialize Early**: Call `init*PaletteSlots()` during scene initialization
+3. **Use Context for Batching**: Set context once when drawing many sprites with same palette
+4. **Fallback Handling**: `get*PaletteSlot()` never returns `nullptr` - always falls back to slot 0
+5. **Custom Palettes**: Store custom palettes as `static const` arrays for flash storage
+6. **Backward Compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` calls use slot 0 automatically
+
+---
+
 PixelRoot32 Game Engine aims to remain simple, explicit, and predictable, prioritizing clarity over abstraction and control over convenience.
