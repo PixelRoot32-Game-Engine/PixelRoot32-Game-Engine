@@ -345,19 +345,19 @@ public:
         pixelroot32::graphics::Color::enableDualPaletteMode(true);
         
         // Initialize palette slot banks
-        pixelroot32::graphics::Color::initBackgroundPaletteSlots();
-        pixelroot32::graphics::Color::initSpritePaletteSlots();
+        pixelroot32::graphics::initBackgroundPaletteSlots();
+        pixelroot32::graphics::initSpritePaletteSlots();
         
         // Setup background palette slots for different tilemap areas
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Default ground
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Water areas  
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);   // Underground
+        pixelroot32::graphics::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Default ground
+        pixelroot32::graphics::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Water areas  
+        pixelroot32::graphics::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);   // Underground
         
         // Setup sprite palette slots for different enemy types
-        pixelroot32::graphics::Color::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Player
-        pixelroot32::graphics::Color::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Fire enemies
-        pixelroot32::graphics::Color::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);  // Ice enemies
-        pixelroot32::graphics::Color::setSpritePaletteSlot(3, pixelroot32::graphics::PaletteType::PICO8); // Boss enemies
+        pixelroot32::graphics::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Player
+        pixelroot32::graphics::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Fire enemies
+        pixelroot32::graphics::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);  // Ice enemies
+        pixelroot32::graphics::setSpritePaletteSlot(3, pixelroot32::graphics::PaletteType::PICO8); // Boss enemies
     }
 };
 ```
@@ -379,8 +379,8 @@ class EnemyManager {
 public:
     void loadCustomPalettes() {
         // Apply custom palettes to specific slots
-        pixelroot32::graphics::Color::setSpriteCustomPaletteSlot(4, CUSTOM_PLAYER_PALETTE);
-        pixelroot32::graphics::Color::setSpriteCustomPaletteSlot(5, CUSTOM_FIRE_PALETTE);
+        pixelroot32::graphics::setSpriteCustomPaletteSlot(4, CUSTOM_PLAYER_PALETTE);
+        pixelroot32::graphics::setSpriteCustomPaletteSlot(5, CUSTOM_FIRE_PALETTE);
     }
 };
 ```
@@ -462,8 +462,8 @@ public:
         if (isInitialized) return;  // Prevent double initialization
         
         // Initialize slot banks
-        pixelroot32::graphics::Color::initBackgroundPaletteSlots();
-        pixelroot32::graphics::Color::initSpritePaletteSlots();
+        pixelroot32::graphics::initBackgroundPaletteSlots();
+        pixelroot32::graphics::initSpritePaletteSlots();
         
         // Setup standard palette assignments
         setupBackgroundPalettes();
@@ -475,16 +475,16 @@ public:
 private:
     void setupBackgroundPalettes() {
         // Configure background palette slots for different level areas
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
-        pixelroot32::graphics::Color::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);
+        pixelroot32::graphics::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);
     }
     
     void setupSpritePalettes() {
         // Configure sprite palette slots for different character types
-        pixelroot32::graphics::Color::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
-        pixelroot32::graphics::Color::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
-        pixelroot32::graphics::Color::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);
+        pixelroot32::graphics::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);
     }
 };
 ```
