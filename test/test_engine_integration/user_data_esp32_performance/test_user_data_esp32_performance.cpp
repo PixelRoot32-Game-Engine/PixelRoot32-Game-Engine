@@ -42,9 +42,6 @@ public:
 
 static int mock_instances = 0;
 
-// Provide definition for static member in MockDrawSurface
-int MockDrawSurface::instances = 0;
-
 void setUp(void) {
     mock_instances = 0;
 }

@@ -10,6 +10,7 @@
  */
 #include "graphics/Renderer.h"
 #include "graphics/FontManager.h"
+#include "graphics/TileAnimation.h"
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
@@ -531,6 +532,12 @@ namespace pixelroot32::graphics {
             for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
                 uint8_t index = map.indices[rowIndexBase + tx];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
+                
                 if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
@@ -596,6 +603,11 @@ namespace pixelroot32::graphics {
                 int baseX = originX + tx * map.tileWidth;
                 int cellIndex = rowIndexBase + tx;
                 uint8_t index = map.indices[cellIndex];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
                 
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {
@@ -680,6 +692,11 @@ namespace pixelroot32::graphics {
                 int baseX = originX + tx * map.tileWidth;
                 int cellIndex = rowIndexBase + tx;
                 uint8_t index = map.indices[cellIndex];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
                 
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {

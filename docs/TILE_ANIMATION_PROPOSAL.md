@@ -604,7 +604,7 @@ class PaletteAnimationManager {
 
 ## PHASE 8 — Atomic Implementation Plan
 
-### Task 1 — Create TileAnimation Header
+### Task 1 — Create TileAnimation Header [DONE]
 
 **Objetivo:** Definir las estructuras base del sistema de animación de tiles.
 
@@ -648,7 +648,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 2 — Implement TileAnimationManager Class Declaration
+### Task 2 — Implement TileAnimationManager Class Declaration [DONE]
 
 **Objetivo:** Declarar la clase `TileAnimationManager` con todos sus métodos públicos y privados.
 
@@ -707,7 +707,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 3 — Create TileAnimation Implementation File
+### Task 3 — Create TileAnimation Implementation File [DONE]
 
 **Objetivo:** Crear el archivo de implementación con la estructura básica y los includes necesarios.
 
@@ -749,7 +749,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 4 — Implement TileAnimationManager Constructor
+### Task 4 — Implement TileAnimationManager Constructor [DONE]
 
 **Objetivo:** Implementar el constructor que inicializa la lookup table con mapeo identidad.
 
@@ -801,7 +801,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 4.5 — Add Debug Validation (Opcional pero Recomendado)
+### Task 4.5 — Add Debug Validation (Opcional pero Recomendado) [DONE]
 
 **Objetivo:** Añadir validación de definiciones de animación para detectar errores de usuario tempranamente.
 
@@ -812,26 +812,26 @@ class PaletteAnimationManager {
 
 1. Añadir bloque de validación al final del constructor (después de inicializar lookup table):
    ```cpp
-   #ifdef PIXELROOT32_DEBUG_MODE
-   // Validate animations
-   for (uint8_t i = 0; i < animCount; i++) {
-       TileAnimation anim;
-       PIXELROOT32_MEMCPY_P(&anim, &animations[i], sizeof(TileAnimation));
-       
-       if (anim.frameCount == 0) {
-           log("ERROR: Animation %d has frameCount=0", i);
-       }
-       if (anim.frameDuration == 0) {
-           log("ERROR: Animation %d has frameDuration=0", i);
-       }
-       
-       uint16_t lastTile = anim.baseTileIndex + anim.frameCount - 1;
-       if (lastTile >= tileCount || lastTile >= MAX_TILESET_SIZE) {
-           log("ERROR: Animation %d exceeds tileset bounds (last tile: %d, max: %d)", 
-               i, lastTile, tileCount);
-       }
-   }
-   #endif
+    if constexpr (pixelroot32::platforms::config::EnableLogging) {
+        // Validate animations
+        for (uint8_t i = 0; i < animCount; i++) {
+            TileAnimation anim;
+            PIXELROOT32_MEMCPY_P(&anim, &animations[i], sizeof(TileAnimation));
+            
+            if (anim.frameCount == 0) {
+                log("ERROR: Animation %d has frameCount=0", i);
+            }
+            if (anim.frameDuration == 0) {
+                log("ERROR: Animation %d has frameDuration=0", i);
+            }
+            
+            uint16_t lastTile = anim.baseTileIndex + anim.frameCount - 1;
+            if (lastTile >= tileCount || lastTile >= MAX_TILESET_SIZE) {
+                log("ERROR: Animation %d exceeds tileset bounds (last tile: %d, max: %d)", 
+                    i, lastTile, tileCount);
+            }
+        }
+    }
    ```
 
 2. Verificar que el código solo se compila en modo debug.
@@ -845,7 +845,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 5 — Implement Animation Reset Logic
+### Task 5 — Implement Animation Reset Logic [DONE]
 **Objective:** Reset animations to initial state.
 
 **Files:**
@@ -871,7 +871,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 6 — Implement Animation Step Logic
+### Task 6 — Implement Animation Step Logic [DONE]
 **Objective:** Advance animations and update lookup table.
 
 **Files:**
@@ -910,7 +910,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 7 — Extend TileMapGeneric with Animation Support
+### Task 7 — Extend TileMapGeneric with Animation Support [DONE]
 **Objective:** Add optional animation manager pointer to tilemap structure.
 
 **Files:**
@@ -933,7 +933,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 8 — Integrate Animation Resolution in 1bpp Tilemap Renderer
+### Task 8 — Integrate Animation Resolution in 1bpp Tilemap Renderer [DONE]
 **Objective:** Add animation frame resolution to monochrome tilemap rendering.
 
 **Files:**
@@ -960,7 +960,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 9 — Integrate Animation Resolution in 2bpp Tilemap Renderer
+### Task 9 — Integrate Animation Resolution in 2bpp Tilemap Renderer [DONE]
 **Objective:** Add animation support to 2bpp tilemaps.
 
 **Files:**
@@ -987,7 +987,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 10 — Integrate Animation Resolution in 4bpp Tilemap Renderer
+### Task 10 — Integrate Animation Resolution in 4bpp Tilemap Renderer [DONE]
 **Objective:** Add animation support to 4bpp tilemaps.
 
 **Files:**
@@ -1004,7 +1004,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 11 — Add Unit Tests for TileAnimation
+### Task 11 — Add Unit Tests for TileAnimation [DONE]
 **Objective:** Verify animation logic correctness.
 
 **Files:**
@@ -1027,7 +1027,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 12 — Add Integration Test for Animated Tilemap Rendering
+### Task 12 — Add Integration Test for Animated Tilemap Rendering [DONE]
 **Objective:** Verify end-to-end rendering with animations.
 
 **Files:**
@@ -1048,7 +1048,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 13 — Update API Documentation
+### Task 13 — Update API Documentation [DONE]
 **Objective:** Document new animation system.
 
 **Files:**
@@ -1073,9 +1073,9 @@ class PaletteAnimationManager {
 **Objective:** Provide reference implementation for users.
 
 **Files:**
-- `examples/animated_tilemap/` (NEW directory)
-- `examples/animated_tilemap/AnimatedTilemapScene.h`
-- `examples/animated_tilemap/AnimatedTilemapScene.cpp`
+- `src/examples/AnimatedTilemap/` (NEW directory)
+- `src/examples/AnimatedTilemap/AnimatedTilemapScene.h`
+- `src/examples/AnimatedTilemap/AnimatedTilemapScene.cpp`
 
 
 **Changes:**

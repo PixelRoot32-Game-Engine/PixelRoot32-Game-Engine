@@ -17,6 +17,8 @@
 #include "DisplayConfig.h"
 #include "Color.h"
 #include "Font.h"
+#include "TileAnimation.h"
+
 #include <memory>
 #include <string_view>
 
@@ -104,6 +106,7 @@ struct TileMapGeneric {
     uint8_t         tileHeight;
     uint16_t        tileCount;
     uint8_t*        runtimeMask;  ///< Bitmask for runtime tile activation (1 bit per tile, nullptr = all active)
+    TileAnimationManager* animManager = nullptr;  ///< Optional animation manager for tile animations
 
     /**
      * Optional per-cell background palette index (only for 2bpp/4bpp multi-palette).
