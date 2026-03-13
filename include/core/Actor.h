@@ -6,6 +6,7 @@
 #include "Entity.h"
 #include "physics/CollisionTypes.h"
 #include "math/Scalar.h"
+#include <cstdint>
 
 namespace pixelroot32::physics { class CollisionSystem; }
 
@@ -42,6 +43,7 @@ public:
         
     virtual ~Actor() = default;
 
+    uint16_t entityId = 0;   ///< Unique id per CollisionSystem registration; used for pair deduplication.
     int queryId = 0;                         ///< Used for optimized grid queries.
 
     pixelroot32::physics::CollisionLayer layer = pixelroot32::physics::DefaultLayers::kNone; ///< The collision layer this actor belongs to.

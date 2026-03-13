@@ -37,7 +37,8 @@ jobs:
         sudo apt-get install -y libsdl2-dev lcov
 
     - name: Run Tests
-      run: pio test -e native_test --verbose
+      run: |
+        pio test -e native_test --verbose
 
     - name: Generate Coverage Report
       run: |

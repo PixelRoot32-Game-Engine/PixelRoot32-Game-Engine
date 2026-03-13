@@ -71,53 +71,6 @@ inline void delayMicroseconds(uint32_t us) {
     SDL_Delay((us + 999) / 1000); // Approximate
 }
 
-/**
- * @class SerialClass
- * @brief Mocks the Arduino Serial object, redirecting output to stdout.
- */
-class SerialClass {
-public:
-    void begin(uint32_t baud) {
-        (void)baud;
-        // No-op, stdout is always available
-    }
-    
-    void print(const char* str) {
-        printf("%s", str);
-    }
-    
-    void print(int value) {
-        printf("%d", value);
-    }
-    
-    void print(uint32_t value) {
-        printf("%u", value);
-    }
-    
-    void print(float value) {
-        printf("%f", value);
-    }
-    
-    void println(const char* str) {
-        printf("%s\n", str);
-    }
-    
-    void println(int value) {
-        printf("%d\n", value);
-    }
-    
-    void println(uint32_t value) {
-        printf("%u\n", value);
-    }
-    
-    void println(float value) {
-        printf("%f\n", value);
-    }
-};
-
-// Global instance to match Arduino's Serial
-extern SerialClass Serial;
-
 #endif // PLATFORM_NATIVE
 
 #endif // MOCK_ARDUINO_H

@@ -8,10 +8,13 @@
  * - Color enum values
  * - Palette type definitions
  * - Color constants
+ * - Palette resolution (legacy, dual, context)
+ * - Multi-palette background slot bank (initBackgroundPaletteSlots, set/getBackgroundPaletteSlot, resolveColorWithPalette)
  */
 
 #include <unity.h>
 #include "graphics/Color.h"
+#include "graphics/PaletteDefs.h"
 #include "../../test_config.h"
 
 using namespace pixelroot32::graphics;
@@ -705,6 +708,262 @@ void test_setDualCustomPalette_null_bg_only(void) {
 }
 
 // =============================================================================
+// Multi-palette background slot bank (paletteIndices / per-cell palette)
+// =============================================================================
+
+/**
+ * @test resolveColorWithPalette with explicit palette
+ * @expected Resolves Color index to palette[idx]; nullptr returns 0; Transparent returns 0
+ */
+void test_resolveColorWithPalette_explicit_palette(void) {
+    uint16_t custom[16] = {0x0000, 0xFFFF, 0x1111, 0x2222, 0x3333, 0x4444, 0x5555, 0x6666,
+                           0x7777, 0x8888, 0x9999, 0xAAAA, 0xBBBB, 0xCCCC, 0xDDDD, 0xEEEE};
+    TEST_ASSERT_EQUAL_UINT16(0x0000, resolveColorWithPalette(Color::Black, custom));
+    TEST_ASSERT_EQUAL_UINT16(0xFFFF, resolveColorWithPalette(Color::White, custom));
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColorWithPalette(Color::Red, custom));
+    TEST_ASSERT_EQUAL_UINT16(0, resolveColorWithPalette(Color::Transparent, custom));
+}
+
+/**
+ * @test resolveColorWithPalette with nullptr palette
+ * @expected Returns 0
+ */
+void test_resolveColorWithPalette_null_returns_zero(void) {
+    TEST_ASSERT_EQUAL_UINT16(0, resolveColorWithPalette(Color::White, nullptr));
+    TEST_ASSERT_EQUAL_UINT16(0, resolveColorWithPalette(Color::Black, nullptr));
+}
+
+/**
+ * @test initBackgroundPaletteSlots initializes all slots; getBackgroundPaletteSlot(0) matches default
+ * @expected After init, slot 0 is non-null and matches background resolution (no paletteIndices path)
+ */
+void test_initBackgroundPaletteSlots_slot_zero_usable(void) {
+    initBackgroundPaletteSlots();
+    setBackgroundPalette(PaletteType::PR32);
+    const uint16_t* slot0 = getBackgroundPaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    uint16_t viaSlot = resolveColorWithPalette(Color::White, slot0);
+    uint16_t viaContext = resolveColor(Color::White, PaletteContext::Background);
+    TEST_ASSERT_EQUAL_UINT16(viaContext, viaSlot);
+}
+
+/**
+ * @test Without paletteIndices: slot 0 is default; setBackgroundCustomPalette updates slot 0
+ * @expected getBackgroundPaletteSlot(0) returns the same palette as Background context
+ */
+void test_getBackgroundPaletteSlot_zero_matches_background_context(void) {
+    enableDualPaletteMode(true);
+    uint16_t custom[16] = {0xAAAA, 0xBBBB, 0xCCCC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setBackgroundCustomPalette(custom);
+    const uint16_t* slot0 = getBackgroundPaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColorWithPalette(Color::Black, slot0));
+    TEST_ASSERT_EQUAL_UINT16(0xBBBB, resolveColorWithPalette(Color::White, slot0));
+    TEST_ASSERT_EQUAL_UINT16(resolveColor(Color::Black, PaletteContext::Background),
+                             resolveColorWithPalette(Color::Black, slot0));
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setBackgroundPaletteSlot / setBackgroundCustomPaletteSlot; getBackgroundPaletteSlot returns correct palette
+ * @expected Slot 1 and 2 hold different custom palettes; resolveColorWithPalette with each slot returns correct values
+ */
+void test_setBackgroundPaletteSlot_multiple_slots(void) {
+    initBackgroundPaletteSlots();
+    uint16_t pal1[16] = {0x1111, 0x2222, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint16_t pal2[16] = {0xAAAA, 0xBBBB, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setBackgroundCustomPaletteSlot(1, pal1);
+    setBackgroundCustomPaletteSlot(2, pal2);
+    const uint16_t* slot1 = getBackgroundPaletteSlot(1);
+    const uint16_t* slot2 = getBackgroundPaletteSlot(2);
+    TEST_ASSERT_NOT_NULL(slot1);
+    TEST_ASSERT_NOT_NULL(slot2);
+    TEST_ASSERT_EQUAL_UINT16(0x1111, resolveColorWithPalette(Color::Black, slot1));
+    TEST_ASSERT_EQUAL_UINT16(0x2222, resolveColorWithPalette(Color::White, slot1));
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColorWithPalette(Color::Black, slot2));
+    TEST_ASSERT_EQUAL_UINT16(0xBBBB, resolveColorWithPalette(Color::White, slot2));
+    TEST_ASSERT_NOT_EQUAL(resolveColorWithPalette(Color::Black, slot1),
+                          resolveColorWithPalette(Color::Black, slot2));
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setBackgroundPaletteSlot(0, type) syncs global background palette
+ * @expected resolveColor(..., Background) matches resolveColorWithPalette(..., getBackgroundPaletteSlot(0))
+ */
+void test_setBackgroundPaletteSlot_slot_zero_syncs_global(void) {
+    initBackgroundPaletteSlots();
+    enableDualPaletteMode(true);
+    setBackgroundPaletteSlot(0, PaletteType::NES);
+    const uint16_t* slot0 = getBackgroundPaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_EQUAL_UINT16(resolveColor(Color::Red, PaletteContext::Background),
+                             resolveColorWithPalette(Color::Red, slot0));
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test getBackgroundPaletteSlot out-of-range falls back to slot 0
+ * @expected getBackgroundPaletteSlot(255) or slot >= kMaxBackgroundPaletteSlots returns same as slot 0
+ */
+void test_getBackgroundPaletteSlot_out_of_range_fallback(void) {
+    initBackgroundPaletteSlots();
+    setBackgroundPalette(PaletteType::PR32);
+    const uint16_t* slot0 = getBackgroundPaletteSlot(0);
+    const uint16_t* slotOut = getBackgroundPaletteSlot(255);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_NOT_NULL(slotOut);
+    TEST_ASSERT_EQUAL_PTR(slot0, slotOut);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test Multiple slots produce different colors (simulates paletteIndices using different slots)
+ * @expected Slot 0 vs slot 1 with different palettes yield different RGB565 for same Color
+ */
+void test_multi_palette_slots_different_values(void) {
+    initBackgroundPaletteSlots();
+    uint16_t palA[16] = {0x0001, 0x0002, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint16_t palB[16] = {0xF001, 0xF002, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setBackgroundCustomPaletteSlot(0, palA);
+    setBackgroundCustomPaletteSlot(1, palB);
+    uint16_t blackSlot0 = resolveColorWithPalette(Color::Black, getBackgroundPaletteSlot(0));
+    uint16_t blackSlot1 = resolveColorWithPalette(Color::Black, getBackgroundPaletteSlot(1));
+    TEST_ASSERT_EQUAL_UINT16(0x0001, blackSlot0);
+    TEST_ASSERT_EQUAL_UINT16(0xF001, blackSlot1);
+    TEST_ASSERT_NOT_EQUAL(blackSlot0, blackSlot1);
+    setPalette(PaletteType::PR32);
+}
+
+// =============================================================================
+// Sprite Palette Slot Tests
+// =============================================================================
+
+/**
+ * @test initSpritePaletteSlots initializes all slots; getSpritePaletteSlot(0) matches default
+ * @expected After init, slot 0 is non-null and matches sprite resolution
+ */
+void test_initSpritePaletteSlots_slot_zero_usable(void) {
+    initSpritePaletteSlots();
+    setSpritePalette(PaletteType::PR32);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    uint16_t viaSlot = resolveColorWithPalette(Color::White, slot0);
+    uint16_t viaContext = resolveColor(Color::White, PaletteContext::Sprite);
+    TEST_ASSERT_EQUAL_UINT16(viaContext, viaSlot);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test Without paletteIndices: slot 0 is default; setSpriteCustomPalette updates slot 0
+ * @expected getSpritePaletteSlot(0) returns the same palette as Sprite context
+ */
+void test_getSpritePaletteSlot_zero_matches_sprite_context(void) {
+    enableDualPaletteMode(true);
+    uint16_t custom[16] = {0xAAAA, 0xBBBB, 0xCCCC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setSpriteCustomPalette(custom);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_EQUAL_PTR(custom, slot0);
+    uint16_t viaSlot = resolveColorWithPalette(Color::White, slot0);
+    uint16_t viaContext = resolveColor(Color::White, PaletteContext::Sprite);
+    TEST_ASSERT_EQUAL_UINT16(viaContext, viaSlot);
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setSpritePaletteSlot and setSpriteCustomPaletteSlot assign different palettes to slots
+ * @expected getSpritePaletteSlot(1) returns the palette set to slot 1
+ */
+void test_setSpritePaletteSlot_multiple_slots(void) {
+    initSpritePaletteSlots();
+    uint16_t pal1[16] = {0x1111, 0x2222, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint16_t pal2[16] = {0xAAAA, 0xBBBB, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    setSpriteCustomPaletteSlot(1, pal1);
+    setSpriteCustomPaletteSlot(2, pal2);
+    const uint16_t* slot1 = getSpritePaletteSlot(1);
+    const uint16_t* slot2 = getSpritePaletteSlot(2);
+    TEST_ASSERT_NOT_NULL(slot1);
+    TEST_ASSERT_NOT_NULL(slot2);
+    TEST_ASSERT_EQUAL_UINT16(0x1111, resolveColorWithPalette(Color::Black, slot1));
+    TEST_ASSERT_EQUAL_UINT16(0x2222, resolveColorWithPalette(Color::White, slot1));
+    TEST_ASSERT_EQUAL_UINT16(0xAAAA, resolveColorWithPalette(Color::Black, slot2));
+    TEST_ASSERT_EQUAL_UINT16(0xBBBB, resolveColorWithPalette(Color::White, slot2));
+    TEST_ASSERT_NOT_EQUAL(resolveColorWithPalette(Color::Black, slot1),
+                          resolveColorWithPalette(Color::Black, slot2));
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setSpritePaletteSlot(0, type) syncs global sprite palette
+ * @expected resolveColor(..., Sprite) matches resolveColorWithPalette(..., getSpritePaletteSlot(0))
+ */
+void test_setSpritePaletteSlot_slot_zero_syncs_global(void) {
+    initSpritePaletteSlots();
+    enableDualPaletteMode(true);
+    setSpritePaletteSlot(0, PaletteType::NES);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_EQUAL_UINT16(resolveColor(Color::Red, PaletteContext::Sprite),
+                             resolveColorWithPalette(Color::Red, slot0));
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test getSpritePaletteSlot out-of-range falls back to slot 0
+ * @expected getSpritePaletteSlot(255) or slot >= kMaxSpritePaletteSlots returns same as slot 0
+ */
+void test_getSpritePaletteSlot_out_of_range_fallback(void) {
+    initSpritePaletteSlots();
+    setSpritePalette(PaletteType::PR32);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    const uint16_t* slotOut = getSpritePaletteSlot(255);
+    TEST_ASSERT_NOT_NULL(slot0);
+    TEST_ASSERT_NOT_NULL(slotOut);
+    TEST_ASSERT_EQUAL_PTR(slot0, slotOut);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setSpritePalette syncs with sprite palette slot 0
+ * @expected After setSpritePalette(PaletteType::NES), getSpritePaletteSlot(0) returns NES palette
+ */
+void test_setSpritePaletteSlot_sync_with_setSpritePalette(void) {
+    enableDualPaletteMode(true);
+    initSpritePaletteSlots();
+    setSpritePalette(PaletteType::NES);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    // Verify the palette actually produces NES colors
+    TEST_ASSERT_EQUAL_UINT16(resolveColor(Color::Red, PaletteContext::Sprite),
+                             resolveColorWithPalette(Color::Red, slot0));
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+/**
+ * @test setSpriteCustomPalette syncs with sprite palette slot 0
+ * @expected After setSpriteCustomPalette(ptr), getSpritePaletteSlot(0) returns that pointer
+ */
+void test_setSpriteCustomPaletteSlot_sync_with_setSpriteCustomPalette(void) {
+    enableDualPaletteMode(true);
+    initSpritePaletteSlots();
+    uint16_t custom[16] = {0x0000, 0x1234, 0x5678, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // White (index 1) = 0x1234
+    setSpriteCustomPalette(custom);
+    const uint16_t* slot0 = getSpritePaletteSlot(0);
+    TEST_ASSERT_NOT_NULL(slot0);
+    // Verify the palette actually produces custom colors
+    TEST_ASSERT_EQUAL_UINT16(resolveColor(Color::White, PaletteContext::Sprite),
+                             resolveColorWithPalette(Color::White, slot0));
+    enableDualPaletteMode(false);
+    setPalette(PaletteType::PR32);
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -783,6 +1042,25 @@ int main(int argc, char **argv) {
     RUN_TEST(test_setSpritePalette_all_types);
     RUN_TEST(test_setCustomPalette_all_indices);
     RUN_TEST(test_setDualCustomPalette_null_bg_only);
+    
+    // Multi-palette background slot bank (paletteIndices / per-cell palette)
+    RUN_TEST(test_resolveColorWithPalette_explicit_palette);
+    RUN_TEST(test_resolveColorWithPalette_null_returns_zero);
+    RUN_TEST(test_initBackgroundPaletteSlots_slot_zero_usable);
+    RUN_TEST(test_getBackgroundPaletteSlot_zero_matches_background_context);
+    RUN_TEST(test_setBackgroundPaletteSlot_multiple_slots);
+    RUN_TEST(test_setBackgroundPaletteSlot_slot_zero_syncs_global);
+    RUN_TEST(test_getBackgroundPaletteSlot_out_of_range_fallback);
+    RUN_TEST(test_multi_palette_slots_different_values);
+    
+    // Multi-palette sprite slot bank
+    RUN_TEST(test_initSpritePaletteSlots_slot_zero_usable);
+    RUN_TEST(test_getSpritePaletteSlot_zero_matches_sprite_context);
+    RUN_TEST(test_setSpritePaletteSlot_multiple_slots);
+    RUN_TEST(test_setSpritePaletteSlot_slot_zero_syncs_global);
+    RUN_TEST(test_getSpritePaletteSlot_out_of_range_fallback);
+    RUN_TEST(test_setSpritePaletteSlot_sync_with_setSpritePalette);
+    RUN_TEST(test_setSpriteCustomPaletteSlot_sync_with_setSpriteCustomPalette);
     
     return UNITY_END();
 }

@@ -156,6 +156,9 @@ public:
           physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
           logicalWidth(other.logicalWidth), logicalHeight(other.logicalHeight),
           xOffset(other.xOffset), yOffset(other.yOffset),
+          clockPin(other.clockPin), dataPin(other.dataPin),
+          csPin(other.csPin), dcPin(other.dcPin), resetPin(other.resetPin),
+          useHardwareI2C(other.useHardwareI2C),
           drawSurface(nullptr) // Cannot copy the unique_ptr
     {}
 
@@ -164,6 +167,9 @@ public:
           physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
           logicalWidth(other.logicalWidth), logicalHeight(other.logicalHeight),
           xOffset(other.xOffset), yOffset(other.yOffset),
+          clockPin(other.clockPin), dataPin(other.dataPin),
+          csPin(other.csPin), dcPin(other.dcPin), resetPin(other.resetPin),
+          useHardwareI2C(other.useHardwareI2C),
           drawSurface(std::move(other.drawSurface))
     {}
 
@@ -177,6 +183,12 @@ public:
             logicalHeight = other.logicalHeight;
             xOffset = other.xOffset;
             yOffset = other.yOffset;
+            clockPin = other.clockPin;
+            dataPin = other.dataPin;
+            csPin = other.csPin;
+            dcPin = other.dcPin;
+            resetPin = other.resetPin;
+            useHardwareI2C = other.useHardwareI2C;
             drawSurface = std::move(other.drawSurface);
         }
         return *this;

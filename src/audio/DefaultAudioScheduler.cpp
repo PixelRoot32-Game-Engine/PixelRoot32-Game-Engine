@@ -2,9 +2,12 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
+
 #include "audio/DefaultAudioScheduler.h"
 #include "audio/AudioMixerLUT.h"
 #include "platforms/EngineConfig.h"
+#include "core/Log.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -17,6 +20,8 @@
 #endif
 
 namespace pixelroot32::audio {
+
+using namespace pixelroot32::core::logging;
 
 DefaultAudioScheduler::DefaultAudioScheduler() {
     channels[0].type = WaveType::PULSE;
@@ -144,19 +149,11 @@ void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
     totalSamplesProcessed += length;
     if (totalSamplesProcessed >= (uint64_t)sampleRate) { // Approx every second
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-#ifdef ESP32
             if (currentPeak > 32767.0f) {
-                Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
             } else {
-                Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)", currentPeak, (currentPeak / 32767.0f) * 100.0f);
             }
-#else
-            if (currentPeak > 32767.0f) {
-                printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
-            } else {
-                printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
-            }
-#endif
         }
         currentPeak = 0.0f;
         totalSamplesProcessed = 0;

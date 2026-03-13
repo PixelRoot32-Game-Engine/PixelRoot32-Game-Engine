@@ -142,6 +142,15 @@ scene.collisionSystem.update();
 
 **Main Components**:
 
+#### PlatformMemory.h (Macro Abstraction)
+
+Provides a unified API for memory operations that differ between ESP32 (Flash/PROGMEM) and Native (RAM) platforms.
+
+- `PIXELROOT32_FLASH_ATTR`: Attribute for Flash storage.
+- `PIXELROOT32_STRCMP_P`: Cross-platform flash string comparison.
+- `PIXELROOT32_MEMCPY_P`: Cross-platform flash memory copy.
+- `PIXELROOT32_READ_*_P`: Cross-platform flash data reading (byte, word, etc.).
+
 #### DrawSurface (Bridge Pattern)
 
 ```cpp
@@ -172,6 +181,42 @@ Structure that detects and exposes hardware capabilities:
 - `audioCoreId`: Recommended core for audio
 - `mainCoreId`: Recommended core for game loop
 
+#### Math System (Scalar Abstraction)
+
+**Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
+
+**Responsibility**: Provide deterministic, platform-optimized numerical operations.
+
+**Features**:
+
+- **Hardware Adaptation**: Automatically switches between `float` and `Fixed16` based on FPU presence (ESP32-S3 vs ESP32-C3).
+- **16.16 Fixed Point**: Optimized `Fixed16` implementation for RISC-V targets (C3/C6) providing enough range for physics and sub-pixel precision.
+- **Generic Math API**: Single API for `sin`, `cos`, `sqrt`, `atan2` that resolves to the most efficient implementation per platform.
+- **Stable Rounding**: Explicit `roundToInt`, `floorToInt`, and `ceilToInt` functions to avoid floating-point truncation artifacts in rendering (e.g., camera jitter).
+
+#### Unified Logging System
+
+**Files**: `include/core/Log.h`, `src/core/Log.cpp`
+
+**Responsibility**: Cross-platform logging abstraction that eliminates `#ifdef` blocks in user code.
+
+**Features**:
+
+- Unified API for ESP32 (Serial) and Native (stdout)
+- Log levels: Info, Warning, Error
+- printf-style formatting
+- Automatic platform routing
+
+**Main API**:
+
+```cpp
+namespace pixelroot32::core::logging {
+    enum class LogLevel { Info, Warning, Error };
+    void log(LogLevel level, const char* format, ...);
+    void log(const char* format, ...); // Info level shorthand
+}
+```
+
 ---
 
 ### 3.4 LAYER 3: System Layer
@@ -190,8 +235,39 @@ Structure that detects and exposes hardware capabilities:
 - Support for 1bpp, 2bpp, 4bpp sprites
 - Sprite animation system
 - Tilemaps with viewport culling
+- Multi-palette tilemaps (2bpp/4bpp): optional per-cell background palette via `paletteIndices` and a background palette slot bank (see Color module)
+- Multi-palette sprites (2bpp/4bpp): optional sprite palette slot selection via `paletteSlot` parameter and sprite palette slot context
 - Native bitmap font system
 - Render contexts for dual palettes
+
+#### Multi-Palette Sprites Architecture
+
+The engine supports multiple palettes for 2bpp/4bpp sprites through a sprite palette slot bank, similar to the existing background palette system for tilemaps.
+
+**Data Flow:**
+```
+sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveColorWithPalette(color, palette) → LUT → drawSpriteInternal
+```
+
+**Components:**
+
+- **`spritePaletteSlots[8]`**: Array of palette pointers (slot 0-7) in Color module
+- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive) 
+- **`getSpritePaletteSlot(uint8_t slot)`**: Returns palette pointer with fallback to slot 0
+- **`resolveColorWithPalette(Color, const uint16_t*)`**: Converts Color enum to RGB565 using explicit palette
+- **`setSpritePaletteSlotContext(uint8_t slot)`**: Sets global context that overrides `paletteSlot` parameter
+- **`getSpritePaletteSlotContext()`**: Returns current context slot
+
+**Usage Patterns:**
+
+1. **Per-sprite palette selection**: `drawSprite(sprite, x, y, paletteSlot, flipX)`
+2. **Batch rendering with context**: `setSpritePaletteSlotContext(2)` then `drawSprite(sprite, x, y, 0, flipX)` for multiple sprites
+3. **Backward compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` uses slot 0
+
+**Integration with legacy system:**
+- Slot 0 stays synchronized with `setSpritePalette()` / `setSpriteCustomPalette()`
+- Existing `sprite.palette` fields in Sprite2bpp/Sprite4bpp remain optional
+- `resolveColor(Color, PaletteContext::Sprite)` continues to work for single palette mode
 
 **Main API**:
 
@@ -265,23 +341,28 @@ AudioEngine (Facade)
 The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
 
 ```
-1. Detect Collisions       → Broadphase + Narrowphase
-2. Solve Velocity          → Impulse-based response (2 iterations)
-3. Integrate Positions     → p = p + v * dt
-4. Solve Penetration       → Baumgarte stabilization + Slop
-5. Trigger Callbacks       → onCollision notifications
+1. Detect Collisions       → Rebuild static grid if dirty; clear dynamic; insert RIGID/KINEMATIC
+                             → Broadphase (dual-layer grid) + Narrowphase → fixed contact pool
+2. Solve Velocity          → Impulse-based response (2 iterations); sensor contacts skipped
+3. Integrate Positions      → p = p + v * dt (RIGID only)
+4. Solve Penetration        → Baumgarte stabilization + Slop; sensor contacts skipped
+5. Trigger Callbacks        → onCollision notifications
 ```
 
 **Key Features**:
+
 - **Fixed Timestep**: Deterministic 1/60s simulation
-- **Broadphase**: Uniform Spatial Grid (O(1) cell hashing)
-- **Narrowphase**: Optimized AABB vs AABB, Circle vs Circle, Circle vs AABB
-- **Impulse Solver**: Proper velocity-based collision response
-- **Baumgarte Stabilization**: Position correction without energy loss
-- **CCD**: Selective continuous collision detection for fast-moving circles
-- **Memory Optimized**: Shared static buffers save ~100KB DRAM
+- **Dual-Layer Spatial Grid**: Static layer (rebuilt only when entities change) + dynamic layer (cleared and refilled every frame); reduces per-frame cost with many static tiles
+- **Fixed Contact Pool**: `Contact contacts[kMaxContacts]` (default 128); no heap allocations in the hot path; overflow drops extra contacts
+- **Narrowphase**: AABB vs AABB, Circle vs Circle, Circle vs AABB; internal `ScalarRect` for consistent Scalar math
+- **Sensors**: `PhysicsActor::setSensor(true)`; contact flag `isSensorContact` skips impulse and penetration; use for triggers, collectibles
+- **One-Way Platforms**: `PhysicsActor::setOneWay(true)`; contact accepted only when landing from above (normal and velocity filter)
+- **Entity Id Deduplication**: `Actor::entityId` assigned by `addEntity`; pair processing uses `entityId` for stable deduplication
+- **CCD**: Selective continuous collision detection for fast-moving circles vs static AABB
+- **Profiling Hooks**: `PIXELROOT32_PROFILE_BEGIN` / `PIXELROOT32_PROFILE_END` around each pipeline stage when `PIXELROOT32_ENABLE_PROFILING` is defined
 
 **Collision Layers**:
+
 ```cpp
 enum DefaultLayers {
     kNone = 0,
@@ -294,6 +375,7 @@ enum DefaultLayers {
 ```
 
 **Physics Constants**:
+
 ```cpp
 FIXED_DT = 1/60s           // Timestep
 SLOP = 0.02f               // Ignore penetration < 2cm
@@ -356,7 +438,38 @@ Entity
 - Automatic offset for Renderer
 - Support for fixed-position UI elements
 
-#### 3.4.8 Math Policy Layer
+#### 3.4.8 Tile Attribute System
+
+**Files**: `include/graphics/Renderer.h` (structures), `include/physics/TileAttributes.h`, `include/physics/TileConsumptionHelper.h`, Scene headers (generated data)
+
+**Responsibility**: Runtime tile metadata and collision behavior: (1) **key-value attributes** (PROGMEM, O(n) query) for non–hot-path metadata; (2) **flags-based behavior layer** (dense array, O(1)) for physics and gameplay.
+
+**Architecture**:
+
+The tile attribute system provides two paths:
+
+1. **Key-value (LayerAttributes)**  
+   Lightweight metadata attached to tiles, defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM. Query with `get_tile_attribute(layer, x, y, key)`. Use for non–collision metadata (e.g. room names, signs). Sparse representation; O(n) search. Data flow: Editor → Scene header (TileAttribute, TileAttributeEntry, LayerAttributes) → `get_tile_attribute()`. Use cases: collision hints, interaction types, game logic values, animation flags.
+
+2. **Flags-based (TileFlags + TileBehaviorLayer)**  
+   Dense 1-byte-per-tile layer exported as `uint8_t[]`. O(1) lookup via **`getTileFlags(layer, x, y)`**. Used for collision and real-time gameplay: solid, sensor, damage, collectible, one-way, trigger. Builder creates **StaticActor** or **SensorActor** per tile, sets **`setUserData(packTileData(x, y, flags))`**. In **`onCollision`**, **`unpackTileData`** and test flags (e.g. `TILE_COLLECTIBLE` → collect; `TILE_DAMAGE` → damage player).
+
+**Consumible tiles**: When a tile is consumed (e.g. coin), call **`scene.removeEntity(tileActor)`** and **`tilemap->setTileActive(tileX, tileY, false)`**. **`physics::TileConsumptionHelper`** (or **`consumeTileFromCollision()`**) encapsulates this and reuses **TileMapGeneric::runtimeMask** (no separate consumed mask). See [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) and [API Reference – TileConsumptionHelper](API_REFERENCE.md).
+
+**Design philosophy** (key-value path):
+
+- **Centralized query logic** in the engine
+- **Sparse representation**: only tiles with attributes in export
+- **Flash storage** (PROGMEM) to minimize RAM
+- **Simple query API** by position
+
+**Design philosophy** (flags path):
+
+- **No strings at runtime**; bit operations only
+- **O(1) lookups**; 1 byte per tile
+- **Same pipeline**: Entity, CollisionSystem, **userData**, **onCollision**
+
+#### 3.4.9 Math Policy Layer
 
 **Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
 
@@ -438,7 +551,7 @@ void Engine::draw() {
 **Scene Stack**:
 
 ```cpp
-Scene* sceneStack[MAX_SCENES];  // Maximum 5 scenes by default
+Scene* sceneStack[pixelroot32::platforms::config::MaxScenes];  // Maximum 8 scenes by default
 int sceneCount;
 ```
 
@@ -450,6 +563,7 @@ int sceneCount;
 
 **Memory Management**:
 The Scene follows a **non-owning** model for entities. When you call `addEntity(Entity*)`, the scene stores a reference to the entity but **does not take ownership**.
+
 - You are responsible for the entity's lifetime (typically using `std::unique_ptr` in your Scene subclass).
 - The Scene will NOT delete entities when it is destroyed or when `clearEntities()` is called.
 
@@ -496,22 +610,28 @@ virtual void draw(Renderer& renderer) = 0;
 Following the Godot Engine philosophy, physical actors are specialized into distinct types based on their movement requirements.
 
 **Hierarchy**:
+
 ```
 Entity
 └── Actor
     └── PhysicsActor (Base)
-        ├── StaticActor    (Immovable walls/floors)
+        ├── StaticActor    (Immovable walls/floors; static grid layer)
+        │   └── SensorActor (Trigger: setSensor(true), e.g. collectibles)
         ├── KinematicActor (Character movement, move_and_slide)
         └── RigidActor     (Props, physical objects with gravity)
 ```
 
 **Actor Roles**:
-- **StaticActor**: Optimized for scenery. They skip the spatial grid and act as "anchors" that other objects cannot penetrate.
-- **KinematicActor**: Specifically for logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()` to interact with the world manually.
-- **RigidActor**: Fully automatic. They integrate velocity and gravity, responding to collisions using restitution and friction.
+
+- **StaticActor**: Immovable scenery. Placed in the **static layer** of the spatial grid (rebuilt only when entities are added/removed). Other bodies collide with them normally.
+- **SensorActor**: Subclass of StaticActor that calls `setSensor(true)`. Generates `onCollision` but no impulse or penetration correction.
+- **KinematicActor**: Logic-driven movement. Use `moveAndCollide()` or `moveAndSlide()`. Inserted into the **dynamic layer** each frame.
+- **RigidActor**: Fully simulated (gravity, forces, collisions). Inserted into the dynamic layer.
+- **One-Way / Sensor Flags**: Any `PhysicsActor` can use `setOneWay(true)` (one-way platforms) or `setSensor(true)` (triggers). Tile metadata can be stored via `setUserData()` and decoded with `physics::packTileData` / `unpackTileData` from `TileAttributes.h`.
 - **Shape Support**: All physics actors can be configured as `AABB` (Rectangle) or `CIRCLE`.
 
 **Features**:
+
 - `CollisionLayer layer`: Own collision layer
 - `CollisionLayer mask`: Layers it collides with
 - `bool bounce`: Optional bouncing behavior
@@ -692,9 +812,9 @@ AudioBackend
 
 7. **IRAM-Cached Rendering**: Critical functions in internal RAM.
 
-6. **Viewport Culling**: Only render visible entities
+8. **Viewport Culling**: Only render visible entities
 
-7. **Cached Debug Strings**: Text formatting every N frames
+9. **Cached Debug Strings**: Text formatting every N frames
 
 ### 6.2 Performance Metrics
 
@@ -854,6 +974,6 @@ The Scene-Entity architecture provides a familiar programming model for game dev
 
 ---
 
-**Document Generated**: February 2026  
-**Engine Version**: v0.7.0-dev  
+**Document Generated**: March 2026  
+**Engine Version**: v1.1.0  
 **Author**: PixelRoot32 Architecture Analysis

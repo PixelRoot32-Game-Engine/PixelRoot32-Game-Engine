@@ -55,7 +55,10 @@ build_flags =
     The vertical offset for the display alignment. Default is `0`.
 
 - **`PHYSICS_MAX_PAIRS`**
-    Maximum number of simultaneous collision pairs tracked by the solver. Lower values save static DRAM. Default is `128`.
+    Maximum number of collision pairs considered in broadphase. Default is `128`.
+
+- **`PHYSICS_MAX_CONTACTS`**
+    Maximum number of simultaneous contacts in the solver (fixed pool, no heap per frame). Default is `128`. When exceeded, additional contacts are dropped.
 
 - **`VELOCITY_ITERATIONS`**
     Number of impulse solver passes per frame. Higher values improve stacking stability but increase CPU load. Default is `2`.
@@ -64,7 +67,13 @@ build_flags =
     Size of each cell in the broadphase grid (in pixels). Default is `32`.
 
 - **`SPATIAL_GRID_MAX_ENTITIES_PER_CELL`**
-    Maximum entities stored in a single grid cell. Default is `24`.
+    Legacy: maximum entities per cell when using a single grid. Default is `24`.
+
+- **`SPATIAL_GRID_MAX_STATIC_PER_CELL`**
+    Maximum static (immovable) actors per grid cell. Default is `12`. Used by the static layer of the spatial grid.
+
+- **`SPATIAL_GRID_MAX_DYNAMIC_PER_CELL`**
+    Maximum dynamic (RIGID/KINEMATIC) actors per grid cell. Default is `12`. Used by the dynamic layer of the spatial grid.
 
 ## Math Module
 
@@ -77,7 +86,16 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 `Scalar` is the fundamental numeric type used throughout the engine for physics, positioning, and logic.
 
 - **On FPU platforms (ESP32, S3):** `Scalar` is an alias for `float`.
-- **On non-FPU platforms (C3, S2):** `Scalar` is an alias for `Fixed16`.
+- **On non-FPU platforms (C3, S2, C6):** `Scalar` is an alias for `Fixed16`.
+
+#### Fixed16 (16.16 Fixed Point)
+
+On platforms without a Hardware Floating Point Unit (FPU), the engine uses `Fixed16` for all calculations.
+
+- **Storage**: 32-bit signed integer.
+- **Precision**: 16 bits for the integer part, 16 bits for the fractional part (approx. 0.000015 resolution).
+- **Literal**: Use the `_fp` suffix for literals on non-FPU platforms for compile-time conversion.
+  *Example:* `Scalar gravity = 9.8_fp;`
 
 #### Helper Functions
 
@@ -90,6 +108,15 @@ The Math module provides a platform-agnostic numerical abstraction layer (`Scala
 
 - **`int toInt(Scalar value)`**
     Converts a `Scalar` back to an integer (truncating decimals).
+
+- **`int roundToInt(Scalar value)`**
+    Converts a `Scalar` to an integer, rounding to the nearest whole number. Essential for mapping logical positions to pixel coordinates without jitter.
+
+- **`int floorToInt(Scalar value)`**
+    Returns the largest integer less than or equal to the scalar value.
+
+- **`int ceilToInt(Scalar value)`**
+    Returns the smallest integer greater than or equal to the scalar value.
 
 - **`float toFloat(Scalar value)`**
     Converts a `Scalar` to `float`. **Warning:** Use sparingly on non-FPU platforms.
@@ -166,7 +193,8 @@ A 2D vector structure composed of two `Scalar` components.
 - **`Vector2 normalized() const`**
     Returns a normalized (unit length) version of the vector.
 
-d---
+---
+
 
 ### MathUtil
 
@@ -243,6 +271,89 @@ Collection of helper functions.
 
 - **`bool is_equal_approx(const Vector2& other) const`**
     Returns true if the vector is approximately equal to `other`.
+
+## Platform Abstractions
+
+Version 1.1.0 introduces unified abstractions for cross-platform operations, eliminating the need for manual `#ifdef` blocks in user code.
+
+### Logging System
+
+**Namespace:** `pixelroot32::core::logging`
+
+The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). `PIXELROOT32_DEBUG_MODE` to enable logging.
+
+#### Log Levels
+
+| LogLevel Enum | Output Prefix | Use Case |
+|--------------|---------------|----------|
+| `LogLevel::Info` | `[INFO]` | General information, debug messages |
+| `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
+| `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
+
+#### Functions
+
+- **`void log(LogLevel level, const char* format, ...)`**
+    Logs a message with the specified level and printf-style formatting.
+
+- **`void log(const char* format, ...)`**
+    Logs a message with Info level (shorthand).
+
+**Usage Example:**
+
+```cpp
+#include "core/Log.h"
+
+using namespace pixelroot32::core::logging;
+
+// Log with explicit level
+log(LogLevel::Info, "Player position: %d", playerX);
+
+// Log with default Info level
+log("Player position: %d", playerX);
+```
+
+### Platform Memory Abstraction
+
+**Include:** `platforms/PlatformMemory.h`
+
+Provides a unified API for memory operations that differ between ESP32 (Flash/PROGMEM) and Native (RAM) platforms.
+
+#### Macros
+
+- **`PIXELROOT32_FLASH_ATTR`**
+    Attribute for data stored in Flash memory.
+
+- **`PIXELROOT32_STRCMP_P(dest, src)`**
+    Compare a RAM string with a Flash string.
+
+- **`PIXELROOT32_MEMCPY_P(dest, src, size)`**
+    Copy data from Flash to RAM.
+
+- **`PIXELROOT32_READ_BYTE_P(addr)`**
+    Read an 8-bit value from Flash.
+
+- **`PIXELROOT32_READ_WORD_P(addr)`**
+    Read a 16-bit value from Flash.
+
+- **`PIXELROOT32_READ_DWORD_P(addr)`**
+    Read a 32-bit value from Flash.
+
+- **`PIXELROOT32_READ_FLOAT_P(addr)`**
+    Read a float value from Flash.
+
+- **`PIXELROOT32_READ_PTR_P(addr)`**
+    Read a pointer from Flash.
+
+**Usage Example:**
+
+```cpp
+#include "platforms/PlatformMemory.h"
+
+const char MY_STRING[] PIXELROOT32_FLASH_ATTR = "Hello";
+char buffer[10];
+PIXELROOT32_STRCMP_P(buffer, MY_STRING);
+uint8_t val = PIXELROOT32_READ_BYTE_P(&my_array[i]);
+```
 
 ## Core Module
 
@@ -349,6 +460,58 @@ Configuration settings for display initialization and scaling.
 - **`uint8_t dcPin`**: SPI DC (Data/Command).
 - **`uint8_t resetPin`**: Reset pin.
 - **`bool useHardwareI2C`**: If true, uses hardware I2C peripheral (default true).
+
+---
+
+## Graphics Module
+
+The Graphics module manages rendering, sprites, tilemaps, and associated metadata.
+
+### Tile Attribute System
+
+The tile attribute system allows querying custom metadata attached to tiles at runtime.
+
+#### Data Structures
+
+- **`TileAttribute`**
+    Represents a single key-value pair.
+    - `const char* key`: Attribute key string (`PIXELROOT32_FLASH_ATTR`).
+    - `const char* value`: Attribute value string (`PIXELROOT32_FLASH_ATTR`).
+
+- **`TileAttributeEntry`**
+    Represents all attributes for a specific tile position.
+    - `uint16_t x, y`: Tile coordinates.
+    - `uint8_t num_attributes`: Number of attributes for this tile.
+    - `const TileAttribute* attributes`: Pointer to an array of attributes (`PIXELROOT32_FLASH_ATTR`).
+
+- **`LayerAttributes`**
+    Represents attribute data for an entire layer.
+    - `const char* layer_name`: Name of the layer.
+    - `uint16_t num_tiles_with_attributes`: Number of tiles in this layer that have attributes.
+    - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (`PIXELROOT32_FLASH_ATTR`).
+
+#### Query Functions
+
+**Namespace:** `pixelroot32::graphics`
+
+These functions are defined as `inline` in `Renderer.h` for maximum performance and use the platform abstraction layer from `platforms/PlatformMemory.h`.
+
+- **`const char* get_tile_attribute(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y, const char* key)`**
+    Returns the value of a specific attribute for a tile. Returns `nullptr` if the attribute or tile does not exist.
+    - `layers`: Pointer to the `layer_attributes` array.
+    - `num_layers`: Total number of layers with attributes.
+    - `layer_idx`: Index of the layer to query.
+    - `x, y`: Tile coordinates.
+    - `key`: The attribute key to search for (supports RAM or PROGMEM/Flash strings).
+
+> [!IMPORTANT]
+> Since attributes are stored in Flash memory on ESP32, you must use **`PIXELROOT32_STRCMP_P`** or **`PIXELROOT32_MEMCPY_P`** to compare or copy the returned values to ensure cross-platform compatibility (Native vs ESP32).
+
+- **`bool tile_has_attributes(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
+    Returns `true` if the tile at the specified position has any attributes.
+
+- **`const TileAttributeEntry* get_tile_entry(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
+    Returns a pointer to the entire `TileAttributeEntry` for a tile. Useful for iterating through all attributes of a tile or performing multiple queries efficiently. Returns `nullptr` if the tile has no attributes.
 
 ---
 
@@ -604,6 +767,8 @@ The base class for all objects capable of collision. Actors extend Entity with c
 
 #### Properties
 
+- **`uint16_t entityId`**: Unique id assigned by `CollisionSystem::addEntity` (used for pair deduplication). `0` = unregistered.
+- **`int queryId`**: Used internally by the spatial grid for deduplication in `getPotentialColliders`.
 - **`CollisionLayer layer`**: Bitmask representing the layers this actor belongs to.
 - **`CollisionLayer mask`**: Bitmask representing the layers this actor scans for collisions.
 
@@ -642,6 +807,7 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 #### Properties
 
 - **`Vector2 velocity`**: Current movement speed in pixels/second.
+- **`Vector2 previousPosition`**: Position from the previous physics frame (used for spatial crossing detection).
 - **`Scalar mass`**: Mass of the body (Default: `1.0`).
 - **`Scalar restitution`**: Bounciness factor (0.0 = no bounce, 1.0 = perfect bounce).
 - **`Scalar friction`**: Friction coefficient (not yet fully implemented in solver).
@@ -649,6 +815,9 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
 - **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
 - **`bool bounce`**: If `true`, the actor will bounce off surfaces based on its restitution (Default: `false`).
+- **`bool sensor`**: When true, the body generates collision events but does not produce physical response (no impulse, no penetration correction). Use for triggers, collectibles.
+- **`bool oneWay`**: When true, the body only blocks from one side (e.g. one-way platform: land from above, pass through from below).
+- **`void* userData`**: Optional pointer or packed value (e.g. tile coordinates) for game logic. Use `physics::packTileData` / `unpackTileData` from `physics/TileAttributes.h` for tile metadata.
 
 #### Constructors
 
@@ -669,11 +838,38 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`const Vector2& getVelocity() const`**
     Gets the current velocity vector.
 
+- **`void updatePreviousPosition()`**
+    Updates the previous position to the current position. Should be called at the start of each physics frame to track position history for spatial crossing detection (e.g., one-way platforms). This is automatically called by `CollisionSystem::update()`.
+
+- **`Vector2 getPreviousPosition() const`**
+    Gets the position from the previous physics frame. Used internally for one-way platform validation.
+
+- **`void setPosition(Vector2 pos)`**
+    Sets the position and syncs previous position. When position is set directly (not via physics integration), the previous position is also updated to prevent false crossing detection.
+
 - **`void setRestitution(Scalar r)`**
     Sets the restitution (bounciness). 1.0 means perfect bounce, < 1.0 means energy loss.
 
 - **`void setFriction(Scalar f)`**
     Sets the friction coefficient (0.0 means no friction).
+
+- **`void setSensor(bool s)`**
+    Sets whether this body is a sensor (trigger). Sensors fire `onCollision` but do not receive impulse or penetration correction.
+
+- **`bool isSensor() const`**
+    Returns true if this body is a sensor.
+
+- **`void setOneWay(bool w)`**
+    Sets whether this body is a one-way platform (blocks only from one side, e.g. from above).
+
+- **`bool isOneWay() const`**
+    Returns true if this body is a one-way platform.
+
+- **`void setUserData(void* ptr)`**
+    Sets optional user data (e.g. tile coordinates or game-specific pointer).
+
+- **`void* getUserData() const`**
+    Gets the current user data.
 
 - **`void setLimits(const LimitRect& limits)`**
     Sets custom movement limits for the actor.
@@ -728,7 +924,7 @@ Information about world collisions in the current frame. Holds flags indicating 
 
 **Inherits:** [PhysicsActor](#physicsactor)
 
-An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. `StaticActor` is optimized to skip the spatial grid and act as a fixed boundary.
+An immovable body that other objects can collide with. Ideal for floors, walls, and level geometry. Static bodies are placed in the **static layer** of the spatial grid (rebuilt only when entities are added or removed), reducing per-frame cost in levels with many tiles.
 
 #### Constructors
 
@@ -744,6 +940,25 @@ An immovable body that other objects can collide with. Ideal for floors, walls, 
 auto floor = std::make_unique<StaticActor>(0, 230, 240, 10);
 floor->setCollisionLayer(Layers::kWall);
 scene->addEntity(floor.get());
+```
+
+---
+
+### SensorActor
+
+**Inherits:** [StaticActor](#staticactor)
+
+A static body that acts as a **trigger**: it generates `onCollision` callbacks but does not produce any physical response (no impulse, no penetration correction). Use for collectibles, checkpoints, damage zones, or area triggers.
+
+**Include:** `physics/SensorActor.h`
+
+**Constructors:** Same as `StaticActor`; internally calls `setSensor(true)`.
+
+```cpp
+SensorActor coin(x, y, 16, 16);
+coin.setCollisionLayer(Layers::kCollectible);
+scene->addEntity(&coin);
+// In player's onCollision: if (other->isSensor()) { collectCoin(other); }
 ```
 
 ---
@@ -890,21 +1105,69 @@ Namespace with common collision layer constants:
 
 ---
 
+### TileAttributes (physics)
+
+**Include:** `physics/TileAttributes.h`  
+**Namespace:** `pixelroot32::physics`
+
+Helpers for encoding tile metadata in `PhysicsActor::userData`, used by tilemap collision builders and game logic. Supports both a **flags-based** API (recommended for new code) and a legacy **behavior enum** API.
+
+#### TileFlags (recommended)
+
+- **`enum TileFlags : uint8_t`**: Bit flags for tile behavior (1 byte per tile, no strings at runtime). Values: `TILE_NONE`, `TILE_SOLID`, `TILE_SENSOR`, `TILE_DAMAGE`, `TILE_COLLECTIBLE`, `TILE_ONEWAY`, `TILE_TRIGGER` (bits 6–7 reserved).
+- **`packTileData(uint16_t x, uint16_t y, TileFlags flags)`**: Packs coords (10+10 bits) and flags (8 bits) into `uintptr_t` for `setUserData()`.
+- **`unpackTileData(uintptr_t packed, uint16_t& x, uint16_t& y, TileFlags& flags)`**: Unpacks for use in `onCollision`.
+- **`getTileFlags(const TileBehaviorLayer& layer, int x, int y)`**: O(1) lookup with bounds check; returns `TILE_NONE` (0) when out of bounds.
+- **`isSensorTile(TileFlags flags)`** / **`isOneWayTile(TileFlags flags)`** / **`isSolidTile(TileFlags flags)`**: Derive physics config from flags for the collision builder.
+
+#### TileBehaviorLayer
+
+- **`struct TileBehaviorLayer`**: `const uint8_t* data`, `uint16_t width`, `uint16_t height`. Points to a dense array (1 byte per tile) exported by the Tilemap Editor. Use with `getTileFlags()` for O(1) lookups.
+
+#### Legacy (deprecated for new code)
+
+- **`enum class TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
+- **`packTileData(x, y, TileCollisionBehavior)`** / **`unpackTileData(..., TileCollisionBehavior&)`**: Same encoding with 4-bit behavior.
+- **`packCoord(x, y)`** / **`unpackCoord(packed, x, y)`**: Legacy 16+16 bit encoding for coords only.
+
+---
+
+### TileConsumptionHelper
+
+**Include:** `physics/TileConsumptionHelper.h`  
+**Namespace:** `pixelroot32::physics`
+
+Helper for **consumible tiles** (e.g. coins, pickups): removes the tile’s physics body from the scene and updates the tilemap’s `runtimeMask` so the tile is no longer drawn. Reuses `TileMapGeneric::runtimeMask` (no separate consumed mask).
+
+- **`struct TileConsumptionConfig`**: Optional config: `updateTilemap`, `logConsumption`, `validateCoordinates`.
+- **`TileConsumptionHelper(Scene& scene, void* tilemap, const TileConsumptionConfig& config)`**: Constructor. `tilemap` is `TileMapGeneric*` (any of `Sprite`, `Sprite2bpp`, `Sprite4bpp`).
+- **`bool consumeTile(Actor* tileActor, uint16_t tileX, uint16_t tileY)`**: Removes `tileActor` from the scene and sets `setTileActive(tileX, tileY, false)` on the tilemap. If `tileActor == nullptr`, only updates the tilemap mask.
+- **`bool consumeTileFromUserData(Actor* tileActor, uintptr_t packedUserData)`**: Unpacks coords/flags from userData and consumes only if `TILE_COLLECTIBLE` is set.
+- **`bool isTileConsumed(uint16_t tileX, uint16_t tileY) const`**: Returns whether the tile is inactive in the tilemap.
+- **`bool restoreTile(uint16_t tileX, uint16_t tileY)`**: Sets the tile active again (visual only; does not re-add a physics body).
+
+**Convenience functions:**
+
+- **`consumeTileFromCollision(tileActor, packedUserData, scene, tilemap, config)`**: One-shot consumption from an `onCollision` callback.
+- **`consumeTilesBatch(scene, tilemap, tiles[][2], count, config)`**: Updates `runtimeMask` for multiple tiles (no entity removal; use for clearing areas or reset).
+
+---
+
 ### CollisionSystem
 
 **Inherits:** None
 
-The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior.
+The central physics system implementing **Flat Solver**. Manages collision detection and resolution with fixed timestep for deterministic behavior. Uses a **dual-layer spatial grid** (static + dynamic) to minimize per-frame work when many static tiles are present, and a **fixed-size contact pool** (`PHYSICS_MAX_CONTACTS`, default 128; overridable via build flags) to avoid heap allocations in the hot path.
 
 #### Key Logic: "The Flat Solver"
 
 The solver executes in strict order:
 
-1. **Detect Collisions**: Queries the `SpatialGrid` for potential overlaps
-2. **Solve Velocity**: Impulse-based collision response (2 iterations by default)
-3. **Integrate Positions**: Updates positions: `p = p + v * dt`
-4. **Solve Penetration**: Baumgarte stabilization with slop threshold
-5. **Trigger Callbacks**: Calls `onCollision()` for gameplay notifications
+1. **Detect Collisions**: Rebuilds static grid if dirty, clears dynamic layer, inserts RIGID/KINEMATIC into dynamic layer; queries grid for potential pairs; narrowphase and contact generation. Contacts are stored in a fixed array; excess contacts are dropped when the pool is full.
+2. **Solve Velocity**: Impulse-based collision response (2 iterations by default); sensor contacts are skipped.
+3. **Integrate Positions**: Updates positions: `p = p + v * dt` (RIGID only).
+4. **Solve Penetration**: Baumgarte stabilization with slop threshold; sensor contacts skipped.
+5. **Trigger Callbacks**: Calls `onCollision()` for all contacts.
 
 #### Public Constants
 
@@ -941,11 +1204,19 @@ The solver executes in strict order:
 - **`bool sweptCircleVsAABB(PhysicsActor* circle, PhysicsActor* box, Scalar& outTime, Vector2& outNormal)`**  
   Performs swept test for CCD. Returns collision time (0.0-1.0) and normal.
 
+- **`bool validateOneWayPlatform(PhysicsActor* actor, PhysicsActor* platform, const Vector2& collisionNormal)`**
+  Validates whether a one-way platform collision should be resolved based on spatial crossing detection. Returns `true` if the collision should be resolved (actor crossed from above), `false` otherwise. This method checks:
+  - If the platform is a one-way platform
+  - If the collision normal points upward (actor above platform)
+  - If the actor crossed the platform surface from above (using previous position)
+  - If the actor is moving downward or stationary
+  - Rejects horizontal collisions (side collisions with one-way platforms)
+
 - **`size_t getEntityCount() const`**  
   Returns number of entities in the system.
 
-- **`void clear()`**  
-  Removes all entities and contacts.
+- **`void clear()`**
+  Removes all entities, resets the contact count, and clears the spatial grid (both static and dynamic layers).
 
 ---
 
@@ -1110,15 +1381,31 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Sets the hardware rotation of the display.
 
 - **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
-    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
+    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) is the rightmost pixel.
+
+- **`void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
+    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+
+- **`void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
+    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false)`**
-    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite where each pixel stores a 2-bit index into the sprite-local palette. Index `0` is treated as transparent.
-    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+    Legacy overload for backward compatibility. Equivalent to `drawSprite(sprite, x, y, 0, flipX)`.
 
 - **`void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false)`**
-    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite where each pixel stores a 4-bit index into the sprite-local palette. Index `0` is treated as transparent.
-    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+    Legacy overload for backward compatibility. Equivalent to `drawSprite(sprite, x, y, 0, flipX)`.
+
+- **`void setSpritePaletteSlotContext(uint8_t slot)`**
+    Sets the sprite palette slot context for multi-palette sprites. When active, all subsequent `drawSprite` calls for 2bpp/4bpp sprites will use this slot regardless of the `paletteSlot` parameter. This is useful for batch rendering with the same palette.
+    - **slot**: Palette slot (0-7). To disable context, call with 0xFF or use default.
+
+- **`uint8_t getSpritePaletteSlotContext() const`**
+    Gets the current sprite palette slot context.
+    - **Returns**: Current palette slot, or 0xFF if context is inactive.
 
 - **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
     Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
@@ -1127,10 +1414,10 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Draws a tile-based background using a compact `TileMap` descriptor built on 1bpp `Sprite` tiles. Includes automatic Viewport Culling.
 
 - **`void drawTileMap(const TileMap2bpp& map, int originX, int originY)`**
-    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a 2bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching. If `map.paletteIndices` is non-null, each cell can use a different background palette slot (0–7); otherwise all cells use the default background palette (slot 0).
 
 - **`void drawTileMap(const TileMap4bpp& map, int originX, int originY)`**
-    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching.
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap. Optimized with Viewport Culling and Palette LUT Caching. If `map.paletteIndices` is non-null, each cell can use a different background palette slot (0–7); otherwise all cells use the default background palette (slot 0).
 
 ---
 
@@ -1140,7 +1427,7 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 
 - **DMA Support**: Buffer transfers to the display are handled via DMA (`pushImageDMA`), allowing the CPU to process the next frame while the current one is being sent to the hardware.
 - **IRAM Execution**: Critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) are decorated with `IRAM_ATTR` to run from internal RAM, bypassing the slow SPI Flash latency.
-- **Palette Caching**: Tilemaps cache the resolved RGB565 palette for each tile to avoid redundant color calculations during the draw loop.
+- **Palette Caching**: Tilemaps cache the resolved RGB565 LUT per tile. The cache key is the pair (tile palette pointer, background palette pointer). When `paletteIndices` is used, the LUT is rebuilt only when either the tile’s palette or the cell’s background palette slot changes (`lastTilePalettePtr` / `lastBackgroundPalettePtr`), minimizing redundant work.
 - **Viewport Culling**: All tilemap rendering functions automatically skip tiles that are outside the current screen boundaries.
 
 - **`void setDisplaySize(int w, int h)`**
@@ -1347,7 +1634,7 @@ The `Camera2D` class provides a 2D camera system for managing the viewport and s
 
 **Inherits:** None
 
-The `Color` module manages the engine's color palettes and provides the `Color` enumeration for referencing colors within the active palette.
+The `Color` module manages the engine's color palettes and provides the `Color` enumeration for referencing colors within the active palette. It also maintains a **background palette slot bank** (number of slots from `MAX_BACKGROUND_PALETTE_SLOTS` in `EngineConfig.h`, default 8) for multi-palette 2bpp/4bpp tilemaps, where each cell can select a slot via the tilemap's optional `paletteIndices` array.
 
 #### PaletteType (Enum)
 
@@ -1401,12 +1688,38 @@ Enumeration of available color palettes.
   - **bgPalette**: Pointer to an array of 16 `uint16_t` RGB565 color values for backgrounds. Must remain valid.
   - **spritePal**: Pointer to an array of 16 `uint16_t` RGB565 color values for sprites. Must remain valid.
 
+#### Background palette slot bank (multi-palette tilemaps)
+
+For 2bpp/4bpp tilemaps, the engine supports **multiple background palettes per cell**. A bank of slots (default 8, configurable via **`MAX_BACKGROUND_PALETTE_SLOTS`** in `EngineConfig.h` or build flag `-DMAX_BACKGROUND_PALETTE_SLOTS=N`) holds palette pointers; slot 0 is the default and is kept in sync with `setBackgroundPalette` / `setBackgroundCustomPalette`. If a tilemap provides an optional `paletteIndices` array, each cell can select a slot (0 to N−1) so different areas use different palettes (e.g. ground, water, lava) without changing tile data.
+
+- **`static void initBackgroundPaletteSlots()`**
+    Initializes all background palette slots to the default palette. Call at engine startup if using multi-palette tilemaps; otherwise slots are initialized lazily when setting the background palette.
+
+- **`static void setBackgroundPaletteSlot(uint8_t slotIndex, PaletteType palette)`**
+    Sets a background palette slot by type (for multi-palette tilemaps).
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global background palette.
+  - **palette**: The palette type for this slot.
+
+- **`static void setBackgroundCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette)`**
+    Sets a background palette slot with a custom RGB565 palette.
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global background palette.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 values; must remain valid.
+
+- **`static const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex)`**
+    Returns the palette pointer for a background slot (for renderer use). If slot is not set, returns slot 0; if slot 0 is not set, returns global background palette. Never returns `nullptr`.
+  - **slotIndex**: Slot 0–7.
+
 - **`static uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (Single Palette Mode).
 
 - **`static uint16_t resolveColor(Color color, PaletteContext context)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the context (dual palette mode) or current active palette (Single Palette Mode).
   - **context**: `PaletteContext::Background` for backgrounds/tilemaps, `PaletteContext::Sprite` for sprites.
+
+- **`static uint16_t resolveColorWithPalette(Color color, const uint16_t* palette)`**
+    Converts a `Color` enum value to RGB565 using an explicit palette (used internally for per-cell tilemap palette resolution).
+  - **color**: The `Color` enum value.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 palette; if `nullptr`, returns 0.
 
 #### Color (Enum)
 
@@ -1582,6 +1895,12 @@ Generic descriptor for tile-based backgrounds. It stores level data as an array 
 - **`uint16_t tileCount`**  
   Number of unique tiles in the `tiles` array.
 
+- **`uint8_t* runtimeMask`**  
+  Optional bitmask for runtime tile activation (1 bit per cell). If non-null, tiles whose bit is 0 are skipped by `drawTileMap`. Use `initRuntimeMask()`, `isTileActive()`, `setTileActive()`; size is `(width * height + 7) / 8` bytes.
+
+- **`const uint8_t* paletteIndices`**  
+  Optional per-cell background palette index (for 2bpp/4bpp multi-palette tilemaps only). If `nullptr`, all cells use the default background palette (slot 0). If non-null, array size must be `width * height`; each byte uses bits 0–2 for the palette slot (0–7), bits 3–7 reserved for future use. Use with `setBackgroundPaletteSlot` / `setBackgroundCustomPaletteSlot` to assign palettes to slots. Typically filled by the editor or export tools; can be stored in PROGMEM.
+
 ---
 
 ### TileMap (Alias)
@@ -1605,6 +1924,317 @@ Optional 2bpp tilemap, available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defin
 **Type:** `TileMapGeneric<Sprite4bpp>`
 
 Optional 4bpp tilemap, available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined.
+
+---
+
+### Tile Attribute System
+
+The tile attribute system provides runtime access to custom metadata attached to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures optimized for ESP32.
+
+#### Design Overview
+
+**Key Concepts:**
+
+- **Editor Workflow**: Attributes are defined at two levels in the editor:
+  - **Tileset Defaults**: Common attributes shared by all instances of a tile
+  - **Instance Overrides**: Per-position attributes that override defaults
+- **Export Process**: The editor merges defaults and overrides, exporting only final resolved values
+- **Runtime Access**: Game code queries attributes by layer index and tile position
+- **Memory Efficiency**: Only tiles with attributes are exported (sparse representation)
+
+**Memory Layout:**
+
+All attribute data is stored in flash memory (PROGMEM) on ESP32 to minimize RAM usage:
+
+```
+Flash Memory (PROGMEM)
+├── String literals (keys and values)
+├── TileAttribute arrays (key-value pairs per tile)
+├── TileAttributeEntry arrays (position + attributes per layer)
+└── LayerAttributes arrays (layer metadata)
+```
+
+---
+
+### TileAttribute
+
+**Inherits:** None
+
+Represents a single key-value metadata pair for a tile. Both strings are stored in flash memory (PROGMEM).
+
+#### Properties
+
+- **`const char* key`**  
+  Attribute key (PROGMEM string). Common examples: `"type"`, `"solid"`, `"interactable"`, `"damage"`.
+
+- **`const char* value`**  
+  Attribute value (PROGMEM string). All values are strings; convert to int/bool as needed in game code.
+
+#### Usage Notes
+
+- Use `strcmp_P()` or similar PROGMEM-aware functions to compare keys
+- Values are always strings; parse to appropriate types in game logic
+- Both pointers reference flash memory, not RAM
+
+#### Example
+
+```cpp
+// Querying an attribute
+const char* solidValue = get_tile_attribute(0, 10, 5, "solid");
+if (solidValue && strcmp_P(solidValue, "true") == 0) {
+    // Tile is solid
+}
+
+// Converting string values
+const char* damageValue = get_tile_attribute(0, x, y, "damage");
+if (damageValue) {
+    int damage = atoi(damageValue);
+    player.takeDamage(damage);
+}
+```
+
+---
+
+### TileAttributeEntry
+
+**Inherits:** None
+
+Associates a tile position (x, y) with its metadata attributes. Only tiles with non-empty attributes are included in the exported data.
+
+#### Properties
+
+- **`uint16_t x`**  
+  Tile X coordinate in layer space (not pixel coordinates).
+
+- **`uint16_t y`**  
+  Tile Y coordinate in layer space (not pixel coordinates).
+
+- **`uint8_t num_attributes`**  
+  Number of attributes for this tile (maximum 255).
+
+- **`const TileAttribute* attributes`**  
+  PROGMEM array of attribute key-value pairs.
+
+#### Query Pattern
+
+```cpp
+// Manual query (low-level)
+for (uint16_t i = 0; i < layer.num_tiles_with_attributes; i++) {
+    const TileAttributeEntry& tile = layer.tiles[i];
+    if (tile.x == targetX && tile.y == targetY) {
+        // Found tile, search attributes
+        for (uint8_t j = 0; j < tile.num_attributes; j++) {
+            if (strcmp_P(tile.attributes[j].key, "solid") == 0) {
+                // Found "solid" attribute
+                const char* value = tile.attributes[j].value;
+                break;
+            }
+        }
+        break;
+    }
+}
+```
+
+#### Performance Notes
+
+- Tiles array is typically small (only tiles with attributes)
+- Linear search is acceptable for most use cases
+- Consider caching frequently accessed attributes in game logic
+
+---
+
+### LayerAttributes
+
+**Inherits:** None
+
+Organizes all tile metadata for a single tilemap layer. Provides efficient lookup of attributes by tile position.
+
+#### Properties
+
+- **`const char* layer_name`**  
+  Layer name (PROGMEM string). Matches the name defined in the Tilemap Editor (e.g., `"Background"`, `"Collision"`).
+
+- **`uint16_t num_tiles_with_attributes`**  
+  Number of tiles with attributes in this layer.
+
+- **`const TileAttributeEntry* tiles`**  
+  PROGMEM array of tiles with attributes (sparse representation).
+
+#### Usage Example
+
+```cpp
+// Typical usage in a scene
+#include "game_assets/level1.h" // Generated scene header
+
+void GameScene::init() {
+    // Query attribute for tile at (10, 5) in layer 0
+    const char* tileType = get_tile_attribute(0, 10, 5, "type");
+    
+    if (tileType && strcmp_P(tileType, "door") == 0) {
+        // Tile is a door, check if it's locked
+        const char* locked = get_tile_attribute(0, 10, 5, "locked");
+        if (locked && strcmp_P(locked, "true") == 0) {
+            // Door is locked
+        }
+    }
+}
+
+void GameScene::checkCollision(int tileX, int tileY) {
+    // Check if tile is solid
+    const char* solid = get_tile_attribute(0, tileX, tileY, "solid");
+    if (solid && strcmp_P(solid, "true") == 0) {
+        // Handle collision with solid tile
+        return true;
+    }
+    return false;
+}
+```
+
+#### Helper Functions
+
+Generated scene headers typically include helper functions for easier attribute access:
+
+```cpp
+// Generated in scene header (e.g., level1.h)
+namespace game_assets {
+
+// Query attribute by layer index, position, and key
+const char* get_tile_attribute(
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y,
+    const char* key
+);
+
+// Check if tile has any attributes
+bool tile_has_attributes(
+    uint8_t layer_idx,
+    uint16_t x,
+    uint16_t y
+);
+
+}
+```
+
+#### Memory Efficiency
+
+**Sparse Representation:**
+
+- Only tiles with attributes are stored
+- Empty tiles: 0 bytes overhead
+- Typical tile with 3 attributes: ~40 bytes (depends on key/value lengths)
+
+**Example Memory Usage:**
+
+```
+Tilemap: 32x32 tiles (1024 total)
+Tiles with attributes: 50 (4.9%)
+Average attributes per tile: 2
+Average key length: 8 bytes
+Average value length: 6 bytes
+
+Memory calculation:
+- TileAttributeEntry: 6 bytes × 50 = 300 bytes
+- TileAttribute: 8 bytes × 100 = 800 bytes
+- String data: (8 + 6) × 100 = 1400 bytes
+Total: ~2.5 KB in flash memory
+```
+
+#### Performance Considerations
+
+**Query Performance:**
+
+- O(n) where n = number of tiles with attributes in layer
+- Typically very fast (n is usually small, < 100)
+- Consider caching frequently accessed attributes
+
+**Optimization Strategies:**
+
+```cpp
+// Cache attributes during scene initialization
+class GameScene : public Scene {
+    struct TileCache {
+        bool isSolid;
+        bool isInteractable;
+        int damage;
+    };
+    
+    std::unordered_map<uint32_t, TileCache> tileCache;
+    
+    void init() override {
+        // Pre-cache attributes for all tiles
+        for (int y = 0; y < mapHeight; y++) {
+            for (int x = 0; x < mapWidth; x++) {
+                if (tile_has_attributes(0, x, y)) {
+                    TileCache cache;
+                    
+                    const char* solid = get_tile_attribute(0, x, y, "solid");
+                    cache.isSolid = solid && strcmp_P(solid, "true") == 0;
+                    
+                    const char* interact = get_tile_attribute(0, x, y, "interactable");
+                    cache.isInteractable = interact && strcmp_P(interact, "true") == 0;
+                    
+                    const char* dmg = get_tile_attribute(0, x, y, "damage");
+                    cache.damage = dmg ? atoi(dmg) : 0;
+                    
+                    uint32_t key = (y << 16) | x;
+                    tileCache[key] = cache;
+                }
+            }
+        }
+    }
+    
+    bool isTileSolid(int x, int y) {
+        uint32_t key = (y << 16) | x;
+        auto it = tileCache.find(key);
+        return it != tileCache.end() && it->second.isSolid;
+    }
+};
+```
+
+#### Common Attribute Patterns
+
+**Collision Detection:**
+
+```cpp
+const char* solid = get_tile_attribute(layer, x, y, "solid");
+if (solid && strcmp_P(solid, "true") == 0) {
+    // Tile blocks movement
+}
+```
+
+**Interaction System:**
+
+```cpp
+const char* type = get_tile_attribute(layer, x, y, "type");
+if (type && strcmp_P(type, "door") == 0) {
+    const char* locked = get_tile_attribute(layer, x, y, "locked");
+    if (!locked || strcmp_P(locked, "false") == 0) {
+        // Door is unlocked, can open
+    }
+}
+```
+
+**Damage Zones:**
+
+```cpp
+const char* damage = get_tile_attribute(layer, x, y, "damage");
+if (damage) {
+    int damageAmount = atoi(damage);
+    player.takeDamage(damageAmount);
+}
+```
+
+**Tile Behavior:**
+
+```cpp
+const char* animated = get_tile_attribute(layer, x, y, "animated");
+if (animated && strcmp_P(animated, "true") == 0) {
+    const char* speed = get_tile_attribute(layer, x, y, "speed");
+    int animSpeed = speed ? atoi(speed) : 1;
+    // Update tile animation
+}
+```
 
 ---
 

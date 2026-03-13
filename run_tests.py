@@ -14,17 +14,34 @@ from pathlib import Path
 CXX = "g++"
 CXXFLAGS = ["-std=c++17", "-Wall", "-Wextra", "-g", "-O0", "-Iinclude", "-DPLATFORM_NATIVE", "-DUNIT_TEST", "-DSDL_MAIN_HANDLED", "-DTEST_MOCK_GRAPHICS"]
 # Unity might be in different paths depending on whether it was installed via PIO or manually
-UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
-if not UNITY_DIR.exists():
-    # Try to find it in a common alternative path
-    alt_unity = Path("test/lib/Unity/src")
-    if alt_unity.exists():
-        UNITY_DIR = alt_unity
-    else:
-        # Revert to default path for installation
-        UNITY_DIR = Path(".pio/libdeps/native_test/Unity/src")
+def _find_unity_dir():
+    candidates = [
+        Path(".pio/libdeps/native_test/Unity/src"),
+        Path("test/lib/Unity/src"),
+        # When run from lib/PixelRoot32-Game-Engine, parent project's PIO uses env "native"
+        Path("../.pio/libdeps/native/Unity/src"),
+    ]
+    for p in candidates:
+        if (p / "unity.c").exists() and (p / "unity.h").exists():
+            return p.resolve()
+    return Path(".pio/libdeps/native_test/Unity/src")
+
+UNITY_DIR = _find_unity_dir()
 
 BUILD_DIR = Path("build/tests")
+
+def _rmtree_windows_safe(path):
+    """Remove directory; on Windows, .git files may be locked - don't fail the run."""
+    try:
+        shutil.rmtree(path)
+    except PermissionError:
+        # Windows often locks .git/ files - cleanup is best-effort
+        try:
+            import time
+            time.sleep(0.2)
+            shutil.rmtree(path)
+        except PermissionError:
+            print(f"[!] Could not remove {path} (file in use). You can delete it manually.")
 
 def ensure_unity():
     """Ensures Unity is available, installing it if necessary"""
@@ -53,9 +70,11 @@ def ensure_unity():
         print("Attempting to clone Unity from GitHub...")
         temp_dir = Path("temp_unity")
         if temp_dir.exists():
-            shutil.rmtree(temp_dir)
-            
-        subprocess.run(["git", "clone", "--depth", "1", "https://github.com/ThrowTheSwitch/Unity.git", str(temp_dir)], check=True)
+            _rmtree_windows_safe(temp_dir)
+        
+        # If temp_unity still exists (e.g. previous failed rmtree on Windows), try to use it
+        if not (temp_dir / "src" / "unity.c").exists():
+            subprocess.run(["git", "clone", "--depth", "1", "https://github.com/ThrowTheSwitch/Unity.git", str(temp_dir)], check=True)
         
         # Create expected directory structure
         UNITY_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,8 +85,8 @@ def ensure_unity():
             if src.exists():
                 shutil.copy(src, UNITY_DIR / f)
         
-        # Clean up
-        shutil.rmtree(temp_dir, onerror=handle_remove_readonly)
+        # Clean up (best-effort on Windows)
+        _rmtree_windows_safe(temp_dir)
         
         if unity_c.exists():
             print("[OK] Unity downloaded and configured successfully")
@@ -123,14 +142,26 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
     if not test_path.exists():
         print(f"❌ Does not exist: {test_path}")
         return False
+    if not unity_c.exists():
+        print(f"❌ Unity not found at {unity_c}")
+        return False
     
-    # Prepare list of files to compile
+    # Build file list
     files = [str(test_path), str(unity_c)]
     if source_files:
-        files.extend(source_files)
+        for src in source_files:
+            src_path = Path(src)
+            if src_path.exists():
+                files.append(str(src_path))
+            else:
+                print(f"⚠️  Source file not found: {src_path}")
     
-    # Compile
-    cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + ["-o", str(output_path)]
+    # Add SDL libraries for tests that need them
+    linker_flags = []
+    if test_name in ["Engine-Integration", "Game-Loop"]:
+        linker_flags.extend(["-lSDL2", "-lSDL2main"])
+    
+    cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + linker_flags + ["-o", str(output_path)]
     
     if not run_command(cmd, f"Compiling {test_name}"):
         return False
@@ -184,7 +215,16 @@ def main():
         ("Audio-Queue", "test/unit/test_audio_command_queue/test_audio_command_queue.cpp", "test_audio_command_queue", None),
         ("Audio-Scheduler", "test/unit/test_audio_scheduler/test_audio_scheduler.cpp", "test_audio_scheduler", ["src/audio/DefaultAudioScheduler.cpp"]),
         ("Audio-Music", "test/unit/test_music_player/test_music_player.cpp", "test_music_player", ["src/audio/MusicPlayer.cpp", "src/audio/AudioEngine.cpp", "src/audio/DefaultAudioScheduler.cpp"]),
-        ("Physics-Expansion", "test/unit/test_physics_expansion/test_physics_expansion.cpp", "test_physics_expansion", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/RigidActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Physics-Actor", "test/unit/test_physics_actor/test_physics_actor.cpp", "test_physics_actor", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/RigidActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Physics-Expansion", "test/unit/test_physics_actor/test_physics_actor.cpp", "test_physics_expansion", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/RigidActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("TileAttributes-Property", "test/unit/test_tile_attributes/test_tile_attribute_query_property.cpp", "test_tile_attribute_query_property", None),
+        ("TileMask", "test/unit/test_tile_mask/test_tile_mask.cpp", "test_tile_mask", None),
+        ("TileCollection", "test/test_engine_integration/tile_collection/test_tile_collection.cpp", "test_tile_collection", ["src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("TilePerformance", "test/test_engine_integration/tile_performance/test_tile_performance.cpp", "test_tile_performance", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Engine-Integration", "test/test_engine_integration/engine_integration/test_engine_integration.cpp", "test_engine_integration", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
+        ("Game-Loop", "test/test_game_loop/test_game_loop.cpp", "test_game_loop", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
+        ("UserData-Integration", "test/test_engine_integration/user_data_integration/test_user_data_integration.cpp", "test_user_data_integration", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("UserData-ESP32-Performance", "test/test_engine_integration/user_data_esp32_performance/test_user_data_esp32_performance.cpp", "test_user_data_esp32_performance", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
     ]
     
     results = []

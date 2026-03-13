@@ -9,6 +9,7 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+
 #include "graphics/Renderer.h"
 #include "math/Scalar.h"
 #include "math/Vector2.h"

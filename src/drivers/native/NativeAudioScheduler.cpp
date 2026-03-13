@@ -16,6 +16,8 @@
 
 namespace pixelroot32::audio {
 
+    using namespace pixelroot32::core::logging;
+
     NativeAudioScheduler::NativeAudioScheduler(size_t ringBufferSize)
         : rbCapacity(ringBufferSize) {
         ringBuffer.resize(rbCapacity);
@@ -115,9 +117,9 @@ namespace pixelroot32::audio {
                 if (std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime).count() >= 1) {
                     if constexpr (pixelroot32::platforms::config::EnableProfiling) {
                         if (currentPeak > 32767.0f) {
-                            printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                            log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
                         } else {
-                            printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                            log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)", currentPeak, (currentPeak / 32767.0f) * 100.0f);
                         }
                     }
                     currentPeak = 0.0f;

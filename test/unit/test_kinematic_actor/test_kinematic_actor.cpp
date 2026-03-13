@@ -1,6 +1,7 @@
 #include <unity.h>
 #include "physics/KinematicActor.h"
 #include "physics/StaticActor.h"
+#include "physics/SensorActor.h"
 #include "physics/CollisionSystem.h"
 #include "../../test_config.h"
 
@@ -11,6 +12,7 @@ using namespace pixelroot32::math;
 CollisionSystem* colSystem = nullptr;
 KinematicActor* player = nullptr;
 StaticActor* wall = nullptr;
+SensorActor* sensor = nullptr;
 
 void setUp(void) {
     test_setup();
@@ -26,9 +28,11 @@ void setUp(void) {
 void tearDown(void) {
     if (player) delete player;
     if (wall) delete wall;
+    if (sensor) delete sensor;
     if (colSystem) delete colSystem;
     player = nullptr;
     wall = nullptr;
+    sensor = nullptr;
     colSystem = nullptr;
     test_teardown();
 }
@@ -104,6 +108,41 @@ void test_flags_reset() {
     TEST_ASSERT_FALSE(player->is_on_wall());
 }
 
+// Explicit test: sensor bodies must NOT block moveAndCollide (player can overlap; contact handled by CollisionSystem).
+void test_sensor_does_not_block_move_and_collide() {
+    // Player 10x10 at (0, 0). Sensor 10x10 at (12, 0) - so when player moves 15 right they would overlap.
+    sensor = new SensorActor(toScalar(12), toScalar(0), 10, 10);
+    sensor->setCollisionLayer(1);
+    sensor->setCollisionMask(1);
+    colSystem->addEntity(sensor);
+
+    TEST_ASSERT_TRUE_MESSAGE(sensor->isSensor(), "Sensor body must be marked as sensor");
+
+    Vector2 motion(toScalar(15), toScalar(0));
+    bool blocked = player->moveAndCollide(motion, nullptr, false);
+
+    // Sensor must not block: moveAndCollide returns false and player reaches full motion.
+    TEST_ASSERT_FALSE_MESSAGE(blocked, "Sensor must not block kinematic movement in moveAndCollide");
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 15.0f, player->position.x);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, player->position.y);
+}
+
+// Regression: solid StaticActor in the same path must still block.
+void test_solid_blocks_move_and_collide() {
+    wall = new StaticActor(toScalar(12), toScalar(0), 10, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    TEST_ASSERT_FALSE_MESSAGE(wall->isSensor(), "Wall must not be a sensor");
+    colSystem->addEntity(wall);
+
+    Vector2 motion(toScalar(15), toScalar(0));
+    bool blocked = player->moveAndCollide(motion, nullptr, false);
+
+    TEST_ASSERT_TRUE_MESSAGE(blocked, "Solid must block kinematic movement");
+    // Player should stop before overlapping (at 2,0 so right edge at 12)
+    TEST_ASSERT_TRUE_MESSAGE(player->position.x < toScalar(12.5f), "Player must not pass through solid");
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -113,5 +152,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_is_on_ceiling);
     RUN_TEST(test_is_on_wall);
     RUN_TEST(test_flags_reset);
+    RUN_TEST(test_sensor_does_not_block_move_and_collide);
+    RUN_TEST(test_solid_blocks_move_and_collide);
     return UNITY_END();
 }

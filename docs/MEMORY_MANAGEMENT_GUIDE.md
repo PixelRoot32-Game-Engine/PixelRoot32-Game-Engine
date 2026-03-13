@@ -2,7 +2,7 @@
 
 **Document Version:** 1.1  
 **Last Updated:** March 2026  
-**Engine Version:** v1.0.0
+**Engine Version:** v1.1.0
 
 > **Note:** For the complete memory management guide with optimization strategies, visit the [official documentation](https://docs.pixelroot32.org/manual/optimization/memory_management/).
 
@@ -22,9 +22,12 @@ Understanding the engine's memory limits is crucial for developing stable games 
 |-------|--------------|--------------|-------------|
 | **Max Entities** | 32 | ✅ via `MAX_ENTITIES` | Maximum entities per scene |
 | **Max Layers** | 3 | ✅ via `MAX_LAYERS` | Maximum render layers (0=Bg, 1=Game, 2=UI) |
-| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs per frame |
+| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs considered in broadphase |
+| **Max Physics Contacts** | 128 | ✅ via `PHYSICS_MAX_CONTACTS` | Fixed contact pool size; no heap per frame. Excess contacts are dropped. |
 | **Spatial Grid Cell Size** | 32px | ✅ via `SPATIAL_GRID_CELL_SIZE` | Size of uniform grid cells |
-| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Grid cell capacity |
+| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Legacy single-grid capacity |
+| **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
+| **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
 | **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
 
 **Modular Compilation Impact:**
@@ -78,6 +81,7 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 -D PHYSICS_MAX_PAIRS=64
 -D PIXELROOT32_ENABLE_UI_SYSTEM=0  ; Disable UI for minimal build
 -D PIXELROOT32_ENABLE_PARTICLES=0  ; Disable particles for minimal build
+-D PHYSICS_MAX_CONTACTS=64
 ```
 
 **For richer scenes (with PSRAM):**
@@ -103,7 +107,37 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 -D PIXELROOT32_ENABLE_PHYSICS=0   ; Basic collision only
 -D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Keep UI for user interface
 -D PIXELROOT32_ENABLE_PARTICLES=0  ; No particle system
+-D PHYSICS_MAX_CONTACTS=256
 ```
+
+**Collision system memory (v1.0+):** The solver uses a **fixed contact array** (`PHYSICS_MAX_CONTACTS` entries) and a **dual-layer spatial grid** (static + dynamic cells). No heap is allocated during `detectCollisions()`; only the static/dynamic grid buffers and the contact array occupy static memory. Reducing `PHYSICS_MAX_CONTACTS` or the per-cell limits lowers RAM use at the cost of dropping contacts or actors when limits are exceeded.
+
+### ESP32 DRAM and Build Configuration
+
+On ESP32 (e.g. `esp32dev`), the linker places static and global data in **`.dram0.bss`**. If the project fails with **`region dram0_0_seg overflowed by N bytes`**, reduce one or more of the following (via `platformio.ini` `build_flags` or scene buffers):
+
+| What to reduce | Flag or change | Effect |
+|----------------|-----------------|--------|
+| **Logical resolution** | `-D LOGICAL_WIDTH=128 -D LOGICAL_HEIGHT=128` (keep `PHYSICAL_DISPLAY_*` at 240) | Smaller SpatialGrid and tilemap indices; rendering scales to physical size. |
+| **Spatial grid per cell** | `-D SPATIAL_GRID_MAX_STATIC_PER_CELL=4 -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4` | Less static RAM for grid (default 12). |
+| **Contact pool** | `-D PHYSICS_MAX_CONTACTS=64 -D PHYSICS_MAX_PAIRS=64` | Smaller contact array per scene (default 128). |
+| **Scene arena / buffers** | Reduce scene static buffers (e.g. `SPACE_INVADERS_SCENE_ARENA_BUFFER`, demo `sceneBuffer`) in scene `.cpp` | Fewer bytes in `.dram0.bss`. |
+
+**Recommended for ESP32 when linking fails (240×240 physical):**
+
+```ini
+build_flags =
+  -D LOGICAL_WIDTH=128
+  -D LOGICAL_HEIGHT=128
+  -D PHYSICAL_DISPLAY_WIDTH=240
+  -D PHYSICAL_DISPLAY_HEIGHT=240
+  -D SPATIAL_GRID_MAX_STATIC_PER_CELL=4
+  -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4
+  -D PHYSICS_MAX_CONTACTS=64
+  -D PHYSICS_MAX_PAIRS=64
+```
+
+The engine library compiles only from its `src/` directory (`library.json` `srcDir`); the `test/` folder is not linked into the firmware.
 
 ### Runtime Memory Monitoring
 
@@ -418,7 +452,48 @@ if (dmaBuffer == nullptr) {
 heap_caps_free(dmaBuffer);
 ```
 
-### Memory-Performance Trade-offs (v1.0.0)
+### Cross-Platform Flash Memory Access (v1.0.0+)
+
+When developing for ESP32, large static assets like tilemaps, sprites, and melodies are stored in Flash memory (**PROGMEM**) to save limited SRAM. However, standard C functions like `strcmp` or `memcpy` cannot read from Flash memory on some architectures.
+
+The engine provides a platform abstraction layer in **`platforms/PlatformMemory.h`** to handle this transparently.
+
+### Unified Memory API
+
+| Macro | Description | ESP32 Mapping | Native Mapping |
+|-------|-------------|---------------|----------------|
+| `PIXELROOT32_FLASH_ATTR` | Attribute to store data in Flash | `PROGMEM` | (empty) |
+| `PIXELROOT32_STRCMP_P` | Compare string with Flash string | `strcmp_P` | `strcmp` |
+| `PIXELROOT32_MEMCPY_P` | Copy from Flash memory | `memcpy_P` | `memcpy` |
+| `PIXELROOT32_READ_BYTE_P` | Read 8-bit value from Flash | `pgm_read_byte` | direct access |
+| `PIXELROOT32_READ_WORD_P` | Read 16-bit value from Flash | `pgm_read_word` | direct access |
+| `PIXELROOT32_READ_DWORD_P` | Read 32-bit value from Flash | `pgm_read_dword` | direct access |
+| `PIXELROOT32_READ_FLOAT_P` | Read float value from Flash | `pgm_read_float` | direct access |
+| `PIXELROOT32_READ_PTR_P` | Read pointer from Flash | `pgm_read_ptr` | direct access |
+
+### Best Practice Example
+
+When querying tile attributes or using exported scene data:
+
+```cpp
+#include "platforms/PlatformMemory.h"
+
+void checkTile(int x, int y) {
+    // get_tile_attribute returns a pointer to Flash memory on ESP32
+    const char* type = levels::level_1::get_tile_attribute(0, x, y, "type");
+    
+    if (type != nullptr) {
+        // ✅ ALWAYS use PIXELROOT32_STRCMP_P for cross-platform compatibility
+        if (PIXELROOT32_STRCMP_P("lava", type) == 0) {
+            player->takeDamage(100);
+        }
+    }
+}
+```
+
+---
+
+## Memory-Performance Trade-offs (v1.0.0)
 
 In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
 

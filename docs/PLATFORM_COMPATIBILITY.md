@@ -408,6 +408,44 @@ if (!caps.hasFPU) {
 
 ---
 
+## Hardware Limits and Constraints
+
+### Tilemap System Limits
+
+The PixelRoot32 engine enforces specific limits for tilemap rendering to ensure optimal performance on ESP32 hardware:
+
+| Parameter | Limit | Description |
+|-----------|-------|-------------|
+| **Max Layers** | 4 | Maximum number of tilemap layers per scene (ESP32 hardware limitation) |
+| **Max Tile Size** | 32x32 px | Maximum tile dimensions |
+| **Max Map Dimension** | 255x255 tiles | Maximum map size (uint8_t limit) |
+| **Max Unique Tiles** | 256 | Maximum unique tiles per tileset (uint8_t index limit) |
+| **Max Screen Width** | 320 px | PixelRoot32 hardware display limit |
+| **Max Screen Height** | 240 px | PixelRoot32 hardware display limit |
+
+**Layer Limit Rationale:**
+
+The 4-layer maximum is enforced due to ESP32 memory and rendering performance constraints. Each additional layer requires:
+- Memory for tile indices (width × height bytes per layer)
+- CPU cycles for rendering and viewport culling
+- DMA bandwidth for display updates
+
+Exceeding 4 layers can cause:
+- Frame rate drops below 30 FPS
+- Memory allocation failures on constrained variants (ESP32-C3, ESP32-S2)
+- Increased latency in game logic updates
+
+**Best Practices:**
+
+- Use layers strategically: Background, Midground, Foreground, UI
+- Combine static elements into a single layer when possible
+- Use tile attributes for collision/interaction instead of dedicated collision layers
+- Consider using sprites for dynamic elements instead of additional layers
+
+> **Note:** The PixelRoot32 Tilemap Editor enforces these limits during project creation and export to ensure compatibility with the engine.
+
+---
+
 ## Display Performance Best Practices
 
 ### SSD1306 / SH1106 OLED (I2C)

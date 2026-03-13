@@ -364,6 +364,201 @@ void test_collision_system_swept_circle_vs_aabb_ccd(void) {
     system.update();
 }
 
+// =============================================================================
+// Fase 5 — One-way platform
+// =============================================================================
+
+void test_collision_system_one_way_platform_land_from_above(void) {
+    CollisionSystem system;
+    // Player starts closer to platform: y=18, height=20, so bottom=38 (just above platform top at 40)
+    // With velocity 50 and dt=1/60, player moves ~0.83 units, so bottom becomes ~38.83 (still above 40)
+    // Need higher velocity or closer position. Let's use y=19 so bottom=39, then after movement bottom≈39.83 (still above)
+    // Actually, let's use y=20 so bottom=40 exactly, then movement makes it cross
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    platform.setCollisionLayer(1);
+    platform.setCollisionMask(1);
+    player.setVelocity(0.0f, 50.0f);
+    system.addEntity(&platform);
+    system.addEntity(&player);
+    system.update();
+    TEST_ASSERT_TRUE(player.collisionCalled);
+}
+
+void test_collision_system_one_way_platform_jump_through_from_below(void) {
+    CollisionSystem system;
+    MockActor player(40, 60, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    platform.setCollisionLayer(1);
+    platform.setCollisionMask(1);
+    player.setVelocity(0.0f, -30.0f);
+    system.addEntity(&platform);
+    system.addEntity(&player);
+    system.update();
+    TEST_ASSERT_FALSE(player.collisionCalled);
+}
+
+// =============================================================================
+// Task 7 — One-way platform validation unit tests
+// =============================================================================
+
+void test_one_way_platform_crossing_from_above(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);  // Above platform
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    // Store previous position (player above platform)
+    player.updatePreviousPosition();
+    
+    // Move player down, crossing platform surface
+    player.position.y = toScalar(30);
+    player.setVelocity(0, 5);
+    
+    // Normal pointing up (pushing actor up, away from platform)
+    // In this engine, when actor is above platform, normal points up (0, -1)
+    Vector2 normal(0, -1);
+    
+    // Should validate - crossing from above with downward velocity
+    TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_crossing_from_below(void) {
+    CollisionSystem system;
+    MockActor player(40, 50, 20, 20);  // Below platform
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    // Store previous position (player below platform)
+    player.updatePreviousPosition();
+    
+    // Move player up toward platform
+    player.position.y = toScalar(45);
+    player.setVelocity(0, -5);
+    
+    // Normal pointing up (would push actor up, but actor is below)
+    Vector2 normal(0, -1);
+    
+    // Should NOT validate - not crossing from above
+    TEST_ASSERT_FALSE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_wrong_normal_direction(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    player.updatePreviousPosition();
+    player.position.y = toScalar(30);
+    player.setVelocity(0, 5);
+    
+    // Normal pointing down (actor below platform) - wrong direction
+    // When actor is above platform, normal should point up (0, -1)
+    Vector2 normal(0, 1);
+    
+    // Should NOT validate - normal must point up (y < 0) for actor above platform
+    TEST_ASSERT_FALSE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_moving_upward(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    player.updatePreviousPosition();
+    player.position.y = toScalar(30);
+    
+    // Moving upward (negative velocity)
+    player.setVelocity(0, -5);
+    
+    Vector2 normal(0, 1);
+    
+    // Should NOT validate - must be moving down or stationary
+    TEST_ASSERT_FALSE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_large_delta_movement(void) {
+    CollisionSystem system;
+    MockActor player(40, 0, 20, 20);  // Far above platform
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    // Store previous position (far above)
+    player.updatePreviousPosition();
+    
+    // Large movement delta - player moves through platform in one frame
+    player.position.y = toScalar(50);  // Now below platform
+    player.setVelocity(0, 100);  // High velocity
+    
+    // Normal pointing up (actor crossed from above)
+    Vector2 normal(0, -1);
+    
+    // Should validate - crossed from above despite large delta
+    TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_velocity_sign_change(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    player.updatePreviousPosition();
+    player.position.y = toScalar(30);
+    
+    // Velocity changed to upward (simulating bounce or state change)
+    player.setVelocity(0, -3);
+    
+    Vector2 normal(0, 1);
+    
+    // Should NOT validate - velocity must be downward or zero
+    TEST_ASSERT_FALSE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_stationary_on_surface(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    platform.setOneWay(true);
+    
+    player.updatePreviousPosition();
+    player.position.y = toScalar(30);
+    
+    // Stationary (zero velocity)
+    player.setVelocity(0, 0);
+    
+    // Normal pointing up (actor above platform)
+    Vector2 normal(0, -1);
+    
+    // Should validate - stationary is acceptable (movingDown check: velocity.y >= 0)
+    TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
+void test_one_way_platform_not_one_way(void) {
+    CollisionSystem system;
+    MockActor player(40, 20, 20, 20);
+    StaticActor platform(toScalar(20), toScalar(40), 60, 16);
+    // NOT a one-way platform
+    platform.setOneWay(false);
+    
+    player.updatePreviousPosition();
+    player.position.y = toScalar(50);
+    player.setVelocity(0, -5);  // Moving up
+    
+    Vector2 normal(0, -1);  // Wrong normal
+    
+    // Should validate - not a one-way platform, always returns true
+    TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -391,6 +586,18 @@ int main(int argc, char **argv) {
     RUN_TEST(test_collision_system_circle_vs_circle);
     RUN_TEST(test_collision_system_circle_vs_aabb);
     RUN_TEST(test_collision_system_swept_circle_vs_aabb_ccd);
+    RUN_TEST(test_collision_system_one_way_platform_land_from_above);
+    RUN_TEST(test_collision_system_one_way_platform_jump_through_from_below);
+    
+    // Task 7: One-way platform validation unit tests
+    RUN_TEST(test_one_way_platform_crossing_from_above);
+    RUN_TEST(test_one_way_platform_crossing_from_below);
+    RUN_TEST(test_one_way_platform_wrong_normal_direction);
+    RUN_TEST(test_one_way_platform_moving_upward);
+    RUN_TEST(test_one_way_platform_large_delta_movement);
+    RUN_TEST(test_one_way_platform_velocity_sign_change);
+    RUN_TEST(test_one_way_platform_stationary_on_surface);
+    RUN_TEST(test_one_way_platform_not_one_way);
     
     return UNITY_END();
 }

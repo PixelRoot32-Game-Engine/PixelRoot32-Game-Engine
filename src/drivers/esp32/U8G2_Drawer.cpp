@@ -2,7 +2,9 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#include <drivers/esp32/U8G2_Drawer.h>
+#include "drivers/esp32/U8G2_Drawer.h"
+#include "platforms/EngineConfig.h"
+#include "core/Log.h"
 #include <cstring>
 
 #if defined(PIXELROOT32_USE_U8G2_DRIVER)
@@ -47,12 +49,12 @@ pr32::drivers::esp32::U8G2_Drawer::~U8G2_Drawer() {
 void pr32::drivers::esp32::U8G2_Drawer::init() {
     if (!_u8g2) return;
 
-    Serial.println("[U8G2_Drawer] Initializing U8G2...");
+    pr32::core::logging::log("[U8G2_Drawer] Initializing U8G2...");
     _u8g2->begin();
     _u8g2->setContrast(255); // Ensure maximum visibility
     setRotation(rotation); // Apply initial rotation
     buildScaleLUTs();
-    Serial.println("[U8G2_Drawer] Initialization complete.");
+    pr32::core::logging::log("[U8G2_Drawer] Initialization complete.");
 }
 
 void pr32::drivers::esp32::U8G2_Drawer::setRotation(uint16_t rot) {
@@ -115,18 +117,20 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBuffer() {
     if (needsScaling()) {
         sendBufferScaled();
     } else {
-#ifdef PIXELROOT32_ENABLE_PROFILING
-        uint32_t start = micros();
-#endif
-        _u8g2->sendBuffer();
-#ifdef PIXELROOT32_ENABLE_PROFILING
-        uint32_t elapsed = micros() - start;
-        static uint32_t lastReport = 0;
-        if (millis() - lastReport > 1000) {
-            Serial.printf("[PROFILING] U8G2 Transfer: %u us (%u FPS max)\n", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
-            lastReport = millis();
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            uint32_t start = micros();
+        
+            _u8g2->sendBuffer();
+
+            uint32_t elapsed = micros() - start;
+            static uint32_t lastReport = 0;
+            if (millis() - lastReport > 1000) {
+                pr32::core::logging::log(pr32::core::logging::LogLevel::Profiling, "U8G2 Transfer: %u us (%u FPS max)", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
+                lastReport = millis();
+            }
+        } else {
+            _u8g2->sendBuffer();
         }
-#endif
     }
 }
 
@@ -289,10 +293,11 @@ void pr32::drivers::esp32::U8G2_Drawer::freeScalingBuffers() {
 
 void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
     if (!_internalBuffer) return;
-
-#ifdef PIXELROOT32_ENABLE_PROFILING
-    uint32_t start = micros();
-#endif
+    
+    uint32_t start = 0;
+    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+        start = micros();
+    }
 
     _u8g2->clearBuffer();
 
@@ -369,14 +374,14 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
     
     _u8g2->sendBuffer();
 
-#ifdef PIXELROOT32_ENABLE_PROFILING
-    uint32_t elapsed = micros() - start;
-    static uint32_t lastReport = 0;
-    if (millis() - lastReport > 1000) {
-        Serial.printf("[PROFILING] U8G2 Scaled/Offset Transfer: %u us (%u FPS max)\n", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
-        lastReport = millis();
+    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+        uint32_t elapsed = micros() - start;
+        static uint32_t lastReport = 0;
+        if (millis() - lastReport > 1000) {
+            pr32::core::logging::log(pr32::core::logging::LogLevel::Profiling, "U8G2 Scaled/Offset Transfer: %u us (%u FPS max)", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
+            lastReport = millis();
+        }
     }
-#endif
 }
 
 #endif // PIXELROOT32_USE_U8G2_DRIVER

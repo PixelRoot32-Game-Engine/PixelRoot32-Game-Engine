@@ -10,6 +10,7 @@ namespace pixelroot32::graphics {
 using pixelroot32::math::Scalar;
 using pixelroot32::math::toScalar;
 using pixelroot32::math::Vector2;
+using pixelroot32::math::roundToInt;
 
 Camera2D::Camera2D(int viewportWidth, int viewportHeight)
     : position(0, 0)
@@ -41,8 +42,8 @@ void Camera2D::setPosition(Vector2 newPos) {
 }
 
 void Camera2D::followTarget(Scalar targetX) {
-    Scalar deadZoneLeft = Scalar(viewportWidth) * Scalar(0.3f);
-    Scalar deadZoneRight = Scalar(viewportWidth) * Scalar(0.7f);
+    Scalar deadZoneLeft  = toScalar(viewportWidth * 3) / toScalar(10);
+    Scalar deadZoneRight = toScalar(viewportWidth * 7) / toScalar(10);
 
     Scalar screenX = targetX - position.x;
 
@@ -64,8 +65,8 @@ void Camera2D::followTarget(Vector2 target) {
     followTarget(target.x);
 
     // Vertical follow
-    Scalar deadZoneTop = Scalar(viewportHeight) * Scalar(0.3f);
-    Scalar deadZoneBottom = Scalar(viewportHeight) * Scalar(0.7f);
+    Scalar deadZoneTop  = toScalar(viewportHeight * 3) / toScalar(10);
+    Scalar deadZoneBottom = toScalar(viewportHeight * 7) / toScalar(10);
 
     Scalar screenY = target.y - position.y;
 
@@ -93,7 +94,10 @@ Vector2 Camera2D::getPosition() const {
 }
 
 void Camera2D::apply(Renderer& renderer) const {
-    renderer.setDisplayOffset(static_cast<int>(-position.x), static_cast<int>(-position.y));
+    renderer.setDisplayOffset(
+        -roundToInt(position.x),
+        -roundToInt(position.y)
+    );
 }
 
 void Camera2D::setViewportSize(int width, int height) {
