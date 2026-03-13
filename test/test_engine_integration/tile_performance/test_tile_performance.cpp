@@ -4,9 +4,11 @@
  */
 
 #include <unity.h>
-#include "../test_config.h"
+#include "../../test_config.h"
 #include "graphics/Renderer.h"
-#include "../mocks/MockDrawSurface.h"
+#include "../../mocks/MockDrawSurface.h"
+#include "graphics/Renderer.h"
+#include "../../mocks/MockDrawSurface.h"
 #include <chrono>
 #include <random>
 

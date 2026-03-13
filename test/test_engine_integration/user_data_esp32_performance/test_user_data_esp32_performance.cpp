@@ -12,8 +12,8 @@
 #include "physics/KinematicActor.h"
 #include "graphics/Renderer.h"
 #include "graphics/DisplayConfig.h"
-#include "../test_config.h"
-#include "../mocks/MockDrawSurface.h"
+#include "../../test_config.h"
+#include "../../mocks/MockDrawSurface.h"
 #include <memory>
 #include <cstdint>
 #include <chrono>

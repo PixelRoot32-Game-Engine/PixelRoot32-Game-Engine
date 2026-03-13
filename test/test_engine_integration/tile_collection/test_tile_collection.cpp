@@ -4,11 +4,11 @@
  */
 
 #include <unity.h>
-#include "../test_config.h"
+#include "../../test_config.h"
 #include "graphics/Renderer.h"
 #include "core/Scene.h"
 #include "physics/StaticActor.h"
-#include "../mocks/MockDrawSurface.h"
+#include "../../mocks/MockDrawSurface.h"
 #include <memory>
 #include <vector>
 #include <chrono>
