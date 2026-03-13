@@ -108,6 +108,17 @@
     #define MAX_ENTITIES 64
 #endif
 
+// =============================================================================
+// Tile Animation Limits
+// =============================================================================
+#ifndef MAX_TILESET_SIZE
+    #define MAX_TILESET_SIZE 256
+#endif
+
+// =============================================================================
+// Palette Limits
+// =============================================================================
+
 /** Number of background palette slots for multi-palette tilemaps (2bpp/4bpp).
  *  Each tilemap cell can select a slot 0..(MAX_BACKGROUND_PALETTE_SLOTS-1) via paletteIndices.
  *  Override before including this header to change the slot count (e.g. -DMAX_BACKGROUND_PALETTE_SLOTS=4). */
