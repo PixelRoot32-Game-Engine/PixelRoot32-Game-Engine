@@ -1381,15 +1381,31 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Sets the hardware rotation of the display.
 
 - **`void drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX = false)`**
-    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) the rightmost pixel.
+    Draws a 1bpp monochrome sprite described by a `Sprite` struct using a palette `Color`. Bit 0 of each row is the leftmost pixel, bit (`width - 1`) is the rightmost pixel.
+
+- **`void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
+    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+
+- **`void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
+    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
+    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false)`**
-    Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite where each pixel stores a 2-bit index into the sprite-local palette. Index `0` is treated as transparent.
-    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+    Legacy overload for backward compatibility. Equivalent to `drawSprite(sprite, x, y, 0, flipX)`.
 
 - **`void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX = false)`**
-    Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite where each pixel stores a 4-bit index into the sprite-local palette. Index `0` is treated as transparent.
-    *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
+    Legacy overload for backward compatibility. Equivalent to `drawSprite(sprite, x, y, 0, flipX)`.
+
+- **`void setSpritePaletteSlotContext(uint8_t slot)`**
+    Sets the sprite palette slot context for multi-palette sprites. When active, all subsequent `drawSprite` calls for 2bpp/4bpp sprites will use this slot regardless of the `paletteSlot` parameter. This is useful for batch rendering with the same palette.
+    - **slot**: Palette slot (0-7). To disable context, call with 0xFF or use default.
+
+- **`uint8_t getSpritePaletteSlotContext() const`**
+    Gets the current sprite palette slot context.
+    - **Returns**: Current palette slot, or 0xFF if context is inactive.
 
 - **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
     Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
@@ -1690,7 +1706,7 @@ For 2bpp/4bpp tilemaps, the engine supports **multiple background palettes per c
   - **palette**: Pointer to 16 `uint16_t` RGB565 values; must remain valid.
 
 - **`static const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex)`**
-    Returns the palette pointer for a background slot (for renderer use). If the slot is not set, returns slot 0; if slot 0 is not set, returns the global background palette. Never returns `nullptr`.
+    Returns the palette pointer for a background slot (for renderer use). If slot is not set, returns slot 0; if slot 0 is not set, returns global background palette. Never returns `nullptr`.
   - **slotIndex**: Slot 0–7.
 
 - **`static uint16_t resolveColor(Color color)`**
