@@ -59,6 +59,9 @@ build/
 # Local History for Visual Studio Code
 .history/
 
+# Temporary Unity clone directory
+temp_unity/
+
 # Built Visual Studio Code Extensions
 *.vsix
 
