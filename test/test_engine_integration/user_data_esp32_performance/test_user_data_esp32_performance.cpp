@@ -40,10 +40,13 @@ public:
     void draw(Renderer& r) override { (void)r; }
 };
 
+static int mock_instances = 0;
+
+// Provide definition for static member in MockDrawSurface
 int MockDrawSurface::instances = 0;
 
 void setUp(void) {
-    MockDrawSurface::instances = 0;
+    mock_instances = 0;
 }
 
 void tearDown(void) {
@@ -139,9 +142,9 @@ void test_esp32_coordinate_encoding_performance(void) {
     }
     
     char msg[128];
-    snprintf(msg, sizeof(msg), "Pack time: %lld μs for %d ops", packTime.count(), iterations);
+    snprintf(msg, sizeof(msg), "Pack time: %ld μs for %d ops", packTime.count(), iterations);
     TEST_PASS_MESSAGE(msg);
-    snprintf(msg, sizeof(msg), "Unpack time: %lld μs for %d ops", unpackTime.count(), iterations);
+    snprintf(msg, sizeof(msg), "Unpack time: %ld μs for %d ops", unpackTime.count(), iterations);
     TEST_PASS_MESSAGE(msg);
 }
 
@@ -191,9 +194,9 @@ void test_esp32_userdata_access_performance(void) {
     }
     
     char msg[128];
-    snprintf(msg, sizeof(msg), "Set time: %lld μs for %d ops", setTime.count(), iterations);
+    snprintf(msg, sizeof(msg), "Set time: %ld μs for %d ops", setTime.count(), iterations);
     TEST_PASS_MESSAGE(msg);
-    snprintf(msg, sizeof(msg), "Get time: %lld μs for %d ops", getTime.count(), iterations);
+    snprintf(msg, sizeof(msg), "Get time: %ld μs for %d ops", getTime.count(), iterations);
     TEST_PASS_MESSAGE(msg);
 }
 

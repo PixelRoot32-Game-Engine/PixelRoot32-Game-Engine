@@ -23,7 +23,7 @@ using namespace pixelroot32::physics;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::math;
 
-int MockDrawSurface::instances = 0;
+static int mock_instances = 0;
 
 // Helper functions for coordinate encoding (matching TilemapCollisionBuilder)
 inline uintptr_t packTileCoord(uint16_t x, uint16_t y) {
@@ -119,7 +119,7 @@ public:
 };
 
 void setUp(void) {
-    MockDrawSurface::instances = 0;
+    mock_instances = 0;
 }
 
 void tearDown(void) {
