@@ -115,6 +115,10 @@
     #define MAX_TILESET_SIZE 256
 #endif
 
+#ifndef PIXELROOT32_ENABLE_TILE_ANIMATIONS
+    #define PIXELROOT32_ENABLE_TILE_ANIMATIONS 1
+#endif
+
 // =============================================================================
 // Palette Limits
 // =============================================================================
@@ -204,6 +208,10 @@ namespace pixelroot32::platforms::config {
     inline constexpr int DisplayRotation = DISPLAY_ROTATION;
     inline constexpr int XOffset = X_OFF_SET;
     inline constexpr int YOffset = Y_OFF_SET;
+
+    // Tile Animation
+    inline constexpr uint16_t MaxTilesetSize = MAX_TILESET_SIZE;
+    inline constexpr bool EnableTileAnimations = PIXELROOT32_ENABLE_TILE_ANIMATIONS;
 
     // Scene Limits
     inline constexpr int MaxScenes = MAX_SCENES;

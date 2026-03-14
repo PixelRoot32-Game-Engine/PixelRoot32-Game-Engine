@@ -1069,7 +1069,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 14 — Create Example Scene with Animated Tiles
+### Task 14 — Create Example Scene with Animated Tiles [DONE]
 **Objective:** Provide reference implementation for users.
 
 **Files:**
@@ -1094,7 +1094,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 15 — Add IRAM Optimization for resolveFrame
+### Task 15 — Add IRAM Optimization for resolveFrame [DONE]
 **Objective:** Ensure animation resolution is fast on ESP32.
 
 **Files:**
@@ -1116,7 +1116,7 @@ class PaletteAnimationManager {
 
 ---
 
-### Task 16 — Add Configuration Macros
+### Task 16 — Add Configuration Macros [DONE]
 **Objective:** Allow users to configure tileset size and disable animations if not needed.
 
 **Files:**
