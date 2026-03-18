@@ -245,6 +245,7 @@ namespace pixelroot32::core::logging {
 The engine supports multiple palettes for 2bpp/4bpp sprites through a sprite palette slot bank, similar to the existing background palette system for tilemaps.
 
 **Data Flow:**
+
 ```
 sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveColorWithPalette(color, palette) → LUT → drawSpriteInternal
 ```
@@ -252,7 +253,7 @@ sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveCol
 **Components:**
 
 - **`spritePaletteSlots[8]`**: Array of palette pointers (slot 0-7) in Color module
-- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive) 
+- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive)
 - **`getSpritePaletteSlot(uint8_t slot)`**: Returns palette pointer with fallback to slot 0
 - **`resolveColorWithPalette(Color, const uint16_t*)`**: Converts Color enum to RGB565 using explicit palette
 - **`setSpritePaletteSlotContext(uint8_t slot)`**: Sets global context that overrides `paletteSlot` parameter
@@ -265,6 +266,7 @@ sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveCol
 3. **Backward compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` uses slot 0
 
 **Integration with legacy system:**
+
 - Slot 0 stays synchronized with `setSpritePalette()` / `setSpriteCustomPalette()`
 - Existing `sprite.palette` fields in Sprite2bpp/Sprite4bpp remain optional
 - `resolveColor(Color, PaletteContext::Sprite)` continues to work for single palette mode
