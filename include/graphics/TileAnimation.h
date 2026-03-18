@@ -52,8 +52,7 @@ public:
      * @param animCount Number of animations in the array
      * @param tileCount Number of tiles in tileset (from TileMapGeneric)
      */
-    TileAnimationManager(const TileAnimation* animations, uint8_t animCount, uint16_t tileCount
-);
+    TileAnimationManager(const TileAnimation* animations, uint8_t animCount, uint16_t tileCount);
 
     /**
      * @brief Resolve tile index to current animated frame.
