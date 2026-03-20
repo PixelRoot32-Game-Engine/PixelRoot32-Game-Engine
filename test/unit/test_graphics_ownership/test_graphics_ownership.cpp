@@ -5,8 +5,6 @@
 
 using namespace pixelroot32::graphics;
 
-int MockDrawSurface::instances = 0;
-
 void setUp(void) {
     MockDrawSurface::instances = 0;
 }

@@ -17,8 +17,6 @@ using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::particles;
 using namespace pixelroot32::math;
 
-int MockDrawSurface::instances = 0;
-
 // Note: Global engine instance is provided by MockEngineInstance.cpp during unit tests.
 // Individual tests should not define their own 'engine' symbol.
 
