@@ -18,8 +18,6 @@
 
 using namespace pixelroot32::graphics;
 
-int MockDrawSurface::instances = 0;
-
 // NES palette (from PaletteDefs): Black=0x0000, White=0xFF9C
 static constexpr uint16_t NES_BLACK = 0x0000u;
 static constexpr uint16_t NES_WHITE = 0xFF9Cu;

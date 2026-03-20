@@ -164,6 +164,91 @@ bodyB->position -= correctionVec * invMassB;
 - Applies in both discrete narrowphase and in the CCD path (swept circle vs static AABB).
 - **Implementation**: Uses `CollisionSystem::validateOneWayPlatform()` which compares `PhysicsActor::previousPosition` with current position to detect spatial crossing. The validation includes a tolerance check (`abs(normal.y) < 0.1`) to reject side collisions.
 
+#### Algorithm: validateOneWayPlatform()
+
+```cpp
+bool validateOneWayPlatform(PhysicsActor* actor, PhysicsActor* platform, 
+                            const Vector2& collisionNormal) {
+    // 1. Must be marked as one-way
+    if (!platform->isOneWay()) return true;
+    
+    // 2. Normal must be mostly vertical (reject side collisions)
+    Scalar absNormalY = abs(collisionNormal.y);
+    if (absNormalY < 0.1) return false;
+    
+    // 3. Normal must point UP (push actor upward)
+    if (collisionNormal.y >= 0) return false;
+    
+    // 4. Check spatial crossing: was actor above platform?
+    Scalar platformTop = platform->getHitBox().position.y;
+    Scalar previousBottom = actor->getPreviousPosition().y + actor->height;
+    Scalar currentBottom = actor->position.y + actor->height;
+    
+    bool crossedFromAbove = (previousBottom <= platformTop) && 
+                           (currentBottom >= platformTop);
+    
+    // 5. Actor must be moving down or stationary
+    bool movingDown = actor->getVelocity().y >= 0;
+    
+    return crossedFromAbove && movingDown;
+}
+```
+
+**Test Coverage**: `test/unit/test_collision_system/test_collision_system.cpp` includes:
+- `test_one_way_platform_crossing_from_above`
+- `test_one_way_platform_crossing_from_below`
+- `test_one_way_platform_wrong_normal_direction`
+- `test_one_way_platform_moving_upward`
+- `test_one_way_platform_large_delta_movement`
+- `test_one_way_platform_velocity_sign_change`
+- `test_one_way_platform_stationary_on_surface`
+- `test_one_way_platform_not_one_way`
+
+### 5.3 Sensors and Kinematic Bodies
+
+Sensors interact with Kinematic bodies differently than solid bodies:
+
+#### KinematicActor + Sensor
+
+- **Sensors do not block kinematic movement**: `KinematicActor::moveAndCollide()` and `moveAndSlide()` skip `isSensor()` bodies with `continue`.
+- **Overlap still triggers `onCollision()`**: When a kinematic body overlaps a sensor, the collision system generates a contact and fires the callback, but no position correction or velocity response is applied.
+- This allows sensors to detect overlap (collectibles, triggers) without physically blocking the player.
+
+```cpp
+// In KinematicActor::moveAndCollide():
+for (auto& physOther : potentialColliders) {
+    if (physOther->isSensor()) {
+        continue;  // Sensors do not block kinematic movement
+    }
+    // ... collision resolution for solid bodies
+}
+```
+
+#### Pattern: Sensor in onCollision
+
+```cpp
+void PlayerActor::onCollision(Actor* other) override {
+    if (other->isSensor()) {
+        // Check userData for tile-based sensors
+        if (other->getUserData()) {
+            uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
+            uint16_t tx, ty;
+            TileFlags flags;
+            unpackTileData(packed, tx, ty, flags);
+            
+            if (flags & TILE_COLLECTIBLE) {
+                // Collect item (sensor blocks nothing, so player passes through)
+                collectItem(tx, ty);
+            }
+            if (flags & TILE_DAMAGE) {
+                // Take damage (player continues moving)
+                takeDamage();
+            }
+        }
+    }
+}
+```
+
 ---
 
 ## 6. Tile Attributes (Physics)
@@ -192,6 +277,68 @@ When a tile is consumed (e.g. coin collected), remove its body and hide it visua
 2. **`tilemap->setTileActive(tileX, tileY, false)`** so `drawTileMap` skips it (reuses `runtimeMask`; no separate consumed mask).
 
 **`physics/TileConsumptionHelper.h`** wraps this: **`TileConsumptionHelper`** (constructor: scene, tilemap, config) provides **`consumeTile(tileActor, tileX, tileY)`** and **`consumeTileFromUserData(tileActor, packedUserData)`** (only consumes if `TILE_COLLECTIBLE`). Convenience **`consumeTileFromCollision(tileActor, packedUserData, scene, tilemap)`** for use inside `onCollision`. Destruction and damage logic remain in game code using `getUserData()` and flags.
+
+### 6.4 TileCollisionBuilder (High-Level API)
+
+**Include**: `physics/TileCollisionBuilder.h`
+
+The `TileCollisionBuilder` class provides a high-level builder that generates physics bodies from a `TileBehaviorLayer` with a single function call. This is the recommended way to populate physics for tilemap-based levels.
+
+#### Configuration
+
+```cpp
+struct TileCollisionBuilderConfig {
+    uint8_t tileWidth;      // Tile width in world units (e.g., 16)
+    uint8_t tileHeight;     // Tile height in world units (e.g., 16)
+    uint16_t maxEntities;   // Safety limit (0xFFFF = unlimited)
+    
+    TileCollisionBuilderConfig(uint8_t w = 16, uint8_t h = 16, uint16_t max = 0xFFFF);
+};
+```
+
+#### Workflow
+
+```
+Tilemap Editor Export
+    ↓
+TileBehaviorLayer { data: uint8_t[], width, height }
+    ↓
+TileCollisionBuilder::buildFromBehaviorLayer()
+    ↓
+For each tile (x, y) with flags != 0:
+    ├── O(1) lookup: getTileFlags(layer, x, y)
+    ├── Create body: isSensorTile(flags) ? SensorActor : StaticActor
+    ├── Configure: setSensor(), setOneWay()
+    ├── Pack data: setUserData(packTileData(x, y, flags))
+    ├── Set layers: setCollisionLayer(), setCollisionMask()
+    └── Add to scene: scene.addEntity()
+```
+
+#### Usage
+
+```cpp
+#include "physics/TileCollisionBuilder.h"
+
+void GameScene::init() override {
+    // Layer exported by Tilemap Editor
+    TileBehaviorLayer layer = { behaviorData, 32, 32 };
+    
+    // One-liner
+    int count = buildTileCollisions(*this, layer, 16, 16, 0);
+    
+    // Or explicit config
+    TileCollisionBuilderConfig config(16, 16, 2048);
+    TileCollisionBuilder builder(*this, config);
+    int entities = builder.buildFromBehaviorLayer(layer, 0);
+}
+```
+
+#### Memory Considerations
+
+- Each created actor is a heap allocation (`new StaticActor` / `new SensorActor`).
+- A 32×32 tilemap with every tile solid = 1024 bodies.
+- Call `scene.clearEntities()` before rebuilding to avoid duplicates.
+- On ESP32 with limited DRAM, consider using `maxEntities` as a safety limit.
 
 ---
 

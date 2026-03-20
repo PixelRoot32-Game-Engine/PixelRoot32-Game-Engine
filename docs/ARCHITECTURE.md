@@ -196,26 +196,51 @@ Structure that detects and exposes hardware capabilities:
 
 #### Unified Logging System
 
-**Files**: `include/core/Log.h`, `src/core/Log.cpp`
+**Files**: `include/core/Log.h`, `src/platforms/PlatformLog.cpp`
 
 **Responsibility**: Cross-platform logging abstraction that eliminates `#ifdef` blocks in user code.
 
 **Features**:
 
 - Unified API for ESP32 (Serial) and Native (stdout)
-- Log levels: Info, Warning, Error
+- Log levels: Info, Profiling, Warning, Error
 - printf-style formatting
 - Automatic platform routing
+- **Zero overhead when disabled**: Double-layer conditional compilation
+
+**Architecture - Double-Layer Conditional Compilation**:
+
+The logging system uses two layers of conditional compilation to ensure zero runtime cost in production:
+
+1. **`#ifdef PIXELROOT32_DEBUG_MODE`** (header level): Makes `log()` calls emit formatting code when defined; otherwise replaces with no-op inline functions
+2. **`if constexpr (pixelroot32::platforms::config::EnableLogging)`** (implementation level): Compile-time check that skips runtime formatting even when the header is active
+
+```
+PIXELROOT32_DEBUG_MODE defined:
+    log() → format with va_list → platformPrint() → Serial/stdout
+
+PIXELROOT32_DEBUG_MODE not defined:
+    log() → (void)level; (void)fmt; → no-op
+```
 
 **Main API**:
 
 ```cpp
 namespace pixelroot32::core::logging {
-    enum class LogLevel { Info, Warning, Error };
+    enum class LogLevel { Info, Profiling, Warning, Error };
     void log(LogLevel level, const char* format, ...);
     void log(const char* format, ...); // Info level shorthand
 }
+
+// Enable in platformio.ini:
+// build_flags = -DPIXELROOT32_DEBUG_MODE
 ```
+
+**Platform Output**:
+- ESP32: Routes to `Serial.print()`
+- Native: Routes to `printf()` with `fflush(stdout)`
+
+**Integration**: Used internally by `SDL2_Drawer`, `SDL2_AudioBackend`, and `TileCollisionBuilder` for debug diagnostics.
 
 ---
 
@@ -245,6 +270,7 @@ namespace pixelroot32::core::logging {
 The engine supports multiple palettes for 2bpp/4bpp sprites through a sprite palette slot bank, similar to the existing background palette system for tilemaps.
 
 **Data Flow:**
+
 ```
 sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveColorWithPalette(color, palette) → LUT → drawSpriteInternal
 ```
@@ -252,7 +278,7 @@ sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveCol
 **Components:**
 
 - **`spritePaletteSlots[8]`**: Array of palette pointers (slot 0-7) in Color module
-- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive) 
+- **`currentSpritePaletteSlot`**: Renderer context slot (0xFF = inactive)
 - **`getSpritePaletteSlot(uint8_t slot)`**: Returns palette pointer with fallback to slot 0
 - **`resolveColorWithPalette(Color, const uint16_t*)`**: Converts Color enum to RGB565 using explicit palette
 - **`setSpritePaletteSlotContext(uint8_t slot)`**: Sets global context that overrides `paletteSlot` parameter
@@ -265,6 +291,7 @@ sprite.paletteSlot parameter (0-7) → getSpritePaletteSlot(slot) → resolveCol
 3. **Backward compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` uses slot 0
 
 **Integration with legacy system:**
+
 - Slot 0 stays synchronized with `setSpritePalette()` / `setSpriteCustomPalette()`
 - Existing `sprite.palette` fields in Sprite2bpp/Sprite4bpp remain optional
 - `resolveColor(Color, PaletteContext::Sprite)` continues to work for single palette mode
@@ -336,6 +363,8 @@ AudioEngine (Facade)
 **Files**: `include/physics/CollisionSystem.h`, `src/physics/CollisionSystem.cpp`
 
 **Responsibility**: High-performance physics solver optimized for ESP32 microcontrollers.
+
+**Companion Builder**: For tilemap-based levels, use **`TileCollisionBuilder`** (`include/physics/TileCollisionBuilder.h`) to generate physics bodies from a `TileBehaviorLayer` with a single call. See [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) for details.
 
 **System Architecture**:
 The **Flat Solver** uses a fixed-timestep pipeline with proper separation of velocity and position phases:
@@ -438,7 +467,49 @@ Entity
 - Automatic offset for Renderer
 - Support for fixed-position UI elements
 
-#### 3.4.8 Tile Attribute System
+#### 3.4.8 Tile Animation System
+
+**Files**: `include/graphics/TileAnimation.h`, `src/graphics/TileAnimation.cpp`
+
+**Responsibility**: Frame-based tile animations (water, lava, conveyor belts) with static tilemap data and ESP32-optimized performance.
+
+**Design Goals**:
+
+- **Static tilemap data**: Tilemap indices never change; animation is a view-time transformation
+- **Zero dynamic allocations**: All data in fixed-size arrays or PROGMEM
+- **O(1) frame resolution**: Hash table lookup via `lookupTable[MAX_TILESET_SIZE]`
+- **Minimal CPU overhead**: <1% of frame budget on ESP32
+
+**Components**:
+
+```
+TileAnimation[ ] (PROGMEM)  →  TileAnimationManager  →  lookupTable[256] (RAM)
+     4 bytes × N                  step()                    resolveFrame(tileIndex)
+```
+
+**TileAnimation struct** (4 bytes per animation, PROGMEM):
+- `baseTileIndex`: First tile in sequence
+- `frameCount`: Number of frames
+- `frameDuration`: Ticks per frame
+
+**TileAnimationManager**:
+- `lookupTable[MAX_TILESET_SIZE]`: Maps tile index → current animated frame (O(1))
+- `step()`: Advances global timer, updates lookup table (O(animations × frameCount))
+- `resolveFrame(tileIndex)`: O(1) array lookup, marked `IRAM_ATTR`
+
+**Memory Cost**:
+
+| Component | Size | Location |
+|-----------|------|----------|
+| Lookup table | MAX_TILESET_SIZE bytes | RAM |
+| Animation definitions | 4 bytes × N | PROGMEM |
+| **Total (256 tiles)** | **265 bytes RAM** | ~0.08% ESP32 DRAM |
+
+**Integration**: Link `TileAnimationManager*` to `TileMapGeneric::animManager`. Renderer calls `resolveFrame()` for each visible tile; nullptr disables animations with zero overhead.
+
+See [API Reference – Tile Animation System](API_REFERENCE.md) for usage examples.
+
+#### 3.4.9 Tile Attribute System
 
 **Files**: `include/graphics/Renderer.h` (structures), `include/physics/TileAttributes.h`, `include/physics/TileConsumptionHelper.h`, Scene headers (generated data)
 
@@ -452,7 +523,7 @@ The tile attribute system provides two paths:
    Lightweight metadata attached to tiles, defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM. Query with `get_tile_attribute(layer, x, y, key)`. Use for non–collision metadata (e.g. room names, signs). Sparse representation; O(n) search. Data flow: Editor → Scene header (TileAttribute, TileAttributeEntry, LayerAttributes) → `get_tile_attribute()`. Use cases: collision hints, interaction types, game logic values, animation flags.
 
 2. **Flags-based (TileFlags + TileBehaviorLayer)**  
-   Dense 1-byte-per-tile layer exported as `uint8_t[]`. O(1) lookup via **`getTileFlags(layer, x, y)`**. Used for collision and real-time gameplay: solid, sensor, damage, collectible, one-way, trigger. Builder creates **StaticActor** or **SensorActor** per tile, sets **`setUserData(packTileData(x, y, flags))`**. In **`onCollision`**, **`unpackTileData`** and test flags (e.g. `TILE_COLLECTIBLE` → collect; `TILE_DAMAGE` → damage player).
+   Dense 1-byte-per-tile layer exported as `uint8_t[]`. O(1) lookup via **`getTileFlags(layer, x, y)`**. Used for collision and real-time gameplay: solid, sensor, damage, collectible, one-way, trigger. **`TileCollisionBuilder`** creates **StaticActor** or **SensorActor** per tile, sets **`setUserData(packTileData(x, y, flags))`**. In **`onCollision`**, **`unpackTileData`** and test flags (e.g. `TILE_COLLECTIBLE` → collect; `TILE_DAMAGE` → damage player).
 
 **Consumible tiles**: When a tile is consumed (e.g. coin), call **`scene.removeEntity(tileActor)`** and **`tilemap->setTileActive(tileX, tileY, false)`**. **`physics::TileConsumptionHelper`** (or **`consumeTileFromCollision()`**) encapsulates this and reuses **TileMapGeneric::runtimeMask** (no separate consumed mask). See [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) and [API Reference – TileConsumptionHelper](API_REFERENCE.md).
 
@@ -469,7 +540,7 @@ The tile attribute system provides two paths:
 - **O(1) lookups**; 1 byte per tile
 - **Same pipeline**: Entity, CollisionSystem, **userData**, **onCollision**
 
-#### 3.4.9 Math Policy Layer
+#### 3.4.10 Math Policy Layer
 
 **Files**: `include/math/Scalar.h`, `include/math/Fixed16.h`, `include/math/MathUtil.h`
 

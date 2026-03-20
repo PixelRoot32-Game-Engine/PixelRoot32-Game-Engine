@@ -22,9 +22,6 @@ using namespace pixelroot32::audio;
 
 static int mock_instances = 0;
 
-// Provide definition for the static member in MockDrawSurface
-int MockDrawSurface::instances = 0;
-
 // Local MockDrawSurface that uses local counter
 class LocalMockDrawSurface : public MockDrawSurface {
 public:

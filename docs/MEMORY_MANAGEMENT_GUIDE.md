@@ -32,12 +32,97 @@ Understanding the engine's memory limits is crucial for developing stable games 
 
 **Modular Compilation Impact:**
 
-When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allocations are eliminated:
+When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allocations are eliminated entirely from the binary:
 
-- **Audio Disabled**: No audio buffers, AudioEngine/MusicPlayer objects (~8KB RAM saved)
-- **Physics Disabled**: No collision system, spatial grid, or physics actor buffers (~12KB RAM saved)
-- **UI Disabled**: No UI element containers, layout managers, or UI-specific buffers (~4KB RAM saved)
-- **Particles Disabled**: No particle emitters, particle pools, or particle buffers (~6KB RAM saved)
+| Flag | RAM Savings | Flash Savings | Subsystems Removed |
+|------|-------------|--------------|-------------------|
+| `PIXELROOT32_ENABLE_AUDIO=0` | ~8 KB | ~15 KB | AudioEngine, MusicPlayer, audio buffers |
+| `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB | CollisionSystem, spatial grid, physics actors |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB | UIElement, all layouts, UI containers |
+| `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB | ParticleEmitter, particle pools |
+| **All disabled** | **~30 KB** | **~70 KB** | Maximum savings |
+
+#### Subsystem Compilation Patterns
+
+**File-level guards:**
+```cpp
+// src/audio/MusicPlayer.cpp
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_AUDIO
+
+// ... full implementation ...
+
+#endif // PIXELROOT32_ENABLE_AUDIO
+```
+
+**Constructor initialization:**
+```cpp
+Engine::Engine(DisplayConfig&& displayConfig, ...)
+    : renderer(std::move(displayConfig)),
+#if PIXELROOT32_ENABLE_AUDIO
+      audioEngine(audioConfig, capabilities),
+      musicPlayer(audioEngine),
+#endif
+      // ... other members ...
+```
+
+**Runtime initialization:**
+```cpp
+void Engine::init() {
+    renderer.init();
+    inputManager.init();
+#if PIXELROOT32_ENABLE_AUDIO
+    audioEngine.init();
+#endif
+}
+```
+
+#### Recommended Build Profiles
+
+For projects with severe memory constraints, use predefined profiles:
+
+```ini
+# platformio.ini
+
+[profile_minimal]
+build_flags =
+    -DPIXELROOT32_ENABLE_AUDIO=0
+    -DPIXELROOT32_ENABLE_PHYSICS=0
+    -DPIXELROOT32_ENABLE_PARTICLES=0
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+    -DMAX_ENTITIES=16
+    -DPHYSICS_MAX_CONTACTS=0
+
+[profile_arcade]
+build_flags =
+    -DPIXELROOT32_ENABLE_AUDIO=1
+    -DPIXELROOT32_ENABLE_PHYSICS=1
+    -DPIXELROOT32_ENABLE_PARTICLES=1
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+```
+
+#### Memory Budget Planning
+
+When planning memory usage, subtract subsystem overhead from available RAM:
+
+```
+Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
+├─ Framebuffer (240x240):  ~57 KB
+├─ Engine overhead:         ~20 KB
+├─ Subsystem RAM:          Variable (see table above)
+└─ Game entities:         Remaining
+```
+
+**Example budget calculation for 240x240 game on ESP32 classic:**
+
+| Item | RAM |
+|------|-----|
+| Framebuffer | 57 KB |
+| Engine overhead | 20 KB |
+| Physics (if enabled) | 12 KB |
+| Audio (if enabled) | 8 KB |
+| **Reserved** | **~97 KB** |
+| **Available for game** | **~423 KB** |
 
 ### Memory Footprint by Resolution
 

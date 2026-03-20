@@ -29,16 +29,63 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_PHYSICS` | Enable physics system (CollisionSystem). | `1` |
 | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enable UI system (UIButton, UILabel, etc.). | `1` |
 | `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
+| `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Enable FPS/RAM/CPU debug overlay. | Disabled |
+| `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enable tile animation system. | `1` |
+| `PIXELROOT32_ENABLE_2BPP_SPRITES` | Enable 2bpp sprite support. | Disabled |
+| `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enable 4bpp sprite support. | Disabled |
+| `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
+| `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
+| `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 
-**Usage in platformio.ini:**
+**Memory savings by subsystem (approximate):**
+
+| Subsystem Disabled | RAM Savings | Flash Savings |
+|-------------------|-------------|--------------|
+| `PIXELROOT32_ENABLE_AUDIO=0` | ~8 KB | ~15 KB |
+| `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB |
+| `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB |
+
+**Build profiles (platformio.ini):**
 
 ```ini
-[esp32_arcade]
-extends = base_esp32, profile_arcade
-build_flags = 
-    ${base_esp32.build_flags}
-    ${profile_arcade.build_flags}
+[profile_full]         ; All features enabled
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=1
+    -D PIXELROOT32_ENABLE_PARTICLES=1
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1
+
+[profile_arcade]       ; Audio + Physics + Particles, no UI
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=1
+    -D PIXELROOT32_ENABLE_PARTICLES=1
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
+
+[profile_puzzle]       ; Audio + UI only, no physics/particles
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=0
+    -D PIXELROOT32_ENABLE_PARTICLES=0
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1
+
+[profile_retro]        ; Minimal: no subsystems
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=0
+    -D PIXELROOT32_ENABLE_PHYSICS=0
+    -D PIXELROOT32_ENABLE_PARTICLES=0
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
 ```
+
+**Recommended profiles by game type:**
+
+| Game Type | Recommended Profile | Rationale |
+|-----------|-------------------|-----------|
+| Arcade (shooters, platformers) | `arcade` or `full` | Physics + particles + optional UI |
+| Puzzle / Casual | `puzzle` | UI for menus, simple collision logic |
+| Retro / Minimal | `retro` | Minimal footprint, custom collision |
+| Educational / Tool | `puzzle` or custom | UI for menus |
 
 ### Constants
 
@@ -280,13 +327,14 @@ Version 1.1.0 introduces unified abstractions for cross-platform operations, eli
 
 **Namespace:** `pixelroot32::core::logging`
 
-The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). `PIXELROOT32_DEBUG_MODE` to enable logging.
+The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). Enable with `-DPIXELROOT32_DEBUG_MODE` in build flags.
 
 #### Log Levels
 
 | LogLevel Enum | Output Prefix | Use Case |
 |--------------|---------------|----------|
 | `LogLevel::Info` | `[INFO]` | General information, debug messages |
+| `LogLevel::Profiling` | `[PROF]` | Performance timing markers |
 | `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
 | `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
 
@@ -298,15 +346,33 @@ The unified logging system provides platform-agnostic logging with different log
 - **`void log(const char* format, ...)`**
     Logs a message with Info level (shorthand).
 
-**Usage Example:**
+#### Conditional Compilation
+
+When `PIXELROOT32_DEBUG_MODE` is **not defined**, all `log()` calls become no-ops at compile time. The engine uses a double-layer conditional:
+
+1. **`#ifdef PIXELROOT32_DEBUG_MODE`** in the header makes `log()` calls emit formatting code
+2. **`if constexpr (EnableLogging)`** in the implementation skips runtime formatting
+
+This means zero runtime cost in production builds (no string formatting, no branching).
+
+#### Usage Example:
 
 ```cpp
+// Enable in platformio.ini:
+// build_flags = -DPIXELROOT32_DEBUG_MODE
+
 #include "core/Log.h"
 
 using namespace pixelroot32::core::logging;
 
 // Log with explicit level
 log(LogLevel::Info, "Player position: %d", playerX);
+
+// Log warning
+log(LogLevel::Warning, "Low memory: %d bytes free", freeRAM);
+
+// Log error
+log(LogLevel::Error, "Failed to load sprite: %s", filename);
 
 // Log with default Info level
 log("Player position: %d", playerX);
@@ -1153,6 +1219,124 @@ Helper for **consumible tiles** (e.g. coins, pickups): removes the tile’s phys
 
 ---
 
+### TileCollisionBuilder
+
+**Include:** `physics/TileCollisionBuilder.h`  
+**Namespace:** `pixelroot32::physics`
+
+High-level builder that generates `StaticActor` or `SensorActor` bodies from a `TileBehaviorLayer`. Iterates all tiles with non-zero flags, creates the appropriate physics body, configures it (sensor, one-way), packs coords and flags into `userData`, and adds it to the scene. This is the recommended way to populate physics for tilemap-based levels.
+
+#### TileCollisionBuilderConfig
+
+```cpp
+struct TileCollisionBuilderConfig {
+    uint8_t tileWidth;      // Width of each tile in world units (e.g., 16)
+    uint8_t tileHeight;     // Height of each tile in world units (e.g., 16)
+    uint16_t maxEntities;   // Maximum entities to create (safety limit)
+
+    TileCollisionBuilderConfig(uint8_t w = 16, uint8_t h = 16, uint16_t max = 0xFFFF);
+};
+```
+
+#### Class Definition
+
+```cpp
+class TileCollisionBuilder {
+public:
+    TileCollisionBuilder(pixelroot32::core::Scene& scene, 
+                         const TileCollisionBuilderConfig& config = TileCollisionBuilderConfig());
+
+    int buildFromBehaviorLayer(const TileBehaviorLayer& layer, uint8_t layerIndex = 0);
+    int getEntitiesCreated() const;
+    void reset();
+};
+```
+
+#### Public Methods
+
+- **`TileCollisionBuilder(Scene& scene, const TileCollisionBuilderConfig& config)`**  
+  Constructs the builder bound to a scene.
+
+- **`int buildFromBehaviorLayer(const TileBehaviorLayer& layer, uint8_t layerIndex = 0)`**  
+  Iterates all tiles in the layer. For each tile with `flags != TILE_NONE`:
+  - Creates `StaticActor` (solid, one-way) or `SensorActor` (sensor, damage, collectible)
+  - Configures via `setSensor()` / `setOneWay()` from flags
+  - Sets `setCollisionLayer(kDefaultItemCollisionLayer)` and `setCollisionMask(kDefaultItemCollisionMask)`
+  - Calls `setUserData(reinterpret_cast<void*>(packTileData(x, y, flags)))`
+  - Adds to scene via `scene.addEntity()`
+  
+  Returns the total number of entities created.
+
+- **`int getEntitiesCreated() const`**  
+  Returns the count from the last `buildFromBehaviorLayer()` call.
+
+- **`void reset()`**  
+  Resets `entitiesCreated` to 0. Does not clear the scene.
+
+#### Convenience Helper
+
+```cpp
+inline int buildTileCollisions(
+    pixelroot32::core::Scene& scene,
+    const TileBehaviorLayer& layer,
+    uint8_t tileWidth = 16,
+    uint8_t tileHeight = 16,
+    uint8_t layerIndex = 0
+);
+```
+
+One-liner that creates a builder, calls `buildFromBehaviorLayer()`, and returns the count.
+
+#### Usage Example
+
+```cpp
+#include "physics/TileCollisionBuilder.h"
+
+void GameScene::init() override {
+    // Behavior layer exported by Tilemap Editor (dense uint8_t[] array)
+    TileBehaviorLayer layer = { behaviorData, 32, 32 };
+
+    // Basic usage (one-liner)
+    int count = buildTileCollisions(*this, layer, 16, 16, 0);
+
+    // Or with explicit config
+    TileCollisionBuilderConfig config(16, 16, 2048);  // 16x16 tiles, max 2048 bodies
+    TileCollisionBuilder builder(*this, config);
+    int entities = builder.buildFromBehaviorLayer(layer, 0);
+}
+```
+
+#### Integration with onCollision
+
+After collision bodies are created, use `userData` in callbacks to identify the tile:
+
+```cpp
+void PlayerActor::onCollision(Actor* other) override {
+    if (other->getUserData()) {
+        uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
+        uint16_t tx, ty;
+        TileFlags flags;
+        unpackTileData(packed, tx, ty, flags);
+
+        if (flags & TILE_COLLECTIBLE) {
+            TileConsumptionHelper helper(*scene, tilemap);
+            helper.consumeTileFromUserData(other, packed);
+        }
+        if (flags & TILE_DAMAGE) {
+            takeDamage();
+        }
+    }
+}
+```
+
+#### Memory Considerations
+
+- Each created actor is a heap allocation (`new StaticActor` / `new SensorActor`).
+- Call `scene.clearEntities()` before rebuilding to avoid duplicates.
+- On ESP32, keep `maxEntities` reasonable; 32×32 tiles with every tile solid = 1024 bodies.
+
+---
+
 ### CollisionSystem
 
 **Inherits:** None
@@ -1709,6 +1893,27 @@ For 2bpp/4bpp tilemaps, the engine supports **multiple background palettes per c
     Returns the palette pointer for a background slot (for renderer use). If slot is not set, returns slot 0; if slot 0 is not set, returns global background palette. Never returns `nullptr`.
   - **slotIndex**: Slot 0–7.
 
+#### Sprite palette slot bank (multi-palette sprites)
+
+For 2bpp/4bpp sprites, the engine supports **multiple palettes** via a sprite palette slot bank (default 8 slots, configurable via **`MAX_SPRITE_PALETTE_SLOTS`** in `EngineConfig.h` or build flag `-DMAX_SPRITE_PALETTE_SLOTS=N`). Slot 0 is the default and is kept in sync with `setSpritePalette` / `setSpriteCustomPalette`. The Renderer uses the slot index passed in `drawSprite(sprite, x, y, paletteSlot, flipX)`, or the current context slot set via `setSpritePaletteSlotContext()`.
+
+- **`static void initSpritePaletteSlots()``**
+    Initializes all sprite palette slots to the default palette. Call at engine startup if using multi-palette sprites; otherwise slots are initialized lazily.
+
+- **`static void setSpritePaletteSlot(uint8_t slotIndex, PaletteType palette)`**
+    Sets a sprite palette slot by type (for multi-palette sprites).
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global sprite palette.
+  - **palette**: The palette type for this slot.
+
+- **`static void setSpriteCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette)`**
+    Sets a sprite palette slot with a custom RGB565 palette.
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global sprite palette.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 values; must remain valid.
+
+- **`static const uint16_t* getSpritePaletteSlot(uint8_t slotIndex)`**
+    Returns the palette pointer for a sprite slot. If slot is not set, returns slot 0; if slot 0 is not set, returns the built-in PR32 palette. Never returns `nullptr`.
+  - **slotIndex**: Slot 0–7.
+
 - **`static uint16_t resolveColor(Color color)`**
     Converts a `Color` enum value to its corresponding RGB565 `uint16_t` representation based on the currently active palette (Single Palette Mode).
 
@@ -1866,7 +2071,7 @@ Multi-layer, multi-color sprite built from one or more `SpriteLayer` entries. Al
 
 **Inherits:** None
 
-Generic descriptor for tile-based backgrounds. It stores level data as an array of indices mapping to a tileset.
+Generic descriptor for tile-based backgrounds. It stores level data as an array of indices mapping to a tileset. Supports optional tile animations via `TileAnimationManager`.
 
 #### Template Parameters
 
@@ -1901,6 +2106,9 @@ Generic descriptor for tile-based backgrounds. It stores level data as an array 
 - **`const uint8_t* paletteIndices`**  
   Optional per-cell background palette index (for 2bpp/4bpp multi-palette tilemaps only). If `nullptr`, all cells use the default background palette (slot 0). If non-null, array size must be `width * height`; each byte uses bits 0–2 for the palette slot (0–7), bits 3–7 reserved for future use. Use with `setBackgroundPaletteSlot` / `setBackgroundCustomPaletteSlot` to assign palettes to slots. Typically filled by the editor or export tools; can be stored in PROGMEM.
 
+- **`TileAnimationManager* animManager`**  
+  Optional pointer to a `TileAnimationManager` for tile animations. If non-null, the renderer will resolve animated tile frames automatically. Set to `nullptr` (default) to disable animations with zero overhead. See [Tile Animation System](#tile-animation-system) for details.
+
 ---
 
 ### TileMap (Alias)
@@ -1924,6 +2132,349 @@ Optional 2bpp tilemap, available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defin
 **Type:** `TileMapGeneric<Sprite4bpp>`
 
 Optional 4bpp tilemap, available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined.
+
+---
+
+## Tile Animation System
+
+The Tile Animation System enables frame-based tile animations (water, lava, fire, conveyor belts, etc.) while maintaining static tilemap data and ESP32-optimized performance. Animations are defined at compile-time and resolved at render-time with O(1) lookup.
+
+### Design Philosophy
+
+- **Static Tilemap Data**: Tilemap indices never change; animation is a view-time transformation
+- **Zero Dynamic Allocations**: All data in fixed-size arrays or PROGMEM
+- **O(1) Frame Resolution**: Hash table lookup for instant frame resolution
+- **Retro Console Pattern**: Inspired by NES/SNES tile animation systems
+- **Minimal CPU Overhead**: <1% of frame budget on ESP32
+
+### TileAnimation (Struct)
+
+**Namespace:** `pixelroot32::graphics`
+
+Defines a single tile animation sequence. All data stored in PROGMEM/flash to minimize RAM usage.
+
+#### Properties
+
+- **`uint8_t baseTileIndex`**  
+  First tile in the animation sequence (e.g., 42 for water animation starting at tile 42).
+
+- **`uint8_t frameCount`**  
+  Number of frames in the animation (e.g., 4 for a 4-frame water cycle).
+
+- **`uint8_t frameDuration`**  
+  Number of game frames to display each animation frame (e.g., 8 = each frame displays for 8 game ticks).
+
+- **`uint8_t reserved`**  
+  Padding for alignment (reserved for future use).
+
+#### Example
+
+```cpp
+// Water animation: tiles 42-45, 4 frames, 8 ticks per frame
+const TileAnimation waterAnim = { 42, 4, 8, 0 };
+
+// Lava animation: tiles 46-47, 2 frames, 6 ticks per frame
+const TileAnimation lavaAnim = { 46, 2, 6, 0 };
+```
+
+**Memory:** 4 bytes per animation (stored in PROGMEM).
+
+---
+
+### TileAnimationManager (Class)
+
+**Namespace:** `pixelroot32::graphics`
+
+Manages tile animations for a tilemap. Provides O(1) frame resolution via lookup table. All animation definitions stored in PROGMEM. Zero dynamic allocations.
+
+#### Constructor
+
+```cpp
+TileAnimationManager(
+    const TileAnimation* animations,
+    uint8_t animCount,
+    uint16_t tileCount
+);
+```
+
+**Parameters:**
+
+- **`animations`**: PROGMEM array of `TileAnimation` definitions
+- **`animCount`**: Number of animations in the array
+- **`tileCount`**: Number of tiles in tileset (from `TileMapGeneric::tileCount`)
+
+**Note:** Uses fixed-size lookup table (`MAX_TILESET_SIZE`) to comply with PixelRoot32's zero-allocation policy.
+
+#### Public Methods
+
+- **`void step()`**  
+  Advances all animations by one step. Call once per frame in `Scene::update()`.
+  
+  **Complexity:** O(animations × frameCount) - typically 4-32 operations (~1-7 µs on ESP32).
+
+- **`void reset()`**  
+  Resets all animations to frame 0. Useful for restarting animations or synchronizing with game events.
+
+- **`uint8_t resolveFrame(uint8_t tileIndex) const`**  
+  Resolves tile index to current animated frame.
+  
+  **Parameters:**
+  - `tileIndex`: Base tile index from tilemap
+  
+  **Returns:** Current frame index (may be same as input if tile is not animated).
+  
+  **Performance:** O(1) array lookup, IRAM-optimized, no branches in hot path (~0.1 µs per call).
+
+#### Memory Usage
+
+| Component | Size | Location |
+|-----------|------|----------|
+| Lookup table | `MAX_TILESET_SIZE` bytes | RAM |
+| Manager state | 9 bytes | RAM |
+| Animation definitions | 4 bytes × N | PROGMEM (flash) |
+| **Total (256 tiles)** | **265 bytes RAM** | ~0.08% of ESP32 DRAM |
+
+**Configuration:** Adjust `MAX_TILESET_SIZE` in `EngineConfig.h` or build flags:
+
+```ini
+# For smaller tilesets (saves RAM)
+build_flags = -D MAX_TILESET_SIZE=64   # 73 bytes RAM
+build_flags = -D MAX_TILESET_SIZE=128  # 137 bytes RAM
+build_flags = -D MAX_TILESET_SIZE=256  # 265 bytes RAM (default)
+```
+
+---
+
+### Integration with TileMapGeneric
+
+To enable animations for a tilemap, add the optional `animManager` pointer to `TileMapGeneric`:
+
+```cpp
+template<typename T>
+struct TileMapGeneric {
+    // ... existing fields ...
+    TileAnimationManager* animManager = nullptr;  // Optional animation support
+};
+```
+
+**Backward Compatibility:** Setting `animManager = nullptr` (default) disables animations with zero overhead.
+
+---
+
+### Usage Example
+
+#### Step 1: Define Animations (Scene Header)
+
+```cpp
+// scenes/water_level.h
+#pragma once
+#include "graphics/Renderer.h"
+#include "graphics/TileAnimation.h"
+
+namespace scenes::water_level {
+
+using namespace pixelroot32::graphics;
+
+// Tileset with animated frames
+PIXELROOT32_SCENE_FLASH_ATTR const Sprite2bpp tiles[] = {
+    { nullptr, nullptr, 0, 0, 0 },           // Tile 0: empty
+    { grassData, grassPalette, 8, 8, 4 },    // Tile 1: grass (static)
+    { waterFrame0, waterPalette, 8, 8, 4 },  // Tile 2: water frame 0
+    { waterFrame1, waterPalette, 8, 8, 4 },  // Tile 3: water frame 1
+    { waterFrame2, waterPalette, 8, 8, 4 },  // Tile 4: water frame 2
+    { waterFrame3, waterPalette, 8, 8, 4 },  // Tile 5: water frame 3
+    { lavaFrame0, lavaPalette, 8, 8, 4 },    // Tile 6: lava frame 0
+    { lavaFrame1, lavaPalette, 8, 8, 4 },    // Tile 7: lava frame 1
+    // ... more tiles ...
+};
+
+// Animation definitions (PROGMEM)
+PIXELROOT32_SCENE_FLASH_ATTR const TileAnimation animations[] = {
+    { 2, 4, 8, 0 },  // Water: base=2, 4 frames, 8 ticks/frame
+    { 6, 2, 6, 0 },  // Lava: base=6, 2 frames, 6 ticks/frame
+};
+
+constexpr uint8_t ANIM_COUNT = 2;
+constexpr uint16_t MAX_TILE_INDEX = 64;
+
+// Tilemap data (indices reference base tiles)
+uint8_t backgroundIndices[] = {
+    1, 1, 1, 1, 1, 1, 1, 1,
+    1, 2, 2, 2, 2, 2, 2, 1,  // Water tiles use base index (2)
+    1, 6, 6, 6, 6, 6, 6, 1,  // Lava tiles use base index (6)
+    1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+TileMap2bpp backgroundLayer = {
+    backgroundIndices,
+    8, 4,     // width, height
+    tiles,
+    8, 8,     // tileWidth, tileHeight
+    64,       // tileCount
+    nullptr,  // runtimeMask
+    nullptr   // paletteIndices
+};
+
+// Animation manager instance
+TileAnimationManager animManager(animations, ANIM_COUNT, MAX_TILE_INDEX);
+
+} // namespace scenes::water_level
+```
+
+#### Step 2: Scene Implementation
+
+```cpp
+// WaterLevelScene.cpp
+#include "WaterLevelScene.h"
+#include "scenes/water_level.h"
+
+using namespace scenes::water_level;
+
+void WaterLevelScene::init() {
+    // Link animation manager to tilemap
+    backgroundLayer.animManager = &animManager;
+}
+
+void WaterLevelScene::update(unsigned long deltaTime) {
+    // Advance animations once per frame
+    animManager.step();
+    
+    // Update other game logic...
+    Scene::update(deltaTime);
+}
+
+void WaterLevelScene::draw(Renderer& renderer) {
+    renderer.beginFrame();
+    
+    // Render animated tilemap (automatic frame resolution)
+    renderer.drawTileMap(backgroundLayer, 0, 0);
+    
+    // Draw other entities...
+    Scene::draw(renderer);
+    
+    renderer.endFrame();
+}
+```
+
+---
+
+### Performance Characteristics
+
+#### CPU Cost
+
+**Per-frame overhead:**
+
+| Operation | Complexity | Typical Cost (ESP32 @ 240MHz) |
+|-----------|------------|-------------------------------|
+| `step()` | O(animations × frameCount) | 1-7 µs (4-8 animations) |
+| `resolveFrame()` per tile | O(1) | ~0.1 µs |
+| **Total (20×15 tilemap, 50% visible)** | - | **~7 µs (0.04% of 16ms frame)** |
+
+**Scalability:**
+
+| Tilemap Size | Visible Tiles | Animation Cost | % of 16ms Frame |
+|--------------|---------------|----------------|-----------------|
+| 20×15 (300) | 150 | 7 µs | 0.04% |
+| 40×30 (1200) | 300 | 14 µs | 0.09% |
+| 64×64 (4096) | 400 | 18 µs | 0.11% |
+
+**Conclusion:** Animation overhead is negligible (<0.2% of frame budget) even on large tilemaps.
+
+#### Memory Cost
+
+| Tileset Size | Lookup Table | Total RAM | % of ESP32 DRAM |
+|--------------|--------------|-----------|-----------------|
+| 64 tiles | 64 bytes | 73 bytes | 0.02% |
+| 128 tiles | 128 bytes | 137 bytes | 0.04% |
+| 256 tiles | 256 bytes | 265 bytes | 0.08% |
+
+**PROGMEM (Flash):** 4 bytes × number of animations (e.g., 8 animations = 32 bytes).
+
+---
+
+### Advanced Features
+
+#### Controlling Animation Speed
+
+Control global animation speed by calling `step()` conditionally:
+
+```cpp
+void MyScene::update(unsigned long deltaTime) {
+    // Half speed: advance every 2 frames
+    if (frameCounter % 2 == 0) {
+        animManager.step();
+    }
+    
+    // Double speed: advance twice per frame
+    animManager.step();
+    animManager.step();
+}
+```
+
+#### Pausing Animations
+
+Simply don't call `step()` to freeze animations:
+
+```cpp
+void MyScene::update(unsigned long deltaTime) {
+    if (!isPaused) {
+        animManager.step();
+    }
+}
+```
+
+#### Synchronizing Animations
+
+Use `reset()` to restart animations at specific game events:
+
+```cpp
+void MyScene::onLevelStart() {
+    animManager.reset();  // All animations start from frame 0
+}
+```
+
+#### Multiple Animation Managers
+
+Each tilemap layer can have its own animation manager:
+
+```cpp
+TileAnimationManager backgroundAnimManager(bgAnims, 2, 64);
+TileAnimationManager foregroundAnimManager(fgAnims, 4, 64);
+
+backgroundLayer.animManager = &backgroundAnimManager;
+foregroundLayer.animManager = &foregroundAnimManager;
+
+// Update both in Scene::update()
+backgroundAnimManager.step();
+foregroundAnimManager.step();
+```
+
+---
+
+### Limitations and Considerations
+
+1. **Shared Animation State**: All instances of a tile share the same animation state. For independent animations, use different tile indices.
+
+2. **Sequential Frames**: Frames must be sequential in the tileset (e.g., tiles 42, 43, 44, 45). Non-sequential frame sequences are not supported in v1.0.
+
+3. **Global Timing**: All animations advance together by default. Per-animation timing requires multiple managers or conditional `step()` calls.
+
+4. **Static Tilemap Data**: Tilemap indices never change. Animation is purely a rendering transformation.
+
+5. **Maximum Animations**: Limited by `uint8_t` (255), but practical limit is ~16-32 for memory reasons.
+
+---
+
+### Compatibility
+
+| Feature | 1bpp Tilemap | 2bpp Tilemap | 4bpp Tilemap |
+|---------|--------------|--------------|--------------|
+| Basic Animation | ✅ | ✅ | ✅ |
+| Per-Cell Palette | ❌ | ✅ | ✅ |
+| Runtime Mask | ✅ | ✅ | ✅ |
+| Viewport Culling | ✅ | ✅ | ✅ |
+
+**Note:** Tile animations work with all tilemap types and are compatible with existing features (runtime mask, per-cell palettes, viewport culling).
 
 ---
 

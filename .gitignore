@@ -59,6 +59,9 @@ build/
 # Local History for Visual Studio Code
 .history/
 
+# Cache files
+.cache/
+
 # Temporary Unity clone directory
 temp_unity/
 

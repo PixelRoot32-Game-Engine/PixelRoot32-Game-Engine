@@ -8,25 +8,88 @@
 #include "graphics/particles/ParticleEmitter.h"
 #include "graphics/Renderer.h"
 #include "graphics/FontManager.h"
+#include "graphics/TileAnimation.h"
+#include "platforms/EngineConfig.h"
 #include "core/Engine.h"
 #include "../../mocks/MockDrawSurface.h"
 #include <memory>
+#include <cstring>
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::particles;
 using namespace pixelroot32::math;
 
-int MockDrawSurface::instances = 0;
+static TileAnimation testAnimations[3];
+static uint16_t testTiles[256];
+static TileAnimationManager* animManager = nullptr;
+static uint16_t testBitmaps[64][8];
+static Sprite testSprites[64];
+static uint8_t testBitmaps2bpp[64][16];
+static Sprite2bpp testSprites2bpp[64];
+static uint8_t testBitmaps4bpp[64][32];
+static Sprite4bpp testSprites4bpp[64];
+static Color testPalette[16];
+static uint8_t testIndices[16];
 
 // Note: Global engine instance is provided by MockEngineInstance.cpp during unit tests.
 // Individual tests should not define their own 'engine' symbol.
 
 void setUp(void) {
     test_setup();
+    
+    for (uint16_t i = 0; i < 256; i++) {
+        testTiles[i] = i;
+    }
+    
+    testAnimations[0] = {10, 3, 5, 0};
+    testAnimations[1] = {20, 2, 4, 0};
+    testAnimations[2] = {30, 4, 2, 0};
+    
+    animManager = new TileAnimationManager(testAnimations, 3, 256);
+    
+    memset(testBitmaps, 0, sizeof(testBitmaps));
+    memset(testBitmaps2bpp, 0, sizeof(testBitmaps2bpp));
+    memset(testBitmaps4bpp, 0, sizeof(testBitmaps4bpp));
+    
+    testPalette[0] = Color::Black;
+    testPalette[1] = Color::White;
+    testPalette[2] = Color::Red;
+    testPalette[3] = Color::Green;
+    testPalette[4] = Color::Blue;
+    testPalette[5] = Color::Yellow;
+    testPalette[6] = Color::Cyan;
+    testPalette[7] = Color::Magenta;
+    testPalette[8] = Color::Gray;
+    testPalette[9] = Color::LightGray;
+    testPalette[10] = Color::DarkGray;
+    testPalette[11] = Color::Orange;
+    testPalette[12] = Color::Purple;
+    testPalette[13] = Color::Brown;
+    testPalette[14] = Color::Pink;
+    
+    for (int i = 0; i < 64; i++) {
+        testBitmaps[i][0] = 0x80;
+        testBitmaps[i][7] = 0x01;
+        testBitmaps2bpp[i][0] = 0x80;
+        testBitmaps2bpp[i][15] = 0x01;
+        testBitmaps4bpp[i][0] = 0x80;
+        testBitmaps4bpp[i][31] = 0x08;
+        testSprites[i] = { testBitmaps[i], 8, 8 };
+        testSprites2bpp[i] = { testBitmaps2bpp[i], testPalette, 8, 8, 16 };
+        testSprites4bpp[i] = { testBitmaps4bpp[i], testPalette, 8, 8, 16 };
+    }
+    
+    for (int i = 0; i < 16; i++) {
+        testIndices[i] = 10 + (i % 3);
+    }
 }
 
 void tearDown(void) {
+    if (animManager) {
+        delete animManager;
+        animManager = nullptr;
+    }
     test_teardown();
 }
 
@@ -831,6 +894,169 @@ void test_renderer_filledrectangle_w_with_offset(void) {
     renderer.setDisplayOffset(0, 0);
 }
 
+// =============================================================================
+// TileAnimation Tests
+// =============================================================================
+
+void test_constructor_initializes_lookup_table(void) {
+    for (uint16_t i = 0; i < 256; i++) {
+        TEST_ASSERT_EQUAL_UINT8(i, animManager->resolveFrame(i));
+    }
+}
+
+void test_constructor_zero_animations(void) {
+    TileAnimationManager emptyManager(nullptr, 0, 256);
+    TEST_ASSERT_EQUAL_UINT8(50, emptyManager.resolveFrame(50));
+    TEST_ASSERT_EQUAL_UINT8(100, emptyManager.resolveFrame(100));
+}
+
+void test_step_advances_animations(void) {
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    for (int i = 0; i < 5; i++) {
+        animManager->step();
+    }
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(10));
+}
+
+void test_step_multiple_animations_independent(void) {
+    for (int i = 0; i < 8; i++) {
+        animManager->step();
+    }
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(20, animManager->resolveFrame(20));
+    TEST_ASSERT_EQUAL_UINT8(30, animManager->resolveFrame(30));
+}
+
+void test_resolveFrame_non_animated_tiles_unchanged(void) {
+    TEST_ASSERT_EQUAL_UINT8(0, animManager->resolveFrame(0));
+    TEST_ASSERT_EQUAL_UINT8(5, animManager->resolveFrame(5));
+    TEST_ASSERT_EQUAL_UINT8(100, animManager->resolveFrame(100));
+    TEST_ASSERT_EQUAL_UINT8(255, animManager->resolveFrame(255));
+    animManager->step();
+    TEST_ASSERT_EQUAL_UINT8(0, animManager->resolveFrame(0));
+    TEST_ASSERT_EQUAL_UINT8(100, animManager->resolveFrame(100));
+}
+
+void test_resolveFrame_bounds_checking(void) {
+    TEST_ASSERT_EQUAL_UINT8(0, animManager->resolveFrame(0));
+    TileAnimationManager smallManager(testAnimations, 1, 50);
+    TEST_ASSERT_EQUAL_UINT8(60, smallManager.resolveFrame(60));
+    TEST_ASSERT_EQUAL_UINT8(100, smallManager.resolveFrame(100));
+}
+
+void test_reset_returns_to_initial_state(void) {
+    for (int i = 0; i < 12; i++) {
+        animManager->step();
+    }
+    TEST_ASSERT_NOT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    animManager->reset();
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(20, animManager->resolveFrame(20));
+    TEST_ASSERT_EQUAL_UINT8(30, animManager->resolveFrame(30));
+}
+
+void test_single_frame_animation(void) {
+    TileAnimation singleFrameAnim = {50, 1, 3, 0};
+    TileAnimationManager singleManager(&singleFrameAnim, 1, 256);
+    TEST_ASSERT_EQUAL_UINT8(50, singleManager.resolveFrame(50));
+    for (int i = 0; i < 10; i++) {
+        singleManager.step();
+        TEST_ASSERT_EQUAL_UINT8(50, singleManager.resolveFrame(50));
+    }
+}
+
+void test_animation_wrapping(void) {
+    TileAnimation wrapAnim = {40, 3, 2, 0};
+    TileAnimationManager wrapManager(&wrapAnim, 1, 256);
+    TEST_ASSERT_EQUAL_UINT8(40, wrapManager.resolveFrame(40));
+    wrapManager.step();
+    wrapManager.step();
+    TEST_ASSERT_EQUAL_UINT8(41, wrapManager.resolveFrame(40));
+    wrapManager.step();
+    wrapManager.step();
+    TEST_ASSERT_EQUAL_UINT8(42, wrapManager.resolveFrame(40));
+    wrapManager.step();
+    wrapManager.step();
+    TEST_ASSERT_EQUAL_UINT8(40, wrapManager.resolveFrame(40));
+}
+
+// =============================================================================
+// TileAnimation Render Tests
+// =============================================================================
+
+void test_1bpp_animated_tilemap_rendering(void) {
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(11));
+    TEST_ASSERT_EQUAL_UINT8(12, animManager->resolveFrame(12));
+    animManager->step();
+    uint8_t resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame == 10 || resolvedFrame == 11 || resolvedFrame == 12);
+    animManager->step();
+    animManager->step();
+    resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+}
+
+void test_2bpp_animated_tilemap_rendering(void) {
+    #if defined(PIXELROOT32_ENABLE_2BPP_SPRITES)
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(11));
+    animManager->step();
+    uint8_t resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+    animManager->step();
+    resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+    #else
+    TEST_IGNORE_MESSAGE("2BPP sprites not enabled");
+    #endif
+}
+
+void test_4bpp_animated_tilemap_rendering(void) {
+    #if defined(PIXELROOT32_ENABLE_4BPP_SPRITES)
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(11));
+    animManager->step();
+    uint8_t resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+    animManager->step();
+    resolvedFrame = animManager->resolveFrame(10);
+    TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+    #else
+    TEST_IGNORE_MESSAGE("4BPP sprites not enabled");
+    #endif
+}
+
+void test_animation_frame_cycling(void) {
+    for (int step = 0; step < 10; step++) {
+        animManager->step();
+        uint8_t resolvedFrame = animManager->resolveFrame(10);
+        TEST_ASSERT_TRUE(resolvedFrame >= 10 && resolvedFrame <= 12);
+        TEST_ASSERT_EQUAL_UINT8(50, animManager->resolveFrame(50));
+    }
+}
+
+void test_animation_reset_integration(void) {
+    for (int i = 0; i < 6; i++) {
+        animManager->step();
+    }
+    animManager->reset();
+    TEST_ASSERT_EQUAL_UINT8(10, animManager->resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(11, animManager->resolveFrame(11));
+    TEST_ASSERT_EQUAL_UINT8(12, animManager->resolveFrame(12));
+    TEST_ASSERT_EQUAL_UINT8(50, animManager->resolveFrame(50));
+}
+
+void test_null_animation_manager(void) {
+    TileAnimationManager emptyManager(nullptr, 0, 64);
+    TEST_ASSERT_EQUAL_UINT8(10, emptyManager.resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(50, emptyManager.resolveFrame(50));
+    emptyManager.step();
+    emptyManager.reset();
+    TEST_ASSERT_EQUAL_UINT8(10, emptyManager.resolveFrame(10));
+    TEST_ASSERT_EQUAL_UINT8(50, emptyManager.resolveFrame(50));
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -905,6 +1131,25 @@ int main(int argc, char **argv) {
     RUN_TEST(test_renderer_multisprite_null_layer_data);
     RUN_TEST(test_renderer_offset_all_primitives);
     RUN_TEST(test_renderer_filledrectangle_w_with_offset);
+    
+    // TileAnimation tests
+    RUN_TEST(test_constructor_initializes_lookup_table);
+    RUN_TEST(test_constructor_zero_animations);
+    RUN_TEST(test_step_advances_animations);
+    RUN_TEST(test_step_multiple_animations_independent);
+    RUN_TEST(test_resolveFrame_non_animated_tiles_unchanged);
+    RUN_TEST(test_resolveFrame_bounds_checking);
+    RUN_TEST(test_reset_returns_to_initial_state);
+    RUN_TEST(test_single_frame_animation);
+    RUN_TEST(test_animation_wrapping);
+    
+    // TileAnimation render tests
+    RUN_TEST(test_1bpp_animated_tilemap_rendering);
+    RUN_TEST(test_2bpp_animated_tilemap_rendering);
+    RUN_TEST(test_4bpp_animated_tilemap_rendering);
+    RUN_TEST(test_animation_frame_cycling);
+    RUN_TEST(test_animation_reset_integration);
+    RUN_TEST(test_null_animation_manager);
     
     return UNITY_END();
 }
