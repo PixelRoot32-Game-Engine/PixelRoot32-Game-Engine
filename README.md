@@ -38,7 +38,7 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-> **✅ Project Status**: PixelRoot32 v1.0.0 is the first stable release.
+> **✅ Project Status**: PixelRoot32 v1.1.0 is stable release.
 The core rendering and physics systems are production-ready.
 New features and optimizations will continue to evolve in future minor versions.
 
@@ -57,13 +57,15 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Cross-Platform**: Develop on PC (Windows/Linux/macOS) and deploy on ESP32.
 - **Scene-Entity System**: Intuitive management of Scenes, Entities, and Actors.
 - **High Performance**: Optimized for ESP32 with DMA transfers and IRAM-cached rendering.
-- **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with flipping, rotation, and animation.
-- **Tilemap Support**: Optimized rendering of large maps with viewport culling and multiple layers.
+- **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with multi-palette selection, flipping, rotation, and animation.
+- **Tilemap Support**: Optimized rendering with viewport culling, multi-palette, and tile animations.
+- **Tile Animation System**: Frame-based animations (water, lava) with O(1) frame resolution and zero-allocation policy.
 - **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
 - **NES-Style Audio**: Built-in 4-channel audio subsystem (Pulse, Triangle, Noise).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
-- **AABB Physics**: Simple collision detection and kinematics.
-- **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with dual-palette support.
+- **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, sensors, and one-way platforms.
+- **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
+- **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
 
@@ -110,6 +112,8 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 1. **Fixed-Point Math**: Always use `Scalar` instead of `float`. Use `math::toScalar()` for literals.
 2. **Zero Allocation**: Avoid `new`/`malloc` during the game loop. Use **Object Pooling** and `std::unique_ptr`.
 3. **Render Layers**: Organize entities by `renderLayer` (0=Bg, 1=Game, 2=UI) to optimize drawing order.
+4. **Platform Memory**: Use `PIXELROOT32_FLASH_ATTR` and `PIXELROOT32_READ_*_P` macros for cross-platform Flash/RAM access.
+5. **Centralized Logging**: Use `log()` from `core/Log.h` instead of `Serial.print` or `printf`.
 
 > 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/STYLE_GUIDE.md)** for detailed rules on memory management, performance optimization, and coding style.
 
@@ -126,6 +130,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
+- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
+- **[Physics System](docs/PHYSICS_SYSTEM_REFERENCE.md)**: Flat Solver documentation.
+- **[Migration v1.1.0](docs/MIGRATION_v1.1.0.md)**: Guide for upgrading from v1.0.0.
 - **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Sound engine details.
 - **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
@@ -145,52 +152,31 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
 - ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
+- ✅ **Tile Animation System**: O(1) frame resolution for tile-based animations with zero-allocation policy.
+- ✅ **Multi-Palette Graphics**: Per-cell palette indexing for tilemaps and sprites.
+- ✅ **One-Way Platform Collision**: Jump-through platforms with spatial crossing detection.
+- ✅ **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
+- ✅ **Unified Logging System**: Cross-platform `log()` abstraction with `PIXELROOT32_DEBUG_MODE`.
 
 ---
 
 ## 🕒 Changelog
 
-## 1.0.0 (Stable)
+## 1.1.0
 
-First stable release. Complete performance overhaul and API stabilization.
+### 🎨 Graphics & Animations
+- **Multi-Palette Support**: Multi-palette tilemaps and sprites with per-cell palette indexing.
+- **Tile Animation System**: O(1) frame resolution animations with zero-allocation policy.
 
-### 🚀 Rendering Performance
+### 🎮 Physics
+- **One-Way Platforms**: Jump-through platforms with spatial crossing detection.
+- **TileCollisionBuilder**: New builder for generating physics bodies from tile layers.
 
-- **TFT DMA Pipelining**: Double-buffered pipeline for `TFT_eSPI_Drawer` — CPU processes next block while DMA transmits current one. **~43 FPS** stable on 240×240 displays @ 40MHz (up from ~14 FPS).
-- **Fast-Path Kernels**: OLED 2x bit-expansion LUT (U8G2); TFT row duplication with 32-bit native access and `memcpy` for vertical scaling.
-- **I2C 1MHz**: Official support in `DisplayConfig` for sustained **60 FPS** on OLED (SSD1306/SH1106).
+### ⚡ Architecture
+- **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
+- **Unified Logging**: Cross-platform `log()` with `PIXELROOT32_DEBUG_MODE` flag.
 
-### 🎮 Physics (Flat Solver 1.0)
-
-- **Broadphase**: Uniform grid (32px cells) with static shared buffers to reduce DRAM usage.
-- **KinematicActor**: Rewrote `moveAndSlide` and `moveAndCollide` with binary search, wall sliding, and accurate collision normal detection.
-- **Stable stacking**: Baumgarte correction, iterative position relaxation, fixed timestep 1/60s.
-- **Godot-style API**: `KinematicCollision`, actor types `Static`/`Kinematic`/`Rigid`. Renamed `PHYSICS_RELAXATION_ITERATIONS` → `VELOCITY_ITERATIONS`.
-
-### 🔢 Math System (Scalar / Fixed-Point)
-
-- Numeric abstraction layer: `Scalar` = `float` on ESP32-S3 (FPU) or `Fixed16` (Q16.16) on C3/S2/C6.
-- `Vector2`, `Rect`, and physics unified under `Scalar`. ~30% FPS gain on C3/S2 by eliminating software float emulation.
-- `MathUtil`: `fixed_sqrt`, `fixed_sin`, `fixed_cos`, `toScalar()`.
-
-### 🛠️ Other
-
-- **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
-- **C++17**: Migrated from C++11.
-
-> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
-
-### 0.8.1-dev
-
-- **Render Loop Fix**: Resolved critical double-buffer send issue on ESP32, saving ~23ms per frame.
-- **Stutter-Free**: Removed periodic Serial logs (Heartbeat/DMA) for smoother gameplay.
-
-### 0.8.0-dev
-
-- **Extreme Display Performance**: Implemented Parallel DMA Pipeline and aggressive optimizations for `TFT_eSPI`, significantly boosting FPS.
-- **Fast 1:1 Rendering**: Added a dedicated 32-bit fast path for non-scaled rendering, bypassing all scaling overhead.
-- **Native XBM Blitting**: Refactored `U8G2` driver to use row-aligned buffers and native XBM calls, eliminating per-pixel draw overhead.
-- **Latency Reduction**: Replaced blocking delays with `yield()` in the engine loop to maximize CPU utilization.
+> **Migration guide v1.0.0 → v1.1.0**: [MIGRATION_v1.1.0](docs/MIGRATION_v1.1.0.md)
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

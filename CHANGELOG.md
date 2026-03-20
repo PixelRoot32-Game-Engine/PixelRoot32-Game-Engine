@@ -2,7 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## 1.0.0 (Stable)
+## 1.1.0
+
+### 🎨 Graphics & Animations
+
+- **Multi-Palette Tilemap Support**: Added functionality for multi-palette tilemaps with new methods to initialize and manage background palette slots. Enables per-cell palette indexing for enhanced visual flexibility.
+- **Multi-Palette Sprite Support**: Introduced sprite palette slot bank (similar to background system) for 2bpp/4bpp sprites. New `drawSprite` overloads with `paletteSlot` parameter while maintaining backward compatibility.
+- **Tile Animation System**: Implemented `TileAnimation` and `TileAnimationManager` classes for frame-based tile animations (water, lava, etc.) with O(1) frame resolution using PROGMEM animation definitions and fixed-size lookup table. Complies with zero-allocation policy for ESP32.
+
+### 🎮 Physics
+
+- **One-Way Platform Collision**: Implemented spatial crossing detection for one-way platforms using position history tracking and pipeline reordering. Actors can jump through platforms from below.
+- **Sensor Support in Kinematics**: Updated `moveAndCollide` to skip sensor actors during kinematic movement while still triggering `onCollision` events.
+- **TileCollisionBuilder**: New builder class that creates static or sensor physics actors from tile behavior layers, storing tile coordinates and flags in user data.
+
+### ⚡ Architecture & Build
+
+- **Modular Compilation System**: Added `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion (audio, physics, UI, particles), significantly reducing firmware size and RAM usage on embedded platforms.
+- **Conditional Logging**: Implemented unified `log()` calls with `PIXELROOT32_DEBUG_MODE` flag. No-op log functions when debug mode is disabled for production builds.
+- **PlatformIO Profiles**: Added platformio profiles for different subsystem combinations.
+
+## 1.0.0
 
 First stable release. Complete performance overhaul and API stabilization.
 
