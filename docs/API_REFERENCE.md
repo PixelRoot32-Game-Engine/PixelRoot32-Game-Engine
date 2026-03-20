@@ -29,16 +29,63 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_PHYSICS` | Enable physics system (CollisionSystem). | `1` |
 | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enable UI system (UIButton, UILabel, etc.). | `1` |
 | `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
+| `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Enable FPS/RAM/CPU debug overlay. | Disabled |
+| `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enable tile animation system. | `1` |
+| `PIXELROOT32_ENABLE_2BPP_SPRITES` | Enable 2bpp sprite support. | Disabled |
+| `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enable 4bpp sprite support. | Disabled |
+| `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
+| `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
+| `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 
-**Usage in platformio.ini:**
+**Memory savings by subsystem (approximate):**
+
+| Subsystem Disabled | RAM Savings | Flash Savings |
+|-------------------|-------------|--------------|
+| `PIXELROOT32_ENABLE_AUDIO=0` | ~8 KB | ~15 KB |
+| `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB |
+| `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB |
+
+**Build profiles (platformio.ini):**
 
 ```ini
-[esp32_arcade]
-extends = base_esp32, profile_arcade
-build_flags = 
-    ${base_esp32.build_flags}
-    ${profile_arcade.build_flags}
+[profile_full]         ; All features enabled
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=1
+    -D PIXELROOT32_ENABLE_PARTICLES=1
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1
+
+[profile_arcade]       ; Audio + Physics + Particles, no UI
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=1
+    -D PIXELROOT32_ENABLE_PARTICLES=1
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
+
+[profile_puzzle]       ; Audio + UI only, no physics/particles
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=1
+    -D PIXELROOT32_ENABLE_PHYSICS=0
+    -D PIXELROOT32_ENABLE_PARTICLES=0
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=1
+
+[profile_retro]        ; Minimal: no subsystems
+build_flags =
+    -D PIXELROOT32_ENABLE_AUDIO=0
+    -D PIXELROOT32_ENABLE_PHYSICS=0
+    -D PIXELROOT32_ENABLE_PARTICLES=0
+    -D PIXELROOT32_ENABLE_UI_SYSTEM=0
 ```
+
+**Recommended profiles by game type:**
+
+| Game Type | Recommended Profile | Rationale |
+|-----------|-------------------|-----------|
+| Arcade (shooters, platformers) | `arcade` or `full` | Physics + particles + optional UI |
+| Puzzle / Casual | `puzzle` | UI for menus, simple collision logic |
+| Retro / Minimal | `retro` | Minimal footprint, custom collision |
+| Educational / Tool | `puzzle` or custom | UI for menus |
 
 ### Constants
 
@@ -280,13 +327,14 @@ Version 1.1.0 introduces unified abstractions for cross-platform operations, eli
 
 **Namespace:** `pixelroot32::core::logging`
 
-The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). `PIXELROOT32_DEBUG_MODE` to enable logging.
+The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). Enable with `-DPIXELROOT32_DEBUG_MODE` in build flags.
 
 #### Log Levels
 
 | LogLevel Enum | Output Prefix | Use Case |
 |--------------|---------------|----------|
 | `LogLevel::Info` | `[INFO]` | General information, debug messages |
+| `LogLevel::Profiling` | `[PROF]` | Performance timing markers |
 | `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
 | `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
 
@@ -298,15 +346,33 @@ The unified logging system provides platform-agnostic logging with different log
 - **`void log(const char* format, ...)`**
     Logs a message with Info level (shorthand).
 
-**Usage Example:**
+#### Conditional Compilation
+
+When `PIXELROOT32_DEBUG_MODE` is **not defined**, all `log()` calls become no-ops at compile time. The engine uses a double-layer conditional:
+
+1. **`#ifdef PIXELROOT32_DEBUG_MODE`** in the header makes `log()` calls emit formatting code
+2. **`if constexpr (EnableLogging)`** in the implementation skips runtime formatting
+
+This means zero runtime cost in production builds (no string formatting, no branching).
+
+#### Usage Example:
 
 ```cpp
+// Enable in platformio.ini:
+// build_flags = -DPIXELROOT32_DEBUG_MODE
+
 #include "core/Log.h"
 
 using namespace pixelroot32::core::logging;
 
 // Log with explicit level
 log(LogLevel::Info, "Player position: %d", playerX);
+
+// Log warning
+log(LogLevel::Warning, "Low memory: %d bytes free", freeRAM);
+
+// Log error
+log(LogLevel::Error, "Failed to load sprite: %s", filename);
 
 // Log with default Info level
 log("Player position: %d", playerX);
@@ -1153,6 +1219,124 @@ Helper for **consumible tiles** (e.g. coins, pickups): removes the tile’s phys
 
 ---
 
+### TileCollisionBuilder
+
+**Include:** `physics/TileCollisionBuilder.h`  
+**Namespace:** `pixelroot32::physics`
+
+High-level builder that generates `StaticActor` or `SensorActor` bodies from a `TileBehaviorLayer`. Iterates all tiles with non-zero flags, creates the appropriate physics body, configures it (sensor, one-way), packs coords and flags into `userData`, and adds it to the scene. This is the recommended way to populate physics for tilemap-based levels.
+
+#### TileCollisionBuilderConfig
+
+```cpp
+struct TileCollisionBuilderConfig {
+    uint8_t tileWidth;      // Width of each tile in world units (e.g., 16)
+    uint8_t tileHeight;     // Height of each tile in world units (e.g., 16)
+    uint16_t maxEntities;   // Maximum entities to create (safety limit)
+
+    TileCollisionBuilderConfig(uint8_t w = 16, uint8_t h = 16, uint16_t max = 0xFFFF);
+};
+```
+
+#### Class Definition
+
+```cpp
+class TileCollisionBuilder {
+public:
+    TileCollisionBuilder(pixelroot32::core::Scene& scene, 
+                         const TileCollisionBuilderConfig& config = TileCollisionBuilderConfig());
+
+    int buildFromBehaviorLayer(const TileBehaviorLayer& layer, uint8_t layerIndex = 0);
+    int getEntitiesCreated() const;
+    void reset();
+};
+```
+
+#### Public Methods
+
+- **`TileCollisionBuilder(Scene& scene, const TileCollisionBuilderConfig& config)`**  
+  Constructs the builder bound to a scene.
+
+- **`int buildFromBehaviorLayer(const TileBehaviorLayer& layer, uint8_t layerIndex = 0)`**  
+  Iterates all tiles in the layer. For each tile with `flags != TILE_NONE`:
+  - Creates `StaticActor` (solid, one-way) or `SensorActor` (sensor, damage, collectible)
+  - Configures via `setSensor()` / `setOneWay()` from flags
+  - Sets `setCollisionLayer(kDefaultItemCollisionLayer)` and `setCollisionMask(kDefaultItemCollisionMask)`
+  - Calls `setUserData(reinterpret_cast<void*>(packTileData(x, y, flags)))`
+  - Adds to scene via `scene.addEntity()`
+  
+  Returns the total number of entities created.
+
+- **`int getEntitiesCreated() const`**  
+  Returns the count from the last `buildFromBehaviorLayer()` call.
+
+- **`void reset()`**  
+  Resets `entitiesCreated` to 0. Does not clear the scene.
+
+#### Convenience Helper
+
+```cpp
+inline int buildTileCollisions(
+    pixelroot32::core::Scene& scene,
+    const TileBehaviorLayer& layer,
+    uint8_t tileWidth = 16,
+    uint8_t tileHeight = 16,
+    uint8_t layerIndex = 0
+);
+```
+
+One-liner that creates a builder, calls `buildFromBehaviorLayer()`, and returns the count.
+
+#### Usage Example
+
+```cpp
+#include "physics/TileCollisionBuilder.h"
+
+void GameScene::init() override {
+    // Behavior layer exported by Tilemap Editor (dense uint8_t[] array)
+    TileBehaviorLayer layer = { behaviorData, 32, 32 };
+
+    // Basic usage (one-liner)
+    int count = buildTileCollisions(*this, layer, 16, 16, 0);
+
+    // Or with explicit config
+    TileCollisionBuilderConfig config(16, 16, 2048);  // 16x16 tiles, max 2048 bodies
+    TileCollisionBuilder builder(*this, config);
+    int entities = builder.buildFromBehaviorLayer(layer, 0);
+}
+```
+
+#### Integration with onCollision
+
+After collision bodies are created, use `userData` in callbacks to identify the tile:
+
+```cpp
+void PlayerActor::onCollision(Actor* other) override {
+    if (other->getUserData()) {
+        uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
+        uint16_t tx, ty;
+        TileFlags flags;
+        unpackTileData(packed, tx, ty, flags);
+
+        if (flags & TILE_COLLECTIBLE) {
+            TileConsumptionHelper helper(*scene, tilemap);
+            helper.consumeTileFromUserData(other, packed);
+        }
+        if (flags & TILE_DAMAGE) {
+            takeDamage();
+        }
+    }
+}
+```
+
+#### Memory Considerations
+
+- Each created actor is a heap allocation (`new StaticActor` / `new SensorActor`).
+- Call `scene.clearEntities()` before rebuilding to avoid duplicates.
+- On ESP32, keep `maxEntities` reasonable; 32×32 tiles with every tile solid = 1024 bodies.
+
+---
+
 ### CollisionSystem
 
 **Inherits:** None
@@ -1707,6 +1891,27 @@ For 2bpp/4bpp tilemaps, the engine supports **multiple background palettes per c
 
 - **`static const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex)`**
     Returns the palette pointer for a background slot (for renderer use). If slot is not set, returns slot 0; if slot 0 is not set, returns global background palette. Never returns `nullptr`.
+  - **slotIndex**: Slot 0–7.
+
+#### Sprite palette slot bank (multi-palette sprites)
+
+For 2bpp/4bpp sprites, the engine supports **multiple palettes** via a sprite palette slot bank (default 8 slots, configurable via **`MAX_SPRITE_PALETTE_SLOTS`** in `EngineConfig.h` or build flag `-DMAX_SPRITE_PALETTE_SLOTS=N`). Slot 0 is the default and is kept in sync with `setSpritePalette` / `setSpriteCustomPalette`. The Renderer uses the slot index passed in `drawSprite(sprite, x, y, paletteSlot, flipX)`, or the current context slot set via `setSpritePaletteSlotContext()`.
+
+- **`static void initSpritePaletteSlots()``**
+    Initializes all sprite palette slots to the default palette. Call at engine startup if using multi-palette sprites; otherwise slots are initialized lazily.
+
+- **`static void setSpritePaletteSlot(uint8_t slotIndex, PaletteType palette)`**
+    Sets a sprite palette slot by type (for multi-palette sprites).
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global sprite palette.
+  - **palette**: The palette type for this slot.
+
+- **`static void setSpriteCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette)`**
+    Sets a sprite palette slot with a custom RGB565 palette.
+  - **slotIndex**: Slot 0–7. Slot 0 is the default; setting it also updates the global sprite palette.
+  - **palette**: Pointer to 16 `uint16_t` RGB565 values; must remain valid.
+
+- **`static const uint16_t* getSpritePaletteSlot(uint8_t slotIndex)`**
+    Returns the palette pointer for a sprite slot. If slot is not set, returns slot 0; if slot 0 is not set, returns the built-in PR32 palette. Never returns `nullptr`.
   - **slotIndex**: Slot 0–7.
 
 - **`static uint16_t resolveColor(Color color)`**

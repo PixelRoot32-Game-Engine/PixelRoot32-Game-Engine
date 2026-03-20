@@ -14,7 +14,7 @@
             "name": "PIO Debug",
             "executable": "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/.pio/build/native_test/program.exe",
             "projectEnvName": "native_test",
-            "toolchainBinDir": "C:/msys64/mingw64/bin",
+            "toolchainBinDir": "",
             "internalConsoleOptions": "openOnSessionStart",
             "preLaunchTask": {
                 "type": "PlatformIO",
@@ -27,7 +27,7 @@
             "name": "PIO Debug (skip Pre-Debug)",
             "executable": "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/.pio/build/native_test/program.exe",
             "projectEnvName": "native_test",
-            "toolchainBinDir": "C:/msys64/mingw64/bin",
+            "toolchainBinDir": "",
             "internalConsoleOptions": "openOnSessionStart"
         },
         {
@@ -36,7 +36,7 @@
             "name": "PIO Debug (without uploading)",
             "executable": "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/.pio/build/native_test/program.exe",
             "projectEnvName": "native_test",
-            "toolchainBinDir": "C:/msys64/mingw64/bin",
+            "toolchainBinDir": "",
             "internalConsoleOptions": "openOnSessionStart",
             "loadMode": "manual"
         }

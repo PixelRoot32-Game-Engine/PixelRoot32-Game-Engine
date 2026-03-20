@@ -242,6 +242,110 @@ The modular compilation system provides powerful memory optimization capabilitie
   #endif
   ```
 
+#### Recommended Build Profiles
+
+Choose a profile based on your game type to optimize memory usage:
+
+| Game Type | Profile | Enabled | Disabled |
+|-----------|---------|---------|----------|
+| Arcade shooters/platformers | `arcade` | Audio, Physics, Particles | UI System |
+| Puzzle/casual games | `puzzle` | Audio, UI System | Physics, Particles |
+| Retro/minimal | `retro` | None | All |
+| Educational/tools | `puzzle` or custom | Audio, UI System | Physics, Particles |
+
+**Example platformio.ini configuration:**
+
+```ini
+[env:esp32_arcade]
+extends = base_esp32, profile_arcade
+build_flags =
+    ${base_esp32.build_flags}
+    ${profile_arcade.build_flags}
+
+[env:esp32_puzzle]
+extends = base_esp32, profile_puzzle
+build_flags =
+    ${base_esp32.build_flags}
+    ${profile_puzzle.build_flags}
+
+[env:native_retro]
+build_flags =
+    -DPLATFORM_NATIVE=1
+    -DPIXELROOT32_ENABLE_AUDIO=0
+    -DPIXELROOT32_ENABLE_PHYSICS=0
+    -DPIXELROOT32_ENABLE_PARTICLES=0
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+```
+
+### Logging Best Practices
+
+The unified logging system (`pixelroot32::core::logging`) provides conditional logging that is completely eliminated from production builds.
+
+#### When to Use Each LogLevel
+
+| Level | Use Case | Example |
+|-------|----------|---------|
+| `Info` | General debug messages, state changes | `"Player position: %d, %d"`, `"Level loaded: %s"` |
+| `Profiling` | Performance timing markers | `"Frame time: %d ms"`, `"Physics: %d contacts"` |
+| `Warning` | Non-critical issues, graceful degradation | `"Low memory: %d bytes"`, `"Audio buffer underrun"` |
+| `Error` | Critical failures, unrecoverable | `"Failed to load sprite: %s"`, `"Display init failed"` |
+
+#### Performance Considerations
+
+- **Zero overhead in production**: When `PIXELROOT32_DEBUG_MODE` is not defined, all `log()` calls become no-ops at compile time
+- **Enable only in development**: Add to `platformio.ini` for debug builds only:
+  ```ini
+  [env:debug]
+  build_flags = -DPIXELROOT32_DEBUG_MODE
+  
+  [env:release]
+  build_flags =  ; No debug mode
+  ```
+
+#### Platform Differences
+
+- **ESP32**: Output routed to `Serial` (115200 baud recommended)
+- **Native/PC**: Output routed to `stdout` with auto-flush
+
+#### Common Patterns
+
+```cpp
+#include "core/Log.h"
+using namespace pixelroot32::core::logging;
+
+// Initialization logging
+log("Engine initialized: %dx%d", width, height);
+
+// State transitions
+log("Scene changed: %s", sceneName);
+
+// Performance monitoring
+log(LogLevel::Profiling, "Update: %lu ms", updateTime);
+log(LogLevel::Profiling, "Draw: %lu ms", drawTime);
+
+// Error handling
+if (!texture.load(filename)) {
+    log(LogLevel::Error, "Failed to load texture: %s", filename);
+    return false;
+}
+```
+
+#### Avoid in Production
+
+```cpp
+// BAD: Logging in hot paths (game loop)
+void update() {
+    log("Velocity: %f", velocity.x);  // Expensive string formatting
+}
+
+// GOOD: Conditional logging with frame skipping
+void update() {
+    if (frameCount % 60 == 0) {  // Log every 60 frames
+        log("FPS: %d", calculateFPS());
+    }
+}
+```
+
 ### 🧮 Math & Fixed-Point Guidelines
 
 The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU (Fixed-Point) hardware seamlessly.
@@ -297,6 +401,104 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
   - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
   - *Trade-off*: Greatly reduces background RAM compared to full bitmaps, but adds a predictable per-tile draw cost; avoid unnecessarily large maps or resolutions on ESP32.
   - For side-scrolling platformers, combine tilemaps with `Camera2D` and `Renderer::setDisplayOffset` instead of manually offsetting individual actors. Keep camera logic centralized (for example in a `Scene`-level camera object) and use different parallax factors per layer to achieve multi-layer scrolling without additional allocations.
+
+### Tile Animation Usage
+
+The tile animation system provides frame-based animations for tilemaps (water, lava, conveyors) with O(1) frame resolution and zero dynamic allocations.
+
+#### Memory Budget
+
+| Tileset Size | RAM Usage | % ESP32 DRAM |
+|--------------|-----------|--------------|
+| 64 tiles | 73 bytes | 0.02% |
+| 128 tiles | 137 bytes | 0.04% |
+| 256 tiles | 265 bytes | 0.08% |
+
+**Recommendation**: Start with 64 or 128 tile tilesets. Increase only if needed.
+
+#### Initialization Pattern
+
+```cpp
+// In scene header (PROGMEM)
+PIXELROOT32_SCENE_FLASH_ATTR const TileAnimation animations[] = {
+    { 2, 4, 8, 0 },  // Water: tiles 2-5, 4 frames, 8 ticks/frame
+    { 6, 2, 6, 0 },  // Lava: tiles 6-7, 2 frames, 6 ticks/frame
+};
+
+// Global manager instance
+TileAnimationManager animManager(animations, 2, 64);
+
+// Link to tilemap
+TileMap2bpp backgroundLayer = {
+    // ... other fields ...
+    nullptr,              // runtimeMask
+    nullptr,              // paletteIndices
+    &animManager          // animManager - enables animations
+};
+```
+
+#### Game Loop Integration
+
+```cpp
+void MyScene::update(unsigned long dt) {
+    // Advance animations once per frame
+    animManager.step();
+    
+    // ... other update logic ...
+    Scene::update(dt);
+}
+
+void MyScene::draw(Renderer& r) {
+    // Renderer automatically calls resolveFrame() for each visible tile
+    r.drawTileMap(backgroundLayer, 0, 0);
+    Scene::draw(r);
+}
+```
+
+#### Animation Speed Control
+
+```cpp
+void MyScene::update(unsigned long dt) {
+    // Half speed: advance every 2 frames
+    if (frameCount % 2 == 0) {
+        animManager.step();
+    }
+    
+    // Pause when game is paused
+    if (!isPaused) {
+        animManager.step();
+    }
+    
+    // Speed up specific animations
+    animManager.step();  // Normal speed
+    animManager.step();  // Extra step = double speed
+}
+```
+
+#### Multiple Animation Managers
+
+For layered tilemaps with independent animation timing:
+
+```cpp
+TileAnimationManager bgAnim(bgAnims, 2, 64);   // Background water
+TileAnimationManager fgAnim(fgAnims, 4, 64);   // Foreground lava
+
+backgroundLayer.animManager = &bgAnim;
+foregroundLayer.animManager = &fgAnim;
+
+void MyScene::update(unsigned long dt) {
+    bgAnim.step();
+    fgAnim.step();
+}
+```
+
+#### Common Pitfalls
+
+1. **Sequential frames only**: Animation frames must be contiguous in the tileset (tiles 2,3,4,5). Non-sequential animations require multiple animation definitions or pre-sorted tile indices.
+
+2. **Shared animation state**: All instances of a tile share the same animation frame. For independent animations, use different base tile indices.
+
+3. **Global timing**: All animations advance together. For desynchronized animations (e.g., two water pools with different phases), create separate animation managers with different frame offsets, or use conditional `step()` calls.
 
 ---
 
