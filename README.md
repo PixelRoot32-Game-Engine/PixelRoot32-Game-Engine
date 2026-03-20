@@ -165,14 +165,17 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ## 1.1.0
 
 ### 🎨 Graphics & Animations
+
 - **Multi-Palette Support**: Multi-palette tilemaps and sprites with per-cell palette indexing.
 - **Tile Animation System**: O(1) frame resolution animations with zero-allocation policy.
 
 ### 🎮 Physics
+
 - **One-Way Platforms**: Jump-through platforms with spatial crossing detection.
 - **TileCollisionBuilder**: New builder for generating physics bodies from tile layers.
 
 ### ⚡ Architecture
+
 - **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
 - **Unified Logging**: Cross-platform `log()` with `PIXELROOT32_DEBUG_MODE` flag.
 
