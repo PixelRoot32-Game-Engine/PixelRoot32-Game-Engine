@@ -93,7 +93,11 @@ protected:
     void sortEntities();            ///< Sorts entities by render layer.
     bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer);
 
-    pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
+    // Physics 
+    #if PIXELROOT32_ENABLE_PHYSICS
+        pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
+    #endif
+
     SceneArena arena;
 };
 

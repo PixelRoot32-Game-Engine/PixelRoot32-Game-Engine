@@ -7,6 +7,8 @@
 #include "drivers/esp32/ESP32AudioScheduler.h"
 #include "audio/AudioMixerLUT.h"
 #include "platforms/EngineConfig.h"
+#include "core/Log.h"
+
 #include <Arduino.h>
 #include <algorithm>
 #include <cstring>
@@ -14,6 +16,8 @@
 #include <soc/soc_caps.h>
 
 namespace pixelroot32::audio {
+
+    using namespace pixelroot32::core::logging;
 
     ESP32AudioScheduler::ESP32AudioScheduler(int coreId, int priority)
         : coreId(coreId), priority(priority) {
@@ -138,9 +142,9 @@ namespace pixelroot32::audio {
         if (now - lastLog > 1000) {
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
                 if (currentPeak > 32767.0f) {
-                    Serial.printf("[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)\n", currentPeak);
+                    log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
                 } else {
-                    Serial.printf("[AUDIO] Peak: %.0f (%.1f%%)\n", currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                    log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)", currentPeak, (currentPeak / 32767.0f) * 100.0f);
                 }
             }
             currentPeak = 0.0f; // Reset peak after logging

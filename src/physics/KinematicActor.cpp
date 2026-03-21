@@ -49,6 +49,38 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
                  if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) {
                      continue; 
                  }
+                 if (physOther->isSensor())
+                     continue;  // Sensors do not block kinematic movement; overlap will trigger onCollision later.
+                 
+                 // Validate one-way platforms
+                 if (physOther->isOneWay()) {
+                     // Calculate collision normal
+                     pixelroot32::core::Rect myBox = getHitBox();
+                     pixelroot32::core::Rect otherBox = physOther->getHitBox();
+                     
+                     Scalar hw = toScalar((myBox.width + otherBox.width) / 2.0f);
+                     Scalar hh = toScalar((myBox.height + otherBox.height) / 2.0f);
+                     Scalar distX = (myBox.position.x + toScalar(myBox.width/2.0f)) - 
+                                   (otherBox.position.x + toScalar(otherBox.width/2.0f));
+                     Scalar distY = (myBox.position.y + toScalar(myBox.height/2.0f)) - 
+                                   (otherBox.position.y + toScalar(otherBox.height/2.0f));
+                     Scalar absX = (distX < toScalar(0) ? -distX : distX);
+                     Scalar absY = (distY < toScalar(0) ? -distY : distY);
+                     
+                     Scalar overlapX = hw - absX;
+                     Scalar overlapY = hh - absY;
+                     
+                     Vector2 normal;
+                     if (overlapX < overlapY) {
+                         normal = (distX < toScalar(0)) ? Vector2(-1, 0) : Vector2(1, 0);
+                     } else {
+                         normal = (distY < toScalar(0)) ? Vector2(0, -1) : Vector2(0, 1);
+                     }
+                     
+                     if (!collisionSystem->validateOneWayPlatform(this, physOther, normal)) {
+                         continue;  // Ignore this one-way platform
+                     }
+                 }
             }
             return true; // Found a valid blocker
         }
@@ -85,7 +117,11 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     pixelroot32::core::Actor* hitActor = nullptr;
     for (int i = 0; i < collisionCount; ++i) {
          auto* other = collisions[i];
-         if (other->isPhysicsBody() && static_cast<pixelroot32::core::PhysicsActor*>(other)->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) continue;
+         if (other->isPhysicsBody()) {
+             auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
+             if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID) continue;
+             if (physOther->isSensor()) continue;
+         }
          hitActor = other;
          break;
     }

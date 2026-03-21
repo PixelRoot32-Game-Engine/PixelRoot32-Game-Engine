@@ -1,6 +1,10 @@
 # PixelRoot32 Physics System Reference – Flat Solver
 
+> **Note:** For the complete physics system documentation with examples and API reference, visit the [official documentation](https://docs.pixelroot32.org/manual/game_development/physics_and_collisions/).
+
 This document describes the **Flat Solver**, the current physics system in PixelRoot32. This version represents a major architectural overhaul from previous versions, focusing on stability, determinism, and microcontroller-friendly performance.
+
+**Modular Compilation:** The entire physics system is only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`. When disabled, all physics-related classes, collision detection, and solver components are excluded from the build, significantly reducing firmware size and RAM usage.
 
 ---
 
@@ -8,10 +12,11 @@ This document describes the **Flat Solver**, the current physics system in Pixel
 
 ### 1.1 Design Philosophy
 
-- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware
-- **Stable**: Proper separation of velocity and position solvers eliminates jitter
-- **Microcontroller-Optimized**: No recursive sub-stepping, minimal memory overhead
-- **Correct**: Implements proper impulse-based collision response
+- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware.
+- **Stable**: Proper separation of velocity and position solvers eliminates jitter.
+- **Hardware-Optimized**: Uses `Fixed16` on non-FPU microcontrollers (ESP32-C3/C6) for high-performance math without the overhead of floating-point emulation.
+- **Precise Rounding**: Uses `MathUtil` rounding functions to ensure that small penetrations and velocities are handled consistently.
+- **Correct**: Implements proper impulse-based collision response.
 
 ### 1.2 The Simulation Pipeline
 
@@ -48,14 +53,12 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 
 ## 3. Collision Detection
 
-### 3.1 Broadphase: Spatial Grid
+### 3.1 Broadphase: Dual-Layer Spatial Grid
 
-- Uniform grid with configurable cell size (default: 32px)
-- Shared static buffers on ESP32 (saves ~100KB DRAM)
-- Detects:
-  - Rigid vs Rigid
-  - Rigid vs Static
-  - Rigid vs Kinematic
+- **Static layer**: Contains only STATIC bodies. Rebuilt only when entities are added or removed (`markStaticDirty()`). Not cleared each frame.
+- **Dynamic layer**: Contains RIGID and KINEMATIC bodies. Cleared and refilled every frame.
+- **Query**: `getPotentialColliders()` merges results from both layers (per cell), with deduplication via `Actor::queryId`.
+- **Config**: `SPATIAL_GRID_CELL_SIZE` (default 32px), `SPATIAL_GRID_MAX_STATIC_PER_CELL` (12), `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (12). Reduces per-frame cost when many static tiles are present.
 
 ### 3.2 Narrowphase: Shape Interactions
 
@@ -65,7 +68,13 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 | Circle vs Circle | Distance check with vertical fallback for perfect overlap |
 | Circle vs AABB | Closest point clamping |
 
-### 3.3 Contact Generation
+### 3.3 Contact Generation and Pool
+
+- Contacts are stored in a **fixed-size array** (`PHYSICS_MAX_CONTACTS`, default 128). No heap allocation in the hot path.
+- When the contact count would exceed the maximum, additional contacts are **dropped** (no crash). Tune `PHYSICS_MAX_CONTACTS` in `EngineConfig.h` if needed.
+- Each contact carries `isSensorContact = true` when either body is a sensor; these are skipped in the velocity and penetration solvers.
+
+### 3.4 Contact Restitution
 
 When a contact is generated, the solver pre-calculates the restitution coefficient:
 
@@ -134,22 +143,221 @@ bodyB->position -= correctionVec * invMassB;
 
 ---
 
-## 5. Actor Types
+## 5. Sensors and One-Way Platforms
 
-### 5.1 RigidActor
+### 5.1 Sensors (Triggers)
+
+- **`PhysicsActor::setSensor(true)`**: The body generates collision events and `onCollision()` is called, but **no impulse** and **no penetration correction** are applied.
+- Use for: collectibles, checkpoints, damage zones, area triggers.
+- **SensorActor** (include `physics/SensorActor.h`): A `StaticActor` subclass that calls `setSensor(true)` in the constructor.
+- In `onCollision`, you can check `other->isSensor()` to distinguish triggers from solid bodies.
+
+### 5.2 One-Way Platforms
+
+- **`PhysicsActor::setOneWay(true)`**: The body blocks only when the other body is "landing from above". The validation uses **spatial crossing detection** to determine approach direction:
+  - Checks if the collision normal points upward (actor above platform)
+  - Verifies the actor crossed the platform surface from above using `previousPosition`
+  - Confirms the actor is moving downward or stationary
+  - **Rejects horizontal collisions** (prevents getting stuck on platform edges/corners)
+- Contacts from below (e.g. jumping through the platform) are rejected.
+- Use for: platforms the player can jump through from below and land on from above.
+- Applies in both discrete narrowphase and in the CCD path (swept circle vs static AABB).
+- **Implementation**: Uses `CollisionSystem::validateOneWayPlatform()` which compares `PhysicsActor::previousPosition` with current position to detect spatial crossing. The validation includes a tolerance check (`abs(normal.y) < 0.1`) to reject side collisions.
+
+#### Algorithm: validateOneWayPlatform()
+
+```cpp
+bool validateOneWayPlatform(PhysicsActor* actor, PhysicsActor* platform, 
+                            const Vector2& collisionNormal) {
+    // 1. Must be marked as one-way
+    if (!platform->isOneWay()) return true;
+    
+    // 2. Normal must be mostly vertical (reject side collisions)
+    Scalar absNormalY = abs(collisionNormal.y);
+    if (absNormalY < 0.1) return false;
+    
+    // 3. Normal must point UP (push actor upward)
+    if (collisionNormal.y >= 0) return false;
+    
+    // 4. Check spatial crossing: was actor above platform?
+    Scalar platformTop = platform->getHitBox().position.y;
+    Scalar previousBottom = actor->getPreviousPosition().y + actor->height;
+    Scalar currentBottom = actor->position.y + actor->height;
+    
+    bool crossedFromAbove = (previousBottom <= platformTop) && 
+                           (currentBottom >= platformTop);
+    
+    // 5. Actor must be moving down or stationary
+    bool movingDown = actor->getVelocity().y >= 0;
+    
+    return crossedFromAbove && movingDown;
+}
+```
+
+**Test Coverage**: `test/unit/test_collision_system/test_collision_system.cpp` includes:
+- `test_one_way_platform_crossing_from_above`
+- `test_one_way_platform_crossing_from_below`
+- `test_one_way_platform_wrong_normal_direction`
+- `test_one_way_platform_moving_upward`
+- `test_one_way_platform_large_delta_movement`
+- `test_one_way_platform_velocity_sign_change`
+- `test_one_way_platform_stationary_on_surface`
+- `test_one_way_platform_not_one_way`
+
+### 5.3 Sensors and Kinematic Bodies
+
+Sensors interact with Kinematic bodies differently than solid bodies:
+
+#### KinematicActor + Sensor
+
+- **Sensors do not block kinematic movement**: `KinematicActor::moveAndCollide()` and `moveAndSlide()` skip `isSensor()` bodies with `continue`.
+- **Overlap still triggers `onCollision()`**: When a kinematic body overlaps a sensor, the collision system generates a contact and fires the callback, but no position correction or velocity response is applied.
+- This allows sensors to detect overlap (collectibles, triggers) without physically blocking the player.
+
+```cpp
+// In KinematicActor::moveAndCollide():
+for (auto& physOther : potentialColliders) {
+    if (physOther->isSensor()) {
+        continue;  // Sensors do not block kinematic movement
+    }
+    // ... collision resolution for solid bodies
+}
+```
+
+#### Pattern: Sensor in onCollision
+
+```cpp
+void PlayerActor::onCollision(Actor* other) override {
+    if (other->isSensor()) {
+        // Check userData for tile-based sensors
+        if (other->getUserData()) {
+            uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
+            uint16_t tx, ty;
+            TileFlags flags;
+            unpackTileData(packed, tx, ty, flags);
+            
+            if (flags & TILE_COLLECTIBLE) {
+                // Collect item (sensor blocks nothing, so player passes through)
+                collectItem(tx, ty);
+            }
+            if (flags & TILE_DAMAGE) {
+                // Take damage (player continues moving)
+                takeDamage();
+            }
+        }
+    }
+}
+```
+
+---
+
+## 6. Tile Attributes (Physics)
+
+For tile-based colliders, the engine provides **`physics/TileAttributes.h`** with two APIs:
+
+### 6.1 Flags-based API (recommended)
+
+- **`TileFlags`**: Bit flags (`TILE_NONE`, `TILE_SOLID`, `TILE_SENSOR`, `TILE_DAMAGE`, `TILE_COLLECTIBLE`, `TILE_ONEWAY`, `TILE_TRIGGER`). One byte per tile; no strings at runtime.
+- **`packTileData(x, y, flags)`** / **`unpackTileData(packed, x, y, flags)`**: Encode tile coords (10+10 bits) and flags (8 bits) into a single value for `setUserData()`.
+- **`TileBehaviorLayer`**: Struct holding `data` (dense `uint8_t` array), `width`, `height`. Exported by the Tilemap Editor; use with **`getTileFlags(layer, x, y)`** for O(1) lookup with bounds checking.
+- **`isSensorTile(flags)`** / **`isOneWayTile(flags)`** / **`isSolidTile(flags)`**: Derive sensor/one-way/solid from flags when building `StaticActor` or `SensorActor`.
+
+**Builder workflow:** For each tile with `flags != TILE_NONE`, create `StaticActor` or `SensorActor`, call `setSensor(isSensorTile(flags))`, `setOneWay(isOneWayTile(flags))`, and `setUserData(reinterpret_cast<void*>(packTileData(tx, ty, flags)))`, then `scene.addEntity(...)`.
+
+### 6.2 Legacy behavior enum
+
+- **`TileCollisionBehavior`**: `SOLID`, `SENSOR`, `ONE_WAY_UP`, `DAMAGE`, `DESTRUCTIBLE`.
+- **`packTileData(x, y, behavior)`** / **`unpackTileData(..., behavior)`**: Same encoding with 4-bit behavior (deprecated for new code).
+
+### 6.3 Consumible tiles (Phase 7)
+
+When a tile is consumed (e.g. coin collected), remove its body and hide it visually:
+
+1. **`scene.removeEntity(tileActor)`** so the CollisionSystem no longer considers it.
+2. **`tilemap->setTileActive(tileX, tileY, false)`** so `drawTileMap` skips it (reuses `runtimeMask`; no separate consumed mask).
+
+**`physics/TileConsumptionHelper.h`** wraps this: **`TileConsumptionHelper`** (constructor: scene, tilemap, config) provides **`consumeTile(tileActor, tileX, tileY)`** and **`consumeTileFromUserData(tileActor, packedUserData)`** (only consumes if `TILE_COLLECTIBLE`). Convenience **`consumeTileFromCollision(tileActor, packedUserData, scene, tilemap)`** for use inside `onCollision`. Destruction and damage logic remain in game code using `getUserData()` and flags.
+
+### 6.4 TileCollisionBuilder (High-Level API)
+
+**Include**: `physics/TileCollisionBuilder.h`
+
+The `TileCollisionBuilder` class provides a high-level builder that generates physics bodies from a `TileBehaviorLayer` with a single function call. This is the recommended way to populate physics for tilemap-based levels.
+
+#### Configuration
+
+```cpp
+struct TileCollisionBuilderConfig {
+    uint8_t tileWidth;      // Tile width in world units (e.g., 16)
+    uint8_t tileHeight;     // Tile height in world units (e.g., 16)
+    uint16_t maxEntities;   // Safety limit (0xFFFF = unlimited)
+    
+    TileCollisionBuilderConfig(uint8_t w = 16, uint8_t h = 16, uint16_t max = 0xFFFF);
+};
+```
+
+#### Workflow
+
+```
+Tilemap Editor Export
+    ↓
+TileBehaviorLayer { data: uint8_t[], width, height }
+    ↓
+TileCollisionBuilder::buildFromBehaviorLayer()
+    ↓
+For each tile (x, y) with flags != 0:
+    ├── O(1) lookup: getTileFlags(layer, x, y)
+    ├── Create body: isSensorTile(flags) ? SensorActor : StaticActor
+    ├── Configure: setSensor(), setOneWay()
+    ├── Pack data: setUserData(packTileData(x, y, flags))
+    ├── Set layers: setCollisionLayer(), setCollisionMask()
+    └── Add to scene: scene.addEntity()
+```
+
+#### Usage
+
+```cpp
+#include "physics/TileCollisionBuilder.h"
+
+void GameScene::init() override {
+    // Layer exported by Tilemap Editor
+    TileBehaviorLayer layer = { behaviorData, 32, 32 };
+    
+    // One-liner
+    int count = buildTileCollisions(*this, layer, 16, 16, 0);
+    
+    // Or explicit config
+    TileCollisionBuilderConfig config(16, 16, 2048);
+    TileCollisionBuilder builder(*this, config);
+    int entities = builder.buildFromBehaviorLayer(layer, 0);
+}
+```
+
+#### Memory Considerations
+
+- Each created actor is a heap allocation (`new StaticActor` / `new SensorActor`).
+- A 32×32 tilemap with every tile solid = 1024 bodies.
+- Call `scene.clearEntities()` before rebuilding to avoid duplicates.
+- On ESP32 with limited DRAM, consider using `maxEntities` as a safety limit.
+
+---
+
+## 7. Actor Types
+
+### 7.1 RigidActor
 
 - Fully simulated: gravity, forces, collisions
 - Position integrated by CollisionSystem
 - Supports both CIRCLE and AABB shapes
 - Use for: Balls, props, debris
 
-### 5.2 StaticActor
+### 7.2 StaticActor
 
 - Immovable, infinite mass
 - Participates in collisions but never moves
 - Use for: Walls, floors, platforms
 
-### 5.3 KinematicActor
+### 7.3 KinematicActor
 
 - Moved by game logic, not physics
 - Participates in collisions (pushes Rigid actors)
@@ -158,9 +366,9 @@ bodyB->position -= correctionVec * invMassB;
 
 ---
 
-## 6. Continuous Collision Detection (CCD)
+## 8. Continuous Collision Detection (CCD)
 
-### 6.1 When It Activates
+### 8.1 When It Activates
 
 CCD is used only when necessary:
 
@@ -178,7 +386,7 @@ bool needsCCD(PhysicsActor* body) {
 }
 ```
 
-### 6.2 Swept Test Algorithm
+### 8.2 Swept Test Algorithm
 
 ```cpp
 // Simple swept circle vs AABB
@@ -191,11 +399,24 @@ Use case: Prevents tunneling when ball moves extremely fast (> 3x radius per fra
 
 ---
 
-## 7. Configuration
+## 9. Configuration
 
-### 7.1 Physics Constants
+### 9.1 Physics Constants
 
-Tune in `CollisionSystem.h`:
+Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build flags (e.g. `-D PHYSICS_MAX_CONTACTS=64`):
+
+```cpp
+// Contact pool size (fixed array, no heap)
+#define PHYSICS_MAX_CONTACTS 128
+
+// Spatial grid: static = rebuilt when entities change; dynamic = per frame
+#define SPATIAL_GRID_MAX_STATIC_PER_CELL  12
+#define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
+```
+
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md#esp32-dram-and-build-configuration).
+
+Solver tuning (in code):
 
 ```cpp
 // For more stable stacking (slower)
@@ -206,45 +427,53 @@ static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
 static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
 ```
 
-### 7.2 Per-Actor Properties
+**Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
+
+**Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
+
+### 9.2 Per-Actor Properties
 
 ```cpp
 // Restitution (bounciness): 0.0 to 1.0+
-actor->setRestitution(toScalar(1.0f));  // Perfect bounce
+physicsActor->setRestitution(toScalar(1.0f));  // Perfect bounce
 
 // Friction: 0.0 (none) to 1.0 (high)
-actor->setFriction(toScalar(0.0f));
+physicsActor->setFriction(toScalar(0.0f));
 
 // Gravity scale: 0.0 (no gravity) to 1.0+ (heavy)
-actor->setGravityScale(toScalar(0.0f)); // No gravity
+physicsActor->setGravityScale(toScalar(0.0f)); // No gravity
 
 // Shape
-actor->setShape(CollisionShape::CIRCLE);
-actor->setRadius(toScalar(6));
+physicsActor->setShape(CollisionShape::CIRCLE);
+physicsActor->setRadius(toScalar(6));
 ```
 
 ---
 
-## 8. Performance Guide
+## 10. Performance Guide
 
-### 8.1 ESP32-C3 (Non-FPU)
+### 10.1 ESP32-C3 (Non-FPU)
 
 - **Target**: < 20 dynamic bodies @ 60 FPS
 - **Use AABB** over Circle when possible (cheaper)
 - **CCD has overhead**: Only triggers when needed
 - **Slop helps**: Skip unnecessary corrections
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
 
-### 8.2 ESP32 (With FPU)
+**Modular Compilation:** On memory-constrained platforms, consider disabling physics entirely with `PIXELROOT32_ENABLE_PHYSICS=0` and using simple AABB checks instead.
+
+### 10.2 ESP32 (With FPU)
 
 - **Target**: < 50 dynamic bodies @ 60 FPS
 - Circles are fine
 - Can increase VELOCITY_ITERATIONS to 4 for better stability
+- **Memory Impact**: Physics system disabled saves ~12KB RAM
 
 ---
 
-## 9. Migration from v0.8.x / v0.9.0
+## 11. Migration from v0.8.x / v0.9.0
 
-### 9.1 Key Changes
+### 11.1 Key Changes
 
 | Old (v0.8.x) | New |
 |--------------|------------|
@@ -255,7 +484,7 @@ actor->setRadius(toScalar(6));
 | Kinematic vs Rigid detection broken | Fixed and working |
 | Variable timestep | Fixed timestep (1/60s) |
 
-### 9.2 Code Changes Required
+### 11.2 Code Changes Required
 
 **Before:**
 
@@ -276,7 +505,7 @@ void RigidActor::update(unsigned long deltaTime) {
 }
 ```
 
-### 9.3 Behavior Differences
+### 11.3 Behavior Differences
 
 1. **More stable stacking**: Impulse solver handles multiple contacts better
 2. **Perfect elastic collisions**: Restitution 1.0 actually works now
@@ -285,13 +514,14 @@ void RigidActor::update(unsigned long deltaTime) {
 
 ---
 
-## 10. Best Practices
+## 12. Best Practices
 
 1. **Always set shape**: `setShape(CollisionShape::CIRCLE)` or `AABB`
 2. **Set radius for circles**: `setRadius(toScalar(r))` (critical for CCD)
 3. **Use collision layers**: Don't rely on expensive broadphase checks
 4. **Keep callbacks light**: `onCollision()` should only notify, not modify physics
 5. **Test on target hardware**: Physics feels different on ESP32-C3 vs PC
+6. **Consider modular compilation**: For simple games, disabling physics (`PIXELROOT32_ENABLE_PHYSICS=0`) and using basic AABB checks can save significant RAM and firmware size
 
 ---
 
@@ -303,5 +533,5 @@ void RigidActor::update(unsigned long deltaTime) {
 ---
 
 **Document Version**: Flat Solver  
-**Last Updated**: February 2026  
-**Engine Version**: v1.0.0
+**Last Updated**: March 2026  
+**Engine Version**: v1.1.0

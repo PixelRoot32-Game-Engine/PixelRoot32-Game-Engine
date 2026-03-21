@@ -7,6 +7,7 @@
 #ifdef PLATFORM_NATIVE
 
 #include "audio/AudioBackend.h"
+#include <core/Log.h>
 #include <SDL2/SDL.h>
 
 namespace pixelroot32::drivers::native {

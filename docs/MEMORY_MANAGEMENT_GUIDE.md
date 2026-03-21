@@ -1,8 +1,10 @@
 # Memory Management Guide - PixelRoot32 C++17
 
-**Document Version:** 1.0  
-**Last Updated:** February 2026  
-**Engine Version:** v1.0.0
+**Document Version:** 1.1  
+**Last Updated:** March 2026  
+**Engine Version:** v1.1.0
+
+> **Note:** For the complete memory management guide with optimization strategies, visit the [official documentation](https://docs.pixelroot32.org/manual/optimization/memory_management/).
 
 ## Overview
 
@@ -20,10 +22,107 @@ Understanding the engine's memory limits is crucial for developing stable games 
 |-------|--------------|--------------|-------------|
 | **Max Entities** | 32 | ✅ via `MAX_ENTITIES` | Maximum entities per scene |
 | **Max Layers** | 3 | ✅ via `MAX_LAYERS` | Maximum render layers (0=Bg, 1=Game, 2=UI) |
-| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs per frame |
+| **Max Physics Pairs** | 128 | ✅ via `PHYSICS_MAX_PAIRS` | Maximum collision pairs considered in broadphase |
+| **Max Physics Contacts** | 128 | ✅ via `PHYSICS_MAX_CONTACTS` | Fixed contact pool size; no heap per frame. Excess contacts are dropped. |
 | **Spatial Grid Cell Size** | 32px | ✅ via `SPATIAL_GRID_CELL_SIZE` | Size of uniform grid cells |
-| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Grid cell capacity |
+| **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Legacy single-grid capacity |
+| **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
+| **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
 | **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
+
+**Modular Compilation Impact:**
+
+When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allocations are eliminated entirely from the binary:
+
+| Flag | RAM Savings | Flash Savings | Subsystems Removed |
+|------|-------------|--------------|-------------------|
+| `PIXELROOT32_ENABLE_AUDIO=0` | ~8 KB | ~15 KB | AudioEngine, MusicPlayer, audio buffers |
+| `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB | CollisionSystem, spatial grid, physics actors |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB | UIElement, all layouts, UI containers |
+| `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB | ParticleEmitter, particle pools |
+| **All disabled** | **~30 KB** | **~70 KB** | Maximum savings |
+
+#### Subsystem Compilation Patterns
+
+**File-level guards:**
+```cpp
+// src/audio/MusicPlayer.cpp
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_AUDIO
+
+// ... full implementation ...
+
+#endif // PIXELROOT32_ENABLE_AUDIO
+```
+
+**Constructor initialization:**
+```cpp
+Engine::Engine(DisplayConfig&& displayConfig, ...)
+    : renderer(std::move(displayConfig)),
+#if PIXELROOT32_ENABLE_AUDIO
+      audioEngine(audioConfig, capabilities),
+      musicPlayer(audioEngine),
+#endif
+      // ... other members ...
+```
+
+**Runtime initialization:**
+```cpp
+void Engine::init() {
+    renderer.init();
+    inputManager.init();
+#if PIXELROOT32_ENABLE_AUDIO
+    audioEngine.init();
+#endif
+}
+```
+
+#### Recommended Build Profiles
+
+For projects with severe memory constraints, use predefined profiles:
+
+```ini
+# platformio.ini
+
+[profile_minimal]
+build_flags =
+    -DPIXELROOT32_ENABLE_AUDIO=0
+    -DPIXELROOT32_ENABLE_PHYSICS=0
+    -DPIXELROOT32_ENABLE_PARTICLES=0
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+    -DMAX_ENTITIES=16
+    -DPHYSICS_MAX_CONTACTS=0
+
+[profile_arcade]
+build_flags =
+    -DPIXELROOT32_ENABLE_AUDIO=1
+    -DPIXELROOT32_ENABLE_PHYSICS=1
+    -DPIXELROOT32_ENABLE_PARTICLES=1
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+```
+
+#### Memory Budget Planning
+
+When planning memory usage, subtract subsystem overhead from available RAM:
+
+```
+Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
+├─ Framebuffer (240x240):  ~57 KB
+├─ Engine overhead:         ~20 KB
+├─ Subsystem RAM:          Variable (see table above)
+└─ Game entities:         Remaining
+```
+
+**Example budget calculation for 240x240 game on ESP32 classic:**
+
+| Item | RAM |
+|------|-----|
+| Framebuffer | 57 KB |
+| Engine overhead | 20 KB |
+| Physics (if enabled) | 12 KB |
+| Audio (if enabled) | 8 KB |
+| **Reserved** | **~97 KB** |
+| **Available for game** | **~423 KB** |
 
 ### Memory Footprint by Resolution
 
@@ -65,6 +164,9 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=128
 -D MAX_ENTITIES=24
 -D PHYSICS_MAX_PAIRS=64
+-D PIXELROOT32_ENABLE_UI_SYSTEM=0  ; Disable UI for minimal build
+-D PIXELROOT32_ENABLE_PARTICLES=0  ; Disable particles for minimal build
+-D PHYSICS_MAX_CONTACTS=64
 ```
 
 **For richer scenes (with PSRAM):**
@@ -75,7 +177,52 @@ Understanding the engine's memory limits is crucial for developing stable games 
 -D LOGICAL_HEIGHT=240
 -D MAX_ENTITIES=64
 -D PHYSICS_MAX_PAIRS=256
+-D PIXELROOT32_ENABLE_AUDIO=1     ; Full audio system
+-D PIXELROOT32_ENABLE_PHYSICS=1   ; Full physics System
 ```
+
+**Minimal embedded build (ESP32-C3, no audio):**
+
+```cpp
+// platformio.ini build_flags
+-D LOGICAL_WIDTH=128
+-D LOGICAL_HEIGHT=128
+-D MAX_ENTITIES=16
+-D PIXELROOT32_ENABLE_AUDIO=0     ; No audio system
+-D PIXELROOT32_ENABLE_PHYSICS=0   ; Basic collision only
+-D PIXELROOT32_ENABLE_UI_SYSTEM=1  ; Keep UI for user interface
+-D PIXELROOT32_ENABLE_PARTICLES=0  ; No particle system
+-D PHYSICS_MAX_CONTACTS=256
+```
+
+**Collision system memory (v1.0+):** The solver uses a **fixed contact array** (`PHYSICS_MAX_CONTACTS` entries) and a **dual-layer spatial grid** (static + dynamic cells). No heap is allocated during `detectCollisions()`; only the static/dynamic grid buffers and the contact array occupy static memory. Reducing `PHYSICS_MAX_CONTACTS` or the per-cell limits lowers RAM use at the cost of dropping contacts or actors when limits are exceeded.
+
+### ESP32 DRAM and Build Configuration
+
+On ESP32 (e.g. `esp32dev`), the linker places static and global data in **`.dram0.bss`**. If the project fails with **`region dram0_0_seg overflowed by N bytes`**, reduce one or more of the following (via `platformio.ini` `build_flags` or scene buffers):
+
+| What to reduce | Flag or change | Effect |
+|----------------|-----------------|--------|
+| **Logical resolution** | `-D LOGICAL_WIDTH=128 -D LOGICAL_HEIGHT=128` (keep `PHYSICAL_DISPLAY_*` at 240) | Smaller SpatialGrid and tilemap indices; rendering scales to physical size. |
+| **Spatial grid per cell** | `-D SPATIAL_GRID_MAX_STATIC_PER_CELL=4 -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4` | Less static RAM for grid (default 12). |
+| **Contact pool** | `-D PHYSICS_MAX_CONTACTS=64 -D PHYSICS_MAX_PAIRS=64` | Smaller contact array per scene (default 128). |
+| **Scene arena / buffers** | Reduce scene static buffers (e.g. `SPACE_INVADERS_SCENE_ARENA_BUFFER`, demo `sceneBuffer`) in scene `.cpp` | Fewer bytes in `.dram0.bss`. |
+
+**Recommended for ESP32 when linking fails (240×240 physical):**
+
+```ini
+build_flags =
+  -D LOGICAL_WIDTH=128
+  -D LOGICAL_HEIGHT=128
+  -D PHYSICAL_DISPLAY_WIDTH=240
+  -D PHYSICAL_DISPLAY_HEIGHT=240
+  -D SPATIAL_GRID_MAX_STATIC_PER_CELL=4
+  -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4
+  -D PHYSICS_MAX_CONTACTS=64
+  -D PHYSICS_MAX_PAIRS=64
+```
+
+The engine library compiles only from its `src/` directory (`library.json` `srcDir`); the `test/` folder is not linked into the firmware.
 
 ### Runtime Memory Monitoring
 
@@ -390,7 +537,48 @@ if (dmaBuffer == nullptr) {
 heap_caps_free(dmaBuffer);
 ```
 
-### Memory-Performance Trade-offs (v1.0.0)
+### Cross-Platform Flash Memory Access (v1.0.0+)
+
+When developing for ESP32, large static assets like tilemaps, sprites, and melodies are stored in Flash memory (**PROGMEM**) to save limited SRAM. However, standard C functions like `strcmp` or `memcpy` cannot read from Flash memory on some architectures.
+
+The engine provides a platform abstraction layer in **`platforms/PlatformMemory.h`** to handle this transparently.
+
+### Unified Memory API
+
+| Macro | Description | ESP32 Mapping | Native Mapping |
+|-------|-------------|---------------|----------------|
+| `PIXELROOT32_FLASH_ATTR` | Attribute to store data in Flash | `PROGMEM` | (empty) |
+| `PIXELROOT32_STRCMP_P` | Compare string with Flash string | `strcmp_P` | `strcmp` |
+| `PIXELROOT32_MEMCPY_P` | Copy from Flash memory | `memcpy_P` | `memcpy` |
+| `PIXELROOT32_READ_BYTE_P` | Read 8-bit value from Flash | `pgm_read_byte` | direct access |
+| `PIXELROOT32_READ_WORD_P` | Read 16-bit value from Flash | `pgm_read_word` | direct access |
+| `PIXELROOT32_READ_DWORD_P` | Read 32-bit value from Flash | `pgm_read_dword` | direct access |
+| `PIXELROOT32_READ_FLOAT_P` | Read float value from Flash | `pgm_read_float` | direct access |
+| `PIXELROOT32_READ_PTR_P` | Read pointer from Flash | `pgm_read_ptr` | direct access |
+
+### Best Practice Example
+
+When querying tile attributes or using exported scene data:
+
+```cpp
+#include "platforms/PlatformMemory.h"
+
+void checkTile(int x, int y) {
+    // get_tile_attribute returns a pointer to Flash memory on ESP32
+    const char* type = levels::level_1::get_tile_attribute(0, x, y, "type");
+    
+    if (type != nullptr) {
+        // ✅ ALWAYS use PIXELROOT32_STRCMP_P for cross-platform compatibility
+        if (PIXELROOT32_STRCMP_P("lava", type) == 0) {
+            player->takeDamage(100);
+        }
+    }
+}
+```
+
+---
+
+## Memory-Performance Trade-offs (v1.0.0)
 
 In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINES_PER_BLOCK` improves throughput but increases memory usage linearly:
 

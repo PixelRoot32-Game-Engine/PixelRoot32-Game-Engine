@@ -3,6 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
+
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+
 #include "UILayout.h"
 #include "input/InputManager.h"
 #include "graphics/Color.h"
@@ -203,3 +207,5 @@ private:
 };
 
 }
+
+#endif // PIXELROOT32_ENABLE_UI_SYSTEM

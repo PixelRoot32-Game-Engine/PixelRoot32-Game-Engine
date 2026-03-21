@@ -2,6 +2,8 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
+
+#include "platforms/EngineConfig.h"
 #include "graphics/Color.h"
 #include "graphics/PaletteDefs.h"
 
@@ -34,6 +36,38 @@ static const uint16_t* backgroundPalette = PALETTE_PR32;
 static const uint16_t* spritePalette = PALETTE_PR32;
 static bool dualPaletteMode = false;
 
+// Multi-palette background: bank of 8 slots; slot 0 = default = backgroundPalette semantics.
+static constexpr uint8_t kNumBackgroundPaletteSlots =
+    static_cast<uint8_t>(pixelroot32::platforms::config::kMaxBackgroundPaletteSlots);
+static const uint16_t* backgroundPaletteSlots[kNumBackgroundPaletteSlots] = {};
+
+// Multi-palette sprites: bank of 8 slots; slot 0 = default = spritePalette semantics.
+static constexpr uint8_t kNumSpritePaletteSlots =
+    static_cast<uint8_t>(pixelroot32::platforms::config::kMaxSpritePaletteSlots);
+static const uint16_t* spritePaletteSlots[kNumSpritePaletteSlots] = {};
+
+static void ensureBackgroundPaletteSlotsInited() {
+    if (backgroundPaletteSlots[0] != nullptr) return;
+    for (uint8_t i = 0; i < kNumBackgroundPaletteSlots; i++)
+        backgroundPaletteSlots[i] = PALETTE_PR32;
+}
+
+static void ensureSpritePaletteSlotsInited() {
+    if (spritePaletteSlots[0] != nullptr) return;
+    for (uint8_t i = 0; i < kNumSpritePaletteSlots; i++)
+        spritePaletteSlots[i] = PALETTE_PR32;
+}
+
+void initBackgroundPaletteSlots() {
+    for (uint8_t i = 0; i < kNumBackgroundPaletteSlots; i++)
+        backgroundPaletteSlots[i] = PALETTE_PR32;
+}
+
+void initSpritePaletteSlots() {
+    for (uint8_t i = 0; i < kNumSpritePaletteSlots; i++)
+        spritePaletteSlots[i] = PALETTE_PR32;
+}
+
 /** 
  * @brief Set palette (legacy mode).
  * Sets both background and sprite palettes to the same value.
@@ -55,6 +89,10 @@ void setPalette(PaletteType palette) {
     currentPalette = selectedPalette;
     backgroundPalette = selectedPalette;
     spritePalette = selectedPalette;
+    ensureBackgroundPaletteSlotsInited();
+    backgroundPaletteSlots[0] = selectedPalette;
+    ensureSpritePaletteSlotsInited();
+    spritePaletteSlots[0] = selectedPalette;
     // Keep dualPaletteMode = false for backward compatibility
 }
 
@@ -74,6 +112,10 @@ void setCustomPalette(const uint16_t* palette) {
         currentPalette = palette;
         backgroundPalette = palette;
         spritePalette = palette;
+        ensureBackgroundPaletteSlotsInited();
+        backgroundPaletteSlots[0] = palette;
+        ensureSpritePaletteSlotsInited();
+        spritePaletteSlots[0] = palette;
         // Keep dualPaletteMode = false for backward compatibility
     }
 }
@@ -110,13 +152,16 @@ void enableDualPaletteMode(bool enable) {
  * @param palette The palette type to use for backgrounds.
  */
 void setBackgroundPalette(PaletteType palette) {
+    ensureBackgroundPaletteSlotsInited();
     for (const auto& entry : kPalettes) {
         if (entry.type == palette) {
             backgroundPalette = entry.colors;
+            backgroundPaletteSlots[0] = entry.colors;
             return;
         }
     }
     backgroundPalette = PALETTE_PR32; // fallback
+    backgroundPaletteSlots[0] = PALETTE_PR32;
 }
 
 /**
@@ -127,10 +172,14 @@ void setSpritePalette(PaletteType palette) {
     for (const auto& entry : kPalettes) {
         if (entry.type == palette) {
             spritePalette = entry.colors;
+            ensureSpritePaletteSlotsInited();
+            spritePaletteSlots[0] = entry.colors;
             return;
         }
     }
     spritePalette = PALETTE_PR32; // fallback
+    ensureSpritePaletteSlotsInited();
+    spritePaletteSlots[0] = PALETTE_PR32;
 }
 
 /**
@@ -139,7 +188,9 @@ void setSpritePalette(PaletteType palette) {
  */
 void setBackgroundCustomPalette(const uint16_t* palette) {
     if (palette != nullptr) {
+        ensureBackgroundPaletteSlotsInited();
         backgroundPalette = palette;
+        backgroundPaletteSlots[0] = palette;
     }
 }
 
@@ -150,6 +201,8 @@ void setBackgroundCustomPalette(const uint16_t* palette) {
 void setSpriteCustomPalette(const uint16_t* palette) {
     if (palette != nullptr) {
         spritePalette = palette;
+        ensureSpritePaletteSlotsInited();
+        spritePaletteSlots[0] = palette;
     }
 }
 
@@ -170,9 +223,78 @@ void setDualPalette(PaletteType bgPalette, PaletteType spritePalette) {
 void setDualCustomPalette(const uint16_t* bgPalette, const uint16_t* spritePal) {
     if (bgPalette != nullptr && spritePal != nullptr) {
         enableDualPaletteMode(true);
+        ensureBackgroundPaletteSlotsInited();
         backgroundPalette = bgPalette;
+        backgroundPaletteSlots[0] = bgPalette;
         spritePalette = spritePal;
+        ensureSpritePaletteSlotsInited();
+        spritePaletteSlots[0] = spritePal;
     }
+}
+
+void setBackgroundPaletteSlot(uint8_t slotIndex, PaletteType palette) {
+    if (slotIndex >= kNumBackgroundPaletteSlots) return;
+    ensureBackgroundPaletteSlotsInited();
+    for (const auto& entry : kPalettes) {
+        if (entry.type == palette) {
+            backgroundPaletteSlots[slotIndex] = entry.colors;
+            if (slotIndex == 0) backgroundPalette = entry.colors;
+            return;
+        }
+    }
+    backgroundPaletteSlots[slotIndex] = PALETTE_PR32;
+    if (slotIndex == 0) backgroundPalette = PALETTE_PR32;
+}
+
+void setBackgroundCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette) {
+    if (slotIndex >= kNumBackgroundPaletteSlots || palette == nullptr) return;
+    ensureBackgroundPaletteSlotsInited();
+    backgroundPaletteSlots[slotIndex] = palette;
+    if (slotIndex == 0) backgroundPalette = palette;
+}
+
+const uint16_t* getBackgroundPaletteSlot(uint8_t slotIndex) {
+    ensureBackgroundPaletteSlotsInited();
+    if (slotIndex >= kNumBackgroundPaletteSlots)
+        return backgroundPaletteSlots[0];
+    const uint16_t* p = backgroundPaletteSlots[slotIndex];
+    return (p != nullptr) ? p : backgroundPaletteSlots[0];
+}
+
+void setSpritePaletteSlot(uint8_t slotIndex, PaletteType palette) {
+    if (slotIndex >= kNumSpritePaletteSlots) return;
+    ensureSpritePaletteSlotsInited();
+    for (const auto& entry : kPalettes) {
+        if (entry.type == palette) {
+            spritePaletteSlots[slotIndex] = entry.colors;
+            if (slotIndex == 0) spritePalette = entry.colors;
+            return;
+        }
+    }
+    spritePaletteSlots[slotIndex] = PALETTE_PR32;
+    if (slotIndex == 0) spritePalette = PALETTE_PR32;
+}
+
+void setSpriteCustomPaletteSlot(uint8_t slotIndex, const uint16_t* palette) {
+    if (slotIndex >= kNumSpritePaletteSlots || palette == nullptr) return;
+    ensureSpritePaletteSlotsInited();
+    spritePaletteSlots[slotIndex] = palette;
+    if (slotIndex == 0) spritePalette = palette;
+}
+
+const uint16_t* getSpritePaletteSlot(uint8_t slotIndex) {
+    ensureSpritePaletteSlotsInited();
+    if (slotIndex >= kNumSpritePaletteSlots)
+        return spritePaletteSlots[0];
+    const uint16_t* p = spritePaletteSlots[slotIndex];
+    return (p != nullptr) ? p : spritePaletteSlots[0];
+}
+
+uint16_t IRAM_ATTR resolveColorWithPalette(Color color, const uint16_t* palette) {
+    uint8_t idx = static_cast<uint8_t>(color);
+    if (idx >= PALETTE_SIZE || palette == nullptr)
+        return 0;
+    return palette[idx];
 }
 
 /**

@@ -11,8 +11,8 @@
 #include "graphics/Renderer.h"
 #include "input/InputConfig.h"
 #include "audio/AudioConfig.h"
-#include "../test_config.h"
-#include "../mocks/MockDrawSurface.h"
+#include "../../test_config.h"
+#include "../../mocks/MockDrawSurface.h"
 #include <memory>
 
 using namespace pixelroot32::core;
@@ -20,7 +20,14 @@ using namespace pixelroot32::graphics;
 using namespace pixelroot32::input;
 using namespace pixelroot32::audio;
 
-int MockDrawSurface::instances = 0;
+static int mock_instances = 0;
+
+// Local MockDrawSurface that uses local counter
+class LocalMockDrawSurface : public MockDrawSurface {
+public:
+    LocalMockDrawSurface() { mock_instances++; }
+    virtual ~LocalMockDrawSurface() { mock_instances--; }
+};
 
 void setUp(void) {
     // set stuff up here
@@ -112,19 +119,19 @@ void test_engine_update_draw_propagation(void) {
 }
 
 void test_engine_graphics_ownership(void) {
-    TEST_ASSERT_EQUAL(0, MockDrawSurface::instances);
+    TEST_ASSERT_EQUAL(0, mock_instances);
     
     {
-        MockDrawSurface* mock = new MockDrawSurface();
+        LocalMockDrawSurface* mock = new LocalMockDrawSurface();
         DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock, 240, 240);
         
         {
             Engine engine(config);
-            TEST_ASSERT_EQUAL(1, MockDrawSurface::instances);
+            TEST_ASSERT_EQUAL(1, mock_instances);
         }
         
         // Engine should have deleted the mock via Renderer
-        TEST_ASSERT_EQUAL(0, MockDrawSurface::instances);
+        TEST_ASSERT_EQUAL(0, mock_instances);
     }
 }
 

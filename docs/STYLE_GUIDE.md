@@ -78,11 +78,33 @@ These namespaces are considered part of the stable public API and may be used di
 - pixelroot32::math
 - pixelroot32::drivers
 
+**Modular Compilation Note:** Some namespaces may be conditionally available:
+
+- `pixelroot32::audio`: Only available when `PIXELROOT32_ENABLE_AUDIO=1`
+- `pixelroot32::graphics::ui`: Only available when `PIXELROOT32_ENABLE_UI_SYSTEM=1`
+- `pixelroot32::physics`: Only available when `PIXELROOT32_ENABLE_PHYSICS=1`
+
 Example usage in a game project:
 
+```cpp
 class BallActor : public pixelroot32::core::Actor {
     ...
 };
+
+#if PIXELROOT32_ENABLE_AUDIO
+class AudioManager {
+    pixelroot32::audio::AudioEngine* audio;
+    // Audio management code
+};
+#endif
+
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+class GameUI {
+    pixelroot32::graphics::ui::UIButton button;
+    // UI management code
+};
+#endif
+```
 
 ---
 
@@ -135,7 +157,7 @@ The following documents are recommended as part of the project:
 
 ---
 
-## 🚀 Best Practices & Optimization
+### 🚀 Best Practices & Optimization
 
 These guidelines are derived from practical implementation in `examples/GeometryJump`, `examples/BrickBreaker`, `examples/Pong`, and the side-scrolling platformer prototype used in the camera demo.
 
@@ -156,6 +178,18 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **Scene Arenas** (`PIXELROOT32_ENABLE_SCENE_ARENA`):
   - Use a single pre-allocated buffer per scene for temporary entities or scratch data when you need strict zero-allocation guarantees.
   - *Trade-off*: Very cache-friendly and fragmentation-proof, but the buffer cannot grow at runtime; oversizing wastes RAM, undersizing returns `nullptr` and requires graceful fallback logic.
+
+#### Modular Compilation Memory Optimization
+
+The modular compilation system provides powerful memory optimization capabilities:
+
+- **Selective Inclusion**: Only compile subsystems you actually use
+- **Memory Savings**: Each disabled subsystem eliminates its static buffers and runtime allocations:
+  - Audio disabled: ~8KB RAM saved
+  - Physics disabled: ~12KB RAM saved
+  - UI System disabled: ~4KB RAM saved
+  - Particles disabled: ~6KB RAM saved
+- **Firmware Size**: Disabled subsystems are completely excluded from the final binary, reducing flash usage
 
 #### Recommended Pooling Patterns (ESP32)
 
@@ -194,6 +228,124 @@ These guidelines are derived from practical implementation in `examples/Geometry
 - **Snappy Controls**: For fast-paced games, prefer higher gravity and jump forces to reduce "floatiness".
 - **Slopes & Ramps on Tilemaps**: When implementing ramps on a tilemap, treat contiguous ramp tiles as a single logical slope and compute the surface height using linear interpolation over world X instead of resolving per tile. Keep gravity and jump parameters identical between flat ground and ramps so jump timing remains consistent.
 
+#### Modular Compilation Considerations
+
+- **Conditional Logic**: Use `#if PIXELROOT32_ENABLE_*` guards around subsystem-specific code
+- **Fallback Systems**: When a subsystem is disabled, provide simplified alternatives:
+  ```cpp
+  #if PIXELROOT32_ENABLE_PHYSICS
+      // Full physics collision
+      scene.collisionSystem.update();
+  #else
+      // Simple AABB collision check
+      checkSimpleCollisions();
+  #endif
+  ```
+
+#### Recommended Build Profiles
+
+Choose a profile based on your game type to optimize memory usage:
+
+| Game Type | Profile | Enabled | Disabled |
+|-----------|---------|---------|----------|
+| Arcade shooters/platformers | `arcade` | Audio, Physics, Particles | UI System |
+| Puzzle/casual games | `puzzle` | Audio, UI System | Physics, Particles |
+| Retro/minimal | `retro` | None | All |
+| Educational/tools | `puzzle` or custom | Audio, UI System | Physics, Particles |
+
+**Example platformio.ini configuration:**
+
+```ini
+[env:esp32_arcade]
+extends = base_esp32, profile_arcade
+build_flags =
+    ${base_esp32.build_flags}
+    ${profile_arcade.build_flags}
+
+[env:esp32_puzzle]
+extends = base_esp32, profile_puzzle
+build_flags =
+    ${base_esp32.build_flags}
+    ${profile_puzzle.build_flags}
+
+[env:native_retro]
+build_flags =
+    -DPLATFORM_NATIVE=1
+    -DPIXELROOT32_ENABLE_AUDIO=0
+    -DPIXELROOT32_ENABLE_PHYSICS=0
+    -DPIXELROOT32_ENABLE_PARTICLES=0
+    -DPIXELROOT32_ENABLE_UI_SYSTEM=0
+```
+
+### Logging Best Practices
+
+The unified logging system (`pixelroot32::core::logging`) provides conditional logging that is completely eliminated from production builds.
+
+#### When to Use Each LogLevel
+
+| Level | Use Case | Example |
+|-------|----------|---------|
+| `Info` | General debug messages, state changes | `"Player position: %d, %d"`, `"Level loaded: %s"` |
+| `Profiling` | Performance timing markers | `"Frame time: %d ms"`, `"Physics: %d contacts"` |
+| `Warning` | Non-critical issues, graceful degradation | `"Low memory: %d bytes"`, `"Audio buffer underrun"` |
+| `Error` | Critical failures, unrecoverable | `"Failed to load sprite: %s"`, `"Display init failed"` |
+
+#### Performance Considerations
+
+- **Zero overhead in production**: When `PIXELROOT32_DEBUG_MODE` is not defined, all `log()` calls become no-ops at compile time
+- **Enable only in development**: Add to `platformio.ini` for debug builds only:
+  ```ini
+  [env:debug]
+  build_flags = -DPIXELROOT32_DEBUG_MODE
+  
+  [env:release]
+  build_flags =  ; No debug mode
+  ```
+
+#### Platform Differences
+
+- **ESP32**: Output routed to `Serial` (115200 baud recommended)
+- **Native/PC**: Output routed to `stdout` with auto-flush
+
+#### Common Patterns
+
+```cpp
+#include "core/Log.h"
+using namespace pixelroot32::core::logging;
+
+// Initialization logging
+log("Engine initialized: %dx%d", width, height);
+
+// State transitions
+log("Scene changed: %s", sceneName);
+
+// Performance monitoring
+log(LogLevel::Profiling, "Update: %lu ms", updateTime);
+log(LogLevel::Profiling, "Draw: %lu ms", drawTime);
+
+// Error handling
+if (!texture.load(filename)) {
+    log(LogLevel::Error, "Failed to load texture: %s", filename);
+    return false;
+}
+```
+
+#### Avoid in Production
+
+```cpp
+// BAD: Logging in hot paths (game loop)
+void update() {
+    log("Velocity: %f", velocity.x);  // Expensive string formatting
+}
+
+// GOOD: Conditional logging with frame skipping
+void update() {
+    if (frameCount % 60 == 0) {  // Log every 60 frames
+        log("FPS: %d", calculateFPS());
+    }
+}
+```
+
 ### 🧮 Math & Fixed-Point Guidelines
 
 The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU (Fixed-Point) hardware seamlessly.
@@ -212,7 +364,7 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
 
 - **1bpp Sprites**: Define sprite bitmaps as `static const uint16_t` arrays, one row per element. Use bit `0` as the leftmost pixel and bit (`width - 1`) as the rightmost pixel.
 
-### 📐 UI Layout Guidelines
+### 🎨 UI Layout Guidelines
 
 - **Use Layouts for Automatic Organization**: Prefer `UIVerticalLayout` (for vertical lists), `UIHorizontalLayout` (for horizontal menus/bars), or `UIGridLayout` (for matrix layouts like inventories) over manual position calculations when organizing multiple UI elements. This simplifies code and enables automatic navigation.
 - **Use Padding Container for Spacing**: Use `UIPaddingContainer` to add padding around individual elements or to nest layouts with custom spacing. This is more efficient than manually calculating positions and allows for flexible UI composition.
@@ -227,6 +379,12 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
 - **Layered Sprites First**: Prefer composing multi-color sprites from multiple 1bpp `SpriteLayer` entries. Keep layer data `static const` to allow storage in flash and preserve the 1bpp-friendly pipeline.
 - **Optional 2bpp/4bpp Sprites**: For higher fidelity assets, you can enable packed 2bpp/4bpp formats via compile-time flags (for example `PIXELROOT32_ENABLE_2BPP_SPRITES` / `PIXELROOT32_ENABLE_4BPP_SPRITES`). Treat these as advanced options: they improve visual richness (better shading, logos, UI) at the cost of 2x/4x sprite memory and higher fill-rate. Use them sparingly on ESP32 and keep gameplay-critical sprites on the 1bpp path.
 - **Integer-Only Rendering**: Sprite rendering must remain integer-only and avoid dynamic allocations to stay friendly to ESP32 constraints.
+
+#### Modular Compilation UI Impact
+
+- **Conditional UI**: UI system is only compiled when `PIXELROOT32_ENABLE_UI_SYSTEM=1`
+- **Memory Savings**: Disabling UI saves ~4KB RAM and reduces firmware size by 8-15%
+- **Alternative Approaches**: When UI is disabled, use simple text rendering or custom bitmap-based interfaces
 
 ### 🧱 Render Layers & Tilemaps
 
@@ -243,6 +401,304 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
   - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
   - *Trade-off*: Greatly reduces background RAM compared to full bitmaps, but adds a predictable per-tile draw cost; avoid unnecessarily large maps or resolutions on ESP32.
   - For side-scrolling platformers, combine tilemaps with `Camera2D` and `Renderer::setDisplayOffset` instead of manually offsetting individual actors. Keep camera logic centralized (for example in a `Scene`-level camera object) and use different parallax factors per layer to achieve multi-layer scrolling without additional allocations.
+
+### Tile Animation Usage
+
+The tile animation system provides frame-based animations for tilemaps (water, lava, conveyors) with O(1) frame resolution and zero dynamic allocations.
+
+#### Memory Budget
+
+| Tileset Size | RAM Usage | % ESP32 DRAM |
+|--------------|-----------|--------------|
+| 64 tiles | 73 bytes | 0.02% |
+| 128 tiles | 137 bytes | 0.04% |
+| 256 tiles | 265 bytes | 0.08% |
+
+**Recommendation**: Start with 64 or 128 tile tilesets. Increase only if needed.
+
+#### Initialization Pattern
+
+```cpp
+// In scene header (PROGMEM)
+PIXELROOT32_SCENE_FLASH_ATTR const TileAnimation animations[] = {
+    { 2, 4, 8, 0 },  // Water: tiles 2-5, 4 frames, 8 ticks/frame
+    { 6, 2, 6, 0 },  // Lava: tiles 6-7, 2 frames, 6 ticks/frame
+};
+
+// Global manager instance
+TileAnimationManager animManager(animations, 2, 64);
+
+// Link to tilemap
+TileMap2bpp backgroundLayer = {
+    // ... other fields ...
+    nullptr,              // runtimeMask
+    nullptr,              // paletteIndices
+    &animManager          // animManager - enables animations
+};
+```
+
+#### Game Loop Integration
+
+```cpp
+void MyScene::update(unsigned long dt) {
+    // Advance animations once per frame
+    animManager.step();
+    
+    // ... other update logic ...
+    Scene::update(dt);
+}
+
+void MyScene::draw(Renderer& r) {
+    // Renderer automatically calls resolveFrame() for each visible tile
+    r.drawTileMap(backgroundLayer, 0, 0);
+    Scene::draw(r);
+}
+```
+
+#### Animation Speed Control
+
+```cpp
+void MyScene::update(unsigned long dt) {
+    // Half speed: advance every 2 frames
+    if (frameCount % 2 == 0) {
+        animManager.step();
+    }
+    
+    // Pause when game is paused
+    if (!isPaused) {
+        animManager.step();
+    }
+    
+    // Speed up specific animations
+    animManager.step();  // Normal speed
+    animManager.step();  // Extra step = double speed
+}
+```
+
+#### Multiple Animation Managers
+
+For layered tilemaps with independent animation timing:
+
+```cpp
+TileAnimationManager bgAnim(bgAnims, 2, 64);   // Background water
+TileAnimationManager fgAnim(fgAnims, 4, 64);   // Foreground lava
+
+backgroundLayer.animManager = &bgAnim;
+foregroundLayer.animManager = &fgAnim;
+
+void MyScene::update(unsigned long dt) {
+    bgAnim.step();
+    fgAnim.step();
+}
+```
+
+#### Common Pitfalls
+
+1. **Sequential frames only**: Animation frames must be contiguous in the tileset (tiles 2,3,4,5). Non-sequential animations require multiple animation definitions or pre-sorted tile indices.
+
+2. **Shared animation state**: All instances of a tile share the same animation frame. For independent animations, use different base tile indices.
+
+3. **Global timing**: All animations advance together. For desynchronized animations (e.g., two water pools with different phases), create separate animation managers with different frame offsets, or use conditional `step()` calls.
+
+---
+
+### 🎨 Multi-Palette Systems (Sprites & Backgrounds)
+
+The engine supports multiple palettes for both sprites and backgrounds through palette slot banks. These systems follow consistent naming and usage patterns.
+
+#### Naming Conventions
+
+**Palette Slot Functions:**
+```cpp
+// Background palette slots (for tilemaps)
+initBackgroundPaletteSlots()           // Initialize all slots
+setBackgroundPaletteSlot(slot, type)   // Set slot by PaletteType
+setBackgroundCustomPaletteSlot(slot, palette) // Set slot by custom palette
+getBackgroundPaletteSlot(slot)         // Get palette pointer (never nullptr)
+
+// Sprite palette slots (for sprites)
+initSpritePaletteSlots()               // Initialize all slots  
+setSpritePaletteSlot(slot, type)       // Set slot by PaletteType
+setSpriteCustomPaletteSlot(slot, palette) // Set slot by custom palette
+getSpritePaletteSlot(slot)              // Get palette pointer (never nullptr)
+```
+
+**Context Functions:**
+```cpp
+// Sprite palette slot context (for batch rendering)
+setSpritePaletteSlotContext(slot)       // Set global context slot
+getSpritePaletteSlotContext()           // Get current context slot
+```
+
+**Constants:**
+```cpp
+MAX_BACKGROUND_PALETTE_SLOTS   // Default: 8, configurable
+MAX_SPRITE_PALETTE_SLOTS       // Default: 8, configurable
+```
+
+#### Usage Patterns
+
+**1. Game Initialization - Setup Palette Slots**
+```cpp
+class MyGameScene : public pixelroot32::core::Scene {
+public:
+    void init() override {
+        // Enable dual palette mode for separate sprite/background palettes
+        pixelroot32::graphics::Color::enableDualPaletteMode(true);
+        
+        // Initialize palette slot banks
+        pixelroot32::graphics::initBackgroundPaletteSlots();
+        pixelroot32::graphics::initSpritePaletteSlots();
+        
+        // Setup background palette slots for different tilemap areas
+        pixelroot32::graphics::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Default ground
+        pixelroot32::graphics::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Water areas  
+        pixelroot32::graphics::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);   // Underground
+        
+        // Setup sprite palette slots for different enemy types
+        pixelroot32::graphics::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);  // Player
+        pixelroot32::graphics::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);  // Fire enemies
+        pixelroot32::graphics::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);  // Ice enemies
+        pixelroot32::graphics::setSpritePaletteSlot(3, pixelroot32::graphics::PaletteType::PICO8); // Boss enemies
+    }
+};
+```
+
+**2. Custom Palettes - Define and Apply**
+```cpp
+// Define custom palettes (typically as static const for flash storage)
+static const uint16_t CUSTOM_PLAYER_PALETTE[] = {
+    0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0xFFE0, 0xF81F, 0x07FF,
+    0x8410, 0x0410, 0x0010, 0x8000, 0x8400, 0x8010, 0x841F, 0x0000
+};
+
+static const uint16_t CUSTOM_FIRE_PALETTE[] = {
+    0x0000, 0xFFFF, 0xF800, 0xFC00, 0xFA00, 0xF800, 0xF600, 0xF400,
+    0xF200, 0xF000, 0xE800, 0xE000, 0xC000, 0x8000, 0x4000, 0x0000
+};
+
+class EnemyManager {
+public:
+    void loadCustomPalettes() {
+        // Apply custom palettes to specific slots
+        pixelroot32::graphics::setSpriteCustomPaletteSlot(4, CUSTOM_PLAYER_PALETTE);
+        pixelroot32::graphics::setSpriteCustomPaletteSlot(5, CUSTOM_FIRE_PALETTE);
+    }
+};
+```
+
+**3. Rendering - Use Palette Slots**
+```cpp
+class PlayerActor : public pixelroot32::core::Actor {
+public:
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
+        // Draw player using sprite palette slot 0 (default)
+        renderer.drawSprite(playerSprite, static_cast<int>(x), static_cast<int>(y), 0, facingLeft);
+    }
+};
+
+class EnemyActor : public pixelroot32::core::Actor {
+private:
+    uint8_t enemyType;  // 0=normal, 1=fire, 2=ice, 3=boss
+    
+public:
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
+        // Draw enemy using appropriate palette slot
+        uint8_t paletteSlot = 1 + enemyType;  // Slots 1-4 for different enemy types
+        renderer.drawSprite(enemySprite, static_cast<int>(x), static_cast<int>(y), paletteSlot, facingLeft);
+    }
+};
+
+class TilemapRenderer {
+public:
+    void drawBackground(pixelroot32::graphics::Renderer& renderer, const TileMap2bpp& map) {
+        // Tilemap automatically uses paletteIndices array if present
+        // Each cell can select background palette slot 0-7
+        renderer.drawTileMap(map, originX, originY);
+    }
+};
+```
+
+**4. Batch Rendering - Use Context for Performance**
+```cpp
+class BulletManager {
+public:
+    void drawAllBullets(pixelroot32::graphics::Renderer& renderer) {
+        // Set context once for all bullets (same palette slot)
+        renderer.setSpritePaletteSlotContext(1);  // Use fire palette for all bullets
+        
+        for (auto& bullet : bullets) {
+            renderer.drawSprite(bulletSprite, bullet.x, bullet.y, 0, false);  // paletteSlot ignored
+        }
+        
+        // Reset context (optional, good practice)
+        renderer.setSpritePaletteSlotContext(0xFF);  // 0xFF = inactive
+    }
+};
+```
+
+**5. Comments and Documentation**
+```cpp
+// Background palette slot assignments:
+// Slot 0: Default ground tiles (PR32 palette)
+// Slot 1: Water tiles (NES palette - blue tones)
+// Slot 2: Underground tiles (GB palette - green tones)
+// Slot 3: Lava tiles (custom red palette)
+// Slots 4-7: Reserved for future use
+
+// Sprite palette slot assignments:
+// Slot 0: Player character (PR32 palette)
+// Slot 1: Fire enemies (NES palette)
+// Slot 2: Ice enemies (GBC palette)  
+// Slot 3: Boss enemies (PICO8 palette)
+// Slot 4: Custom player palette (power-up form)
+// Slot 5: Custom fire palette (enhanced fire enemies)
+// Slots 6-7: Reserved for future use
+
+class PaletteManager {
+private:
+    bool isInitialized = false;
+    
+public:
+    void initializeGamePalettes() {
+        if (isInitialized) return;  // Prevent double initialization
+        
+        // Initialize slot banks
+        pixelroot32::graphics::initBackgroundPaletteSlots();
+        pixelroot32::graphics::initSpritePaletteSlots();
+        
+        // Setup standard palette assignments
+        setupBackgroundPalettes();
+        setupSpritePalettes();
+        
+        isInitialized = true;
+    }
+    
+private:
+    void setupBackgroundPalettes() {
+        // Configure background palette slots for different level areas
+        pixelroot32::graphics::setBackgroundPaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::setBackgroundPaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::setBackgroundPaletteSlot(2, pixelroot32::graphics::PaletteType::GB);
+    }
+    
+    void setupSpritePalettes() {
+        // Configure sprite palette slots for different character types
+        pixelroot32::graphics::setSpritePaletteSlot(0, pixelroot32::graphics::PaletteType::PR32);
+        pixelroot32::graphics::setSpritePaletteSlot(1, pixelroot32::graphics::PaletteType::NES);
+        pixelroot32::graphics::setSpritePaletteSlot(2, pixelroot32::graphics::PaletteType::GBC);
+    }
+};
+```
+
+#### Best Practices
+
+1. **Document Slot Assignments**: Always comment which slots are used for what purpose
+2. **Initialize Early**: Call `init*PaletteSlots()` during scene initialization
+3. **Use Context for Batching**: Set context once when drawing many sprites with same palette
+4. **Fallback Handling**: `get*PaletteSlot()` never returns `nullptr` - always falls back to slot 0
+5. **Custom Palettes**: Store custom palettes as `static const` arrays for flash storage
+6. **Backward Compatibility**: Legacy `drawSprite(sprite, x, y, flipX)` calls use slot 0 automatically
 
 ---
 

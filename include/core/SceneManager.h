@@ -9,13 +9,14 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+
 #include "Scene.h"
 #include "graphics/Renderer.h"
+#include "platforms/EngineConfig.h"
+
 #include <optional>
 
 namespace pixelroot32::core {
-
-#define MAX_SCENES 5  // Adjust based on needs
 
 /**
  * @class SceneManager
@@ -76,7 +77,7 @@ public:
     bool isEmpty() const { return sceneCount == 0; }
 
 private:
-    Scene* sceneStack[MAX_SCENES] = {nullptr};  ///< Fixed-size stack for scenes.
+    Scene* sceneStack[pixelroot32::platforms::config::MaxScenes] = {nullptr};  ///< Fixed-size stack for scenes.
     int sceneCount = 0; ///< Current number of scenes in the stack.
 };
 

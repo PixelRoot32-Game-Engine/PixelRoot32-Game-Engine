@@ -6,8 +6,8 @@
  * Order: Detect → Solve Velocity → Integrate Position → Solve Penetration
  */
 #pragma once
-#include <vector>
 #include <algorithm>
+#include <cstdint>
 #include "physics/CollisionTypes.h"
 #include "physics/SpatialGrid.h"
 #include "math/Vector2.h"
@@ -33,6 +33,7 @@ struct Contact {
     pixelroot32::math::Vector2 contactPoint;
     pixelroot32::math::Scalar penetration = pixelroot32::math::toScalar(0);
     pixelroot32::math::Scalar restitution = pixelroot32::math::toScalar(0);
+    bool isSensorContact = false;  ///< True if either body is a sensor; no physics response applied.
 };
 
 class CollisionSystem {
@@ -55,7 +56,7 @@ public:
     void triggerCallbacks();
 
     size_t getEntityCount() const { return entities.size(); }
-    void clear() { entities.clear(); contacts.clear(); }
+    void clear() { entities.clear(); contactCount = 0; grid.clear(); }
 
     bool checkCollision(pixelroot32::core::Actor* actor, 
                        pixelroot32::core::Actor** outArray, 
@@ -67,24 +68,33 @@ public:
                           pixelroot32::math::Scalar& outTime,
                           pixelroot32::math::Vector2& outNormal);
 
+    bool validateOneWayPlatform(
+        pixelroot32::core::PhysicsActor* actor,
+        pixelroot32::core::PhysicsActor* platform,
+        const pixelroot32::math::Vector2& collisionNormal
+    );
+
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
+    static constexpr int kMaxContacts = pixelroot32::platforms::config::PhysicsMaxContacts;
     static constexpr int kVelocityIterations = pixelroot32::platforms::config::VelocityIterations;
-    
+
     struct CollisionPair {
         pixelroot32::core::Actor* a;
         pixelroot32::core::Actor* b;
     };
 
     std::vector<pixelroot32::core::Entity*> entities;
-    std::vector<Contact> contacts;
+    Contact contacts[kMaxContacts];
+    int contactCount = 0;
     SpatialGrid grid;
+    uint16_t nextEntityId = 1;  ///< Next id to assign on addEntity; 0 is reserved for "unregistered".
     
-    void generateContact(pixelroot32::core::PhysicsActor* a, 
-                        pixelroot32::core::PhysicsActor* b);
-    void generateCircleVsCircleContact(Contact& contact);
-    void generateAABBVsAABBContact(Contact& contact);
-    void generateCircleVsAABBContact(Contact& contact, 
+    bool generateContact(pixelroot32::core::PhysicsActor* a, 
+                         pixelroot32::core::PhysicsActor* b);
+    bool generateCircleVsCircleContact(Contact& contact);
+    bool generateAABBVsAABBContact(Contact& contact);
+    bool generateCircleVsAABBContact(Contact& contact, 
                                      pixelroot32::core::PhysicsActor* circle,
                                      pixelroot32::core::PhysicsActor* box);
 };

@@ -49,6 +49,33 @@ namespace detail {
             return static_cast<T>(std::atan2(y.toFloat(), x.toFloat()));
         }
     }
+
+    template <typename T>
+    inline int roundToInt(T v) {
+            if constexpr (std::is_same_v<T, float>) {
+                return static_cast<int>(std::round(v));
+            } else {
+                return v.roundToInt();
+            }
+    }
+    
+    template <typename T>
+    inline int floorToInt(T v) {
+        if constexpr (std::is_same_v<T, float>) {
+            return static_cast<int>(std::floor(v));
+        } else {
+            return v.floorToInt();
+        }
+    }
+
+    template <typename T>
+    inline int ceilToInt(T v) {
+        if constexpr (std::is_same_v<T, float>) {
+            return static_cast<int>(std::ceil(v));
+        } else {
+            return v.ceilToInt();
+        }
+    }
 }
 
 constexpr Scalar kPi = toScalar(3.14159265f);
@@ -145,6 +172,27 @@ inline bool is_equal_approx(Scalar a, Scalar b) {
  */
 inline bool is_zero_approx(Scalar x) {
     return abs(x) < kEpsilon;
+}
+
+/**
+ * @brief Round to int.
+ */
+inline int roundToInt(Scalar v) {
+    return detail::roundToInt(v);
+}
+
+/**
+ * @brief Floor to int.
+ */
+inline int floorToInt(Scalar v) {
+    return detail::floorToInt(v);
+}
+
+/**
+ * @brief Ceil to int.
+ */
+inline int ceilToInt(Scalar v) {
+    return detail::ceilToInt(v);
 }
 
 } // namespace pixelroot32::math

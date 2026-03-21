@@ -4,12 +4,15 @@
  */
 #include "drivers/esp32/ESP32_DAC_AudioBackend.h"
 #include "platforms/PlatformDefaults.h"
+#include "core/Log.h"
 
 #if defined(PIXELROOT32_USE_DAC_AUDIO)
 #include "audio/AudioEngine.h"
 #include <Arduino.h>
 
 namespace pixelroot32::drivers::esp32 {
+
+    using namespace pixelroot32::core::logging;
 
     // FreeRTOS task wrapper
     static void audioTaskTrampoline(void* arg) {
@@ -34,7 +37,7 @@ namespace pixelroot32::drivers::esp32 {
 
         // Ensure pin is valid for DAC (25 or 26)
         if (dacPin != 25 && dacPin != 26) {
-            Serial.println("Error: ESP32 DAC only available on pins 25 and 26");
+            log("Error: ESP32 DAC only available on pins 25 and 26");
             return;
         }
 
@@ -56,7 +59,7 @@ namespace pixelroot32::drivers::esp32 {
             &audioTaskHandle,
             caps.audioCoreId
         );
-        Serial.printf("[ESP32_DAC_AudioBackend] Task created on Core %d (Software mode)\n", caps.audioCoreId);
+        log("[ESP32_DAC_AudioBackend] Task created on Core %d (Software mode)", caps.audioCoreId);
     }
 
     void ESP32_DAC_AudioBackend::audioTaskLoop() {

@@ -16,13 +16,13 @@ namespace pixelroot32::audio {
 
     AudioEngine::AudioEngine(const AudioConfig& config, const pixelroot32::platforms::PlatformCapabilities& caps) 
         : config(config), capabilities(caps) {
-#ifdef ESP32
-        scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler(caps.audioCoreId, caps.audioPriority));
-#elif defined(PLATFORM_NATIVE) && !defined(UNIT_TEST)
-        scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
-#else
-        scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
-#endif
+        #ifdef ESP32
+                scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler(caps.audioCoreId, caps.audioPriority));
+        #elif defined(PLATFORM_NATIVE) && !defined(UNIT_TEST)
+                scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
+        #else
+                scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
+        #endif
     }
 
     void AudioEngine::init() {

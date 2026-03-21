@@ -11,10 +11,21 @@
 #include "graphics/Renderer.h"
 #include "math/Scalar.h"
 #include "math/Vector2.h"
+#include "physics/TileAttributes.h"
 #include "../../test_config.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::math;
+
+// Helper functions for coordinate encoding tests
+inline uintptr_t packCoord(uint16_t x, uint16_t y) {
+    return (static_cast<uintptr_t>(y) << 16) | x;
+}
+
+inline void unpackCoord(uintptr_t packed, uint16_t& x, uint16_t& y) {
+    x = static_cast<uint16_t>(packed & 0xFFFF);
+    y = static_cast<uint16_t>(packed >> 16);
+}
 
 // PhysicsActor is abstract (Entity::draw() is pure virtual).
 // Concrete subclass for testing.
@@ -164,6 +175,19 @@ void test_physics_actor_set_radius(void) {
 void test_physics_actor_bounce_default(void) {
     TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
     TEST_ASSERT_TRUE(actor.bounce);
+}
+
+void test_physics_actor_one_way_default_false(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    TEST_ASSERT_FALSE(actor.isOneWay());
+}
+
+void test_physics_actor_set_one_way(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    actor.setOneWay(true);
+    TEST_ASSERT_TRUE(actor.isOneWay());
+    actor.setOneWay(false);
+    TEST_ASSERT_FALSE(actor.isOneWay());
 }
 
 // =============================================================================
@@ -490,6 +514,104 @@ void test_limit_rect_parameterized(void) {
 }
 
 // =============================================================================
+// userData Tests
+// =============================================================================
+
+void test_user_data_default_null(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    TEST_ASSERT_NULL(actor.getUserData());
+}
+
+void test_user_data_set_get_pointer(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    int data = 42;
+    actor.setUserData(&data);
+    TEST_ASSERT_EQUAL(&data, actor.getUserData());
+    TEST_ASSERT_EQUAL(42, *(static_cast<int*>(actor.getUserData())));
+}
+
+void test_user_data_set_get_null(void) {
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    int data = 123;
+    actor.setUserData(&data);
+    TEST_ASSERT_EQUAL(&data, actor.getUserData());
+    
+    // Set back to null
+    actor.setUserData(nullptr);
+    TEST_ASSERT_NULL(actor.getUserData());
+}
+
+void test_user_data_coord_encoding(void) {
+    // Test encoding/decoding of coordinates
+    uint16_t x = 1234, y = 5678;
+    uintptr_t packed = packCoord(x, y);
+    uint16_t x2, y2;
+    unpackCoord(packed, x2, y2);
+    TEST_ASSERT_EQUAL(x, x2);
+    TEST_ASSERT_EQUAL(y, y2);
+}
+
+void test_user_data_coord_encoding_limits(void) {
+    // Test maximum coordinate values (65535x65535)
+    uint16_t maxX = 65535, maxY = 65535;
+    uintptr_t packed = packCoord(maxX, maxY);
+    uint16_t x, y;
+    unpackCoord(packed, x, y);
+    TEST_ASSERT_EQUAL(maxX, x);
+    TEST_ASSERT_EQUAL(maxY, y);
+    
+    // Test minimum coordinate values (0x0)
+    uint16_t minX = 0, minY = 0;
+    packed = packCoord(minX, minY);
+    unpackCoord(packed, x, y);
+    TEST_ASSERT_EQUAL(minX, x);
+    TEST_ASSERT_EQUAL(minY, y);
+}
+
+void test_user_data_coord_encoding_real_world(void) {
+    // Test typical tilemap coordinates
+    uint16_t tileX = 10, tileY = 15;
+    uintptr_t packed = packCoord(tileX, tileY);
+    
+    // Store in userData and retrieve
+    TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
+    actor.setUserData(reinterpret_cast<void*>(packed));
+    
+    uintptr_t retrieved = reinterpret_cast<uintptr_t>(actor.getUserData());
+    uint16_t x, y;
+    unpackCoord(retrieved, x, y);
+    
+    TEST_ASSERT_EQUAL(tileX, x);
+    TEST_ASSERT_EQUAL(tileY, y);
+}
+
+// =============================================================================
+// TileAttributes (Fase 5)
+// =============================================================================
+
+void test_tile_attributes_pack_unpack(void) {
+    using namespace pixelroot32::physics;
+    uint16_t x = 100, y = 200;
+    TileCollisionBehavior beh = TileCollisionBehavior::ONE_WAY_UP;
+    uintptr_t packed = packTileData(x, y, beh);
+    uint16_t x2, y2;
+    TileCollisionBehavior beh2;
+    unpackTileData(packed, x2, y2, beh2);
+    TEST_ASSERT_EQUAL(x, x2);
+    TEST_ASSERT_EQUAL(y, y2);
+    TEST_ASSERT_EQUAL(static_cast<int>(beh), static_cast<int>(beh2));
+}
+
+void test_tile_attributes_behavior_enum(void) {
+    using namespace pixelroot32::physics;
+    TEST_ASSERT_EQUAL(0, static_cast<int>(TileCollisionBehavior::SOLID));
+    TEST_ASSERT_EQUAL(1, static_cast<int>(TileCollisionBehavior::SENSOR));
+    TEST_ASSERT_EQUAL(2, static_cast<int>(TileCollisionBehavior::ONE_WAY_UP));
+    TEST_ASSERT_EQUAL(3, static_cast<int>(TileCollisionBehavior::DAMAGE));
+    TEST_ASSERT_EQUAL(4, static_cast<int>(TileCollisionBehavior::DESTRUCTIBLE));
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -558,6 +680,18 @@ int main(int argc, char **argv) {
     RUN_TEST(test_world_collision_info_parameterized);
     RUN_TEST(test_limit_rect_default);
     RUN_TEST(test_limit_rect_parameterized);
+    
+    // userData
+    RUN_TEST(test_user_data_default_null);
+    RUN_TEST(test_user_data_set_get_pointer);
+    RUN_TEST(test_user_data_set_get_null);
+    RUN_TEST(test_user_data_coord_encoding);
+    RUN_TEST(test_user_data_coord_encoding_limits);
+    RUN_TEST(test_user_data_coord_encoding_real_world);
+    RUN_TEST(test_physics_actor_one_way_default_false);
+    RUN_TEST(test_physics_actor_set_one_way);
+    RUN_TEST(test_tile_attributes_pack_unpack);
+    RUN_TEST(test_tile_attributes_behavior_enum);
     
     return UNITY_END();
 }

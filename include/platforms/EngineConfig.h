@@ -4,8 +4,18 @@
  */
 #pragma once
 
+#include "platforms/PlatformDefaults.h"
+#include "core/Log.h"
+
+// =============================================================================
+// Logging (must be defined before including Log.h)
+// =============================================================================
+// Uncomment to enable engine logging; log() calls print to platform output.
+// If not defined, log() is a no-op. Can also be set via build flags: -DPIXELROOT32_DEBUG_MODE
+// #define PIXELROOT32_DEBUG_MODE
+
 #ifdef PLATFORM_NATIVE
-    #include <platforms/mock/MockArduino.h>
+    #include "platforms/mock/MockArduino.h"
 #else
     #include <Arduino.h>
 #endif
@@ -73,6 +83,13 @@
 // Uncomment to enable performance profiling in Serial monitor
 // #define PIXELROOT32_ENABLE_PROFILING
 
+#ifndef PIXELROOT32_PROFILE_BEGIN
+#define PIXELROOT32_PROFILE_BEGIN(name) (void)0
+#endif
+#ifndef PIXELROOT32_PROFILE_END
+#define PIXELROOT32_PROFILE_END(name) (void)0
+#endif
+
 // Enable a discrete debug overlay with FPS, RAM and CPU metrics.
 // Replaces the old PIXELROOT32_ENABLE_FPS_DISPLAY.
 // #define PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -80,11 +97,44 @@
 // =============================================================================
 // Scene Limits
 // =============================================================================
+#ifndef MAX_SCENES
+    #define MAX_SCENES 8
+#endif
+
 #ifndef MAX_LAYERS
-    #define MAX_LAYERS 3
+    #define MAX_LAYERS 4
 #endif
 #ifndef MAX_ENTITIES
-    #define MAX_ENTITIES 32
+    #define MAX_ENTITIES 64
+#endif
+
+// =============================================================================
+// Tile Animation Limits
+// =============================================================================
+#ifndef MAX_TILESET_SIZE
+    #define MAX_TILESET_SIZE 256
+#endif
+
+#ifndef PIXELROOT32_ENABLE_TILE_ANIMATIONS
+    #define PIXELROOT32_ENABLE_TILE_ANIMATIONS 1
+#endif
+
+// =============================================================================
+// Palette Limits
+// =============================================================================
+
+/** Number of background palette slots for multi-palette tilemaps (2bpp/4bpp).
+ *  Each tilemap cell can select a slot 0..(MAX_BACKGROUND_PALETTE_SLOTS-1) via paletteIndices.
+ *  Override before including this header to change the slot count (e.g. -DMAX_BACKGROUND_PALETTE_SLOTS=4). */
+#ifndef MAX_BACKGROUND_PALETTE_SLOTS
+    #define MAX_BACKGROUND_PALETTE_SLOTS 8
+#endif
+
+/** Number of sprite palette slots for multi-palette sprites (2bpp/4bpp).
+ *  Each sprite draw call can select a slot 0..(MAX_SPRITE_PALETTE_SLOTS-1) via paletteSlot parameter.
+ *  Override before including this header to change the slot count (e.g. -DMAX_SPRITE_PALETTE_SLOTS=4). */
+#ifndef MAX_SPRITE_PALETTE_SLOTS
+    #define MAX_SPRITE_PALETTE_SLOTS 8
 #endif
 
 #ifndef SPATIAL_GRID_CELL_SIZE
@@ -93,6 +143,18 @@
 
 #ifndef SPATIAL_GRID_MAX_ENTITIES_PER_CELL
     #define SPATIAL_GRID_MAX_ENTITIES_PER_CELL 24
+#endif
+
+#ifndef SPATIAL_GRID_MAX_STATIC_PER_CELL
+    #define SPATIAL_GRID_MAX_STATIC_PER_CELL 12
+#endif
+
+#ifndef SPATIAL_GRID_MAX_DYNAMIC_PER_CELL
+    #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
+#endif
+
+#ifndef PHYSICS_MAX_CONTACTS
+    #define PHYSICS_MAX_CONTACTS 128
 #endif
 
 #ifndef PHYSICS_MAX_PAIRS
@@ -147,15 +209,26 @@ namespace pixelroot32::platforms::config {
     inline constexpr int XOffset = X_OFF_SET;
     inline constexpr int YOffset = Y_OFF_SET;
 
+    // Tile Animation
+    inline constexpr uint16_t MaxTilesetSize = MAX_TILESET_SIZE;
+    inline constexpr bool EnableTileAnimations = PIXELROOT32_ENABLE_TILE_ANIMATIONS;
+
     // Scene Limits
+    inline constexpr int MaxScenes = MAX_SCENES;
     inline constexpr int MaxLayers = MAX_LAYERS;
     inline constexpr int MaxEntities = MAX_ENTITIES;
+
+    inline constexpr int kMaxBackgroundPaletteSlots = MAX_BACKGROUND_PALETTE_SLOTS;
+    inline constexpr int kMaxSpritePaletteSlots = MAX_SPRITE_PALETTE_SLOTS;
 
     // Spatial Grid
     inline constexpr int SpatialGridCellSize = SPATIAL_GRID_CELL_SIZE;
     inline constexpr int SpatialGridMaxEntitiesPerCell = SPATIAL_GRID_MAX_ENTITIES_PER_CELL;
+    inline constexpr int SpatialGridMaxStaticPerCell = SPATIAL_GRID_MAX_STATIC_PER_CELL;
+    inline constexpr int SpatialGridMaxDynamicPerCell = SPATIAL_GRID_MAX_DYNAMIC_PER_CELL;
 
     // Physics
+    inline constexpr int PhysicsMaxContacts = PHYSICS_MAX_CONTACTS;
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
     inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
     
@@ -173,6 +246,12 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableDebugOverlay = true;
     #else
     inline constexpr bool EnableDebugOverlay = false;
+    #endif
+
+    #ifdef PIXELROOT32_DEBUG_MODE
+    inline constexpr bool EnableLogging = true;
+    #else
+    inline constexpr bool EnableLogging = false;
     #endif
 
     // Sprites

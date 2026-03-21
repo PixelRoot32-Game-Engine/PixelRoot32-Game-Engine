@@ -4,54 +4,45 @@
  */
 #pragma once
 #include <cstdint>
+#include <vector>
 #include "math/Scalar.h"
 #include "platforms/EngineConfig.h"
 
-namespace pixelroot32::core { class Actor; }
+namespace pixelroot32::core { class Actor; class Entity; }
 
 namespace pixelroot32::physics {
 
 /**
  * @class SpatialGrid
- * @brief Optimized spatial partitioning system for 2D actors.
- * 
- * Uses a uniform grid to group nearby actors, reducing the number of collision checks.
- * Optimized for ESP32 memory constraints by using fixed allocations or linked headers.
+ * @brief Optimized spatial partitioning with separate static/dynamic layers.
+ *
+ * Static layer: built once per level (or when entities change), not cleared each frame.
+ * Dynamic layer: cleared and refilled every frame (RIGID, KINEMATIC).
+ * Reduces per-frame cost when many static tiles are present.
  */
 class SpatialGrid {
 public:
-    static constexpr int kCellSize = pixelroot32::platforms::config::SpatialGridCellSize; ///< Cell size in pixels.
-    static constexpr int kMaxCells = (pixelroot32::platforms::config::LogicalWidth / kCellSize + 1) * 
+    static constexpr int kCellSize = pixelroot32::platforms::config::SpatialGridCellSize;
+    static constexpr int kMaxCells = (pixelroot32::platforms::config::LogicalWidth / kCellSize + 1) *
                                      (pixelroot32::platforms::config::LogicalHeight / kCellSize + 1);
+    static constexpr int kMaxStaticPerCell = pixelroot32::platforms::config::SpatialGridMaxStaticPerCell;
+    static constexpr int kMaxDynamicPerCell = pixelroot32::platforms::config::SpatialGridMaxDynamicPerCell;
 
-    /**
-     * @brief Initializes the grid.
-     */
+    void clearDynamic();
     void clear();
-
-    /**
-     * @brief Inserts an actor into the grid based on its hitbox.
-     * @param actor The actor to insert.
-     */
-    void insert(pixelroot32::core::Actor* actor);
-
-    /**
-     * @brief Retrieves all unique actors in the cells overlapped by the given actor.
-     * @param actor The query actor.
-     * @param outPotentialColliders Vector to store results.
-     */
+    void markStaticDirty();
+    void rebuildStaticIfNeeded(const std::vector<pixelroot32::core::Entity*>& entities);
+    void insertDynamic(pixelroot32::core::Actor* actor);
     void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
 
 private:
-    // Linked-list approach to avoid vectors per cell
-    // Every cell points to the first actor in it.
-    // Each actor will have a temporary 'nextInCell' pointer (needs to be managed carefully).
-    // Note: Since an actor can be in multiple cells, this needs a different approach if we want list-based.
-    
-    // Simpler approach for ESP32: fixed max entities per cell.
-    static constexpr int kMaxEntitiesPerCell = pixelroot32::platforms::config::SpatialGridMaxEntitiesPerCell; 
-    static pixelroot32::core::Actor* cells[kMaxCells][kMaxEntitiesPerCell];
-    static int cellCounts[kMaxCells];
+    static pixelroot32::core::Actor* staticCells[kMaxCells][kMaxStaticPerCell];
+    static int staticCellCounts[kMaxCells];
+    static pixelroot32::core::Actor* dynamicCells[kMaxCells][kMaxDynamicPerCell];
+    static int dynamicCellCounts[kMaxCells];
+
+    bool staticDirty = true;
+    int queryId = 0;
 
     int getCellIndex(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y) const;
 };

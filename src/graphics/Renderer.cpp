@@ -10,6 +10,7 @@
  */
 #include "graphics/Renderer.h"
 #include "graphics/FontManager.h"
+#include "graphics/TileAnimation.h"
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
@@ -274,21 +275,31 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
+    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
             if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
                 return;
             }
 
+            // Use context slot if active, otherwise use parameter
+            uint8_t effectiveSlot = (currentSpritePaletteSlot != kSpritePaletteSlotContextInactive) ? 
+                                   currentSpritePaletteSlot : paletteSlot;
+
+            const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
+            
             uint16_t paletteLUT[4];
             uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
-            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
             for (uint8_t i = 0; i < paletteCount; ++i) {
-                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+                paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
         }
+    }
+
+    // Legacy overload for backward compatibility (3-parameter calls)
+    void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX) {
+        drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
@@ -324,21 +335,31 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
+    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0 || sprite.palette == nullptr || sprite.paletteSize == 0) {
                 return;
             }
 
+            // Use context slot if active, otherwise use parameter
+            uint8_t effectiveSlot = (currentSpritePaletteSlot != kSpritePaletteSlotContextInactive) ? 
+                                   currentSpritePaletteSlot : paletteSlot;
+
+            const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
+            
             uint16_t paletteLUT[16];
             uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
-            PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
             for (uint8_t i = 0; i < paletteCount; ++i) {
-                paletteLUT[i] = resolveColor(sprite.palette[i], context);
+                paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
         }
+    }
+
+    // Legacy overload for backward compatibility (3-parameter calls)
+    void Renderer::drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX) {
+        drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
     void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
@@ -511,8 +532,22 @@ namespace pixelroot32::graphics {
             for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
                 uint8_t index = map.indices[rowIndexBase + tx];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
+                
                 if (index == 0 || index >= map.tileCount) {
                     continue;
+                }
+
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    int tileIndex = rowIndexBase + tx;
+                    if (!(map.runtimeMask[tileIndex >> 3] & (1 << (tileIndex & 7)))) {
+                        continue;
+                    }
                 }
 
                 drawSprite(map.tiles[index], baseX, baseY, color, false);
@@ -555,10 +590,10 @@ namespace pixelroot32::graphics {
         if (startRow < 0) startRow = 0;
         if (endRow > map.height) endRow = map.height;
 
-        // Palette Caching
+        // Palette Caching (tile palette + background palette slot)
         uint16_t cachedLUT[4];
-        const Color* lastPalette = nullptr;
-        bool lutReady = false;
+        const Color* lastTilePalettePtr = nullptr;
+        const uint16_t* lastBackgroundPalettePtr = nullptr;
 
         for (int ty = startRow; ty < endRow; ++ty) {
             int baseY = originY + ty * map.tileHeight;
@@ -566,23 +601,41 @@ namespace pixelroot32::graphics {
 
             for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
-                uint8_t index = map.indices[rowIndexBase + tx];
+                int cellIndex = rowIndexBase + tx;
+                uint8_t index = map.indices[cellIndex];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
                 
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
 
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                        continue;
+                    }
+                }
+
                 const Sprite2bpp& tile = map.tiles[index];
+
+                // Per-cell background palette: use paletteIndices if present, else slot 0
+                const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                    ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                    : getBackgroundPaletteSlot(0);
                 
-                // Update LUT only if palette changes
-                if (!lutReady || tile.palette != lastPalette) {
+                // Rebuild LUT only when tile palette or background palette slot changes
+                if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
                     uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
                     for (uint8_t i = 0; i < paletteCount; ++i) {
-                        cachedLUT[i] = resolveColor(tile.palette[i], bgContext);
+                        cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                     }
-                    lastPalette = tile.palette;
-                    lutReady = true;
+                    lastTilePalettePtr = tile.palette;
+                    lastBackgroundPalettePtr = palettePtr;
                 }
 
                 drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
@@ -626,10 +679,10 @@ namespace pixelroot32::graphics {
         if (startRow < 0) startRow = 0;
         if (endRow > map.height) endRow = map.height;
 
-        // Palette Caching
+        // Palette Caching (tile palette + background palette slot)
         uint16_t cachedLUT[16];
-        const Color* lastPalette = nullptr;
-        bool lutReady = false;
+        const Color* lastTilePalettePtr = nullptr;
+        const uint16_t* lastBackgroundPalettePtr = nullptr;
 
         for (int ty = startRow; ty < endRow; ++ty) {
             int baseY = originY + ty * map.tileHeight;
@@ -637,23 +690,41 @@ namespace pixelroot32::graphics {
 
             for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
-                uint8_t index = map.indices[rowIndexBase + tx];
+                int cellIndex = rowIndexBase + tx;
+                uint8_t index = map.indices[cellIndex];
+                
+                // Resolve animation frame
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(index);
+                }
                 
                 // Optimized check: skip empty tile (index 0) and out of bounds
                 if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
 
+                // Check runtime mask if available - skip inactive tiles
+                if (map.runtimeMask) {
+                    if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                        continue;
+                    }
+                }
+
                 const Sprite4bpp& tile = map.tiles[index];
+
+                // Per-cell background palette: use paletteIndices if present, else slot 0
+                const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                    ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                    : getBackgroundPaletteSlot(0);
                 
-                // Update LUT only if palette changes
-                if (!lutReady || tile.palette != lastPalette) {
+                // Rebuild LUT only when tile palette or background palette slot changes
+                if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
                     uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
                     for (uint8_t i = 0; i < paletteCount; ++i) {
-                        cachedLUT[i] = resolveColor(tile.palette[i], bgContext);
+                        cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                     }
-                    lastPalette = tile.palette;
-                    lutReady = true;
+                    lastTilePalettePtr = tile.palette;
+                    lastBackgroundPalettePtr = palettePtr;
                 }
 
                 drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
@@ -663,5 +734,13 @@ namespace pixelroot32::graphics {
         // Restore context
         setRenderContext(oldContext);
         }
+    }
+
+    void Renderer::setSpritePaletteSlotContext(uint8_t slot) {
+        currentSpritePaletteSlot = slot;
+    }
+
+    uint8_t Renderer::getSpritePaletteSlotContext() const {
+        return currentSpritePaletteSlot;
     }
 }

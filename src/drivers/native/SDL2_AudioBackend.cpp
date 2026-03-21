@@ -5,6 +5,7 @@
 #ifdef PLATFORM_NATIVE
 
 #include "drivers/native/SDL2_AudioBackend.h"
+
 #include "audio/AudioEngine.h"
 #include <iostream>
 
@@ -47,9 +48,9 @@ namespace pixelroot32::drivers::native {
         deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0); // 0 = no changes allowed
 
         if (deviceId == 0) {
-            std::cerr << "Failed to open audio device: " << SDL_GetError() << std::endl;
+            pixelroot32::core::logging::log("Failed to open audio device: %s\n", SDL_GetError());
         } else {
-            std::cout << "Audio device opened: " << have.freq << "Hz, " << (int)have.channels << "ch" << std::endl;
+            pixelroot32::core::logging::log("Audio device opened: %dHz, %dch\n", have.freq, (int)have.channels);
             // Start playback
             SDL_PauseAudioDevice(deviceId, 0);
         }

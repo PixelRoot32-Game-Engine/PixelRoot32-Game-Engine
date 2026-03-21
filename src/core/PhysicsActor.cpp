@@ -16,13 +16,13 @@ extern unsigned long gProfilerPhysicsIntegrateTime;
 extern unsigned long gProfilerPhysicsIntegrateCount;
 
 PhysicsActor::PhysicsActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h)
-    : Actor(x, y, w, h) {
+    : Actor(x, y, w, h), previousPosition(x, y) {
     worldWidth = pixelroot32::platforms::config::LogicalWidth;
     worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }
 
 PhysicsActor::PhysicsActor(pixelroot32::math::Vector2 position, int w, int h)
-    : Actor(position, w, h) {
+    : Actor(position, w, h), previousPosition(position) {
     worldWidth = pixelroot32::platforms::config::LogicalWidth;
     worldHeight = pixelroot32::platforms::config::LogicalHeight;
 }

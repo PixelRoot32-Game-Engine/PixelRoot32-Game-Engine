@@ -1,6 +1,7 @@
 #ifdef PLATFORM_NATIVE
 
 #include <drivers/native/SDL2_Drawer.h>
+#include <core/Log.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -64,7 +65,7 @@ void pr32::drivers::native::SDL2_Drawer::init() {
     pixels = new uint16_t[logicalWidth * logicalHeight];
     memset(pixels, 0, logicalWidth * logicalHeight * sizeof(uint16_t));
 
-    printf("[SDL2_Drawer] Initialized: Logical=%dx%d, Physical=%dx%d, Window=%dx%d\n", 
+    pixelroot32::core::logging::log("[SDL2_Drawer] Initialized: Logical=%dx%d, Physical=%dx%d, Window=%dx%d\n", 
            logicalWidth, logicalHeight, physicalWidth, physicalHeight, winWidth, winHeight);
 }
 
@@ -76,7 +77,7 @@ void pr32::drivers::native::SDL2_Drawer::setRotation(uint16_t rot) {
     else if (rot >= 360) rotation = (rot / 90) % 4;
     else rotation = rot % 4;
     
-    printf("[SDL2_Drawer] Rotation set to %d (%d degrees)\n", rotation, rotation * 90);
+    pixelroot32::core::logging::log("[SDL2_Drawer] Rotation set to %d (%d degrees)\n", rotation, rotation * 90);
 }
 
 void pr32::drivers::native::SDL2_Drawer::clearBuffer() {

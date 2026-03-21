@@ -81,6 +81,7 @@ struct WorldCollisionInfo {
 class PhysicsActor : public Actor {
 protected:
     pixelroot32::math::Vector2 velocity;
+    pixelroot32::math::Vector2 previousPosition;
 
     PhysicsBodyType bodyType = PhysicsBodyType::KINEMATIC;
 
@@ -98,6 +99,25 @@ protected:
     CollisionShape shape = CollisionShape::AABB;
     pixelroot32::math::Scalar radius = pixelroot32::math::toScalar(0.0f);
 
+    /**
+     * @brief Opaque user data pointer for attaching custom metadata.
+     * 
+     * The engine does not interpret, manage, or free this pointer.
+     * Typical use cases:
+     * - Store tile coordinates in tilemap collision (pack x,y into uintptr_t)
+     * - Reference custom actor properties without extending the class
+     * - Debug identifiers or names
+     * 
+     * @warning The caller is responsible for ensuring the pointed data
+     *          remains valid for the lifetime of the actor.
+     */
+    void* userData = nullptr;
+
+    /** When true, this body generates collision events but does not produce physical response (no impulse, no penetration correction). */
+    bool sensor = false;
+
+    /** When true, this body only blocks from one side (e.g. one-way platform: land from above, pass through from below). */
+    bool oneWay = false;
 
 public:
     bool bounce = true; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
@@ -323,6 +343,66 @@ public:
         radius = r; 
         width = static_cast<int>(r * dm);
         height = static_cast<int>(r * dm);
+    }
+
+    /**
+     * @brief Set user data pointer for custom metadata.
+     * @param data Opaque pointer. Engine does not manage lifetime.
+     */
+    void setUserData(void* data) { userData = data; }
+    
+    /**
+     * @brief Get user data pointer.
+     * @return Pointer set via setUserData, or nullptr if never set.
+     */
+    void* getUserData() const { return userData; }
+
+    /**
+     * @brief Sets whether this body is a sensor (trigger).
+     * @param s true = sensor (events only, no physics response); false = solid (default).
+     */
+    void setSensor(bool s) { sensor = s; }
+
+    /**
+     * @brief Returns true if this body is a sensor (trigger).
+     */
+    bool isSensor() const { return sensor; }
+
+    /**
+     * @brief Sets whether this body is a one-way platform (blocks only from one side).
+     * @param w true = one-way (e.g. land from above, pass through from below); false = solid from all sides.
+     */
+    void setOneWay(bool w) { oneWay = w; }
+
+    /**
+     * @brief Returns true if this body is a one-way platform.
+     */
+    bool isOneWay() const { return oneWay; }
+
+    /**
+     * @brief Updates the previous position to the current position.
+     * 
+     * Should be called at the start of each physics frame to track position history
+     * for spatial crossing detection (e.g., one-way platforms).
+     */
+    void updatePreviousPosition() { previousPosition = position; }
+
+    /**
+     * @brief Gets the previous frame position.
+     * @return The position from the previous physics frame.
+     */
+    pixelroot32::math::Vector2 getPreviousPosition() const { return previousPosition; }
+
+    /**
+     * @brief Sets the position and syncs previous position.
+     * 
+     * When position is set directly (not via physics integration), the previous
+     * position is also updated to prevent false crossing detection.
+     * @param pos The new position.
+     */
+    void setPosition(pixelroot32::math::Vector2 pos) {
+        position = pos;
+        previousPosition = pos;
     }
 
     /**
