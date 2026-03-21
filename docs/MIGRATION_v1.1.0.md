@@ -56,7 +56,7 @@ uint8_t val = PIXELROOT32_READ_BYTE_P(&my_array[i]);
 
 Version 1.1.0 introduces a centralized logging abstraction layer that works consistently across ESP32 and native platforms, eliminating the need for platform-specific `#ifdef` blocks in your logging code.
 
-### 1. Core Logging API
+### 1. Logging API
 
 Include **`core/Log.h`** for platform-agnostic logging with different log levels.
 
@@ -85,21 +85,7 @@ log(LogLevel::Info, "Player position: %d", playerX);
 log("Player position: %d", playerX);
 ```
 
-### 2. Platform Logging (ESP32 Specific)
-
-For ESP32-specific platform code, use **`platforms/PlatformLog.h`** with the same unified API:
-
-```cpp
-#include "platforms/PlatformLog.h"
-
-using namespace pixelroot32::platforms::logging;
-
-// Works on both ESP32 and native
-log(LogLevel::Warning, "Battery low: %d%%", batteryPercent);
-log(LogLevel::Error, "Connection failed");
-```
-
-### 3. Log Levels Mapping
+### 2. Log Levels Mapping
 
 | LogLevel Enum | Output Prefix | Use Case |
 |--------------|---------------|----------|
