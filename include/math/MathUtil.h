@@ -242,7 +242,7 @@ inline Scalar rand01() {
         return static_cast<float>(r) / static_cast<float>(UINT32_MAX);
     } else {
         // Fixed16: use high 16 bits directly, no float conversion
-        return Fixed16::fromRaw(static_cast<int16_t>(r >> 16));
+        return static_cast<float>(Fixed16::fromRaw(static_cast<int16_t>(r >> 16)));
     }
 }
 
@@ -330,7 +330,7 @@ struct Random {
             return static_cast<float>(r) / static_cast<float>(UINT32_MAX);
         } else {
             // Fixed16: use high 16 bits directly, no float conversion
-            return Fixed16::fromRaw(static_cast<int16_t>(r >> 16));
+            return static_cast<float>(Fixed16::fromRaw(static_cast<int16_t>(r >> 16)));
         }
     }
 
