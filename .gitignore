@@ -89,5 +89,7 @@ test_output.log
 platformio_test.log
 
 # ide/agents code
-.opencode/*
-.windsurf/*
+.opencode/
+.windsurf/
+.cursor/
+openspec/
