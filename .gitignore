@@ -87,3 +87,6 @@ coverage_filtered.info
 *.log
 test_output.log
 platformio_test.log
+
+# ide/angent code
+.opencode/*

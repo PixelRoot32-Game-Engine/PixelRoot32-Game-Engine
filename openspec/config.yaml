@@ -1,0 +1,20 @@
+schema: spec-driven
+
+context: |
+  C++17 project targeting ESP32.
+  Code must be efficient and suitable for embedded systems.
+  Avoid heavy libraries and dynamic memory when possible.
+
+rules:
+  proposal:
+    - Keep it concise
+    - Focus on problem and constraints
+
+  code:
+    - Must compile in C++17
+    - Avoid dynamic allocation unless necessary
+    - Avoid exceptions and RTTI
+    - Prefer simple and efficient implementations
+
+  tasks:
+    - Break work into small, testable steps
