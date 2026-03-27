@@ -242,7 +242,6 @@ A 2D vector structure composed of two `Scalar` components.
 
 ---
 
-
 ### MathUtil
 
 **Inherits:** None
@@ -355,7 +354,7 @@ When `PIXELROOT32_DEBUG_MODE` is **not defined**, all `log()` calls become no-op
 
 This means zero runtime cost in production builds (no string formatting, no branching).
 
-#### Usage Example:
+#### Usage Example
 
 ```cpp
 // Enable in platformio.ini:
@@ -541,20 +540,20 @@ The tile attribute system allows querying custom metadata attached to tiles at r
 
 - **`TileAttribute`**
     Represents a single key-value pair.
-    - `const char* key`: Attribute key string (`PIXELROOT32_FLASH_ATTR`).
-    - `const char* value`: Attribute value string (`PIXELROOT32_FLASH_ATTR`).
+  - `const char* key`: Attribute key string (`PIXELROOT32_FLASH_ATTR`).
+  - `const char* value`: Attribute value string (`PIXELROOT32_FLASH_ATTR`).
 
 - **`TileAttributeEntry`**
     Represents all attributes for a specific tile position.
-    - `uint16_t x, y`: Tile coordinates.
-    - `uint8_t num_attributes`: Number of attributes for this tile.
-    - `const TileAttribute* attributes`: Pointer to an array of attributes (`PIXELROOT32_FLASH_ATTR`).
+  - `uint16_t x, y`: Tile coordinates.
+  - `uint8_t num_attributes`: Number of attributes for this tile.
+  - `const TileAttribute* attributes`: Pointer to an array of attributes (`PIXELROOT32_FLASH_ATTR`).
 
 - **`LayerAttributes`**
     Represents attribute data for an entire layer.
-    - `const char* layer_name`: Name of the layer.
-    - `uint16_t num_tiles_with_attributes`: Number of tiles in this layer that have attributes.
-    - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (`PIXELROOT32_FLASH_ATTR`).
+  - `const char* layer_name`: Name of the layer.
+  - `uint16_t num_tiles_with_attributes`: Number of tiles in this layer that have attributes.
+  - `const TileAttributeEntry* tiles`: Pointer to an array of tile entries (`PIXELROOT32_FLASH_ATTR`).
 
 #### Query Functions
 
@@ -564,11 +563,11 @@ These functions are defined as `inline` in `Renderer.h` for maximum performance 
 
 - **`const char* get_tile_attribute(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y, const char* key)`**
     Returns the value of a specific attribute for a tile. Returns `nullptr` if the attribute or tile does not exist.
-    - `layers`: Pointer to the `layer_attributes` array.
-    - `num_layers`: Total number of layers with attributes.
-    - `layer_idx`: Index of the layer to query.
-    - `x, y`: Tile coordinates.
-    - `key`: The attribute key to search for (supports RAM or PROGMEM/Flash strings).
+  - `layers`: Pointer to the `layer_attributes` array.
+  - `num_layers`: Total number of layers with attributes.
+  - `layer_idx`: Index of the layer to query.
+  - `x, y`: Tile coordinates.
+  - `key`: The attribute key to search for (supports RAM or PROGMEM/Flash strings).
 
 > [!IMPORTANT]
 > Since attributes are stored in Flash memory on ESP32, you must use **`PIXELROOT32_STRCMP_P`** or **`PIXELROOT32_MEMCPY_P`** to compare or copy the returned values to ensure cross-platform compatibility (Native vs ESP32).
@@ -1569,12 +1568,12 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 - **`void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
     Available when `PIXELROOT32_ENABLE_2BPP_SPRITES` is defined. Draws a packed 2bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
-    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+  - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
     *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false)`**
     Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a packed 4bpp sprite using the specified sprite palette slot. Index `0` is treated as transparent.
-    - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
+  - **paletteSlot**: Sprite palette slot (0-7). If context is active, this parameter is overridden by the context slot.
     *Optimized:* Uses `uint16_t` native access and supports MSB-first bit ordering for high performance.
 
 - **`void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX = false)`**
@@ -1585,11 +1584,11 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 
 - **`void setSpritePaletteSlotContext(uint8_t slot)`**
     Sets the sprite palette slot context for multi-palette sprites. When active, all subsequent `drawSprite` calls for 2bpp/4bpp sprites will use this slot regardless of the `paletteSlot` parameter. This is useful for batch rendering with the same palette.
-    - **slot**: Palette slot (0-7). To disable context, call with 0xFF or use default.
+  - **slot**: Palette slot (0-7). To disable context, call with 0xFF or use default.
 
 - **`uint8_t getSpritePaletteSlotContext() const`**
     Gets the current sprite palette slot context.
-    - **Returns**: Current palette slot, or 0xFF if context is inactive.
+  - **Returns**: Current palette slot, or 0xFF if context is inactive.
 
 - **`void drawMultiSprite(const MultiSprite& sprite, int x, int y)`**
     Draws a layered sprite composed of multiple 1bpp `SpriteLayer` entries. Each layer is rendered in order using `drawSprite`, enabling multi-color NES/GameBoy-style sprites.
@@ -3758,3 +3757,199 @@ hud->addElement(debugInfo, Anchor::BOTTOM_LEFT);
 - **Fixed Positioning**: Elements maintain their anchor positions regardless of other elements.
 - **HUD-Optimized**: Designed specifically for HUD elements that need fixed screen positions.
 - **Low Overhead**: Minimal performance impact, ideal for ESP32.
+
+---
+
+## Math Utilities
+
+The `math` namespace provides mathematical helper functions and a deterministic pseudo-random number generator (PRNG) based on the Xorshift32 algorithm.
+
+### PRNG System Overview (Task 6.3)
+
+The PRNG uses the **Xorshift32 algorithm**, a lightweight, high-quality pseudo-random number generator that:
+
+- Uses only bitwise operations (XOR, shifts) - no multiplication or division
+- Produces deterministic sequences based on seed value
+- Has excellent statistical properties for game development
+- Is compact and efficient for embedded systems (ESP32)
+
+**Note:** This PRNG is suitable for gameplay mechanics (procedural generation, dice rolls, random events) but is **not cryptographically secure**.
+
+### Thread Safety and Concurrency
+
+**Global PRNG functions are NOT thread-safe.** The global PRNG state (`set_seed`, `rand01`, `rand_int`, etc.) should not be accessed concurrently from multiple threads or ISRs without external synchronization.
+
+**For concurrent or multi-threaded scenarios, use the `Random` struct:**
+
+```cpp
+// Each thread has its own Random instance
+thread_local Random threadRNG(generate_unique_seed());
+
+// Safe concurrent access - no locks needed
+void threadWorker() {
+    int value = threadRNG.rand_int(1, 100);
+}
+```
+
+**Recommendation:**
+- Single-threaded games: Use global functions for simplicity
+- Multi-threaded scenarios: Create `Random` instances per thread/context
+- Per-entity randomness: Give each entity its own `Random` instance
+
+### Implementation Quality
+
+The PRNG implementation includes several quality improvements:
+
+- **Bias-free integer generation**: Uses rejection sampling to ensure uniform distribution for any range
+- **Fixed16 optimization**: On platforms without FPU, `rand01()` uses bit-shifting (no float operations)
+- **Unified core algorithm**: Single `xorshift32()` function ensures consistent behavior
+- **State validation**: Automatically prevents PRNG from entering invalid zero state
+
+### Global PRNG Functions
+
+- **`void set_seed(uint32_t seed)`**
+    Initializes the PRNG with a specific seed. If seed is 0, uses fallback constant `0xDEADBEEF`.
+
+    ```cpp
+    // Initialize with specific seed for reproducible gameplay
+    set_seed(12345);
+    
+    // Reset with 0 (will use fallback seed)
+    set_seed(0);
+    ```
+
+- **`Scalar rand01()`**
+    Returns random Scalar in range [0, 1]. Works with both float and Fixed16 Scalars.
+
+    ```cpp
+    Scalar roll = rand01();  // 0.0 to 1.0
+    ```
+
+- **`Scalar rand_range(Scalar min, Scalar max)`**
+    Returns random Scalar in inclusive range [min, max].
+
+    ```cpp
+    // Random position between 10 and 100
+    Scalar posX = rand_range(toScalar(10), toScalar(100));
+    
+    // Random damage between 5 and 15
+    Scalar damage = rand_range(toScalar(5), toScalar(15));
+    ```
+
+- **`int32_t rand_int(int32_t min, int32_t max)`**
+    Returns random integer in inclusive range [min, max].
+
+    ```cpp
+    // Roll a 6-sided die
+    int roll = rand_int(1, 6);
+    
+    // Random array index
+    int index = rand_int(0, arraySize - 1);
+    ```
+
+- **`bool rand_chance(Scalar p)`**
+    Returns true with probability p (0.0 to 1.0).
+
+    ```cpp
+    // 30% chance to spawn power-up
+    if (rand_chance(toScalar(0.3f))) {
+        spawnPowerUp();
+    }
+    
+    // Guaranteed event
+    if (rand_chance(toScalar(1.0f))) { /* always true */ }
+    ```
+
+- **`Scalar rand_sign()`**
+    Returns -1 or 1 as Scalar (50% probability each).
+
+    ```cpp
+    // Random direction
+    Scalar direction = rand_sign();  // -1 or 1
+    velocity.x = speed * direction;
+    ```
+
+### Instance-Based RNG: Random Struct (Task 6.2)
+
+For scenarios requiring multiple independent random sequences (e.g., per-entity RNG, separate generators for different systems):
+
+```cpp
+// Create independent RNG instances
+Random enemyRNG(12345);    // For enemy spawns
+Random lootRNG(67890);     // For loot drops
+Random visualRNG(11111);   // For visual effects
+
+// Use independently - each has its own state
+Scalar enemyX = enemyRNG.rand_range(toScalar(0), toScalar(100));
+int lootTier = lootRNG.rand_int(1, 5);
+```
+
+The `Random` struct provides the same methods as global functions:
+
+- `next()` - Generate next uint32_t value
+- `rand01()` - Random Scalar in [0, 1]
+- `rand_range(min, max)` - Random Scalar in range
+- `rand_int(min, max)` - Random integer in range
+- `rand_chance(p)` - Boolean with probability p
+- `rand_sign()` - -1 or 1
+
+### Common Usage Patterns
+
+**Pattern 1: Seeded Procedural Generation**
+
+```cpp
+// Same seed always produces same level
+set_seed(levelSeed);
+for (int i = 0; i < 100; i++) {
+    Scalar x = rand_range(toScalar(0), worldWidth);
+    Scalar y = rand_range(toScalar(0), worldHeight);
+    spawnTree(x, y);
+}
+```
+
+**Pattern 2: Deterministic Dice Rolls**
+
+```cpp
+set_seed(turnNumber);  // Reproducible combat
+int attackRoll = rand_int(1, 20);
+int damageRoll = rand_int(1, 8);
+```
+
+**Pattern 3: Random Spawning with Probability**
+
+```cpp
+void update() {
+    // 1% chance per frame to spawn enemy
+    if (rand_chance(toScalar(0.01f))) {
+        spawnEnemy();
+    }
+}
+```
+
+**Pattern 4: Shuffle Array (Fisher-Yates)**
+
+```cpp
+template<typename T>
+void shuffleArray(T* array, int count) {
+    for (int i = count - 1; i > 0; i--) {
+        int j = rand_int(0, i);
+        swap(array[i], array[j]);
+    }
+}
+```
+
+### Constants
+
+- **`kPi`** - π (3.14159265)
+- **`kDegToRad`** - Degrees to radians conversion factor
+- **`kRadToDeg`** - Radians to degrees conversion factor
+- **`kEpsilon`** - Small value for approximate equality checks
+
+### Scalar Type Abstraction
+
+The `Scalar` type is a compile-time abstraction that resolves to:
+
+- `float` on platforms with FPU (ESP32, PC)
+- `Fixed16` on platforms without FPU
+
+All PRNG functions return `Scalar` for transparent compatibility.
