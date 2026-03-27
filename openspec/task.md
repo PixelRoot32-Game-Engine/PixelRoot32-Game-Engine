@@ -1,116 +1,137 @@
 # Description
 
-Implementar un sistema de generación de números pseudoaleatorios (PRNG) dentro de `MathUtil` que sea:
+Extender y mejorar el sistema PRNG actualmente implementado en `MathUtil` para aumentar su calidad estadística, eficiencia en plataformas sin FPU (ESP32), y mantenibilidad interna, sin romper la API existente.
 
-* Determinístico (controlado por seed)
-* Independiente de plataforma
-* Eficiente en ESP32 (sin uso de librerías pesadas)
-* Compatible con el sistema de tipos `Scalar` (`float` y `Fixed16`)
+La mejora se enfoca en:
 
-El sistema estará basado en un algoritmo ligero tipo Xorshift32 y proveerá funciones utilitarias para generación de valores aleatorios en distintos rangos y formatos.
+* Eliminar sesgos en generación de enteros (`rand_int`)
+* Optimizar `rand01` para evitar uso de `float` en modo `Fixed16`
+* Unificar la lógica del PRNG para evitar duplicación entre RNG global e instanciado
+* Definir claramente el comportamiento del estado global (limitaciones y uso recomendado)
+
+La API pública actual debe mantenerse compatible.
 
 ---
 
 # Requirements
 
-### R1: PRNG determinístico basado en seed
+### R1: Corrección de sesgo en `rand_int`
 
-El sistema debe generar secuencias reproducibles a partir de un seed inicial.
+La implementación actual basada en módulo debe ser reemplazada por una solución sin sesgo.
 
 **Validation**
 
-* Dado un mismo seed, la secuencia de valores generados debe ser idéntica entre ejecuciones
-* Cambiar el seed debe producir una secuencia diferente
+* No se debe usar directamente `r % range` sin corrección
+* Debe implementarse rejection sampling
+* La distribución debe ser uniforme para cualquier rango
 
 ---
 
-### R2: Implementación eficiente para ESP32
+### R2: Optimización de `rand01` en modo Fixed16
 
-El PRNG debe evitar operaciones costosas y dependencias externas.
+La generación de valores en rango [0,1] debe evitar operaciones en punto flotante cuando `Scalar` es `Fixed16`.
 
 **Validation**
 
-* No debe usar `std::rand`, `std::mt19937` u otras librerías estándar pesadas
-* Debe estar implementado usando operaciones bitwise (`xor`, shifts)
-* Debe compilar sin dependencias adicionales en entorno ESP32
+* En modo `Fixed16`, no debe usarse división float en runtime
+* Debe utilizarse conversión basada en representación interna (`fromRaw` o equivalente)
+* El resultado debe mantenerse dentro del rango [0,1]
 
 ---
 
-### R3: Integración con tipo Scalar
+### R3: Unificación del core PRNG
 
-Las funciones aleatorias deben ser compatibles con la abstracción `Scalar`.
+La lógica del algoritmo Xorshift32 debe centralizarse para evitar duplicación.
 
 **Validation**
 
-* `rand01()` debe retornar un valor en rango [0,1] como `Scalar`
-* Debe funcionar correctamente tanto con `float` como con `Fixed16`
-* No debe romper la consistencia del tipo en operaciones matemáticas existentes
+* Debe existir una única función base del algoritmo (ej: `xorshift32(uint32_t&)`)
+* RNG global y `Random` deben reutilizar esta función
+* No debe existir duplicación de lógica bitwise
 
 ---
 
-### R4: Generación de valores en rango
+### R4: Consistencia entre RNG global e instanciado
 
-El sistema debe permitir generar valores dentro de un rango definido.
+Ambas variantes deben comportarse de manera equivalente.
 
 **Validation**
 
-* `rand_range(min, max)` debe retornar valores dentro del rango inclusivo
-* Debe soportar `Scalar` como entrada
-* La distribución debe ser uniforme
+* Dado el mismo seed, ambos deben generar la misma secuencia
+* Las funciones (`rand01`, `rand_range`, etc.) deben tener el mismo comportamiento
+* No debe haber diferencias en distribución
 
 ---
 
-### R5: Generación de enteros aleatorios
+### R5: Definición explícita del estado global
 
-El sistema debe soportar generación de enteros en rango.
+El comportamiento del RNG global debe ser claramente definido.
 
 **Validation**
 
-* `rand_int(min, max)` debe retornar valores enteros en rango inclusivo
-* No debe generar valores fuera del rango especificado
+* Debe documentarse como no thread-safe
+* Debe indicarse que no es seguro para ISR o concurrencia
+* Debe recomendarse uso de `Random` en sistemas críticos
 
 ---
 
-### R6: Control de seed global
+### R6: Validación del estado interno del PRNG
 
-Debe existir una forma de inicializar o cambiar el seed global del sistema.
+El sistema debe evitar estados inválidos o degenerados.
 
 **Validation**
 
-* `set_seed(seed)` debe reiniciar la secuencia
-* Seed = 0 debe ser manejado correctamente (fallback seguro)
+* El estado no debe permanecer en 0
+* `set_seed(0)` debe usar fallback válido
+* El PRNG debe continuar generando valores correctamente en todo momento
 
 ---
 
-### R7: Extensibilidad futura
+### R7: Mantenimiento de compatibilidad de API
 
-El diseño debe permitir extender el sistema (ej: RNG por instancia).
+Las mejoras no deben romper la API pública existente.
 
 **Validation**
 
-* La implementación debe permitir encapsular el estado del PRNG en una estructura (`Random`)
-* No debe estar fuertemente acoplado a estado global
+* Las funciones actuales (`rand01`, `rand_range`, `rand_int`, etc.) deben conservar su firma
+* El comportamiento externo debe mantenerse consistente
+* No se requieren cambios en código cliente existente
 
 ---
 
-### R8: Funciones utilitarias adicionales (opcional)
+### R8: Optimización para ESP32 sin FPU
 
-El sistema puede incluir helpers comunes usados en gameplay.
+El sistema debe minimizar operaciones costosas en plataformas sin FPU.
 
 **Validation**
 
-* `rand_chance(p)` debe retornar boolean basado en probabilidad
-* `rand_sign()` debe retornar -1 o 1 como `Scalar`
+* No debe haber uso innecesario de `float` en caminos críticos
+* Debe priorizar operaciones enteras y bitwise
+* Debe ser eficiente en arquitectura RISC-V
+
+---
+
+### R9: Mejora opcional de seed no determinístico
+
+El sistema puede permitir inicialización con fuente de entropía externa en runtime.
+
+**Validation**
+
+* Debe poder integrarse con fuente como `esp_random()` sin romper determinismo opcional
+* Debe ser opcional (no obligatorio en core)
 
 ---
 
 # Acceptance Criteria
 
-* Todas las funciones (`rand01`, `rand_range`, `rand_int`, `set_seed`) están implementadas en `MathUtil`
-* El PRNG utiliza un algoritmo tipo Xorshift32
-* El código compila y ejecuta correctamente en ESP32
-* La salida es determinística bajo mismo seed
-* El sistema funciona correctamente con `float` y `Fixed16`
-* No se utilizan librerías estándar de random
-* El impacto en performance es mínimo (sin uso intensivo de float en modo fixed)
-* El diseño permite futura expansión a RNG por instancia sin refactor mayor
+* `rand_int` utiliza un método sin sesgo (rejection sampling)
+* `rand01` no usa operaciones float en modo `Fixed16`
+* Existe una única implementación del algoritmo Xorshift32 reutilizada internamente
+* RNG global y `Random` comparten lógica y comportamiento
+* El estado global está documentado como no thread-safe
+* El sistema evita estados inválidos (ej: seed = 0)
+* La API pública existente no cambia
+* El código sigue compilando y funcionando en ESP32
+* El rendimiento mejora o se mantiene respecto a la implementación actual
+* El sistema sigue siendo determinístico bajo mismo seed
+

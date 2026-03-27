@@ -5,6 +5,7 @@
 #pragma once
 #include "math/Scalar.h"
 #include <cmath>
+#include <cstdint>
 #include <type_traits>
 
 /**
@@ -12,6 +13,29 @@
  * @brief Collection of math helper functions and constants.
  */
 namespace pixelroot32::math {
+
+// Internal PRNG state
+namespace detail {
+    inline uint32_t& prng_state() {
+        static uint32_t state = 0xDEADBEEF;
+        return state;
+    }
+
+    // Unified Xorshift32 core algorithm
+    inline uint32_t xorshift32(uint32_t& state) {
+        // Prevent state from becoming 0 (would break PRNG)
+        if (state == 0) state = 0xDEADBEEF;
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state;
+    }
+
+    // Global Xorshift32 next() using unified function
+    inline uint32_t xorshift32_next() {
+        return xorshift32(prng_state());
+    }
+}
 
 namespace detail {
     template <typename T>
@@ -194,5 +218,166 @@ inline int floorToInt(Scalar v) {
 inline int ceilToInt(Scalar v) {
     return detail::ceilToInt(v);
 }
+
+// ==================== PRNG SYSTEM ====================
+
+/**
+ * @brief Set the PRNG seed
+ * @param seed The seed value. If 0, a fallback constant is used.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline void set_seed(uint32_t seed) {
+    detail::prng_state() = (seed == 0) ? 0xDEADBEEF : seed;
+}
+
+/**
+ * @brief Generate random Scalar in range [0, 1]
+ * Uses bit-shifting for Fixed16 path to avoid float operations.
+ * @return Random value in [0, 1] range.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline Scalar rand01() {
+    uint32_t r = detail::xorshift32_next();
+    if constexpr (std::is_same_v<Scalar, float>) {
+        return static_cast<float>(r) / static_cast<float>(UINT32_MAX);
+    } else {
+        // Fixed16: use high 16 bits directly, no float conversion
+        return Fixed16::fromRaw(static_cast<int16_t>(r >> 16));
+    }
+}
+
+/**
+ * @brief Generate random Scalar in range [min, max]
+ * @param min Minimum value (inclusive).
+ * @param max Maximum value (inclusive).
+ * @return Random value in [min, max] range.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline Scalar rand_range(Scalar min, Scalar max) {
+    return min + rand01() * (max - min);
+}
+
+/**
+ * @brief Generate random integer in range [min, max]
+ * Uses rejection sampling for bias-free uniform distribution.
+ * @param min Minimum value (inclusive).
+ * @param max Maximum value (inclusive).
+ * @return Random integer in [min, max] range.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline int32_t rand_int(int32_t min, int32_t max) {
+    uint32_t range = static_cast<uint32_t>(max - min + 1);
+    // Rejection sampling to eliminate modulo bias
+    uint32_t threshold = (UINT32_MAX / range) * range;
+    uint32_t r;
+    do {
+        r = detail::xorshift32_next();
+    } while (r >= threshold);
+    return min + static_cast<int32_t>(r % range);
+}
+
+/**
+ * @brief Return true with probability p
+ * @param p Probability in range [0, 1].
+ * @return true with probability p, false otherwise.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline bool rand_chance(Scalar p) {
+    return rand01() < p;
+}
+
+/**
+ * @brief Return random sign -1 or 1
+ * @return -1 or 1 as Scalar.
+ * @warning NOT thread-safe. For concurrent use, create Random instances.
+ */
+inline Scalar rand_sign() {
+    return (detail::xorshift32_next() & 1) ? toScalar(1) : toScalar(-1);
+}
+
+/**
+ * @brief Instance-based random number generator
+ * 
+ * Provides independent RNG state for scenarios requiring multiple
+ * separate random sequences (e.g., per-entity RNG).
+ */
+struct Random {
+    uint32_t state;
+
+    /**
+     * @brief Constructor with seed parameter
+     * @param seed Initial seed value. If 0, uses fallback constant.
+     */
+    explicit Random(uint32_t seed = 0xDEADBEEF)
+        : state(seed == 0 ? 0xDEADBEEF : seed) {}
+
+    /**
+     * @brief Generate next random value using Xorshift32
+     * @return Random uint32_t value
+     */
+    uint32_t next() {
+        return detail::xorshift32(state);
+    }
+
+    /**
+     * @brief Generate random Scalar in range [0, 1]
+     * Uses bit-shifting for Fixed16 path to avoid float operations.
+     * @return Random value in [0, 1] range
+     */
+    Scalar rand01() {
+        uint32_t r = next();
+        if constexpr (std::is_same_v<Scalar, float>) {
+            return static_cast<float>(r) / static_cast<float>(UINT32_MAX);
+        } else {
+            // Fixed16: use high 16 bits directly, no float conversion
+            return Fixed16::fromRaw(static_cast<int16_t>(r >> 16));
+        }
+    }
+
+    /**
+     * @brief Generate random Scalar in range [min, max]
+     * @param min Minimum value (inclusive)
+     * @param max Maximum value (inclusive)
+     * @return Random value in [min, max] range
+     */
+    Scalar rand_range(Scalar min, Scalar max) {
+        return min + rand01() * (max - min);
+    }
+
+    /**
+     * @brief Generate random integer in range [min, max]
+     * Uses rejection sampling for bias-free uniform distribution.
+     * @param min Minimum value (inclusive)
+     * @param max Maximum value (inclusive)
+     * @return Random integer in [min, max] range
+     */
+    int32_t rand_int(int32_t min, int32_t max) {
+        uint32_t range = static_cast<uint32_t>(max - min + 1);
+        // Rejection sampling to eliminate modulo bias
+        uint32_t threshold = (UINT32_MAX / range) * range;
+        uint32_t r;
+        do {
+            r = next();
+        } while (r >= threshold);
+        return min + static_cast<int32_t>(r % range);
+    }
+
+    /**
+     * @brief Return true with probability p
+     * @param p Probability in range [0, 1]
+     * @return true with probability p, false otherwise
+     */
+    bool rand_chance(Scalar p) {
+        return rand01() < p;
+    }
+
+    /**
+     * @brief Return random sign -1 or 1
+     * @return -1 or 1 as Scalar
+     */
+    Scalar rand_sign() {
+        return (next() & 1) ? toScalar(1) : toScalar(-1);
+    }
+};
 
 } // namespace pixelroot32::math
