@@ -43,7 +43,7 @@ jobs:
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' --output-file coverage.info
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
 
@@ -51,8 +51,8 @@ jobs:
       run: |
         TOTAL=$(lcov --summary coverage.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
         echo "Line coverage: $TOTAL%"
-        if (( $(echo "$TOTAL < 78" | bc -l) )); then
-          echo "ERROR: Line coverage $TOTAL% is below 78% threshold"
+        if (( $(echo "$TOTAL < 80" | bc -l) )); then
+          echo "ERROR: Line coverage $TOTAL% is below 80% threshold"
           exit 1
         fi
         echo "Coverage check passed!"
