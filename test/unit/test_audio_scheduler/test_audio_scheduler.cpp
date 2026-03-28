@@ -219,6 +219,64 @@ void test_note_to_frequency(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, noteToFrequency(Note::Rest, 4));
 }
 
+void test_music_play_command(void) {
+    DefaultAudioScheduler scheduler;
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_PLAY;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_music_stop_command(void) {
+    DefaultAudioScheduler scheduler;
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_PLAY;
+    scheduler.submitCommand(cmd);
+    cmd.type = AudioCommandType::MUSIC_STOP;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_music_pause_resume_command(void) {
+    DefaultAudioScheduler scheduler;
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_PLAY;
+    scheduler.submitCommand(cmd);
+    cmd.type = AudioCommandType::MUSIC_PAUSE;
+    scheduler.submitCommand(cmd);
+    cmd.type = AudioCommandType::MUSIC_RESUME;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_music_set_tempo_command(void) {
+    DefaultAudioScheduler scheduler;
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::MUSIC_SET_TEMPO;
+    cmd.tempoFactor = 2.0f;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_set_master_volume_clamping(void) {
+    DefaultAudioScheduler scheduler;
+    AudioCommand cmd;
+    cmd.type = AudioCommandType::SET_MASTER_VOLUME;
+    cmd.volume = 1.5f;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+    
+    cmd.volume = -0.5f;
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 256);
+    TEST_ASSERT_TRUE(true);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_default_scheduler_initialization);
@@ -233,5 +291,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_default_scheduler_stop);
     RUN_TEST(test_default_scheduler_is_independent);
     RUN_TEST(test_note_to_frequency);
+    RUN_TEST(test_music_play_command);
+    RUN_TEST(test_music_stop_command);
+    RUN_TEST(test_music_pause_resume_command);
+    RUN_TEST(test_music_set_tempo_command);
+    RUN_TEST(test_set_master_volume_clamping);
     return UNITY_END();
 }

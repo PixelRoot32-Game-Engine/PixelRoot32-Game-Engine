@@ -34,7 +34,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev lcov
+        sudo apt-get install -y libsdl2-dev lcov bc
 
     - name: Run Tests
       run: |
@@ -46,6 +46,16 @@ jobs:
         lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverage.info
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
+
+    - name: Verify Coverage Threshold
+      run: |
+        TOTAL=$(lcov --summary coverage.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+        echo "Line coverage: $TOTAL%"
+        if (( $(echo "$TOTAL < 78" | bc -l) )); then
+          echo "ERROR: Line coverage $TOTAL% is below 78% threshold"
+          exit 1
+        fi
+        echo "Coverage check passed!"
 
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4

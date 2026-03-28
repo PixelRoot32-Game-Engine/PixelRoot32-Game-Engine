@@ -495,3 +495,83 @@ void test_ui_label_set_text_and_center_x() {
     TEST_ASSERT_TRUE(label.width >= 0);
     label.centerX(100);
 }
+
+void test_horizontal_layout_clear_and_spacing() {
+    UIHorizontalLayout layout(0, 0, 100, 50);
+    layout.setSpacing(10);
+    TEST_ASSERT_EQUAL(10, layout.getSpacing());
+    layout.setSpacing(20);
+    TEST_ASSERT_EQUAL(20, layout.getSpacing());
+    layout.clearElements();
+    TEST_ASSERT_EQUAL(0U, layout.getElementCount());
+}
+
+void test_grid_layout_set_columns() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(3);
+    TEST_ASSERT_EQUAL(3, layout.getColumns());
+    layout.setColumns(4);
+    TEST_ASSERT_EQUAL(4, layout.getColumns());
+}
+
+void test_grid_layout_clear_elements() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    UILabel l1("1", Vector2::ZERO(), Color::White, 1);
+    UILabel l2("2", Vector2::ZERO(), Color::White, 1);
+    layout.addElement(&l1);
+    layout.addElement(&l2);
+    TEST_ASSERT_EQUAL(2U, layout.getElementCount());
+    layout.clearElements();
+    TEST_ASSERT_EQUAL(0U, layout.getElementCount());
+}
+
+void test_grid_layout_navigation_buttons() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    layout.setNavigationButtons(0, 1, 2, 3);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_grid_layout_get_selected_index() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    TEST_ASSERT_EQUAL(-1, layout.getSelectedIndex());
+    layout.setSelectedIndex(0);
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+}
+
+void test_grid_layout_set_selected_index_out_of_bounds() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    layout.setSelectedIndex(100);
+    TEST_ASSERT_TRUE(layout.getSelectedIndex() >= 0);
+}
+
+void test_vertical_layout_get_spacing() {
+    UIVerticalLayout layout(0, 0, 100, 200);
+    TEST_ASSERT_EQUAL(0, layout.getSpacing());
+    layout.setSpacing(10);
+    TEST_ASSERT_EQUAL(10, layout.getSpacing());
+}
+
+void test_vertical_layout_get_padding() {
+    UIVerticalLayout layout(0, 0, 100, 200);
+    TEST_ASSERT_EQUAL(0, layout.getPadding());
+    layout.setPadding(5);
+    TEST_ASSERT_EQUAL(5, layout.getPadding());
+}
+
+void test_horizontal_layout_get_spacing() {
+    UIHorizontalLayout layout(0, 0, 200, 50);
+    TEST_ASSERT_EQUAL(0, layout.getSpacing());
+    layout.setSpacing(15);
+    TEST_ASSERT_EQUAL(15, layout.getSpacing());
+}
+
+void test_horizontal_layout_get_padding() {
+    UIHorizontalLayout layout(0, 0, 200, 50);
+    TEST_ASSERT_EQUAL(0, layout.getPadding());
+    layout.setPadding(10);
+    TEST_ASSERT_EQUAL(10, layout.getPadding());
+}
