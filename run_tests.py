@@ -94,7 +94,7 @@ def ensure_unity():
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"[-] Error attempting to clone with git: {e}")
 
-    print("❌ Could not install Unity automatically.")
+    print("[ERROR] Could not install Unity automatically.")
     print("Please install it manually in .pio/libdeps/native_test/Unity/src")
     return False
 
@@ -140,10 +140,10 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
     
     # Verify files exist
     if not test_path.exists():
-        print(f"❌ Does not exist: {test_path}")
+        print(f"[ERROR] Does not exist: {test_path}")
         return False
     if not unity_c.exists():
-        print(f"❌ Unity not found at {unity_c}")
+        print(f"[ERROR] Unity not found at {unity_c}")
         return False
     
     # Build file list
@@ -154,11 +154,11 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
             if src_path.exists():
                 files.append(str(src_path))
             else:
-                print(f"⚠️  Source file not found: {src_path}")
+                print(f"[WARNING] Source file not found: {src_path}")
     
     # Add SDL libraries for tests that need them
     linker_flags = []
-    if test_name in ["Engine-Integration", "Game-Loop"]:
+    if test_name in ["Engine-Integration", "Game-Loop", "Core-Engine"]:
         linker_flags.extend(["-lSDL2", "-lSDL2main"])
     
     cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + linker_flags + ["-o", str(output_path)]
@@ -177,7 +177,7 @@ def main():
     
     # Ensure Unity before starting
     if not ensure_unity():
-        print("❌ Error: Cannot continue without Unity.")
+        print("[ERROR] Error: Cannot continue without Unity.")
         sys.exit(1)
     
     # Simple argument parsing for filtering
@@ -193,7 +193,7 @@ def main():
         result = subprocess.run([CXX, "--version"], capture_output=True, text=True)
         print(f"\nCompiler: {result.stdout.splitlines()[0]}")
     except:
-        print(f"❌ {CXX} not found")
+        print(f"[ERROR] {CXX} not found")
         sys.exit(1)
     
     # Tests to run: (name, test_file, executable, [optional_source_files])
@@ -204,6 +204,7 @@ def main():
         ("Core-Actor", "test/unit/test_actor/test_actor.cpp", "test_actor", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Core-Scene", "test/unit/test_scene/test_scene.cpp", "test_scene", ["src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Core-SceneManager", "test/unit/test_scene_manager/test_scene_manager.cpp", "test_scene_manager", ["src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
+        ("Core-Engine", "test/unit/test_engine/test_engine.cpp", "test_engine", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
         ("Physics-Types", "test/unit/test_collision_types/test_collision_types.cpp", "test_collision_types", None),
         ("Physics-Primitives", "test/unit/test_collision_primitives/test_collision_primitives.cpp", "test_collision_primitives", ["src/physics/CollisionPrimitives.cpp"]),
         ("Physics-System", "test/unit/test_collision_system/test_collision_system.cpp", "test_collision_system", ["src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp", "src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/RigidActor.cpp", "src/physics/SpatialGrid.cpp"]),
@@ -227,6 +228,7 @@ def main():
         ("Game-Loop", "test/test_game_loop/test_game_loop.cpp", "test_game_loop", ["src/core/Engine.cpp", "src/core/SceneManager.cpp", "src/core/Scene.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/core/PhysicsActor.cpp", "src/physics/CollisionPrimitives.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/DefaultAudioScheduler.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/platforms/PlatformCapabilities.cpp"]),
         ("UserData-Integration", "test/test_engine_integration/user_data_integration/test_user_data_integration.cpp", "test_user_data_integration", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
         ("UserData-ESP32-Performance", "test/test_engine_integration/user_data_esp32_performance/test_user_data_esp32_performance.cpp", "test_user_data_esp32_performance", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
+        ("UI", "test/unit/test_ui/test_ui_elements.cpp", "test_ui", ["test/unit/test_ui/test_ui_layouts.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp", "src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp", "src/graphics/ui/UILayout.cpp", "src/graphics/ui/UILabel.cpp", "src/graphics/ui/UIButton.cpp", "src/graphics/ui/UICheckbox.cpp", "src/graphics/ui/UIPanel.cpp", "src/graphics/ui/UIGridLayout.cpp", "src/graphics/ui/UIVerticalLayout.cpp", "src/graphics/ui/UIHorizontalLayout.cpp", "src/graphics/ui/UIAnchorLayout.cpp", "src/graphics/ui/UIPaddingContainer.cpp"]),
     ]
     
     results = []

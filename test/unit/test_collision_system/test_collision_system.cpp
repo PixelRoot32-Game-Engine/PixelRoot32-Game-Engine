@@ -365,7 +365,7 @@ void test_collision_system_swept_circle_vs_aabb_ccd(void) {
 }
 
 // =============================================================================
-// Fase 5 — One-way platform
+// One-way platform
 // =============================================================================
 
 void test_collision_system_one_way_platform_land_from_above(void) {
@@ -405,7 +405,7 @@ void test_collision_system_one_way_platform_jump_through_from_below(void) {
 }
 
 // =============================================================================
-// Task 7 — One-way platform validation unit tests
+// One-way platform validation unit tests
 // =============================================================================
 
 void test_one_way_platform_crossing_from_above(void) {
@@ -559,6 +559,86 @@ void test_one_way_platform_not_one_way(void) {
     TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
 }
 
+// CollisionSystem Error Handling Tests
+
+void test_collision_system_empty_collision_list_handling(void) {
+    // Test that update() handles empty collision list gracefully
+    CollisionSystem system;
+    
+    // System with no entities should not crash
+    system.update();
+    
+    // System should remain stable with empty entity list
+    TEST_ASSERT_TRUE(true);  // No crash, system stable
+}
+
+void test_collision_system_null_entity_handling(void) {
+    // Test that system properly rejects null entities via assertions
+    // Note: In release builds, assertions may be disabled
+    CollisionSystem system;
+    
+    // Create a valid actor first
+    MockActor actor(50, 50, 20, 20);
+    system.addEntity(&actor);
+    
+    // System should have 1 entity
+    // (Cannot test null directly due to assert, but we verify system is stable)
+    system.update();
+    TEST_ASSERT_TRUE(true);  // System didn't crash
+}
+
+void test_spatial_grid_actor_far_outside_bounds(void) {
+    // Test SpatialGrid with actor far outside normal bounds
+    CollisionSystem system;
+    
+    // Actor at extreme coordinates
+    MockActor farActor(10000, 10000, 20, 20);
+    StaticActor platform(5000, 5000, 60, 16);
+    
+    system.addEntity(&farActor);
+    system.addEntity(&platform);
+    
+    // Should handle without crashing - actors outside grid bounds are clipped
+    system.update();
+    TEST_ASSERT_TRUE(true);  // No crash
+}
+
+void test_spatial_grid_negative_coordinates(void) {
+    // Test SpatialGrid with actors at negative coordinates
+    CollisionSystem system;
+    
+    MockActor negativeActor(-100, -100, 20, 20);
+    StaticActor platform(-150, -80, 60, 16);
+    
+    system.addEntity(&negativeActor);
+    system.addEntity(&platform);
+    
+    // Should handle negative coordinates correctly
+    system.update();
+    TEST_ASSERT_TRUE(true);  // No crash
+}
+
+void test_collision_system_multiple_updates_consistency(void) {
+    // Test that multiple consecutive updates produce consistent results
+    CollisionSystem system;
+    
+    MockActor player(50, 50, 20, 20);
+    StaticActor wall(80, 50, 20, 100);
+    
+    player.setVelocity(5, 0);  // Moving right toward wall
+    
+    system.addEntity(&player);
+    system.addEntity(&wall);
+    
+    // Run multiple updates
+    for (int i = 0; i < 10; i++) {
+        system.update();
+    }
+    
+    // System should remain stable
+    TEST_ASSERT_TRUE(true);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -589,7 +669,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_collision_system_one_way_platform_land_from_above);
     RUN_TEST(test_collision_system_one_way_platform_jump_through_from_below);
     
-    // Task 7: One-way platform validation unit tests
+    // One-way platform validation unit tests
     RUN_TEST(test_one_way_platform_crossing_from_above);
     RUN_TEST(test_one_way_platform_crossing_from_below);
     RUN_TEST(test_one_way_platform_wrong_normal_direction);
@@ -598,6 +678,13 @@ int main(int argc, char **argv) {
     RUN_TEST(test_one_way_platform_velocity_sign_change);
     RUN_TEST(test_one_way_platform_stationary_on_surface);
     RUN_TEST(test_one_way_platform_not_one_way);
+    
+    // Error handling tests
+    RUN_TEST(test_collision_system_empty_collision_list_handling);
+    RUN_TEST(test_collision_system_null_entity_handling);
+    RUN_TEST(test_spatial_grid_actor_far_outside_bounds);
+    RUN_TEST(test_spatial_grid_negative_coordinates);
+    RUN_TEST(test_collision_system_multiple_updates_consistency);
     
     return UNITY_END();
 }

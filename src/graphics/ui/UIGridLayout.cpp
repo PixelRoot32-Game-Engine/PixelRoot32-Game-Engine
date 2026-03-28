@@ -18,13 +18,11 @@ namespace pixelroot32::graphics::ui {
     using namespace pixelroot32::math;
 
     UIGridLayout::UIGridLayout(Scalar x, Scalar y, int w, int h)
-        : UILayout(x, y, w, h) {
-        if (columns == 0) columns = 1; // Ensure at least 1 column
+        : UILayout(x, y, w, h), columns(1), rows(0) {
     }
 
     UIGridLayout::UIGridLayout(Vector2 position, int w, int h)
-        : UILayout(position, w, h) {
-        if (columns == 0) columns = 1; // Ensure at least 1 column
+        : UILayout(position, w, h), columns(1), rows(0) {
     }
 
     void UIGridLayout::addElement(UIElement* element) {
