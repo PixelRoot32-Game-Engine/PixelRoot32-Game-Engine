@@ -43,7 +43,7 @@ jobs:
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' --output-file coverage.info --ignore-errors unused
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
 
