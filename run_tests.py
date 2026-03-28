@@ -216,6 +216,7 @@ def main():
         ("Input-Config", "test/unit/test_input_config/test_input_config.cpp", "test_input_config", None),
         ("Input-Manager", "test/unit/test_input_manager/test_input_manager.cpp", "test_input_manager", ["src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp"]),
         ("Audio-Queue", "test/unit/test_audio_command_queue/test_audio_command_queue.cpp", "test_audio_command_queue", None),
+        ("Audio-Backend", "test/unit/test_audio/test_audiobackend.cpp", "test_audiobackend", ["src/audio/DefaultAudioScheduler.cpp", "src/audio/AudioEngine.cpp", "src/audio/MusicPlayer.cpp", "src/audio/AudioCommandQueue.cpp"]),
         ("Audio-Scheduler", "test/unit/test_audio_scheduler/test_audio_scheduler.cpp", "test_audio_scheduler", ["src/audio/DefaultAudioScheduler.cpp"]),
         ("Audio-Music", "test/unit/test_music_player/test_music_player.cpp", "test_music_player", ["src/audio/MusicPlayer.cpp", "src/audio/AudioEngine.cpp", "src/audio/DefaultAudioScheduler.cpp"]),
         ("Physics-Actor", "test/unit/test_physics_actor/test_physics_actor.cpp", "test_physics_actor", ["src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/KinematicActor.cpp", "src/physics/RigidActor.cpp", "src/physics/CollisionSystem.cpp", "src/physics/SpatialGrid.cpp", "src/physics/CollisionPrimitives.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),

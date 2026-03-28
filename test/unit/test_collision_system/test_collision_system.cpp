@@ -639,6 +639,173 @@ void test_collision_system_multiple_updates_consistency(void) {
     TEST_ASSERT_TRUE(true);
 }
 
+// =============================================================================
+// Branch coverage tests for uncovered collision system paths
+// =============================================================================
+
+void test_collision_system_static_vs_static_no_collision(void) {
+    CollisionSystem system;
+    StaticActor wall1(toScalar(0), toScalar(0), 20, 20);
+    StaticActor wall2(toScalar(10), toScalar(10), 20, 20);
+    
+    wall1.setCollisionLayer(1);
+    wall1.setCollisionMask(1);
+    wall2.setCollisionLayer(1);
+    wall2.setCollisionMask(1);
+    
+    system.addEntity(&wall1);
+    system.addEntity(&wall2);
+    system.update();
+    
+    // Static vs Static should never collide - no callbacks triggered
+    // Just verify no crash and system handles this correctly
+    TEST_ASSERT_EQUAL_INT(2, system.getEntityCount());
+}
+
+void test_collision_system_kinematic_vs_kinematic_collision(void) {
+    CollisionSystem system;
+    
+    // Use RigidActor as stand-in for kinematic (both are non-static physics bodies)
+    MockActor kin1(0, 0, 20, 20);
+    MockActor kin2(10, 10, 20, 20);
+    
+    kin1.setCollisionLayer(1);
+    kin1.setCollisionMask(1);
+    kin2.setCollisionLayer(1);
+    kin2.setCollisionMask(1);
+    
+    kin1.collisionSystem = &system;
+    kin2.collisionSystem = &system;
+    
+    system.addEntity(&kin1);
+    system.addEntity(&kin2);
+    system.update();
+    
+    // Kinematic vs Kinematic: each resolves on its own
+    // Both should receive collision callbacks
+    TEST_ASSERT_TRUE(kin1.collisionCalled || kin2.collisionCalled);
+}
+
+void test_collision_system_circle_vs_circle_zero_distance(void) {
+    // Test circle-circle collision when centers are at same position
+    // This exercises the dist <= kEpsilon branch in generateCircleVsCircleContact
+    CollisionSystem system;
+    
+    MockActor circle1(50, 50, 20, 20);
+    circle1.setShape(CollisionShape::CIRCLE);
+    circle1.setRadius(toScalar(10.0f));
+    
+    MockActor circle2(50, 50, 20, 20);  // Same center as circle1
+    circle2.setShape(CollisionShape::CIRCLE);
+    circle2.setRadius(toScalar(10.0f));
+    
+    circle1.setCollisionLayer(1);
+    circle1.setCollisionMask(1);
+    circle2.setCollisionLayer(1);
+    circle2.setCollisionMask(1);
+    
+    system.addEntity(&circle1);
+    system.addEntity(&circle2);
+    system.update();
+    
+    // Should still detect collision even with zero distance between centers
+    TEST_ASSERT_TRUE(circle1.collisionCalled);
+    TEST_ASSERT_TRUE(circle2.collisionCalled);
+}
+
+void test_collision_system_circle_vs_aabb_deep_penetration(void) {
+    // Test circle-AABB collision when circle center is inside the box
+    // This exercises the dist <= kEpsilon branch in generateCircleVsAABBContact
+    CollisionSystem system;
+    
+    MockActor circle(45, 45, 10, 10);  // Center inside box
+    circle.setShape(CollisionShape::CIRCLE);
+    circle.setRadius(toScalar(5.0f));
+    
+    MockActor box(40, 40, 20, 20);  // Box that contains circle center
+    
+    circle.setCollisionLayer(1);
+    circle.setCollisionMask(1);
+    box.setCollisionLayer(1);
+    box.setCollisionMask(1);
+    
+    system.addEntity(&circle);
+    system.addEntity(&box);
+    system.update();
+    
+    // Should detect collision even with circle center inside box
+    TEST_ASSERT_TRUE(circle.collisionCalled);
+    TEST_ASSERT_TRUE(box.collisionCalled);
+}
+
+// =============================================================================
+// CollisionSystem Edge Case Tests
+// =============================================================================
+
+void test_collision_system_exact_boundary(void) {
+    // Test collision at exact boundary (edge touching)
+    CollisionSystem system;
+    MockActor a1(0, 0, 10, 10);
+    MockActor a2(10, 0, 10, 10);  // Exactly touching at x=10
+    
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    system.update();
+    
+    // Touching edges should count as collision
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+    TEST_ASSERT_TRUE(a2.collisionCalled);
+}
+
+void test_collision_system_zero_velocity_resolution(void) {
+    // Test collision resolution with zero velocity
+    CollisionSystem system;
+    MockActor actor(0, 0, 20, 20);
+    StaticActor wall(15, 0, 20, 20);
+    
+    actor.setCollisionLayer(1);
+    actor.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    // Set zero velocity
+    actor.setVelocity(0, 0);
+    
+    system.addEntity(&wall);
+    system.addEntity(&actor);
+    system.update();
+    
+    // Should still detect collision even with zero velocity
+    TEST_ASSERT_TRUE(actor.collisionCalled);
+}
+
+void test_collision_system_broad_phase_overlapping_cells(void) {
+    // Test broad phase with actors in overlapping grid cells
+    CollisionSystem system;
+    
+    // Create actors that span multiple grid cells
+    // SpatialGrid cell size is typically 64x64
+    MockActor largeActor(60, 60, 20, 20);  // Near cell boundary
+    MockActor otherActor(70, 70, 20, 20);  // In overlapping region
+    
+    largeActor.setCollisionLayer(1);
+    largeActor.setCollisionMask(1);
+    otherActor.setCollisionLayer(1);
+    otherActor.setCollisionMask(1);
+    
+    system.addEntity(&largeActor);
+    system.addEntity(&otherActor);
+    system.update();
+    
+    // Should detect collision in broad phase
+    TEST_ASSERT_TRUE(largeActor.collisionCalled || otherActor.collisionCalled);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -685,6 +852,17 @@ int main(int argc, char **argv) {
     RUN_TEST(test_spatial_grid_actor_far_outside_bounds);
     RUN_TEST(test_spatial_grid_negative_coordinates);
     RUN_TEST(test_collision_system_multiple_updates_consistency);
+    
+    // Branch coverage tests for uncovered paths
+    RUN_TEST(test_collision_system_static_vs_static_no_collision);
+    RUN_TEST(test_collision_system_kinematic_vs_kinematic_collision);
+    RUN_TEST(test_collision_system_circle_vs_circle_zero_distance);
+    RUN_TEST(test_collision_system_circle_vs_aabb_deep_penetration);
+    
+    // Section 2.1: Edge case tests
+    RUN_TEST(test_collision_system_exact_boundary);
+    RUN_TEST(test_collision_system_zero_velocity_resolution);
+    RUN_TEST(test_collision_system_broad_phase_overlapping_cells);
     
     return UNITY_END();
 }
