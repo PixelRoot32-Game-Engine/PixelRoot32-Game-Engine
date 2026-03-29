@@ -4,6 +4,68 @@ This document provides a complete reference for the PixelRoot32 Game Engine publ
 
 > **Note:** For the most up-to-date and comprehensive API documentation with examples and cross-references, visit the [official documentation](https://docs.pixelroot32.org/api_reference/).
 
+## Table of Contents
+
+- [Global Configuration](#global-configuration)
+  - [Platform Macros (Build Flags)](#platform-macros-build-flags)
+  - [Modular Compilation Flags](#modular-compilation-flags)
+  - [Constants](#constants)
+- [Math Module](#math-module)
+  - [Scalar](#scalar)
+  - [Vector2](#vector2)
+  - [MathUtil](#mathutil)
+- [Core Module](#core-module)
+  - [Engine](#engine)
+  - [PlatformCapabilities](#platformcapabilities-struct)
+  - [DisplayConfig](#displayconfig-struct)
+  - [Entity](#entity)
+  - [Actor](#actor)
+  - [PhysicsActor](#physicsactor)
+  - [LimitRect](#limitrect)
+  - [WorldCollisionInfo](#worldcollisioninfo)
+  - [StaticActor](#staticactor)
+  - [SensorActor](#sensoractor)
+  - [KinematicActor](#kinematicactor)
+  - [RigidActor](#rigidactor)
+  - [Collision Primitives](#collision-primitives)
+  - [DefaultLayers](#defaultlayers)
+  - [TileAttributes](#tileattributes-physics)
+  - [TileConsumptionHelper](#tileconsumptionhelper)
+  - [TileCollisionBuilder](#tilecollisionbuilder)
+  - [CollisionSystem](#collisionsystem)
+  - [Scene](#scene)
+  - [SceneManager](#scenemanager)
+  - [SceneArena](#scenearena-memory-management)
+- [Graphics Module](#graphics-module)
+  - [Tile Attribute System](#tile-attribute-system)
+  - [Particle System](#particle-system)
+  - [Renderer](#renderer)
+  - [Camera2D](#camera2d)
+  - [Color](#color)
+  - [Font System](#font-system)
+  - [Sprite Structures](#sprite-structures)
+  - [TileMap](#tilemap)
+  - [Tile Animation System](#tile-animation-system)
+- [UI Module](#ui-module)
+  - [UIElement](#uielement)
+  - [UILayout](#uilayout)
+  - [UIButton](#uibutton)
+  - [UILabel](#uilabel)
+  - [UIPanel](#uipanel)
+  - [UIGridLayout](#uigridlayout)
+  - [UICheckBox](#uicheckbox)
+- [Audio Module](#audio-module)
+  - [AudioEngine](#audioengine)
+  - [Data Structures](#data-structures-1)
+  - [MusicPlayer](#musicplayer)
+  - [AudioConfig](#audioconfig)
+- [Input Module](#input-module)
+  - [InputManager](#inputmanager)
+  - [InputConfig](#inputconfig)
+- [Platform Abstractions](#platform-abstractions)
+  - [Logging System](#logging-system)
+  - [Platform Memory Abstraction](#platform-memory-abstraction)
+
 ## Global Configuration
 
 The engine's behavior can be customized using `platforms/PlatformDefaults.h` and `platforms/EngineConfig.h`, or via compile-time build flags. This allows for fine-tuning performance and hardware support without modifying the core engine code.
@@ -450,6 +512,9 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 - **`unsigned long getDeltaTime() const`**
     Returns the time elapsed since the last frame in milliseconds.
 
+- **`unsigned long getMillis() const`**
+    Returns the number of milliseconds since the engine started.
+
 - **`void setScene(Scene* newScene)`**
     Sets the current active scene.
 
@@ -458,6 +523,9 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`Renderer& getRenderer()`**
     Provides access to the Renderer subsystem.
+
+- **`void setRenderer(pixelroot32::graphics::Renderer&& newRenderer)`**
+    Replaces the current renderer instance.
 
 - **`InputManager& getInputManager()`**
     Provides access to the InputManager subsystem.
@@ -528,10 +596,6 @@ Configuration settings for display initialization and scaling.
 
 ---
 
-## Graphics Module
-
-The Graphics module manages rendering, sprites, tilemaps, and associated metadata.
-
 ### Tile Attribute System
 
 The tile attribute system allows querying custom metadata attached to tiles at runtime.
@@ -577,6 +641,368 @@ These functions are defined as `inline` in `Renderer.h` for maximum performance 
 
 - **`const TileAttributeEntry* get_tile_entry(const LayerAttributes* layers, uint8_t num_layers, uint8_t layer_idx, uint16_t x, uint16_t y)`**
     Returns a pointer to the entire `TileAttributeEntry` for a tile. Useful for iterating through all attributes of a tile or performing multiple queries efficiently. Returns `nullptr` if the tile has no attributes.
+
+### Particle System
+
+The particle system provides lightweight visual effects using a fixed-size pool of particles.
+
+> **Note**: The particle system is only available if `PIXELROOT32_ENABLE_PARTICLES=1`
+
+#### Particle
+
+**Include:** `graphics/particles/Particle.h`
+
+**Namespace:** `pixelroot32::graphics::particles`
+
+Represents a single particle in the particle system. Designed to be lightweight for memory optimization.
+
+#### Properties
+
+- **`Vector2 position`**: Current position.
+- **`Vector2 velocity`**: Velocity vector.
+- **`uint16_t color`**: Current color (RGB565).
+- **`Color startColor`**: Initial color for interpolation.
+- **`Color endColor`**: Final color for interpolation.
+- **`uint8_t life`**: Current remaining life (frames or ticks).
+- **`uint8_t maxLife`**: Total life duration.
+- **`bool active`**: Whether the particle is currently in use.
+
+#### ParticleConfig
+
+**Include:** `graphics/particles/ParticleConfig.h`
+
+**Namespace:** `pixelroot32::graphics::particles`
+
+Configuration parameters for a particle emitter.
+
+#### Properties
+
+- **`Color startColor`**: Color at the beginning of the particle's life.
+- **`Color endColor`**: Color at the end of the particle's life.
+- **`Scalar minSpeed`**: Minimum initial speed.
+- **`Scalar maxSpeed`**: Maximum initial speed.
+- **`Scalar gravity`**: Gravity force applied to Y velocity each frame.
+- **`Scalar friction`**: Air resistance factor (0.0 - 1.0).
+- **`uint8_t minLife`**: Minimum lifetime in frames/ticks.
+- **`uint8_t maxLife`**: Maximum lifetime in frames/ticks.
+- **`bool fadeColor`**: If true, interpolates color from startColor to endColor.
+- **`Scalar minAngleDeg`**: Minimum emission angle in degrees (0 = right).
+- **`Scalar maxAngleDeg`**: Maximum emission angle in degrees.
+
+#### ParticleEmitter
+
+**Include:** `graphics/particles/ParticleEmitter.h`
+
+**Namespace:** `pixelroot32::graphics::particles`
+
+**Inherits:** [Entity](#entity)
+
+Manages a pool of particles to create visual effects. Uses a fixed-size array for particles to avoid dynamic allocation.
+
+#### Public Methods
+
+- **`ParticleEmitter(Vector2 position, const ParticleConfig& cfg)`**
+    Constructs a new ParticleEmitter.
+
+- **`void update(unsigned long deltaTime) override`**
+    Updates all active particles. Applies physics (gravity, friction) and updates lifetime.
+
+- **`void draw(Renderer& renderer) override`**
+    Renders all active particles.
+
+- **`void burst(Vector2 position, int count)`**
+    Emits a burst of particles from a specific location.
+
+---
+
+## UI Module
+
+The UI module provides a complete user interface system for creating menus, dialogs, and interactive elements. All UI components inherit from `Entity` and integrate with the scene graph.
+
+> **Note**: The UI system is only available if `PIXELROOT32_ENABLE_UI_SYSTEM=1`
+
+### UIElement
+
+**Include:** `graphics/ui/UIElement.h`
+
+**Inherits:** [Entity](#entity)
+
+Base class for all UI elements. Provides positioning, sizing, and layout capabilities.
+
+#### Properties
+
+- **`UIElementType type`**: The type of UI element (GENERIC, BUTTON, LABEL, CHECKBOX, LAYOUT).
+- **`bool fixedPosition`**: If true, the element ignores camera scroll and stays fixed on screen.
+
+#### Public Methods
+
+- **`UIElement(Vector2 position, int w, int h, UIElementType t)`**
+    Constructs a new UIElement.
+
+- **`UIElement(Scalar x, Scalar y, int w, int h, UIElementType t)`**
+    Constructs a new UIElement with scalar coordinates.
+
+- **`UIElementType getType() const`**
+    Returns the type of UI element.
+
+- **`virtual bool isFocusable() const`**
+    Returns true if the element can receive focus for navigation.
+
+- **`void setFixedPosition(bool fixed)`**
+    Sets whether the element ignores camera scroll (true = fixed HUD position).
+
+- **`bool isFixedPosition() const`**
+    Returns true if the element is in fixed position mode.
+
+- **`virtual void setPosition(Scalar newX, Scalar newY)`**
+    Sets the position of the element.
+
+- **`virtual void getPreferredSize(Scalar& preferredWidth, Scalar& preferredHeight) const`**
+    Gets the preferred size of the element for layout calculations.
+
+### UIButton
+
+**Include:** `graphics/ui/UIButton.h`
+
+**Inherits:** [UIElement](#uielement)
+
+A clickable button UI element with support for physical buttons and D-pad navigation.
+
+#### Public Methods
+
+- **`UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
+    Constructs a new UIButton.
+
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
+    Configures the button's visual style.
+
+- **`void setSelected(bool selected)`**
+    Sets the selection state (for D-pad navigation).
+
+- **`bool getSelected() const`**
+    Returns true if the button is selected.
+
+- **`bool isFocusable() const override`**
+    Returns true (buttons are always focusable).
+
+- **`void handleInput(const InputManager& input)`**
+    Handles input events (touch or button press).
+
+- **`void press()`**
+    Manually triggers the button's callback.
+
+### UILabel
+
+**Include:** `graphics/ui/UILabel.h`
+
+**Inherits:** [UIElement](#uielement)
+
+A simple text label for displaying information.
+
+#### Public Methods
+
+- **`UILabel(std::string_view t, Vector2 position, Color col, uint8_t sz)`**
+    Constructs a new UILabel.
+
+- **`void setText(std::string_view t)`**
+    Updates the label's text and recalculates dimensions.
+
+- **`void setVisible(bool v)`**
+    Sets visibility.
+
+- **`void centerX(int screenWidth)`**
+    Centers the label horizontally.
+
+### UIPanel
+
+**Include:** `graphics/ui/UIPanel.h`
+
+**Inherits:** [UIElement](#uielement)
+
+A visual container that draws a background and border around child elements. Useful for dialogs and menus.
+
+#### Public Methods
+
+- **`UIPanel(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new UIPanel.
+
+- **`UIPanel(Vector2 position, int w, int h)`**
+    Constructs a new UIPanel with vector position.
+
+- **`void setChild(UIElement* element)`**
+    Sets the child element to display inside the panel.
+
+- **`UIElement* getChild() const`**
+    Gets the child element.
+
+- **`void setBackgroundColor(Color color)`**
+    Sets the background color.
+
+- **`void setBorderColor(Color color)`**
+    Sets the border color.
+
+- **`void setBorderWidth(uint8_t width)`**
+    Sets the border width in pixels.
+
+- **`uint8_t getBorderWidth() const`**
+    Gets the border width.
+
+- **`void setPosition(Scalar newX, Scalar newY) override`**
+    Sets position and updates child position.
+
+### UILayout
+
+**Include:** `graphics/ui/UILayout.h`
+
+**Inherits:** [UIElement](#uielement)
+
+Base class for UI layout containers. Provides automatic element positioning, spacing, and optional scrolling.
+
+#### Types
+
+- **`enum class ScrollBehavior`**
+  - `NONE`: No scrolling allowed
+  - `SCROLL`: Scroll freely within bounds
+  - `CLAMP`: Scroll but clamp to content bounds
+
+#### Public Methods
+
+- **`UILayout(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new UILayout.
+
+- **`UILayout(Vector2 position, int w, int h)`**
+    Constructs a new UILayout with vector position.
+
+- **`virtual void addElement(UIElement* element)`**
+    Adds a UI element to the layout.
+
+- **`virtual void removeElement(UIElement* element)`**
+    Removes a UI element from the layout.
+
+- **`virtual void updateLayout()`**
+    Recalculates positions of all elements.
+
+- **`virtual void handleInput(const InputManager& input)`**
+    Handles input for navigation/scrolling.
+
+- **`void setPadding(Scalar p)`**
+    Sets the internal padding.
+
+- **`Scalar getPadding() const`**
+    Gets the current padding.
+
+- **`void setSpacing(Scalar s)`**
+    Sets the spacing between elements.
+
+- **`Scalar getSpacing() const`**
+    Gets the current spacing.
+
+- **`size_t getElementCount() const`**
+    Gets the number of elements in the layout.
+
+- **`UIElement* getElement(size_t index) const`**
+    Gets the element at a specific index.
+
+- **`void clearElements()`**
+    Removes all elements from the layout.
+
+- **`void setScrollingEnabled(bool enabled)`**
+    Enables or disables scrolling.
+
+- **`bool isScrollingEnabled() const`**
+    Returns true if scrolling is enabled.
+
+### UIGridLayout
+
+**Include:** `graphics/ui/UIGridLayout.h`
+
+**Inherits:** [UILayout](#uilayout)
+
+Grid layout container that organizes elements in a matrix with 4-direction navigation support.
+
+#### Public Methods
+
+- **`UIGridLayout(Scalar x, Scalar y, int w, int h)`**
+    Constructs a new UIGridLayout.
+
+- **`UIGridLayout(Vector2 position, int w, int h)`**
+    Constructs a new UIGridLayout with vector position.
+
+- **`void addElement(UIElement* element)`**
+    Adds a UI element to the grid.
+
+- **`void removeElement(UIElement* element)`**
+    Removes a UI element from the grid.
+
+- **`void updateLayout()`**
+    Recalculates positions of all elements.
+
+- **`void handleInput(const InputManager& input)`**
+    Handles navigation input (UP/DOWN/LEFT/RIGHT).
+
+- **`void setColumns(uint8_t cols)`**
+    Sets the number of columns.
+
+- **`uint8_t getColumns() const`**
+    Gets the number of columns.
+
+- **`uint8_t getRows() const`**
+    Gets the calculated number of rows.
+
+- **`int getSelectedIndex() const`**
+    Gets the currently selected element index.
+
+- **`void setSelectedIndex(int index)`**
+    Sets the selected element by index.
+
+- **`UIElement* getSelectedElement() const`**
+    Gets the currently selected element.
+
+- **`void setNavigationButtons(uint8_t upButton, uint8_t downButton, uint8_t leftButton, uint8_t rightButton)`**
+    Configures button indices for navigation.
+
+- **`void setButtonStyle(Color selectedTextCol, Color selectedBgCol, Color unselectedTextCol, Color unselectedBgCol)`**
+    Sets style colors for selected/unselected states.
+
+### UICheckBox
+
+**Include:** `graphics/ui/UICheckbox.h`
+
+**Inherits:** [UIElement](#uielement)
+
+A checkbox UI element with support for physical buttons and D-pad navigation.
+
+#### Public Methods
+
+- **`UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
+    Constructs a new UICheckBox.
+
+- **`UICheckBox(std::string_view label, uint8_t index, Scalar x, Scalar y, int w, int h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
+    Constructs a new UICheckBox with scalar coordinates.
+
+- **`void setStyle(Color textCol, Color bgCol, bool drawBg = false)`**
+    Configures the checkbox's visual style.
+
+- **`void setChecked(bool checked)`**
+    Sets the checked state.
+
+- **`bool isChecked() const`**
+    Returns true if the checkbox is checked.
+
+- **`void setSelected(bool selected)`**
+    Sets the selection state (for D-pad navigation).
+
+- **`bool getSelected() const`**
+    Returns true if the checkbox is selected.
+
+- **`bool isFocusable() const override`**
+    Returns true (checkboxes are always focusable).
+
+- **`void handleInput(const InputManager& input)`**
+    Handles input events.
+
+- **`void toggle()`**
+    Toggles the checkbox state.
 
 ---
 
@@ -820,6 +1246,8 @@ The Entity class is always available. However, specialized subclasses may be aff
 
 ### Actor
 
+**Include:** `core/Actor.h`
+
 **Inherits:** [Entity](#entity)
 
 The base class for all objects capable of collision. Actors extend Entity with collision layers, masks, and shape definitions. Note: You should typically use a specialized subclass like `RigidActor` or `KinematicActor` instead of this base class.
@@ -864,6 +1292,8 @@ The base class for all objects capable of collision. Actors extend Entity with c
 The Physics module provides a high-performance "Flat Solver" optimized for microcontrollers. It handles collision detection, position resolution, and physical integration for different types of bodies.
 
 ### PhysicsActor
+
+**Include:** `core/PhysicsActor.h`
 
 **Inherits:** [Actor](#actor)
 
@@ -947,6 +1377,54 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 
 - **`void resetWorldCollisionInfo()`**
     Resets the world collision flags for the current frame.
+
+- **`PhysicsBodyType getBodyType() const`**
+    Gets the simulation body type (STATIC, KINEMATIC, or RIGID).
+
+- **`void setBodyType(PhysicsBodyType type)`**
+    Sets the simulation body type.
+
+- **`void setMass(float m)`**
+    Sets the mass of the actor.
+
+- **`pixelroot32::math::Scalar getMass() const`**
+    Gets the mass of the actor.
+
+- **`void setGravityScale(pixelroot32::math::Scalar scale)`**
+    Sets the gravity scale multiplier.
+
+- **`pixelroot32::math::Scalar getGravityScale() const`**
+    Gets the gravity scale multiplier.
+
+- **`CollisionShape getShape() const`**
+    Gets the collision shape type (AABB or CIRCLE).
+
+- **`void setShape(CollisionShape s)`**
+    Sets the collision shape type.
+
+- **`pixelroot32::math::Scalar getRadius() const`**
+    Gets the radius (only meaningful for CIRCLE shape).
+
+- **`void setRadius(pixelroot32::math::Scalar r)`**
+    Sets the radius and updates width/height to match diameter.
+
+- **`void integrate(pixelroot32::math::Scalar dt)`**
+    Integrates velocity to update position.
+
+- **`void resolveWorldBounds()`**
+    Resolves collisions with the defined world or custom bounds.
+
+- **`virtual void onWorldCollision()`**
+    Callback triggered when this actor collides with world boundaries. Override to implement custom behavior.
+
+- **`void setWorldSize(int w, int h)`**
+    Alias for `setWorldBounds()`.
+
+- **`pixelroot32::math::Scalar getVelocityX() const`**
+    Gets the horizontal velocity component.
+
+- **`pixelroot32::math::Scalar getVelocityY() const`**
+    Gets the vertical velocity component.
 
 ---
 
@@ -1473,6 +1951,10 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 ---
 
 ### SceneArena (Memory Management)
+
+**Include:** `core/Scene.h`
+
+**Namespace:** `pixelroot32::core`
 
 **Inherits:** None
 
@@ -3086,23 +3568,37 @@ Handles input from physical buttons or keyboard.
 
 ### InputManager
 
+**Include:** `input/InputManager.h`
+
 **Inherits:** None
 
-Handles input polling, debouncing, and state tracking.
+Handles input polling, debouncing, and state tracking for physical buttons (ESP32) or keyboard (Native/SDL2).
 
 #### Public Methods
 
+- **`InputManager(const InputConfig& config)`**
+    Constructs the InputManager with a specific configuration.
+
+- **`void init()`**
+    Initializes the input pins.
+
+- **`void update(unsigned long dt)`** (ESP32)
+    Updates input state by polling hardware pins.
+
+- **`void update(unsigned long dt, const uint8_t* keyboardState)`** (Native/SDL2)
+    Updates input state based on SDL keyboard state.
+
 - **`bool isButtonPressed(uint8_t buttonIndex) const`**
-    Returns true if button was just pressed this frame.
+    Returns true if button was just pressed this frame (UP → DOWN).
 
 - **`bool isButtonReleased(uint8_t buttonIndex) const`**
-    Returns true if button was just released this frame.
+    Returns true if button was just released this frame (DOWN → UP).
 
 - **`bool isButtonDown(uint8_t buttonIndex) const`**
     Returns true if button is currently held down.
 
 - **`bool isButtonClicked(uint8_t buttonIndex) const`**
-    Returns true if button was clicked (pressed and released).
+    Returns true if button was clicked (pressed and released in same frame).
 
 ---
 
@@ -3792,6 +4288,7 @@ void threadWorker() {
 ```
 
 **Recommendation:**
+
 - Single-threaded games: Use global functions for simplicity
 - Multi-threaded scenarios: Create `Random` instances per thread/context
 - Per-entity randomness: Give each entity its own `Random` instance
