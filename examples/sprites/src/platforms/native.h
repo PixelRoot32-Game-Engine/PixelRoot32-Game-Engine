@@ -3,7 +3,6 @@
 #include <SDL2/SDL.h>
 
 #include <drivers/native/SDL2_Drawer.h> 
-#include <drivers/native/SDL2_AudioBackend.h>
 #include <core/Engine.h>
 #include <platforms/EngineConfig.h>
 

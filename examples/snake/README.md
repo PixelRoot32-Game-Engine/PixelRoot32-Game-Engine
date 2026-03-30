@@ -3,9 +3,11 @@
 A complete Snake game implementation using PixelRoot32.
 
 ## Features
+
 - Snake movement with arrow keys
 - Food spawning
 - Collision detection (walls and self)
+- Optional audio feedback (I2S or DAC)
 - Score display
 - Game over state
 
@@ -20,6 +22,7 @@ pio run -e esp32dev
 ```
 
 ## Controls
+
 - Arrow keys to move
 - Goal: Eat food to grow and score points
 - Avoid: Walls and your own tail
