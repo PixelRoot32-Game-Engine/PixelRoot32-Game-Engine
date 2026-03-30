@@ -28,3 +28,8 @@ pio run -e esp32dev
 ```bash
 pio run -e esp32dev --target upload
 ```
+
+---
+
+**Note:** Looking for more examples? Check out the main samples repository:
+[https://github.com/pixelroot32/PixelRoot32-Game-Samples](https://github.com/pixelroot32/PixelRoot32-Game-Samples)
