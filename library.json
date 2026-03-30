@@ -39,5 +39,27 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git"
-  }
+  },
+  "examples": [
+    {
+      "name": "Hello World",
+      "base": "examples/hello_world"
+    },
+    {
+      "name": "Sprites Demo",
+      "base": "examples/sprites"
+    },
+    {
+      "name": "Physics Demo",
+      "base": "examples/physics"
+    },
+    {
+      "name": "Snake Game",
+      "base": "examples/snake"
+    },
+    {
+      "name": "Animated Tilemap",
+      "base": "examples/animated_tilemap"
+    }
+  ]
 }

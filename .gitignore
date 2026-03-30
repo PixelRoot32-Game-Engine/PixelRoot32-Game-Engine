@@ -96,3 +96,6 @@ platformio_test.log
 .cursor/
 openspec/
 AGENTS.md
+
+# Ignore all file start with _*
+_*
