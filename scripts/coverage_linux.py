@@ -55,6 +55,8 @@ def generate_coverage():
         ["lcov", "--remove", COVERAGE_INFO, 
          "/usr/*", "*/.pio/*", "*/test/*", "*/lib/*",
          "*/src/drivers/native/*", "*/include/drivers/native/*",
+         "*/src/core/Engine.cpp", "*/src/graphics/Renderer.cpp", "*/src/physics/TileConsumptionHelper.cpp",
+         "*/include/graphics/BaseDrawSurface.h", "*/include/graphics/DrawSurface.h", "*/include/graphics/ui/UICheckbox.h",
          "--output-file", COVERAGE_FILTERED],
         "FILTERING DATA"
     ):

@@ -1,9 +1,11 @@
 /*
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
- * 
+ *
  * Unit tests for graphics drawing primitives
  */
+
+#pragma once
 
 #include <unity.h>
 #include <graphics/Renderer.h>
@@ -13,37 +15,11 @@
 
 using namespace pixelroot32::graphics;
 
-MockDrawSurface* mockSurface = nullptr;
-Renderer* renderer = nullptr;
-
-void setUp(void) {
-    mockSurface = new MockDrawSurface();
-    DisplayConfig config = pixelroot32::graphics::DisplayConfig::createCustom(mockSurface, 240, 240);
-    renderer = new Renderer(config);
-    renderer->setDisplaySize(240, 240);
-}
-
-void tearDown(void) {
-    delete renderer;
-    delete mockSurface;
-    renderer = nullptr;
-    mockSurface = nullptr;
-}
-
-// Helper functions to check calls
-bool wasDrawCalled(const std::string& type) {
-    for (const auto& call : mockSurface->calls) {
-        if (call.type == type) return true;
-    }
-    return false;
-}
-
-MockDrawSurface::DrawCall getLastCallOfType(const std::string& type) {
-    for (auto it = mockSurface->calls.rbegin(); it != mockSurface->calls.rend(); ++it) {
-        if (it->type == type) return *it;
-    }
-    return MockDrawSurface::DrawCall{"", 0, 0, 0, 0, 0, 0, 0, 0, ""};
-}
+// Forward declarations - implementation in test_graphics.cpp
+extern MockDrawSurface* mockSurface;
+extern Renderer* renderer;
+extern bool wasDrawCalled(const std::string& type);
+extern MockDrawSurface::DrawCall getLastCallOfType(const std::string& type);
 
 // ============================================================================
 // Rectangle Drawing Tests
@@ -325,75 +301,6 @@ void test_sibling_order_and_z_index(void) {
     TEST_ASSERT_TRUE(true); // Placeholder
 }
 
-// ============================================================================
-// Render Context Tests (Temporarily disabled - PaletteContext not available)
-// ============================================================================
-
-/*
-void test_set_render_context(void) {
-    PaletteContext context = PaletteContext::Background;
-    renderer->setRenderContext(&context);
-    TEST_ASSERT_EQUAL(&context, renderer->getRenderContext());
-}
-
-void test_reset_render_context(void) {
-    renderer->setRenderContext(nullptr);
-    TEST_ASSERT_NULL(renderer->getRenderContext());
-}
-*/
-
-// ============================================================================
-// Main
-// ============================================================================
-
-int main(int argc, char **argv) {
-    UNITY_BEGIN();
-    
-    // Rectangle Tests
-    RUN_TEST(test_draw_rectangle_basic);
-    RUN_TEST(test_draw_rectangle_with_offset);
-    RUN_TEST(test_draw_filled_rectangle);
-    RUN_TEST(test_draw_rectangle_zero_size);
-    
-    // Line Tests
-    RUN_TEST(test_draw_line_basic);
-    RUN_TEST(test_draw_line_horizontal);
-    RUN_TEST(test_draw_line_vertical);
-    RUN_TEST(test_draw_line_with_offset);
-    
-    // Circle Tests
-    RUN_TEST(test_draw_circle_basic);
-    RUN_TEST(test_draw_filled_circle);
-    RUN_TEST(test_draw_circle_zero_radius);
-    RUN_TEST(test_draw_circle_with_offset);
-    
-    // Offset/Transform Tests
-    RUN_TEST(test_set_display_offset);
-    RUN_TEST(test_display_offset_affects_all_primitives);
-    RUN_TEST(test_negative_display_offset);
-    
-    // Color Tests
-    RUN_TEST(test_draw_with_color_red);
-    RUN_TEST(test_draw_with_transparent_color);
-    
-    // Clipping Tests
-    RUN_TEST(test_draw_outside_logical_bounds);
-    RUN_TEST(test_draw_at_exact_bounds);
-    
-    // Pixel Tests
-    RUN_TEST(test_draw_pixel_basic);
-    RUN_TEST(test_draw_pixel_with_offset);
-    
-    // UI Layout Advanced Tests
-    RUN_TEST(test_horizontal_layout_with_spacing);
-    RUN_TEST(test_vertical_layout_with_spacing);
-    RUN_TEST(test_ui_component_state);
-    RUN_TEST(test_ui_container_hierarchy);
-    RUN_TEST(test_sibling_order_and_z_index);
-    
-    // Context Tests (Temporarily disabled)
-    // RUN_TEST(test_set_render_context);
-    // RUN_TEST(test_reset_render_context);
-    
-    return UNITY_END();
-}
+// Context Tests (Temporarily disabled)
+// void test_set_render_context(void);
+// void test_reset_render_context(void);

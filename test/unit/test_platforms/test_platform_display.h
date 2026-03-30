@@ -1,17 +1,9 @@
-/*
- * Copyright (c) 2026 PixelRoot32
- * Licensed under the MIT License
- * 
- * Unit tests for platform display configuration and operations
- */
+#pragma once
 
 #include <unity.h>
 #include <graphics/DisplayConfig.h>
 
 using namespace pixelroot32::graphics;
-
-void setUp(void) {}
-void tearDown(void) {}
 
 // ============================================================================
 // DisplayConfig Construction Tests
@@ -192,49 +184,4 @@ void test_display_config_unusual_rotation(void) {
     // Rotation values other than standard 0/90/180/270
     DisplayConfig config(DisplayType::NONE, 45, 240, 240);
     TEST_ASSERT_EQUAL(45, config.rotation);
-}
-
-// ============================================================================
-// Main
-// ============================================================================
-
-int main(int argc, char **argv) {
-    UNITY_BEGIN();
-    
-    // Construction Tests
-    RUN_TEST(test_display_config_none_type);
-    RUN_TEST(test_display_config_with_scaling);
-    RUN_TEST(test_display_config_auto_logical_resolution);
-    RUN_TEST(test_display_config_with_offsets);
-    RUN_TEST(test_display_config_with_rotation);
-    RUN_TEST(test_display_config_st7789_type);
-    RUN_TEST(test_display_config_st7735_type);
-    
-    // Pin Configuration
-    RUN_TEST(test_display_config_pin_configuration);
-    RUN_TEST(test_display_config_hardware_i2c_flag);
-    
-    // Scaling Helpers
-    RUN_TEST(test_display_config_needs_scaling_true);
-    RUN_TEST(test_display_config_needs_scaling_false);
-    RUN_TEST(test_display_config_scale_x);
-    RUN_TEST(test_display_config_scale_y);
-    RUN_TEST(test_display_config_no_scaling_factor);
-    
-    // Backward Compatibility
-    RUN_TEST(test_display_config_width_alias);
-    RUN_TEST(test_display_config_height_alias);
-    
-    // Move Semantics
-    RUN_TEST(test_display_config_move_constructor);
-    RUN_TEST(test_display_config_move_assignment);
-    
-    // Copy Semantics
-    RUN_TEST(test_display_config_copy_constructor);
-    
-    // Edge Cases
-    RUN_TEST(test_display_config_zero_resolution);
-    RUN_TEST(test_display_config_unusual_rotation);
-    
-    return UNITY_END();
 }

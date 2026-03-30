@@ -2,25 +2,13 @@
 #include "../../test_config.h"
 #include "core/Engine.h"
 #include "graphics/DisplayConfig.h"
-#include "graphics/BaseDrawSurface.h"
+#include "mocks/MockDrawSurface.h"
 #include "input/InputConfig.h"
 #include "core/Scene.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::input;
-
-class MockDrawSurface : public BaseDrawSurface {
-public:
-    void init() override {}
-    void clearBuffer() override {}
-    void sendBuffer() override {}
-    void drawRectangle(int, int, int, int, uint16_t) override {}
-    void drawFilledRectangle(int, int, int, int, uint16_t) override {}
-    void drawPixel(int, int, uint16_t) override {}
-    bool processEvents() override { return true; }
-    void present() override {}
-};
 
 // Mock Scene for testing Engine integration
 class MockScene : public Scene {
@@ -262,6 +250,23 @@ void test_engine_init_with_audio() {
     TEST_ASSERT_NOT_NULL(&engine.getAudioEngine());
 }
 
+void test_engine_constructor_display_only() {
+    MockDrawSurface* mockSurface = new MockDrawSurface();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockSurface, 320, 240);
+    
+    Engine engine(config);
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_engine_constructor_display_input() {
+    MockDrawSurface* mockSurface = new MockDrawSurface();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockSurface, 320, 240);
+    InputConfig inputConfig(8, 0, 1, 2, 3, 4, 5, 6, 7);
+    
+    Engine engine(config, inputConfig);
+    TEST_ASSERT_TRUE(true);
+}
+
 void test_engine_get_current_scene() {
     // Test getCurrentScene returns nullopt when no scene set
     MockDrawSurface* mockSurface = new MockDrawSurface();
@@ -406,6 +411,8 @@ int main() {
     RUN_TEST(test_engine_multiple_scenes);
     RUN_TEST(test_engine_get_millis);
     RUN_TEST(test_engine_init_with_audio);
+    RUN_TEST(test_engine_constructor_display_only);
+    RUN_TEST(test_engine_constructor_display_input);
     RUN_TEST(test_engine_get_current_scene);
     RUN_TEST(test_engine_input_update);
     

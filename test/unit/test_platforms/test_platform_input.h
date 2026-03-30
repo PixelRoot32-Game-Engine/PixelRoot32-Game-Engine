@@ -1,17 +1,9 @@
-/*
- * Copyright (c) 2026 PixelRoot32
- * Licensed under the MIT License
- * 
- * Unit tests for platform input configuration abstractions
- */
+#pragma once
 
 #include <unity.h>
 #include "input/InputConfig.h"
 
 using namespace pixelroot32::input;
-
-void setUp(void) {}
-void tearDown(void) {}
 
 // ============================================================================
 // InputConfig Construction Tests
@@ -129,36 +121,4 @@ void test_input_config_duplicate_values(void) {
     TEST_ASSERT_EQUAL(10, config.inputPins[1]);
     TEST_ASSERT_EQUAL(10, config.inputPins[2]);
     #endif
-}
-
-// ============================================================================
-// Main
-// ============================================================================
-
-int main(int argc, char **argv) {
-    UNITY_BEGIN();
-    
-    // Construction Tests
-    RUN_TEST(test_input_config_default_constructor);
-    RUN_TEST(test_input_config_single_input);
-    RUN_TEST(test_input_config_multiple_inputs);
-    RUN_TEST(test_input_config_zero_count);
-    RUN_TEST(test_input_config_negative_count);
-    
-    // Array Access Tests
-    RUN_TEST(test_input_config_array_size_matches_count);
-    RUN_TEST(test_input_config_array_values_correct);
-    
-    // Platform-Specific Tests
-    #ifdef PLATFORM_NATIVE
-    RUN_TEST(test_input_config_native_button_names_type);
-    #else
-    RUN_TEST(test_input_config_esp32_pins_type);
-    #endif
-    
-    // Edge Cases
-    RUN_TEST(test_input_config_large_count);
-    RUN_TEST(test_input_config_duplicate_values);
-    
-    return UNITY_END();
 }

@@ -167,23 +167,7 @@ public:
                        pixelroot32::graphics::Color unselectedTextCol,
                        pixelroot32::graphics::Color unselectedBgCol);
 
-private:
-    pixelroot32::math::Scalar contentWidth = pixelroot32::math::toScalar(0.0f);         ///< Total width of all content
-    pixelroot32::math::Scalar targetScrollOffset = pixelroot32::math::toScalar(0.0f);   ///< Target scroll position (for smooth scrolling)
-    pixelroot32::math::Scalar scrollSpeed = pixelroot32::math::toScalar(0.5f);          ///< Scroll speed in pixels per millisecond
-    int selectedIndex = -1;                                                             ///< Currently selected element index
-    uint8_t navLeftButton = 2;                                                          ///< Button index for LEFT navigation
-    uint8_t navRightButton = 3;                                                         ///< Button index for RIGHT navigation
-    bool wasLeftPressed = false;                                                        ///< Previous state of LEFT button (for rising edge detection)
-    bool wasRightPressed = false;                                                       ///< Previous state of RIGHT button (for rising edge detection)
-    bool needsClear = false;                                                            ///< Flag to indicate if layout area needs clearing (performance optimization)
-    pixelroot32::math::Scalar lastScrollOffset = pixelroot32::math::toScalar(0.0f);     ///< Previous scroll offset to detect changes
-    
-    // Style colors for buttons
-    pixelroot32::graphics::Color selectedTextColor = pixelroot32::graphics::Color::White;
-    pixelroot32::graphics::Color selectedBgColor = pixelroot32::graphics::Color::Cyan;
-    pixelroot32::graphics::Color unselectedTextColor = pixelroot32::graphics::Color::White;
-    pixelroot32::graphics::Color unselectedBgColor = pixelroot32::graphics::Color::Black;
+protected:
 
     /**
      * @brief Calculates the total content width.
@@ -204,6 +188,24 @@ private:
      * @brief Clamps scroll offset to valid range.
      */
     void clampScrollOffset();
+
+private:
+    pixelroot32::math::Scalar contentWidth = pixelroot32::math::toScalar(0.0f);         ///< Total width of all content
+    pixelroot32::math::Scalar targetScrollOffset = pixelroot32::math::toScalar(0.0f);   ///< Target scroll position (for smooth scrolling)
+    pixelroot32::math::Scalar scrollSpeed = pixelroot32::math::toScalar(0.5f);          ///< Scroll speed in pixels per millisecond
+    int selectedIndex = -1;                                                             ///< Currently selected element index
+    uint8_t navLeftButton = 2;                                                          ///< Button index for LEFT navigation
+    uint8_t navRightButton = 3;                                                         ///< Button index for RIGHT navigation
+    bool wasLeftPressed = false;                                                        ///< Previous state of LEFT button (for rising edge detection)
+    bool wasRightPressed = false;                                                       ///< Previous state of RIGHT button (for rising edge detection)
+    bool needsClear = false;                                                            ///< Flag to indicate if layout area needs clearing (performance optimization)
+    pixelroot32::math::Scalar lastScrollOffset = pixelroot32::math::toScalar(0.0f);     ///< Previous scroll offset to detect changes
+    
+    // Style colors for buttons
+    pixelroot32::graphics::Color selectedTextColor = pixelroot32::graphics::Color::White;
+    pixelroot32::graphics::Color selectedBgColor = pixelroot32::graphics::Color::Cyan;
+    pixelroot32::graphics::Color unselectedTextColor = pixelroot32::graphics::Color::White;
+    pixelroot32::graphics::Color unselectedBgColor = pixelroot32::graphics::Color::Black;
 };
 
 }
