@@ -8,6 +8,7 @@
 #include <unity.h>
 #include "../../test_config.h"
 #include "core/Entity.h"
+#include "mocks/MockDrawSurface.h"
 
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;

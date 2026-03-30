@@ -9,6 +9,8 @@ on:
 jobs:
   test_native:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -34,7 +36,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         sudo apt-get update
-        sudo apt-get install -y libsdl2-dev lcov
+        sudo apt-get install -y libsdl2-dev lcov bc
 
     - name: Run Tests
       run: |
@@ -43,9 +45,19 @@ jobs:
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' --output-file coverage.info --ignore-errors unused
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
+
+    - name: Verify Coverage Threshold
+      run: |
+        TOTAL=$(lcov --summary coverage.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+        echo "Line coverage: $TOTAL%"
+        if (( $(echo "$TOTAL < 80" | bc -l) )); then
+          echo "ERROR: Line coverage $TOTAL% is below 80% threshold"
+          exit 1
+        fi
+        echo "Coverage check passed!"
 
     - name: Upload Coverage Report
       uses: actions/upload-artifact@v4

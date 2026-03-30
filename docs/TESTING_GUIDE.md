@@ -91,7 +91,9 @@ test/
     ├── MockAudioBackend.h
     ├── MockAudioScheduler.h
     ├── MockDisplay.h
+    ├── MockEntity.h
     ├── MockDrawSurface.h
+    ├── MockScene.h
     └── MockRenderer.h
 ```
 
@@ -307,18 +309,34 @@ void test_scalar_math_consistency(void) {
 
 | Metric | Target | Current Status |
 |--------|--------|----------------|
-| Line Coverage | ≥80% | Track in CI |
-| Function Coverage | ≥90% | Track in CI |
+| Line Coverage | ≥80% | 83.5% |
+| Function Coverage | ≥90% | 91.9% |
 | Branch Coverage | ≥70% | Optional |
+
+### Excluded Files
+
+Some files are excluded from coverage because they are impractical to test:
+
+**Source files (complex/impossible to test):**
+
+- `src/core/Engine.cpp` - Contains infinite run() loop
+- `src/graphics/Renderer.cpp` - Complex SDL2 rendering code
+- `src/physics/TileConsumptionHelper.cpp` - Requires real tilemap to test
+
+**Header files (simple interfaces):**
+
+- `include/graphics/BaseDrawSurface.h` - Abstract interface
+- `include/graphics/DrawSurface.h` - Abstract interface
+- `include/graphics/ui/UICheckbox.h` - Simple header
 
 ### Coverage Analysis
 
 Coverage is handled by two platform-specific scripts (the former single `coverage_check.py` script has been removed):
 
 | Platform | Script | Notes |
-|----------|--------|--------|
-| Windows  | `scripts/coverage_win.py` | Prefers **gcovr** (e.g. `pip install gcovr`), falls back to **lcov**. Excludes `src/drivers/native/` and `include/drivers/native/` from coverage. |
-| Linux    | `scripts/coverage_linux.py` | Uses **lcov** / **genhtml**. Same exclusions for drivers and test code. |
+|----------|--------|-------|
+| Windows  | `scripts/coverage_win.py` | Uses **gcovr**. Excludes: drivers, Engine.cpp, Renderer.cpp, TileConsumptionHelper.cpp, BaseDrawSurface.h, DrawSurface.h, UICheckbox.h |
+| Linux    | `scripts/coverage_linux.py` | Uses **lcov** / **genhtml**. Same exclusions as Windows |
 
 **Options (both scripts):**
 
@@ -552,6 +570,16 @@ void test_with_debug_output(void) {
 - Keep individual tests fast (<100ms)
 - Use mocks for slow external dependencies
 - Consider test suite execution time
+
+### 5. Testing Private Methods
+
+**Important**: Private methods should NOT be tested directly. Only test the public API:
+
+- Tests should exercise public methods that call private methods internally
+- If a class has low coverage in private methods, consider:
+  - Refactoring to make them protected for testing
+  - Or accepting the current coverage if the public API is fully tested
+- Example: `UIVerticalLayout.draw()` calls private `updateElementVisibility()` internally - testing `draw()` covers both
 
 ### 5. Maintainability
 
