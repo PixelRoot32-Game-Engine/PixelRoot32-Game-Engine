@@ -7,7 +7,7 @@
 #include "graphics/ui/UIPanel.h"
 #include "graphics/ui/UILabel.h"
 #include "graphics/ui/UIButton.h"
-#include "graphics/ui/UICheckBox.h"
+#include "graphics/ui/UICheckbox.h"
 #include "graphics/ui/UIPaddingContainer.h"
 #include "graphics/ui/UIGridLayout.h"
 #include "graphics/Renderer.h"

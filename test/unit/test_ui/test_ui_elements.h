@@ -4,7 +4,7 @@
 #include "../../test_config.h"
 #include "graphics/ui/UILabel.h"
 #include "graphics/ui/UIButton.h"
-#include "graphics/ui/UICheckBox.h"
+#include "graphics/ui/UICheckbox.h"
 #include "graphics/ui/UIPanel.h"
 #include "graphics/DisplayConfig.h"
 #include "graphics/BaseDrawSurface.h"
