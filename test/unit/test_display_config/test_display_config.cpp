@@ -32,10 +32,12 @@ void tearDown(void) {
 void test_display_config_display_type_enum_values(void) {
     TEST_ASSERT_EQUAL_INT(0, static_cast<int>(DisplayType::ST7789));
     TEST_ASSERT_EQUAL_INT(1, static_cast<int>(DisplayType::ST7735));
-    TEST_ASSERT_EQUAL_INT(2, static_cast<int>(DisplayType::OLED_SSD1306));
-    TEST_ASSERT_EQUAL_INT(3, static_cast<int>(DisplayType::OLED_SH1106));
-    TEST_ASSERT_EQUAL_INT(4, static_cast<int>(DisplayType::NONE));
-    TEST_ASSERT_EQUAL_INT(5, static_cast<int>(DisplayType::CUSTOM));
+    TEST_ASSERT_EQUAL_INT(2, static_cast<int>(DisplayType::ILI9341));
+    TEST_ASSERT_EQUAL_INT(3, static_cast<int>(DisplayType::ILI9341_2));
+    TEST_ASSERT_EQUAL_INT(4, static_cast<int>(DisplayType::OLED_SSD1306));
+    TEST_ASSERT_EQUAL_INT(5, static_cast<int>(DisplayType::OLED_SH1106));
+    TEST_ASSERT_EQUAL_INT(6, static_cast<int>(DisplayType::NONE));
+    TEST_ASSERT_EQUAL_INT(7, static_cast<int>(DisplayType::CUSTOM));
 }
 
 // =============================================================================
