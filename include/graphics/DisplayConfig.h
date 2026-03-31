@@ -30,8 +30,10 @@
 namespace pixelroot32::graphics {
 
 enum DisplayType {
-    ST7789, // 240x240 TFT
-    ST7735, // 128x128 TFT
+    ST7789, // TFT
+    ST7735, // TFT
+    ILI9341, // TFT 
+    ILI9341_2, // TFT Alternative ILI9341 driver, see https://github.com/Bodmer/TFT_eSPI/issues/1172
     OLED_SSD1306, // 128x64 OLED (U8G2)
     OLED_SH1106,  // 128x64 OLED (U8G2)
     NONE,   // for SDL2 native no driver.

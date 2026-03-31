@@ -5,6 +5,8 @@
  * Mock SDL2 events implementation
  */
 
+#ifdef PLATFORM_NATIVE
+
 #include "platforms/mock/MockSDL2Events.h"
 
 namespace pixelroot32::platforms::mock {
@@ -13,3 +15,5 @@ namespace pixelroot32::platforms::mock {
 MockSDL2EventProvider* g_mockSDL2Events = nullptr;
 
 } // namespace pixelroot32::platforms::mock
+
+#endif // PLATFORM_NATIVE
