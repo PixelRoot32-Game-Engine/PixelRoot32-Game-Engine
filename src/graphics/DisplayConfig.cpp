@@ -52,6 +52,8 @@ namespace pixelroot32::graphics {
                 {
                 case DisplayType::ST7789:
                 case DisplayType::ST7735:
+                case DisplayType::ILI9341:
+                case DisplayType::ILI9341_2:
                 default:
                     rawSurface = new pixelroot32::drivers::esp32::TFT_eSPI_Drawer();
                     break;
