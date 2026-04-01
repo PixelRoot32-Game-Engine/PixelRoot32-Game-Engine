@@ -4,6 +4,7 @@
 
 #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
 
+#include "drivers/esp32/TFT_eSPI_TouchBridge.h"
 #include <stdio.h>
 #include <cstdarg>
 #include <cstdio>
@@ -59,6 +60,8 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     // Build scaling lookup tables and palette conversion buffers
     buildScaleLUTs();
     pr32::core::logging::log("[TFT_eSPI_Drawer] Initialization complete.");
+
+    pixelroot32::drivers::esp32::registerTftForXpt2046Touch(&tft);
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {

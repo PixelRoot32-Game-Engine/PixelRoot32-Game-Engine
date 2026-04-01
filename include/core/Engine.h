@@ -23,6 +23,28 @@ namespace pixelroot32::core {
  * Engine acts as the central hub of the game engine. It initializes and manages
  * the Renderer, InputManager, AudioEngine, and SceneManager. It runs the main game loop,
  * handling timing (delta time), updating the current scene, and rendering frames.
+ *
+ * ## Touch pipeline integration
+ *
+ * Touch input is **not** owned by Engine (hardware varies per board).
+ * The recommended per-frame flow is:
+ *
+ * @code
+ *   // 1. Sample hardware (adapter / TouchManager)
+ *   touchManager.update(deltaTime);
+ *
+ *   // 2. Pull events from the dispatcher
+ *   TouchEvent events[TOUCH_EVENT_QUEUE_SIZE];
+ *   uint8_t count = touchManager.getEvents(events, TOUCH_EVENT_QUEUE_SIZE);
+ *
+ *   // 3. Feed the scene — UI-first, then unconsumed → gameplay (Phase 3/4/6)
+ *   if (count > 0) {
+ *       scene->processTouchEvents(events, count);
+ *   }
+ * @endcode
+ *
+ * Inside `Scene::processTouchEvents` the order is guaranteed:
+ *   UIManager::processEvents (marks consumed) → onUnconsumedTouchEvent (virtual).
  */
 class Engine {
 public:
@@ -113,6 +135,21 @@ public:
      * @return Reference to the InputManager    .
      */
     pixelroot32::input::InputManager& getInputManager() { return inputManager; }
+
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+    /**
+     * @brief Provides access to the UI system via the current scene.
+     * 
+     * This is a hybrid approach - UI is scene-managed but accessible through Engine.
+     * The UIManager is owned by each Scene, so this delegates to the current scene's
+     * UIManager. This allows code that has an Engine reference to also access UI
+     * functionality without needing direct scene access.
+     * 
+     * @return Reference to the current scene's UIManager.
+     * @note Asserts if no scene is currently active.
+     */
+    graphics::ui::UIManager& getUIManager();
+#endif
 
 #if PIXELROOT32_ENABLE_AUDIO
     /**

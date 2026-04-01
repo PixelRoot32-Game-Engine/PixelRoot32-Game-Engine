@@ -62,6 +62,12 @@ This document provides a complete reference for the PixelRoot32 Game Engine publ
 - [Input Module](#input-module)
   - [InputManager](#inputmanager)
   - [InputConfig](#inputconfig)
+  - [Touch input overview](#touch-input-overview)
+  - [TouchManager](#touchmanager)
+  - [TouchCalibration](#touchcalibration)
+  - [TouchPoint and TouchEvent](#touchpoint-and-touchevent)
+  - [ActorTouchController](#actortouchcontroller)
+  - [XPT2046 build flags (ESP32)](#xpt2046-build-flags-esp32)
 - [Platform Abstractions](#platform-abstractions)
   - [Logging System](#logging-system)
   - [Platform Memory Abstraction](#platform-memory-abstraction)
@@ -1898,6 +1904,12 @@ Represents a game level or screen containing entities. A Scene manages a collect
 - **`virtual void draw(Renderer& renderer)`**
     Draws all visible entities in the scene, iterating them by logical render layers (0 = background, 1 = gameplay, 2 = UI).
 
+- **`virtual void processTouchEvents(TouchEvent* events, uint8_t count)`**
+    Runs the central touch pipeline for one frame: if `PIXELROOT32_ENABLE_UI_SYSTEM`, **`UIManager::processEvents`** runs first and may mark events consumed; then **`onUnconsumedTouchEvent`** is called for each unconsumed event. Override in a subclass only if you need preprocessing before the base implementation; otherwise override **`onUnconsumedTouchEvent`** for gameplay.
+
+- **`virtual void onUnconsumedTouchEvent(const TouchEvent& event)`**
+    Hook for touch not handled by UI. Default is no-op. Typical use: forward to **`ActorTouchController::handleTouch`** or custom gestures.
+
 - **`void addEntity(Entity* entity)`**
     Adds an entity to the scene.
     > **Note:** The scene does **not** take ownership of the entity. You must ensure the entity remains valid as long as it is in the scene (typically by holding it in a `std::unique_ptr` within your Scene class).
@@ -3564,7 +3576,7 @@ Namespace containing predefined `ParticleConfig` constants for common effects:
 
 ## Input Module
 
-Handles input from physical buttons or keyboard.
+Handles **physical buttons** / **keyboard** via `InputManager`, and **touch screens** via `TouchManager` and optional `ActorTouchController`. Touch is documented below; architecture and calibration are covered in [Touch Input Architecture](TOUCH_INPUT.md).
 
 ### InputManager
 
@@ -3623,6 +3635,115 @@ Example:
 // 3 inputs: Left, Right, Jump
 InputConfig input(3, 12, 14, 27); 
 ```
+
+---
+
+### Touch input overview
+
+Touch is **not** wired through `Engine::run()` automatically. Platform code should call `TouchManager::update`, then `getEvents`, then feed the current `Scene` via `processTouchEvents` (see `Engine.h` class comment and [TOUCH_INPUT.md](TOUCH_INPUT.md)).
+
+**Typical loop fragment**
+
+```cpp
+touchManager.update(frameDt);
+pixelroot32::input::TouchEvent events[pixelroot32::input::TOUCH_EVENT_QUEUE_SIZE];
+uint8_t n = touchManager.getEvents(events, pixelroot32::input::TOUCH_EVENT_QUEUE_SIZE);
+if (n > 0) {
+    auto scene = engine.getCurrentScene();
+    if (scene.has_value() && scene.value()) {
+        scene.value()->processTouchEvents(events, n);
+    }
+}
+engine.run();
+```
+
+**Scene hooks** (see [Scene](#scene)): `processTouchEvents` dispatches to UI (if enabled) then `onUnconsumedTouchEvent`.
+
+---
+
+### TouchManager
+
+**Include:** `input/TouchManager.h`
+
+Aggregates normalized `TouchPoint`s from the active adapter, clamps to the constructor bounds, and runs `TouchEventDispatcher` to produce `TouchEvent` gestures. Header is mostly **inline**; pairs with `TOUCH_DRIVER_XPT2046` or `TOUCH_DRIVER_GT911`.
+
+#### Public methods (summary)
+
+| Method | Description |
+|--------|-------------|
+| `TouchManager(int16_t maxX, int16_t maxY)` | Clamping bounds (use physical panel size). |
+| `bool init()` | Initializes adapter; call **`setCalibration` first** (see TOUCH_INPUT.md). |
+| `void update(unsigned long dt)` | Poll hardware, refresh buffer, run dispatcher. |
+| `void setCalibration(const TouchCalibration&)` | Copies calibration to manager **and** adapter. |
+| `uint8_t getEvents(TouchEvent* buf, uint8_t maxCount)` | Dequeue gesture events (pull API). |
+| `uint8_t getTouchPoints(TouchPoint* points) const` | Raw pressed points for the frame. |
+| `uint8_t getActiveCount() const` | Number of active points. |
+| `bool isTouchActive() const` | Any finger/stylus down. |
+| `bool isConnected() const` | Adapter initialization / health. |
+| `uint8_t peekEvents`, `hasEvents`, `getEventCount`, `clearEvents` | Queue inspection / control. |
+
+Constants: `TouchManager::CIRCULAR_BUFFER_SIZE`, `TOUCH_EVENT_QUEUE_SIZE` (in `input/TouchEvent.h`).
+
+---
+
+### TouchCalibration
+
+**Include:** `input/TouchAdapter.h` (class `TouchCalibration`)
+
+Maps raw controller coordinates to screen space; optional **rotation** enum `TouchRotation`.
+
+| API | Description |
+|-----|-------------|
+| `static TouchCalibration forResolution(int16_t w, int16_t h)` | Sets `displayWidth` / `displayHeight` and heuristic `scaleX` / `scaleY` (12-bit ADC span). |
+| `TouchPoint transform(int16_t rawX, int16_t rawY, bool pressed, uint8_t id, uint32_t ts) const` | Scale, offsets, rotation, clamp. |
+| `void setRotation(TouchRotation)` / `applyRotation` | Match TFT rotation when needed. |
+| Public fields | `scaleX`, `scaleY`, `offsetX`, `offsetY`, `displayWidth`, `displayHeight`, `rotation`. |
+
+---
+
+### TouchPoint and TouchEvent
+
+**Includes:** `input/TouchPoint.h`, `input/TouchEvent.h`, `input/TouchEventTypes.h`
+
+- **`TouchPoint`**: `x`, `y`, `pressed`, `id`, timestamp — normalized sample after adapter + clamp.
+- **`TouchEvent`**: compact gesture record — `TouchEventType` (`TouchDown`, `TouchUp`, `DragStart`, `DragMove`, `DragEnd`, `Click`, …), `x`, `y`, `flags` (e.g. consumed), `id`, `timestamp`. Use `isConsumed()`, `setConsumed()` for UI routing.
+
+---
+
+### ActorTouchController
+
+**Include:** `input/ActorTouchController.h`
+
+Registers up to 8 `Actor*` targets; on `handleTouch`, performs hit test (with optional slop), drag threshold (`kDragThreshold`), and updates `Actor::position` on drag.
+
+| Method | Description |
+|--------|-------------|
+| `bool registerActor(Actor*)` / `unregisterActor` | Pool membership. |
+| `void handleTouch(const TouchEvent&)` | Route by `TouchEventType`. |
+| `void setTouchHitSlop(int16_t pixels)` | Expand hit-test rect **per side** (resistive calibration slack). |
+| `int16_t getTouchHitSlop() const` | Current slop. |
+| `bool isDragging() const` | Threshold exceeded and actor locked. |
+| `Actor* getDraggedActor() const` | Hit actor (may be non-null before drag threshold). |
+| `void reset()` | Clears pool and drag state (not slop). |
+
+---
+
+### XPT2046 build flags (ESP32)
+
+Used by `src/input/adapters/XPT2046Adapter.cpp` (SPI or **`XPT2046_USE_GPIO_SPI`** bit-bang). Define via `build_flags` in `platformio.ini`.
+
+| Macro | Default | Purpose |
+|-------|---------|---------|
+| `XPT2046_USE_GPIO_SPI` | off | Separate GPIO bus (e.g. 2432S028R); pins: `XPT2046_GPIO_IRQ`, `MOSI`, `MISO`, `CLK`, `CS`. |
+| `XPT2046_GPIO_SWAP_AXES` | `0` | Swap ADC axes before mapping (vertical/horizontal swapped on screen). |
+| `XPT2046_GPIO_MIRROR_X` | `0` | Flip X in screen space after map: `x = displayWidth - x`. |
+| `XPT2046_GPIO_VENDOR_COORDS` | `0` | Vendor-style X/Y swap (see adapter). |
+| `XPT2046_GPIO_USE_RAW_RANGE` | `0` | Linear map `XPT2046_RAW_*_LO/HI` → full width/height instead of `transform` heuristics. |
+| `XPT2046_RAW_X_LO`, `XPT2046_RAW_X_HI`, `XPT2046_RAW_Y_LO`, `XPT2046_RAW_Y_HI` | code defaults | Usable ADC window for raw-range mode. |
+| `XPT2046_CAL_OFFSET_X`, `XPT2046_CAL_OFFSET_Y` | optional | Pixel nudge **after** mirror. |
+| `XPT2046_DEBUG_RAW_TOUCH` | `0` | Periodic serial log of raw `ax`/`ay` after swap (tuning). |
+
+Order after read: **map → vendor coords → mirror X → CAL offsets → clamp** (see [TOUCH_INPUT.md](TOUCH_INPUT.md)).
 
 ---
 

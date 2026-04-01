@@ -229,6 +229,13 @@ namespace pixelroot32::core {
         return renderer;
     }
 
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+    graphics::ui::UIManager& Engine::getUIManager() {
+        assert(sceneManager.getCurrentScene().has_value() && "No active scene - cannot get UIManager");
+        return sceneManager.getCurrentScene().value()->getUIManager();
+    }
+#endif
+
     unsigned long Engine::getMillis() const {
         return millis();
     }

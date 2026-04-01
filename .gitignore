@@ -94,6 +94,8 @@ platformio_test.log
 .opencode/
 .windsurf/
 .cursor/
+.trae/
+.agent/
 openspec/
 AGENTS.md
 

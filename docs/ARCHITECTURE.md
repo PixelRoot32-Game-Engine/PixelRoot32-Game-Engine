@@ -330,6 +330,11 @@ class Renderer {
 - `isButtonDown()`: Current DOWN state
 - `isButtonClicked()`: Complete click
 
+**Touch input (parallel to buttons)**  
+`InputManager` does not read the touch controller. Resistive/capacitive panels use **`TouchManager`** plus a compile-time adapter (`XPT2046`, `GT911`, …): the platform loop calls `TouchManager::update`, drains `getEvents`, and forwards to **`Scene::processTouchEvents`** (UI first, then **`onUnconsumedTouchEvent`**). Calibration and GPIO-specific flags live in the adapter layer.
+
+For pipeline diagrams, initialization order (e.g. `setCalibration` before `init`), XPT2046 GPIO ordering, and CYD-oriented notes, see **[Touch Input Architecture](TOUCH_INPUT.md)**.
+
 #### 3.4.3 AudioEngine
 
 **Files**: `include/audio/AudioEngine.h`, `src/audio/AudioEngine.cpp`
@@ -841,6 +846,7 @@ AudioBackend
 | `platforms/PlatformCapabilities.h` | Hardware detection (`pixelroot32::platforms`) |
 | `graphics/DisplayConfig.h` | Display configuration |
 | `input/InputConfig.h` | Input configuration |
+| `docs/TOUCH_INPUT.md` | Touch pipeline, calibration, scene integration |
 | `audio/AudioConfig.h` | Audio configuration |
 
 ### 5.2 Compilation Flags

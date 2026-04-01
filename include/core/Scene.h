@@ -13,6 +13,11 @@
 #include "physics/CollisionSystem.h"
 #include "Entity.h"
 #include "platforms/EngineConfig.h"
+#include "input/TouchEvent.h"
+
+#ifdef PIXELROOT32_ENABLE_UI_SYSTEM
+#include "graphics/ui/UIManager.h"
+#endif
 
 namespace pixelroot32::core {
 
@@ -56,6 +61,55 @@ public:
      */
     virtual void init() {}
 
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+    /**
+     * @brief Initialize the UI system for this scene.
+     * Called during scene init. Add UI elements here.
+     */
+    virtual void initUI() {}
+
+    /**
+     * @brief Update the UI system.
+     * @param deltaTime Time elapsed in ms.
+     */
+    virtual void updateUI(unsigned long deltaTime) {
+        (void)deltaTime;
+    }
+
+    /**
+     * @brief Get the UI manager for this scene.
+     * @return Reference to the UIManager
+     */
+    pixelroot32::graphics::ui::UIManager& getUIManager() { return uiManager; }
+#endif
+
+    /**
+     * @brief Central touch pipeline entry point (call once per frame).
+     *
+     * Execution order (deterministic):
+     *   1. If UI is enabled: UIManager::processEvents — marks handled events consumed.
+     *   2. For each unconsumed event: calls onUnconsumedTouchEvent (virtual).
+     *
+     * Callers (Engine / game loop) feed the buffer obtained from
+     * TouchManager::getEvents or TouchEventDispatcher::getEvents.
+     *
+     * @param events Mutable buffer — consumed flags are set in-place.
+     * @param count  Number of events in the buffer.
+     */
+    virtual void processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count);
+
+    /**
+     * @brief Hook for scene-specific handling of unconsumed touch events.
+     *
+     * Override in subclasses to feed ActorTouchController, custom drag
+     * logic, etc.  Default implementation is a no-op.
+     *
+     * @param event The touch event (not consumed by UI).
+     */
+    virtual void onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) {
+        (void)event;
+    }
+
     /**
      * @brief Updates all entities in the scene and handles collisions.
      * @param deltaTime Time elapsed in ms.
@@ -96,6 +150,11 @@ protected:
     // Physics 
     #if PIXELROOT32_ENABLE_PHYSICS
         pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
+    #endif
+
+    // UI System
+    #if PIXELROOT32_ENABLE_UI_SYSTEM
+        pixelroot32::graphics::ui::UIManager uiManager; ///< Touch UI manager for the scene.
     #endif
 
     SceneArena arena;

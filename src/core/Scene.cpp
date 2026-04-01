@@ -52,6 +52,22 @@ namespace pixelroot32::core {
         }
     }
 
+    void Scene::processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count) {
+        if (events == nullptr || count == 0) {
+            return;
+        }
+
+        #if PIXELROOT32_ENABLE_UI_SYSTEM
+            uiManager.processEvents(events, count);
+        #endif
+
+        for (uint8_t i = 0; i < count; ++i) {
+            if (!events[i].isConsumed()) {
+                onUnconsumedTouchEvent(events[i]);
+            }
+        }
+    }
+
     void Scene::update(unsigned long deltaTime) {
         // Flat Solver Pipeline
         // Physics integration and collision resolution now handled entirely by CollisionSystem
