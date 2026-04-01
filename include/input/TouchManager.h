@@ -265,17 +265,16 @@ inline void TouchManager::update(unsigned long dt) {
     static bool sHadActiveTouch = false;
 
     if (count > 0) {
+        if (!sHadActiveTouch) {
+            pixelroot32::core::logging::log("[TouchMgr] finger down x=%d y=%d", points[0].x, points[0].y);
+        }
         sLastTouchX = points[0].x;
         sLastTouchY = points[0].y;
         sHadActiveTouch = true;
-        pixelroot32::core::logging::log("[TouchMgr] pts=%u x=%d y=%d evtsBefore=%u",
-            count, points[0].x, points[0].y, eventDispatcher.getEventCount());
         eventDispatcher.processTouchPoints(points, count, currentTime);
-        pixelroot32::core::logging::log("[TouchMgr] evtsAfter=%u", eventDispatcher.getEventCount());
     } else if (sHadActiveTouch) {
-        pixelroot32::core::logging::log("[TouchMgr] RELEASE lastX=%d lastY=%d", sLastTouchX, sLastTouchY);
         eventDispatcher.processTouch(0, false, sLastTouchX, sLastTouchY, currentTime);
-        pixelroot32::core::logging::log("[TouchMgr] evtsAfterRelease=%u", eventDispatcher.getEventCount());
+        pixelroot32::core::logging::log("[TouchMgr] finger up   x=%d y=%d", sLastTouchX, sLastTouchY);
         sHadActiveTouch = false;
     }
 

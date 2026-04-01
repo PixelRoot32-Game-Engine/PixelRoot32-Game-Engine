@@ -24,7 +24,10 @@ static bool gCalibrationApplied = false;
 void registerTftForXpt2046Touch(TFT_eSPI* tft) {
     gTftForTouch = tft;
     gCalibrationApplied = false;
-    pixelroot32::core::logging::log("[TouchBridge] TFT registered: %s", tft ? "OK" : "NULL");
+    if (tft == nullptr) {
+        pixelroot32::core::logging::log(pixelroot32::core::logging::LogLevel::Warning,
+            "[TouchBridge] registerTft: TFT pointer is NULL (touch will not work)");
+    }
 }
 
 bool touchBridgeHasTft() {
@@ -41,7 +44,7 @@ void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count
         uint16_t calData[5] = { 300, 3600, 300, 3600, 7 };
         gTftForTouch->setTouch(calData);
         gCalibrationApplied = true;
-        pixelroot32::core::logging::log("[TouchBridge] calibration applied");
+        pixelroot32::core::logging::log("[TouchBridge] default TFT_eSPI touch cal applied");
     }
 
 #ifdef ARDUINO_ARCH_ESP32
@@ -54,22 +57,9 @@ void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count
     uint16_t y = 0;
     constexpr uint16_t kTouchThreshold = 300;
     const uint8_t pressed = gTftForTouch->getTouch(&x, &y, kTouchThreshold);
-
-    static uint32_t sLastRawLog = 0;
     if (pressed == 0) {
-#ifdef ARDUINO_ARCH_ESP32
-        if (ts - sLastRawLog > 2000) {
-            uint16_t rx = 0, ry = 0;
-            gTftForTouch->getTouchRaw(&rx, &ry);
-            uint16_t rz = gTftForTouch->getTouchRawZ();
-            pixelroot32::core::logging::log("[TouchBridge] idle rx=%u ry=%u rz=%u", rx, ry, rz);
-            sLastRawLog = ts;
-        }
-#endif
         return;
     }
-
-    pixelroot32::core::logging::log("[TouchBridge] PRESS x=%u y=%u", x, y);
 
     points[0] = pixelroot32::input::TouchPoint(
         static_cast<int16_t>(x),

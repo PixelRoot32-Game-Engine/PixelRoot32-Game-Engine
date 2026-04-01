@@ -87,9 +87,6 @@ bool ActorTouchController::unregisterActor(pixelroot32::core::Actor* actor) {
 }
 
 void ActorTouchController::handleTouch(const TouchEvent& event) {
-    pixelroot32::core::logging::log("[ATC] handleTouch type=%u x=%d y=%d pool=%u",
-        static_cast<uint8_t>(event.type), event.x, event.y, actorPool.count);
-
     switch (event.type) {
         case TouchEventType::TouchDown:
             onTouchDown(event);
@@ -226,7 +223,6 @@ void ActorTouchController::onTouchMove(const TouchEvent& event) {
     }
     
     if (thresholdExceeded && draggedActor != nullptr) {
-        pixelroot32::core::logging::log("[ATC] DRAG newPos=(%d,%d)", event.x + dragOffsetX, event.y + dragOffsetY);
         // New position = current touch position + preserved offset
         // This makes actor move relative to initial touch (not absolute position)
         int16_t newX = event.x + dragOffsetX;
