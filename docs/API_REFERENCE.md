@@ -1061,214 +1061,17 @@ Lightweight struct stored in a fixed-size pool. Contains position, size, state, 
 - **`bool contains(int16_t px, int16_t py) const`**
     Checks if point is within bounds.
 
-#### UITouchElement
+#### Touch UI summary (`UITouchElement` family)
 
-**Include:** `graphics/ui/UITouchElement.h`
-
-**Inherits:** [UIElement](#uielement)
-
-Entity wrapper for UITouchWidget. Provides the UIElement interface (update/draw) while delegating to the underlying widget for state management. Since it inherits from UIElement, it can be added to UILayout containers for automatic positioning.
-
-#### Public Methods
-
-- **`explicit UITouchElement(UITouchWidget* widget)`**
-    Constructs an element wrapping an existing widget.
-
-- **`UITouchWidget* getWidget() const`**
-    Returns the wrapped widget.
-
-- **`uint8_t getWidgetState() const`**
-    Returns the widget state.
-
-- **`bool isPressed() const`**
-    Returns true if widget state is Pressed.
-
-- **`bool isEnabled() const`**
-    Returns true if widget is enabled.
-
-- **`bool isVisible() const`**
-    Returns true if widget is visible.
-
-- **`void setPosition(Scalar newX, Scalar newY) override`**
-    Sets position and synchronizes both Entity position and widget data. Called automatically by UILayout when repositioning elements.
-
-- **`void update(unsigned long deltaTime) override`**
-    Updates element, syncs state from widget.
-
-- **`void draw(Renderer& renderer) override`**
-    Renders element (subclasses override for custom rendering).
-
-#### UITouchButton
-
-**Include:** `graphics/ui/UITouchButton.h`
-
-**Inherits:** [UITouchElement](#uitouchelement)
-
-Touch-optimized button widget with support for touch events (OnDown, OnUp, OnClick).
-
-#### Public Methods
-
-- **`explicit UITouchButton(UITouchWidget* widget)`**
-    Constructs a new touch button.
-
-- **`void setLabel(std::string_view label)`**
-    Sets the button label.
-
-- **`std::string_view getLabel() const`**
-    Returns the current label.
-
-- **`void setColors(Color normal, Color pressed, Color disabled)`**
-    Sets button colors for different states.
-
-- **`Color getNormalColor() const`**
-    Returns the normal state color.
-
-- **`Color getPressedColor() const`**
-    Returns the pressed state color.
-
-- **`Color getDisabledColor() const`**
-    Returns the disabled state color.
-
-- **`Color getBorderColor() const`**
-    Returns the border color.
-
-- **`Color getDisabledBorderColor() const`**
-    Returns the disabled border color.
-
-- **`void setOnDown(ButtonCallback callback)`**
-    Sets the OnDown callback.
-
-- **`void setOnUp(ButtonCallback callback)`**
-    Sets the OnUp callback.
-
-- **`void setOnClick(ButtonCallback callback)`**
-    Sets the OnClick callback.
-
-- **`ButtonCallback getOnDown() const`**
-    Returns the OnDown callback.
-
-- **`ButtonCallback getOnUp() const`**
-    Returns the OnUp callback.
-
-- **`ButtonCallback getOnClick() const`**
-    Returns the OnClick callback.
-
-- **`bool processEvent(const TouchEvent& event)`**
-    Processes a touch event.
-
-- **`void draw(Renderer& renderer) override`**
-    Renders the button with background, border, and optional label.
-
-- **`void reset()`**
-    Resets button state.
-
-#### UITouchSlider
-
-**Include:** `graphics/ui/UITouchSlider.h`
-
-**Inherits:** [UITouchElement](#uitouchelement)
-
-Touch-optimized slider widget with drag interaction. Value range: 0-100.
-
-#### Public Methods
-
-- **`explicit UITouchSlider(UITouchWidget* widget)`**
-    Constructs a new touch slider.
-
-- **`void setColors(Color track, Color thumb)`**
-    Sets track and thumb colors.
-
-- **`Color getTrackColor() const`**
-    Returns the track color.
-
-- **`Color getThumbColor() const`**
-    Returns the thumb color.
-
-- **`Color getDisabledColor() const`**
-    Returns the disabled color.
-
-- **`void setOnValueChanged(SliderCallback callback)`**
-    Sets the OnValueChanged callback.
-
-- **`void setOnDragStart(SliderCallback callback)`**
-    Sets the OnDragStart callback.
-
-- **`void setOnDragEnd(SliderCallback callback)`**
-    Sets the OnDragEnd callback.
-
-- **`SliderCallback getOnValueChanged() const`**
-    Returns the OnValueChanged callback.
-
-- **`SliderCallback getOnDragStart() const`**
-    Returns the OnDragStart callback.
-
-- **`SliderCallback getOnDragEnd() const`**
-    Returns the OnDragEnd callback.
-
-- **`uint8_t getValue() const`**
-    Returns the current value (0-100).
-
-- **`void setValue(uint8_t newValue)`**
-    Sets the value (clamped to 0-100).
-
-- **`uint8_t getPreviousValue() const`**
-    Returns the previous value.
-
-- **`bool hasValueChanged() const`**
-    Returns true if value changed since last frame.
-
-- **`bool processEvent(const TouchEvent& event)`**
-    Processes a touch event.
-
-- **`void draw(Renderer& renderer) override`**
-    Renders the slider with track and thumb.
-
-- **`void reset()`**
-    Resets slider state.
+Embedded-friendly touch widgets live under **`graphics/ui/`**: abstract **[UITouchElement](#uitouchelement)** (embedded **`UITouchWidget`**), **[UITouchButton](#uitouchbutton)**, **[UITouchSlider](#uitouchslider)**, **[UITouchCheckbox](#uitouchcheckbox)**. The scene owns instances (e.g. **`std::unique_ptr`**); **[UIManager](#uimanager)** only registers **`addElement`** for **`processEvents`**. Full constructors, callbacks, and **`processEvent`** semantics are documented in those sections below.
 
 #### UIManager
 
 **Include:** `graphics/ui/UIManager.h`
 
-Manages touch widgets and elements. Provides a pool-based allocation system for zero-allocation UI.
+Registry of up to **`MAX_ELEMENTS` (16)** non-owning pointers to **`UITouchElement`**. The **scene (or owner)** constructs widgets (e.g. `std::make_unique<UITouchButton>(...)`) and registers them with **`addElement`**. Hit testing and **`processEvents`** call **`UITouchElement::processEvent`** polymorphically. **`clear`** / **`removeElement`** only unregister pointers; they never destroy objects. **`update`** / **`draw`** are no-ops (widgets are updated and drawn as **entities** via **`Scene`**).
 
-#### Public Methods
-
-- **`UIManager(uint8_t maxWidgets)`**
-    Constructs a UIManager with a maximum widget pool size.
-
-- **`void init()`**
-    Initializes the widget pool.
-
-- **`UITouchWidget* createWidget(UIWidgetType type, uint8_t index, int16_t x, int16_t y, uint16_t w, uint16_t h)`**
-    Creates a new widget from the pool.
-
-- **`void destroyWidget(UITouchWidget* widget)`**
-    Returns a widget to the pool.
-
-- **`void update(unsigned long deltaTime)`**
-    Updates all active touch elements.
-
-- **`void draw(Renderer& renderer)`**
-    Draws all active touch elements.
-
-- **`void setManualRenderUpdate(bool manual)`**
-    When set to `true`, UIManager skips calling `update()` and `draw()` on elements. Use this when elements are managed by a UILayout/Scene (which calls update/draw via the Entity system). Default is `false` (UIManager handles update/draw).
-
-- **`bool isManualRenderUpdate() const`**
-    Returns whether manual render/update mode is enabled.
-
-- **`UITouchElement* hitTest(int16_t x, int16_t y)`**
-    Returns the topmost element at the given coordinates, or nullptr.
-
-- **`bool processEvents(const TouchEvent* events, uint8_t count)`**
-    Processes touch events, returns true if any was consumed.
-
-- **`UITouchWidget* getFirstWidget() const`**
-    Returns the first widget in the pool.
-
-- **`UITouchWidget* getNextWidget(UITouchWidget* current) const`**
-    Returns the next widget after the current one.
+See the full **[UIManager](#uimanager)** section below for the complete method list and usage example.
 
 #### UIHitTest
 
@@ -2170,10 +1973,10 @@ Represents a game level or screen containing entities. A Scene manages a collect
     Called when the scene is initialized or entered.
 
 - **`virtual void update(unsigned long deltaTime)`**
-    Updates all entities in the scene and handles collisions.
+    Updates all entities in the scene and runs the physics pipeline. Touch **`UITouchElement`** instances are updated here only when they are registered as **entities** (e.g. via a **`UILayout`** with **`addEntity`**); **`UIManager::update`** is a no-op.
 
 - **`virtual void draw(Renderer& renderer)`**
-    Draws all visible entities in the scene, iterating them by logical render layers (0 = background, 1 = gameplay, 2 = UI).
+    Draws all visible entities in the scene, iterating them by logical render layers (0 = background, 1 = gameplay, 2 = UI). Touch widgets draw through this path as entities; **`UIManager::draw`** is a no-op.
 
 - **`virtual void processTouchEvents(TouchEvent* events, uint8_t count)`**
     Runs the central touch pipeline for one frame: if `PIXELROOT32_ENABLE_UI_SYSTEM`, **`UIManager::processEvents`** runs first and may mark events consumed; then **`onUnconsumedTouchEvent`** is called for each unconsumed event. Override in a subclass only if you need preprocessing before the base implementation; otherwise override **`onUnconsumedTouchEvent`** for gameplay.
@@ -2186,7 +1989,7 @@ Represents a game level or screen containing entities. A Scene manages a collect
     > **Note:** The scene does **not** take ownership of the entity. You must ensure the entity remains valid as long as it is in the scene (typically by holding it in a `std::unique_ptr` within your Scene class).
 
 - **`void removeEntity(Entity* entity)`**
-The engine defines default limits in `platforms/EngineConfig.h`: `MAX_LAYERS` (default 4) and `MAX_ENTITIES` (default 64). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
+    Removes a specific entity from the scene (and from the collision system when physics is enabled).
 
 - **`void clearEntities()`**
     Removes all entities from the scene. Does not delete the entity objects.
@@ -4012,7 +3815,6 @@ Used by `src/input/adapters/XPT2046Adapter.cpp` (SPI or **`XPT2046_USE_GPIO_SPI`
 | `XPT2046_GPIO_USE_RAW_RANGE` | `0` | Linear map `XPT2046_RAW_*_LO/HI` → full width/height instead of `transform` heuristics. |
 | `XPT2046_RAW_X_LO`, `XPT2046_RAW_X_HI`, `XPT2046_RAW_Y_LO`, `XPT2046_RAW_Y_HI` | code defaults | Usable ADC window for raw-range mode. |
 | `XPT2046_CAL_OFFSET_X`, `XPT2046_CAL_OFFSET_Y` | optional | Pixel nudge **after** mirror. |
-| `XPT2046_DEBUG_RAW_TOUCH` | `0` | Periodic serial log of raw `ax`/`ay` after swap (tuning). |
 
 Order after read: **map → vendor coords → mirror X → CAL offsets → clamp** (see [TOUCH_INPUT.md](TOUCH_INPUT.md)).
 
@@ -4118,144 +3920,120 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 **Inherits:** None
 
-Manages a fixed-size pool of touch UI elements (`UITouchButton`, `UITouchSlider`). Uses placement new for zero-allocation in-place construction. Processes touch events and dispatches them to the appropriate UI elements.
+**Non-owning registry** for touch UI elements (subclasses of **`UITouchElement`**). Holds up to **`MAX_ELEMENTS`** (16) pointers for hit testing and event dispatch. **The scene owns widget lifetime** (e.g. **`std::unique_ptr`**, **`std::make_unique`**, or arena allocation in **`init()`**); **`UIManager`** only registers pointers via **`addElement`**. **`processEvents`** calls **`processEvent`** on the hit element (and on the captured element during drags) without type switches.
 
 #### Constants
 
-- **`MAX_ELEMENTS`**: Maximum number of UI elements in the pool (default: 16).
-- **`ELEMENT_SLOT_BYTES`**: Bytes per pool slot, sized to fit the largest concrete widget.
+- **`MAX_ELEMENTS`**: Maximum number of registered elements (16).
 
 #### Public Methods
 
 - **`UIManager()`**
-    Constructs a new UIManager with empty element pool.
+    Constructs an empty manager.
 
-- **`UITouchButton* addButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h)`**
-    Creates a button with the specified position and size using placement new in the pool.
-    - `t`: Button label text.
-    - `x, y`: Position (top-left corner).
-    - `w, h`: Width and height.
-    - Returns: Pointer to the created button, or `nullptr` if pool is full.
+- **`~UIManager()`**
+    Calls **`clear()`** (unregisters only; does not destroy pointed-to objects).
 
-- **`UITouchSlider* addSlider(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t initialValue = 50)`**
-    Creates a slider with the specified position and size using placement new in the pool.
-    - `x, y`: Position (top-left corner).
-    - `w, h`: Width and height.
-    - `initialValue`: Initial value (0-100).
-    - Returns: Pointer to the created slider, or `nullptr` if pool is full.
+- **`bool addElement(UITouchElement* element)`**
+    Registers **`element`** for hit testing and **`processEvents`**.
+    - Returns **`false`** if **`element`** is null, the registry is full, or the same pointer was already registered.
+    - If **`element->getWidgetData().id == 0`**, assigns a unique non-zero widget id from an internal counter.
 
 - **`bool removeElement(uint8_t id)`**
-    Removes an element by its ID.
-    - Returns: `true` if removed successfully.
+    Unregisters the element whose embedded widget **`id`** matches. Does not destroy the object.
+    - Returns **`true`** if a slot was removed.
 
 - **`bool removeElement(UITouchWidget* widget)`**
-    Removes an element by widget pointer (legacy, deprecated).
-    - Returns: `true` if removed successfully.
+    Unregisters by widget address (uses **`widget->id`**). Does not destroy the object.
 
 - **`UITouchElement* getElement(uint8_t id) const`**
-    Gets an element by ID.
-    - Returns: Pointer to element, or `nullptr` if not found.
+    Returns the registered element for that widget id, or **`nullptr`**.
 
 - **`UITouchElement* getElementAt(uint8_t index) const`**
-    Gets an element by pool index.
-    - Returns: Pointer to element, or `nullptr` if index invalid.
+    Returns the element in internal slot **`index`** if in use, or **`nullptr`**.
 
 - **`uint8_t getElementCount() const`**
-    Returns the number of active elements.
+    Number of registered elements.
 
 - **`uint8_t getMaxElements() const`**
-    Returns the maximum capacity of the pool.
+    Same as **`MAX_ELEMENTS`**.
 
 - **`bool isFull() const`**
-    Returns `true` if no more elements can be added.
+    **`true`** if **`elementCount >= MAX_ELEMENTS`**.
 
 - **`void clear()`**
-    Removes all elements and clears the pool.
+    Clears all registrations and capture/hover state. Does **not** call destructors on **`UITouchElement`** objects.
 
 - **`uint8_t processEvents(TouchEvent* events, uint8_t count)`**
-    Processes touch events and dispatches them to UI elements.
-    - `events`: Array of touch events.
-    - `count`: Number of events.
-    - Returns: Number of events consumed by UI elements.
+    For each non-consumed event: hit test against registered elements, then **`hit->processEvent(event)`** (polymorphic). May set **`TouchEvent::consume()`** and widget consume flags. Returns how many events were consumed by the UI.
 
 - **`bool processEvent(TouchEvent& event)`**
-    Processes a single touch event.
-    - Returns: `true` if event was consumed.
+    Convenience wrapper around **`processEvents(&event, 1)`**.
 
-- **`void update(unsigned long deltaTime)`**
-    Updates all active elements.
+- **`UITouchWidget* getActiveWidget() const`**
+- **`UITouchWidget* getHoverWidget() const`**
+- **`UITouchWidget* getCapturedWidget() const`**
+    Accessors for focus/hover/drag-capture state.
 
-- **`void draw(Renderer& renderer)`**
-    Draws all active elements.
+- **`getElements()`** / **`getElements() const`** — access the internal array of **`UITouchElement*`** slots (sparse; many may be null). Exact C++ types are `UITouchElement**` and `UITouchElement* const*` (see `UIManager.h`).
 
 - **`void updateHover(int16_t x, int16_t y)`**
-    Updates hover state for the specified position.
+    Updates **`hoverWidget`** from hit testing at **`(x, y)`**.
 
 - **`void clearConsumeFlags()`**
-    Clears consume flags for all widgets (call each frame).
+    Clears consume flags on all registered widgets (typical use: once per frame before processing events).
 
 - **`void releaseCapture()`**
-    Releases the currently captured widget (for drag tracking).
+    Clears **`capturedWidget`**.
 
-- **`void setManualRenderUpdate(bool manual)`**
-    Controls whether UIManager handles update/draw or delegates to Scene/Layout. When `true`, UIManager skips calling `update()` and `draw()` on elements. Use this when elements are added to a UILayout (which calls update/draw via the Entity system). Default is `false`.
-
-- **`bool isManualRenderUpdate() const`**
-    Returns whether manual render/update mode is enabled.
+- **`void update(unsigned long deltaTime)`** / **`void draw(Renderer& renderer)`**
+    **No-op** (deprecated for new code). Touch widgets are updated and drawn through the **entity** / **`Scene`** loop (e.g. **`addEntity(layout)`**).
 
 #### Example Usage
 
 ```cpp
+#include <memory>
 #include "graphics/ui/UIManager.h"
+#include "graphics/ui/UITouchButton.h"
+#include "graphics/ui/UITouchSlider.h"
+#include "graphics/ui/UIHorizontalLayout.h"
 
 using namespace pixelroot32::graphics::ui;
 
-// Create UIManager
-UIManager uiManager;
+void onOkClicked() { /* ... */ }
+void onSlider(uint8_t v) { (void)v; }
 
-// Add touch elements
-UITouchButton* btn = uiManager.addButton("OK", 10, 20, 100, 40);
-UITouchSlider* slider = uiManager.addSlider(10, 70, 200, 30, 50);
+// class MyScene : public Scene { ... std::unique_ptr<UITouchButton> okButton; std::unique_ptr<UITouchSlider> slider;
+//     std::unique_ptr<UIHorizontalLayout> barLayout; };
 
-// Set up callbacks
-btn->setOnClick([]() {
-    // Button clicked
-});
+void MyScene::initUI() {
+    auto& ui = getUIManager();
+    ui.clear();
 
-slider->setOnValueChanged([](uint8_t value) {
-    // Slider value changed
-});
+    okButton = std::make_unique<UITouchButton>("OK", 10, 20, 100, 40);
+    slider = std::make_unique<UITouchSlider>(10, 70, 200, 30, 50);
 
-// In your scene's processTouchEvents():
-void MyScene::processTouchEvents(TouchEvent* events, uint8_t count) {
-    uint8_t consumed = uiManager.processEvents(events, count);
-    // Handle unconsumed events...
+    ui.addElement(okButton.get());
+    ui.addElement(slider.get());
+
+    okButton->setOnClick(onOkClicked);
+    slider->setOnValueChanged(onSlider);
+
+    // Optional: add to a layout and register the layout as an entity for update/draw
+    barLayout = std::make_unique<UIHorizontalLayout>(/* ... */);
+    barLayout->addElement(okButton.get());
+    barLayout->addElement(slider.get());
+    addEntity(barLayout.get());
 }
 
-// In your scene's update():
-void MyScene::update(unsigned long deltaTime) {
-    uiManager.update(deltaTime);
-}
-
-// In your scene's draw():
-void MyScene::draw(Renderer& r) {
-    uiManager.draw(r);
-}
+// Base Scene already calls uiManager.processTouchEvents from processTouchEvents when UI is enabled.
 ```
 
-#### Memory Architecture
+#### Memory and ownership
 
-The UIManager uses a fixed-size pool with placement new:
-
-```
-elementStorage[ELEMENT_SLOT_BYTES * MAX_ELEMENTS]  (raw byte pool)
-     ↓ placement new
-elementPointers[MAX_ELEMENTS]  (UITouchElement* array)
-```
-
-- **Zero dynamic allocation**: All memory pre-allocated at compile time.
-- **Type-safe**: `elementPointers` stores `UITouchElement*` for proper casting.
-- **Automatic cleanup**: Destructor calls `clear()` to properly destroy all elements.
+- **`UIManager`** does **not** allocate or destroy **`UITouchElement`** instances.
+- Prefer **`std::unique_ptr`** members on the scene (or **`arenaNew`** in **`init()`**) so widgets are destroyed when the scene resets.
+- **`clear()`** on **`UIManager`** should run **before** destroying widgets (e.g. **`reset()`** **`unique_ptr`**s) so pointers are not left dangling in the manager.
 
 ---
 
@@ -4265,18 +4043,21 @@ elementPointers[MAX_ELEMENTS]  (UITouchElement* array)
 
 **Inherits:** [UIElement](#uielement)
 
-Base class for touch-optimized UI elements. Contains an embedded `UITouchWidget` struct with position, size, state, and flags. Provides the `update()`/`draw()` interface for the Entity system. Since it inherits from UIElement, it can be added to UILayout containers for automatic positioning. The `setPosition()` override synchronizes Entity position with widget data for correct hit testing.
+Abstract base class for touch-optimized UI elements. Contains an embedded **`UITouchWidget`** with position, size, state, and flags. Integrates with **`UIElement`** / layouts and **`UIManager::processEvents`** via the polymorphic **`processEvent`** hook. The **`setPosition()`** override keeps entity coordinates and widget hit bounds in sync.
 
 #### Public Methods
 
 - **`UITouchElement(int16_t x, int16_t y, uint16_t w, uint16_t h, UIWidgetType type)`**
-    Constructs a touch element with position, size, and type.
+    Constructs a touch element with position, size, and type. (The class is abstract: only concrete subclasses can be instantiated.)
+
+- **`virtual bool processEvent(const TouchEvent& event) = 0`**
+    Implemented by **`UITouchButton`**, **`UITouchSlider`**, **`UITouchCheckbox`**, etc. Return **`true`** when the event should be treated as handled for UI consumption (**`TouchEvent::consume()`** is applied by **`UIManager`** when appropriate).
 
 - **`void update(unsigned long deltaTime) override`**
-    Updates the element (base implementation is empty).
+    Base implementation is empty; subclasses may override.
 
 - **`void draw(Renderer& renderer) override`**
-    Draws the element (pure virtual, must be overridden by subclasses).
+    Base implementation is empty; concrete widgets override for rendering.
 
 - **`void setPosition(Scalar newX, Scalar newY) override`**
     Sets position and synchronizes both Entity position and embedded `UITouchWidget` data. Called automatically when the element is added to a UILayout. This ensures hit testing works correctly when layouts reposition elements.
@@ -4353,35 +4134,26 @@ Touch-optimized button with press, release, and click callbacks. Renders with cu
 - **`Color getDisabledColor() const`**
     Gets the disabled state color.
 
-- **`void setOnDown(std::function<void()> callback)`**
-    Sets the callback for touch down event.
+- **`ButtonCallback`** — type alias for **`void (*)()`** (no **`std::function`**; keeps embedded use lean).
 
-- **`void setOnUp(std::function<void()> callback)`**
-    Sets the callback for touch up event.
+- **`void setOnDown(ButtonCallback callback)`** / **`setOnUp`** / **`setOnClick`**
+    Sets callbacks for touch down, up, and click (down + up in bounds).
 
-- **`void setOnClick(std::function<void()> callback)`**
-    Sets the callback for click event (touch down + up within bounds).
+- **`ButtonCallback getOnDown() const`** / **`getOnUp`** / **`getOnClick`**
+    Returns the current callbacks (may be **`nullptr`**).
 
-- **`std::function<void()> getOnDown() const`**
-    Gets the touch down callback.
-
-- **`std::function<void()> getOnUp() const`**
-    Gets the touch up callback.
-
-- **`std::function<void()> getOnClick() const`**
-    Gets the click callback.
-
-- **`bool processEvent(const TouchEvent& event)`**
-    Processes a touch event. Returns `true` if event was consumed.
+- **`bool processEvent(const TouchEvent& event) override`**
+    Handles hit testing and state; returns **`true`** if the event is consumed by this button.
 
 #### Example Usage
 
 ```cpp
-UITouchButton* btn = uiManager.addButton("Press Me", 50, 100, 120, 40);
+void onPressed() { /* ... */ }
+
+auto btn = std::make_unique<UITouchButton>("Press Me", 50, 100, 120, 40);
+getUIManager().addElement(btn.get());
 btn->setColors(Color::White, Color::Cyan, Color::Gray);
-btn->setOnClick([]() {
-    // Handle button click
-});
+btn->setOnClick(onPressed);
 ```
 
 ---
@@ -4417,28 +4189,85 @@ Touch-optimized slider with draggable thumb. Supports horizontal orientation wit
 - **`Color getThumbColor() const`**
     Gets the thumb color.
 
-- **`void setOnValueChanged(std::function<void(uint8_t)> callback)`**
-    Sets the callback for value changes.
-    - Callback receives the new value (0-100).
+- **`SliderCallback`** — type alias **`void (*)(uint8_t)`** (used for value and drag notifications).
 
-- **`void setOnDragStart(std::function<void()> callback)`**
-    Sets the callback for drag start.
+- **`void setOnValueChanged(SliderCallback callback)`**
+    Called when the value changes; argument is 0–100.
 
-- **`void setOnDragEnd(std::function<void()> callback)`**
-    Sets the callback for drag end.
+- **`void setOnDragStart(SliderCallback callback)`** / **`setOnDragEnd(SliderCallback callback)`**
+    Optional drag lifecycle hooks (receive current value or 0 depending on implementation; see header).
 
-- **`bool processEvent(const TouchEvent& event)`**
-    Processes a touch event. Returns `true` if event was consumed.
+- **`bool processEvent(const TouchEvent& event) override`**
+    Handles drag and hit testing; returns **`true`** if consumed.
 
 #### Example Usage
 
 ```cpp
-UITouchSlider* slider = uiManager.addSlider(50, 150, 200, 30, 75);
+void onVol(uint8_t v) { volume = v / 100.0f; }
+
+auto slider = std::make_unique<UITouchSlider>(50, 150, 200, 30, 75);
+getUIManager().addElement(slider.get());
 slider->setColors(Color::Gray, Color::White);
-slider->setOnValueChanged([](uint8_t value) {
-    // Handle value change: 0-100
-    volume = value / 100.0f;
-});
+slider->setOnValueChanged(onVol);
+```
+
+---
+
+### UITouchCheckbox
+
+**Include:** `graphics/ui/UITouchCheckbox.h`
+
+**Inherits:** [UITouchElement](#uitouchelement)
+
+Touch-optimized checkbox widget. Supports touch input for toggling checked state. Provides callbacks for state changes and visual feedback for pressed/checked states. Compatible with UILayout containers.
+
+#### Public Methods
+
+- **`UITouchCheckbox(std::string_view label, int16_t x, int16_t y, uint16_t w, uint16_t h, bool initialChecked = false)`**
+    Constructs a touch checkbox.
+    - `label`: Checkbox label text.
+    - `x, y`: Position (top-left corner).
+    - `w, h`: Width and height.
+    - `initialChecked`: Initial checked state (default: false).
+
+- **`void setChecked(bool checked)`**
+    Sets the checked state. Triggers OnChanged callback if state changes.
+
+- **`bool isChecked() const`**
+    Gets the current checked state.
+
+- **`void toggle()`**
+    Toggles the checked state (if enabled).
+
+- **`void setLabel(std::string_view label)`**
+    Sets the checkbox label.
+
+- **`std::string_view getLabel() const`**
+    Gets the current label.
+
+- **`void setColors(Color normal, Color checked, Color disabled)`**
+    Sets the checkbox colors for different states.
+
+- **`CheckboxCallback`** — type alias **`void (*)(bool)`**.
+
+- **`void setOnChanged(CheckboxCallback callback)`**
+    Sets the callback for checked state changes (argument is the new checked state).
+
+- **`bool processEvent(const TouchEvent& event) override`**
+    Handles hit testing and toggle semantics; returns **`true`** if the event is consumed.
+
+- **`void draw(Renderer& renderer) override`**
+    Renders the checkbox (box, checkmark, label).
+
+#### Example Usage
+
+```cpp
+void onSound(bool enabled) { soundEnabled = enabled; }
+
+auto checkbox = std::make_unique<UITouchCheckbox>("Enable Sound", 50, 200, 150, 30, true);
+getUIManager().addElement(checkbox.get());
+checkbox->setColors(Color::White, Color::Cyan, Color::Gray);
+checkbox->setOnChanged(onSound);
 ```
 
 ---

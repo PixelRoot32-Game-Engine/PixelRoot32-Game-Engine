@@ -13,6 +13,7 @@
 
 #include "graphics/ui/UIElement.h"
 #include "graphics/ui/UITouchWidget.h"
+#include "input/TouchEvent.h"
 
 namespace pixelroot32::graphics::ui {
 
@@ -49,6 +50,12 @@ public:
      * @param renderer Reference to renderer
      */
     void draw(pixelroot32::graphics::Renderer& renderer) override;
+
+    /**
+     * @brief Process a touch event (polymorphic dispatch from UIManager).
+     * @return true if this element handled the event for UI consumption semantics
+     */
+    virtual bool processEvent(const pixelroot32::input::TouchEvent& event) = 0;
     
     /**
      * @brief Get widget state

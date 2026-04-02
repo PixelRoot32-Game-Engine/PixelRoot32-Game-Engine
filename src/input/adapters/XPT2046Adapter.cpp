@@ -49,9 +49,6 @@
 #ifndef XPT2046_GPIO_MIRROR_X
 #define XPT2046_GPIO_MIRROR_X 0
 #endif
-#ifndef XPT2046_DEBUG_RAW_TOUCH
-#define XPT2046_DEBUG_RAW_TOUCH 0
-#endif
 #endif
 
 namespace pixelroot32::input {
@@ -163,7 +160,7 @@ static bool readImplGpioSpi(TouchPoint* points, uint8_t& count) {
     ay = tmpAxis;
 #endif
 
-#if defined(XPT2046_DEBUG_RAW_TOUCH) && (XPT2046_DEBUG_RAW_TOUCH != 0)
+#if defined(PIXELROOT32_DEBUG_MODE) && (PIXELROOT32_DEBUG_MODE != 0)
     {
         static uint32_t s_gpioRawLogMs = 0;
         const uint32_t tlog = ::millis();

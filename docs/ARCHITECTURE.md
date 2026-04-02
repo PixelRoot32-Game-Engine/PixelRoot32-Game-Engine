@@ -455,26 +455,26 @@ Entity
 
 **Touch Widget Architecture**:
 
-The touch widget system uses a memory-efficient pool pattern optimized for embedded devices:
-
 - **UITouchWidget (struct)**: Lightweight widget data embedded within UITouchElement. Contains position, size, state, flags, and type. Accessed via `UITouchElement::getWidgetData()`.
 
-- **UITouchElement (class)**: Entity base class that provides the update/draw interface. Contains an embedded UITouchWidget (`widgetData_`) as member data.
+- **UITouchElement (class)**: Abstract `UIElement` base with embedded `widgetData_`. Subclasses implement `draw()` and the pure virtual `processEvent(const TouchEvent&)` so `UIManager` can dispatch touches without type switches.
 
-- **UITouchButton/UITouchSlider**: Subclasses that inherit from UITouchElement and implement custom `draw()` rendering. Created directly with position/size parameters (e.g., `UITouchButton("Label", x, y, w, h)`).
+- **UITouchButton / UITouchSlider / UITouchCheckbox**: Concrete widgets constructed by the scene (e.g. `std::make_unique<UITouchButton>("Label", x, y, w, h)` or arena allocation in `init()`).
 
-- **UIManager**: Manages a fixed-size pool of UITouchElement objects (MAX_ELEMENTS = 16). Uses placement new for in-place construction. Stores `UITouchElement*` pointers in `elementPointers[]` for event dispatch.
+- **UIManager**: Non-owning registry (max 16 `UITouchElement*`). The scene calls `addElement(ptr)` after construction; `clear` / `removeElement` only unregister pointers and never destroy objects. `processEvents` hit-tests and calls `processEvent` on the hit (or captured) element. `update` / `draw` on `UIManager` are no-ops; widgets update and render as entities when added via `addEntity` (typically inside a `UILayout`).
 
 ```cpp
-// Creating touch elements (direct construction)
-UITouchButton* button = uiManager.addButton("OK", 10, 20, 100, 40);
-UITouchSlider* slider = uiManager.addSlider(10, 70, 200, 30, 50);
+// Scene-owned widgets + registration for touch routing (illustrative)
+auto button = std::make_unique<UITouchButton>("OK", 10, 20, 100, 40);
+auto layout = std::make_unique<UIVerticalLayout>(/* x, y, w, h */);
+getUIManager().addElement(button.get());
+layout->addElement(button.get());
+addEntity(layout.get());
 
-// Event processing (elementPointers now stores UITouchElement*)
-uint8_t consumed = uiManager.processEvents(events, count);
+uint8_t consumed = getUIManager().processEvents(events, count);
 ```
 
-This pattern allows touch-optimized UI elements to render using the Entity system while maintaining zero-allocation pool memory for embedded targets. The `elementPointers` array stores pointers to the full UITouchElement objects (not just widget data), enabling proper type-safe casting during event processing.
+This keeps ownership and allocation policy in the scene (aligned with `STYLE_GUIDE` / arena or smart pointers) while `UIManager` remains a small, fixed-capacity event router.
 
 #### 3.4.6 Particle System
 

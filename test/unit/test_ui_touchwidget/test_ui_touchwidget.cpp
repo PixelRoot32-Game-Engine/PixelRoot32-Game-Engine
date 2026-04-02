@@ -46,6 +46,20 @@ int main() {
     RUN_TEST(test_uitouch_slider_set_value_clamped);
     RUN_TEST(test_uitouch_slider_set_colors);
     
+    // UITouchCheckbox tests (12 tests)
+    RUN_TEST(test_uitouch_checkbox_initialization);
+    RUN_TEST(test_uitouch_checkbox_initialization_unchecked);
+    RUN_TEST(test_uitouch_checkbox_set_label);
+    RUN_TEST(test_uitouch_checkbox_set_checked);
+    RUN_TEST(test_uitouch_checkbox_toggle);
+    RUN_TEST(test_uitouch_checkbox_toggle_disabled);
+    RUN_TEST(test_uitouch_checkbox_set_colors);
+    RUN_TEST(test_uitouch_checkbox_callback);
+    RUN_TEST(test_uitouch_checkbox_process_event_disabled);
+    RUN_TEST(test_uitouch_checkbox_process_event_outside_bounds);
+    RUN_TEST(test_uitouch_checkbox_process_event_inside_bounds);
+    RUN_TEST(test_uitouch_checkbox_toggle_on_touch_up);
+    
     // UIHitTest tests (6 tests)
     RUN_TEST(test_uitouch_element_hit_test_enabled_visible);
     RUN_TEST(test_uitouch_element_hit_test_disabled);

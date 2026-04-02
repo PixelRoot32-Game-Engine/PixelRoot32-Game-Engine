@@ -35,7 +35,6 @@ namespace pixelroot32::input {
  *           Use -D XPT2046_GPIO_SWAP_AXES=1 when finger vertical/horizontal tracks the wrong screen axis.
  *           Use -D XPT2046_GPIO_MIRROR_X=1 when left/right are inverted (horizontal flip in screen space).
  *           GPIO path order: map → vendor swap → MIRROR_X → CAL_OFFSET_* → clamp (offsets = final nudge).
- *           -D XPT2046_DEBUG_RAW_TOUCH=1 logs raw ax/ay (~4 Hz) while pressed for RAW_LO/HI corner calibration.
  * Sampling: Up to 125Hz
  * Filtering: Heavy (median + debounce + pressure threshold)
  *

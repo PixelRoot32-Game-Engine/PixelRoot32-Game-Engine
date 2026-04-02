@@ -25,7 +25,7 @@ namespace pixelroot32::graphics::ui {
  * 
  * Provides slider functionality with touch input support.
  * Inherits from UITouchElement for Entity interface (update/draw).
- * UIManager creates the slider directly with position/size.
+ * Construct with position/size; register with UIManager::addElement for touch routing.
  * Value range: 0-100
  * States: Idle, Dragging
  * Events: OnValueChanged, OnDragStart, OnDragEnd
@@ -155,7 +155,7 @@ public:
      * @param event The touch event to process
      * @return true if event was consumed by this slider
      */
-    bool processEvent(const pixelroot32::input::TouchEvent& event);
+    bool processEvent(const pixelroot32::input::TouchEvent& event) override;
     
     /**
      * @brief Render the slider

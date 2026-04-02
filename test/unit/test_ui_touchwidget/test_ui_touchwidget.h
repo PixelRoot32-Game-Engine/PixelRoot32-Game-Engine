@@ -15,12 +15,21 @@
 #include "graphics/ui/UITouchElement.h"
 #include "graphics/ui/UITouchButton.h"
 #include "graphics/ui/UITouchSlider.h"
+#include "graphics/ui/UITouchCheckbox.h"
 #include "graphics/ui/UIHitTest.h"
 #include "input/TouchEvent.h"
 
 using namespace pixelroot32::graphics::ui;
 using namespace pixelroot32::input;
 using namespace pixelroot32::graphics;
+
+/** Concrete fixture for tests that need a minimal UITouchElement (base class is abstract). */
+class TestTouchElement : public UITouchElement {
+public:
+    TestTouchElement(int16_t x, int16_t y, uint16_t w, uint16_t h, UIWidgetType type)
+        : UITouchElement(x, y, w, h, type) {}
+    bool processEvent(const TouchEvent&) override { return false; }
+};
 
 // =============================================================================
 // Test Fixtures
@@ -43,7 +52,7 @@ struct TestSlider {
 // =============================================================================
 
 void test_uitouch_element_initialization() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     
     TEST_ASSERT_EQUAL(10, element.getX());
     TEST_ASSERT_EQUAL(20, element.getY());
@@ -52,28 +61,28 @@ void test_uitouch_element_initialization() {
 }
 
 void test_uitouch_element_is_enabled() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(true);
     
     TEST_ASSERT_TRUE(element.isEnabled());
 }
 
 void test_uitouch_element_is_disabled() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(false);
     
     TEST_ASSERT_FALSE(element.isEnabled());
 }
 
 void test_uitouch_element_is_visible() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetVisible(true);
     
     TEST_ASSERT_TRUE(element.isVisible());
 }
 
 void test_uitouch_element_is_not_visible() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetVisible(false);
     
     TEST_ASSERT_FALSE(element.isVisible());
@@ -202,11 +211,159 @@ void test_uitouch_slider_set_colors() {
 }
 
 // =============================================================================
+// UITouchCheckbox Tests
+// =============================================================================
+
+void test_uitouch_checkbox_initialization() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, true);
+    
+    TEST_ASSERT_EQUAL_STRING("Test", checkbox.getLabel().data());
+    TEST_ASSERT_EQUAL(10, checkbox.getX());
+    TEST_ASSERT_EQUAL(20, checkbox.getY());
+    TEST_ASSERT_TRUE(checkbox.isChecked());
+}
+
+void test_uitouch_checkbox_initialization_unchecked() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    
+    TEST_ASSERT_FALSE(checkbox.isChecked());
+}
+
+void test_uitouch_checkbox_set_label() {
+    UITouchCheckbox checkbox("T", 10, 20, 100, 40, false);
+    checkbox.setLabel("Test Label");
+    
+    TEST_ASSERT_EQUAL_STRING("Test Label", checkbox.getLabel().data());
+}
+
+void test_uitouch_checkbox_set_checked() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setChecked(true);
+    
+    TEST_ASSERT_TRUE(checkbox.isChecked());
+}
+
+void test_uitouch_checkbox_toggle() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.toggle();
+    
+    TEST_ASSERT_TRUE(checkbox.isChecked());
+    
+    checkbox.toggle();
+    TEST_ASSERT_FALSE(checkbox.isChecked());
+}
+
+void test_uitouch_checkbox_toggle_disabled() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setWidgetEnabled(false);
+    checkbox.toggle();
+    
+    // Should not toggle when disabled
+    TEST_ASSERT_FALSE(checkbox.isChecked());
+}
+
+void test_uitouch_checkbox_set_colors() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setColors(Color::White, Color::Cyan, Color::Gray);
+    
+    TEST_ASSERT_EQUAL(Color::White, checkbox.getNormalColor());
+    TEST_ASSERT_EQUAL(Color::Cyan, checkbox.getCheckedColor());
+    TEST_ASSERT_EQUAL(Color::Gray, checkbox.getDisabledColor());
+}
+
+namespace {
+bool gCheckboxCallbackTestCalled = false;
+bool gCheckboxCallbackTestValue = false;
+void onCheckboxCallbackTest(bool checked) {
+    gCheckboxCallbackTestCalled = true;
+    gCheckboxCallbackTestValue = checked;
+}
+} // namespace
+
+void test_uitouch_checkbox_callback() {
+    gCheckboxCallbackTestCalled = false;
+    gCheckboxCallbackTestValue = false;
+
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setOnChanged(onCheckboxCallbackTest);
+
+    checkbox.setChecked(true);
+
+    TEST_ASSERT_TRUE(gCheckboxCallbackTestCalled);
+    TEST_ASSERT_TRUE(gCheckboxCallbackTestValue);
+}
+
+void test_uitouch_checkbox_process_event_disabled() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setWidgetEnabled(false);
+    
+    TouchEvent event{};
+    event.type = TouchEventType::TouchDown;
+    event.x = 50;
+    event.y = 30;
+    
+    bool result = checkbox.processEvent(event);
+    
+    TEST_ASSERT_FALSE(result);
+}
+
+void test_uitouch_checkbox_process_event_outside_bounds() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setWidgetEnabled(true);
+    
+    TouchEvent event{};
+    event.type = TouchEventType::TouchDown;
+    event.x = 200;
+    event.y = 200;
+    
+    bool result = checkbox.processEvent(event);
+    
+    TEST_ASSERT_FALSE(result);
+}
+
+void test_uitouch_checkbox_process_event_inside_bounds() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setWidgetEnabled(true);
+    
+    TouchEvent event{};
+    event.type = TouchEventType::TouchDown;
+    event.x = 50;
+    event.y = 30;
+    
+    bool result = checkbox.processEvent(event);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_uitouch_checkbox_toggle_on_touch_up() {
+    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    checkbox.setWidgetEnabled(true);
+    
+    // Touch down
+    TouchEvent downEvent{};
+    downEvent.type = TouchEventType::TouchDown;
+    downEvent.x = 50;
+    downEvent.y = 30;
+    checkbox.processEvent(downEvent);
+    
+    TEST_ASSERT_FALSE(checkbox.isChecked()); // Not toggled yet
+    
+    // Touch up - should toggle
+    TouchEvent upEvent{};
+    upEvent.type = TouchEventType::TouchUp;
+    upEvent.x = 50;
+    upEvent.y = 30;
+    checkbox.processEvent(upEvent);
+    
+    TEST_ASSERT_TRUE(checkbox.isChecked());
+}
+
+// =============================================================================
 // UIHitTest Tests
 // =============================================================================
 
 void test_uitouch_element_hit_test_enabled_visible() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(true);
     element.setWidgetVisible(true);
     
@@ -216,7 +373,7 @@ void test_uitouch_element_hit_test_enabled_visible() {
 }
 
 void test_uitouch_element_hit_test_disabled() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(false);
     element.setWidgetVisible(true);
     
@@ -226,7 +383,7 @@ void test_uitouch_element_hit_test_disabled() {
 }
 
 void test_uitouch_element_hit_test_not_visible() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(true);
     element.setWidgetVisible(false);
     
@@ -236,7 +393,7 @@ void test_uitouch_element_hit_test_not_visible() {
 }
 
 void test_uitouch_element_hit_test_outside_bounds() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(true);
     element.setWidgetVisible(true);
     
@@ -246,7 +403,7 @@ void test_uitouch_element_hit_test_outside_bounds() {
 }
 
 void test_uitouch_hit_test_find_hit_array() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     element.setWidgetEnabled(true);
     element.setWidgetVisible(true);
     
@@ -258,7 +415,7 @@ void test_uitouch_hit_test_find_hit_array() {
 }
 
 void test_uitouch_hit_test_find_hit_no_match() {
-    UITouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
     
     UITouchElement* elements[] = { &element };
     

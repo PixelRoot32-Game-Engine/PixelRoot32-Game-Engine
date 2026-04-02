@@ -23,7 +23,8 @@ namespace pixelroot32::graphics::ui {
 enum class UIWidgetType : uint8_t {
     Generic = 0,
     Button = 1,
-    Slider = 2
+    Slider = 2,
+    Checkbox = 3
 };
 
 /**

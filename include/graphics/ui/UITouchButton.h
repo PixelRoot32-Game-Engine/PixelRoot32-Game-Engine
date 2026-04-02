@@ -26,7 +26,7 @@ namespace pixelroot32::graphics::ui {
  * 
  * Provides button functionality with touch input support.
  * Inherits from UITouchElement for Entity interface (update/draw).
- * UIManager creates the button directly with position/size.
+ * Construct with position/size; register with UIManager::addElement for touch routing.
  * States: Idle, Pressed, Hover
  * Events: OnDown, OnUp, OnClick
  */
@@ -154,7 +154,7 @@ public:
      * @param event The touch event to process
      * @return true if event was consumed by this button
      */
-    bool processEvent(const pixelroot32::input::TouchEvent& event);
+    bool processEvent(const pixelroot32::input::TouchEvent& event) override;
     
     /**
      * @brief Render the button

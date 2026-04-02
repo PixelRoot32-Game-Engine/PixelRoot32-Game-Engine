@@ -9,6 +9,7 @@ For public API details (methods, parameters), see [API Reference — Input Modul
 - **Engine does not own touch hardware.** `Engine::run()` updates buttons via `InputManager` only. Touch sampling lives in platform code (`setup` / `loop` or equivalent) because controllers and buses differ per board.
 - **Single coordinate space.** After the active adapter runs, coordinates are **screen pixels** in the same range as `PHYSICAL_DISPLAY_WIDTH` × `PHYSICAL_DISPLAY_HEIGHT` (or your `TouchManager` constructor bounds). Game logic, UI hit tests, and debug overlays should use this space.
 - **UI before gameplay.** `Scene::processTouchEvents` runs `UIManager::processEvents` first (when `PIXELROOT32_ENABLE_UI_SYSTEM`), marks events **consumed**, then invokes `onUnconsumedTouchEvent` for each remaining event.
+- **Scene owns touch widgets.** Construct `UITouchButton` / `UITouchSlider` / `UITouchCheckbox` (and layouts) in `init()`, keep them in `std::unique_ptr` or the scene arena, call `UIManager::addElement` for hit testing and dispatch, and `addEntity` on a layout (or entity) so `update` / `draw` run with the rest of the scene. `UIManager` does not allocate or destroy widgets.
 
 ## 2. Pipeline (high level)
 
@@ -37,7 +38,8 @@ Optional gameplay layer: **`ActorTouchController`** consumes `TouchEvent`s in `o
 | `XPT2046Adapter` | ESP32 XPT2046: shared TFT SPI or **GPIO bit-bang** (`XPT2046_USE_GPIO_SPI`) for boards like ESP32-2432S028R. |
 | `TouchEventDispatcher` | Converts point stream into `TouchEvent` gestures (`TouchDown`, `DragMove`, `TouchUp`, …). |
 | `ActorTouchController` | Drags actors from touch; optional **hit slop** for resistive alignment. |
-| `Scene::processTouchEvents` | Central entry for a frame’s touch batch; virtual `onUnconsumedTouchEvent` hook. |
+| `Scene::processTouchEvents` | Central entry for a frame’s touch batch; runs `UIManager::processEvents` then virtual `onUnconsumedTouchEvent`. |
+| `UIManager` | Non-owning registry (`addElement`); `processEvents` calls `UITouchElement::processEvent`. Does not draw or own widget memory. |
 
 ## 4. Per-frame integration (recommended)
 
@@ -74,8 +76,6 @@ When `-D XPT2046_USE_GPIO_SPI` is set, the adapter uses a separate bit-banged bu
 3. **`XPT2046_GPIO_MIRROR_X`** — horizontal flip in screen space (`x = displayWidth - x`).
 4. **`XPT2046_CAL_OFFSET_X` / `Y`** — final nudge in **post-mirror** pixels.
 5. Clamp to `calibration.displayWidth` / `displayHeight`.
-
-Optional debugging: **`XPT2046_DEBUG_RAW_TOUCH`** logs raw samples (throttled) while pressed to tune `RAW_*` bounds.
 
 Typical alignment flags for CYD-class boards (exact values are project-specific):
 
