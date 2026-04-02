@@ -28,7 +28,6 @@
   "dependencies": {
     "TFT_eSPI": "^2.5.43",
     "U8g2": "^2.36.4",
-    "SafeString": "^4.1.35",
     "OneButton": "^2.6.1"
   },
   "frameworks": [],
