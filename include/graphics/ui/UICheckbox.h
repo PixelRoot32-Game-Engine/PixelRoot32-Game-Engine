@@ -105,7 +105,7 @@ public:
     void toggle();
 
 private:
-    std::string label;
+    std::string_view label;
     bool checked = false;
     bool drawBg = false;
     Color textColor;

@@ -51,23 +51,7 @@ enum class UIWidgetFlags : uint8_t {
 
 /**
  * @struct UITouchWidget
- * @brief Base touch widget structure (12 bytes total, packed)
- * 
- * Memory layout (packed):
- * - type:    1 byte (offset 0)
- * - state:   1 byte (offset 1)
- * - flags:   1 byte (offset 2)
- * - id:      1 byte (offset 3)
- * - x:       2 bytes (offset 4)
- * - y:       2 bytes (offset 6)
- * - width:  2 bytes (offset 8)
- * - height: 2 bytes (offset 10)
- * Total: 12 bytes
- * 
- * Invariants:
- * - x, y represent top-left corner in screen coordinates
- * - width, height are always > 0
- * - id is unique within the UIManager's element pool
+ * @brief Base touch widget structure
  */
 struct UITouchWidget {
     UIWidgetType type;      ///< Widget type
@@ -94,15 +78,8 @@ struct UITouchWidget {
     
     /**
      * @brief Construct touch widget with all fields
-     * @param widgetType Type of widget
-     * @param widgetId Unique identifier
-     * @param xPos X position
-     * @param yPos Y position
-     * @param w Width
-     * @param h Height
      */
-    UITouchWidget(UIWidgetType widgetType, uint8_t widgetId, int16_t xPos, int16_t yPos, 
-                  uint16_t w, uint16_t h)
+    UITouchWidget(UIWidgetType widgetType, uint8_t widgetId, int16_t xPos, int16_t yPos, uint16_t w, uint16_t h)
         : type(widgetType)
         , state(UIWidgetState::Idle)
         , flags(static_cast<UIWidgetFlags>(static_cast<uint8_t>(UIWidgetFlags::Enabled) | 
@@ -191,26 +168,20 @@ struct UITouchWidget {
     
     /**
      * @brief Check if point is inside widget bounds (AABB)
-     * @param px Point X coordinate
-     * @param py Point Y coordinate
-     * @return true if point is inside
      */
     bool contains(int16_t px, int16_t py) const {
         return px >= x && px < (x + static_cast<int16_t>(width)) &&
                py >= y && py < (y + static_cast<int16_t>(height));
     }
-} __attribute__((packed));
+};
 
 /**
  * @brief Maximum number of touch widgets in pool
  */
 constexpr uint8_t MAX_UI_ELEMENTS = 16;
 
-/**
- * @brief Legacy doc size (base struct only). UIManager allocates
- * ELEMENT_SLOT_BYTES * MAX_UI_ELEMENTS to fit UITouchButton / UITouchSlider.
- */
-constexpr uint16_t UI_ELEMENT_POOL_MEMORY = sizeof(UITouchWidget) * MAX_UI_ELEMENTS;
+// Forward declarations
+class UITouchElement;
 
 } // namespace pixelroot32::graphics::ui
 

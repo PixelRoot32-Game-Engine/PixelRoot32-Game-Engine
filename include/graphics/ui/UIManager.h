@@ -42,7 +42,7 @@ private:
     alignas(UITouchButton) alignas(UITouchSlider) char elementStorage[ELEMENT_SLOT_BYTES * MAX_ELEMENTS];
     
     // Pointers to elements in the pool
-    UITouchWidget* elementPointers[MAX_ELEMENTS];
+    UITouchElement* elementPointers[MAX_ELEMENTS];
     
     // Number of active elements
     uint8_t elementCount;
@@ -75,13 +75,14 @@ public:
     
     /**
      * @brief Add a button to the manager (in-place construction)
+     * @param t Button label (no allocation)
      * @param x X position (top-left)
      * @param y Y position (top-left)
      * @param w Button width
      * @param h Button height
      * @return Pointer to added button, or nullptr if pool is full
      */
-    UITouchButton* addButton(int16_t x, int16_t y, uint16_t w, uint16_t h);
+    UITouchButton* addButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h);
     
     /**
      * @brief Add a slider to the manager (in-place construction)
@@ -93,13 +94,6 @@ public:
      * @return Pointer to added slider, or nullptr if pool is full
      */
     UITouchSlider* addSlider(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t initialValue = 50);
-    
-    /**
-     * @brief Add a widget directly to the pool (in-place construction)
-     * @param widget Pointer to widget to add
-     * @return true if added successfully
-     */
-    bool addElement(UITouchWidget* widget);
     
     /**
      * @brief Remove an element by ID
@@ -118,16 +112,16 @@ public:
     /**
      * @brief Get an element by ID
      * @param id Element ID to find
-     * @return Pointer to widget, or nullptr if not found
+     * @return Pointer to element, or nullptr if not found
      */
-    UITouchWidget* getElement(uint8_t id) const;
+    UITouchElement* getElement(uint8_t id) const;
     
     /**
      * @brief Get an element by index
      * @param index Element index (0-based)
-     * @return Pointer to widget, or nullptr if index out of range or empty
+     * @return Pointer to element, or nullptr if index out of range or empty
      */
-    UITouchWidget* getElementAt(uint8_t index) const;
+    UITouchElement* getElementAt(uint8_t index) const;
     
     /**
      * @brief Get the number of active elements
@@ -187,13 +181,13 @@ public:
      * @brief Get all elements as array (for iteration)
      * @return Pointer to first element in pool
      */
-    UITouchWidget** getElements();
+    UITouchElement** getElements();
     
     /**
      * @brief Get all elements as const array
      * @return Pointer to first element in pool
      */
-    UITouchWidget* const* getElements() const;
+    UITouchElement* const* getElements() const;
     
     /**
      * @brief Update hover state for a position
@@ -218,14 +212,24 @@ public:
      */
     void releaseCapture();
     
+    /**
+     * @brief Update all active elements (sync from widgets)
+     * @param deltaTime Time since last frame in ms
+     */
+    void update(unsigned long deltaTime);
+    
+    /**
+     * @brief Draw all active elements
+     * @param renderer Reference to the renderer
+     */
+    void draw(pixelroot32::graphics::Renderer& renderer);
+
 private:
     /**
      * @brief Find a free slot in the pool
      * @return Slot index, or -1 if no free slots
      */
     int8_t findFreeSlot() const;
-
-    static void destroyWidgetAt(UITouchWidget* widget);
 };
 
 } // namespace pixelroot32::graphics::ui

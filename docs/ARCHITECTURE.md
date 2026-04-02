@@ -429,17 +429,20 @@ CCD_THRESHOLD = 3.0f       // CCD activation threshold
 
 ```
 Entity
-└── UIElement
-    ├── UILabel
-    ├── UIButton
-    ├── UICheckbox
-    └── UIPanel
-        └── UILayout
-            ├── UIHorizontalLayout
-            ├── UIVerticalLayout
-            ├── UIGridLayout
-            ├── UIAnchorLayout
-            └── UIPaddingContainer
+├── UIElement
+│   ├── UILabel
+│   ├── UIButton
+│   ├── UICheckbox
+│   └── UIPanel
+│       └── UILayout
+│           ├── UIHorizontalLayout
+│           ├── UIVerticalLayout
+│           ├── UIGridLayout
+│           ├── UIAnchorLayout
+│           └── UIPaddingContainer
+└── UITouchElement        (Touch-optimized widgets with Entity interface)
+    ├── UITouchButton    (Touch button with draw() rendering)
+    └── UITouchSlider    (Touch slider with drag interaction)
 ```
 
 **Available Layouts**:
@@ -449,6 +452,29 @@ Entity
 - `UIGridLayout`: Grid arrangement
 - `UIAnchorLayout`: Edge anchoring
 - `UIPaddingContainer`: Internal margins
+
+**Touch Widget Architecture**:
+
+The touch widget system uses a memory-efficient pool pattern optimized for embedded devices:
+
+- **UITouchWidget (struct)**: Lightweight widget data embedded within UITouchElement. Contains position, size, state, flags, and type. Accessed via `UITouchElement::getWidgetData()`.
+
+- **UITouchElement (class)**: Entity base class that provides the update/draw interface. Contains an embedded UITouchWidget (`widgetData_`) as member data.
+
+- **UITouchButton/UITouchSlider**: Subclasses that inherit from UITouchElement and implement custom `draw()` rendering. Created directly with position/size parameters (e.g., `UITouchButton("Label", x, y, w, h)`).
+
+- **UIManager**: Manages a fixed-size pool of UITouchElement objects (MAX_ELEMENTS = 16). Uses placement new for in-place construction. Stores `UITouchElement*` pointers in `elementPointers[]` for event dispatch.
+
+```cpp
+// Creating touch elements (direct construction)
+UITouchButton* button = uiManager.addButton("OK", 10, 20, 100, 40);
+UITouchSlider* slider = uiManager.addSlider(10, 70, 200, 30, 50);
+
+// Event processing (elementPointers now stores UITouchElement*)
+uint8_t consumed = uiManager.processEvents(events, count);
+```
+
+This pattern allows touch-optimized UI elements to render using the Entity system while maintaining zero-allocation pool memory for embedded targets. The `elementPointers` array stores pointers to the full UITouchElement objects (not just widget data), enabling proper type-safe casting during event processing.
 
 #### 3.4.6 Particle System
 

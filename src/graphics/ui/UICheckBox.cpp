@@ -138,7 +138,7 @@ namespace pixelroot32::graphics::ui {
         // 3. Draw label text
         int textX = boxX + boxSize + 5;
         int textY = intY + (intHeight - (fontSize * 8)) / 2;
-        renderer.drawText(label.c_str(), textX, textY, highlightColor, fontSize);
+        renderer.drawText(label, textX, textY, highlightColor, fontSize);
 
         // Restore bypass state
         if (fixedPosition) {

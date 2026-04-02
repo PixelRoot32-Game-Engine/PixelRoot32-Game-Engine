@@ -56,17 +56,9 @@ namespace pixelroot32::graphics::ui {
     void UIButton::handleInput(const InputManager& input) {
         if (!isEnabled || !isVisible) return;
 
-        // 1. Physical button activation (e.g., A / Enter) when the button is focused
         if (isSelected && input.isButtonPressed(index)) {
             this->press();
         }
-
-        // 2. Touch / mouse activation (if implemented in the input system)
-        // if (input.isButtonClicked()) { 
-        //     if (isPointInside(input.getMouseX(), input.getMouseY())) {
-        //         this->press();
-        //     }
-        // }
     }
 
     void UIButton::update(unsigned long deltaTime) {
@@ -106,13 +98,13 @@ namespace pixelroot32::graphics::ui {
 
         if (textAlign == TextAlignment::CENTER) {
             // Calculate text width using FontManager
-            int textWidth = FontManager::textWidth(nullptr, label.c_str(), fontSize);
+            int textWidth = FontManager::textWidth(nullptr, label, fontSize);
             int textX = static_cast<int>(position.x) + (static_cast<int>(width) - textWidth) / 2;
-            renderer.drawText(label.c_str(), textX, textY, currentTextCol, fontSize);
+            renderer.drawText(label, textX, textY, currentTextCol, fontSize);
         } else if (textAlign == TextAlignment::RIGHT) {
-            renderer.drawText(label.c_str(), static_cast<int>(position.x + width) - 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label, static_cast<int>(position.x + width) - 5, textY, currentTextCol, fontSize);
         } else {
-            renderer.drawText(label.c_str(), static_cast<int>(position.x) + 5, textY, currentTextCol, fontSize);
+            renderer.drawText(label, static_cast<int>(position.x) + 5, textY, currentTextCol, fontSize);
         }
 
         // Restore bypass state

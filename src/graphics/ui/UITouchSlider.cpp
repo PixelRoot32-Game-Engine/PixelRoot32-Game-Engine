@@ -13,6 +13,28 @@
 
 namespace pixelroot32::graphics::ui {
 
+using namespace pixelroot32::input;
+using namespace pixelroot32::graphics;
+using namespace pixelroot32::math;
+
+UITouchSlider::UITouchSlider(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t initialValue)
+    : UITouchElement(x, y, w, h, UIWidgetType::Slider)
+    , onValueChangedCallback(nullptr)
+    , onDragStartCallback(nullptr)
+    , onDragEndCallback(nullptr)
+    , value(initialValue)
+    , previousValue(initialValue)
+    , dragStartPosition(Vector2::ZERO())
+    , currentDragPosition(Vector2::ZERO())
+    , trackColor(Color::Gray)
+    , thumbColor(Color::White)
+    , disabledColor(Color::Gray) {}
+
+void UITouchSlider::setColors(Color track, Color thumb) {
+    trackColor = track;
+    thumbColor = thumb;
+}
+
 void UITouchSlider::setOnValueChanged(UITouchSlider::SliderCallback callback) {
     onValueChangedCallback = callback;
 }
@@ -58,26 +80,39 @@ bool UITouchSlider::hasValueChanged() const {
     return value != previousValue;
 }
 
-bool UITouchSlider::processEvent(const pixelroot32::input::TouchEvent& event) {
+bool UITouchSlider::processEvent(const TouchEvent& event) {
     if (!isEnabled() || !isVisible()) {
         return false;
     }
     
     // Only process touch down/move/up events
-    if (event.type != pixelroot32::input::TouchEventType::TouchDown &&
-        event.type != pixelroot32::input::TouchEventType::DragMove &&
-        event.type != pixelroot32::input::TouchEventType::TouchUp) {
+    if (event.type != TouchEventType::TouchDown &&
+        event.type != TouchEventType::DragMove &&
+        event.type != TouchEventType::TouchUp) {
+        return false;
+    }
+    
+    // Check bounds using Entity position/size (synced from widget in update())
+    int16_t ex = event.x;
+    int16_t ey = event.y;
+    int16_t bx = static_cast<int16_t>(position.x);
+    int16_t by = static_cast<int16_t>(position.y);
+    uint16_t bw = static_cast<uint16_t>(width);
+    uint16_t bh = static_cast<uint16_t>(height);
+    
+    if (ex < bx || ex >= bx + static_cast<int16_t>(bw) ||
+        ey < by || ey >= by + static_cast<int16_t>(bh)) {
         return false;
     }
     
     switch (event.type) {
-        case pixelroot32::input::TouchEventType::TouchDown:
+        case TouchEventType::TouchDown:
             return handleTouchDown(event);
             
-        case pixelroot32::input::TouchEventType::DragMove:
+        case TouchEventType::DragMove:
             return handleDragMove(event);
             
-        case pixelroot32::input::TouchEventType::TouchUp:
+        case TouchEventType::TouchUp:
             return handleTouchUp(event);
             
         default:
@@ -86,20 +121,16 @@ bool UITouchSlider::processEvent(const pixelroot32::input::TouchEvent& event) {
 }
 
 void UITouchSlider::reset() {
-    state = UIWidgetState::Idle;
+    widgetData_.state = UIWidgetState::Idle;
     clearActive();
 }
 
-bool UITouchSlider::handleTouchDown(const pixelroot32::input::TouchEvent& event) {
-    // Check if touch is within slider bounds
-    if (!contains(event.x, event.y)) {
-        return false;
-    }
-    
-    state = UIWidgetState::Dragging;
+bool UITouchSlider::handleTouchDown(const TouchEvent& event) {
+    // Check if touch is within slider bounds - already checked in processEvent
+    widgetData_.state = UIWidgetState::Dragging;
     setActive();
-    dragStartX = event.x;
-    currentDragX = event.x;
+    dragStartPosition = {event.x, event.y};
+    currentDragPosition = {event.x, event.y};
     
     // Calculate initial value based on touch position
     updateValueFromPosition(event.x);
@@ -111,24 +142,24 @@ bool UITouchSlider::handleTouchDown(const pixelroot32::input::TouchEvent& event)
     return true;
 }
 
-bool UITouchSlider::handleDragMove(const pixelroot32::input::TouchEvent& event) {
-    if (state != UIWidgetState::Dragging) {
+bool UITouchSlider::handleDragMove(const TouchEvent& event) {
+    if (widgetData_.state != UIWidgetState::Dragging) {
         return false;
     }
     
-    currentDragX = event.x;
+    currentDragPosition = {event.x, event.y};
     updateValueFromPosition(event.x);
     
     return true;
 }
 
-bool UITouchSlider::handleTouchUp(const pixelroot32::input::TouchEvent& event) {
+bool UITouchSlider::handleTouchUp(const TouchEvent& event) {
     (void)event;
-    if (state != UIWidgetState::Dragging) {
+    if (widgetData_.state != UIWidgetState::Dragging) {
         return false;
     }
     
-    state = UIWidgetState::Idle;
+    widgetData_.state = UIWidgetState::Idle;
     clearActive();
     
     if (onDragEndCallback) {
@@ -139,9 +170,10 @@ bool UITouchSlider::handleTouchUp(const pixelroot32::input::TouchEvent& event) {
 }
 
 void UITouchSlider::updateValueFromPosition(int16_t xPos) {
-    // Calculate position within slider (accounting for padding)
-    int16_t sliderLeft = x + 4;   // 4 pixel padding
-    int16_t sliderRight = x + static_cast<int16_t>(width) - 4;
+    // Get slider bounds from Entity (synced from widget in update())
+    int16_t sliderLeft = static_cast<int16_t>(position.x) + 4;   // 4 pixel padding
+    int16_t sliderWidth = static_cast<int16_t>(width);
+    int16_t sliderRight = sliderLeft + sliderWidth - 4;
     
     if (xPos <= sliderLeft) {
         setValue(MIN_VALUE);
@@ -157,13 +189,36 @@ void UITouchSlider::updateValueFromPosition(int16_t xPos) {
 }
 
 void UITouchSlider::setActive() {
-    flags = static_cast<UIWidgetFlags>(
-        static_cast<uint8_t>(flags) | static_cast<uint8_t>(UIWidgetFlags::Active));
+    widgetData_.flags = static_cast<UIWidgetFlags>(
+        static_cast<uint8_t>(widgetData_.flags) | static_cast<uint8_t>(UIWidgetFlags::Active));
 }
 
 void UITouchSlider::clearActive() {
-    flags = static_cast<UIWidgetFlags>(
-        static_cast<uint8_t>(flags) & ~static_cast<uint8_t>(UIWidgetFlags::Active));
+    widgetData_.flags = static_cast<UIWidgetFlags>(
+        static_cast<uint8_t>(widgetData_.flags) & ~static_cast<uint8_t>(UIWidgetFlags::Active));
+}
+
+void UITouchSlider::draw(pixelroot32::graphics::Renderer& renderer) {
+    // Skip rendering if not visible
+    if (!isVisible()) {
+        return;
+    }
+    
+    // Get bounds from Entity (synced from widget in update())
+    int16_t x = static_cast<int16_t>(position.x);
+    int16_t y = static_cast<int16_t>(position.y);
+    uint16_t w = static_cast<uint16_t>(width);
+    uint16_t h = static_cast<uint16_t>(height);
+    
+    // Draw track (horizontal line centered vertically)
+    int16_t trackY = y + static_cast<int16_t>(h / 2) - 2;
+    renderer.drawFilledRectangle(x + 4, trackY, w - 8, 4, trackColor);
+    
+    // Draw thumb at current value position
+    int16_t thumbX = x + 4 + static_cast<int16_t>(((w - 8) * value) / MAX_VALUE);
+    int16_t thumbY = y + static_cast<int16_t>(h / 2) - 6;
+    renderer.drawFilledRectangle(thumbX - 3, thumbY, 6, 12, thumbColor);
+    renderer.drawRectangle(thumbX - 3, thumbY, 6, 12, isEnabled() ? thumbColor : disabledColor);
 }
 
 } // namespace pixelroot32::graphics::ui

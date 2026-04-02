@@ -79,7 +79,12 @@ namespace pixelroot32::core {
             }
         }
 
-        // 2. Physics update (Flat Solver)
+        // 2. Update UI system (sync and process touch elements)
+        #if PIXELROOT32_ENABLE_UI_SYSTEM
+        uiManager.update(deltaTime);
+        #endif
+
+        // 3. Physics update (Flat Solver)
         // Pipeline: Detect → Solve Velocity → Integrate Position → Solve Penetration → Callbacks
         unsigned long t0 = 0;
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {
@@ -152,6 +157,11 @@ namespace pixelroot32::core {
         }
 
         renderer.setRenderContext(nullptr);
+
+        // Draw UI system (touch widgets rendered at UI layer)
+        #if PIXELROOT32_ENABLE_UI_SYSTEM
+        uiManager.draw(renderer);
+        #endif
     }
 
     void Scene::addEntity(Entity* entity) {

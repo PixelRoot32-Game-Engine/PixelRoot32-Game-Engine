@@ -33,32 +33,17 @@ UIManager::~UIManager() {
     clear();
 }
 
-void UIManager::destroyWidgetAt(UITouchWidget* widget) {
-    if (widget == nullptr) {
-        return;
-    }
-    switch (widget->type) {
-        case UIWidgetType::Button:
-            static_cast<UITouchButton*>(widget)->~UITouchButton();
-            break;
-        case UIWidgetType::Slider:
-            static_cast<UITouchSlider*>(widget)->~UITouchSlider();
-            break;
-        default:
-            widget->~UITouchWidget();
-            break;
-    }
-}
-
-UITouchButton* UIManager::addButton(int16_t x, int16_t y, uint16_t w, uint16_t h) {
+UITouchButton* UIManager::addButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h) {
     int8_t slot = findFreeSlot();
     if (slot < 0) {
         return nullptr;
     }
     
-    void* ptr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(slot)];
-    auto* button = new (ptr) UITouchButton(nextElementId++, x, y, w, h);
-    elementPointers[slot] = button;
+    // Create UITouchButton directly with position/size (no separate widget)
+    void* elementPtr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(slot)];
+    auto* button = new (elementPtr) UITouchButton(t, x, y, w, h);
+    
+    elementPointers[slot] = button;  // Store pointer to element (UITouchElement*)
     slotInUse[slot] = true;
     elementCount++;
     return button;
@@ -70,35 +55,39 @@ UITouchSlider* UIManager::addSlider(int16_t x, int16_t y, uint16_t w, uint16_t h
         return nullptr;
     }
     
-    void* ptr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(slot)];
-    auto* slider = new (ptr) UITouchSlider(nextElementId++, x, y, w, h, initialValue);
-    elementPointers[slot] = slider;
+    // Create UITouchSlider directly with position/size (no separate widget)
+    void* elementPtr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(slot)];
+    auto* slider = new (elementPtr) UITouchSlider(x, y, w, h, initialValue);
+    
+    elementPointers[slot] = slider;  // Store pointer to element (UITouchElement*)
     slotInUse[slot] = true;
     elementCount++;
     return slider;
 }
 
-bool UIManager::addElement(UITouchWidget* widget) {
-    if (widget == nullptr) {
-        return false;
-    }
-    
-    int8_t slot = findFreeSlot();
-    if (slot < 0) {
-        return false;
-    }
-    
-    elementPointers[slot] = widget;
-    slotInUse[slot] = true;
-    elementCount++;
-    return true;
-}
-
 bool UIManager::removeElement(uint8_t id) {
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
-        if (slotInUse[i] && elementPointers[i] != nullptr && elementPointers[i]->id == id) {
-            // Call destructor for proper cleanup
-            elementPointers[i]->~UITouchWidget();
+        if (slotInUse[i] && elementPointers[i] != nullptr && elementPointers[i]->getWidgetData().id == id) {
+            // Destroy Entity based on widget type
+            UITouchWidget& widgetData = elementPointers[i]->getWidgetData();
+            void* entityPtr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(i)];
+            
+            switch (widgetData.type) {
+                case UIWidgetType::Button: {
+                    auto* button = static_cast<UITouchButton*>(entityPtr);
+                    button->~UITouchButton();
+                    break;
+                }
+                case UIWidgetType::Slider: {
+                    auto* slider = static_cast<UITouchSlider*>(entityPtr);
+                    slider->~UITouchSlider();
+                    break;
+                }
+                default:
+                    // Destroy as base UITouchElement
+                    static_cast<UITouchElement*>(entityPtr)->~UITouchElement();
+                    break;
+            }
             
             elementPointers[i] = nullptr;
             slotInUse[i] = false;
@@ -116,16 +105,16 @@ bool UIManager::removeElement(UITouchWidget* widget) {
     return removeElement(widget->id);
 }
 
-UITouchWidget* UIManager::getElement(uint8_t id) const {
+UITouchElement* UIManager::getElement(uint8_t id) const {
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
-        if (slotInUse[i] && elementPointers[i] != nullptr && elementPointers[i]->id == id) {
+        if (slotInUse[i] && elementPointers[i] != nullptr && elementPointers[i]->getWidgetData().id == id) {
             return elementPointers[i];
         }
     }
     return nullptr;
 }
 
-UITouchWidget* UIManager::getElementAt(uint8_t index) const {
+UITouchElement* UIManager::getElementAt(uint8_t index) const {
     if (index >= MAX_ELEMENTS || !slotInUse[index]) {
         return nullptr;
     }
@@ -147,7 +136,27 @@ bool UIManager::isFull() const {
 void UIManager::clear() {
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {
-            destroyWidgetAt(elementPointers[i]);
+            // Destroy based on widget type
+            UITouchWidget& widgetData = elementPointers[i]->getWidgetData();
+            void* entityPtr = &elementStorage[ELEMENT_SLOT_BYTES * static_cast<std::size_t>(i)];
+            
+            switch (widgetData.type) {
+                case UIWidgetType::Button: {
+                    auto* button = static_cast<UITouchButton*>(entityPtr);
+                    button->~UITouchButton();
+                    break;
+                }
+                case UIWidgetType::Slider: {
+                    auto* slider = static_cast<UITouchSlider*>(entityPtr);
+                    slider->~UITouchSlider();
+                    break;
+                }
+                default:
+                    // Destroy as base UITouchElement
+                    static_cast<UITouchElement*>(entityPtr)->~UITouchElement();
+                    break;
+            }
+            
             elementPointers[i] = nullptr;
             slotInUse[i] = false;
         }
@@ -161,12 +170,12 @@ void UIManager::clear() {
 uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t count) {
     uint8_t consumed = 0;
     
-    const UITouchWidget* widgets[MAX_ELEMENTS];
+    UITouchElement* elements[MAX_ELEMENTS];
     uint8_t activeCount = 0;
     
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {
-            widgets[activeCount++] = elementPointers[i];
+            elements[activeCount++] = elementPointers[i];
         }
     }
     
@@ -185,18 +194,26 @@ uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t
                 evtType == pixelroot32::input::TouchEventType::TouchUp) {
                 
                 bool eventConsumed = false;
-                UITouchWidget* hit = capturedWidget;
+                UITouchWidget* hitWidget = capturedWidget;
                 
-                if (hit->type == UIWidgetType::Button) {
-                    auto* button = reinterpret_cast<UITouchButton*>(hit);
-                    eventConsumed = button->processEvent(event);
-                } else if (hit->type == UIWidgetType::Slider) {
-                    auto* slider = reinterpret_cast<UITouchSlider*>(hit);
-                    eventConsumed = slider->processEvent(event);
+                // Find the element that owns this widget
+                for (uint8_t j = 0; j < MAX_ELEMENTS; ++j) {
+                    if (slotInUse[j] && elementPointers[j] != nullptr && 
+                        &elementPointers[j]->getWidgetData() == hitWidget) {
+                        
+                        if (hitWidget->type == UIWidgetType::Button) {
+                            auto* button = static_cast<UITouchButton*>(elementPointers[j]);
+                            eventConsumed = button->processEvent(event);
+                        } else if (hitWidget->type == UIWidgetType::Slider) {
+                            auto* slider = static_cast<UITouchSlider*>(elementPointers[j]);
+                            eventConsumed = slider->processEvent(event);
+                        }
+                        break;
+                    }
                 }
                 
                 if (eventConsumed) {
-                    hit->consume();
+                    hitWidget->consume();
                     event.consume();
                     consumed++;
                 }
@@ -210,29 +227,30 @@ uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t
             }
         }
         
-        const UITouchWidget* hit = UIHitTest::findHit(widgets, activeCount, event.x, event.y);
+        UITouchElement* hit = UIHitTest::findHit(elements, activeCount, event.x, event.y);
         
         if (hit != nullptr) {
             bool eventConsumed = false;
+            UITouchWidget& widgetData = hit->getWidgetData();
             
-            if (hit->type == UIWidgetType::Button) {
-                auto* button = const_cast<UITouchButton*>(reinterpret_cast<const UITouchButton*>(hit));
+            if (widgetData.type == UIWidgetType::Button) {
+                auto* button = static_cast<UITouchButton*>(hit);
                 eventConsumed = button->processEvent(event);
                 
                 if (event.type == pixelroot32::input::TouchEventType::TouchDown) {
-                    capturedWidget = const_cast<UITouchWidget*>(hit);
+                    capturedWidget = &widgetData;
                 }
-            } else if (hit->type == UIWidgetType::Slider) {
-                auto* slider = const_cast<UITouchSlider*>(reinterpret_cast<const UITouchSlider*>(hit));
+            } else if (widgetData.type == UIWidgetType::Slider) {
+                auto* slider = static_cast<UITouchSlider*>(hit);
                 eventConsumed = slider->processEvent(event);
                 
                 if (event.type == pixelroot32::input::TouchEventType::TouchDown) {
-                    capturedWidget = const_cast<UITouchWidget*>(hit);
+                    capturedWidget = &widgetData;
                 }
             }
             
             if (eventConsumed) {
-                const_cast<UITouchWidget*>(hit)->consume();
+                widgetData.consume();
                 event.consume();
                 consumed++;
             }
@@ -254,32 +272,37 @@ UITouchWidget* UIManager::getHoverWidget() const {
     return hoverWidget;
 }
 
-UITouchWidget** UIManager::getElements() {
+UITouchElement** UIManager::getElements() {
     return elementPointers;
 }
 
-UITouchWidget* const* UIManager::getElements() const {
+UITouchElement* const* UIManager::getElements() const {
     return elementPointers;
 }
 
 void UIManager::updateHover(int16_t x, int16_t y) {
-    // Collect active widgets
-    const UITouchWidget* widgets[MAX_ELEMENTS];
+    // Collect active elements
+    const UITouchElement* elements[MAX_ELEMENTS];
     uint8_t activeCount = 0;
     
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {
-            widgets[activeCount++] = elementPointers[i];
+            elements[activeCount++] = elementPointers[i];
         }
     }
     
-    hoverWidget = const_cast<UITouchWidget*>(UIHitTest::findHit(widgets, activeCount, x, y));
+    const UITouchElement* hit = UIHitTest::findHit(elements, activeCount, x, y);
+    if (hit != nullptr) {
+        hoverWidget = const_cast<UITouchWidget*>(&hit->getWidgetData());
+    } else {
+        hoverWidget = nullptr;
+    }
 }
 
 void UIManager::clearConsumeFlags() {
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {
-            elementPointers[i]->clearConsume();
+            elementPointers[i]->getWidgetData().clearConsume();
         }
     }
 }
@@ -290,6 +313,25 @@ UITouchWidget* UIManager::getCapturedWidget() const {
 
 void UIManager::releaseCapture() {
     capturedWidget = nullptr;
+}
+
+void UIManager::update(unsigned long deltaTime) {
+    (void)deltaTime;
+    // Update all active elements directly
+    for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
+        if (slotInUse[i] && elementPointers[i] != nullptr) {
+            elementPointers[i]->update(deltaTime);
+        }
+    }
+}
+
+void UIManager::draw(pixelroot32::graphics::Renderer& renderer) {
+    // Draw all active elements
+    for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
+        if (slotInUse[i] && elementPointers[i] != nullptr) {
+            elementPointers[i]->draw(renderer);
+        }
+    }
 }
 
 int8_t UIManager::findFreeSlot() const {

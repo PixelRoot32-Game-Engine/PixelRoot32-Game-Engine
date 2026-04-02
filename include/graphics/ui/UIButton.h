@@ -25,7 +25,7 @@ namespace pixelroot32::graphics::ui {
     */
 class UIButton : public UIElement {
 private:
-    std::string label;
+    std::string_view label;
     Color textColor;
     Color backgroundColor;
     bool isSelected = false;

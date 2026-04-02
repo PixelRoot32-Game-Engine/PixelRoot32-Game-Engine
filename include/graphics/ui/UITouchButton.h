@@ -5,6 +5,7 @@
  *
  * UITouchButton.h - Touch-optimized button widget
  * Supports touch events: OnDown, OnUp, OnClick
+ * Now inherits from UITouchElement for Entity interface and draw() support
  */
 #pragma once
 
@@ -12,7 +13,9 @@
 #if PIXELROOT32_ENABLE_UI_SYSTEM
 
 #include <cstdint>
-#include "graphics/ui/UITouchWidget.h"
+#include <string_view>
+#include "graphics/ui/UITouchElement.h"
+#include "graphics/Color.h"
 #include "input/TouchEvent.h"
 
 namespace pixelroot32::graphics::ui {
@@ -22,10 +25,12 @@ namespace pixelroot32::graphics::ui {
  * @brief Touch-optimized button widget
  * 
  * Provides button functionality with touch input support.
+ * Inherits from UITouchElement for Entity interface (update/draw).
+ * UIManager creates the button directly with position/size.
  * States: Idle, Pressed, Hover
  * Events: OnDown, OnUp, OnClick
  */
-class UITouchButton : public UITouchWidget {
+class UITouchButton : public UITouchElement {
 public:
     // Callback function types (no std::function for memory efficiency)
     using ButtonCallback = void(*)();
@@ -35,27 +40,78 @@ private:
     ButtonCallback onUpCallback;       ///< Called when touch goes up on button
     ButtonCallback onClickCallback;    ///< Called when button is clicked
     
-    int16_t pressStartX;               ///< X position where press started
-    int16_t pressStartY;               ///< Y position where press started
+    pixelroot32::math::Vector2 pressStartPosition;         ///< position where press started
+    
+    // Rendering properties
+    std::string_view label;            ///< Button label (no allocation)
+    Color normalColor;               ///< Color for normal state
+    Color pressedColor;              ///< Color for pressed state
+    Color disabledColor;             ///< Color for disabled state
+    Color borderColor;               ///< Color for button border
+    Color disabledBorderColor;        ///< Color for disabled state border
     
     static constexpr int16_t DRAG_THRESHOLD = 10;  ///< Drag threshold in pixels
     
 public:
     /**
      * @brief Construct a new UITouchButton
-     * @param buttonId Unique button ID
-     * @param xPos X position (top-left)
-     * @param yPos Y position (top-left)
-     * @param w Button width
-     * @param h Button height
+     * @param t Button label
+     * @param x X position
+     * @param y Y position
+     * @param w Width
+     * @param h Height
      */
-    UITouchButton(uint8_t buttonId, int16_t xPos, int16_t yPos, uint16_t w, uint16_t h)
-        : UITouchWidget(UIWidgetType::Button, buttonId, xPos, yPos, w, h)
-        , onDownCallback(nullptr)
-        , onUpCallback(nullptr)
-        , onClickCallback(nullptr)
-        , pressStartX(0)
-        , pressStartY(0) {}
+    explicit UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h);
+    
+    /**
+     * @brief Set the button label
+     * @param label String view to the label (no allocation)
+     */
+    void setLabel(std::string_view label);
+
+    /**
+     * @brief Get the current label
+     * @return String view to the label (no allocation)
+     */
+    std::string_view getLabel() const { return label; }
+    
+    /**
+     * @brief Set button colors
+     * @param normal Color for normal state
+     * @param pressed Color for pressed state
+     * @param disabled Color for disabled state
+     */
+    void setColors(Color normal, Color pressed, Color disabled);
+    
+    /**
+     * @brief Get normal color
+     * @return Normal state color
+     */
+    Color getNormalColor() const { return normalColor; }
+    
+    /**
+     * @brief Get pressed color
+     * @return Pressed state color
+     */
+    Color getPressedColor() const { return pressedColor; }
+    
+    /**
+     * @brief Get disabled color
+     * @return Disabled state color
+     */
+    Color getDisabledColor() const { return disabledColor; }
+    
+    /**
+     * @brief Get border color
+     * @return Border color
+     */
+    Color getBorderColor() const { return borderColor; }
+    
+    /**
+     * @brief Get disabled border color
+     * @return Disabled border color
+     */
+    Color getDisabledBorderColor() const { return disabledBorderColor; }
     
     /**
      * @brief Set the OnDown callback
@@ -101,6 +157,12 @@ public:
     bool processEvent(const pixelroot32::input::TouchEvent& event);
     
     /**
+     * @brief Render the button
+     * @param renderer Reference to the renderer
+     */
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
+    
+    /**
      * @brief Reset button state
      */
     void reset();
@@ -130,6 +192,11 @@ private:
      * @brief Clear active flag
      */
     void clearActive();
+    
+    /**
+     * @brief Get color based on current state
+     */
+    Color getCurrentColor() const;
 };
 
 } // namespace pixelroot32::graphics::ui

@@ -5,6 +5,7 @@
  *
  * UITouchSlider.h - Touch-optimized slider widget
  * Supports value range 0-100 with drag interaction
+ * Now inherits from UITouchElement for Entity interface and draw() support
  */
 #pragma once
 
@@ -12,7 +13,8 @@
 #if PIXELROOT32_ENABLE_UI_SYSTEM
 
 #include <cstdint>
-#include "graphics/ui/UITouchWidget.h"
+#include "graphics/ui/UITouchElement.h"
+#include "graphics/Color.h"
 #include "input/TouchEvent.h"
 
 namespace pixelroot32::graphics::ui {
@@ -22,11 +24,13 @@ namespace pixelroot32::graphics::ui {
  * @brief Touch-optimized slider widget
  * 
  * Provides slider functionality with touch input support.
+ * Inherits from UITouchElement for Entity interface (update/draw).
+ * UIManager creates the slider directly with position/size.
  * Value range: 0-100
  * States: Idle, Dragging
  * Events: OnValueChanged, OnDragStart, OnDragEnd
  */
-class UITouchSlider : public UITouchWidget {
+class UITouchSlider : public UITouchElement {
 public:
     // Callback function types (no std::function for memory efficiency)
     using SliderCallback = void(*)(uint8_t);
@@ -39,8 +43,13 @@ private:
     uint8_t value;                         ///< Current value (0-100)
     uint8_t previousValue;                 ///< Previous value for change detection
     
-    int16_t dragStartX;                    ///< X position where drag started
-    int16_t currentDragX;                  ///< Current X during drag
+    pixelroot32::math::Vector2 dragStartPosition;             ///< Position where drag started
+    pixelroot32::math::Vector2 currentDragPosition;           ///< Current position during drag
+    
+    // Rendering properties
+    Color trackColor;                     ///< Color for track (line)
+    Color thumbColor;                     ///< Color for thumb (handle)
+    Color disabledColor;                  ///< Color for disabled state
     
     static constexpr uint8_t MIN_VALUE = 0;
     static constexpr uint8_t MAX_VALUE = 100;
@@ -48,23 +57,20 @@ private:
 public:
     /**
      * @brief Construct a new UITouchSlider
-     * @param sliderId Unique slider ID
-     * @param xPos X position (top-left)
-     * @param yPos Y position (top-left)
-     * @param w Slider width
-     * @param h Slider height
+     * @param x X position
+     * @param y Y position
+     * @param w Width
+     * @param h Height
      * @param initialValue Initial value (0-100)
      */
-    UITouchSlider(uint8_t sliderId, int16_t xPos, int16_t yPos, uint16_t w, uint16_t h, 
-                  uint8_t initialValue = 50)
-        : UITouchWidget(UIWidgetType::Slider, sliderId, xPos, yPos, w, h)
-        , onValueChangedCallback(nullptr)
-        , onDragStartCallback(nullptr)
-        , onDragEndCallback(nullptr)
-        , value(initialValue > MAX_VALUE ? MAX_VALUE : initialValue)
-        , previousValue(initialValue > MAX_VALUE ? MAX_VALUE : initialValue)
-        , dragStartX(0)
-        , currentDragX(0) {}
+    explicit UITouchSlider(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t initialValue);
+    
+    /**
+     * @brief Set track and thumb colors
+     * @param track Color for track
+     * @param thumb Color for thumb
+     */
+    void setColors(Color track, Color thumb);
     
     /**
      * @brief Set the OnValueChanged callback
@@ -103,6 +109,24 @@ public:
     SliderCallback getOnDragEnd() const;
     
     /**
+     * @brief Get track color
+     * @return Current track color
+     */
+    Color getTrackColor() const { return trackColor; }
+    
+    /**
+     * @brief Get thumb color
+     * @return Current thumb color
+     */
+    Color getThumbColor() const { return thumbColor; }
+    
+    /**
+     * @brief Get disabled color
+     * @return Current disabled color
+     */
+    Color getDisabledColor() const { return disabledColor; }
+    
+    /**
      * @brief Get the current value
      * @return Current value (0-100)
      */
@@ -132,6 +156,12 @@ public:
      * @return true if event was consumed by this slider
      */
     bool processEvent(const pixelroot32::input::TouchEvent& event);
+    
+    /**
+     * @brief Render the slider
+     * @param renderer Reference to the renderer
+     */
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
     
     /**
      * @brief Reset slider state

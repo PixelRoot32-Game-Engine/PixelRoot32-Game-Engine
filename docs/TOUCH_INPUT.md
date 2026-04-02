@@ -106,6 +106,7 @@ The underlying driver and its build flags vary drastically by device. You cannot
 
 **Example 1: ESP32-2432S028R (CYD)**
 This board uses an XPT2046 resistive touch controller on a **separate bit-banged GPIO bus**, not the main TFT SPI bus. It requires specific macro overrides:
+
 - `-D TOUCH_DRIVER_XPT2046`
 - `-D XPT2046_USE_GPIO_SPI`
 - Specific pins (`XPT2046_GPIO_MOSI`, etc.)
@@ -113,12 +114,14 @@ This board uses an XPT2046 resistive touch controller on a **separate bit-banged
 
 **Example 2: A standard ESP32 with shared SPI XPT2046**
 Many TFT shields share the main SPI bus for both the display and the touch controller.
+
 - You would **not** use `XPT2046_USE_GPIO_SPI`.
 - The `TFT_eSPI` library typically handles the low-level SPI sharing via the `TFT_eSPI_TouchBridge` or built-in calibration.
 - You only need `-D TOUCH_DRIVER_XPT2046` and `-D PIXELROOT32_USE_TFT_ESPI_DRIVER`.
 
 **Example 3: A capacitive touchscreen (e.g., GT911)**
 Capacitive screens use I²C and usually report perfect screen coordinates out of the box, requiring no axis swapping or offset calibration.
+
 - You would use `-D TOUCH_DRIVER_GT911` instead.
 - Resistive calibration flags (like `SWAP_AXES` or `MIRROR_X`) are not used.
 
