@@ -15,7 +15,8 @@
 
 extern pixelroot32::core::Engine engine;
 
-using namespace flappy;
+namespace flappy {
+    
 using pixelroot32::math::toScalar;
 using pixelroot32::math::Scalar;
 using pixelroot32::math::Vector2;
@@ -129,4 +130,5 @@ void FlappyBirdScene::draw(pixelroot32::graphics::Renderer& renderer) {
         renderer.drawTextCentered("GAME OVER", 20, Color::White, 1);
         renderer.drawTextCentered("RESTART", 45, Color::White, 1);
     }
+}
 }

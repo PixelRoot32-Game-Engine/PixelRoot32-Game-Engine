@@ -32,7 +32,3 @@ pio run -e esp32c3 --target upload
 - Goal: Fly through the gap in the pipes to score points
 - Avoid: Hitting the pipes or the screen top/bottom boundaries
 
----
-
-**Note:** Looking for more examples? Check out the main samples repository:
-[https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)

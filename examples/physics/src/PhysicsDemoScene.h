@@ -25,79 +25,75 @@
 
 namespace physicsdemo {
 
-using namespace pixelroot32::core;
-using namespace pixelroot32::physics;
-using namespace pixelroot32::math;
-
 /** @brief Dynamic box (restitution 0.5, friction 0.2). */
-class BoxActor : public RigidActor {
+class BoxActor : public pixelroot32::physics::RigidActor {
 public:
-    BoxActor(Scalar x, Scalar y, int w, int h) : RigidActor(x, y, w, h) {
+    BoxActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) : pixelroot32::physics::RigidActor(x, y, w, h) {
         setRestitution(0.5f);
         setFriction(0.2f);
     }
     
-    Rect getHitBox() override {
+    pixelroot32::core::Rect getHitBox() override {
         return {position, width, height};
     }
 
     void draw(pixelroot32::graphics::Renderer& renderer) override {
-        renderer.drawRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, Color::Yellow);
+        renderer.drawRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, pixelroot32::graphics::Color::Yellow);
     }
 };
 
 /** @brief Dynamic circle with radius-based collision. */
-class CircleActor : public RigidActor {
+class CircleActor : public pixelroot32::physics::RigidActor {
 public:
-    CircleActor(Scalar x, Scalar y, int diameter) : RigidActor(x, y, diameter, diameter) {
-        setShape(CollisionShape::CIRCLE);
+    CircleActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int diameter) : pixelroot32::physics::RigidActor(x, y, diameter, diameter) {
+        setShape(pixelroot32::core::CollisionShape::CIRCLE);
         setRadius(diameter / 2.0f);
         setRestitution(0.5f);
         setFriction(0.2f);
     }
     
-    Rect getHitBox() override {
+    pixelroot32::core::Rect getHitBox() override {
         return {position, width, height};
     }
 
     void draw(pixelroot32::graphics::Renderer& renderer) override {
-        Scalar r = getRadius();
-        renderer.drawCircle(static_cast<int>(position.x + r), static_cast<int>(position.y + r), static_cast<int>(r), Color::Cyan);
+        pixelroot32::math::Scalar r = getRadius();
+        renderer.drawCircle(static_cast<int>(position.x + r), static_cast<int>(position.y + r), static_cast<int>(r), pixelroot32::graphics::Color::Cyan);
     }
 };
 
 /** @brief Player controlled by input; pushes others but not vice versa. */
-class PlayerActor : public KinematicActor {
+class PlayerActor : public pixelroot32::physics::KinematicActor {
 public:
-    PlayerActor(Scalar x, Scalar y, int w, int h) : KinematicActor(x, y, w, h) {}
+    PlayerActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) : pixelroot32::physics::KinematicActor(x, y, w, h) {}
 
-    Rect getHitBox() override {
+    pixelroot32::core::Rect getHitBox() override {
         return {position, width, height};
     }
 
     void draw(pixelroot32::graphics::Renderer& renderer) override {
-        renderer.drawFilledRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, Color::White);
+        renderer.drawFilledRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, pixelroot32::graphics::Color::White);
     }
 };
 
 /** @brief Static wall/floor (immovable, infinite mass). */
-class WallActor : public StaticActor {
+class WallActor : public pixelroot32::physics::StaticActor {
 public:
-    WallActor(Scalar x, Scalar y, int w, int h) : StaticActor(x, y, w, h) {
+    WallActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) : pixelroot32::physics::StaticActor(x, y, w, h) {
         bounce = true;
     }
 
-    Rect getHitBox() override {
+    pixelroot32::core::Rect getHitBox() override {
         return {position, width, height};
     }
 
     void draw(pixelroot32::graphics::Renderer& renderer) override {
-        renderer.drawRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, Color::DarkGreen);
+        renderer.drawRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, pixelroot32::graphics::Color::DarkGreen);
     }
 };
 
 /** @brief Physics demo scene (player, boxes, circles, walls). */
-class PhysicsDemoScene : public Scene {
+class PhysicsDemoScene : public pixelroot32::core::Scene {
 public:
     void init() override;
     void update(unsigned long deltaTime) override;

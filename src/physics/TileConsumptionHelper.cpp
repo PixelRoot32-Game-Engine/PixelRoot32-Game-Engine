@@ -11,8 +11,11 @@
 #include <cstddef>
 
 namespace pixelroot32::physics {
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::core::logging;
+    namespace gfx = pixelroot32::graphics;
+    namespace logging = pixelroot32::core::logging;
+
+    using logging::log;
+    using logging::LogLevel;
 
 TileConsumptionHelper::TileConsumptionHelper(pixelroot32::core::Scene& scene, void* tilemap, 
                                            const TileConsumptionConfig& config)
@@ -50,7 +53,7 @@ bool TileConsumptionHelper::consumeTile(pixelroot32::core::Actor* tileActor, uin
     if (config.updateTilemap && tilemap != nullptr) {
         // Use template dispatch to handle different TileMapGeneric types
         // This works with Sprite, Sprite2bpp, and Sprite4bpp tilemaps
-        updateTilemapRuntimeMask<Sprite>(tileX, tileY, false);
+        updateTilemapRuntimeMask<gfx::Sprite>(tileX, tileY, false);
         
         if (config.logConsumption) {
             log("TileConsumptionHelper: Updated tilemap runtimeMask for (%d, %d)", tileX, tileY);
@@ -97,7 +100,7 @@ bool TileConsumptionHelper::isTileConsumed(uint16_t tileX, uint16_t tileY) const
     }
     
     // Check runtimeMask state using template dispatch
-    return !checkTilemapRuntimeMask<Sprite>(tileX, tileY);
+    return !checkTilemapRuntimeMask<gfx::Sprite>(tileX, tileY);
 }
 
 bool TileConsumptionHelper::restoreTile(uint16_t tileX, uint16_t tileY) {
@@ -115,7 +118,7 @@ bool TileConsumptionHelper::restoreTile(uint16_t tileX, uint16_t tileY) {
     }
     
     // Restore tile by setting it active in runtimeMask
-    updateTilemapRuntimeMask<Sprite>(tileX, tileY, true);
+    updateTilemapRuntimeMask<gfx::Sprite>(tileX, tileY, true);
     
     if (config.logConsumption) {
         log("TileConsumptionHelper: Restored tile at (%d, %d)", tileX, tileY);
@@ -131,8 +134,8 @@ void TileConsumptionHelper::extractTilemapDimensions() {
     // Use offsetof to avoid depending on raw struct layout (indices is a pointer;
     // width/height are not at byte offsets 1 and 2 on 32-bit platforms).
     auto* tilemapPtr = static_cast<const uint8_t*>(tilemap);
-    constexpr size_t offWidth = offsetof(TileMapGeneric<Sprite>, width);
-    constexpr size_t offHeight = offsetof(TileMapGeneric<Sprite>, height);
+    constexpr size_t offWidth = offsetof(gfx::TileMapGeneric<gfx::Sprite>, width);
+    constexpr size_t offHeight = offsetof(gfx::TileMapGeneric<gfx::Sprite>, height);
     tilemapWidth = tilemapPtr[offWidth];
     tilemapHeight = tilemapPtr[offHeight];
     if (config.logConsumption) {
@@ -143,7 +146,7 @@ void TileConsumptionHelper::extractTilemapDimensions() {
 
 template<typename T>
 void TileConsumptionHelper::updateTilemapRuntimeMask(uint16_t tileX, uint16_t tileY, bool active) {
-    auto* tilemapGeneric = static_cast<TileMapGeneric<T>*>(tilemap);
+    auto* tilemapGeneric = static_cast<gfx::TileMapGeneric<T>*>(tilemap);
     if (tilemapGeneric != nullptr) {
         tilemapGeneric->setTileActive(tileX, tileY, active);
     }
@@ -151,7 +154,7 @@ void TileConsumptionHelper::updateTilemapRuntimeMask(uint16_t tileX, uint16_t ti
 
 template<typename T>
 bool TileConsumptionHelper::checkTilemapRuntimeMask(uint16_t tileX, uint16_t tileY) const {
-    auto* tilemapGeneric = static_cast<const TileMapGeneric<T>*>(tilemap);
+    auto* tilemapGeneric = static_cast<const gfx::TileMapGeneric<T>*>(tilemap);
     if (tilemapGeneric != nullptr) {
         return tilemapGeneric->isTileActive(tileX, tileY);
     }
@@ -167,12 +170,12 @@ bool TileConsumptionHelper::validateCoordinates(uint16_t tileX, uint16_t tileY) 
 }
 
 // Explicit template instantiations for common tilemap types
-template void TileConsumptionHelper::updateTilemapRuntimeMask<Sprite>(uint16_t, uint16_t, bool);
-template void TileConsumptionHelper::updateTilemapRuntimeMask<Sprite2bpp>(uint16_t, uint16_t, bool);
-template void TileConsumptionHelper::updateTilemapRuntimeMask<Sprite4bpp>(uint16_t, uint16_t, bool);
+template void TileConsumptionHelper::updateTilemapRuntimeMask<gfx::Sprite>(uint16_t, uint16_t, bool);
+template void TileConsumptionHelper::updateTilemapRuntimeMask<gfx::Sprite2bpp>(uint16_t, uint16_t, bool);
+template void TileConsumptionHelper::updateTilemapRuntimeMask<gfx::Sprite4bpp>(uint16_t, uint16_t, bool);
 
-template bool TileConsumptionHelper::checkTilemapRuntimeMask<Sprite>(uint16_t, uint16_t) const;
-template bool TileConsumptionHelper::checkTilemapRuntimeMask<Sprite2bpp>(uint16_t, uint16_t) const;
-template bool TileConsumptionHelper::checkTilemapRuntimeMask<Sprite4bpp>(uint16_t, uint16_t) const;
+template bool TileConsumptionHelper::checkTilemapRuntimeMask<gfx::Sprite>(uint16_t, uint16_t) const;
+template bool TileConsumptionHelper::checkTilemapRuntimeMask<gfx::Sprite2bpp>(uint16_t, uint16_t) const;
+template bool TileConsumptionHelper::checkTilemapRuntimeMask<gfx::Sprite4bpp>(uint16_t, uint16_t) const;
 
 } // namespace pixelroot32::physics

@@ -13,7 +13,9 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::graphics;
+    namespace gfx = pixelroot32::graphics;
+
+    using gfx::Renderer;
 
     SceneManager::SceneManager() {
         for (int i = 0; i < pixelroot32::platforms::config::MaxScenes; i++) {

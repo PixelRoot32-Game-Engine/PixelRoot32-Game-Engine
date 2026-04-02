@@ -15,12 +15,30 @@
 #include <graphics/ui/UIVerticalLayout.h>
 #endif
 
-extern pixelroot32::core::Engine engine;
+namespace pr32 = pixelroot32;
+
+extern pr32::core::Engine engine;
 
 namespace physicsdemo {
 
-using namespace pixelroot32::math;
-using namespace pixelroot32::graphics::ui;
+namespace math = pr32::math;
+namespace input = pr32::input;
+namespace gfx = pr32::graphics;
+
+using pr32::core::arenaNew;
+using math::Vector2;
+using math::toScalar;
+using math::Scalar;
+using input::TouchEvent;
+using input::TouchEventType;
+using gfx::Renderer;
+using gfx::Color;
+using gfx::ui::UIVerticalLayout;
+using gfx::ui::UIHorizontalLayout;
+using gfx::ui::UITouchButton;
+using gfx::ui::UITouchSlider;
+using gfx::ui::UITouchCheckbox;
+
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM
 PhysicsDemoScene* PhysicsDemoScene::sUiTarget = nullptr;
@@ -58,7 +76,7 @@ void onPhysicsDemoTouchCheckboxChanged(bool checked) {
 #endif
 
 void PhysicsDemoScene::init() {
-    using namespace pixelroot32::math;
+
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM
     sUiTarget = this;
@@ -267,10 +285,10 @@ void PhysicsDemoScene::setPlayerVisible(bool visible) {
 }
 #endif
 
-void PhysicsDemoScene::processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count) {
+void PhysicsDemoScene::processTouchEvents(TouchEvent* events, uint8_t count) {
 #if PIXELROOT32_ENABLE_DEBUG_OVERLAY
     if (events != nullptr) {
-        using T = pixelroot32::input::TouchEventType;
+        using T = TouchEventType;
         for (uint8_t i = 0; i < count; ++i) {
             const auto ty = events[i].type;
             if (ty == T::TouchUp || ty == T::DragEnd) {
@@ -286,7 +304,7 @@ void PhysicsDemoScene::processTouchEvents(pixelroot32::input::TouchEvent* events
     Scene::processTouchEvents(events, count);
 }
 
-void PhysicsDemoScene::draw(pixelroot32::graphics::Renderer& renderer) {
+void PhysicsDemoScene::draw(Renderer& renderer) {
     Scene::draw(renderer);
 
 #if PIXELROOT32_ENABLE_DEBUG_OVERLAY
@@ -300,13 +318,11 @@ void PhysicsDemoScene::draw(pixelroot32::graphics::Renderer& renderer) {
 #endif
 }
 
-void PhysicsDemoScene::onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) {
+void PhysicsDemoScene::onUnconsumedTouchEvent(const TouchEvent& event) {
     touchController.handleTouch(event);
 }
 
 void PhysicsDemoScene::update(unsigned long deltaTime) {
-    using namespace pixelroot32::math;
-
     auto& input = engine.getInputManager();
 
     if (input.isButtonPressed(4)) {

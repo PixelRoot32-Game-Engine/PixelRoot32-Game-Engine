@@ -3,10 +3,10 @@
 
 namespace flappy {
 
-/**
- * @file FlappyBirdConstants.h
- * @brief Game configuration for Flappy Bird clone.
- */
+    /**
+     * @file FlappyBirdConstants.h
+     * @brief Game configuration for Flappy Bird clone.
+     */
 
     /** Game flow states */
     enum class GameState {

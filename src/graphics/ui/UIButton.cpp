@@ -10,10 +10,13 @@
 
 namespace pixelroot32::graphics::ui {
 
-    using namespace pixelroot32::input;
-    using namespace pixelroot32::graphics;
+    namespace math = pixelroot32::math;
+    namespace input = pixelroot32::input;
+    
+    using math::Vector2;
+    using math::Scalar;
+    using input::InputManager;
 
-    using namespace pixelroot32::math;
 
     UIButton::UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, std::function<void()> callback, TextAlignment textAlign, int fontSize)
         : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::BUTTON), 

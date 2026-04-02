@@ -13,13 +13,16 @@ extern pr32::core::Engine engine;
 
 namespace animatedtilemap {
 
-using namespace pr32::core::logging;
-using pr32::graphics::Color;
+using gfx = pr32::graphics;
+using logging = pr32::core::logging;
+
+using gfx::Color;
 using pr32::math::Vector2;
+using logging::log;
 
 // --- TileMapLayerEntityNew Implementation ---
 
-TileMapLayerEntity::TileMapLayerEntity(const pixelroot32::graphics::TileMap4bpp* tileMap, 
+TileMapLayerEntity::TileMapLayerEntity(const gfx::TileMap4bpp* tileMap, 
                                            int mapWidth, int mapHeight, int tileSize, int layer)
     : pr32::core::Entity(pr32::math::toScalar(0.0f), pr32::math::toScalar(0.0f),
                         pr32::math::toScalar(mapWidth * tileSize),
@@ -34,7 +37,7 @@ void TileMapLayerEntity::update(unsigned long) {
     // Tilemap layers don't need per-frame updates
 }
 
-void TileMapLayerEntity::draw(pr32::graphics::Renderer& renderer) {
+void TileMapLayerEntity::draw(gfx::Renderer& renderer) {
     if (tileMap) {
         renderer.drawTileMap(*tileMap, static_cast<int>(position.x), static_cast<int>(position.y));
     }
@@ -113,7 +116,7 @@ void AnimatedTilemapScene::update(unsigned long deltaTime) {
     Scene::update(deltaTime);
 }
 
-void AnimatedTilemapScene::draw(pr32::graphics::Renderer& renderer) {
+void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
     // Draw world entities (tilemaps, actors, etc.)
     Scene::draw(renderer);
 }

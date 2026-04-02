@@ -12,6 +12,10 @@ extern pr32::core::Engine engine;
 
 namespace snake {
 
+namespace gfx = pr32::graphics;
+
+using Color = gfx::Color;
+
 class SnakeScene::SnakeBackground : public pr32::core::Entity {
 public:
     SnakeBackground()
@@ -22,8 +26,7 @@ public:
     void update(unsigned long) override {
     }
 
-    void draw(pr32::graphics::Renderer& renderer) override {
-        using Color = pr32::graphics::Color;
+    void draw(gfx::Renderer& renderer) override {
         renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, Color::Black);
 
         int playAreaX = 0;
@@ -61,7 +64,7 @@ SnakeScene::~SnakeScene() {
 
 // Seed the random generator once and reset the snake game state.
 void SnakeScene::init() {
-    pr32::graphics::setPalette(pr32::graphics::PaletteType::GB);
+    gfx::setPalette(gfx::PaletteType::GB);
     static bool seeded = false;
     if (!seeded) {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -252,11 +255,9 @@ void SnakeScene::update(unsigned long deltaTime) {
     }
 }
 
-void SnakeScene::draw(pr32::graphics::Renderer& renderer) {
+void SnakeScene::draw(gfx::Renderer& renderer) {
     // Draw all entities (background, snake segments)
     Scene::draw(renderer);
-
-    using Color = pr32::graphics::Color;
 
     // Draw Food
     renderer.drawFilledRectangle(static_cast<int>(food.x), static_cast<int>(food.y), CELL_SIZE - 1, CELL_SIZE - 1, Color::Red);

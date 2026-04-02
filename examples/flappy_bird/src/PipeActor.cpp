@@ -1,12 +1,19 @@
 #include "PipeActor.h"
 #include "GameLayers.h"
 
-using namespace pixelroot32::math;
-using namespace pixelroot32::physics;
-using namespace pixelroot32::core;
-using namespace pixelroot32::graphics;
+namespace pr32 = pixelroot32;
 
 namespace flappy {
+
+namespace math = pr32::math;
+namespace physics = pr32::physics;
+namespace core = pr32::core;
+namespace graphics = pr32::graphics;
+
+using math::Vector2;
+using math::toScalar;
+using physics::KinematicActor;
+using physics::CollisionShape;
 
 PipeActor::PipeActor(Vector2 pos, int width, int height, bool isTop) 
     : KinematicActor(pos, width, height), isTopPipe(isTop) {

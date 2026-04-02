@@ -10,12 +10,27 @@
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
 #include "math/MathUtil.h"
+#include <algorithm>
 #include <cassert>
 
 namespace pixelroot32::physics {
 
-    using namespace pixelroot32::core;
-    using namespace pixelroot32::math;
+    namespace core = pixelroot32::core;
+    namespace math = pixelroot32::math;
+    using core::Actor;
+    using core::CollisionShape;
+    using core::Entity;
+    using core::EntityType;
+    using core::PhysicsActor;
+    using core::PhysicsBodyType;
+    using core::Rect;
+    using math::Scalar;
+    using math::Vector2;
+    using math::toScalar;
+    using math::kEpsilon;
+    using math::min;
+    using math::max;
+    using math::clamp;
 
     namespace {
         struct ScalarRect {

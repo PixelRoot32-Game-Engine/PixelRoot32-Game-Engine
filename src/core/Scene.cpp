@@ -17,9 +17,12 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::modules;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::physics;
+    namespace modules = pixelroot32::modules;
+    namespace gfx = pixelroot32::graphics;
+    namespace phy = pixelroot32::physics;
+
+    using gfx::Renderer;
+    using gfx::PaletteContext;
 
     extern unsigned long gProfilerCollisionTime;
 

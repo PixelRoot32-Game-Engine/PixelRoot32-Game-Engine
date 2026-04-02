@@ -27,7 +27,10 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
         return false;
     }
 
-    using namespace pixelroot32::math;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
     
     Vector2 startPos = position;
     Vector2 targetPos = startPos + motion;
@@ -164,7 +167,10 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
 }
 
 void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection) {
-    using namespace pixelroot32::math;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
     
     // Reset collision flags
     onFloor = false;

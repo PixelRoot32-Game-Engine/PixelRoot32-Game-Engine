@@ -21,11 +21,6 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::core;
-    using namespace pixelroot32::physics;
-    using namespace pixelroot32::graphics;
-    
-
 #include <new> // for placement new
 struct SceneArena {
     unsigned char* buffer;
