@@ -317,6 +317,10 @@ void UIManager::releaseCapture() {
 
 void UIManager::update(unsigned long deltaTime) {
     (void)deltaTime;
+    // When manualRenderUpdate is true, Scene/Layout handles the update
+    if (manualRenderUpdate) {
+        return;
+    }
     // Update all active elements directly
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {
@@ -326,6 +330,10 @@ void UIManager::update(unsigned long deltaTime) {
 }
 
 void UIManager::draw(pixelroot32::graphics::Renderer& renderer) {
+    // When manualRenderUpdate is true, Scene/Layout handles the draw
+    if (manualRenderUpdate) {
+        return;
+    }
     // Draw all active elements
     for (uint8_t i = 0; i < MAX_ELEMENTS; ++i) {
         if (slotInUse[i] && elementPointers[i] != nullptr) {

@@ -62,6 +62,9 @@ private:
     // Track which slots are in use
     bool slotInUse[MAX_ELEMENTS];
     
+    // When true, UIManager skips calling update/draw on elements (Scene/Layout handles it)
+    bool manualRenderUpdate = false;
+    
 public:
     /**
      * @brief Construct a new UIManager
@@ -140,6 +143,18 @@ public:
      * @return true if no more elements can be added
      */
     bool isFull() const;
+    
+    /**
+     * @brief Set whether Scene/Layout handles update/draw (true) or UIManager does (false)
+     * @param manual true to skip UIManager's update/draw calls
+     */
+    void setManualRenderUpdate(bool manual) { manualRenderUpdate = manual; }
+    
+    /**
+     * @brief Check if manual render/update mode is enabled
+     * @return true if UIManager skips update/draw calls
+     */
+    bool isManualRenderUpdate() const { return manualRenderUpdate; }
     
     /**
      * @brief Clear all elements from the manager

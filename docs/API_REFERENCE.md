@@ -1016,8 +1016,10 @@ The touch widget system provides optimized UI elements for touchscreen input. It
 
 **Architecture:**
 ```
-UITouchWidget (struct) → UITouchElement (class: Entity) → UITouchButton/UITouchSlider
+UITouchWidget (struct) → UITouchElement (class: UIElement) → UITouchButton/UITouchSlider
 ```
+
+> **Note:** UITouchElement inherits from UIElement (not Entity), enabling integration with UILayout containers. The `setPosition()` override synchronizes Entity position with the embedded UITouchWidget data for correct hit testing.
 
 #### UITouchWidget
 
@@ -1063,9 +1065,9 @@ Lightweight struct stored in a fixed-size pool. Contains position, size, state, 
 
 **Include:** `graphics/ui/UITouchElement.h`
 
-**Inherits:** [Entity](#entity)
+**Inherits:** [UIElement](#uielement)
 
-Entity wrapper for UITouchWidget. Provides the Entity interface (update/draw) while delegating to the underlying widget for state management.
+Entity wrapper for UITouchWidget. Provides the UIElement interface (update/draw) while delegating to the underlying widget for state management. Since it inherits from UIElement, it can be added to UILayout containers for automatic positioning.
 
 #### Public Methods
 
@@ -1086,6 +1088,9 @@ Entity wrapper for UITouchWidget. Provides the Entity interface (update/draw) wh
 
 - **`bool isVisible() const`**
     Returns true if widget is visible.
+
+- **`void setPosition(Scalar newX, Scalar newY) override`**
+    Sets position and synchronizes both Entity position and widget data. Called automatically by UILayout when repositioning elements.
 
 - **`void update(unsigned long deltaTime) override`**
     Updates element, syncs state from widget.
@@ -1246,6 +1251,12 @@ Manages touch widgets and elements. Provides a pool-based allocation system for 
 
 - **`void draw(Renderer& renderer)`**
     Draws all active touch elements.
+
+- **`void setManualRenderUpdate(bool manual)`**
+    When set to `true`, UIManager skips calling `update()` and `draw()` on elements. Use this when elements are managed by a UILayout/Scene (which calls update/draw via the Entity system). Default is `false` (UIManager handles update/draw).
+
+- **`bool isManualRenderUpdate() const`**
+    Returns whether manual render/update mode is enabled.
 
 - **`UITouchElement* hitTest(int16_t x, int16_t y)`**
     Returns the topmost element at the given coordinates, or nullptr.
@@ -4186,6 +4197,12 @@ Manages a fixed-size pool of touch UI elements (`UITouchButton`, `UITouchSlider`
 - **`void releaseCapture()`**
     Releases the currently captured widget (for drag tracking).
 
+- **`void setManualRenderUpdate(bool manual)`**
+    Controls whether UIManager handles update/draw or delegates to Scene/Layout. When `true`, UIManager skips calling `update()` and `draw()` on elements. Use this when elements are added to a UILayout (which calls update/draw via the Entity system). Default is `false`.
+
+- **`bool isManualRenderUpdate() const`**
+    Returns whether manual render/update mode is enabled.
+
 #### Example Usage
 
 ```cpp
@@ -4246,9 +4263,9 @@ elementPointers[MAX_ELEMENTS]  (UITouchElement* array)
 
 **Include:** `graphics/ui/UITouchElement.h`
 
-**Inherits:** [Entity](#entity)
+**Inherits:** [UIElement](#uielement)
 
-Base class for touch-optimized UI elements. Contains an embedded `UITouchWidget` struct with position, size, state, and flags. Provides the `update()`/`draw()` interface for the Entity system.
+Base class for touch-optimized UI elements. Contains an embedded `UITouchWidget` struct with position, size, state, and flags. Provides the `update()`/`draw()` interface for the Entity system. Since it inherits from UIElement, it can be added to UILayout containers for automatic positioning. The `setPosition()` override synchronizes Entity position with widget data for correct hit testing.
 
 #### Public Methods
 
@@ -4260,6 +4277,9 @@ Base class for touch-optimized UI elements. Contains an embedded `UITouchWidget`
 
 - **`void draw(Renderer& renderer) override`**
     Draws the element (pure virtual, must be overridden by subclasses).
+
+- **`void setPosition(Scalar newX, Scalar newY) override`**
+    Sets position and synchronizes both Entity position and embedded `UITouchWidget` data. Called automatically when the element is added to a UILayout. This ensures hit testing works correctly when layouts reposition elements.
 
 - **`uint8_t getWidgetState() const`**
     Returns the current widget state (Idle, Pressed, Hover, Dragging).

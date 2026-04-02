@@ -11,21 +11,22 @@
 #include "core/EngineModules.h"
 #if PIXELROOT32_ENABLE_UI_SYSTEM
 
-#include "core/Entity.h"
+#include "graphics/ui/UIElement.h"
 #include "graphics/ui/UITouchWidget.h"
 
 namespace pixelroot32::graphics::ui {
 
 /**
  * @class UITouchElement
- * @brief Entity with embedded UITouchWidget data
+ * @brief UIElement with embedded UITouchWidget data for touch interaction
  * 
  * Embeds the widget data directly (x, y, width, height, flags, state)
  * to avoid memory corruption from overlapping placement new.
+ * Inherits from UIElement for integration with UILayout system.
  * 
  * Memory: Owns widget data inline - no external allocation needed.
  */
-class UITouchElement : public pixelroot32::core::Entity {
+class UITouchElement : public UIElement {
 public:
     /**
      * @brief Construct UITouchElement with position and size
@@ -86,6 +87,17 @@ public:
     void setWidgetEnabled(bool enabled);
     
     /**
+     * @brief Override setPosition to sync widgetData_ with Entity position
+     * @param newX New X coordinate
+     * @param newY New Y coordinate
+     */
+    void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) override {
+        UIElement::setPosition(newX, newY);
+        widgetData_.x = static_cast<int16_t>(newX);
+        widgetData_.y = static_cast<int16_t>(newY);
+    }
+    
+    /**
      * @brief Get widget x position
      * @return X position
      */
@@ -128,12 +140,12 @@ public:
 
 // Inline implementation
 inline UITouchElement::UITouchElement(int16_t x, int16_t y, uint16_t w, uint16_t h, UIWidgetType type)
-    : pixelroot32::core::Entity(
+    : UIElement(
         pixelroot32::math::toScalar(x),
         pixelroot32::math::toScalar(y),
         w,
         h,
-        pixelroot32::core::EntityType::UI_ELEMENT)
+        UIElementType::GENERIC)
     , widgetData_(type, 0, x, y, w, h) {
     // Widget data already has Visible and Enabled flags set by default
 }
