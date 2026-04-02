@@ -27,7 +27,3 @@ pio run -e esp32dev
 - Goal: Eat food to grow and score points
 - Avoid: Walls and your own tail
 
----
-
-**Note:** Looking for more examples? Check out the main samples repository:
-[https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)

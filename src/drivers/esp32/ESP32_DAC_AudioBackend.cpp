@@ -12,7 +12,9 @@
 
 namespace pixelroot32::drivers::esp32 {
 
-    using namespace pixelroot32::core::logging;
+    namespace logging = pixelroot32::core::logging;
+    using logging::LogLevel;
+    using logging::log;
 
     // FreeRTOS task wrapper
     static void audioTaskTrampoline(void* arg) {

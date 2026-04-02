@@ -1015,6 +1015,7 @@ A checkbox UI element with support for physical buttons and D-pad navigation.
 The touch widget system provides optimized UI elements for touchscreen input. It uses a memory-efficient pool pattern where `UITouchWidget` structs are allocated from a fixed pool, and `UITouchElement` classes wrap them to provide Entity interface (update/draw) for rendering.
 
 **Architecture:**
+
 ```
 UITouchWidget (struct) → UITouchElement (class: UIElement) → UITouchButton/UITouchSlider
 ```
@@ -3936,12 +3937,12 @@ A simple text label UI element. Displays a string of text on the screen. Auto-ca
 
 - **`bool addElement(UITouchElement* element)`**
     Registers **`element`** for hit testing and **`processEvents`**.
-    - Returns **`false`** if **`element`** is null, the registry is full, or the same pointer was already registered.
-    - If **`element->getWidgetData().id == 0`**, assigns a unique non-zero widget id from an internal counter.
+  - Returns **`false`** if **`element`** is null, the registry is full, or the same pointer was already registered.
+  - If **`element->getWidgetData().id == 0`**, assigns a unique non-zero widget id from an internal counter.
 
 - **`bool removeElement(uint8_t id)`**
     Unregisters the element whose embedded widget **`id`** matches. Does not destroy the object.
-    - Returns **`true`** if a slot was removed.
+  - Returns **`true`** if a slot was removed.
 
 - **`bool removeElement(UITouchWidget* widget)`**
     Unregisters by widget address (uses **`widget->id`**). Does not destroy the object.
@@ -4112,9 +4113,9 @@ Touch-optimized button with press, release, and click callbacks. Renders with cu
 
 - **`UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h)`**
     Constructs a touch button.
-    - `t`: Button label text.
-    - `x, y`: Position (top-left corner).
-    - `w, h`: Width and height.
+  - `t`: Button label text.
+  - `x, y`: Position (top-left corner).
+  - `w, h`: Width and height.
 
 - **`void setLabel(std::string_view t)`**
     Sets the button label.
@@ -4170,9 +4171,9 @@ Touch-optimized slider with draggable thumb. Supports horizontal orientation wit
 
 - **`UITouchSlider(int16_t x, int16_t y, uint16_t w, uint16_t h, uint8_t initialValue = 50)`**
     Constructs a touch slider.
-    - `x, y`: Position (top-left corner).
-    - `w, h`: Width and height.
-    - `initialValue`: Initial value (0-100, default 50).
+  - `x, y`: Position (top-left corner).
+  - `w, h`: Width and height.
+  - `initialValue`: Initial value (0-100, default 50).
 
 - **`uint8_t getValue() const`**
     Gets the current value (0-100).
@@ -4225,10 +4226,10 @@ Touch-optimized checkbox widget. Supports touch input for toggling checked state
 
 - **`UITouchCheckbox(std::string_view label, int16_t x, int16_t y, uint16_t w, uint16_t h, bool initialChecked = false)`**
     Constructs a touch checkbox.
-    - `label`: Checkbox label text.
-    - `x, y`: Position (top-left corner).
-    - `w, h`: Width and height.
-    - `initialChecked`: Initial checked state (default: false).
+  - `label`: Checkbox label text.
+  - `x, y`: Position (top-left corner).
+  - `w, h`: Width and height.
+  - `initialChecked`: Initial checked state (default: false).
 
 - **`void setChecked(bool checked)`**
     Sets the checked state. Triggers OnChanged callback if state changes.

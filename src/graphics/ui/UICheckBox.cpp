@@ -9,9 +9,11 @@
 
 namespace pixelroot32::graphics::ui {
 
-    using namespace pixelroot32::input;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::math;
+    namespace input = pixelroot32::input;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using input::InputManager;
 
     UICheckBox::UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked, std::function<void(bool)> callback, int fontSize)
         : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::CHECKBOX),

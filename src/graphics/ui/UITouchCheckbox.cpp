@@ -14,9 +14,12 @@
 
 namespace pixelroot32::graphics::ui {
 
-using namespace pixelroot32::input;
-using namespace pixelroot32::graphics;
-using namespace pixelroot32::math;
+    namespace input = pixelroot32::input;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using input::TouchEvent;
+    using input::TouchEventType;
 
 UITouchCheckbox::UITouchCheckbox(std::string_view label, int16_t x, int16_t y, 
                                  uint16_t w, uint16_t h, bool initialChecked)

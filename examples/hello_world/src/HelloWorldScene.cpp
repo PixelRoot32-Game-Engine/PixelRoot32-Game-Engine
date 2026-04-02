@@ -9,7 +9,11 @@ extern pr32::core::Engine engine;
 
 namespace helloworld {
 
-using namespace pr32::core::logging;
+namespace gfx = pr32::graphics;
+namespace logging = pr32::core::logging;
+using logging::LogLevel;
+using logging::log;
+using gfx::Color;
 
 static constexpr uint8_t PR32_PALETTE_SIZE = 16;
 
@@ -23,25 +27,25 @@ static constexpr uint16_t PR32_PALETTE_RGB565[PR32_PALETTE_SIZE] = {
 void HelloWorldScene::init() {
     log("HelloWorldScene: initializing...");
 
-    pr32::graphics::setPalette(pr32::graphics::PaletteType::PR32);
+    gfx::setPalette(gfx::PaletteType::PR32);
 
     int screenWidth = engine.getRenderer().getLogicalWidth();
     int screenHeight = engine.getRenderer().getLogicalHeight();
 
-    textLabel = std::make_unique<pr32::graphics::ui::UILabel>(
+    textLabel = std::make_unique<gfx::ui::UILabel>(
         "Hello PixelRoot32!",
         pr32::math::Vector2(0, screenHeight / 2 - 10),
-        pr32::graphics::Color::White,
+        Color::White,
         1
     );
     textLabel->centerX(screenWidth);
     textLabel->setRenderLayer(2);
     addEntity(textLabel.get());
 
-    buttonPressLabel = std::make_unique<pr32::graphics::ui::UILabel>(
+    buttonPressLabel = std::make_unique<gfx::ui::UILabel>(
         "",
         pr32::math::Vector2(0, screenHeight / 2 + 10),
-        pr32::graphics::Color::White,
+        Color::White,
         1
     );
     buttonPressLabel->centerX(screenWidth);
@@ -83,7 +87,7 @@ void HelloWorldScene::changeBackground() {
     static uint8_t colorIndex = 0;
     static const uint8_t fixedRange[] = {0, 2, 5, 7, 10, 12, 14};
     colorIndex = (colorIndex + 1) % 7;
-    backgroundColor = static_cast<pr32::graphics::Color>(fixedRange[colorIndex]);
+    backgroundColor = static_cast<Color>(fixedRange[colorIndex]);
 }
 
 void HelloWorldScene::checkButtonPress() {

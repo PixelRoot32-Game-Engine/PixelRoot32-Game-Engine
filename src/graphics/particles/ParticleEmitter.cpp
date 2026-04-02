@@ -17,9 +17,19 @@ namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
 namespace pixelroot32::graphics::particles {
 
-    using namespace pixelroot32::core;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::math;
+    namespace core = pixelroot32::core;
+    namespace gfx = pixelroot32::graphics;
+    namespace math = pixelroot32::math;
+
+    using math::sin;
+    using math::cos;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
+    using math::kDegToRad;
+    using math::Fixed16;
+    using gfx::Renderer;
+    using core::EntityType;
 
     namespace {
         static uint32_t s_rngState = 123456789;
@@ -130,8 +140,8 @@ namespace pixelroot32::graphics::particles {
             Scalar angle = angleDeg * kDegToRad;
             Scalar speed = fastRandScalar(config.minSpeed, config.maxSpeed);
 
-            p.velocity.x = pixelroot32::math::cos(angle) * speed;
-            p.velocity.y = pixelroot32::math::sin(angle) * speed;
+            p.velocity.x = cos(angle) * speed;
+            p.velocity.y = sin(angle) * speed;
 
             p.maxLife = fastRandInt(config.minLife, config.maxLife);
             p.life = p.maxLife;

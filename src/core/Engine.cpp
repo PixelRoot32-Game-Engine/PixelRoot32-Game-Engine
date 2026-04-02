@@ -16,11 +16,22 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::modules;
-    using namespace pixelroot32::core::logging;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::input;
-    using namespace pixelroot32::audio;
+    namespace modules = pixelroot32::modules;
+    namespace logging = pixelroot32::core::logging;
+    namespace gfx = pixelroot32::graphics;
+    namespace input = pixelroot32::input;
+    namespace audio = pixelroot32::audio;
+
+    using gfx::DisplayConfig;
+    using input::InputConfig;
+    using audio::AudioConfig;
+    using gfx::Renderer;
+    using gfx::FontManager;
+    using gfx::FONT_5X7;
+    using gfx::DrawSurface;
+    using gfx::Color;
+    using logging::LogLevel;
+    using logging::log;
 
     unsigned long gProfilerCollisionTime = 0;
     unsigned long gProfilerPhysicsIntegrateTime = 0;

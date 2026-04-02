@@ -18,7 +18,3 @@ pio run -e native
 pio run -e esp32dev
 ```
 
----
-
-**Note:** Looking for more examples? Check out the main samples repository:
-[https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)
