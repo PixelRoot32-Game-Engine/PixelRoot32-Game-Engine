@@ -40,12 +40,15 @@ void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count
         return;
     }
 
+#if PIXELROOT32_TOUCH_ENABLED
+    // TFT_eSPI touch requires TOUCH_CS to be defined, which sets up setTouch/getTouch methods
     if (!gCalibrationApplied) {
         uint16_t calData[5] = { 300, 3600, 300, 3600, 7 };
         gTftForTouch->setTouch(calData);
         gCalibrationApplied = true;
         pixelroot32::core::logging::log("[TouchBridge] default TFT_eSPI touch cal applied");
     }
+#endif
 
 #ifdef ARDUINO_ARCH_ESP32
     const uint32_t ts = millis();
@@ -53,6 +56,7 @@ void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count
     const uint32_t ts = 0;
 #endif
 
+#if PIXELROOT32_TOUCH_ENABLED
     uint16_t x = 0;
     uint16_t y = 0;
     constexpr uint16_t kTouchThreshold = 300;
@@ -68,6 +72,7 @@ void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count
         0,
         ts);
     count = 1;
+#endif
 }
 
 } // namespace pixelroot32::drivers::esp32

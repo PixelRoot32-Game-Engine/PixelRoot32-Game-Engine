@@ -33,11 +33,11 @@ pr32::input::InputConfig inputConfig(6, BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, B
 
 pr32::core::Engine engine(config, inputConfig);
 
-helloworld::HelloWorldScene helloScene;
+physicsdemo::PhysicsDemoScene physicsDemoScene;
 
 void setup() {
     engine.init();
-    engine.setScene(&helloScene);
+    engine.setScene(&physicsDemoScene);
 }
 
 void loop() {
