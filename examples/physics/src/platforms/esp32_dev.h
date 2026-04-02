@@ -5,7 +5,7 @@
 #include  <core/Engine.h>
 #include <platforms/EngineConfig.h>
 
-#include "HelloWorldScene.h"
+#include "PhysicsDemoScene.h"
 
 namespace pr32 = pixelroot32;
 
