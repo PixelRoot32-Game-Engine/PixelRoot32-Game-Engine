@@ -223,7 +223,7 @@ namespace pixelroot32::graphics {
         getDrawSurface().drawBitmap(finalX, finalY, width, height, bitmap, resolveColor(color, context));
     }
 
-    void IRAM_ATTR Renderer::drawPixel(int x, int y, Color color) {
+    void Renderer::drawPixel(int x, int y, Color color) {
         if (!isDrawable(color)) return;
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         int finalX = offsetBypass ? x : xOffset + x;
@@ -231,7 +231,7 @@ namespace pixelroot32::graphics {
         getDrawSurface().drawPixel(finalX, finalY, resolveColor(color, context));
     }
 
-    void IRAM_ATTR Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
+    void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
         if (sprite.data == nullptr || sprite.width == 0 || sprite.height == 0) {
             return;
         }
@@ -302,7 +302,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -362,7 +362,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -492,7 +492,7 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void IRAM_ATTR Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -558,7 +558,7 @@ namespace pixelroot32::graphics {
         setRenderContext(oldContext);
     }
 
-    void IRAM_ATTR Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
@@ -647,7 +647,7 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void IRAM_ATTR Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
+    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||

@@ -69,6 +69,8 @@ private:
 
     // Scaling support
     static constexpr int LINES_PER_BLOCK = 60;    ///< Number of lines per DMA transfer block. Larger = less overhead, more RAM.
+    static constexpr int LINES_PER_BLOCK_FALLBACK = 30;  ///< Fallback if IRAM allocation fails
+    int activeLinesPerBlock = LINES_PER_BLOCK;  ///< Actual lines per block in use (set during init)
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
     uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)

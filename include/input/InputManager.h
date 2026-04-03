@@ -16,7 +16,6 @@
 #endif
 #include "InputConfig.h"
 #include "TouchEventDispatcher.h"
-#include <vector>
 
 namespace pixelroot32::input {
 /**
@@ -29,6 +28,7 @@ namespace pixelroot32::input {
  */
 class InputManager {
 public:
+    static constexpr uint8_t MAX_BUTTONS = 16;  ///< Maximum number of buttons supported.
     /**
      * @brief Constructs the InputManager with a specific configuration.
      * @param config The input configuration (pins, button count).
@@ -140,11 +140,13 @@ public:
 private:
     InputConfig config;
 
-    std::vector<bool> buttonState;      ///< Current state of buttons (true = pressed).
-    std::vector<bool> stateChanged;     ///< Flags indicating if state changed this frame.
-    std::vector<uint16_t> waitTime;     ///< Debounce timers for each button.
-    mutable std::vector<bool> clickFlag;///< Flags for tracking click events.
-    std::vector<uint8_t> buttonPins;    ///< Array of hardware pin numbers.
+    // Fixed-size arrays instead of std::vector (zero heap allocation)
+    // MAX_BUTTONS is defined in public section for external access
+    bool buttonState[MAX_BUTTONS] = {false};      ///< Current state of buttons (true = pressed).
+    bool stateChanged[MAX_BUTTONS] = {false};     ///< Flags indicating if state changed this frame.
+    uint16_t waitTime[MAX_BUTTONS] = {0};         ///< Debounce timers for each button.
+    mutable bool clickFlag[MAX_BUTTONS] = {false}; ///< Flags for tracking click events.
+    uint8_t buttonPins[MAX_BUTTONS] = {0};        ///< Array of hardware pin numbers.
     
     // Touch event system
     TouchEventDispatcher touchDispatcher;  ///< Touch event state machine and queue.

@@ -161,6 +161,10 @@
     #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 #endif
 
+#ifndef PHYSICS_MAX_ENTITIES
+    #define PHYSICS_MAX_ENTITIES 64
+#endif
+
 #ifndef PHYSICS_MAX_CONTACTS
     #define PHYSICS_MAX_CONTACTS 128
 #endif
@@ -235,6 +239,7 @@ namespace pixelroot32::platforms::config {
     inline constexpr int SpatialGridMaxDynamicPerCell = SPATIAL_GRID_MAX_DYNAMIC_PER_CELL;
 
     // Physics
+    inline constexpr int PhysicsMaxEntities = PHYSICS_MAX_ENTITIES;
     inline constexpr int PhysicsMaxContacts = PHYSICS_MAX_CONTACTS;
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
     inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;

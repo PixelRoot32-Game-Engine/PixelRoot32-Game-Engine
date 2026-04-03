@@ -13,6 +13,10 @@
 #include <algorithm>
 #include <cassert>
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pixelroot32::physics {
 
     namespace core = pixelroot32::core;
@@ -43,24 +47,34 @@ namespace pixelroot32::physics {
 
     void CollisionSystem::addEntity(Entity* e) {
         assert(e != nullptr && "Cannot add null entity to collision system");
+        if (entityCount >= kMaxEntities) {
+            return;  // Silently ignore - could add assert or log
+        }
         if (e->type == EntityType::ACTOR) {
             Actor* actor = static_cast<Actor*>(e);
             actor->entityId = nextEntityId++;
             if (nextEntityId == 0) nextEntityId = 1;  // Wrap: 0 is reserved
         }
-        entities.push_back(e);
+        entities[entityCount++] = e;
         grid.markStaticDirty();
     }
 
     void CollisionSystem::removeEntity(Entity* e) {
         assert(e != nullptr && "Cannot remove null entity from collision system");
-        entities.erase(std::remove(entities.begin(), entities.end(), e), entities.end());
-        grid.markStaticDirty();
+        // O(1) swap-with-last removal
+        for (uint16_t i = 0; i < entityCount; i++) {
+            if (entities[i] == e) {
+                entities[i] = entities[--entityCount];
+                grid.markStaticDirty();
+                return;
+            }
+        }
     }
 
     void CollisionSystem::update() {
         // Store previous positions before integration
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type == EntityType::ACTOR) {
                 Actor* actor = static_cast<Actor*>(e);
                 if (actor->isPhysicsBody()) {
@@ -89,12 +103,13 @@ namespace pixelroot32::physics {
         PIXELROOT32_PROFILE_END(Physics_TriggerCallbacks);
     }
 
-    void CollisionSystem::detectCollisions() {
+    void IRAM_ATTR CollisionSystem::detectCollisions() {
         contactCount = 0;
-        grid.rebuildStaticIfNeeded(entities);
+        grid.rebuildStaticIfNeeded(entities, entityCount);
         grid.clearDynamic();
 
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
             if (!actor->isPhysicsBody()) continue;
@@ -105,7 +120,8 @@ namespace pixelroot32::physics {
 
         static Actor* potential[64];
         
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actorA = static_cast<Actor*>(e);
             if (!actorA->isPhysicsBody()) continue;
@@ -320,7 +336,7 @@ namespace pixelroot32::physics {
         return true;
     }
 
-    void CollisionSystem::solveVelocity() {
+    void IRAM_ATTR CollisionSystem::solveVelocity() {
         for (int iter = 0; iter < VELOCITY_ITERATIONS; iter++) {
             for (int i = 0; i < contactCount; ++i) {
                 Contact& contact = contacts[i];
@@ -367,8 +383,9 @@ namespace pixelroot32::physics {
         }
     }
 
-    void CollisionSystem::integratePositions() {
-        for (auto e : entities) {
+    void IRAM_ATTR CollisionSystem::integratePositions() {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
             if (!actor->isPhysicsBody()) continue;
@@ -385,7 +402,7 @@ namespace pixelroot32::physics {
         }
     }
 
-    void CollisionSystem::solvePenetration() {
+    void IRAM_ATTR CollisionSystem::solvePenetration() {
         for (int i = 0; i < contactCount; ++i) {
             Contact& contact = contacts[i];
             if (contact.isSensorContact) continue;
@@ -429,7 +446,8 @@ namespace pixelroot32::physics {
         assert(outArray != nullptr && "checkCollision: outArray is null");
         assert(maxCount > 0 && "checkCollision: maxCount must be > 0");
         count = 0;
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e == actor || e->type != EntityType::ACTOR) continue;
             Actor* other = static_cast<Actor*>(e);
 

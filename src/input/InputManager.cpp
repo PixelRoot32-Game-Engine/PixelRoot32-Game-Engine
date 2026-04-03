@@ -25,15 +25,9 @@ namespace pixelroot32::input {
     {}
 
     void InputManager::init(){
-        if (config.count <= 0) return;
+        if (config.count <= 0 || config.count > MAX_BUTTONS) return;
 
-        // Initialize button pins
-        buttonPins.resize(config.count);
-        buttonState.assign(config.count, false);
-        stateChanged.assign(config.count, false);
-        waitTime.assign(config.count, 0);
-        clickFlag.assign(config.count, false);
-        
+        // Initialize button pins - arrays are pre-initialized to zero/false
         // Set all pins as INPUT_PULLUP
         for (int i = 0; i < config.count; i++) {
             #ifdef PLATFORM_NATIVE
