@@ -164,6 +164,7 @@ inline void UITouchElement::update(unsigned long deltaTime) {
 }
 
 inline void UITouchElement::draw(pixelroot32::graphics::Renderer& renderer) {
+    (void)renderer;
     // Default placeholder - subclasses override for actual rendering
     // This is a no-op by default
 }

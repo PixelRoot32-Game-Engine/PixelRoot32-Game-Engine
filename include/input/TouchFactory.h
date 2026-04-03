@@ -29,11 +29,9 @@ class TouchFactory {
 public:
     /**
      * @brief Create TouchManager for ILI9341 display (320x240)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional, 255 if not used)
      * @return Initialized TouchManager
      */
-    static TouchManager createForILI9341(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForILI9341() {
         TouchManager manager(320, 240);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ILI9341_320x240);
         manager.setCalibration(calib);
@@ -42,11 +40,9 @@ public:
     
     /**
      * @brief Create TouchManager for ST7789 display (240x320 portrait)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForST7789_240x320(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForST7789_240x320() {
         TouchManager manager(240, 320);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ST7789_240x320);
         manager.setCalibration(calib);
@@ -55,11 +51,9 @@ public:
     
     /**
      * @brief Create TouchManager for ST7789 display (240x240 round)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForST7789_240x240(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForST7789_240x240() {
         TouchManager manager(240, 240);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ST7789_240x240);
         manager.setCalibration(calib);
@@ -68,11 +62,9 @@ public:
     
     /**
      * @brief Create TouchManager for ST7735 display (128x160)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForST7735_128x160(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForST7735_128x160() {
         TouchManager manager(128, 160);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ST7735_128x160);
         manager.setCalibration(calib);
@@ -81,11 +73,9 @@ public:
     
     /**
      * @brief Create TouchManager for ST7735 display (128x128)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForST7735_128x128(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForST7735_128x128() {
         TouchManager manager(128, 128);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ST7735_128x128);
         manager.setCalibration(calib);
@@ -94,11 +84,9 @@ public:
     
     /**
      * @brief Create TouchManager for ILI9488 display (320x480)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForILI9488(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForILI9488() {
         TouchManager manager(320, 480);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::ILI9488_320x480);
         manager.setCalibration(calib);
@@ -107,11 +95,9 @@ public:
     
     /**
      * @brief Create TouchManager for GC9A01 display (240x240 round)
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForGC9A01(uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForGC9A01() {
         TouchManager manager(240, 240);
         TouchCalibration calib = TouchCalibration::fromPreset(DisplayPreset::GC9A01_240x240);
         manager.setCalibration(calib);
@@ -122,12 +108,9 @@ public:
      * @brief Create TouchManager for custom resolution
      * @param width Display width
      * @param height Display height
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createForResolution(uint16_t width, uint16_t height, 
-                                            uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createForResolution(uint16_t width, uint16_t height) {
         TouchManager manager(width, height);
         TouchCalibration calib = TouchCalibration::forResolution(width, height);
         manager.setCalibration(calib);
@@ -137,12 +120,9 @@ public:
     /**
      * @brief Create TouchManager from DisplayPreset enum
      * @param preset Display preset
-     * @param csPin SPI CS pin number
-     * @param irqPin IRQ pin (optional)
      * @return Initialized TouchManager
      */
-    static TouchManager createFromPreset(DisplayPreset preset, 
-                                          uint8_t csPin = 5, uint8_t irqPin = 255) {
+    static TouchManager createFromPreset(DisplayPreset preset) {
         TouchCalibration calib = TouchCalibration::fromPreset(preset);
         TouchManager manager(calib.displayWidth, calib.displayHeight);
         manager.setCalibration(calib);
