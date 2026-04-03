@@ -7,6 +7,7 @@
 #include "core/EngineModules.h"
 #include "core/Log.h"
 #include "input/InputConfig.h"
+#include "input/TouchManager.h"
 #include "graphics/FontManager.h"
 #include "graphics/Font5x7.h"
 #include "graphics/Color.h"
@@ -14,13 +15,17 @@
 #include <cstring>
 #include <cassert>
 
+#ifdef PLATFORM_NATIVE
+#include "drivers/native/SDL2_Drawer.h"
+#endif
+
 namespace pixelroot32::core {
 
     namespace modules = pixelroot32::modules;
-    namespace logging = pixelroot32::core::logging;
     namespace gfx = pixelroot32::graphics;
     namespace input = pixelroot32::input;
     namespace audio = pixelroot32::audio;
+    namespace drivers = pixelroot32::drivers;
 
     using gfx::DisplayConfig;
     using input::InputConfig;
@@ -39,9 +44,12 @@ namespace pixelroot32::core {
 
     Engine::Engine(pixelroot32::graphics::DisplayConfig&& displayConfig, const pixelroot32::input::InputConfig& inputConfig, const pixelroot32::audio::AudioConfig& audioConfig) 
         : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
-#if PIXELROOT32_ENABLE_AUDIO
+        #if PIXELROOT32_ENABLE_TOUCH
+        , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
+        #endif
+    #if PIXELROOT32_ENABLE_AUDIO
         , audioEngine(audioConfig, capabilities), musicPlayer(audioEngine)
-#endif
+    #endif
     {
         previousMillis = 0;
         deltaTime = 0;
@@ -49,9 +57,12 @@ namespace pixelroot32::core {
 
     Engine::Engine(DisplayConfig&& displayConfig, const InputConfig& inputConfig) 
         : renderer(std::move(displayConfig)), inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
-#if PIXELROOT32_ENABLE_AUDIO
+        #if PIXELROOT32_ENABLE_TOUCH
+        , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
+        #endif
+    #if PIXELROOT32_ENABLE_AUDIO
         , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
-#endif
+    #endif
     {
         previousMillis = 0;
         deltaTime = 0;
@@ -59,9 +70,12 @@ namespace pixelroot32::core {
 
     Engine::Engine(DisplayConfig&& displayConfig) 
         : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect())
-#if PIXELROOT32_ENABLE_AUDIO
+        #if PIXELROOT32_ENABLE_TOUCH
+        , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
+        #endif
+    #if PIXELROOT32_ENABLE_AUDIO
         , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
-#endif
+    #endif
     {
         previousMillis = 0;
         deltaTime = 0;
@@ -70,9 +84,12 @@ namespace pixelroot32::core {
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig, const AudioConfig& audioConfig) 
         : renderer(const_cast<DisplayConfig&>(displayConfig)), 
           inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
-#if PIXELROOT32_ENABLE_AUDIO
+        #if PIXELROOT32_ENABLE_TOUCH
+        , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
+        #endif
+    #if PIXELROOT32_ENABLE_AUDIO
           , audioEngine(audioConfig, capabilities), musicPlayer(audioEngine)
-#endif
+    #endif
     {
         previousMillis = 0;
         deltaTime = 0;
@@ -81,9 +98,12 @@ namespace pixelroot32::core {
     Engine::Engine(const DisplayConfig& displayConfig, const InputConfig& inputConfig) 
         : renderer(const_cast<DisplayConfig&>(displayConfig)), 
           inputManager(inputConfig), capabilities(PlatformCapabilities::detect())
-#if PIXELROOT32_ENABLE_AUDIO
+        #if PIXELROOT32_ENABLE_TOUCH
+        , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
+        #endif
+    #if PIXELROOT32_ENABLE_AUDIO
           , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
-#endif
+    #endif
     {
         previousMillis = 0;
         deltaTime = 0;
@@ -122,7 +142,39 @@ namespace pixelroot32::core {
         
         // Set default font (5x7 bitmap font)
         FontManager::setDefaultFont(&FONT_5X7);
+        
+        #ifdef PLATFORM_NATIVE
+        connectInputToDrawer();
+        #endif
     }
+
+    #ifdef PLATFORM_NATIVE
+    void Engine::connectInputToDrawer() {
+        // Get the DrawSurface from Renderer - for Native it's SDL2_Drawer
+        auto& drawSurface = renderer.getDrawSurface();
+        
+        // Only SDL2_Drawer supports touch event injection - use dynamic_cast
+        auto* sdlDrawer = dynamic_cast<drivers::native::SDL2_Drawer*>(&drawSurface);
+        if (sdlDrawer) {
+            #if PIXELROOT32_ENABLE_TOUCH
+            sdlDrawer->setTouchDispatcher(&touchDispatcher);
+            #else
+            // Fallback to old method for backwards compatibility when touch disabled
+            sdlDrawer->setInputManager(&inputManager);
+            #endif
+        }
+    }
+    #endif
+
+    #if PIXELROOT32_ENABLE_TOUCH
+    void Engine::setTouchManager(pixelroot32::input::TouchManager* tm) {
+        touchManager = tm;
+        // Reset state on new TouchManager
+        wasTouchActive = false;
+        lastTouchX = 0;
+        lastTouchY = 0;
+    }
+    #endif
 
     void Engine::run() {
         DrawSurface* drawer = static_cast<DrawSurface*>(&renderer.getDrawSurface());
@@ -262,7 +314,43 @@ namespace pixelroot32::core {
             inputManager.update(deltaTime);
         #endif
         
-        sceneManager.update(deltaTime);    
+        // Update scene
+        sceneManager.update(deltaTime);
+        
+        #if PIXELROOT32_ENABLE_TOUCH
+        // Process external TouchManager if set (ESP32 path)
+        if (touchManager != nullptr) {
+            pixelroot32::input::TouchPoint points[pixelroot32::input::TOUCH_MAX_POINTS];
+            uint8_t count = touchManager->getTouchPoints(points);
+            
+            if (count > 0) {
+                // Touch is active - inject all touch points
+                for (uint8_t i = 0; i < count; i++) {
+                    touchDispatcher.processTouch(points[i].id, true, 
+                        points[i].x, points[i].y, points[i].ts);
+                }
+                wasTouchActive = true;
+                lastTouchX = points[0].x;
+                lastTouchY = points[0].y;
+            } else if (wasTouchActive) {
+                // Touch was released - inject release event
+                touchDispatcher.processTouch(0, false, lastTouchX, lastTouchY, millis());
+                wasTouchActive = false;
+            }
+        }
+        
+        // Process touch events and send to current scene
+        if (touchDispatcher.hasEvents()) {
+            pixelroot32::input::TouchEvent events[pixelroot32::input::TOUCH_EVENT_QUEUE_SIZE];
+            uint8_t count = touchDispatcher.getEvents(events, pixelroot32::input::TOUCH_EVENT_QUEUE_SIZE);
+            if (count > 0) {
+                auto sceneOpt = sceneManager.getCurrentScene();
+                if (sceneOpt.has_value() && sceneOpt.value() != nullptr) {
+                    sceneOpt.value()->processTouchEvents(events, count);
+                }
+            }
+        }
+        #endif
     }
 
     void Engine::draw() {

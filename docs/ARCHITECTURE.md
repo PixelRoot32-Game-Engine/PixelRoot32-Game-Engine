@@ -314,7 +314,7 @@ class Renderer {
 
 **Files**: `include/input/InputManager.h`, `src/input/InputManager.cpp`
 
-**Responsibility**: Input management from physical buttons or keyboard (PC).
+**Responsibility**: Input management from physical buttons or keyboard (PC), plus optional touch event routing.
 
 **Features**:
 
@@ -322,6 +322,7 @@ class Renderer {
 - States: Pressed, Released, Down, Clicked
 - Configurable via `InputConfig`
 - Hardware abstraction through polling
+- **Touch event dispatcher** (when `PIXELROOT32_ENABLE_TOUCH=1`): Routes SDL mouse events to touch pipeline on Native, accepts injected touch points on ESP32
 
 **Button States**:
 
@@ -330,10 +331,13 @@ class Renderer {
 - `isButtonDown()`: Current DOWN state
 - `isButtonClicked()`: Complete click
 
-**Touch input (parallel to buttons)**  
-`InputManager` does not read the touch controller. Resistive/capacitive panels use **`TouchManager`** plus a compile-time adapter (`XPT2046`, `GT911`, …): the platform loop calls `TouchManager::update`, drains `getEvents`, and forwards to **`Scene::processTouchEvents`** (UI first, then **`onUnconsumedTouchEvent`**). Calibration and GPIO-specific flags live in the adapter layer.
+**Touch input (parallel to buttons)**
 
-For pipeline diagrams, initialization order (e.g. `setCalibration` before `init`), XPT2046 GPIO ordering, and CYD-oriented notes, see **[Touch Input Architecture](TOUCH_INPUT.md)**.
+When `PIXELROOT32_ENABLE_TOUCH=1`, `InputManager` includes a `TouchEventDispatcher` that:
+- On **Native**: Receives SDL mouse events via `processSDLEvent()`, converts them to touch events with coordinate mapping
+- On **ESP32**: Accepts injected touch points via `injectTouchPoint()` from external touch drivers
+
+The touch path flows through `Engine` automatically — see [Touch Input Architecture](TOUCH_INPUT.md) for the full pipeline.
 
 #### 3.4.3 AudioEngine
 
@@ -599,7 +603,25 @@ The tile attribute system provides two paths:
 
 **Files**: `include/core/Engine.h`, `src/core/Engine.cpp`
 
-**Responsibility**: Central class that orchestrates all subsystems.
+**Responsibility**: Central class that orchestrates all subsystems, including automatic touch processing on ESP32.
+
+**Touch Integration** (`PIXELROOT32_ENABLE_TOUCH=1`):
+
+When the touch flag is enabled, Engine provides:
+
+- `getTouchDispatcher()`: Returns a reference to the internal `TouchEventDispatcher` for injecting touch points (ESP32) or receiving SDL mouse events (Native)
+- `hasTouchEvents()`: Returns true if touch events are pending in the queue
+- `setTouchManager(TouchManager* tm)`: Registers an external TouchManager for automatic processing
+
+**Automatic Touch Processing (ESP32)**:
+
+When `setTouchManager()` is called, Engine internally:
+1. Polls `touchManager->getTouchPoints()` each frame
+2. Detects touch releases (when count goes from >0 to 0)
+3. Processes touch points through the internal `TouchEventDispatcher` to generate gesture events (TouchDown, TouchUp, Drag, etc.)
+4. Sends events to the current scene via `Scene::processTouchEvents()`
+
+This eliminates the need for manual touch injection code in the game loop:
 
 **Game Loop**:
 

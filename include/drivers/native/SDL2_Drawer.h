@@ -13,6 +13,12 @@
 #include <SDL2/SDL.h>
 #include <stdint.h>
 
+// Forward declarations
+namespace pixelroot32::input {
+    class InputManager;
+    class TouchEventDispatcher;
+}
+
 // Font constants removed - now using native bitmap font system via Renderer
 
 namespace pixelroot32::drivers::native {
@@ -41,12 +47,31 @@ public:
     void drawPixel(int x, int y, uint16_t color) override;
 
     bool processEvents() override;
+    
+    /**
+     * @brief Set the TouchEventDispatcher to receive mouse events.
+     * @param touchDispatcher Pointer to the Engine's TouchEventDispatcher.
+     * 
+     * This is the preferred method when PIXELROOT32_ENABLE_TOUCH is enabled.
+     * Mouse events are mapped directly to touch events.
+     */
+    void setTouchDispatcher(pixelroot32::input::TouchEventDispatcher* touchDispatcher);
+    
+    /**
+     * @brief Set the InputManager for backwards compatibility.
+     * @param inputManager Pointer to the InputManager instance.
+     * 
+     * Deprecated: Use setTouchDispatcher() instead.
+     */
+    void setInputManager(pixelroot32::input::InputManager* inputManager);
 
 private:
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Texture* texture;
     uint16_t* pixels; // Framebuffer (RGB565 format, matches texture)
+    pixelroot32::input::TouchEventDispatcher* touchDispatcher;  ///< Direct touch dispatcher
+    pixelroot32::input::InputManager* inputManager;  ///< Legacy fallback
 
     void updateTexture();
 

@@ -6,12 +6,15 @@ For public API details (methods, parameters), see [API Reference — Input Modul
 
 ## 1. Design principles
 
-- **Engine does not own touch hardware.** `Engine::run()` updates buttons via `InputManager` only. Touch sampling lives in platform code (`setup` / `loop` or equivalent) because controllers and buses differ per board.
+- **Touch is optional.** Enable with `PIXELROOT32_ENABLE_TOUCH=1` in build flags (default: disabled). Saves ~200 bytes when disabled.
+- **Engine optionally owns touch processing.** When `PIXELROOT32_ENABLE_TOUCH=1` and `setTouchManager()` is called, Engine automatically processes touch events in `Engine::update()` and sends them to `Scene::processTouchEvents()`. When disabled or unset, use the manual integration pattern (section 4).
 - **Single coordinate space.** After the active adapter runs, coordinates are **screen pixels** in the same range as `PHYSICAL_DISPLAY_WIDTH` × `PHYSICAL_DISPLAY_HEIGHT` (or your `TouchManager` constructor bounds). Game logic, UI hit tests, and debug overlays should use this space.
 - **UI before gameplay.** `Scene::processTouchEvents` runs `UIManager::processEvents` first (when `PIXELROOT32_ENABLE_UI_SYSTEM`), marks events **consumed**, then invokes `onUnconsumedTouchEvent` for each remaining event.
 - **Scene owns touch widgets.** Construct `UITouchButton` / `UITouchSlider` / `UITouchCheckbox` (and layouts) in `init()`, keep them in `std::unique_ptr` or the scene arena, call `UIManager::addElement` for hit testing and dispatch, and `addEntity` on a layout (or entity) so `update` / `draw` run with the rest of the scene. `UIManager` does not allocate or destroy widgets.
 
 ## 2. Pipeline (high level)
+
+### With Engine Integration (`PIXELROOT32_ENABLE_TOUCH=1` + `setTouchManager()`)
 
 ```text
 Hardware (XPT2046, GT911, …)
@@ -20,9 +23,26 @@ Hardware (XPT2046, GT911, …)
     → TouchPoint (x, y, pressed)
     → TouchManager::update()
          → clamp to display bounds
-         → TouchEventDispatcher (gestures: down, drag, up, …)
-    → TouchManager::getEvents()
+    → TouchManager::getTouchPoints()
+    → Engine::setTouchManager(&touchManager) [called once in setup()]
+    → Engine::update() [automatic each frame]
+         → Engine polls getTouchPoints()
+         → Detects release (count: >0 → 0)
+         → TouchEventDispatcher processes points (gestures: down, drag, up, …)
     → Scene::processTouchEvents()
+         → UIManager (optional)
+         → onUnconsumedTouchEvent()
+```
+
+### Without Engine Integration (`PIXELROOT32_ENABLE_TOUCH=0`)
+
+```text
+Hardware (XPT2046, GT911, …)
+    → TouchManager::update()
+    → TouchManager::getTouchPoints()  [only raw active touches]
+    → Manual release detection required (track state externally)
+    → Manual touch injection to engine.getTouchDispatcher()
+    → Scene::processTouchEvents()  [manual call in user loop]
          → UIManager (optional)
          → onUnconsumedTouchEvent()
 ```
@@ -33,12 +53,12 @@ Optional gameplay layer: **`ActorTouchController`** consumes `TouchEvent`s in `o
 
 | Component | Role |
 |-----------|------|
-| `TouchManager` | Polls adapter, clamps points, owns `TouchEventDispatcher`, exposes `getEvents` / `getTouchPoints`. |
+| `TouchManager` | Polls adapter, clamps points, exposes `getTouchPoints()`. |
 | `TouchCalibration` | `forResolution(w,h)`, `transform`, rotation; shared with adapter via `setCalibration`. |
 | `XPT2046Adapter` | ESP32 XPT2046: shared TFT SPI or **GPIO bit-bang** (`XPT2046_USE_GPIO_SPI`) for boards like ESP32-2432S028R. |
-| `TouchEventDispatcher` | Converts point stream into `TouchEvent` gestures (`TouchDown`, `DragMove`, `TouchUp`, …). |
+| `TouchEventDispatcher` (in Engine) | Converts point stream into `TouchEvent` gestures (`TouchDown`, `DragMove`, `TouchUp`, …). |
 | `ActorTouchController` | Drags actors from touch; optional **hit slop** for resistive alignment. |
-| `Scene::processTouchEvents` | Central entry for a frame’s touch batch; runs `UIManager::processEvents` then virtual `onUnconsumedTouchEvent`. |
+| `Scene::processTouchEvents` | Central entry for a frame's touch batch; runs `UIManager::processEvents` then virtual `onUnconsumedTouchEvent`. |
 | `UIManager` | Non-owning registry (`addElement`); `processEvents` calls `UITouchElement::processEvent`. Does not draw or own widget memory. |
 
 ## 4. Per-frame integration (recommended)
@@ -125,7 +145,95 @@ Capacitive screens use I²C and usually report perfect screen coordinates out of
 - You would use `-D TOUCH_DRIVER_GT911` instead.
 - Resistive calibration flags (like `SWAP_AXES` or `MIRROR_X`) are not used.
 
-## 9. Related documentation
+## 10. Engine Integration
+
+When `PIXELROOT32_ENABLE_TOUCH=1`, Engine automatically handles touch processing, eliminating the need for manual integration in your game loop.
+
+### 10.1 Automatic Touch (PIXELROOT32_ENABLE_TOUCH=1 + setTouchManager)
+
+With the flag enabled and `setTouchManager()` called, Engine automatically:
+
+1. **Connects** `SDL2_Drawer` to the touch dispatcher on init (Native only)
+2. **Polls** `touchManager.getTouchPoints()` each frame in `Engine::update()`
+3. **Detects releases** when count goes from >0 to 0
+4. **Processes** gesture events through internal `TouchEventDispatcher`
+5. **Dispatches** to `Scene::processTouchEvents()` each frame
+
+**Native (PC):**
+```cpp
+// No manual setup needed - Engine handles it automatically
+Engine engine(displayConfig, inputConfig);
+engine.init();
+engine.setScene(&myScene);
+engine.run();  // Mouse events → touch events automatically
+```
+
+**ESP32 - Using setTouchManager (recommended):**
+```cpp
+// En setup():
+touchManager.init();
+engine.setTouchManager(&touchManager);  // 1 línea
+
+// En loop():
+touchManager.update(frameDt);
+engine.run();  // Engine maneja todo automáticamente
+```
+
+The developer no longer needs to manually inject touch points or track release state - Engine handles it all internally.
+
+### 10.2 Manual Touch (legacy, without setTouchManager)
+
+When `PIXELROOT32_ENABLE_TOUCH=1` but `setTouchManager()` is not called, you can manually inject touch points:
+
+```cpp
+void loop() {
+    touchManager.update(frameDt);
+    
+    TouchPoint points[TOUCH_MAX_POINTS];
+    uint8_t count = touchManager.getTouchPoints(points);
+    
+    static bool wasTouching = false;
+    static int16_t lastX = 0, lastY = 0;
+    
+    auto& dispatcher = engine.getTouchDispatcher();
+    
+    if (count > 0) {
+        for (uint8_t i = 0; i < count; i++) {
+            dispatcher.processTouch(points[i].id, true, points[i].x, points[i].y, points[i].ts);
+        }
+        wasTouching = true;
+        lastX = points[0].x;
+        lastY = points[0].y;
+    } else if (wasTouching) {
+        dispatcher.processTouch(0, false, lastX, lastY, millis());
+        wasTouching = false;
+    }
+    
+    engine.run();
+}
+```
+
+> **Note**: Using `setTouchManager()` (section 10.1) is recommended instead of this manual pattern.
+
+### 10.3 InputManager Touch API (Native only)
+
+When `PIXELROOT32_ENABLE_TOUCH=1`, InputManager provides mouse-to-touch conversion for Native platforms:
+
+- **`processSDLEvent(const SDL_Event& event)`**: Converts SDL mouse events to touch events (Native only).
+
+### 10.4 SDL2_Drawer Touch Integration
+
+On Native (PC), `SDL2_Drawer` automatically converts mouse events to touch events for compatibility with touch UI widgets. This happens automatically when `PIXELROOT32_ENABLE_TOUCH=1`.
+
+```cpp
+// Automatic during init when PIXELROOT32_ENABLE_TOUCH=1
+// SDL2_Drawer connects to Engine's touchDispatcher
+
+// Mouse → touch coordinate conversion happens internally
+// Coordinates are mapped to the logical display resolution
+```
+
+## 11. Related documentation
 
 - [API Reference — Touch Input](API_REFERENCE.md#touch-input-overview)
 - [Architecture — InputManager](ARCHITECTURE.md) (subsection documents touch parallel path)

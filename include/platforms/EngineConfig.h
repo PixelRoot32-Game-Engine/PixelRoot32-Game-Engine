@@ -78,6 +78,18 @@
 #define DISPLAY_HEIGHT LOGICAL_HEIGHT
 
 // =============================================================================
+// Input Systems
+// =============================================================================
+
+// Enable touch input system. When enabled, Engine processes touch events
+// automatically and sends them to the current scene via processTouchEvents().
+// This works for both ESP32 (via TouchManager injection) and Native (mouse mapping).
+// Default: disabled (0).
+#ifndef PIXELROOT32_ENABLE_TOUCH
+#define PIXELROOT32_ENABLE_TOUCH 0
+#endif
+
+// =============================================================================
 // Debug & Profiling
 // =============================================================================
 // Uncomment to enable performance profiling in Serial monitor

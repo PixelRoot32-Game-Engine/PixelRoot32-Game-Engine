@@ -103,6 +103,7 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enable 4bpp sprite support. | Disabled |
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
+| `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing in Engine (mouse-to-touch on Native, touch point injection on ESP32). | `0` (disabled) |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 
 **Memory savings by subsystem (approximate):**
@@ -113,6 +114,7 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB |
 | `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB |
 | `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB |
+| `PIXELROOT32_ENABLE_TOUCH=0` | ~200 bytes | ~2 KB |
 
 **Build profiles (platformio.ini):**
 
@@ -535,6 +537,33 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`InputManager& getInputManager()`**
     Provides access to the InputManager subsystem.
+
+- **`TouchEventDispatcher& getTouchDispatcher()`**
+    Provides access to the touch system for injecting touch points. Use this on ESP32 to connect TouchManager with Engine's touch processing pipeline.
+    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
+
+- **`bool hasTouchEvents() const`**
+    Returns true if there are pending touch events in the queue.
+    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
+
+- **`void setTouchManager(pixelroot32::input::TouchManager* touchManager)`**
+    Registers a TouchManager instance for automatic touch processing on ESP32. When set, Engine automatically:
+    - Polls `touchManager.getTouchPoints()` each frame
+    - Detects touch releases (when count goes from >0 to 0)
+    - Processes touch events through the internal TouchEventDispatcher
+    - Sends gesture events to the current scene via `Scene::processTouchEvents()`
+    
+    Usage (ESP32):
+    ```cpp
+    touchManager.init();
+    engine.setTouchManager(&touchManager);  // 1 línea
+    
+    void loop() {
+        touchManager.update(frameDt);
+        engine.run();  // Engine maneja todo automáticamente
+    }
+    ```
+    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
 
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
@@ -3740,24 +3769,22 @@ engine.run();
 
 **Include:** `input/TouchManager.h`
 
-Aggregates normalized `TouchPoint`s from the active adapter, clamps to the constructor bounds, and runs `TouchEventDispatcher` to produce `TouchEvent` gestures. Header is mostly **inline**; pairs with `TOUCH_DRIVER_XPT2046` or `TOUCH_DRIVER_GT911`.
+Touch event aggregation layer that polls the active touch adapter (XPT2046 or GT911), clamps coordinates to display bounds, and provides raw touch points. Gesture detection is handled by Engine's TouchEventDispatcher.
 
-#### Public methods (summary)
+#### Public methods
 
 | Method | Description |
 |--------|-------------|
 | `TouchManager(int16_t maxX, int16_t maxY)` | Clamping bounds (use physical panel size). |
 | `bool init()` | Initializes adapter; call **`setCalibration` first** (see TOUCH_INPUT.md). |
-| `void update(unsigned long dt)` | Poll hardware, refresh buffer, run dispatcher. |
+| `void update(unsigned long dt)` | Poll hardware and refresh internal buffer. |
 | `void setCalibration(const TouchCalibration&)` | Copies calibration to manager **and** adapter. |
-| `uint8_t getEvents(TouchEvent* buf, uint8_t maxCount)` | Dequeue gesture events (pull API). |
-| `uint8_t getTouchPoints(TouchPoint* points) const` | Raw pressed points for the frame. |
+| `uint8_t getTouchPoints(TouchPoint* points) const` | Raw pressed points for the current frame. Returns only active touches - use `Engine::setTouchManager()` for automatic release detection. |
 | `uint8_t getActiveCount() const` | Number of active points. |
 | `bool isTouchActive() const` | Any finger/stylus down. |
 | `bool isConnected() const` | Adapter initialization / health. |
-| `uint8_t peekEvents`, `hasEvents`, `getEventCount`, `clearEvents` | Queue inspection / control. |
 
-Constants: `TouchManager::CIRCULAR_BUFFER_SIZE`, `TOUCH_EVENT_QUEUE_SIZE` (in `input/TouchEvent.h`).
+Constants: `TouchManager::CIRCULAR_BUFFER_SIZE`, `TOUCH_MAX_POINTS` (5).
 
 ---
 

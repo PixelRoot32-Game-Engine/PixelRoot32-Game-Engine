@@ -16,7 +16,6 @@
 
 #include <input/TouchPoint.h>
 #include <input/TouchAdapter.h>
-#include <input/TouchEventDispatcher.h>
 #include <core/Log.h>
 
 #if defined(TOUCH_DRIVER_XPT2046)
@@ -115,49 +114,6 @@ public:
      */
     bool isConnected() const;
 
-    /**
-     * @brief Get events from the event system
-     * @param buffer Output buffer for events
-     * @param maxCount Maximum number of events to retrieve
-     * @return Number of events retrieved
-     * 
-     * Pull-based API: consumer provides the buffer.
-     * Events are removed from the internal queue.
-     */
-    uint8_t getEvents(TouchEvent* buffer, uint8_t maxCount);
-    
-    /**
-     * @brief Peek at events without removing them
-     * @param buffer Output buffer for events
-     * @param maxCount Maximum events to peek
-     * @return Number of events peeked
-     */
-    uint8_t peekEvents(TouchEvent* buffer, uint8_t maxCount) const;
-    
-    /**
-     * @brief Check if events are available
-     * @return true if there are pending events
-     */
-    bool hasEvents() const;
-    
-    /**
-     * @brief Get number of pending events
-     * @return Number of events in queue
-     */
-    uint8_t getEventCount() const;
-    
-    /**
-     * @brief Clear all pending events
-     */
-    void clearEvents();
-    
-    /**
-     * @brief Get current state for a touch ID
-     * @param touchId Touch identifier
-     * @return Current state
-     */
-    TouchState getTouchState(uint8_t touchId) const;
-
 private:
     // Circular buffer for touch points
     TouchPoint touchBuffer[CIRCULAR_BUFFER_SIZE];
@@ -173,9 +129,6 @@ private:
 
     // Connection status
     bool controllerConnected;
-    
-    // Touch event dispatcher for gesture detection
-    TouchEventDispatcher eventDispatcher;
 
     /**
      * @brief Add touch point to circular buffer
@@ -249,35 +202,6 @@ inline void TouchManager::update(unsigned long dt) {
         addTouchPoint(tp);
     }
 
-    // Process touch points through event dispatcher for gesture detection
-    // Use millis() for timestamp - need to get a timestamp for the current frame
-    // For now, use 0 as a placeholder - actual implementation should use proper timing
-    uint32_t currentTime = 0;
-#if defined(PLATFORM_NATIVE)
-    // On native, we could use a mock time, but for now pass 0
-    currentTime = 0;
-#else
-    currentTime = millis();
-#endif
-
-    static int16_t sLastTouchX = 0;
-    static int16_t sLastTouchY = 0;
-    static bool sHadActiveTouch = false;
-
-    if (count > 0) {
-        if (!sHadActiveTouch) {
-            pixelroot32::core::logging::log("[TouchMgr] finger down x=%d y=%d", points[0].x, points[0].y);
-        }
-        sLastTouchX = points[0].x;
-        sLastTouchY = points[0].y;
-        sHadActiveTouch = true;
-        eventDispatcher.processTouchPoints(points, count, currentTime);
-    } else if (sHadActiveTouch) {
-        eventDispatcher.processTouch(0, false, sLastTouchX, sLastTouchY, currentTime);
-        pixelroot32::core::logging::log("[TouchMgr] finger up   x=%d y=%d", sLastTouchX, sLastTouchY);
-        sHadActiveTouch = false;
-    }
-
     // Update connection status
     if (count == 0 && activeCount == 0) {
         // Check if controller is still connected
@@ -339,29 +263,8 @@ inline bool TouchManager::isConnected() const {
     return controllerConnected;
 }
 
-inline uint8_t TouchManager::getEvents(TouchEvent* buffer, uint8_t maxCount) {
-    return eventDispatcher.getEvents(buffer, maxCount);
-}
-
-inline uint8_t TouchManager::peekEvents(TouchEvent* buffer, uint8_t maxCount) const {
-    return eventDispatcher.peekEvents(buffer, maxCount);
-}
-
-inline bool TouchManager::hasEvents() const {
-    return eventDispatcher.hasEvents();
-}
-
-inline uint8_t TouchManager::getEventCount() const {
-    return eventDispatcher.getEventCount();
-}
-
-inline void TouchManager::clearEvents() {
-    eventDispatcher.clearEvents();
-}
-
-inline TouchState TouchManager::getTouchState(uint8_t touchId) const {
-    return eventDispatcher.getTouchState(touchId);
-}
+// TouchManager now provides only raw touch points.
+// Use Engine::getTouchDispatcher() for gesture detection and events.
 
 inline void TouchManager::addTouchPoint(const TouchPoint& point) {
     if (activeCount < CIRCULAR_BUFFER_SIZE) {

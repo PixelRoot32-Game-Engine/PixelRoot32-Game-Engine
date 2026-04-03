@@ -1,6 +1,8 @@
 #ifdef PLATFORM_NATIVE
 
 #include <drivers/native/SDL2_Drawer.h>
+#include <input/InputManager.h>
+#include <input/TouchEventDispatcher.h>
 #include <core/Log.h>
 #include <algorithm>
 #include <cmath>
@@ -15,6 +17,8 @@ pr32::drivers::native::SDL2_Drawer::SDL2_Drawer()
     , renderer(nullptr)
     , texture(nullptr)
     , pixels(nullptr)
+    , touchDispatcher(nullptr)
+    , inputManager(nullptr)
 {
 }
 
@@ -190,8 +194,56 @@ bool pr32::drivers::native::SDL2_Drawer::processEvents() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) return false;
+        
+        // Prefer using touchDispatcher if available (new integration)
+        if (touchDispatcher != nullptr && 
+            (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || 
+             e.type == SDL_MOUSEMOTION)) {
+            
+            // Apply window scale and offset to convert from window coords to framebuffer coords
+            int16_t fbX, fbY;
+            
+            if (e.type == SDL_MOUSEMOTION) {
+                fbX = static_cast<int16_t>((e.motion.x - xOffset * 2) / 2);
+                fbY = static_cast<int16_t>((e.motion.y - yOffset * 2) / 2);
+            } else {
+                fbX = static_cast<int16_t>((e.button.x - xOffset * 2) / 2);
+                fbY = static_cast<int16_t>((e.button.y - yOffset * 2) / 2);
+            }
+            
+            // Clamp to framebuffer bounds
+            if (fbX < 0) fbX = 0;
+            if (fbY < 0) fbY = 0;
+            if (fbX >= logicalWidth) fbX = logicalWidth - 1;
+            if (fbY >= logicalHeight) fbY = logicalHeight - 1;
+            
+            // Determine if button is pressed
+            bool pressed = false;
+            if (e.type == SDL_MOUSEBUTTONDOWN) pressed = true;
+            else if (e.type == SDL_MOUSEBUTTONUP) pressed = false;
+            else if (e.type == SDL_MOUSEMOTION) {
+                // Check if left button is held
+                pressed = (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+            }
+            
+            touchDispatcher->processTouch(0, pressed, fbX, fbY, SDL_GetTicks());
+        }
+        // Fallback to inputManager for backwards compatibility
+        else if (inputManager != nullptr && 
+                 (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || 
+                  e.type == SDL_MOUSEMOTION)) {
+            inputManager->processSDLEvent(&e);
+        }
     }
     return true;
+}
+
+void pr32::drivers::native::SDL2_Drawer::setInputManager(pixelroot32::input::InputManager* im) {
+    inputManager = im;
+}
+
+void pr32::drivers::native::SDL2_Drawer::setTouchDispatcher(pixelroot32::input::TouchEventDispatcher* td) {
+    touchDispatcher = td;
 }
 
 void pr32::drivers::native::SDL2_Drawer::drawRectangle(int x, int y, int width, int height, uint16_t color) {

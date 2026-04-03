@@ -8,6 +8,7 @@
 #include <input/TouchManager.h>
 #include <input/TouchAdapter.h>
 #include <input/TouchEvent.h>
+#include <input/TouchPoint.h>
 
 #include "PhysicsDemoScene.h"
 
@@ -30,6 +31,7 @@ pr32::core::Engine engine(config);
 
 physicsdemo::PhysicsDemoScene physicsScene;
 
+// TouchManager para leer hardware touch (hardware polling)
 pr32::input::TouchManager touchManager(PHYSICAL_DISPLAY_WIDTH, PHYSICAL_DISPLAY_HEIGHT);
 
 static unsigned long touchPrevFrameMs = 0;
@@ -38,15 +40,18 @@ void setup() {
     engine.init();
     engine.setScene(&physicsScene);
 
-    // Set 240×320 cal before touchManager.init(): default preset is 320×240 and breaks mapping on first use.
+    // Set 240×320 cal before touchManager.init(): default preset is 320x240 and breaks mapping on first use.
     {
         pr32::input::TouchCalibration cal =
             pr32::input::TouchCalibration::forResolution(PHYSICAL_DISPLAY_WIDTH, PHYSICAL_DISPLAY_HEIGHT);
         touchManager.setCalibration(cal);
     }
     touchManager.init();
-    pr32::core::logging::log("[CYD] setup done (engine + touch %ux%u)", PHYSICAL_DISPLAY_WIDTH,
-        PHYSICAL_DISPLAY_HEIGHT);
+
+    // Register TouchManager with Engine for automatic touch processing
+    #if PIXELROOT32_ENABLE_TOUCH
+    engine.setTouchManager(&touchManager);
+    #endif
 }
 
 void loop() {
@@ -54,21 +59,12 @@ void loop() {
     unsigned long frameDt = (touchPrevFrameMs == 0) ? 1u : (nowMs - touchPrevFrameMs);
     touchPrevFrameMs = nowMs;
 
+    // Poll hardware touch
     touchManager.update(frameDt);
 
-    pr32::input::TouchEvent touchEvents[pr32::input::TOUCH_EVENT_QUEUE_SIZE];
-    const uint8_t evtCount = touchManager.getEvents(touchEvents, pr32::input::TOUCH_EVENT_QUEUE_SIZE);
-    if (evtCount > 0) {
-#ifdef PIXELROOT32_DEBUG_MODE
-        const auto& e0 = touchEvents[0];
-        pr32::core::logging::log("[CYD] touch batch n=%u first:type=%u x=%d y=%d c=%d", evtCount,
-            static_cast<uint8_t>(e0.type), e0.x, e0.y, e0.isConsumed() ? 1 : 0);
-#endif
-        auto sceneOpt = engine.getCurrentScene();
-        if (sceneOpt.has_value() && sceneOpt.value() != nullptr) {
-            sceneOpt.value()->processTouchEvents(touchEvents, evtCount);
-        }
-    }
+    // Engine handles touch injection automatically via setTouchManager()
+    // No manual touch point injection needed - Engine processes getTouchPoints()
+    // and detects releases internally
 
     engine.run();
 }
