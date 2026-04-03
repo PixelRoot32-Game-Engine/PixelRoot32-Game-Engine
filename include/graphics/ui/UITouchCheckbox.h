@@ -16,6 +16,7 @@
 #include "graphics/ui/UITouchElement.h"
 #include "graphics/Color.h"
 #include "input/TouchEvent.h"
+#include "math/Vector2.h"
 
 namespace pixelroot32::graphics::ui {
 
@@ -49,6 +50,9 @@ private:
     Color disabledBorderColor;         ///< Color for disabled state border
     
     int fontSize;                      ///< Font size for label rendering
+    
+    pixelroot32::math::Vector2 pressStartPosition;  ///< Position where press started
+    static constexpr int16_t DRAG_THRESHOLD = 10;    ///< Drag threshold in pixels
     
 public:
     /**

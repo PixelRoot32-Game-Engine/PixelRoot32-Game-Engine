@@ -16,8 +16,10 @@ namespace pixelroot32::graphics::ui {
 
     namespace input = pixelroot32::input;
     namespace math = pixelroot32::math;
+
     using math::Vector2;
     using math::Scalar;
+    using math::toScalar;
     using input::TouchEvent;
     using input::TouchEventType;
 
@@ -33,6 +35,7 @@ UITouchCheckbox::UITouchCheckbox(std::string_view label, int16_t x, int16_t y,
     , borderColor(Color::Gray)
     , disabledBorderColor(Color::DarkGray)
     , fontSize(2)
+    , pressStartPosition(Vector2::ZERO())
 {
 }
 
@@ -74,7 +77,7 @@ bool UITouchCheckbox::processEvent(const pixelroot32::input::TouchEvent& event) 
         return false;
     }
     
-    // Only process touch events
+    // Only process touch events (ignore drag events)
     if (event.type != TouchEventType::TouchDown &&
         event.type != TouchEventType::TouchUp) {
         return false;
@@ -110,16 +113,19 @@ void UITouchCheckbox::reset() {
 }
 
 void UITouchCheckbox::handleTouchDown(const TouchEvent& event) {
-    (void)event;
+    pressStartPosition = {toScalar(event.x), toScalar(event.y)};
     widgetData_.state = UIWidgetState::Pressed;
     setActive();
 }
 
 void UITouchCheckbox::handleTouchUp(const TouchEvent& event) {
-    (void)event;
+    // Check if we dragged too far
+    Scalar dx = toScalar(event.x) - pressStartPosition.x;
+    Scalar dy = toScalar(event.y) - pressStartPosition.y;
     
-    // Toggle on release (click behavior)
-    if (widgetData_.state == UIWidgetState::Pressed) {
+    // Toggle only if we didn't drag too far
+    if (widgetData_.state == UIWidgetState::Pressed && 
+        dx * dx + dy * dy <= toScalar(DRAG_THRESHOLD * DRAG_THRESHOLD)) {
         toggle();
     }
     

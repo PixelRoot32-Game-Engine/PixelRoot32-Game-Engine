@@ -172,6 +172,15 @@ uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t
                     consumed++;
                 }
 
+                // If widget ignored the drag event (e.g., UITouchButton doesn't handle DragMove),
+                // reset the widget state and release capture
+                if (!eventConsumed && evtType == pixelroot32::input::TouchEventType::DragMove && hitWidget != nullptr) {
+                    hitWidget->state = pixelroot32::graphics::ui::UIWidgetState::Idle;
+                    hitWidget->flags = static_cast<pixelroot32::graphics::ui::UIWidgetFlags>(
+                        static_cast<uint8_t>(hitWidget->flags) & ~static_cast<uint8_t>(pixelroot32::graphics::ui::UIWidgetFlags::Active));
+                    capturedWidget = nullptr;
+                }
+
                 if (evtType == pixelroot32::input::TouchEventType::DragEnd ||
                     evtType == pixelroot32::input::TouchEventType::TouchUp) {
                     capturedWidget = nullptr;

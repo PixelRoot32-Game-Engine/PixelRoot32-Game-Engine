@@ -85,8 +85,8 @@ bool UITouchButton::processEvent(const pixelroot32::input::TouchEvent& event) {
     
     // Check if event is within our bounds
     if (!widgetData_.contains(event.x, event.y)) {
-        // If we're in pressed/dragging state and touch moved outside, reset
-        if (widgetData_.state == UIWidgetState::Pressed || widgetData_.state == UIWidgetState::Dragging) {
+        // If we're in pressed state and touch moved outside, reset
+        if (widgetData_.state == UIWidgetState::Pressed) {
             widgetData_.state = UIWidgetState::Idle;
             clearActive();
         }
