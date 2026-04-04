@@ -56,7 +56,6 @@ TouchDebugOverlayState gTouchDebugOverlay;
 #endif
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM
-namespace {
 void onPhysicsDemoTouchButtonClick() {
     if (PhysicsDemoScene::sUiTarget != nullptr) {
         PhysicsDemoScene::sUiTarget->init();
@@ -72,7 +71,6 @@ void onPhysicsDemoTouchCheckboxChanged(bool checked) {
         PhysicsDemoScene::sUiTarget->setPlayerVisible(checked);
     }
 }
-} // namespace
 #endif
 
 void PhysicsDemoScene::init() {
@@ -182,6 +180,7 @@ void PhysicsDemoScene::initUI() {
     auto& renderer = engine.getRenderer();
     const int sw = renderer.getLogicalWidth();
     const int sh = renderer.getLogicalHeight();
+
     constexpr int margin = 6;
     constexpr int barH = 36;
     constexpr int btnW = 72;
@@ -236,13 +235,14 @@ void PhysicsDemoScene::initUI() {
 
     demoVerticalLayout->addElement(demoHorizontalLayout.get());
 
-    demoTouchCheckbox = std::make_unique<UITouchCheckbox>("Show Player", 0, 0,
-        static_cast<uint16_t>(sw - margin * 2), static_cast<uint16_t>(checkboxH), true);
+    const Vector2 checkboxPos = Vector2::ZERO();
+    const Vector2 checkboxSize = Vector2(toScalar(sw - margin * 2), toScalar(checkboxH));
+
+    demoTouchCheckbox = std::make_unique<UITouchCheckbox>("Show Player", checkboxPos, checkboxSize, true, onPhysicsDemoTouchCheckboxChanged);
     ui.addElement(demoTouchCheckbox.get());
     if (demoTouchCheckbox) {
         demoVerticalLayout->addElement(demoTouchCheckbox.get());
         demoTouchCheckbox->setColors(Color::White, Color::Cyan, Color::Gray);
-        demoTouchCheckbox->setOnChanged(onPhysicsDemoTouchCheckboxChanged);
     }
 }
 

@@ -6,8 +6,9 @@ Demonstrates **4bpp** animated tilemaps, multi-palette setup (`ColorPaletteManag
 
 - **`PIXELROOT32_ENABLE_TILE_ANIMATIONS`**
 - **`PIXELROOT32_ENABLE_4BPP_SPRITES`** (this scene’s tilemaps are 4bpp)
+- **`PIXELROOT32_ENABLE_2BPP_SPRITES`** — also enabled in **`platformio.ini`** so the packed sprite/tile driver configuration matches other multi-bpp samples.
 
-See **`platformio.ini`** in this folder for **`native`**, **`esp32dev`**, and **`esp32cyd`** presets.
+See **`platformio.ini`** in this folder for **`native`**, **`esp32dev`**, and **`esp32cyd`** presets. The **`esp32cyd`** environment turns on **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** (see INI); touch remains **disabled** for this example (`TOUCH_CS=-1`).
 
 ## How this scene uses the engine cache
 

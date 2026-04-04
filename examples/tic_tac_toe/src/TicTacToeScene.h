@@ -4,8 +4,12 @@
 #include <input/TouchEvent.h>
 #include "GameConstants.h"
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
+#include <graphics/ui/UILabel.h>
+
+#if PIXELROOT32_ENABLE_TOUCH
 #include <graphics/ui/UITouchButton.h>
+#else
+#include <graphics/ui/UIButton.h>
 #endif
 
 namespace tictactoe {
@@ -37,10 +41,6 @@ public:
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-    void initUI() override;
-#endif
-
     /**
      * @brief Reset the game state - called by GPIO button and touch button.
      */
@@ -52,10 +52,8 @@ public:
      */
     void onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) override;
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
     /** Reset button target for callback - needed because C-style callbacks can't use member functions directly. */
     static TicTacToeScene* sResetButtonTarget;
-#endif
 
 private:
     Player board[BOARD_SIZE][BOARD_SIZE];
@@ -70,17 +68,30 @@ private:
     unsigned long gameEndTime;
 
     pixelroot32::math::Vector2 boardPosition;
-    char statusText[32];
-    char instructionsText[64];
-    bool instructionsVisible;
 
     /** Touch hit slop in pixels (padding around each cell for easier touching). */
     static constexpr int16_t kTouchHitSlop = 8;
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-    /** UI reset button - only visible when game is over. */
+    // UI Elements - always use UILabel for text
+    std::unique_ptr<pixelroot32::graphics::ui::UILabel> statusLabel;
+    std::unique_ptr<pixelroot32::graphics::ui::UILabel> instructionsLabel;
+
+    // Reset button - type depends on TOUCH_ENABLED
+#if PIXELROOT32_ENABLE_TOUCH
     std::unique_ptr<pixelroot32::graphics::ui::UITouchButton> resetTouchButton;
+#else
+    std::unique_ptr<pixelroot32::graphics::ui::UIButton> resetButton;
 #endif
+
+    /**
+     * @brief Create UI labels for status and instructions text.
+     */
+    void createLabels();
+
+    /**
+     * @brief Create reset button (Play Again).
+     */
+    void createResetButton();
 
     /**
      * @brief Convert touch coordinates to board cell indices.

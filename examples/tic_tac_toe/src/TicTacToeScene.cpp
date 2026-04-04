@@ -1,16 +1,13 @@
 #include "TicTacToeScene.h"
+#include "assets/music.h"
+#include "assets/color_palette.h"
+
 #include <core/Engine.h>
-#include <audio/AudioTypes.h>
-#include <audio/AudioMusicTypes.h>
 #include <input/TouchEventTypes.h>
 #include <math/MathUtil.h>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-#include <graphics/ui/UITouchButton.h>
-#endif
 
 namespace pr32 = pixelroot32;
 
@@ -20,7 +17,6 @@ namespace tictactoe {
 
 namespace gfx = pr32::graphics;
 namespace audio = pr32::audio;
-namespace math = pr32::math;
 namespace input = pr32::input;
 
 using Color = gfx::Color;
@@ -32,82 +28,22 @@ using MusicTrack = audio::MusicTrack;
 
 static constexpr float kDefaultAiErrorChance = 0.25f;
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-// Static member for callback target
+// Static member for callback target (UIButton when touch disabled)
 TicTacToeScene* TicTacToeScene::sResetButtonTarget = nullptr;
 
-namespace {
-// Callback for reset button click
-static void onResetButtonClick() {
+// Callback for reset button click (UIButton)
+static void onResetButtonClickStatic() {
     if (TicTacToeScene::sResetButtonTarget != nullptr) {
         TicTacToeScene::sResetButtonTarget->resetGame();
     }
 }
-}
-#endif
-
-static const MusicNote BG_MELODY[] = {
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::C, 0.6f),
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::G, 0.6f),
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::E, 0.6f),
-    audio::makeRest(0.3f),
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::D, 0.6f),
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::A, 0.6f),
-    audio::makeNote(audio::INSTR_TRIANGLE_PAD, Note::F, 0.6f),
-    audio::makeRest(0.4f)
-};
-
-static const MusicTrack BG_MUSIC = {
-    BG_MELODY,
-    sizeof(BG_MELODY) / sizeof(MusicNote),
-    true,
-    WaveType::TRIANGLE,
-    0.5f
-};
-
-static const MusicNote WIN_MELODY[] = {
-    audio::makeNote(audio::INSTR_PULSE_LEAD, Note::C, 0.18f),
-    audio::makeNote(audio::INSTR_PULSE_LEAD, Note::E, 0.18f),
-    audio::makeNote(audio::INSTR_PULSE_LEAD, Note::G, 0.30f)
-};
-
-static const MusicTrack WIN_MUSIC = {
-    WIN_MELODY,
-    sizeof(WIN_MELODY) / sizeof(MusicNote),
-    false,
-    WaveType::PULSE,
-    0.5f
-};
-
-// Custom Neon Palette for TicTacToe
-// We use a custom palette to give the game a "Cyberpunk" look.
-// This demonstrates how to use setCustomPalette().
-static const uint16_t CUSTOM_NEON_PALETTE[16] = {
-    0x0000, // 0: Black (Background)
-    0xFFFF, // 1: White (Text)
-    0x0010, // 2: Navy
-    0x07FF, // 3: Blue (LightBlue maps here) -> Neon Cyan (O Color)
-    0x07E0, // 4: Cyan
-    0x2104, // 5: DarkGreen (Olive maps here) -> Dark Gray (Grid)
-    0x07E0, // 6: Green
-    0x7FE0, // 7: LightGreen
-    0xFFE0, // 8: Yellow (Gold maps here) -> Neon Yellow (Border/Cursor)
-    0xFD20, // 9: Orange
-    0xF81F, // 10: LightRed -> Neon Pink (X Color)
-    0xF800, // 11: Red
-    0x8000, // 12: DarkRed
-    0x8010, // 13: Purple
-    0xF81F, // 14: Magenta
-    0x8410  // 15: Gray (LightGray maps here) -> Gray (Instructions)
-};
+// namespace
 
 void TicTacToeScene::init() {
     gfx::setCustomPalette(CUSTOM_NEON_PALETTE);
     
-    std::snprintf(statusText, sizeof(statusText), "Player X Turn");
-    std::snprintf(instructionsText, sizeof(instructionsText), "DPAD/Touch: Move | A/Click: Select");
-    instructionsVisible = true;
-
+    createLabels();
+    createResetButton();
     resetGame();
 
     engine.getMusicPlayer().play(BG_MUSIC);
@@ -117,10 +53,60 @@ void TicTacToeScene::init() {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
         seeded = true;
     }
+}
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-    initUI();
+void TicTacToeScene::createLabels() {
+    auto& renderer = engine.getRenderer();
+    const int sw = renderer.getLogicalWidth();
+    
+    // Status label - centered at top
+    statusLabel = std::make_unique<gfx::ui::UILabel>(
+        "Player X Turn",
+        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(10)),
+        Color::White, 1);
+    statusLabel->centerX(sw);
+    addEntity(statusLabel.get());
+    
+    // Instructions label - centered at bottom
+    instructionsLabel = std::make_unique<gfx::ui::UILabel>(
+        "DPAD/Touch: Move | A/Click: Select",
+        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(DISPLAY_HEIGHT - 20)),
+        Color::LightGray, 1);
+    instructionsLabel->centerX(sw);
+    addEntity(instructionsLabel.get());
+}
+
+void TicTacToeScene::createResetButton() {
+    auto& renderer = engine.getRenderer();
+    const int sw = renderer.getLogicalWidth();
+    const int sh = renderer.getLogicalHeight();
+    
+    constexpr int btnW = 100;
+    constexpr int btnH = 32;
+    const int btnX = (sw - btnW) / 2;
+    const int btnY = sh - btnH - 26;
+    
+    pr32::math::Vector2 pos(pr32::math::toScalar(btnX), pr32::math::toScalar(btnY));
+    pr32::math::Vector2 sz(pr32::math::toScalar(btnW), pr32::math::toScalar(btnH));
+
+    sResetButtonTarget = this;
+    
+#if PIXELROOT32_ENABLE_TOUCH
+    // UITouchButton for touch-enabled displays
+    resetTouchButton = std::make_unique<gfx::ui::UITouchButton>("Play Again", pos, sz, onResetButtonClickStatic);
+    resetTouchButton->setColors(Color::Navy, Color::LightBlue, Color::DarkGray);
+    resetTouchButton->autoSize(4);  // Auto-size to fit text with 8px padding
+    resetTouchButton->setVisible(false); 
+    engine.getUIManager().addElement(resetTouchButton.get());    
+    addEntity(resetTouchButton.get());
+#else
+    // UIButton for GPIO input (no touch)
+    resetButton = std::make_unique<gfx::ui::UIButton>("Play Again", 0, pos, sz, onResetButtonClickStatic);
+    resetButton->setColors(Color::Navy, Color::LightBlue, Color::DarkGray);
+    resetButton->setVisible(false);
+    addEntity(resetButton.get());
 #endif
+
 }
 
 void TicTacToeScene::resetGame() {
@@ -138,25 +124,21 @@ void TicTacToeScene::resetGame() {
     cursorIndex = 4;
     gameOver = false;
     gameEndTime = 0;
-    std::snprintf(statusText, sizeof(statusText), "Player X Turn");
-    std::snprintf(instructionsText, sizeof(instructionsText), "DPAD/Touch: Move | A/Click: Select");
-    instructionsVisible = true;
+    
+    // Update labels
+    statusLabel->setText("Player X Turn");
+    instructionsLabel->setText("DPAD/Touch: Move | A/Click: Select");
     
     // Center the board on screen
-    // Board size = BOARD_SIZE * CELL_SIZE = 3 * 50 = 150 pixels
     int boardSize = BOARD_SIZE * CELL_SIZE;
     int boardX = (DISPLAY_WIDTH - boardSize) / 2;
     int boardY = (DISPLAY_HEIGHT - boardSize) / 2;  
-    boardPosition = math::Vector2(math::toScalar(boardX), math::toScalar(boardY));
+    boardPosition = pr32::math::Vector2(pr32::math::toScalar(boardX), pr32::math::toScalar(boardY));
 }
 
 void TicTacToeScene::update(unsigned long deltaTime) {
     handleInput();
-    
-#if PIXELROOT32_ENABLE_UI_SYSTEM
     updateResetButtonVisibility();
-#endif
-    
     Scene::update(deltaTime);
 }
 
@@ -410,9 +392,9 @@ bool TicTacToeScene::computeAIMove(int& outRow, int& outCol) {
 void TicTacToeScene::nextTurn() {
     currentPlayer = (currentPlayer == Player::X) ? Player::O : Player::X;
     if (currentPlayer == Player::X) {
-        std::snprintf(statusText, sizeof(statusText), "Player X Turn");
+        statusLabel->setText("Player X Turn");
     } else {
-        std::snprintf(statusText, sizeof(statusText), "Player O Turn");
+        statusLabel->setText("Player O Turn");
     }
 }
 
@@ -450,13 +432,14 @@ void TicTacToeScene::checkWinCondition() {
         if (winner == humanPlayer) {
             char buf[32];
             std::snprintf(buf, sizeof(buf), "WINNER: PLAYER %c!", (winner == Player::X) ? 'X' : 'O');
-            std::snprintf(statusText, sizeof(statusText), "%s", buf);
+            statusLabel->setText(buf);
         } else {
-            std::snprintf(statusText, sizeof(statusText), "YOU LOSE");
+            statusLabel->setText("YOU LOSE");
         }
 
-        std::snprintf(instructionsText, sizeof(instructionsText), "Press A to Reset");
-        instructionsVisible = true;
+        #if !PIXELROOT32_ENABLE_TOUCH
+        instructionsLabel->setText("Press A to Reset");
+        #endif
 
         engine.getMusicPlayer().stop();
         if (winner == humanPlayer) {
@@ -475,14 +458,16 @@ void TicTacToeScene::checkWinCondition() {
         gameOver = true;
         gameEndTime = millis();
         gameState = GameState::Draw;
-        std::snprintf(statusText, sizeof(statusText), "DRAW GAME!");
-        std::snprintf(instructionsText, sizeof(instructionsText), "Press A to Reset");
-        instructionsVisible = true;
+        statusLabel->setText("DRAW GAME!");
+
+        #if !PIXELROOT32_ENABLE_TOUCH
+        instructionsLabel->setText("Press A to Reset");
+        #endif
 
         engine.getMusicPlayer().stop();
 
-        pr32::audio::AudioEvent loseEv{};
-        loseEv.type = pr32::audio::WaveType::NOISE;
+        AudioEvent loseEv{};
+        loseEv.type = WaveType::NOISE;
         loseEv.frequency = 600.0f;
         loseEv.duration = 0.4f;
         loseEv.volume = 0.7f;
@@ -495,20 +480,18 @@ bool TicTacToeScene::isBoardFull() {
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 3; ++j)
             if (board[i][j] == Player::None) return false;
+
     return true;
 }
 
 void TicTacToeScene::draw(gfx::Renderer& renderer) {
     renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, Color::Black);
 
-    renderer.drawTextCentered(statusText, 10, Color::White, 1);
-    if (instructionsVisible) {
-        renderer.drawTextCentered(instructionsText, DISPLAY_HEIGHT - 20, Color::LightGray, 1);
-    }
-
     drawGrid(renderer);
     drawMarks(renderer);
+    #if !PIXELROOT32_ENABLE_TOUCH
     drawCursor(renderer);
+    #endif
 
     Scene::draw(renderer);
 }
@@ -651,7 +634,6 @@ void TicTacToeScene::onUnconsumedTouchEvent(const input::TouchEvent& event) {
     using T = input::TouchEventType;
 
     // Only handle Click events for cell selection
-    // Ignore drag events (player can use D-pad for movement)
     auto ty = event.getType();
     if (ty != T::Click && ty != T::TouchUp) {
         return;
@@ -663,44 +645,16 @@ void TicTacToeScene::onUnconsumedTouchEvent(const input::TouchEvent& event) {
     }
 }
 
-#if PIXELROOT32_ENABLE_UI_SYSTEM
-void TicTacToeScene::initUI() {
-    auto& ui = getUIManager();
-    ui.clear();
-    resetTouchButton.reset();
-
-    auto& renderer = engine.getRenderer();
-    const int sw = renderer.getLogicalWidth();
-    const int sh = renderer.getLogicalHeight();
-
-    // Position button at bottom center, above instructions
-    constexpr int btnW = 100;
-    constexpr int btnH = 32;
-    constexpr int margin = 6;
-    const int btnX = (sw - btnW) / 2;
-    const int btnY = sh - btnH - margin - 20; // Above instructions text
-
-    resetTouchButton = std::make_unique<gfx::ui::UITouchButton>("Play Again", btnX, btnY, btnW, btnH);
-
-    if (resetTouchButton) {
-        resetTouchButton->setColors(Color::Navy, Color::LightBlue, Color::DarkGray);
-        resetTouchButton->setOnClick(onResetButtonClick);
-
-        // Initially hidden - only visible when game is over
-        resetTouchButton->setVisible(false);
-        ui.addElement(resetTouchButton.get());
-        addEntity(resetTouchButton.get());
-    }
-
-    // Set callback target
-    sResetButtonTarget = this;
-}
-
 void TicTacToeScene::updateResetButtonVisibility() {
+#if PIXELROOT32_ENABLE_TOUCH
     if (resetTouchButton) {
         resetTouchButton->setVisible(gameOver);
     }
-}
+#else
+    if (resetButton) {
+        resetButton->setVisible(gameOver);
+    }
 #endif
-
 }
+
+} // namespace tictactoe
