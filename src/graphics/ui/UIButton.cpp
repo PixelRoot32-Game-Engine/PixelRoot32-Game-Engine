@@ -18,7 +18,7 @@ namespace pixelroot32::graphics::ui {
     using input::InputManager;
 
 
-    UIButton::UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, std::function<void()> callback, TextAlignment textAlign, int fontSize)
+    UIButton::UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, ButtonCallback callback, TextAlignment textAlign, int fontSize)
         : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::BUTTON), 
             label(t), 
             index(index),

@@ -61,11 +61,76 @@ actor->isOneWay();        // Still works
 
 ---
 
+## UI Button Callback Migration
+
+Version 1.2.0 refactors UI button callbacks to use function pointers instead of `std::function` for memory efficiency on ESP32.
+
+### Rationale
+
+- **Memory savings**: `std::function` can use heap allocation for lambdas with captures (~16 bytes). Function pointers use just 4 bytes.
+- **Zero allocation**: Function pointers never allocate memory at runtime.
+- **Smaller binary**: No `std::function` template overhead in the final binary.
+
+### API Changes
+
+**Before:**
+
+```cpp
+#include <functional>
+
+class MyScene : public Scene {
+    void onButtonPressed() { /* ... */ }
+    
+    void init() override {
+        button = new UIButton("Click", 0, pos, size, [this]() {
+            onButtonPressed();
+        });
+    }
+};
+```
+
+**After:**
+
+```cpp
+class MyScene : public Scene {
+public:
+    static MyScene* sCallbackTarget;
+    
+    static void onButtonPressedStatic() {
+        if (sCallbackTarget) {
+            sCallbackTarget->onButtonPressed();
+        }
+    }
+    
+    void init() override {
+        sCallbackTarget = this;
+        button = new UIButton("Click", 0, pos, size, onButtonPressedStatic);
+    }
+};
+```
+
+### Class Changes
+
+| Class | Property | Before | After |
+|-------|----------|--------|-------|
+| `UIButton` | `onClick` | `std::function<void()>` | `ButtonCallback` (function pointer) |
+| `UITouchButton` | `onClickCallback` | `ButtonCallback` | Already using function pointer (no change) |
+
+### Memory Impact
+
+| Metric | Before | After | Savings |
+|--------|--------|-------|---------|
+| `UIButton` callback storage | ~16 bytes | 4 bytes | 12 bytes |
+| Heap allocation on construction | Possible | None | Variable |
+
+---
+
 ## Migration Checklist
 
 - [ ] **Search for direct `bounce` assignments**: Replace `actor->bounce = value;` with `actor->setBounce(value);` or keep the shorthand `actor->bounce = value;` (still works)
 - [ ] **Search for `bounce` conditionals**: Replace `if (actor->bounce)` with `if (actor->isBounce())` or keep shorthand (still works)
 - [ ] **Verify physics behavior**: Test that bounce physics still work as expected (restitution should be handled by `setRestitution()`)
+- [ ] **Update UIButton callbacks**: If using lambdas with `std::function`, convert to static function + target pattern
 - [ ] **Build and test**: Ensure all scenes compile and run correctly
 
 ---

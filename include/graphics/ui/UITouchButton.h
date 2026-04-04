@@ -17,6 +17,7 @@
 #include "graphics/ui/UITouchElement.h"
 #include "graphics/Color.h"
 #include "input/TouchEvent.h"
+#include "math/Vector2.h"
 
 namespace pixelroot32::graphics::ui {
 
@@ -35,33 +36,33 @@ public:
     // Callback function types (no std::function for memory efficiency)
     using ButtonCallback = void(*)();
     
-private:
-    ButtonCallback onDownCallback;     ///< Called when touch goes down on button
-    ButtonCallback onUpCallback;       ///< Called when touch goes up on button
-    ButtonCallback onClickCallback;    ///< Called when button is clicked
-    
-    pixelroot32::math::Vector2 pressStartPosition;         ///< position where press started
-    
-    // Rendering properties
-    std::string_view label;            ///< Button label (no allocation)
-    Color normalColor;               ///< Color for normal state
-    Color pressedColor;              ///< Color for pressed state
-    Color disabledColor;             ///< Color for disabled state
-    Color borderColor;               ///< Color for button border
-    Color disabledBorderColor;        ///< Color for disabled state border
-    
-    static constexpr int16_t DRAG_THRESHOLD = 10;  ///< Drag threshold in pixels
-    
-public:
     /**
-     * @brief Construct a new UITouchButton
+     * @brief Construct a new UITouchButton (new normalized constructor)
+     * @param t Button label
+     * @param position Position as Vector2
+     * @param size Size as Vector2 (width, height)
+     * @param callback OnClick callback
+     * @param textAlign Text alignment (default: CENTER)
+     * @param fontSize Font size in pixels/8 (default: 2)
+     */
+    UITouchButton(
+        std::string_view t, 
+        pixelroot32::math::Vector2 position, 
+        pixelroot32::math::Vector2 size,
+        ButtonCallback callback = nullptr,
+        TextAlignment textAlign = TextAlignment::CENTER,
+        int fontSize = 2
+    );
+
+    /**
+     * @brief Construct a new UITouchButton (legacy constructor for backward compatibility)
      * @param t Button label
      * @param x X position
      * @param y Y position
      * @param w Width
      * @param h Height
      */
-    explicit UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h);
+    UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h);
     
     /**
      * @brief Set the button label
@@ -74,7 +75,7 @@ public:
      * @return String view to the label (no allocation)
      */
     std::string_view getLabel() const { return label; }
-    
+
     /**
      * @brief Set button colors
      * @param normal Color for normal state
@@ -112,6 +113,30 @@ public:
      * @return Disabled border color
      */
     Color getDisabledBorderColor() const { return disabledBorderColor; }
+
+    /**
+     * @brief Set font size for text rendering
+     * @param size Font size (pixels/8, typically 1-4)
+     */
+    void setFontSize(int size) { fontSize = size; }
+
+    /**
+     * @brief Get current font size
+     * @return Font size
+     */
+    int getFontSize() const { return fontSize; }
+
+    /**
+     * @brief Set text alignment
+     * @param align Text alignment (LEFT, CENTER, RIGHT)
+     */
+    void setTextAlignment(TextAlignment align) { textAlign = align; }
+
+    /**
+     * @brief Get current text alignment
+     * @return Text alignment
+     */
+    TextAlignment getTextAlignment() const { return textAlign; }
     
     /**
      * @brief Set the OnDown callback
@@ -168,6 +193,24 @@ public:
     void reset();
     
 private:
+    ButtonCallback onDownCallback = nullptr;     ///< Called when touch goes down on button
+    ButtonCallback onUpCallback = nullptr;       ///< Called when touch goes up on button
+    ButtonCallback onClickCallback = nullptr;      ///< Called when button is clicked
+    
+    pixelroot32::math::Vector2 pressStartPosition;         ///< position where press started
+    
+    // Rendering properties
+    std::string_view label;            ///< Button label (no allocation)
+    Color normalColor = Color::White;               ///< Color for normal state
+    Color pressedColor = Color::Gray;              ///< Color for pressed state
+    Color disabledColor = Color::DarkGray;         ///< Color for disabled state
+    Color borderColor = Color::Gray;               ///< Color for button border
+    Color disabledBorderColor = Color::DarkGray;        ///< Color for disabled state border
+    int fontSize = 2;                      ///< Font size for text rendering
+    TextAlignment textAlign = TextAlignment::CENTER;           ///< Text alignment
+
+    static constexpr int16_t DRAG_THRESHOLD = 10;  ///< Drag threshold in pixels
+    
     /**
      * @brief Handle touch down event
      */
