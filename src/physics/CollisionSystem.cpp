@@ -175,8 +175,8 @@ namespace pixelroot32::physics {
                         contact.bodyA = moving;
                         contact.bodyB = staticBody;
                         contact.normal = hitNormal;
-                        Scalar rA = moving->bounce ? moving->getRestitution() : toScalar(0.0f);
-                        Scalar rB = staticBody->bounce ? staticBody->getRestitution() : toScalar(0.0f);
+                        Scalar rA = moving->isBounce() ? moving->getRestitution() : toScalar(0.0f);
+                        Scalar rB = staticBody->isBounce() ? staticBody->getRestitution() : toScalar(0.0f);
                         contact.restitution = min(rA, rB);
                         contact.penetration = toScalar(0.01f);
                         contact.contactPoint = moving->position + moving->getVelocity() * FIXED_DT * hitTime;
@@ -200,8 +200,8 @@ namespace pixelroot32::physics {
         contact.bodyA = a;
         contact.bodyB = b;
         contact.penetration = toScalar(0);
-        Scalar rA = a->bounce ? a->getRestitution() : toScalar(0.0f);
-        Scalar rB = b->bounce ? b->getRestitution() : toScalar(0.0f);
+        Scalar rA = a->isBounce() ? a->getRestitution() : toScalar(0.0f);
+        Scalar rB = b->isBounce() ? b->getRestitution() : toScalar(0.0f);
         contact.restitution = min(rA, rB);
         
         CollisionShape shapeA = a->getShape();

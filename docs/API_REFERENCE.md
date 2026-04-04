@@ -1426,9 +1426,9 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 - **`Scalar gravityScale`**: Multiplier for global gravity (Default: `1.0`).
 - **`CollisionShape shape`**: The geometric shape used for detection (Default: `AABB`).
 - **`Scalar radius`**: Radius used if `shape` is `CIRCLE` (Default: `0`).
-- **`bool bounce`**: If `true`, the actor will bounce off surfaces based on its restitution (Default: `false`).
-- **`bool sensor`**: When true, the body generates collision events but does not produce physical response (no impulse, no penetration correction). Use for triggers, collectibles.
-- **`bool oneWay`**: When true, the body only blocks from one side (e.g. one-way platform: land from above, pass through from below).
+- **`bool bounce`** (property accessor): If `true`, the actor will bounce off surfaces based on its restitution (Default: `true`). Supports both `actor->bounce = false` (property syntax) and explicit `actor->setBounce(false)` / `actor->isBounce()` methods. Internally stored in packed flags.
+- **`bool sensor`** (property accessor): When true, the body generates collision events but does not produce physical response (no impulse, no penetration correction). Use for triggers, collectibles. Supports both `actor->sensor = true` (property syntax) and explicit `actor->setSensor(true)` / `actor->isSensor()` methods. Internally stored in packed flags.
+- **`bool oneWay`** (property accessor): When true, the body only blocks from one side (e.g. one-way platform: land from above, pass through from below). Supports both `actor->oneWay = true` (property syntax) and explicit `actor->setOneWay(true)` / `actor->isOneWay()` methods. Internally stored in packed flags.
 - **`void* userData`**: Optional pointer or packed value (e.g. tile coordinates) for game logic. Use `physics::packTileData` / `unpackTileData` from `physics/TileAttributes.h` for tile metadata.
 
 #### Constructors
@@ -1476,6 +1476,12 @@ Base class for all physics-enabled bodies. It provides the core integration and 
 
 - **`bool isOneWay() const`**
     Returns true if this body is a one-way platform.
+
+- **`void setBounce(bool b)`**
+    Sets whether this body bounces off surfaces (uses restitution). When false, velocity is zeroed on contact instead of reflected.
+
+- **`bool isBounce() const`**
+    Returns true if this body has bounce enabled.
 
 - **`void setUserData(void* ptr)`**
     Sets optional user data (e.g. tile coordinates or game-specific pointer).
@@ -1683,7 +1689,7 @@ A body fully simulated by the physics engine. It is affected by gravity, forces,
 
 #### Properties
 
-- **`bool bounce`**: Whether the object should use restitution for bounces.
+- **`bool bounce`** (property accessor): Whether the object should use restitution for bounces. Supports `actor->bounce = true` (property syntax) or explicit `actor->setBounce(true)` / `actor->isBounce()` methods. Internally stored in packed flags.
 
 **Example:**
 

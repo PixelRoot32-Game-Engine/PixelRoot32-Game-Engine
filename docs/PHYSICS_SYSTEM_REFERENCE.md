@@ -80,12 +80,16 @@ When a contact is generated, the solver pre-calculates the restitution coefficie
 
 ```cpp
 // Combined restitution
-if (a->bounce && b->bounce) {
+if (a->isBounce() && b->isBounce()) {
     contact.restitution = min(a->getRestitution(), b->getRestitution());
 } else {
     contact.restitution = 0.0f; // No bounce if either body is absorbent
 }
 ```
+
+---
+
+> **Note (v1.2.0+)**: The `bounce` property now defaults to `true` (previously `false`). Use `setBounce(false)` to disable bounce behavior. The property uses packed flags internally for memory efficiency.
 
 ---
 
@@ -529,9 +533,10 @@ void RigidActor::update(unsigned long deltaTime) {
 
 - [API Reference](API_REFERENCE.md) - Class documentation
 - [Architecture](ARCHITECTURE.md) - System design
+- [Migration Guide v1.2.0](MIGRATION_v1.2.0.md) - PhysicsActor flags packing changes
 
 ---
 
 **Document Version**: Flat Solver  
-**Last Updated**: March 2026  
-**Engine Version**: v1.1.0
+**Last Updated**: April 2026  
+**Engine Version**: v1.2.0
