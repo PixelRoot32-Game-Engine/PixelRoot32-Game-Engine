@@ -31,4 +31,3 @@ pio run -e esp32c3 --target upload
 - Action Button (0) to jump
 - Goal: Fly through the gap in the pipes to score points
 - Avoid: Hitting the pipes or the screen top/bottom boundaries
-
