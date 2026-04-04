@@ -177,29 +177,14 @@ void UITouchCheckbox::draw(Renderer& renderer) {
     
     // Get color based on state
     Color color = getCurrentColor();
-    Color border = isEnabled() ? borderColor : disabledBorderColor;
     
     // Draw checkbox border
-    renderer.drawRectangle(boxX, boxY, boxSize, boxSize, border);
+    renderer.drawRectangle(boxX, boxY, boxSize, boxSize, color);
     
-    // Draw checkbox background (filled if checked or pressed)
-    if (checked || (isPressed() && isEnabled())) {
-        // Fill the box with checked color
-        renderer.drawFilledRectangle(boxX + 1, boxY + 1, boxSize - 2, boxSize - 2, color);
-        
-        // Draw checkmark (simple X or ✓)
-        int margin = boxSize / 4;
-        int x1 = boxX + margin;
-        int y1 = boxY + boxSize / 2;
-        int x2 = boxX + boxSize / 2;
-        int y2 = boxY + boxSize - margin;
-        int x3 = boxX + boxSize - margin;
-        int y3 = boxY + margin;
-        
-        // Draw checkmark in white (or contrasting color)
-        Color checkColor = Color::White;
-        renderer.drawLine(x1, y1, x2, y2, checkColor);
-        renderer.drawLine(x2, y2, x3, y3, checkColor);
+    // Draw checkbox background (filled only if checked - UICheckBox style)
+    if (checked) {
+        // Fill the box with same color as border (UICheckBox style: +2 offset, -4 size)
+        renderer.drawFilledRectangle(boxX + 2, boxY + 2, boxSize - 4, boxSize - 4, color);
     }
     
     // Draw label text if present
