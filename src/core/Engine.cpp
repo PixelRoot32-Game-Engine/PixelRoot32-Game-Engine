@@ -11,6 +11,7 @@
 #include "graphics/FontManager.h"
 #include "graphics/Font5x7.h"
 #include "graphics/Color.h"
+#include "math/Scalar.h"
 #include <cstdio>
 #include <cstring>
 #include <cassert>
@@ -368,23 +369,81 @@ namespace pixelroot32::core {
 
             if (debugUpdateCounter >= DEBUG_UPDATE_INTERVAL) {
                 if (debugAccumulatedMs > 0) {
-                    float fps = (1000.0f * debugUpdateCounter) / debugAccumulatedMs;
-                    std::snprintf(fpsStr, sizeof(fpsStr), "FPS: %.1f", fps);
+                    // Integer-only FPS formatting (no float, no FPU dependency)
+                    // fps_x10 = (frames * 10000) / ms gives 1 decimal precision
+                    uint32_t fps_x10 = (debugUpdateCounter * 10000) / debugAccumulatedMs;
+                    uint16_t fps_int = fps_x10 / 10;
+                    uint8_t fps_frac = fps_x10 % 10;
+                    
+                    // Manual format: "FPS: XX.X" (9 chars max)
+                    fpsStr[0] = 'F';
+                    fpsStr[1] = 'P';
+                    fpsStr[2] = 'S';
+                    fpsStr[3] = ':';
+                    fpsStr[4] = ' ';
+                    fpsStr[5] = static_cast<char>('0' + fps_int / 10);
+                    fpsStr[6] = static_cast<char>('0' + fps_int % 10);
+                    fpsStr[7] = '.';
+                    fpsStr[8] = static_cast<char>('0' + fps_frac);
+                    fpsStr[9] = '\0';
                 }
 
                 #ifdef PLATFORM_NATIVE
-                    std::strcpy(ramStr, "RAM: N/A");
+                    ramStr[0] = 'R'; ramStr[1] = 'A'; ramStr[2] = 'M';
+                    ramStr[3] = ':'; ramStr[4] = ' ';
+                    ramStr[5] = 'N'; ramStr[6] = '/'; ramStr[7] = 'A';
+                    ramStr[8] = '\0';
                 #else
                     uint32_t freeHeap = ESP.getFreeHeap();
                     uint32_t totalHeap = ESP.getHeapSize();
                     uint32_t usedHeapK = (totalHeap - freeHeap) / 1024;
-                    std::snprintf(ramStr, sizeof(ramStr), "RAM: %uK", usedHeapK);
+                    
+                    // Manual integer format: "RAM: XXXK"
+                    uint8_t idx = 0;
+                    ramStr[idx++] = 'R';
+                    ramStr[idx++] = 'A';
+                    ramStr[idx++] = 'M';
+                    ramStr[idx++] = ':';
+                    ramStr[idx++] = ' ';
+                    
+                    // Extract digits for usedHeapK (max 3 digits for ESP32)
+                    if (usedHeapK >= 100) {
+                        ramStr[idx++] = static_cast<char>('0' + (usedHeapK / 100) % 10);
+                        ramStr[idx++] = static_cast<char>('0' + (usedHeapK / 10) % 10);
+                        ramStr[idx++] = static_cast<char>('0' + usedHeapK % 10);
+                    } else if (usedHeapK >= 10) {
+                        ramStr[idx++] = static_cast<char>('0' + (usedHeapK / 10) % 10);
+                        ramStr[idx++] = static_cast<char>('0' + usedHeapK % 10);
+                    } else {
+                        ramStr[idx++] = static_cast<char>('0' + usedHeapK);
+                    }
+                    ramStr[idx++] = 'K';
+                    ramStr[idx++] = '\0';
                 #endif
 
+                // CPU load as integer percentage
                 float load = (float)debugAccumulatedMs / (DEBUG_UPDATE_INTERVAL * 16.6f);
-                int cpuPercent = (int)(load * 100);
+                int cpuPercent = static_cast<int>(load * 100);
                 if (cpuPercent > 100) cpuPercent = 100;
-                std::snprintf(cpuStr, sizeof(cpuStr), "CPU: %d%%", cpuPercent);
+                
+                // Manual format: "CPU: XX%"
+                cpuStr[0] = 'C';
+                cpuStr[1] = 'P';
+                cpuStr[2] = 'U';
+                cpuStr[3] = ':';
+                cpuStr[4] = ' ';
+                if (cpuPercent >= 100) {
+                    cpuStr[5] = '1';
+                    cpuStr[6] = '0';
+                    cpuStr[7] = '0';
+                } else if (cpuPercent >= 10) {
+                    cpuStr[5] = static_cast<char>('0' + cpuPercent / 10);
+                    cpuStr[6] = static_cast<char>('0' + cpuPercent % 10);
+                } else {
+                    cpuStr[5] = static_cast<char>('0' + cpuPercent);
+                }
+                cpuStr[7] = '%';
+                cpuStr[8] = '\0';
 
                 debugUpdateCounter = 0;
                 debugAccumulatedMs = 0;

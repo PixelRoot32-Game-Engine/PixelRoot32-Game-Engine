@@ -89,7 +89,7 @@ void TileAnimationManager::step() {
         
         // Update all tiles in this animation
         for (uint8_t frame = 0; frame < anim.frameCount; frame++) {
-            uint8_t tileIdx = anim.baseTileIndex + frame;
+            uint16_t tileIdx = static_cast<uint16_t>(anim.baseTileIndex) + frame;
             if (tileIdx < tileCount && tileIdx < MAX_TILESET_SIZE) {
                 lookupTable[tileIdx] = currentTileIndex;
             }

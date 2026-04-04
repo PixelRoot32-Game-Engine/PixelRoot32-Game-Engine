@@ -8,6 +8,10 @@
 #include "core/PhysicsActor.h"
 #include "math/MathUtil.h"
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 namespace pixelroot32::physics {
 
     namespace core = pixelroot32::core;
@@ -45,7 +49,7 @@ namespace pixelroot32::physics {
         staticDirty = true;
     }
 
-    int SpatialGrid::getCellIndex(Scalar x, Scalar y) const {
+    int IRAM_ATTR SpatialGrid::getCellIndex(Scalar x, Scalar y) const {
         int ix = static_cast<int>(x) / kCellSize;
         int iy = static_cast<int>(y) / kCellSize;
         int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
@@ -57,12 +61,13 @@ namespace pixelroot32::physics {
         return iy * cols + ix;
     }
 
-    void SpatialGrid::rebuildStaticIfNeeded(const std::vector<Entity*>& entities) {
+    void SpatialGrid::rebuildStaticIfNeeded(Entity* const* entities, uint16_t entityCount) {
         if (!staticDirty) return;
         for (int i = 0; i < kMaxCells; ++i) {
             staticCellCounts[i] = 0;
         }
-        for (Entity* e : entities) {
+        for (uint16_t i = 0; i < entityCount; ++i) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
             if (!actor->isPhysicsBody()) continue;
@@ -93,7 +98,7 @@ namespace pixelroot32::physics {
         staticDirty = false;
     }
 
-    void SpatialGrid::insertDynamic(Actor* actor) {
+    void IRAM_ATTR SpatialGrid::insertDynamic(Actor* actor) {
         Rect rect = actor->getHitBox();
         int minCol = static_cast<int>(rect.position.x) / kCellSize;
         int minRow = static_cast<int>(rect.position.y) / kCellSize;
@@ -116,7 +121,7 @@ namespace pixelroot32::physics {
         }
     }
 
-    void SpatialGrid::getPotentialColliders(Actor* actor, Actor** outArray, int& count, int maxCount) {
+    void IRAM_ATTR SpatialGrid::getPotentialColliders(Actor* actor, Actor** outArray, int& count, int maxCount) {
         Rect rect = actor->getHitBox();
         int minCol = static_cast<int>(rect.position.x) / kCellSize;
         int minRow = static_cast<int>(rect.position.y) / kCellSize;

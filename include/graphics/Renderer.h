@@ -18,6 +18,8 @@
 #include "Color.h"
 #include "Font.h"
 #include "TileAnimation.h"
+#include "TileCache.h"
+#include "ChunkManager.h"
 
 #include <memory>
 #include <string_view>
@@ -1011,27 +1013,38 @@ public:
         return offsetBypass;
     }
 
+#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
+    // Tile caching methods
+    bool initTileCache(size_t capacity = PIXELROOT32_TILE_CACHE_SIZE);
+    TileCache& getTileCache() { return tileCache; }
+
+    // Chunk management methods
+    void initChunkManager(uint8_t mapWidth, uint8_t mapHeight, uint8_t tileWidth, uint8_t tileHeight);
+    ChunkManager& getChunkManager() { return chunkManager; }
+    size_t updateVisibleChunks(int viewportX, int viewportY, int viewportW, int viewportH);
+#endif
+
 private:
-    std::unique_ptr<DrawSurface> drawer; ///< Pointer to the platform-specific implementation.
-
+    std::unique_ptr<DrawSurface> drawer;
     DisplayConfig config;
-
-    int logicalWidth = 240;  ///< Logical rendering width (used for clipping)
-    int logicalHeight = 240; ///< Logical rendering height (used for clipping)
-
+    int logicalWidth = 240;
+    int logicalHeight = 240;
     int xOffset = 0;
     int yOffset = 0;
+    bool offsetBypass = false;
 
-    bool offsetBypass = false; ///< When true, xOffset and yOffset are ignored
+#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
+    TileCache tileCache;
+    ChunkManager chunkManager;
+#endif
 
-    PaletteContext* currentRenderContext = nullptr; ///< Current render context for palette selection (nullptr = use method defaults)
+    PaletteContext* currentRenderContext = nullptr;
     
     // Sprite palette slot context for multi-palette sprites
-    static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF; ///< Sentinel value for inactive context
-    uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive; ///< Current sprite palette slot context (0xFF = inactive)
+    static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
+    uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive;
 
     void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
     void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
 };
-
 }

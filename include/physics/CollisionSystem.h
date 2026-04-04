@@ -11,6 +11,7 @@
 #include "physics/CollisionTypes.h"
 #include "physics/SpatialGrid.h"
 #include "math/Vector2.h"
+#include "math/Scalar.h"
 #include "core/Entity.h"
 #include "platforms/EngineConfig.h"
 
@@ -55,8 +56,8 @@ public:
     void solvePenetration();
     void triggerCallbacks();
 
-    size_t getEntityCount() const { return entities.size(); }
-    void clear() { entities.clear(); contactCount = 0; grid.clear(); }
+    size_t getEntityCount() const { return entityCount; }
+    void clear() { entityCount = 0; contactCount = 0; grid.clear(); }
 
     bool checkCollision(pixelroot32::core::Actor* actor, 
                        pixelroot32::core::Actor** outArray, 
@@ -78,13 +79,16 @@ private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
     static constexpr int kMaxContacts = pixelroot32::platforms::config::PhysicsMaxContacts;
     static constexpr int kVelocityIterations = pixelroot32::platforms::config::VelocityIterations;
+    static constexpr uint16_t kMaxEntities = pixelroot32::platforms::config::PhysicsMaxEntities;
 
     struct CollisionPair {
         pixelroot32::core::Actor* a;
         pixelroot32::core::Actor* b;
     };
 
-    std::vector<pixelroot32::core::Entity*> entities;
+    // Fixed-size array instead of std::vector (zero heap allocation)
+    pixelroot32::core::Entity* entities[kMaxEntities];
+    uint16_t entityCount = 0;
     Contact contacts[kMaxContacts];
     int contactCount = 0;
     SpatialGrid grid;

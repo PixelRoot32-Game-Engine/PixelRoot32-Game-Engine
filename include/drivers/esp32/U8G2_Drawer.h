@@ -58,6 +58,17 @@ public:
     // Getters
     U8G2* getU8g2() const { return _u8g2; }
 
+    // DrawSurface interface compliance (no optimization for monochromatic display)
+    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) override {
+        // Not supported - U8G2 is monochromatic, no benefit from tile-based rendering
+        (void)x; (void)y; (void)width; (void)height; (void)data;
+    }
+
+    uint8_t* getSpriteBuffer() override {
+        // Not supported - U8G2 uses different buffer model
+        return nullptr;
+    }
+
 private:
     U8G2* _u8g2;
     bool _ownsInstance;
