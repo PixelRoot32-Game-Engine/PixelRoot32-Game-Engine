@@ -116,7 +116,7 @@ void test_complete_touch_sequence_longpress(void) {
     // Should have: TouchDown, LongPress, (TouchUp later)
     bool hasLongPress = false;
     for (uint8_t i = 0; i < count; i++) {
-        if (events[i].type == TouchEventType::LongPress) {
+        if (events[i].getType() == TouchEventType::LongPress) {
             hasLongPress = true;
             break;
         }
@@ -185,8 +185,8 @@ void test_drag_sequence(void) {
     bool hasDragStart = false;
     bool hasDragEnd = false;
     for (uint8_t i = 0; i < count; i++) {
-        if (events[i].type == TouchEventType::DragStart) hasDragStart = true;
-        if (events[i].type == TouchEventType::DragEnd) hasDragEnd = true;
+        if (events[i].getType() == TouchEventType::DragStart) hasDragStart = true;
+        if (events[i].getType() == TouchEventType::DragEnd) hasDragEnd = true;
     }
     TEST_ASSERT_TRUE(hasDragStart);
     TEST_ASSERT_TRUE(hasDragEnd);

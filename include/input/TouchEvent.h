@@ -15,16 +15,17 @@ namespace pixelroot32::input {
 
 /**
  * @struct TouchEvent
- * @brief Compact touch event structure (12 bytes total, packed)
+ * @brief Compact touch event structure (12 bytes total, naturally aligned)
  * 
- * Memory layout (packed):
- * - type:    1 byte (offset 0)
- * - flags:   1 byte (offset 1)
- * - id:      1 byte (offset 2)
- * - x:       2 bytes (offset 4)
- * - y:       2 bytes (offset 6)
- * - timestamp: 4 bytes (offset 8)
- * Total: 12 bytes (with packing)
+ * Memory layout (naturally aligned, no packing needed):
+ * - timestamp: 4 bytes (offset 0)
+ * - x:         2 bytes (offset 4)
+ * - y:         2 bytes (offset 6)
+ * - type:      1 byte (offset 8)
+ * - flags:     1 byte (offset 9)
+ * - id:        1 byte (offset 10)
+ * - _padding:  1 byte (offset 11)
+ * Total: 12 bytes
  * 
  * Invariants:
  * - timestamp always monotonically increasing per touch ID
@@ -32,23 +33,25 @@ namespace pixelroot32::input {
  * - type always non-None when queued
  */
 struct TouchEvent {
-    TouchEventType type;      ///< Event type
-    TouchEventFlags flags;    ///< Event flags
-    uint8_t id;               ///< Touch ID (0-4)
+    uint32_t timestamp;       ///< Timestamp in milliseconds
     int16_t x;                ///< X coordinate
     int16_t y;                ///< Y coordinate
-    uint32_t timestamp;       ///< Timestamp in milliseconds
+    uint8_t type;             ///< Event type
+    uint8_t flags;            ///< Event flags
+    uint8_t id;               ///< Touch ID (0-4)
+    uint8_t _padding;         ///< Explicit padding for alignment
     
     /**
      * @brief Default constructor - creates empty event
      */
     TouchEvent()
-        : type(TouchEventType::None)
-        , flags(TouchEventFlags::None)
-        , id(0)
+        : timestamp(0)
         , x(0)
         , y(0)
-        , timestamp(0) {}
+        , type(0)
+        , flags(0)
+        , id(0)
+        , _padding(0) {}
     
     /**
      * @brief Construct touch event with all fields
@@ -61,19 +64,52 @@ struct TouchEvent {
      */
     TouchEvent(TouchEventType eventType, uint8_t touchId, int16_t xPos, int16_t yPos, 
                uint32_t ts, TouchEventFlags eventFlags = TouchEventFlags::None)
-        : type(eventType)
-        , flags(eventFlags)
-        , id(touchId)
+        : timestamp(ts)
         , x(xPos)
         , y(yPos)
-        , timestamp(ts) {}
+        , type(static_cast<uint8_t>(eventType))
+        , flags(static_cast<uint8_t>(eventFlags))
+        , id(touchId)
+        , _padding(0) {}
+    
+    /**
+     * @brief Get event type as enum
+     * @return Event type
+     */
+    TouchEventType getType() const {
+        return static_cast<TouchEventType>(type);
+    }
+    
+    /**
+     * @brief Get event flags as enum
+     * @return Event flags
+     */
+    TouchEventFlags getFlags() const {
+        return static_cast<TouchEventFlags>(flags);
+    }
+    
+    /**
+     * @brief Set event type from enum
+     * @param eventType Type of event
+     */
+    void setType(TouchEventType eventType) {
+        type = static_cast<uint8_t>(eventType);
+    }
+    
+    /**
+     * @brief Set event flags from enum
+     * @param eventFlags Event flags
+     */
+    void setFlags(TouchEventFlags eventFlags) {
+        flags = static_cast<uint8_t>(eventFlags);
+    }
     
     /**
      * @brief Check if event is valid (has a type)
      * @return true if type is not None
      */
     bool isValid() const {
-        return type != TouchEventType::None;
+        return static_cast<TouchEventType>(type) != TouchEventType::None;
     }
     
     /**
@@ -96,18 +132,16 @@ struct TouchEvent {
      * @brief Mark event as consumed
      */
     void consume() {
-        flags = static_cast<TouchEventFlags>(
-            static_cast<uint8_t>(flags) | static_cast<uint8_t>(TouchEventFlags::Consumed));
+        flags = static_cast<uint8_t>(flags) | static_cast<uint8_t>(TouchEventFlags::Consumed);
     }
     
     /**
      * @brief Set primary flag
      */
     void setPrimary() {
-        flags = static_cast<TouchEventFlags>(
-            static_cast<uint8_t>(flags) | static_cast<uint8_t>(TouchEventFlags::Primary));
+        flags = static_cast<uint8_t>(flags) | static_cast<uint8_t>(TouchEventFlags::Primary);
     }
-} __attribute__((packed));
+};
 
 /**
  * @brief Maximum number of events in the queue

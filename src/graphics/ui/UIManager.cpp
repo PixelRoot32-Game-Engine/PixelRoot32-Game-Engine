@@ -153,7 +153,7 @@ uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t
         }
 
         if (capturedWidget != nullptr) {
-            const auto evtType = event.type;
+            const auto evtType = event.getType();
 
             if (evtType == pixelroot32::input::TouchEventType::DragMove ||
                 evtType == pixelroot32::input::TouchEventType::DragEnd ||
@@ -196,7 +196,7 @@ uint8_t UIManager::processEvents(pixelroot32::input::TouchEvent* events, uint8_t
             const bool eventConsumed = hit->processEvent(event);
             UITouchWidget& widgetData = hit->getWidgetData();
 
-            if (event.type == pixelroot32::input::TouchEventType::TouchDown) {
+            if (event.getType() == pixelroot32::input::TouchEventType::TouchDown) {
                 capturedWidget = &widgetData;
             }
 

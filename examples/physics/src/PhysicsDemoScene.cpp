@@ -290,7 +290,7 @@ void PhysicsDemoScene::processTouchEvents(TouchEvent* events, uint8_t count) {
     if (events != nullptr) {
         using T = TouchEventType;
         for (uint8_t i = 0; i < count; ++i) {
-            const auto ty = events[i].type;
+            const auto ty = static_cast<TouchEventType>(events[i].type);
             if (ty == T::TouchUp || ty == T::DragEnd) {
                 gTouchDebugOverlay.active = false;
             } else if (ty == T::TouchDown || ty == T::DragStart || ty == T::DragMove) {

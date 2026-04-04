@@ -89,9 +89,9 @@ bool UITouchSlider::processEvent(const TouchEvent& event) {
     }
     
     // Only process touch down/move/up events
-    if (event.type != TouchEventType::TouchDown &&
-        event.type != TouchEventType::DragMove &&
-        event.type != TouchEventType::TouchUp) {
+    if (event.getType() != TouchEventType::TouchDown &&
+        event.getType() != TouchEventType::DragMove &&
+        event.getType() != TouchEventType::TouchUp) {
         return false;
     }
     
@@ -108,7 +108,7 @@ bool UITouchSlider::processEvent(const TouchEvent& event) {
         return false;
     }
     
-    switch (event.type) {
+    switch (event.getType()) {
         case TouchEventType::TouchDown:
             return handleTouchDown(event);
             

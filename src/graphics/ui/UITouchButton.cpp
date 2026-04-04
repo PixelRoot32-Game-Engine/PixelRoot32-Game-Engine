@@ -77,9 +77,9 @@ bool UITouchButton::processEvent(const pixelroot32::input::TouchEvent& event) {
     }
     
     // Only process touch events
-    if (event.type != TouchEventType::TouchDown &&
-        event.type != TouchEventType::TouchUp &&
-        event.type != TouchEventType::Click) {
+    if (event.getType() != TouchEventType::TouchDown &&
+        event.getType() != TouchEventType::TouchUp &&
+        event.getType() != TouchEventType::Click) {
         return false;
     }
     
@@ -93,7 +93,7 @@ bool UITouchButton::processEvent(const pixelroot32::input::TouchEvent& event) {
         return false;
     }
     
-    switch (event.type) {
+    switch (event.getType()) {
         case pixelroot32::input::TouchEventType::TouchDown:
             handleTouchDown(event);
             return true;

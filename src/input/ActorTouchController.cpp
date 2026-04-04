@@ -87,7 +87,7 @@ bool ActorTouchController::unregisterActor(pixelroot32::core::Actor* actor) {
 }
 
 void ActorTouchController::handleTouch(const TouchEvent& event) {
-    switch (event.type) {
+    switch (event.getType()) {
         case TouchEventType::TouchDown:
             onTouchDown(event);
             break;

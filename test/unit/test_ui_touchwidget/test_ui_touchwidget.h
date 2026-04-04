@@ -133,7 +133,7 @@ void test_uitouch_button_process_event_disabled() {
     button.setWidgetEnabled(false);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 50;
     event.y = 30;
     
@@ -147,7 +147,7 @@ void test_uitouch_button_process_event_outside_bounds() {
     button.setWidgetEnabled(true);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 200;
     event.y = 30;
     
@@ -161,7 +161,7 @@ void test_uitouch_button_process_event_inside_bounds() {
     button.setWidgetEnabled(true);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 50;
     event.y = 30;
     
@@ -298,7 +298,7 @@ void test_uitouch_checkbox_process_event_disabled() {
     checkbox.setWidgetEnabled(false);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 50;
     event.y = 30;
     
@@ -312,7 +312,7 @@ void test_uitouch_checkbox_process_event_outside_bounds() {
     checkbox.setWidgetEnabled(true);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 200;
     event.y = 200;
     
@@ -326,7 +326,7 @@ void test_uitouch_checkbox_process_event_inside_bounds() {
     checkbox.setWidgetEnabled(true);
     
     TouchEvent event{};
-    event.type = TouchEventType::TouchDown;
+    event.setType(TouchEventType::TouchDown);
     event.x = 50;
     event.y = 30;
     
@@ -341,7 +341,7 @@ void test_uitouch_checkbox_toggle_on_touch_up() {
     
     // Touch down
     TouchEvent downEvent{};
-    downEvent.type = TouchEventType::TouchDown;
+    downEvent.setType(TouchEventType::TouchDown);
     downEvent.x = 50;
     downEvent.y = 30;
     checkbox.processEvent(downEvent);
@@ -350,7 +350,7 @@ void test_uitouch_checkbox_toggle_on_touch_up() {
     
     // Touch up - should toggle
     TouchEvent upEvent{};
-    upEvent.type = TouchEventType::TouchUp;
+    upEvent.setType(TouchEventType::TouchUp);
     upEvent.x = 50;
     upEvent.y = 30;
     checkbox.processEvent(upEvent);

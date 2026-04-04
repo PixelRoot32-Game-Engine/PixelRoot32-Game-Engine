@@ -45,7 +45,7 @@ void test_idle_to_pressed_on_touch_down(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::TouchDown, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::TouchDown, event.getType());
     TEST_ASSERT_EQUAL(0, event.id);
     TEST_ASSERT_EQUAL(100, event.x);
     TEST_ASSERT_EQUAL(200, event.y);
@@ -75,8 +75,8 @@ void test_pressed_to_idle_generates_click(void) {
     TouchEvent events[2];
     queue.getEvents(events, 2);
     
-    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, events[0].type);
-    TEST_ASSERT_EQUAL(TouchEventType::Click, events[1].type);
+    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, events[0].getType());
+    TEST_ASSERT_EQUAL(TouchEventType::Click, events[1].getType());
 }
 
 // ============================================================================
@@ -100,7 +100,7 @@ void test_longpress_detection(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::LongPress, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::LongPress, event.getType());
 }
 
 // ============================================================================
@@ -128,7 +128,7 @@ void test_longpress_to_idle_on_release(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, event.getType());
 }
 
 // ============================================================================
@@ -152,7 +152,7 @@ void test_dragstart_detection(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::DragStart, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::DragStart, event.getType());
 }
 
 // ============================================================================
@@ -180,7 +180,7 @@ void test_dragend_on_release(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::DragEnd, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::DragEnd, event.getType());
 }
 
 // ============================================================================
@@ -208,7 +208,7 @@ void test_doubleclick_detection(void) {
     // Find Click or DoubleClick
     bool hasDoubleClick = false;
     for (uint8_t i = 0; i < count; i++) {
-        if (events[i].type == TouchEventType::DoubleClick) {
+        if (events[i].getType() == TouchEventType::DoubleClick) {
             hasDoubleClick = true;
             break;
         }
@@ -336,7 +336,7 @@ void test_dragmove_events(void) {
     
     bool hasDragMove = false;
     for (uint8_t i = 0; i < count; i++) {
-        if (events[i].type == TouchEventType::DragMove) {
+        if (events[i].getType() == TouchEventType::DragMove) {
             hasDragMove = true;
             break;
         }
@@ -362,7 +362,7 @@ void test_click_too_long_no_click(void) {
     TEST_ASSERT_EQUAL(1, queue.getCount());
     TouchEvent event;
     queue.dequeue(event);
-    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, event.type);
+    TEST_ASSERT_EQUAL(TouchEventType::TouchUp, event.getType());
     
     // State should be idle
     TEST_ASSERT_EQUAL(TouchState::Idle, sm.getState(0));

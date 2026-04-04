@@ -78,8 +78,8 @@ bool UITouchCheckbox::processEvent(const pixelroot32::input::TouchEvent& event) 
     }
     
     // Only process touch events (ignore drag events)
-    if (event.type != TouchEventType::TouchDown &&
-        event.type != TouchEventType::TouchUp) {
+    if (event.getType() != TouchEventType::TouchDown &&
+        event.getType() != TouchEventType::TouchUp) {
         return false;
     }
     
@@ -93,7 +93,7 @@ bool UITouchCheckbox::processEvent(const pixelroot32::input::TouchEvent& event) 
         return false;
     }
     
-    switch (event.type) {
+    switch (event.getType()) {
         case pixelroot32::input::TouchEventType::TouchDown:
             handleTouchDown(event);
             return true;
