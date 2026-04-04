@@ -93,6 +93,14 @@ namespace pixelroot32::graphics::particles {
             Particle& p = particles[i];
             if (!p.active) continue;
 
+            // Early culling: skip physics calculation if particle is already out of bounds
+            // This avoids unnecessary math for particles that will be deactivated anyway
+            if (p.position.x < -2 || p.position.x > screenW + 2 || 
+                p.position.y < -2 || p.position.y > screenH + 2) {
+                p.active = false;
+                continue;
+            }
+
             p.position += p.velocity;
 
             p.velocity.y += config.gravity;
@@ -118,11 +126,22 @@ namespace pixelroot32::graphics::particles {
     }
 
     void ParticleEmitter::draw(Renderer& renderer) {
+        int screenW = renderer.getLogicalWidth();
+        int screenH = renderer.getLogicalHeight();
+
         for (int i = 0; i < maxParticles; i++) {
             Particle& p = particles[i]; 
             if (!p.active) continue;
             
-            renderer.drawFilledRectangleW(static_cast<int>(p.position.x), static_cast<int>(p.position.y), 2, 2, p.color);
+            int px = static_cast<int>(p.position.x);
+            int py = static_cast<int>(p.position.y);
+
+            // Culling: skip particles outside viewport (with 2px margin for 2x2 particles)
+            if (px < -2 || px >= screenW || py < -2 || py >= screenH) {
+                continue;
+            }
+            
+            renderer.drawFilledRectangleW(px, py, 2, 2, p.color);
         }
     }
 
