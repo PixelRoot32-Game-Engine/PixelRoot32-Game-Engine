@@ -23,10 +23,6 @@ namespace pixelroot32::graphics::ui {
     * Can trigger a callback function when pressed.
     */
 class UIButton : public UIElement {
-public:
-    // Callback function type (no std::function for memory efficiency)
-    using ButtonCallback = void(*)();
-
 private:
     std::string_view label;
     Color textColor;

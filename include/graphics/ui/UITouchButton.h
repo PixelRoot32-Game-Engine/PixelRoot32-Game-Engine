@@ -32,10 +32,7 @@ namespace pixelroot32::graphics::ui {
  * Events: OnDown, OnUp, OnClick
  */
 class UITouchButton : public UITouchElement {
-public:
-    // Callback function types (no std::function for memory efficiency)
-    using ButtonCallback = void(*)();
-    
+public:    
     /**
      * @brief Construct a new UITouchButton (new normalized constructor)
      * @param t Button label
@@ -191,7 +188,13 @@ public:
      * @brief Reset button state
      */
     void reset();
-    
+
+    /**
+     * @brief Auto-size button width to fit the current label
+     * @param padding Extra pixels to add around text (default: 4)
+     */
+    void autoSize(uint8_t padding = 4);
+
 private:
     ButtonCallback onDownCallback = nullptr;     ///< Called when touch goes down on button
     ButtonCallback onUpCallback = nullptr;       ///< Called when touch goes up on button

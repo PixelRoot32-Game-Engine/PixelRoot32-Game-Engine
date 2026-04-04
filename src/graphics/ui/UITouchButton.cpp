@@ -144,6 +144,21 @@ void UITouchButton::reset() {
     clearActive();
 }
 
+void UITouchButton::autoSize(uint8_t padding) {
+    if (label.empty()) {
+        return;
+    }
+
+    // Calculate text width using FontManager
+    int16_t textWidth = FontManager::textWidth(nullptr, label, fontSize);
+
+    // Set button width to fit text plus padding
+    width = static_cast<uint16_t>(textWidth + padding);
+
+    // Sync with widget data
+    widgetData_.width = width;
+}
+
 void UITouchButton::handleTouchDown(const TouchEvent& event) {
     widgetData_.state = UIWidgetState::Pressed;
     setActive();

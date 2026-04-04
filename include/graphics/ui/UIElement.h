@@ -40,6 +40,9 @@ public:
         CHECKBOX,
         LAYOUT
     };
+
+    // Callback function types (no std::function for memory efficiency)
+    using ButtonCallback = void(*)();
     
 protected:
     UIElementType type;
