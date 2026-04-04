@@ -59,6 +59,27 @@ public:
     void drawPixel(int x, int y, uint16_t color) override;
 
     /**
+     * @brief Direct tile write to sprite buffer (optimized for tilemap rendering).
+     * 
+     * Writes tile data directly to the 8bpp sprite buffer without function call overhead.
+     * This is significantly faster than calling drawPixel() for each pixel.
+     * 
+     * @param x Tile X position in sprite coordinates
+     * @param y Tile Y position in sprite coordinates
+     * @param width Tile width in pixels
+     * @param height Tile height in pixels
+     * @param data Pointer to 8bpp tile data (one byte per pixel, index into palette)
+     */
+    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data);
+
+    /**
+     * @brief Get pointer to sprite buffer for direct manipulation.
+     * 
+     * @return Pointer to 8bpp sprite buffer, or nullptr if sprite not created
+     */
+    uint8_t* getSpriteBuffer();
+
+    /**
      * @brief Processes system events. Always true for embedded.
      */
     bool processEvents() override;

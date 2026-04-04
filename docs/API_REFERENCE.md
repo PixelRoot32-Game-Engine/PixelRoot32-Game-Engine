@@ -40,6 +40,7 @@ This document provides a complete reference for the PixelRoot32 Game Engine publ
   - [Tile Attribute System](#tile-attribute-system)
   - [Particle System](#particle-system)
   - [Renderer](#renderer)
+  - [BaseDrawSurface](#basedrawsurface)
   - [Camera2D](#camera2d)
   - [Color](#color)
   - [Font System](#font-system)
@@ -104,6 +105,10 @@ For detailed platform-specific capabilities and limitations, see [Platform Compa
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing in Engine (mouse-to-touch on Native, touch point injection on ESP32). | `0` (disabled) |
+| `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Enable tilemap optimizations (TileCache, ChunkManager, DirtyTileTracker). | `1` |
+| `PIXELROOT32_TILE_CACHE_SIZE` | LRU cache size for pre-rendered tiles. | `16` |
+| `PIXELROOT32_DIRTY_TRACKER_SIZE` | Number of tiles to track for animation changes. | `256` |
+| `PIXELROOT32_CHUNK_SIZE` | Chunk size for viewport culling (tiles per chunk). | `8` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 
 **Memory savings by subsystem (approximate):**
@@ -540,20 +545,21 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
 
 - **`TouchEventDispatcher& getTouchDispatcher()`**
     Provides access to the touch system for injecting touch points. Use this on ESP32 to connect TouchManager with Engine's touch processing pipeline.
-    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
+  - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
 
 - **`bool hasTouchEvents() const`**
     Returns true if there are pending touch events in the queue.
-    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
+  - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
 
 - **`void setTouchManager(pixelroot32::input::TouchManager* touchManager)`**
     Registers a TouchManager instance for automatic touch processing on ESP32. When set, Engine automatically:
-    - Polls `touchManager.getTouchPoints()` each frame
-    - Detects touch releases (when count goes from >0 to 0)
-    - Processes touch events through the internal TouchEventDispatcher
-    - Sends gesture events to the current scene via `Scene::processTouchEvents()`
-    
+  - Polls `touchManager.getTouchPoints()` each frame
+  - Detects touch releases (when count goes from >0 to 0)
+  - Processes touch events through the internal TouchEventDispatcher
+  - Sends gesture events to the current scene via `Scene::processTouchEvents()`
+
     Usage (ESP32):
+
     ```cpp
     touchManager.init();
     engine.setTouchManager(&touchManager);  // 1 línea
@@ -563,7 +569,8 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
         engine.run();  // Engine maneja todo automáticamente
     }
     ```
-    - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
+
+  - **Note**: Only available if `PIXELROOT32_ENABLE_TOUCH=1`
 
 - **`AudioEngine& getAudioEngine()`**
     Provides access to the AudioEngine subsystem.
@@ -3075,6 +3082,88 @@ foregroundAnimManager.step();
 
 ---
 
+### Tilemap Optimization System
+
+The tilemap optimization system provides multiple strategies for improving tilemap rendering performance on ESP32. All optimizations are controlled by compile-time flags defined in `EngineConfig.h`.
+
+#### Overview
+
+When `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION=1` (default), the following optimizations are available:
+
+| Component | File | Description |
+|-----------|------|-------------|
+| `TileCache` | `graphics/TileCache.h` | LRU cache for pre-rendered tiles |
+| `ChunkManager` | `graphics/ChunkManager.h` | Chunk-based viewport culling |
+| `DirtyTileTracker` | `graphics/TileAnimation.h` | Animation change tracking |
+| `drawTileDirect()` | `graphics/DrawSurface.h` | Direct buffer write (ESP32 only) |
+
+#### Compile-Time Flags
+
+```cpp
+// In EngineConfig.h or platformio.ini
+PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION  // 1 = enabled (default)
+PIXELROOT32_TILE_CACHE_SIZE              // Default: 16 tiles
+PIXELROOT32_DIRTY_TRACKER_SIZE           // Default: 256 tiles
+PIXELROOT32_CHUNK_SIZE                   // Default: 8 tiles per chunk
+```
+
+#### Components
+
+**TileCache** - LRU cache for pre-rendered tiles:
+
+- Reduces repeated rendering of identical tiles
+- Uses fixed-size array for zero heap allocation
+- Default: 16 tiles × 128 bytes = 2KB
+
+**ChunkManager** - Viewport culling:
+
+- Divides tilemap into 8×8 tile chunks
+- Only visible chunks are rendered
+- Significantly reduces draw calls for large tilemaps
+
+**DirtyTileTracker** - Animation change tracking:
+
+- Bitmap-based (1 bit per tile)
+- Skips tiles that haven't changed animation frame
+- Default: 256 tiles = 32 bytes
+
+**drawTileDirect()** - Direct buffer write:
+
+- Writes tile data directly to sprite buffer (8bpp)
+- Uses `memcpy` instead of pixel-by-pixel drawing
+- Currently available only for TFT_eSPI driver
+- **Note**: Has palette compatibility limitations with custom palettes
+- Signature: `virtual void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data)`
+
+**getSpriteBuffer()** - Get direct buffer access:
+
+- Returns pointer to the 8bpp sprite buffer for direct manipulation
+- Available only for drivers that support it (TFT_eSPI)
+- Returns `nullptr` if not supported
+- Signature: `virtual uint8_t* getSpriteBuffer()`
+
+#### Performance Notes
+
+| Configuration | FPS (ESP32 @ 240x240) |
+|--------------|---------------------|
+| Baseline (no optimizations) | ~16 FPS |
+| With tilemap optimizations | ~16 FPS |
+| Direct buffer (experimental) | ~27 FPS (colors require fix) |
+
+**Current Limitation**: The main bottleneck is the DMA transfer from sprite buffer to display, not the rendering itself. Direct buffer access achieves higher FPS but has palette compatibility issues.
+
+#### Usage Example
+
+```cpp
+// Initialize optimizations in Scene::init()
+#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
+renderer.initTileCache(16);  // Optional: customize cache size
+renderer.initChunkManager(map.width, map.height, 8, 8);
+#endif
+```
+
+---
+
 ### Tile Attribute System
 
 The tile attribute system provides runtime access to custom metadata attached to tiles in tilemaps. Attributes are defined in the PixelRoot32 Tilemap Editor and exported as PROGMEM structures optimized for ESP32.
@@ -3623,6 +3712,119 @@ Abstract interface for platform-specific drawing operations. Implementations of 
 
 - **`virtual void present()`**
     Swaps buffers (for double-buffered systems like SDL).
+
+---
+
+### BaseDrawSurface
+
+**Inherits:** [DrawSurface](#drawsurface)
+
+Optional base class for `DrawSurface` implementations that provides default primitive rendering. Users can inherit from this class to avoid implementing every single primitive. At minimum, a subclass should implement: `init()`, `drawPixel()`, `sendBuffer()`, `clearBuffer()`.
+
+#### State Management Defaults
+
+- **`virtual void setTextColor(uint16_t color)`**
+    Sets the text color.
+
+- **`virtual void setTextSize(uint8_t size)`**
+    Sets the text size multiplier.
+
+- **`virtual void setCursor(int16_t x, int16_t y)`**
+    Sets the text cursor position.
+
+- **`virtual void setContrast(uint8_t level)`**
+    Sets the display contrast/brightness (0-255).
+
+- **`virtual void setRotation(uint16_t rot)`**
+    Sets the display rotation (0-3 or degrees).
+
+#### Size Management Defaults
+
+- **`virtual void setDisplaySize(int w, int h)`**
+    Sets the logical display size (rendering resolution).
+
+- **`virtual void setPhysicalSize(int w, int h)`**
+    Sets the physical display size (for scaling).
+
+- **`virtual void setOffset(int x, int y)`**
+    Sets the display offset.
+
+- **`virtual void present()`**
+    Calls `sendBuffer()` by default (for double-buffered systems).
+
+#### Color Conversion
+
+- **`virtual uint16_t color565(uint8_t r, uint8_t g, uint8_t b)`**
+    Converts RGB888 to RGB565 format. Default implementation:
+    ```cpp
+    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+    ```
+
+#### Default Primitive Implementations
+
+The following methods are implemented using `drawPixel()` - slow but functional. Override them in subclasses for hardware-accelerated rendering:
+
+- **`virtual void drawLine(int x1, int y1, int x2, int y2, uint16_t color)`**
+    Draws a line using Bresenham's algorithm.
+
+- **`virtual void drawRectangle(int x, int y, int w, int h, uint16_t color)`**
+    Draws a rectangle outline.
+
+- **`virtual void drawFilledRectangle(int x, int y, int w, int h, uint16_t color)`**
+    Draws a filled rectangle.
+
+- **`virtual void drawCircle(int x0, int y0, int r, uint16_t color)`**
+    Draws a circle outline using midpoint circle algorithm.
+
+- **`virtual void drawFilledCircle(int x0, int y0, int r, uint16_t color)`**
+    Draws a filled circle.
+
+- **`virtual void drawBitmap(int x, int y, int w, int h, const uint8_t* bitmap, uint16_t color)`**
+    Draws a bitmap image (1bpp).
+
+#### Protected Members
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `textColor` | `uint16_t` | Current text color (default: 0xFFFF) |
+| `textSize` | `uint8_t` | Text size multiplier (default: 1) |
+| `cursorX`, `cursorY` | `int16_t` | Text cursor position |
+| `contrast` | `uint8_t` | Display contrast (default: 255) |
+| `rotation` | `uint16_t` | Display rotation (default: 0) |
+| `logicalWidth`, `logicalHeight` | `int` | Rendering resolution (default: 240×240) |
+| `physicalWidth`, `physicalHeight` | `int` | Hardware resolution (default: 240×240) |
+| `xOffset`, `yOffset` | `int` | Display offset (default: 0) |
+
+#### Usage Example
+
+```cpp
+#include <graphics/BaseDrawSurface.h>
+
+class MyCustomDriver : public pixelroot32::graphics::BaseDrawSurface {
+public:
+    void init() override {
+        // Initialize hardware
+        setDisplaySize(240, 240);
+    }
+    
+    void drawPixel(int x, int y, uint16_t color) override {
+        // Implement hardware-specific pixel drawing
+    }
+    
+    void sendBuffer() override {
+        // Push buffer to display
+    }
+    
+    void clearBuffer() override {
+        // Fill with background color
+    }
+    
+    // All other methods (drawLine, drawCircle, etc.) 
+    // are provided by BaseDrawSurface using drawPixel()
+};
+```
+
+> **Note**: For better performance, override the primitive methods (`drawLine`, `drawFilledRectangle`, etc.) with hardware-accelerated versions if your display supports them.
 
 ---
 

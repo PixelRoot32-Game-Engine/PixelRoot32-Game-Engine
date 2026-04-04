@@ -28,7 +28,7 @@ Understanding the engine's memory limits is crucial for developing stable games 
 | **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Legacy single-grid capacity |
 | **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
 | **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
-| **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
+| **Velocity Iterations** | 2 | ✅ via `PIXELROOT32_VELOCITY_ITERATIONS` | Physics solver iterations |
 
 **Modular Compilation Impact:**
 

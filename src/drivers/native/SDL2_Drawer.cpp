@@ -287,4 +287,18 @@ void pr32::drivers::native::SDL2_Drawer::drawPixel(int x, int y, uint16_t color)
     setPixel(x, y, color);
 }
 
+void pr32::drivers::native::SDL2_Drawer::drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) {
+    // Not optimized for SDL2 - fall back to pixel-by-pixel
+    if (!data) return;
+    
+    for (uint16_t row = 0; row < height; row++) {
+        for (uint16_t col = 0; col < width; col++) {
+            uint8_t colorIndex = data[row * width + col];
+            if (colorIndex != 0) {  // Skip transparent pixels
+                setPixel(x + col, y + row, pixels[colorIndex]);  // Use palette
+            }
+        }
+    }
+}
+
 #endif // PLATFORM_NATIVE

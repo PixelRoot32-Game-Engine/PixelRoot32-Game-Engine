@@ -46,6 +46,18 @@ public:
     void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color) override;
     void drawPixel(int x, int y, uint16_t color) override;
 
+    /**
+     * @brief Direct tile write (not optimized for SDL2 - uses fallback).
+     */
+    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) override;
+
+    /**
+     * @brief Get pointer to sprite buffer (not supported in SDL2).
+     */
+    uint8_t* getSpriteBuffer() override {
+        return nullptr;
+    }
+
     bool processEvents() override;
     
     /**

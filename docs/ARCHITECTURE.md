@@ -237,6 +237,7 @@ namespace pixelroot32::core::logging {
 ```
 
 **Platform Output**:
+
 - ESP32: Routes to `Serial.print()`
 - Native: Routes to `printf()` with `fflush(stdout)`
 
@@ -334,6 +335,7 @@ class Renderer {
 **Touch input (parallel to buttons)**
 
 When `PIXELROOT32_ENABLE_TOUCH=1`, `InputManager` includes a `TouchEventDispatcher` that:
+
 - On **Native**: Receives SDL mouse events via `processSDLEvent()`, converts them to touch events with coordinate mapping
 - On **ESP32**: Accepts injected touch points via `injectTouchPoint()` from external touch drivers
 
@@ -523,11 +525,13 @@ TileAnimation[ ] (PROGMEM)  →  TileAnimationManager  →  lookupTable[256] (RA
 ```
 
 **TileAnimation struct** (4 bytes per animation, PROGMEM):
+
 - `baseTileIndex`: First tile in sequence
 - `frameCount`: Number of frames
 - `frameDuration`: Ticks per frame
 
 **TileAnimationManager**:
+
 - `lookupTable[MAX_TILESET_SIZE]`: Maps tile index → current animated frame (O(1))
 - `step()`: Advances global timer, updates lookup table (O(animations × frameCount))
 - `resolveFrame(tileIndex)`: O(1) array lookup, marked `IRAM_ATTR`
@@ -593,6 +597,85 @@ The tile attribute system provides two paths:
 - `Fixed16`: 16.16 fixed-point implementation.
 - `MathUtil`: Mathematical helper functions (abs, min, max, sqrt, etc.) compatible with `Scalar`.
 
+#### 3.4.11 Tilemap Optimization System
+
+**Files**:
+
+- `include/graphics/TileCache.h`
+- `include/graphics/ChunkManager.h`
+- `include/graphics/TileAnimation.h` (DirtyTileTracker)
+- `include/graphics/DrawSurface.h` (drawTileDirect)
+- `include/drivers/esp32/TFT_eSPI_Drawer.h`
+
+**Responsibility**: Optimized tilemap rendering for ESP32 with multiple strategies.
+
+**Architecture**:
+
+```
+Tilemap Rendering Pipeline:
+┌─────────────────────────────────────────────────────────────┐
+│                    drawTileMap()                            │
+│  1. Viewport Culling (skip off-screen tiles)                │
+│  2. DirtyTileTracker (skip unchanged animated tiles)        │
+│  3. ChunkManager (batch visible chunks)                     │
+│  4. TileCache (LRU cache for pre-rendered tiles)            │
+│  5. drawSpriteInternal() with IRAM_ATTR                     │
+└─────────────────────────────────────────────────────────────┘
+        │
+        ▼ (optional fast path for ESP32)
+┌─────────────────────────────────────────────────────────────┐
+│              drawTileDirect() - Direct Buffer               │
+│  Writes tiles directly to sprite buffer (8bpp)              │
+│  Much faster than pixel-by-pixel drawPixel()                │
+│  Note: Requires compatible palette with TFT_eSPI            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Components**:
+
+1. **TileCache** - LRU cache for pre-rendered tiles
+   - Default: 16 tiles (128 bytes per tile at 8x8 16bpp)
+   - Reduces repeated rendering of same tiles
+   - Memory: `PIXELROOT32_TILE_CACHE_SIZE * 128` bytes
+
+2. **ChunkManager** - Viewport culling by chunks
+   - Divides tilemap into 8x8 tile chunks
+   - Only renders visible chunks
+   - Default chunk size: 8 tiles
+
+3. **DirtyTileTracker** - Animation change tracking
+   - Bitmap-based (1 bit per tile)
+   - Skips tiles that haven't changed animation frame
+   - Default: 256 tiles = 32 bytes
+
+4. **drawTileDirect()** - Direct buffer write (ESP32)
+   - Writes 8bpp tile data directly to sprite buffer
+   - Uses `memcpy` instead of pixel-by-pixel drawPixel()
+   - Currently limited by TFT_eSPI palette compatibility
+
+**Compile-Time Flags** (defined in `EngineConfig.h`):
+
+```cpp
+// Tilemap Optimization Flags
+PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION  // 1 = enabled, 0 = disabled
+PIXELROOT32_TILE_CACHE_SIZE             // Default: 16
+PIXELROOT32_DIRTY_TRACKER_SIZE          // Default: 256
+PIXELROOT32_CHUNK_SIZE                  // Default: 8
+```
+
+**Performance Notes**:
+
+- Viewport culling provides ~2-3x speedup for partial tilemaps
+- Direct buffer write (`drawTileDirect`) can achieve ~27 FPS but has palette compatibility issues with custom palettes
+- IRAM_ATTR on `drawSpriteInternal` ensures hot path stays in internal RAM
+- Pixel batching was tested but provided no improvement and was removed
+
+**Current FPS Performance** (ESP32 @ 240x240):
+
+- Baseline: ~16 FPS
+- With tilemap optimizations: ~16 FPS (limited by DMA transfer bottleneck)
+- Direct buffer (experimental): ~27 FPS (colors require fix)
+
 ---
 
 ### 3.5 LAYER 4: Scene Layer
@@ -616,6 +699,7 @@ When the touch flag is enabled, Engine provides:
 **Automatic Touch Processing (ESP32)**:
 
 When `setTouchManager()` is called, Engine internally:
+
 1. Polls `touchManager->getTouchPoints()` each frame
 2. Detects touch releases (when count goes from >0 to 0)
 3. Processes touch points through the internal `TouchEventDispatcher` to generate gesture events (TouchDown, TouchUp, Drag, etc.)
@@ -907,6 +991,10 @@ AudioBackend
 | `PIXELROOT32_ENABLE_2BPP_SPRITES` | 2bpp sprite support |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | 4bpp sprite support |
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Scene allocator |
+| `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Tilemap optimizations (default: 1) |
+| `PIXELROOT32_TILE_CACHE_SIZE` | Tile cache size (default: 16) |
+| `PIXELROOT32_DIRTY_TRACKER_SIZE` | Dirty tile tracker size (default: 256) |
+| `PIXELROOT32_CHUNK_SIZE` | Chunk size for viewport culling (default: 8) |
 | `PIXELROOT32_USE_U8G2_DRIVER` | U8G2 driver for OLEDs |
 | `PIXELROOT32_NO_TFT_ESPI` | Disable TFT_eSPI |
 
@@ -947,6 +1035,7 @@ AudioBackend
 - **Audio Latency**: < 50ms
 - **Memory Footprint**: < 100KB RAM for complete engine
 - **Sprite Capacity**: 100+ sprites @ 60fps (logical resolution 128x128)
+- **Tilemap Rendering**: ~16 FPS @ 240x240 (ESP32) - limited by DMA transfer bottleneck
 
 ---
 

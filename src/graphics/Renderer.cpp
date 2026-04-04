@@ -11,6 +11,7 @@
 #include "graphics/Renderer.h"
 #include "graphics/FontManager.h"
 #include "graphics/TileAnimation.h"
+#include "drivers/esp32/TFT_eSPI_Drawer.h"
 #include <stdarg.h>
 #include <cmath>
 #include <cstring>
@@ -362,12 +363,11 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
-            const int bitsPerPixel = 4;
-            const int rowStrideBytes = (sprite.width * bitsPerPixel + 7) / 8;
+            const int rowStrideBytes = (sprite.width * 4 + 7) / 8;
 
             int startX = offsetBypass ? x : xOffset + x;
             int startY = offsetBypass ? y : yOffset + y;
@@ -629,8 +629,9 @@ namespace pixelroot32::graphics {
                     : getBackgroundPaletteSlot(0);
                 
                 // Rebuild LUT only when tile palette or background palette slot changes
+                uint8_t paletteCount = 0;
                 if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
-                    uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
+                    paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
                     for (uint8_t i = 0; i < paletteCount; ++i) {
                         cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                     }
@@ -638,6 +639,7 @@ namespace pixelroot32::graphics {
                     lastBackgroundPalettePtr = palettePtr;
                 }
 
+                // Use original path - drawSpriteInternal handles custom palettes correctly
                 drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
             }
         }
@@ -654,85 +656,86 @@ namespace pixelroot32::graphics {
             map.tileWidth == 0 || map.tileHeight == 0 ||
             map.tileCount == 0) {
             return;
-        }
+            }
 
-        // Set background context automatically for tilemaps
-        PaletteContext bgContext = PaletteContext::Background;
-        PaletteContext* oldContext = currentRenderContext;
-        setRenderContext(&bgContext);
+            // Set background context automatically for tilemaps
+            PaletteContext bgContext = PaletteContext::Background;
+            PaletteContext* oldContext = currentRenderContext;
+            setRenderContext(&bgContext);
 
-        int viewOriginX = offsetBypass ? originX : xOffset + originX;
-        int viewOriginY = offsetBypass ? originY : yOffset + originY;
+            int viewOriginX = offsetBypass ? originX : xOffset + originX;
+            int viewOriginY = offsetBypass ? originY : yOffset + originY;
 
-        // Viewport Culling
-        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
-        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
-                     : map.width;
-        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
-        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
-                     : map.height;
+            // Viewport Culling
+            int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
+            int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
+                         ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
+                         : map.width;
+            int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
+            int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
+                         ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
+                         : map.height;
 
-        if (startCol < 0) startCol = 0;
-        if (endCol > map.width) endCol = map.width;
-        if (startRow < 0) startRow = 0;
-        if (endRow > map.height) endRow = map.height;
+            if (startCol < 0) startCol = 0;
+            if (endCol > map.width) endCol = map.width;
+            if (startRow < 0) startRow = 0;
+            if (endRow > map.height) endRow = map.height;
 
-        // Palette Caching (tile palette + background palette slot)
-        uint16_t cachedLUT[16];
-        const Color* lastTilePalettePtr = nullptr;
-        const uint16_t* lastBackgroundPalettePtr = nullptr;
+            // Palette Caching (tile palette + background palette slot)
+            uint16_t cachedLUT[16];
+            const Color* lastTilePalettePtr = nullptr;
+            const uint16_t* lastBackgroundPalettePtr = nullptr;
 
-        for (int ty = startRow; ty < endRow; ++ty) {
-            int baseY = originY + ty * map.tileHeight;
-            int rowIndexBase = ty * map.width;
+            for (int ty = startRow; ty < endRow; ++ty) {
+                int baseY = originY + ty * map.tileHeight;
+                int rowIndexBase = ty * map.width;
 
-            for (int tx = startCol; tx < endCol; ++tx) {
-                int baseX = originX + tx * map.tileWidth;
-                int cellIndex = rowIndexBase + tx;
-                uint8_t index = map.indices[cellIndex];
-                
-                // Resolve animation frame
-                if (map.animManager) {
-                    index = map.animManager->resolveFrame(index);
-                }
-                
-                // Optimized check: skip empty tile (index 0) and out of bounds
-                if (index == 0 || index >= map.tileCount) {
-                    continue;
-                }
-
-                // Check runtime mask if available - skip inactive tiles
-                if (map.runtimeMask) {
-                    if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                for (int tx = startCol; tx < endCol; ++tx) {
+                    int baseX = originX + tx * map.tileWidth;
+                    int cellIndex = rowIndexBase + tx;
+                    uint8_t index = map.indices[cellIndex];
+                    
+                    // Resolve animation frame
+                    if (map.animManager) {
+                        index = map.animManager->resolveFrame(index);
+                    }
+                    
+                    // Optimized check: skip empty tile (index 0) and out of bounds
+                    if (index == 0 || index >= map.tileCount) {
                         continue;
                     }
-                }
 
-                const Sprite4bpp& tile = map.tiles[index];
-
-                // Per-cell background palette: use paletteIndices if present, else slot 0
-                const uint16_t* palettePtr = (map.paletteIndices != nullptr)
-                    ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
-                    : getBackgroundPaletteSlot(0);
-                
-                // Rebuild LUT only when tile palette or background palette slot changes
-                if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
-                    uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
-                    for (uint8_t i = 0; i < paletteCount; ++i) {
-                        cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                    // Check runtime mask if available - skip inactive tiles
+                    if (map.runtimeMask) {
+                        if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                            continue;
+                        }
                     }
-                    lastTilePalettePtr = tile.palette;
-                    lastBackgroundPalettePtr = palettePtr;
+
+                    const Sprite4bpp& tile = map.tiles[index];
+
+                    // Per-cell background palette: use paletteIndices if present, else slot 0
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+                    
+                    // Rebuild LUT only when tile palette or background palette slot changes
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    // Use drawSpriteInternal - handles custom palettes correctly
+                    drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
                 }
-
-                drawSpriteInternal(tile, baseX, baseY, cachedLUT, false);
             }
-        }
 
-        // Restore context
-        setRenderContext(oldContext);
+            // Restore context
+            setRenderContext(oldContext);
         }
     }
 
@@ -743,4 +746,19 @@ namespace pixelroot32::graphics {
     uint8_t Renderer::getSpritePaletteSlotContext() const {
         return currentSpritePaletteSlot;
     }
+
+#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
+    bool Renderer::initTileCache(size_t capacity) {
+        return tileCache.init(capacity);
+    }
+
+    void Renderer::initChunkManager(uint8_t mapWidth, uint8_t mapHeight, uint8_t tileWidth, uint8_t tileHeight) {
+        chunkManager.init(mapWidth, mapHeight, tileWidth, tileHeight);
+    }
+
+    size_t Renderer::updateVisibleChunks(int viewportX, int viewportY, int viewportW, int viewportH) {
+        return chunkManager.update(viewportX, viewportY, viewportW, viewportH);
+    }
+#endif
+
 }

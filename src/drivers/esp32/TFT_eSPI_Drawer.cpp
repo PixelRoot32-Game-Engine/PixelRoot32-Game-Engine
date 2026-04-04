@@ -134,6 +134,39 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, ui
     spr.drawPixel(x, y, color);
 }
 
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) {
+    if (!data || x >= (uint16_t)logicalWidth || y >= (uint16_t)logicalHeight) {
+        return;
+    }
+    
+    // Get direct pointer to sprite buffer (8bpp)
+    uint8_t* buffer = (uint8_t*)spr.getPointer();
+    if (!buffer) {
+        return;
+    }
+    
+    // Clip to sprite bounds
+    uint16_t clippedW = width;
+    uint16_t clippedH = height;
+    
+    if (x + width > (uint16_t)logicalWidth) {
+        clippedW = logicalWidth - x;
+    }
+    if (y + height > (uint16_t)logicalHeight) {
+        clippedH = logicalHeight - y;
+    }
+    
+    // Copy tile data directly to sprite buffer (fast memcpy)
+    for (uint16_t row = 0; row < clippedH; row++) {
+        uint16_t destOffset = (y + row) * logicalWidth + x;
+        std::memcpy(&buffer[destOffset], data + row * width, clippedW);
+    }
+}
+
+uint8_t* pr32::drivers::esp32::TFT_eSPI_Drawer::getSpriteBuffer() {
+    return (uint8_t*)spr.getPointer();
+}
+
 // --------------------------------------------------
 // Scaling Functions
 // --------------------------------------------------

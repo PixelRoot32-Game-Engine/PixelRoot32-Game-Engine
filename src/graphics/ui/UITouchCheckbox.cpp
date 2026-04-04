@@ -161,7 +161,6 @@ void UITouchCheckbox::draw(Renderer& renderer) {
     // Get bounds from Entity (synced from widget in update())
     int16_t x = static_cast<int16_t>(position.x);
     int16_t y = static_cast<int16_t>(position.y);
-    uint16_t w = static_cast<uint16_t>(width);
     uint16_t h = static_cast<uint16_t>(height);
     
     // Calculate checkbox box size (square based on font height)
