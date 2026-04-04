@@ -24,7 +24,7 @@ The architecture documentation is organized into **layers** (hardware to game co
 | **Physics** | [Physics Subsystem](architecture/ARCH_PHYSICS_SUBSYSTEM.md) | Flat Solver, collisions, CCD (ex-PHYSICS_*) |
 | **Memory** | [Memory System](architecture/ARCH_MEMORY_SYSTEM.md) | Smart pointers, RAII, ESP32 DRAM (ex-MEMORY_*) |
 | **Resolution Scaling** | [Resolution Scaling](architecture/ARCH_RESOLUTION_SCALING.md) | Logical vs physical resolution (ex-RESOLUTION_*) |
-| **Tile Animation** | [Tile Animation](architecture/ARCH_TILE_ANIMATION.md) | Lookup tables, O(1) resolve (ex-TILE_ANIMATION_*) |
+| **Tile Animation** | [Tile Animation](architecture/ARCH_TILE_ANIMATION.md) | Lookup tables, O(1) resolve; see also static layer cache in [ESP32 rendering](#esp32-rendering-pipeline-and-tilemap-caching) (ex-TILE_ANIMATION_*) |
 | **Touch Input** | [Touch Input](architecture/ARCH_TOUCH_INPUT.md) | Pipeline, XPT2046, calibration (ex-TOUCH_INPUT) |
 | **Extensibility** | [Extending PixelRoot32](EXTENDING_PIXELROOT32.md) | Custom drivers, configuration |
 
@@ -119,8 +119,38 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
+| Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
 | Tilemap Optimization | `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Enabled |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
+
+---
+
+## ESP32 rendering pipeline and tilemap caching
+
+On ESP32 with **TFT_eSPI** (`TFT_eSPI_Drawer`), the logical framebuffer is typically an **8-bit color-depth sprite** (`TFT_eSprite`). Each frame:
+
+1. **`Renderer::beginFrame()`** obtains a pointer to that buffer via **`DrawSurface::getSpriteBuffer()`** (when the driver supports it), clears the buffer, then draws the scene.
+2. **2bpp / 4bpp tilemaps and sprites** can write **directly into that buffer** (matching TFT_eSPI’s 8bpp packing for RGB565), avoiding a virtual `drawPixel` per pixel where possible.
+3. **`present()` / `sendBuffer()`** converts logical 8bpp rows to **RGB565** using a LUT and pushes pixels to the panel via **DMA** (see [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md), [System Layer / Renderer](architecture/ARCH_LAYER_SYSTEMS.md)).
+
+### Static tilemap layer cache (engine + scenes)
+
+The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`include/graphics/StaticTilemapLayerCache.h`): a **4bpp tilemap** helper that, when **`getSpriteBuffer()`** is non-null, can snapshot the logical framebuffer after drawing a **static** group of **`TileMap4bppDrawSpec`** entries, then on subsequent frames **`memcpy`** that snapshot back and redraw only the **dynamic** group until the **camera sample** (`-getXOffset()`, `-getYOffset()`) changes or **`invalidate()`** runs.
+
+- **Allocation:** **`allocateForLogicalSize`** / **`allocateForRenderer`** in **`Scene::init()`** (about **W×H** bytes via `std::malloc`; not in `draw`/`update`).
+- **Opt-out:** build flag **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE=0`**, or **`setFramebufferCacheEnabled(false)`**.
+- **Reflection in config:** **`pixelroot32::platforms::config::EnableStaticTilemapFbCache`** (`EngineConfig.h`).
+
+**Example:** **`examples/animated_tilemap`** — **`AnimatedTilemapScene`** owns a **`StaticTilemapLayerCache`**, registers **background + ground** as **static** and **details** as **dynamic** (any split is possible via spec lists).
+
+**Game / scene developer contract**
+
+- Call **`invalidate()`** (or a scene wrapper like **`invalidateStaticLayerCache()`**) when something inside the **static** group changes visually, e.g. after **`TileAnimationManager::step()`** on a layer in that group, or when mutating **indices** / **palettes** / **`runtimeMask`** on those maps.
+- Layers in the **dynamic** group are drawn every frame on the fast path—no invalidation needed for **`step()`** on **dynamic-only** animators.
+- **Scroll:** cache rebuilds when the camera sample changes; no extra invalidation solely for scroll.
+- **`getSpriteBuffer() == nullptr`:** full redraw of all groups every frame; no snapshot used.
+
+For animation data flow and linking managers to tilemaps, see [Tile Animation](architecture/ARCH_TILE_ANIMATION.md). API surface: [API Reference — ESP32 graphics / tilemap cache](api/API_GRAPHICS.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache).
 
 ---
 

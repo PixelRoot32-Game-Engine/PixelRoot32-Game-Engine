@@ -8,10 +8,8 @@
 #include <graphics/Renderer.h>
 #include <graphics/Color.h>
 #include <graphics/TileAnimation.h>
+#include <graphics/StaticTilemapLayerCache.h>
 #include <platforms/EngineConfig.h>
-
-#include <vector>
-#include <memory>
 
 #include "assets/ColorPaletteManager.h"
 
@@ -39,11 +37,17 @@ namespace animatedtilemap {
 class AnimatedTilemapScene : public pixelroot32::core::Scene {
 public:
     AnimatedTilemapScene();
-    virtual ~AnimatedTilemapScene();
+    ~AnimatedTilemapScene() override = default;
 
     void init() override;
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
+
+    /**
+     * When background/ground tile animations or tile data change, call this so the
+     * static layer cache is rebuilt (required for correct visuals with the fast path).
+     */
+    void invalidateStaticLayerCache();
 
 protected:
     struct LevelMapData {
@@ -63,6 +67,8 @@ protected:
 private:
     void setupLevelData();
     void setupTilemapLayers();
+
+    pixelroot32::graphics::StaticTilemapLayerCache tilemapLayerCache;
 };
 
 /**
@@ -76,7 +82,7 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
 private:
-    std::unique_ptr<const pixelroot32::graphics::TileMap4bpp> tileMap;
+    const pixelroot32::graphics::TileMap4bpp* tileMap;
 };
 
 } // namespace animatedtilemap

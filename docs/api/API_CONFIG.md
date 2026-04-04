@@ -35,6 +35,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing in Engine (mouse-to-touch on Native, touch point injection on ESP32). | `0` (disabled) |
 | `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Enable tilemap optimizations (TileCache, ChunkManager, DirtyTileTracker). | `1` |
+| `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp direct logical framebuffer snapshot). Set `0` to save ~W×H RAM or force full redraw. | `1` (`PlatformDefaults.h`) |
 | `PIXELROOT32_TILE_CACHE_SIZE` | LRU cache size for pre-rendered tiles. | `16` |
 | `PIXELROOT32_DIRTY_TRACKER_SIZE` | Number of tiles to track for animation changes. | `256` |
 | `PIXELROOT32_CHUNK_SIZE` | Chunk size for viewport culling (tiles per chunk). | `8` |

@@ -27,6 +27,14 @@ namespace pixelroot32::graphics {
         return c != Color::Transparent;
     }
 
+    /// Match TFT_eSprite::drawPixel for 8bpp sprites (TFT_eSPI Extensions/Sprite.cpp).
+    inline uint8_t packRgb565ToTftSprite8(uint16_t rgb565) {
+        return static_cast<uint8_t>(
+            ((rgb565 & 0xE000) >> 8) |
+            ((rgb565 & 0x0700) >> 6) |
+            ((rgb565 & 0x0018) >> 3));
+    }
+
     Renderer::Renderer(const DisplayConfig& config) 
         : config(config),
           logicalWidth(config.logicalWidth),
@@ -81,6 +89,7 @@ namespace pixelroot32::graphics {
     }
 
     void Renderer::beginFrame() {
+        logicalFrameBuffer8 = getDrawSurface().getSpriteBuffer();
         getDrawSurface().clearBuffer();
     }
 
@@ -313,12 +322,15 @@ namespace pixelroot32::graphics {
             int startX = offsetBypass ? x : xOffset + x;
             int startY = offsetBypass ? y : yOffset + y;
 
+            uint8_t* const fb8 = logicalFrameBuffer8;
+
             // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
                 if (logicalY < 0 || logicalY >= screenH) continue;
 
                 const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
+                uint8_t* dstRow = fb8 ? (fb8 + logicalY * screenW) : nullptr;
 
                 for (int col = 0; col < sprite.width; ++col) {
                     const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
@@ -330,7 +342,11 @@ namespace pixelroot32::graphics {
                     const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
                     if (logicalX < 0 || logicalX >= screenW) continue;
 
-                    getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                    if (dstRow) {
+                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                    } else {
+                        getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                    }
                 }
             }
         }
@@ -372,23 +388,65 @@ namespace pixelroot32::graphics {
             int startX = offsetBypass ? x : xOffset + x;
             int startY = offsetBypass ? y : yOffset + y;
 
+            uint8_t* const fb8 = logicalFrameBuffer8;
+
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
                 if (logicalY < 0 || logicalY >= screenH) continue;
 
                 const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
-                for (int col = 0; col < sprite.width; ++col) {
-                    const int byteIdx = col >> 1;
-                    const int bitOffset = (col & 1) << 2;
-                    const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                if (fb8 && !flipX) {
+                    uint8_t* dstRow = fb8 + logicalY * screenW;
+                    int col = 0;
+                    for (; col + 1 < sprite.width; col += 2) {
+                        const uint8_t b = rowData[col >> 1];
+                        const uint8_t v0 = b & 0x0F;
+                        const uint8_t v1 = (b >> 4) & 0x0F;
+                        const int lx0 = startX + col;
+                        const int lx1 = startX + col + 1;
+                        if (v0 != 0 && lx0 >= 0 && lx0 < screenW) {
+                            dstRow[lx0] = packRgb565ToTftSprite8(paletteLUT[v0]);
+                        }
+                        if (v1 != 0 && lx1 >= 0 && lx1 < screenW) {
+                            dstRow[lx1] = packRgb565ToTftSprite8(paletteLUT[v1]);
+                        }
+                    }
+                    if (col < sprite.width) {
+                        const int byteIdx = col >> 1;
+                        const int bitOffset = (col & 1) << 2;
+                        const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                        if (val != 0) {
+                            const int lx = startX + col;
+                            if (lx >= 0 && lx < screenW) {
+                                dstRow[lx] = packRgb565ToTftSprite8(paletteLUT[val]);
+                            }
+                        }
+                    }
+                } else if (fb8) {
+                    uint8_t* dstRow = fb8 + logicalY * screenW;
+                    for (int col = 0; col < sprite.width; ++col) {
+                        const int byteIdx = col >> 1;
+                        const int bitOffset = (col & 1) << 2;
+                        const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                        if (val == 0) continue;
+                        const int logicalX = startX + (sprite.width - 1 - col);
+                        if (logicalX < 0 || logicalX >= screenW) continue;
+                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                    }
+                } else {
+                    for (int col = 0; col < sprite.width; ++col) {
+                        const int byteIdx = col >> 1;
+                        const int bitOffset = (col & 1) << 2;
+                        const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
 
-                    if (val == 0) continue;
+                        if (val == 0) continue;
 
-                    const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
-                    if (logicalX < 0 || logicalX >= screenW) continue;
+                        const int logicalX = flipX ? startX + (sprite.width - 1 - col) : startX + col;
+                        if (logicalX < 0 || logicalX >= screenW) continue;
 
-                    getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                        getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
+                    }
                 }
             }
         }
