@@ -22,6 +22,32 @@ namespace pixelroot32::graphics::ui {
     using input::TouchEvent;
     using input::TouchEventType;
 
+// New normalized constructor with Vector2 position/size
+UITouchButton::UITouchButton(
+    std::string_view t, 
+    Vector2 position, 
+    Vector2 size,
+    UIElementVoidCallback callback,
+    TextAlignment textAlign,
+    int fontSize)
+    : UITouchElement(static_cast<int>(position.x), static_cast<int>(position.y), 
+                    static_cast<int>(size.x), static_cast<int>(size.y), UIWidgetType::Button)
+    , onDownCallback(nullptr)
+    , onUpCallback(nullptr)
+    , onClickCallback(callback)
+    , pressStartPosition(Vector2::ZERO())
+    , label(t)
+    , normalColor(Color::White)
+    , pressedColor(Color::Gray)
+    , disabledColor(Color::DarkGray)
+    , borderColor(Color::Gray)
+    , disabledBorderColor(Color::DarkGray)
+    , fontSize(fontSize)
+    , textAlign(textAlign)
+{
+}
+
+// Legacy constructor for backward compatibility
 UITouchButton::UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h)
     : UITouchElement(x, y, w, h, UIWidgetType::Button)
     , onDownCallback(nullptr)
@@ -34,6 +60,8 @@ UITouchButton::UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t 
     , disabledColor(Color::DarkGray)
     , borderColor(Color::Gray)
     , disabledBorderColor(Color::DarkGray)
+    , fontSize(2)  // Default font size
+    , textAlign(TextAlignment::CENTER)
 {
 }
 
@@ -47,27 +75,27 @@ void UITouchButton::setColors(Color normal, Color pressed, Color disabled) {
     disabledColor = disabled;
 }
 
-void UITouchButton::setOnDown(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnDown(UITouchButton::UIElementVoidCallback callback) {
     onDownCallback = callback;
 }
 
-void UITouchButton::setOnUp(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnUp(UITouchButton::UIElementVoidCallback callback) {
     onUpCallback = callback;
 }
 
-void UITouchButton::setOnClick(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnClick(UITouchButton::UIElementVoidCallback callback) {
     onClickCallback = callback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnDown() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnDown() const {
     return onDownCallback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnUp() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnUp() const {
     return onUpCallback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnClick() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnClick() const {
     return onClickCallback;
 }
 
@@ -116,10 +144,25 @@ void UITouchButton::reset() {
     clearActive();
 }
 
+void UITouchButton::autoSize(uint8_t padding) {
+    if (label.empty()) {
+        return;
+    }
+
+    // Calculate text width using FontManager
+    int16_t textWidth = FontManager::textWidth(nullptr, label, fontSize);
+
+    // Set button width to fit text plus padding
+    width = static_cast<uint16_t>(textWidth + padding);
+
+    // Sync with widget data
+    widgetData_.width = width;
+}
+
 void UITouchButton::handleTouchDown(const TouchEvent& event) {
     widgetData_.state = UIWidgetState::Pressed;
     setActive();
-    pressStartPosition = {toScalar(event.x), toScalar(event.y)};
+    pressStartPosition = Vector2(toScalar(static_cast<int>(event.x)), toScalar(static_cast<int>(event.y)));
     
     if (onDownCallback) {
         onDownCallback();
@@ -128,10 +171,10 @@ void UITouchButton::handleTouchDown(const TouchEvent& event) {
 
 void UITouchButton::handleTouchUp(const TouchEvent& event) {
     // Check if we dragged too far
-    Scalar dx = toScalar(event.x) - pressStartPosition.x;
-    Scalar dy = toScalar(event.y) - pressStartPosition.y;
+    int dx = static_cast<int>(event.x) - static_cast<int>(pressStartPosition.x);
+    int dy = static_cast<int>(event.y) - static_cast<int>(pressStartPosition.y);
     
-    if (dx * dx + dy * dy > toScalar(DRAG_THRESHOLD * DRAG_THRESHOLD)) {
+    if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
         // Dragged too far - no click
         widgetData_.state = UIWidgetState::Idle;
     } else {
@@ -198,23 +241,30 @@ void UITouchButton::draw(Renderer& renderer) {
     
     // Draw label text if present
     if (label.length() > 0) {
-        int fontSize = 2;  // Default font size
-        int textHeight = fontSize * 8;
+        int textFontSize = fontSize;  // Use configurable member
+        int textHeight = textFontSize * 8;
         if (textHeight > static_cast<int>(h)) {
             textHeight = static_cast<int>(h);
         }
         int textY = static_cast<int>(y) + (static_cast<int>(h) - textHeight) / 2;
         
         // Calculate text width using FontManager
-        int textWidth = FontManager::textWidth(nullptr, label, fontSize);
+        int textWidth = FontManager::textWidth(nullptr, label, textFontSize);
         
-        // Center the text horizontally
-        int textX = static_cast<int>(x) + (static_cast<int>(w) - textWidth) / 2;
+        // Calculate text X position based on text alignment
+        int textX;
+        if (textAlign == TextAlignment::CENTER) {
+            textX = static_cast<int>(x) + (static_cast<int>(w) - textWidth) / 2;
+        } else if (textAlign == TextAlignment::RIGHT) {
+            textX = static_cast<int>(x) + static_cast<int>(w) - textWidth - 2;
+        } else { // LEFT
+            textX = static_cast<int>(x) + 2;
+        }
         
         // Use white text color
         Color textColor = isEnabled() ? Color::White : Color::Gray;
         
-        renderer.drawText(label, textX, textY, textColor, fontSize);
+        renderer.drawText(label, textX, textY, textColor, textFontSize);
     }
 }
 

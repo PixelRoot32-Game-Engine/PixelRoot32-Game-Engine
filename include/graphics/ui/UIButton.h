@@ -11,7 +11,6 @@
 #include "graphics/Color.h"
 #include <string>
 #include <string_view>
-#include <functional>
 #include "input/InputManager.h"
 
 namespace pixelroot32::graphics::ui {
@@ -33,7 +32,7 @@ private:
     uint8_t index;
     TextAlignment textAlign = TextAlignment::CENTER;
     int fontSize = 2;
-    std::function<void()> onClick;
+    UIElementVoidCallback onClick = nullptr;
 
     /**
         * @brief Internal helper to check if a point is inside the button's bounds.
@@ -45,16 +44,24 @@ private:
 
 public:
     /**
-        * @brief Constructs a new UIButton.
-        * @param t Button label text.
-        * @param textAlign Text alignment.
-        * @param fontSize Text size multiplier.
-        * @param index Navigation index (for D-pad navigation).
-        * @param position Position.
-        * @param size Size.
-        * @param callback Function to call when clicked/pressed.
-        */
-    UIButton(std::string_view t, uint8_t index, pixelroot32::math::Vector2 position, pixelroot32::math::Vector2 size, std::function<void()> callback, TextAlignment textAlign = TextAlignment::CENTER, int fontSize = 2);
+    * @brief Constructs a new UIButton.
+    * @param t Button label text.
+    * @param index Navigation index (for D-pad navigation).
+    * @param position Position.
+    * @param size Size.
+    * @param callback Function to call when clicked/pressed.
+    * @param textAlign Text alignment.
+    * @param fontSize Text size multiplier.
+    */
+    UIButton(
+        std::string_view t,
+        uint8_t index, 
+        pixelroot32::math::Vector2 position, 
+        pixelroot32::math::Vector2 size, 
+        UIElementVoidCallback callback = nullptr, 
+        TextAlignment textAlign = TextAlignment::CENTER, 
+        int fontSize = 2
+    );
 
     /**
         * @brief Configures the button's visual style.
@@ -97,6 +104,7 @@ public:
         */
     void press();
 };
-}
+
+} // namespace pixelroot32::graphics::ui
 
 #endif // PIXELROOT32_ENABLE_UI_SYSTEM
