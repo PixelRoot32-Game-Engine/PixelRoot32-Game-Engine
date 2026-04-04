@@ -31,6 +31,32 @@ class UITouchWidget;
  *
  * The scene (or another owner) constructs widgets and registers them with addElement.
  * clear/removeElement only unregister pointers — they never destroy objects.
+ *
+ * @section Lifetime Contract
+ *
+ * UIManager holds NON-OWNING pointers to UITouchElement instances. The widget
+ * lifetime is managed exclusively by the caller (Scene, game code, arena allocator).
+ *
+ * @subsection Ownership Rules
+ * - UIManager does NOT delete widgets
+ * - Widgets must call removeElement() BEFORE being destroyed
+ * - Failure to unregister results in dangling pointers and potential crashes
+ *
+ * @subsection Safe Destruction Sequence
+ * @code
+ * // CORRECTO: Desregistrar antes de destruir
+ * uiManager.removeElement(myButton.get());
+ * myButton.reset();  // or delete myButton;
+ *
+ * // INCORRECTO: Destruir sin desregistrar
+ * myButton.reset();  // Widget destruido
+ * // UIManager::capturedWidget o hoverWidget ahora son dangling!
+ * @endcode
+ *
+ * @subsection Captured Widget Safety
+ * UIManager automatically clears capturedWidget when removeElement() is called.
+ * However, if a widget is deleted directly without removeElement(), the caller
+ * MUST call uiManager.releaseCapture() to avoid use-after-free.
  */
 class UIManager {
 public:

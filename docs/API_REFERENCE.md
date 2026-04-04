@@ -1108,6 +1108,8 @@ Embedded-friendly touch widgets live under **`graphics/ui/`**: abstract **[UITou
 
 Registry of up to **`MAX_ELEMENTS` (16)** non-owning pointers to **`UITouchElement`**. The **scene (or owner)** constructs widgets (e.g. `std::make_unique<UITouchButton>(...)`) and registers them with **`addElement`**. Hit testing and **`processEvents`** call **`UITouchElement::processEvent`** polymorphically. **`clear`** / **`removeElement`** only unregister pointers; they never destroy objects. **`update`** / **`draw`** are no-ops (widgets are updated and drawn as **entities** via **`Scene`**).
 
+> **⚠️ Lifetime Contract:** Widgets **MUST** call `removeElement()` before being destroyed. See full **[UIManager](#uimanager)** section below for details.
+
 See the full **[UIManager](#uimanager)** section below for the complete method list and usage example.
 
 #### UIHitTest
@@ -4261,6 +4263,35 @@ void MyScene::initUI() {
     barLayout->addElement(slider.get());
     addEntity(barLayout.get());
 }
+
+#### Lifetime Contract (IMPORTANT)
+
+UIManager holds **NON-OWNING** pointers to `UITouchElement` instances. Widget lifetime is managed exclusively by the caller (Scene, game code, arena allocator).
+
+**Ownership Rules:**
+- UIManager does **NOT** delete widgets
+- Widgets **MUST** call `removeElement()` BEFORE being destroyed
+- Failure to unregister results in dangling pointers and potential crashes
+
+**Safe Destruction Sequence:**
+
+```cpp
+// ✅ CORRECT: Unregister before destroying
+uiManager.removeElement(myButton.get());
+myButton.reset();  // or delete myButton;
+
+// ❌ INCORRECT: Destroy without unregistering
+myButton.reset();  // Widget destroyed
+// UIManager::capturedWidget or hoverWidget now point to freed memory!
+```
+
+**Captured Widget Safety:**
+UIManager automatically clears `capturedWidget` when `removeElement()` is called.
+However, if a widget is deleted directly without calling `removeElement()`, the caller
+**MUST** call `uiManager.releaseCapture()` to avoid use-after-free.
+
+**Double Registration Protection:**
+`addElement()` returns `false` if the same pointer is already registered (duplicate check).
 
 // Base Scene already calls uiManager.processTouchEvents from processTouchEvents when UI is enabled.
 ```
