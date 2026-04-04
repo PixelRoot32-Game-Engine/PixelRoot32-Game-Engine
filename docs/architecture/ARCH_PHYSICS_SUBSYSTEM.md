@@ -418,7 +418,7 @@ Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build f
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
 
-**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md#esp32-dram-and-build-configuration).
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](ARCH_MEMORY_SYSTEM.md#esp32-dram-and-build-configuration).
 
 Solver tuning (in code):
 

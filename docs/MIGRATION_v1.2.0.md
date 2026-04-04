@@ -129,5 +129,5 @@ After migration, verify:
 
 ## References
 
-- [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md)
+- [Physics System Reference](architecture/ARCH_PHYSICS_SUBSYSTEM.md)
 - [API Reference](API_REFERENCE.md)

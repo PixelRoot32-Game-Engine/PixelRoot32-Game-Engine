@@ -257,7 +257,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
 
 ### 💾 Memory & Resources
 
-**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md)**
+**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](architecture/ARCH_MEMORY_SYSTEM.md)**
 
 - **Smart Pointers (C++17)**: Prefer `std::unique_ptr` for owning objects (like Scenes, Actors, UI elements) to automate memory management and document ownership.
   - Use `std::make_unique<T>(...)` to create objects.

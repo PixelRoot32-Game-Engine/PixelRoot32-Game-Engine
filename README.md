@@ -131,9 +131,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 - **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
 - **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
-- **[Physics System](docs/PHYSICS_SYSTEM_REFERENCE.md)**: Flat Solver documentation.
+- **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
+- **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
 - **[Migration v1.1.0](docs/MIGRATION_v1.1.0.md)**: Guide for upgrading from v1.0.0.
-- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Sound engine details.
 - **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
 ---

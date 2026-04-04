@@ -808,5 +808,5 @@ actor->setRadius(toScalar(radius));  // Critical for circles!
 - [PlatformIO Build Flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/build/build_flags.html)
 - [Fixed-Point Arithmetic (Wikipedia)](https://en.wikipedia.org/wiki/Fixed-point_arithmetic) - Theory behind Q format and integer math.
 - [Q (number format)](https://en.wikipedia.org/wiki/Q_(number_format)) - Understanding the Q16.16 format used in PixelRoot32.
-- [Physics System Reference](PHYSICS_SYSTEM_REFERENCE.md) - Complete Flat Solver documentation
+- [Physics System Reference](architecture/ARCH_PHYSICS_SUBSYSTEM.md) - Complete Flat Solver documentation
 - [API Reference](API_REFERENCE.md) - CollisionSystem API
