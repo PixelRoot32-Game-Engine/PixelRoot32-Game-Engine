@@ -132,11 +132,11 @@ void PhysicsDemoScene::init() {
         box->setCollisionLayer(1);
         box->setCollisionMask(1);
         box->setMass(1.0f);
-        box->bounce = false;
+        box->setBounce(false);
         circle->setCollisionLayer(1);
         circle->setCollisionMask(1);
         circle->setMass(1.0f);
-        circle->bounce = true;
+        circle->setBounce(true);
         trackedBoxes[i] = box;
         trackedCircles[i] = circle;
         ++pooled;

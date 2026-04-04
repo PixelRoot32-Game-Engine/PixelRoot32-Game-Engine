@@ -80,7 +80,7 @@ public:
 class WallActor : public pixelroot32::physics::StaticActor {
 public:
     WallActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h) : pixelroot32::physics::StaticActor(x, y, w, h) {
-        bounce = true;
+        setBounce(true);
     }
 
     pixelroot32::core::Rect getHitBox() override {
