@@ -27,7 +27,7 @@ UITouchButton::UITouchButton(
     std::string_view t, 
     Vector2 position, 
     Vector2 size,
-    ButtonCallback callback,
+    UIElementVoidCallback callback,
     TextAlignment textAlign,
     int fontSize)
     : UITouchElement(static_cast<int>(position.x), static_cast<int>(position.y), 
@@ -75,27 +75,27 @@ void UITouchButton::setColors(Color normal, Color pressed, Color disabled) {
     disabledColor = disabled;
 }
 
-void UITouchButton::setOnDown(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnDown(UITouchButton::UIElementVoidCallback callback) {
     onDownCallback = callback;
 }
 
-void UITouchButton::setOnUp(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnUp(UITouchButton::UIElementVoidCallback callback) {
     onUpCallback = callback;
 }
 
-void UITouchButton::setOnClick(UITouchButton::ButtonCallback callback) {
+void UITouchButton::setOnClick(UITouchButton::UIElementVoidCallback callback) {
     onClickCallback = callback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnDown() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnDown() const {
     return onDownCallback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnUp() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnUp() const {
     return onUpCallback;
 }
 
-UITouchButton::ButtonCallback UITouchButton::getOnClick() const {
+UITouchButton::UIElementVoidCallback UITouchButton::getOnClick() const {
     return onClickCallback;
 }
 

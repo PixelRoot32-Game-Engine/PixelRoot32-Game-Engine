@@ -113,14 +113,97 @@ public:
 
 | Class | Property | Before | After |
 |-------|----------|--------|-------|
-| `UIButton` | `onClick` | `std::function<void()>` | `ButtonCallback` (function pointer) |
-| `UITouchButton` | `onClickCallback` | `ButtonCallback` | Already using function pointer (no change) |
+| `UIButton` | `onClick` | `std::function<void()>` | `UIElementVoidCallback` (function pointer) |
+| `UICheckBox` | `onCheckChanged` | `std::function<void(bool)>` | `UIElementBoolCallback` (function pointer) |
+| `UITouchCheckbox` | `onChangedCallback` | `CheckboxCallback` (local type) | `UIElementBoolCallback` (unified) |
+| `UITouchButton` | `onClickCallback` | `UIElementVoidCallback` | Already using function pointer (no change) |
+
+### UICheckBox Example
+
+```cpp
+class MyScene : public Scene {
+public:
+    static MyScene* sCallbackTarget;
+    
+    static void onCheckboxChangedStatic(bool checked) {
+        if (sCallbackTarget) {
+            sCallbackTarget->onCheckboxChanged(checked);
+        }
+    }
+    
+    void onCheckboxChanged(bool checked) { /* ... */ }
+    
+    void init() override {
+        sCallbackTarget = this;
+        checkbox = new UICheckBox("Enable Sound", 0, pos, size, false, onCheckboxChangedStatic);
+    }
+};
+```
+
+### UITouchCheckbox Constructor Migration
+
+Version 1.2.0 normalizes the `UITouchCheckbox` constructor to match the API of `UICheckBox` and `UITouchButton`.
+
+**Before:**
+
+```cpp
+// Legacy constructor with separate x, y, w, h parameters
+UITouchCheckbox* checkbox = new UITouchCheckbox("Label", x, y, w, h, false);
+// Callback had to be set separately
+checkbox->setOnChanged(myCallback);
+```
+
+**After:**
+
+```cpp
+// Normalized constructor: label, position, size, checked, callback, fontSize
+UITouchCheckbox* checkbox = new UITouchCheckbox(
+    "Label",
+    pixelroot32::math::Vector2(x, y),
+    pixelroot32::math::Vector2(w, h),
+    false,                      // initialChecked
+    myCallback,                 // UIElementBoolCallback
+    2                           // fontSize
+);
+```
+
+### UITouchCheckbox Example
+
+```cpp
+class MyScene : public Scene {
+public:
+    static MyScene* sCallbackTarget;
+    
+    static void onTouchCheckboxChangedStatic(bool checked) {
+        if (sCallbackTarget) {
+            sCallbackTarget->onTouchCheckboxChanged(checked);
+        }
+    }
+    
+    void onTouchCheckboxChanged(bool checked) { /* ... */ }
+    
+    void init() override {
+        sCallbackTarget = this;
+        checkbox = new UITouchCheckbox(
+            "Enable Sound",
+            pixelroot32::math::Vector2(10, 10),
+            pixelroot32::math::Vector2(100, 20),
+            false,
+            onTouchCheckboxChangedStatic,
+            2
+        );
+    }
+};
+```
 
 ### Memory Impact
 
 | Metric | Before | After | Savings |
 |--------|--------|-------|---------|
 | `UIButton` callback storage | ~16 bytes | 4 bytes | 12 bytes |
+| `UICheckBox` callback storage | ~16 bytes | 4 bytes | 12 bytes |
+| `UITouchCheckbox` callback storage | ~4 bytes | 4 bytes | 0 bytes (unified type) |
+| `UITouchCheckbox` constructor | Legacy (separated params) | Normalized (Vector2) | Consistent API |
 | Heap allocation on construction | Possible | None | Variable |
 
 ---
@@ -131,6 +214,9 @@ public:
 - [ ] **Search for `bounce` conditionals**: Replace `if (actor->bounce)` with `if (actor->isBounce())` or keep shorthand (still works)
 - [ ] **Verify physics behavior**: Test that bounce physics still work as expected (restitution should be handled by `setRestitution()`)
 - [ ] **Update UIButton callbacks**: If using lambdas with `std::function`, convert to static function + target pattern
+- [ ] **Update UICheckBox callbacks**: Same as UIButton - convert lambdas to static function + target pattern
+- [ ] **Update UITouchCheckbox**: Convert legacy constructor to normalized Vector2 version
+- [ ] **Remove unnecessary `<functional>` includes**: Check UICheckbox.h and remove if present
 - [ ] **Build and test**: Ensure all scenes compile and run correctly
 
 ---

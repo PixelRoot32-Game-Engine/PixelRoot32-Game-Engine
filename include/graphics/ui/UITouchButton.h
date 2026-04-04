@@ -46,7 +46,7 @@ public:
         std::string_view t, 
         pixelroot32::math::Vector2 position, 
         pixelroot32::math::Vector2 size,
-        ButtonCallback callback = nullptr,
+        UIElementVoidCallback callback = nullptr,
         TextAlignment textAlign = TextAlignment::CENTER,
         int fontSize = 2
     );
@@ -139,37 +139,37 @@ public:
      * @brief Set the OnDown callback
      * @param callback Function to call when touch goes down
      */
-    void setOnDown(ButtonCallback callback);
+    void setOnDown(UIElementVoidCallback callback);
     
     /**
      * @brief Set the OnUp callback
      * @param callback Function to call when touch goes up
      */
-    void setOnUp(ButtonCallback callback);
+    void setOnUp(UIElementVoidCallback callback);
     
     /**
      * @brief Set the OnClick callback
      * @param callback Function to call when button is clicked
      */
-    void setOnClick(ButtonCallback callback);
+    void setOnClick(UIElementVoidCallback callback);
     
     /**
      * @brief Get the OnDown callback
      * @return The current OnDown callback
      */
-    ButtonCallback getOnDown() const;
+    UIElementVoidCallback getOnDown() const;
     
     /**
      * @brief Get the OnUp callback
      * @return The current OnUp callback
      */
-    ButtonCallback getOnUp() const;
+    UIElementVoidCallback getOnUp() const;
     
     /**
      * @brief Get the OnClick callback
      * @return The current OnClick callback
      */
-    ButtonCallback getOnClick() const;
+    UIElementVoidCallback getOnClick() const;
     
     /**
      * @brief Process a touch event
@@ -196,9 +196,9 @@ public:
     void autoSize(uint8_t padding = 4);
 
 private:
-    ButtonCallback onDownCallback = nullptr;     ///< Called when touch goes down on button
-    ButtonCallback onUpCallback = nullptr;       ///< Called when touch goes up on button
-    ButtonCallback onClickCallback = nullptr;      ///< Called when button is clicked
+    UIElementVoidCallback onDownCallback = nullptr;     ///< Called when touch goes down on button
+    UIElementVoidCallback onUpCallback = nullptr;       ///< Called when touch goes up on button
+    UIElementVoidCallback onClickCallback = nullptr;      ///< Called when button is clicked
     
     pixelroot32::math::Vector2 pressStartPosition;         ///< position where press started
     

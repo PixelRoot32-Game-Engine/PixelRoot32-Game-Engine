@@ -8,6 +8,7 @@
 #include "core/EngineModules.h"
 #if PIXELROOT32_ENABLE_UI_SYSTEM
 
+#include "graphics/ui/UIElement.h"
 #include "graphics/ui/UITouchCheckbox.h"
 #include "graphics/FontManager.h"
 #include "input/TouchEvent.h"
@@ -23,10 +24,16 @@ namespace pixelroot32::graphics::ui {
     using input::TouchEvent;
     using input::TouchEventType;
 
-UITouchCheckbox::UITouchCheckbox(std::string_view label, int16_t x, int16_t y, 
-                                 uint16_t w, uint16_t h, bool initialChecked)
-    : UITouchElement(x, y, w, h, UIWidgetType::Checkbox)
-    , onChangedCallback(nullptr)
+UITouchCheckbox::UITouchCheckbox(
+    std::string_view label,
+    pixelroot32::math::Vector2 position,
+    pixelroot32::math::Vector2 size,
+    bool initialChecked,
+    UIElementBoolCallback callback,
+    int fontSizeVal)
+    : UITouchElement(static_cast<int16_t>(position.x), static_cast<int16_t>(position.y), 
+                     static_cast<uint16_t>(size.x), static_cast<uint16_t>(size.y), UIWidgetType::Checkbox)
+    , onChangedCallback(callback)
     , checked(initialChecked)
     , label(label)
     , normalColor(Color::White)
@@ -34,7 +41,7 @@ UITouchCheckbox::UITouchCheckbox(std::string_view label, int16_t x, int16_t y,
     , disabledColor(Color::DarkGray)
     , borderColor(Color::Gray)
     , disabledBorderColor(Color::DarkGray)
-    , fontSize(2)
+    , fontSize(fontSizeVal)
     , pressStartPosition(Vector2::ZERO())
 {
 }
@@ -64,12 +71,20 @@ void UITouchCheckbox::setColors(Color normal, Color checked, Color disabled) {
     disabledColor = disabled;
 }
 
-void UITouchCheckbox::setOnChanged(UITouchCheckbox::CheckboxCallback callback) {
+void UITouchCheckbox::setOnChanged(UITouchCheckbox::UIElementBoolCallback callback) {
     onChangedCallback = callback;
 }
 
-UITouchCheckbox::CheckboxCallback UITouchCheckbox::getOnChanged() const {
+UITouchCheckbox::UIElementBoolCallback UITouchCheckbox::getOnChanged() const {
     return onChangedCallback;
+}
+
+void UITouchCheckbox::setFontSize(int size) {
+    fontSize = size;
+}
+
+int UITouchCheckbox::getFontSize() const {
+    return fontSize;
 }
 
 bool UITouchCheckbox::processEvent(const pixelroot32::input::TouchEvent& event) {

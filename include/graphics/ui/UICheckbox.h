@@ -11,9 +11,7 @@
 #include "graphics/Color.h"
 #include <string>
 #include <string_view>
-#include <functional>
 #include "input/InputManager.h"
-
 namespace pixelroot32::graphics::ui {
 
 /**
@@ -24,6 +22,25 @@ namespace pixelroot32::graphics::ui {
  * Can trigger a callback function when its state changes.
  */
 class UICheckBox : public UIElement {
+private:
+    std::string_view label;
+    bool checked = false;
+    bool drawBg = false;
+    Color textColor;
+    Color backgroundColor;
+    bool isSelected = false;
+    int fontSize = 2;
+    uint8_t index;
+    UIElementBoolCallback onCheckChanged;
+
+    /**
+     * @brief Internal helper to check if a point is inside the checkbox's bounds.
+     * @param px Point X coordinate.
+     * @param py Point Y coordinate.
+     * @return true if point is inside.
+     */
+    bool isPointInside(int px, int py) const;
+
 public:
     /**
      * @brief Constructs a new UICheckBox.
@@ -35,21 +52,15 @@ public:
      * @param callback Function to call when the state changes.
      * @param fontSize Text size multiplier.
      */
-    UICheckBox(std::string_view label, uint8_t index, pixelroot32::math::Vector2 position, pixelroot32::math::Vector2 size, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
-
-    /**
-     * @brief Constructs a new UICheckBox.
-     * @param label Checkbox label text.
-     * @param index Navigation index (for D-pad navigation).
-     * @param x X position.
-     * @param y Y position.
-     * @param w Width.
-     * @param h Height.
-     * @param checked Initial checked state.
-     * @param callback Function to call when the state changes.
-     * @param fontSize Text size multiplier.
-     */
-    UICheckBox(std::string_view label, uint8_t index, pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2);
+    UICheckBox(
+        std::string_view label, 
+        uint8_t index, 
+        pixelroot32::math::Vector2 position, 
+        pixelroot32::math::Vector2 size, 
+        bool checked = false, 
+        UIElementBoolCallback callback = nullptr, 
+        int fontSize = 2
+    );
 
     /**
      * @brief Configures the checkbox's visual style.
@@ -104,24 +115,6 @@ public:
      */
     void toggle();
 
-private:
-    std::string_view label;
-    bool checked = false;
-    bool drawBg = false;
-    Color textColor;
-    Color backgroundColor;
-    bool isSelected = false;
-    int fontSize = 2;
-    uint8_t index;
-    std::function<void(bool)> onCheckChanged;
-
-    /**
-     * @brief Internal helper to check if a point is inside the checkbox's bounds.
-     * @param px Point X coordinate.
-     * @param py Point Y coordinate.
-     * @return true if point is inside.
-     */
-    bool isPointInside(int px, int py) const;
 };
 
 }

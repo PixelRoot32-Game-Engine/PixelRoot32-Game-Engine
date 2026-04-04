@@ -42,7 +42,10 @@ public:
     };
 
     // Callback function types (no std::function for memory efficiency)
-    using ButtonCallback = void(*)();
+    using UIElementVoidCallback = void(*)();
+
+    // Callback function type for boolean events (like checkbox check changes)
+    using UIElementBoolCallback = void(*)(bool);
     
 protected:
     UIElementType type;

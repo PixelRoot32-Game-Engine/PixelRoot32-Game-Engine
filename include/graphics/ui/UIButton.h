@@ -32,7 +32,7 @@ private:
     uint8_t index;
     TextAlignment textAlign = TextAlignment::CENTER;
     int fontSize = 2;
-    ButtonCallback onClick = nullptr;
+    UIElementVoidCallback onClick = nullptr;
 
     /**
         * @brief Internal helper to check if a point is inside the button's bounds.
@@ -44,21 +44,21 @@ private:
 
 public:
     /**
-        * @brief Constructs a new UIButton.
-        * @param t Button label text.
-        * @param index Navigation index (for D-pad navigation).
-        * @param position Position.
-        * @param size Size.
-        * @param callback Function to call when clicked/pressed.
-        * @param textAlign Text alignment.
-        * @param fontSize Text size multiplier.
-        */
+    * @brief Constructs a new UIButton.
+    * @param t Button label text.
+    * @param index Navigation index (for D-pad navigation).
+    * @param position Position.
+    * @param size Size.
+    * @param callback Function to call when clicked/pressed.
+    * @param textAlign Text alignment.
+    * @param fontSize Text size multiplier.
+    */
     UIButton(
         std::string_view t,
         uint8_t index, 
         pixelroot32::math::Vector2 position, 
         pixelroot32::math::Vector2 size, 
-        ButtonCallback callback = nullptr, 
+        UIElementVoidCallback callback = nullptr, 
         TextAlignment textAlign = TextAlignment::CENTER, 
         int fontSize = 2
     );

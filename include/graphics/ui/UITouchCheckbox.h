@@ -31,12 +31,8 @@ namespace pixelroot32::graphics::ui {
  * Events: OnChanged (when checked state changes)
  */
 class UITouchCheckbox : public UITouchElement {
-public:
-    // Callback function type (no std::function for memory efficiency)
-    using CheckboxCallback = void(*)(bool checked);
-    
 private:
-    CheckboxCallback onChangedCallback;  ///< Called when checked state changes
+    UIElementBoolCallback onChangedCallback;  ///< Called when checked state changes
     
     // Checkbox state
     bool checked;                        ///< Current checked state
@@ -56,16 +52,34 @@ private:
     
 public:
     /**
-     * @brief Construct a new UITouchCheckbox
+     * @brief Construct a new UITouchCheckbox (normalized constructor)
      * @param label Checkbox label text
-     * @param x X position
-     * @param y Y position
-     * @param w Width
-     * @param h Height
+     * @param position Position as Vector2
+     * @param size Size as Vector2 (width, height)
      * @param initialChecked Initial checked state (default: false)
+     * @param callback Callback function when checked state changes (default: nullptr)
+     * @param fontSize Font size multiplier (default: 2)
      */
-    explicit UITouchCheckbox(std::string_view label, int16_t x, int16_t y, 
-                             uint16_t w, uint16_t h, bool initialChecked = false);
+    UITouchCheckbox(
+        std::string_view label,
+        pixelroot32::math::Vector2 position,
+        pixelroot32::math::Vector2 size,
+        bool initialChecked = false,
+        UIElementBoolCallback callback = nullptr,
+        int fontSize = 2
+    );
+    
+    /**
+     * @brief Set font size for text rendering
+     * @param size Font size multiplier
+     */
+    void setFontSize(int size);
+    
+    /**
+     * @brief Get current font size
+     * @return Font size multiplier
+     */
+    int getFontSize() const;
     
     /**
      * @brief Set the checkbox label
@@ -138,13 +152,13 @@ public:
      * @brief Set the OnChanged callback
      * @param callback Function to call when checked state changes
      */
-    void setOnChanged(CheckboxCallback callback);
+    void setOnChanged(UIElementBoolCallback callback);
     
     /**
      * @brief Get the OnChanged callback
      * @return The current OnChanged callback
      */
-    CheckboxCallback getOnChanged() const;
+    UIElementBoolCallback getOnChanged() const;
     
     /**
      * @brief Process a touch event
