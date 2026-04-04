@@ -497,6 +497,7 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
   - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
   - *Trade-off*: Greatly reduces background RAM compared to full bitmaps, but adds a predictable per-tile draw cost; avoid unnecessarily large maps or resolutions on ESP32.
   - For side-scrolling platformers, combine tilemaps with `Camera2D` and `Renderer::setDisplayOffset` instead of manually offsetting individual actors. Keep camera logic centralized (for example in a `Scene`-level camera object) and use different parallax factors per layer to achieve multi-layer scrolling without additional allocations.
+  - **ESP32 / 4bpp multi-layer fast path:** use **`StaticTilemapLayerCache`** for snapshotted **static** `TileMap4bpp` layers plus per-frame **dynamic** layers. Call **`allocateForRenderer`** (or **`allocateForLogicalSize`**) from **`Scene::init()`** only; call **`invalidate()`** when any **static** layer’s pixels change (e.g. after **`TileAnimationManager::step()`** on that layer). Do not hand-roll `malloc`/`memcpy` in every scene—see [Architecture — Static tilemap layer cache](ARCHITECTURE.md#static-tilemap-layer-cache-engine--scenes).
 
 ### Tile Animation Usage
 
@@ -595,6 +596,8 @@ void MyScene::update(unsigned long dt) {
 2. **Shared animation state**: All instances of a tile share the same animation frame. For independent animations, use different base tile indices.
 
 3. **Global timing**: All animations advance together. For desynchronized animations (e.g., two water pools with different phases), create separate animation managers with different frame offsets, or use conditional `step()` calls.
+
+4. **`StaticTilemapLayerCache`:** If a tilemap is in the **static** snapshot group, **`step()`** on its **`TileAnimationManager`** requires **`invalidate()`** on the cache (or move that map to the **dynamic** group). **Dynamic**-group layers do not need cache invalidation for animation updates.
 
 ---
 

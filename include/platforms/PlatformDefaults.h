@@ -46,6 +46,17 @@
 #define PIXELROOT32_ENABLE_PARTICLES 1
 #endif
 
+// -----------------------------------------------------------------------------
+// Static tilemap framebuffer cache (4bpp direct sprite buffer path)
+// -----------------------------------------------------------------------------
+// When enabled, StaticTilemapLayerCache can snapshot the logical 8bpp framebuffer
+// after drawing “static” layers and restore it on subsequent frames until the
+// camera moves or the cache is invalidated. Set to 0 per env to force the
+// full-draw fallback on low-RAM targets or when profiling without the fast path.
+#if !defined(PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE)
+#define PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE 1
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================

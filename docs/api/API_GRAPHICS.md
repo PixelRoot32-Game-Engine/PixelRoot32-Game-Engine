@@ -15,7 +15,7 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
 ### Public Methods
 
 - **`void beginFrame()`**
-    Prepares the buffer for a new frame (clears screen).
+    Prepares the buffer for a new frame (clears screen). On drivers that support it (e.g. **TFT_eSPI_Drawer**), refreshes the internal pointer used for **direct logical framebuffer writes** (`DrawSurface::getSpriteBuffer()`) before clearing, so **2bpp / 4bpp** tile and sprite paths can avoid per-pixel virtual `drawPixel` calls.
 
 - **`void endFrame()`**
     Finalizes the frame and sends the buffer to the display.
@@ -121,6 +121,27 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 - **IRAM Execution**: Critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) are decorated with `IRAM_ATTR` to run from internal RAM, bypassing the slow SPI Flash latency.
 - **Palette Caching**: Tilemaps cache the resolved RGB565 LUT per tile.
 - **Viewport Culling**: All tilemap rendering functions automatically skip tiles that are outside the current screen boundaries.
+- **Direct logical framebuffer**: **`DrawSurface::getSpriteBuffer()`** exposes the **TFT_eSPI** 8bpp sprite memory when available; **`Renderer::beginFrame()`** caches that pointer so **2bpp / 4bpp** rasterization can write packed pixels directly (same packing as **`TFT_eSprite::drawPixel`** for 8bpp). **`DrawSurface::drawTileDirect()`** allows blitting pre-packed 8bpp tile rows where the driver implements it.
+
+### Multi-layer 4bpp tilemap framebuffer snapshot: `StaticTilemapLayerCache`
+
+**Header:** `graphics/StaticTilemapLayerCache.h` (engine API).
+
+Use this when a **direct logical 8bpp sprite buffer** exists (`DrawSurface::getSpriteBuffer()` after `beginFrame`) to avoid redrawing “static” **4bpp** tilemaps every frame: the engine draws the static group, copies the framebuffer into an internal buffer, then each frame restores with **`memcpy`** and redraws only the **dynamic** group until the sampled camera changes or you **invalidate**.
+
+| Type / method | Role |
+|---------------|------|
+| **`TileMap4bppDrawSpec`** | `{ const TileMap4bpp* map; int originX; int originY; }` — `map == nullptr` entries are skipped. |
+| **`allocateForLogicalSize(w,h)`** / **`allocateForRenderer(renderer)`** | Pre-allocate **W×H** bytes during **`Scene::init()`** (not in `draw`/`update`). Returns `false` if allocation fails → full-draw fallback. |
+| **`invalidate()`** | Mark cache stale (tile/palette/mask changes, or **`step()`** on animators bound to **static** layers). |
+| **`draw(renderer, cameraSampleX, cameraSampleY, staticSpecs, staticCount, dynamicSpecs, dynamicCount)`** | Camera samples are typically **`-renderer.getXOffset()`** / **`-renderer.getYOffset()`** so scroll triggers rebuild. |
+| **`setFramebufferCacheEnabled(false)`** | Runtime opt-out per scene (e.g. profiling); compile-time: **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE=0`**. |
+
+**Memory:** about **W×H** bytes (malloc-backed in `allocate*`; no heap use inside `draw`). If **`getSpriteBuffer()`** is **`nullptr`**, the implementation draws all groups every frame (same as SDL2 / non-sprite drivers).
+
+**Example:** **`examples/animated_tilemap`** — `AnimatedTilemapScene` holds a **`StaticTilemapLayerCache`**, calls **`allocateForRenderer(engine.getRenderer())`** in **`init()`**, builds **`TileMap4bppDrawSpec`** arrays for **background + ground** (static) and **details** (dynamic), and exposes **`invalidateStaticLayerCache()`** as a thin wrapper over **`invalidate()`**.
+
+For the full pipeline diagram and layering context, see [Architecture — ESP32 rendering pipeline and tilemap caching](../ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching).
 
 ---
 
@@ -508,6 +529,8 @@ Abstract interface for platform-specific drawing operations.
 - **`virtual void clearBuffer()`**: Clears the frame buffer.
 - **`virtual void sendBuffer()`**: Sends the frame buffer to the display.
 - **`virtual void drawPixel(int x, int y, uint16_t color)`**: Draws a single pixel.
+- **`virtual uint8_t* getSpriteBuffer()`**: Returns a pointer to the **logical** framebuffer for direct CPU writes when supported (**TFT_eSPI_Drawer** 8bpp sprite); default returns **`nullptr`** (e.g. **SDL2_Drawer**).
+- **`virtual void drawTileDirect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint8_t* data)`**: Optional 8bpp tile blit into that buffer; default no-op.
 - **`virtual void drawLine(...)`**, **`drawRectangle(...)`**, **`drawCircle(...)`**, etc.
 
 ---

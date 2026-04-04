@@ -70,14 +70,14 @@ public:
      * @param height Tile height in pixels
      * @param data Pointer to 8bpp tile data (one byte per pixel, index into palette)
      */
-    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data);
+    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) override;
 
     /**
      * @brief Get pointer to sprite buffer for direct manipulation.
      * 
      * @return Pointer to 8bpp sprite buffer, or nullptr if sprite not created
      */
-    uint8_t* getSpriteBuffer();
+    uint8_t* getSpriteBuffer() override;
 
     /**
      * @brief Processes system events. Always true for embedded.

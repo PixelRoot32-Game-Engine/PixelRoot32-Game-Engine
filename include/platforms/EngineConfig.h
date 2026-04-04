@@ -318,6 +318,12 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableTileAnimations = true;
     #endif
 
+    #if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    inline constexpr bool EnableStaticTilemapFbCache = true;
+    #else
+    inline constexpr bool EnableStaticTilemapFbCache = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }

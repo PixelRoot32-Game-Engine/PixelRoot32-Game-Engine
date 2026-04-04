@@ -134,6 +134,8 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 
 > **Note:** These values are for TFT (16-bit) displays. OLED displays use significantly less memory.
 
+**Optional `StaticTilemapLayerCache` (4bpp tilemap snapshot):** when enabled (`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`, default `1`), scenes may allocate a **second** logical **W×H** byte buffer (same order as one fullscreen 8bpp logical surface) via **`allocateForRenderer` / `allocateForLogicalSize`** during **`Scene::init()`** only—no heap traffic in **`draw`/`update`**. Budget an extra **~57 KB** at **240×240** if you use the fast path; set the flag to **`0`** or skip **`allocate*`** to avoid that cost (full redraw fallback).
+
 ### Per-Entity Memory Costs
 
 | Component | Memory Cost |

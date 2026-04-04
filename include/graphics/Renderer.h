@@ -674,8 +674,11 @@ public:
           xOffset(other.xOffset),
           yOffset(other.yOffset),
           offsetBypass(other.offsetBypass),
-          currentRenderContext(other.currentRenderContext)
-    {}
+          currentRenderContext(other.currentRenderContext),
+          logicalFrameBuffer8(nullptr)
+    {
+        other.logicalFrameBuffer8 = nullptr;
+    }
 
     Renderer& operator=(Renderer&& other) noexcept {
         if (this != &other) {
@@ -687,6 +690,8 @@ public:
             yOffset = other.yOffset;
             offsetBypass = other.offsetBypass;
             currentRenderContext = other.currentRenderContext;
+            logicalFrameBuffer8 = nullptr;
+            other.logicalFrameBuffer8 = nullptr;
         }
         return *this;
     }
@@ -1039,6 +1044,9 @@ private:
 #endif
 
     PaletteContext* currentRenderContext = nullptr;
+
+    /// 8bpp logical framebuffer pointer when the DrawSurface exposes it (e.g. TFT_eSPI sprite); nullptr otherwise.
+    uint8_t* logicalFrameBuffer8 = nullptr;
     
     // Sprite palette slot context for multi-palette sprites
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
