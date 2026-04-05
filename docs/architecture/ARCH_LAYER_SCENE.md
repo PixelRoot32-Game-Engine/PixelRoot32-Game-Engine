@@ -15,6 +15,7 @@ Game scene and entity management. This layer provides the organizational structu
 Central class that orchestrates all subsystems.
 
 **Responsibilities**:
+
 - Manages Renderer, SceneManager, InputManager, AudioEngine, MusicPlayer
 - Runs the main game loop
 - Provides automatic touch processing (when enabled)
@@ -49,11 +50,13 @@ void Engine::draw() {
 ```
 
 **Touch Integration** (`PIXELROOT32_ENABLE_TOUCH=1`):
+
 - `getTouchDispatcher()`: Access touch event dispatcher
 - `hasTouchEvents()`: Check for pending events
 - `setTouchManager()`: Register external TouchManager for auto-processing
 
 When `setTouchManager()` is called, Engine automatically:
+
 1. Polls `touchManager->getTouchPoints()` each frame
 2. Detects touch releases (count >0 → 0)
 3. Processes through `TouchEventDispatcher`
@@ -85,6 +88,7 @@ int sceneCount;
 ```
 
 Useful for:
+
 - Pause menus (push pause scene over game scene)
 - Settings screens
 - Dialog overlays
@@ -117,6 +121,7 @@ public:
 ```
 
 **Features**:
+
 - Entity array (`MAX_ENTITIES = 32` default)
 - Render layer system (`MAX_LAYERS = 3` default)
 - Integrated `CollisionSystem`

@@ -74,14 +74,14 @@ struct PlatformCapabilities {
 ## Memory Layout (ESP32)
 
 ```
-┌─────────────────────────────────────┐ 0x3FF00000
+┌─────────────────────────────────────┐
 │           DRAM (520KB)              │
 │  ├─ .dram0.bss (static data)        │
 │  ├─ Heap (dynamic allocations)      │
 │  └─ Stack                           │
 ├─────────────────────────────────────┤
 │           IRAM (128KB)              │
-│  └─ Instruction RAM (cached code)     │
+│  └─ Instruction RAM (cached code)   │
 ├─────────────────────────────────────┤
 │           Flash (4MB+)              │
 │  └─ Program code and PROGMEM data   │
