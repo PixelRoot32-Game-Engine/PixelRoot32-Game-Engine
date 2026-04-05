@@ -45,7 +45,7 @@ jobs:
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/src/graphics/StaticTilemapLayerCache.cpp' '*/src/input/adapters/XPT2046Adapter.cpp' '*/src/input/TouchCalibration.cpp' '*/src/graphics/ui/UIManager.cpp' '*/src/graphics/ui/UICheckBox.cpp' '*/src/input/InputManager.cpp' '*/include/graphics/TileCache.h' '*/include/graphics/ChunkManager.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors unused
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/graphics/TileCache.h' '*/include/graphics/ChunkManager.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors unused
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
 
