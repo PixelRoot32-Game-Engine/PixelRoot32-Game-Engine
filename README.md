@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
   <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
@@ -94,7 +94,7 @@ build_flags =
 1. **Clone this repository** and open an example under [`examples/`](examples/):
 
    ```bash
-   git clone https://github.com/Gperez88/PixelRoot32-Game-Engine.git
+   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
@@ -126,7 +126,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Online Resources
 
 - **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
-- **[📦 Examples](https://github.com/Gperez88/PixelRoot32-Game-Engine/tree/main/examples)**: Runnable demos in-repo (`examples/*`, each with its own `platformio.ini`).
+- **[📦 Examples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/examples)**: Runnable demos in-repo (`examples/*`, each with its own `platformio.ini`).
 - **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
 ### Local Reference
