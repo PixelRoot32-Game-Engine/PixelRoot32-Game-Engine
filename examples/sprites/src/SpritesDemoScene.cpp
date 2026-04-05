@@ -9,9 +9,11 @@ namespace pr32 = pixelroot32;
 
 namespace spritesdemo {
 
-using pr32::graphics::Color;
-using pr32::graphics::Sprite2bpp;
-using pr32::graphics::Sprite4bpp;
+namespace gfx = pr32::graphics;
+
+using gfx::Color;
+using gfx::Sprite2bpp;
+using gfx::Sprite4bpp;
 
 namespace {
 
@@ -117,7 +119,7 @@ public:
         }
     }
 
-    void draw(pr32::graphics::Renderer& renderer) override {
+    void draw(gfx::Renderer& renderer) override {
         int drawX = static_cast<int>(position.x);
         int drawY = static_cast<int>(position.y);
 
@@ -152,7 +154,7 @@ public:
     void update(unsigned long) override {
     }
 
-    void draw(pr32::graphics::Renderer& renderer) override {
+    void draw(gfx::Renderer& renderer) override {
         int drawX = static_cast<int>(position.x);
         int drawY = static_cast<int>(position.y);
         renderer.drawSprite(sprite, drawX, drawY, false);
@@ -167,7 +169,7 @@ private:
 }
 
 void SpritesDemoScene::init() {
-    pr32::graphics::setPalette(pr32::graphics::PaletteType::PR32);
+    gfx::setPalette(gfx::PaletteType::PR32);
     // 2BPP Sprite centered in the left half of the screen
     float px = (DISPLAY_WIDTH * 0.25f) - (SPRITE_WIDTH * 0.5f);
     float py = (DISPLAY_HEIGHT - SPRITE_HEIGHT) * 0.5f; 
@@ -207,11 +209,11 @@ void SpritesDemoScene::init() {
 }
 
 void SpritesDemoScene::update(unsigned long deltaTime) {
-    pixelroot32::core::Scene::update(deltaTime);
+    pr32::core::Scene::update(deltaTime);
 }
 
-void SpritesDemoScene::draw(pr32::graphics::Renderer& renderer) {
-    pixelroot32::core::Scene::draw(renderer);
+void SpritesDemoScene::draw(gfx::Renderer& renderer) {
+    pr32::core::Scene::draw(renderer);
 }
 
 }

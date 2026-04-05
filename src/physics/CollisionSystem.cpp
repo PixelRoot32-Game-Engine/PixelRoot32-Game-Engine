@@ -10,12 +10,31 @@
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
 #include "math/MathUtil.h"
+#include <algorithm>
 #include <cassert>
+
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
 
 namespace pixelroot32::physics {
 
-    using namespace pixelroot32::core;
-    using namespace pixelroot32::math;
+    namespace core = pixelroot32::core;
+    namespace math = pixelroot32::math;
+    using core::Actor;
+    using core::CollisionShape;
+    using core::Entity;
+    using core::EntityType;
+    using core::PhysicsActor;
+    using core::PhysicsBodyType;
+    using core::Rect;
+    using math::Scalar;
+    using math::Vector2;
+    using math::toScalar;
+    using math::kEpsilon;
+    using math::min;
+    using math::max;
+    using math::clamp;
 
     namespace {
         struct ScalarRect {
@@ -28,24 +47,34 @@ namespace pixelroot32::physics {
 
     void CollisionSystem::addEntity(Entity* e) {
         assert(e != nullptr && "Cannot add null entity to collision system");
+        if (entityCount >= kMaxEntities) {
+            return;  // Silently ignore - could add assert or log
+        }
         if (e->type == EntityType::ACTOR) {
             Actor* actor = static_cast<Actor*>(e);
             actor->entityId = nextEntityId++;
             if (nextEntityId == 0) nextEntityId = 1;  // Wrap: 0 is reserved
         }
-        entities.push_back(e);
+        entities[entityCount++] = e;
         grid.markStaticDirty();
     }
 
     void CollisionSystem::removeEntity(Entity* e) {
         assert(e != nullptr && "Cannot remove null entity from collision system");
-        entities.erase(std::remove(entities.begin(), entities.end(), e), entities.end());
-        grid.markStaticDirty();
+        // O(1) swap-with-last removal
+        for (uint16_t i = 0; i < entityCount; i++) {
+            if (entities[i] == e) {
+                entities[i] = entities[--entityCount];
+                grid.markStaticDirty();
+                return;
+            }
+        }
     }
 
     void CollisionSystem::update() {
         // Store previous positions before integration
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type == EntityType::ACTOR) {
                 Actor* actor = static_cast<Actor*>(e);
                 if (actor->isPhysicsBody()) {
@@ -74,12 +103,13 @@ namespace pixelroot32::physics {
         PIXELROOT32_PROFILE_END(Physics_TriggerCallbacks);
     }
 
-    void CollisionSystem::detectCollisions() {
+    void IRAM_ATTR CollisionSystem::detectCollisions() {
         contactCount = 0;
-        grid.rebuildStaticIfNeeded(entities);
+        grid.rebuildStaticIfNeeded(entities, entityCount);
         grid.clearDynamic();
 
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
             if (!actor->isPhysicsBody()) continue;
@@ -90,7 +120,8 @@ namespace pixelroot32::physics {
 
         static Actor* potential[64];
         
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actorA = static_cast<Actor*>(e);
             if (!actorA->isPhysicsBody()) continue;
@@ -144,8 +175,8 @@ namespace pixelroot32::physics {
                         contact.bodyA = moving;
                         contact.bodyB = staticBody;
                         contact.normal = hitNormal;
-                        Scalar rA = moving->bounce ? moving->getRestitution() : toScalar(0.0f);
-                        Scalar rB = staticBody->bounce ? staticBody->getRestitution() : toScalar(0.0f);
+                        Scalar rA = moving->isBounce() ? moving->getRestitution() : toScalar(0.0f);
+                        Scalar rB = staticBody->isBounce() ? staticBody->getRestitution() : toScalar(0.0f);
                         contact.restitution = min(rA, rB);
                         contact.penetration = toScalar(0.01f);
                         contact.contactPoint = moving->position + moving->getVelocity() * FIXED_DT * hitTime;
@@ -169,8 +200,8 @@ namespace pixelroot32::physics {
         contact.bodyA = a;
         contact.bodyB = b;
         contact.penetration = toScalar(0);
-        Scalar rA = a->bounce ? a->getRestitution() : toScalar(0.0f);
-        Scalar rB = b->bounce ? b->getRestitution() : toScalar(0.0f);
+        Scalar rA = a->isBounce() ? a->getRestitution() : toScalar(0.0f);
+        Scalar rB = b->isBounce() ? b->getRestitution() : toScalar(0.0f);
         contact.restitution = min(rA, rB);
         
         CollisionShape shapeA = a->getShape();
@@ -305,7 +336,7 @@ namespace pixelroot32::physics {
         return true;
     }
 
-    void CollisionSystem::solveVelocity() {
+    void IRAM_ATTR CollisionSystem::solveVelocity() {
         for (int iter = 0; iter < VELOCITY_ITERATIONS; iter++) {
             for (int i = 0; i < contactCount; ++i) {
                 Contact& contact = contacts[i];
@@ -352,8 +383,9 @@ namespace pixelroot32::physics {
         }
     }
 
-    void CollisionSystem::integratePositions() {
-        for (auto e : entities) {
+    void IRAM_ATTR CollisionSystem::integratePositions() {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e->type != EntityType::ACTOR) continue;
             Actor* actor = static_cast<Actor*>(e);
             if (!actor->isPhysicsBody()) continue;
@@ -370,7 +402,7 @@ namespace pixelroot32::physics {
         }
     }
 
-    void CollisionSystem::solvePenetration() {
+    void IRAM_ATTR CollisionSystem::solvePenetration() {
         for (int i = 0; i < contactCount; ++i) {
             Contact& contact = contacts[i];
             if (contact.isSensorContact) continue;
@@ -414,7 +446,8 @@ namespace pixelroot32::physics {
         assert(outArray != nullptr && "checkCollision: outArray is null");
         assert(maxCount > 0 && "checkCollision: maxCount must be > 0");
         count = 0;
-        for (auto e : entities) {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
             if (e == actor || e->type != EntityType::ACTOR) continue;
             Actor* other = static_cast<Actor*>(e);
 

@@ -4,7 +4,6 @@
  */
 #pragma once
 #include <cstdint>
-#include <vector>
 #include "math/Scalar.h"
 #include "platforms/EngineConfig.h"
 
@@ -31,7 +30,7 @@ public:
     void clearDynamic();
     void clear();
     void markStaticDirty();
-    void rebuildStaticIfNeeded(const std::vector<pixelroot32::core::Entity*>& entities);
+    void rebuildStaticIfNeeded(pixelroot32::core::Entity* const* entities, uint16_t entityCount);
     void insertDynamic(pixelroot32::core::Actor* actor);
     void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
 

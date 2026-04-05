@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
   <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
@@ -91,14 +91,16 @@ build_flags =
 
 ### Fast Setup
 
-1. **Clone the samples repository:**
+1. **Clone this repository** and open an example under [`examples/`](examples/):
 
    ```bash
-   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples.git
-   cd PixelRoot32-Game-Engine-Samples
+   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
+   cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-2. **Open in VS Code** and select your environment (`env:esp32dev`, `env:esp32s3`, or `env:native`).
+   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvanina`, `tic_tac_toe`, `physics`, `camera`, `dual_palette`, `sprites`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+
+2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
 
 > 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
@@ -124,16 +126,18 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Online Resources
 
 - **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
-- **[🎮 Game Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)**: Complete examples to start building.
+- **[📦 Examples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/examples)**: Runnable demos in-repo (`examples/*`, each with its own `platformio.ini`).
 - **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
 ### Local Reference
 
+- **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
 - **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
-- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
-- **[Physics System](docs/PHYSICS_SYSTEM_REFERENCE.md)**: Flat Solver documentation.
+- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy (includes [ESP32 tilemap static cache](docs/ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)).
+- **[Animated tilemap example](examples/animated_tilemap/README.md)**: **Read this** if you use `AnimatedTilemapScene` or **`StaticTilemapLayerCache`**—documents engine snapshot API, **`invalidateStaticLayerCache()`**, and **static vs dynamic** layer groups (performance-critical on ESP32).
+- **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
+- **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
 - **[Migration v1.1.0](docs/MIGRATION_v1.1.0.md)**: Guide for upgrading from v1.0.0.
-- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Sound engine details.
 - **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
 ---

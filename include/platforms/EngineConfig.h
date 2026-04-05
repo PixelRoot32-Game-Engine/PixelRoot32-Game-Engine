@@ -78,6 +78,18 @@
 #define DISPLAY_HEIGHT LOGICAL_HEIGHT
 
 // =============================================================================
+// Input Systems
+// =============================================================================
+
+// Enable touch input system. When enabled, Engine processes touch events
+// automatically and sends them to the current scene via processTouchEvents().
+// This works for both ESP32 (via TouchManager injection) and Native (mouse mapping).
+// Default: disabled (0).
+#ifndef PIXELROOT32_ENABLE_TOUCH
+#define PIXELROOT32_ENABLE_TOUCH 0
+#endif
+
+// =============================================================================
 // Debug & Profiling
 // =============================================================================
 // Uncomment to enable performance profiling in Serial monitor
@@ -149,6 +161,10 @@
     #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 #endif
 
+#ifndef PHYSICS_MAX_ENTITIES
+    #define PHYSICS_MAX_ENTITIES 64
+#endif
+
 #ifndef PHYSICS_MAX_CONTACTS
     #define PHYSICS_MAX_CONTACTS 128
 #endif
@@ -157,12 +173,39 @@
     #define PHYSICS_MAX_PAIRS 128
 #endif
 
-#ifndef PR32_VELOCITY_ITERATIONS
-    #define PR32_VELOCITY_ITERATIONS 2
+#ifndef PIXELROOT32_VELOCITY_ITERATIONS
+    #define PIXELROOT32_VELOCITY_ITERATIONS 2
 #endif
 
 // Deprecated alias for backward compatibility
-#define PHYSICS_RELAXATION_ITERATIONS PR32_VELOCITY_ITERATIONS
+#define PHYSICS_RELAXATION_ITERATIONS PIXELROOT32_VELOCITY_ITERATIONS
+
+// =============================================================================
+// Tilemap Optimization Flags
+// =============================================================================
+// Enable tilemap rendering optimizations (tile caching, chunk management, etc.)
+// Default: enabled (1). Set to 0 to disable all tilemap optimizations.
+#ifndef PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
+#define PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION 1
+#endif
+
+// Tile cache size for LRU caching of pre-rendered tiles
+// Default: 16 tiles (128 bytes for 16bpp tiles at 8x8)
+#ifndef PIXELROOT32_TILE_CACHE_SIZE
+#define PIXELROOT32_TILE_CACHE_SIZE 16
+#endif
+
+// Dirty tile tracker size (number of tiles to track for animation changes)
+// Default: 256 tiles = 32 bytes (1 bit per tile)
+#ifndef PIXELROOT32_DIRTY_TRACKER_SIZE
+#define PIXELROOT32_DIRTY_TRACKER_SIZE 256
+#endif
+
+// Chunk size for viewport culling (number of tiles per chunk)
+// Default: 8 tiles per chunk (8x8 = 64 tiles per chunk area)
+#ifndef PIXELROOT32_CHUNK_SIZE
+#define PIXELROOT32_CHUNK_SIZE 8
+#endif
 
 // =============================================================================
 // Hardware Capabilities
@@ -223,9 +266,10 @@ namespace pixelroot32::platforms::config {
     inline constexpr int SpatialGridMaxDynamicPerCell = SPATIAL_GRID_MAX_DYNAMIC_PER_CELL;
 
     // Physics
+    inline constexpr int PhysicsMaxEntities = PHYSICS_MAX_ENTITIES;
     inline constexpr int PhysicsMaxContacts = PHYSICS_MAX_CONTACTS;
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
-    inline constexpr int VelocityIterations = PR32_VELOCITY_ITERATIONS;
+    inline constexpr int VelocityIterations = PIXELROOT32_VELOCITY_ITERATIONS;
     
     // Deprecated for backward compatibility
     inline constexpr int PhysicsRelaxationIterations = VelocityIterations;
@@ -272,6 +316,12 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableTileAnimations = false;
     #else
     inline constexpr bool EnableTileAnimations = true;
+    #endif
+
+    #if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    inline constexpr bool EnableStaticTilemapFbCache = true;
+    #else
+    inline constexpr bool EnableStaticTilemapFbCache = false;
     #endif
 
     inline unsigned long profilerMicros() {

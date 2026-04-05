@@ -11,8 +11,9 @@
 
 namespace pixelroot32::graphics::ui {
 
-    using namespace pixelroot32::math;
-    using namespace pixelroot32::graphics;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::toScalar;
 
     UILabel::UILabel(std::string_view t, Vector2 position, Color col, uint8_t sz)
         : UIElement(position, 0, 0, UIElementType::LABEL),

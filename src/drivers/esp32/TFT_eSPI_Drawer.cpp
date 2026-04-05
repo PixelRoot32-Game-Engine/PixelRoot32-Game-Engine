@@ -4,6 +4,7 @@
 
 #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
 
+#include "drivers/esp32/TFT_eSPI_TouchBridge.h"
 #include <stdio.h>
 #include <cstdarg>
 #include <cstdio>
@@ -18,6 +19,11 @@
 #endif
 
 namespace pr32 = pixelroot32;
+namespace logging = pixelroot32::core::logging;
+
+using logging::log;
+using logging::LogLevel;
+
 
 // --------------------------------------------------
 // Constructor / Destructor
@@ -38,27 +44,29 @@ pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
 // --------------------------------------------------
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
-    pr32::core::logging::log("[TFT_eSPI_Drawer] Initializing TFT...");
+    log("[TFT_eSPI_Drawer] Initializing TFT...");
     tft.init();
     tft.setRotation(rotation);
     tft.fillScreen(TFT_BLACK);
 
-    pr32::core::logging::log("[TFT_eSPI_Drawer] Initializing DMA...");
+    log("[TFT_eSPI_Drawer] Initializing DMA...");
     // Initialize DMA for the TFT. 
     // We call it with 'false' to indicate we don't want to re-initialize the bus if possible,
     // but TFT_eSPI on ESP32 usually needs this to setup DMA descriptors.
     tft.initDMA();
 
-    pr32::core::logging::log("[TFT_eSPI_Drawer] Creating Sprite...");
+    log("[TFT_eSPI_Drawer] Creating Sprite...");
     // Create sprite with LOGICAL resolution (smaller = less memory)
     spr.setColorDepth(8);
     if (!spr.createSprite(logicalWidth, logicalHeight)) {
-        pr32::core::logging::log("[ERROR] Failed to create sprite of size %dx%d", logicalWidth, logicalHeight);
+        log(LogLevel::Error, "Failed to create sprite of size %dx%d", logicalWidth, logicalHeight);
     }
     
     // Build scaling lookup tables and palette conversion buffers
     buildScaleLUTs();
-    pr32::core::logging::log("[TFT_eSPI_Drawer] Initialization complete.");
+    log("[TFT_eSPI_Drawer] Initialization complete.");
+
+    pixelroot32::drivers::esp32::registerTftForXpt2046Touch(&tft);
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
@@ -70,7 +78,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
     else rotation = rot % 4;
     
     if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-        pr32::core::logging::log("[TFT_eSPI_Drawer] Rotation set to %d (%d degrees)", rotation, rotation * 90);
+        log("[TFT_eSPI_Drawer] Rotation set to %d (%d degrees)", rotation, rotation * 90);
     }
 
     if (tft.getRotation() != rotation) {
@@ -126,6 +134,39 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, ui
     spr.drawPixel(x, y, color);
 }
 
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) {
+    if (!data || x >= (uint16_t)logicalWidth || y >= (uint16_t)logicalHeight) {
+        return;
+    }
+    
+    // Get direct pointer to sprite buffer (8bpp)
+    uint8_t* buffer = (uint8_t*)spr.getPointer();
+    if (!buffer) {
+        return;
+    }
+    
+    // Clip to sprite bounds
+    uint16_t clippedW = width;
+    uint16_t clippedH = height;
+    
+    if (x + width > (uint16_t)logicalWidth) {
+        clippedW = logicalWidth - x;
+    }
+    if (y + height > (uint16_t)logicalHeight) {
+        clippedH = logicalHeight - y;
+    }
+    
+    // Copy tile data directly to sprite buffer (fast memcpy)
+    for (uint16_t row = 0; row < clippedH; row++) {
+        uint16_t destOffset = (y + row) * logicalWidth + x;
+        std::memcpy(&buffer[destOffset], data + row * width, clippedW);
+    }
+}
+
+uint8_t* pr32::drivers::esp32::TFT_eSPI_Drawer::getSpriteBuffer() {
+    return (uint8_t*)spr.getPointer();
+}
+
 // --------------------------------------------------
 // Scaling Functions
 // --------------------------------------------------
@@ -133,20 +174,35 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawPixel(int x, int y, ui
 void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     freeScalingBuffers();
     
-    // We will use blocks of LINES_PER_BLOCK lines to reduce DMA overhead
-    size_t blockSize = physicalWidth * LINES_PER_BLOCK * sizeof(uint16_t);
-
+    // Determine actual lines per block - try optimal first, fallback if IRAM constrained
+    int linesPerBlock = LINES_PER_BLOCK;
+    size_t blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
+    
     // Allocate double line buffers for DMA
 #ifdef ESP32
     lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    
+    // If first buffer succeeded but second failed, try fallback size
+    if (lineBuffer[0] && !lineBuffer[1]) {
+        heap_caps_free(lineBuffer[0]);
+        
+        linesPerBlock = LINES_PER_BLOCK_FALLBACK;
+        blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
+        
+        lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    
     lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    
     // Force LUTs to Internal RAM for speed
     paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     xLUT = (uint16_t*)heap_caps_malloc(physicalWidth * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     yLUT = (uint16_t*)heap_caps_malloc(physicalHeight * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
     if (!lineBuffer[0] || !lineBuffer[1] || !paletteLUT || !xLUT || !yLUT) {
-        pr32::core::logging::log(pr32::core::logging::LogLevel::Error, "Failed to allocate DMA or Palette buffers in Internal RAM!");
+        log(LogLevel::Error, "Failed to allocate DMA or Palette buffers in Internal RAM!");
+    } else {
+        activeLinesPerBlock = linesPerBlock;
     }
 #else
     lineBuffer[0] = new uint16_t[physicalWidth * linesPerBlock];
@@ -221,14 +277,15 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
 }
 
 void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
-    
     uint32_t start = 0;
     if constexpr (pixelroot32::platforms::config::EnableProfiling) {
         uint32_t start = micros();
     }
 
     uint8_t* spritePtr = (uint8_t*)spr.getPointer();
-    if (!spritePtr) return;
+    if (!spritePtr) {
+        return;
+    }
 
     tft.startWrite();
     tft.setAddrWindow(xOffset, yOffset, physicalWidth, physicalHeight);
@@ -242,7 +299,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     bool is2x = (physicalWidth == logicalWidth * 2 && physicalHeight == logicalHeight * 2);
 
     if (startY < physicalHeight) {
-        int endY = startY + LINES_PER_BLOCK;
+        int endY = startY + activeLinesPerBlock;
         if (endY > physicalHeight) endY = physicalHeight;
         int numLines = endY - startY;
 
@@ -303,7 +360,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
 
         // Prepare indices for the next one
         currentBuffer = 1 - currentBuffer; // Switch to the other buffer
-        startY += LINES_PER_BLOCK;
+        startY += activeLinesPerBlock;
     }
 
     // ---------------------------------------------------------
@@ -311,7 +368,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     // While DMA sends the PREVIOUS buffer, CPU calculates the CURRENT one
     // ---------------------------------------------------------
     while (startY < physicalHeight) {
-        int endY = startY + LINES_PER_BLOCK;
+        int endY = startY + activeLinesPerBlock;
         if (endY > physicalHeight) endY = physicalHeight;
         int numLines = endY - startY;
 
@@ -378,7 +435,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
 
         // 4. Swap and advance
         currentBuffer = 1 - currentBuffer;
-        startY += LINES_PER_BLOCK;
+        startY += activeLinesPerBlock;
     }
     
     // Wait for the last pending transfer to finish
@@ -389,7 +446,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         uint32_t elapsed = micros() - start;
         static uint32_t lastReport = 0;
         if (millis() - lastReport > 1000) {
-            pr32::core::logging::log(pr32::core::logging::LogLevel::Profiling, "Scaled DMA Transfer: %u us (%u FPS max)", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
+            log(LogLevel::Profiling, "Scaled DMA Transfer: %u us (%u FPS max)", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
             lastReport = millis();
         }
     }

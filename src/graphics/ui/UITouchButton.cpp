@@ -1,0 +1,273 @@
+/*
+ * PixelRoot32 Game Engine
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
+ *
+ * UITouchButton.cpp - Touch-optimized button widget implementation
+ */
+#include "core/EngineModules.h"
+#if PIXELROOT32_ENABLE_UI_SYSTEM
+
+#include "graphics/ui/UITouchButton.h"
+#include "graphics/FontManager.h"
+#include "input/TouchEvent.h"
+
+namespace pixelroot32::graphics::ui {
+
+    namespace input = pixelroot32::input;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
+    using input::TouchEvent;
+    using input::TouchEventType;
+
+// New normalized constructor with Vector2 position/size
+UITouchButton::UITouchButton(
+    std::string_view t, 
+    Vector2 position, 
+    Vector2 size,
+    UIElementVoidCallback callback,
+    TextAlignment textAlign,
+    int fontSize)
+    : UITouchElement(static_cast<int>(position.x), static_cast<int>(position.y), 
+                    static_cast<int>(size.x), static_cast<int>(size.y), UIWidgetType::Button)
+    , onDownCallback(nullptr)
+    , onUpCallback(nullptr)
+    , onClickCallback(callback)
+    , pressStartPosition(Vector2::ZERO())
+    , label(t)
+    , normalColor(Color::White)
+    , pressedColor(Color::Gray)
+    , disabledColor(Color::DarkGray)
+    , borderColor(Color::Gray)
+    , disabledBorderColor(Color::DarkGray)
+    , fontSize(fontSize)
+    , textAlign(textAlign)
+{
+}
+
+// Legacy constructor for backward compatibility
+UITouchButton::UITouchButton(std::string_view t, int16_t x, int16_t y, uint16_t w, uint16_t h)
+    : UITouchElement(x, y, w, h, UIWidgetType::Button)
+    , onDownCallback(nullptr)
+    , onUpCallback(nullptr)
+    , onClickCallback(nullptr)
+    , pressStartPosition(Vector2::ZERO())
+    , label(t)
+    , normalColor(Color::White)
+    , pressedColor(Color::Gray)
+    , disabledColor(Color::DarkGray)
+    , borderColor(Color::Gray)
+    , disabledBorderColor(Color::DarkGray)
+    , fontSize(2)  // Default font size
+    , textAlign(TextAlignment::CENTER)
+{
+}
+
+void UITouchButton::setLabel(std::string_view newLabel) {
+    label = newLabel;
+}
+
+void UITouchButton::setColors(Color normal, Color pressed, Color disabled) {
+    normalColor = normal;
+    pressedColor = pressed;
+    disabledColor = disabled;
+}
+
+void UITouchButton::setOnDown(UITouchButton::UIElementVoidCallback callback) {
+    onDownCallback = callback;
+}
+
+void UITouchButton::setOnUp(UITouchButton::UIElementVoidCallback callback) {
+    onUpCallback = callback;
+}
+
+void UITouchButton::setOnClick(UITouchButton::UIElementVoidCallback callback) {
+    onClickCallback = callback;
+}
+
+UITouchButton::UIElementVoidCallback UITouchButton::getOnDown() const {
+    return onDownCallback;
+}
+
+UITouchButton::UIElementVoidCallback UITouchButton::getOnUp() const {
+    return onUpCallback;
+}
+
+UITouchButton::UIElementVoidCallback UITouchButton::getOnClick() const {
+    return onClickCallback;
+}
+
+bool UITouchButton::processEvent(const pixelroot32::input::TouchEvent& event) {
+    if (!isEnabled() || !isVisible()) {
+        return false;
+    }
+    
+    // Only process touch events
+    if (event.getType() != TouchEventType::TouchDown &&
+        event.getType() != TouchEventType::TouchUp &&
+        event.getType() != TouchEventType::Click) {
+        return false;
+    }
+    
+    // Check if event is within our bounds
+    if (!widgetData_.contains(event.x, event.y)) {
+        // If we're in pressed state and touch moved outside, reset
+        if (widgetData_.state == UIWidgetState::Pressed) {
+            widgetData_.state = UIWidgetState::Idle;
+            clearActive();
+        }
+        return false;
+    }
+    
+    switch (event.getType()) {
+        case pixelroot32::input::TouchEventType::TouchDown:
+            handleTouchDown(event);
+            return true;
+            
+        case pixelroot32::input::TouchEventType::TouchUp:
+            handleTouchUp(event);
+            return true;
+            
+        case pixelroot32::input::TouchEventType::Click:
+            handleClick(event);
+            return true;
+            
+        default:
+            return false;
+    }
+}
+
+void UITouchButton::reset() {
+    widgetData_.state = UIWidgetState::Idle;
+    clearActive();
+}
+
+void UITouchButton::autoSize(uint8_t padding) {
+    if (label.empty()) {
+        return;
+    }
+
+    // Calculate text width using FontManager
+    int16_t textWidth = FontManager::textWidth(nullptr, label, fontSize);
+
+    // Set button width to fit text plus padding
+    width = static_cast<uint16_t>(textWidth + padding);
+
+    // Sync with widget data
+    widgetData_.width = width;
+}
+
+void UITouchButton::handleTouchDown(const TouchEvent& event) {
+    widgetData_.state = UIWidgetState::Pressed;
+    setActive();
+    pressStartPosition = Vector2(toScalar(static_cast<int>(event.x)), toScalar(static_cast<int>(event.y)));
+    
+    if (onDownCallback) {
+        onDownCallback();
+    }
+}
+
+void UITouchButton::handleTouchUp(const TouchEvent& event) {
+    // Check if we dragged too far
+    int dx = static_cast<int>(event.x) - static_cast<int>(pressStartPosition.x);
+    int dy = static_cast<int>(event.y) - static_cast<int>(pressStartPosition.y);
+    
+    if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+        // Dragged too far - no click
+        widgetData_.state = UIWidgetState::Idle;
+    } else {
+        widgetData_.state = UIWidgetState::Idle;
+    }
+    
+    clearActive();
+    
+    if (onUpCallback) {
+        onUpCallback();
+    }
+}
+
+void UITouchButton::handleClick(const TouchEvent& event) {
+    (void)event;
+    if (onClickCallback) {
+        onClickCallback();
+    }
+}
+
+void UITouchButton::setActive() {
+    widgetData_.flags = static_cast<UIWidgetFlags>(
+        static_cast<uint8_t>(widgetData_.flags) | static_cast<uint8_t>(UIWidgetFlags::Active));
+}
+
+void UITouchButton::clearActive() {
+    widgetData_.flags = static_cast<UIWidgetFlags>(
+        static_cast<uint8_t>(widgetData_.flags) & ~static_cast<uint8_t>(UIWidgetFlags::Active));
+}
+
+Color UITouchButton::getCurrentColor() const {
+    Color c = normalColor;
+
+    if (!isEnabled()) {
+        c = disabledColor;
+    } else if (isPressed()) {
+        c = pressedColor;
+    }
+
+    return c;
+}
+
+void UITouchButton::draw(Renderer& renderer) {
+    // Skip rendering if not visible
+    if (!isVisible()) {
+        return;
+    }
+    
+    // Get bounds from Entity (synced from widget in update())
+    int16_t x = static_cast<int16_t>(position.x);
+    int16_t y = static_cast<int16_t>(position.y);
+    uint16_t w = static_cast<uint16_t>(width);
+    uint16_t h = static_cast<uint16_t>(height);
+    
+    // Get color based on state
+    Color color = getCurrentColor();
+    
+    // Draw button background (filled rectangle)
+    renderer.drawFilledRectangle(x, y, w, h, color);
+    
+    // Draw button border (darker color)
+    Color border = isEnabled() ? borderColor : disabledBorderColor;
+    renderer.drawRectangle(x, y, w, h, border);
+    
+    // Draw label text if present
+    if (label.length() > 0) {
+        int textFontSize = fontSize;  // Use configurable member
+        int textHeight = textFontSize * 8;
+        if (textHeight > static_cast<int>(h)) {
+            textHeight = static_cast<int>(h);
+        }
+        int textY = static_cast<int>(y) + (static_cast<int>(h) - textHeight) / 2;
+        
+        // Calculate text width using FontManager
+        int textWidth = FontManager::textWidth(nullptr, label, textFontSize);
+        
+        // Calculate text X position based on text alignment
+        int textX;
+        if (textAlign == TextAlignment::CENTER) {
+            textX = static_cast<int>(x) + (static_cast<int>(w) - textWidth) / 2;
+        } else if (textAlign == TextAlignment::RIGHT) {
+            textX = static_cast<int>(x) + static_cast<int>(w) - textWidth - 2;
+        } else { // LEFT
+            textX = static_cast<int>(x) + 2;
+        }
+        
+        // Use white text color
+        Color textColor = isEnabled() ? Color::White : Color::Gray;
+        
+        renderer.drawText(label, textX, textY, textColor, textFontSize);
+    }
+}
+
+} // namespace pixelroot32::graphics::ui
+
+#endif // PIXELROOT32_ENABLE_UI_SYSTEM

@@ -60,7 +60,7 @@ void PhysicsActor::resolveWorldBounds() {
     Scalar sWidth = toScalar(width);
     Scalar sHeight = toScalar(height);
     
-    Scalar effectiveRestitution = bounce ? restitution : toScalar(0.0f);
+    Scalar effectiveRestitution = isBounce() ? restitution : toScalar(0.0f);
 
     if (position.x < sLeft) { 
         position.x = sLeft; 

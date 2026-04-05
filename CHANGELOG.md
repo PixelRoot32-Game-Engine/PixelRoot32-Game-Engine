@@ -22,6 +22,10 @@ All notable changes to this project will be documented in this file.
 - **Conditional Logging**: Implemented unified `log()` calls with `PIXELROOT32_DEBUG_MODE` flag. No-op log functions when debug mode is disabled for production builds.
 - **PlatformIO Profiles**: Added platformio profiles for different subsystem combinations.
 
+### 📚 Documentation
+
+- **Touch input**: Added [TOUCH_INPUT.md](docs/TOUCH_INPUT.md) (pipeline, calibration, scene integration). Extended [API_REFERENCE.md](docs/API_REFERENCE.md) Input module and Scene touch hooks; [ARCHITECTURE.md](docs/ARCHITECTURE.md) documents touch as parallel to `InputManager`.
+
 ## 1.0.0
 
 First stable release. Complete performance overhaul and API stabilization.

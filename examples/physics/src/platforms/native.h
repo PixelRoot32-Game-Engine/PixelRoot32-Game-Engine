@@ -5,6 +5,7 @@
 #include <drivers/native/SDL2_Drawer.h> 
 #include <core/Engine.h>
 #include <platforms/EngineConfig.h>
+#include <input/TouchEvent.h>
 
 #include "PhysicsDemoScene.h"
 

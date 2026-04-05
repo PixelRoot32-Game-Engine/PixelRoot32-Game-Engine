@@ -80,12 +80,16 @@ When a contact is generated, the solver pre-calculates the restitution coefficie
 
 ```cpp
 // Combined restitution
-if (a->bounce && b->bounce) {
+if (a->isBounce() && b->isBounce()) {
     contact.restitution = min(a->getRestitution(), b->getRestitution());
 } else {
     contact.restitution = 0.0f; // No bounce if either body is absorbent
 }
 ```
+
+---
+
+> **Note (v1.2.0+)**: The `bounce` property now defaults to `true` (previously `false`). Use `setBounce(false)` to disable bounce behavior. The property uses packed flags internally for memory efficiency.
 
 ---
 
@@ -414,7 +418,7 @@ Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build f
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
 
-**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md#esp32-dram-and-build-configuration).
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](ARCH_MEMORY_SYSTEM.md#esp32-dram-and-build-configuration).
 
 Solver tuning (in code):
 
@@ -529,9 +533,10 @@ void RigidActor::update(unsigned long deltaTime) {
 
 - [API Reference](API_REFERENCE.md) - Class documentation
 - [Architecture](ARCHITECTURE.md) - System design
+- [Migration Guide v1.2.0](MIGRATION_v1.2.0.md) - PhysicsActor flags packing changes
 
 ---
 
 **Document Version**: Flat Solver  
-**Last Updated**: March 2026  
-**Engine Version**: v1.1.0
+**Last Updated**: April 2026  
+**Engine Version**: v1.2.0

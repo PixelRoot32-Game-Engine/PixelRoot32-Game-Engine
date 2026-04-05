@@ -17,9 +17,12 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::modules;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::physics;
+    namespace modules = pixelroot32::modules;
+    namespace gfx = pixelroot32::graphics;
+    namespace phy = pixelroot32::physics;
+
+    using gfx::Renderer;
+    using gfx::PaletteContext;
 
     extern unsigned long gProfilerCollisionTime;
 
@@ -49,6 +52,22 @@ namespace pixelroot32::core {
             return buffer + (aligned - reinterpret_cast<std::size_t>(buffer));
         } else {
             return nullptr;
+        }
+    }
+
+    void Scene::processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count) {
+        if (events == nullptr || count == 0) {
+            return;
+        }
+
+        #if PIXELROOT32_ENABLE_UI_SYSTEM
+            uiManager.processEvents(events, count);
+        #endif
+
+        for (uint8_t i = 0; i < count; ++i) {
+            if (!events[i].isConsumed()) {
+                onUnconsumedTouchEvent(events[i]);
+            }
         }
     }
 

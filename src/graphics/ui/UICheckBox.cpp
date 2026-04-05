@@ -9,24 +9,14 @@
 
 namespace pixelroot32::graphics::ui {
 
-    using namespace pixelroot32::input;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::math;
+    namespace input = pixelroot32::input;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using input::InputManager;
 
-    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked, std::function<void(bool)> callback, int fontSize)
+    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked, UIElementBoolCallback callback, int fontSize)
         : UIElement(position, static_cast<int>(size.x), static_cast<int>(size.y), UIElementType::CHECKBOX),
-          label(label),
-          checked(checked),
-          fontSize(fontSize),
-          index(index),
-          onCheckChanged(callback) {
-        
-        textColor = Color::White;
-        backgroundColor = Color::Black;
-    }
-
-    UICheckBox::UICheckBox(std::string_view label, uint8_t index, Scalar x, Scalar y, int w, int h, bool checked, std::function<void(bool)> callback, int fontSize)
-        : UIElement(x, y, w, h, UIElementType::CHECKBOX),
           label(label),
           checked(checked),
           fontSize(fontSize),
@@ -78,17 +68,9 @@ namespace pixelroot32::graphics::ui {
     void UICheckBox::handleInput(const InputManager& input) {
         if (!isEnabled || !isVisible) return;
 
-        // 1. Physical button activation (e.g., A / Enter) when the checkbox is focused
         if (isSelected && input.isButtonPressed(index)) {
             this->toggle();
         }
-
-        // 2. Touch / mouse activation (if implemented in the input system)
-        // if (input.isButtonClicked()) { 
-        //     if (isPointInside(input.getMouseX(), input.getMouseY())) {
-        //         this->toggle();
-        //     }
-        // }
     }
 
     void UICheckBox::update(unsigned long deltaTime) {
@@ -138,7 +120,7 @@ namespace pixelroot32::graphics::ui {
         // 3. Draw label text
         int textX = boxX + boxSize + 5;
         int textY = intY + (intHeight - (fontSize * 8)) / 2;
-        renderer.drawText(label.c_str(), textX, textY, highlightColor, fontSize);
+        renderer.drawText(label, textX, textY, highlightColor, fontSize);
 
         // Restore bypass state
         if (fixedPosition) {

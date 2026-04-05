@@ -13,13 +13,16 @@ extern pr32::core::Engine engine;
 
 namespace animatedtilemap {
 
-using namespace pr32::core::logging;
-using pr32::graphics::Color;
+namespace gfx = pr32::graphics;
+namespace logging = pr32::core::logging;
+
+using gfx::Color;
 using pr32::math::Vector2;
+using logging::log;
 
 // --- TileMapLayerEntityNew Implementation ---
 
-TileMapLayerEntity::TileMapLayerEntity(const pixelroot32::graphics::TileMap4bpp* tileMap, 
+TileMapLayerEntity::TileMapLayerEntity(const gfx::TileMap4bpp* tileMap, 
                                            int mapWidth, int mapHeight, int tileSize, int layer)
     : pr32::core::Entity(pr32::math::toScalar(0.0f), pr32::math::toScalar(0.0f),
                         pr32::math::toScalar(mapWidth * tileSize),
@@ -34,7 +37,7 @@ void TileMapLayerEntity::update(unsigned long) {
     // Tilemap layers don't need per-frame updates
 }
 
-void TileMapLayerEntity::draw(pr32::graphics::Renderer& renderer) {
+void TileMapLayerEntity::draw(gfx::Renderer& renderer) {
     if (tileMap) {
         renderer.drawTileMap(*tileMap, static_cast<int>(position.x), static_cast<int>(position.y));
     }
@@ -48,12 +51,10 @@ AnimatedTilemapScene::AnimatedTilemapScene()
     levelData = {nullptr, nullptr, nullptr, 0, 0, 0};
 }
 
-AnimatedTilemapScene::~AnimatedTilemapScene() {
-    // Cleanup is handled by the scene arena system
-}
-
 void AnimatedTilemapScene::init() {
     animatedtiles::init();
+
+    tilemapLayerCache.clear();
 
     #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     static uint8_t sceneArenaBuffer[8192];
@@ -68,6 +69,9 @@ void AnimatedTilemapScene::init() {
     levelWidth = pixelroot32::math::toScalar(levelData.mapWidth * levelData.tileSize);
 
     colorPaletteManager.initalizeGamePalettes();
+
+    tilemapLayerCache.invalidate();
+    (void)tilemapLayerCache.allocateForRenderer(engine.getRenderer());
 
     setupTilemapLayers();
 }
@@ -84,37 +88,44 @@ void AnimatedTilemapScene::setupLevelData() {
 }
 
 void AnimatedTilemapScene::setupTilemapLayers() {
-    if (levelData.background) {
-        addEntity(pr32::core::arenaNew<TileMapLayerEntity>(
-            arena, levelData.background, levelData.mapWidth, levelData.mapHeight, 
-            levelData.tileSize, 0));
-    }
-    
-    if (levelData.ground) {
-        addEntity(pr32::core::arenaNew<TileMapLayerEntity>(
-            arena, levelData.ground, levelData.mapWidth, levelData.mapHeight, 
-            levelData.tileSize, 1));
-    }
-
-    if(levelData.details) {
-        addEntity(pr32::core::arenaNew<TileMapLayerEntity>(
-            arena, levelData.details, levelData.mapWidth, levelData.mapHeight, 
-            levelData.tileSize, 2));
-    }
+    // Tilemaps are drawn in draw() via StaticTilemapLayerCache (background + ground snapshotted;
+    // details redrawn each frame when fast path applies). Adjust TileMap4bppDrawSpec lists in draw()
+    // for other layer splits. Use TileMapLayerEntity + Scene::draw for the generic entity path.
 }
 
 void AnimatedTilemapScene::update(unsigned long deltaTime) {
 
-    // Update animated tiles
+    // Update animated tiles — if you enable stepping, also call invalidateStaticLayerCache()
+    // when the stepped manager affects background or ground layers (details-only fast path).
     animatedtiles::getGroundAnimManager().step();
     animatedtiles::getDetailsAnimManager().step();
+
+    invalidateStaticLayerCache();
     
     // Update scene entities
     Scene::update(deltaTime);
 }
 
-void AnimatedTilemapScene::draw(pr32::graphics::Renderer& renderer) {
-    // Draw world entities (tilemaps, actors, etc.)
+void AnimatedTilemapScene::invalidateStaticLayerCache() {
+    tilemapLayerCache.invalidate();
+}
+
+void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
+    const int camX = -renderer.getXOffset();
+    const int camY = -renderer.getYOffset();
+
+    const gfx::TileMap4bppDrawSpec staticLayers[] = {
+        {levelData.background, 0, 0},
+        {levelData.ground, 0, 0},
+    };
+    const gfx::TileMap4bppDrawSpec dynamicLayers[] = {
+        {levelData.details, 0, 0},
+    };
+
+    tilemapLayerCache.draw(renderer, camX, camY,
+        staticLayers, sizeof(staticLayers) / sizeof(staticLayers[0]),
+        dynamicLayers, sizeof(dynamicLayers) / sizeof(dynamicLayers[0]));
+
     Scene::draw(renderer);
 }
 

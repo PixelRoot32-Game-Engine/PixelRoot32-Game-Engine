@@ -2,11 +2,18 @@
 #include "math/Scalar.h"
 #include "math/Vector2.h"
 
+namespace pr32 = pixelroot32;
+
 namespace snake {
 
+namespace gfx = pr32::graphics;
+
 using CollisionLayer = pr32::physics::CollisionLayer;
-using pixelroot32::math::toScalar;
-using pixelroot32::math::Vector2;
+using gfx::Color;
+using pr32::math::toScalar;
+using pr32::math::Vector2;
+
+
 
 static constexpr CollisionLayer LAYER_SNAKE_HEAD = 1 << 0;
 static constexpr CollisionLayer LAYER_SNAKE_BODY = 1 << 1;
@@ -26,8 +33,7 @@ void SnakeSegmentActor::update(unsigned long deltaTime) {
     (void)deltaTime;
 }
 
-void SnakeSegmentActor::draw(pr32::graphics::Renderer& renderer) {
-    using Color = pr32::graphics::Color;
+void SnakeSegmentActor::draw(gfx::Renderer& renderer) {
     Color color = isHead ? Color::LightGreen : Color::DarkGreen;
     renderer.drawFilledRectangle(cellX * CELL_SIZE, cellY * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1, color);
 }

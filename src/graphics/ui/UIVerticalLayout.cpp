@@ -15,7 +15,10 @@
 
 namespace pixelroot32::graphics::ui {
 
-using namespace pixelroot32::math;
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
 
     UIVerticalLayout::UIVerticalLayout(Scalar x, Scalar y, int w, int h)
         : UILayout(x, y, w, h) {

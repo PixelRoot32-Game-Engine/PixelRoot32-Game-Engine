@@ -1,12 +1,19 @@
 #include "BirdActor.h"
 #include "GameLayers.h"
 
-using namespace pixelroot32::math;
-using namespace pixelroot32::physics;
-using namespace pixelroot32::core;
-using namespace pixelroot32::graphics;
+namespace pr32 = pixelroot32;
 
 namespace flappy {
+
+namespace math = pr32::math;
+namespace physics = pr32::physics;
+namespace core = pr32::core;
+namespace graphics = pr32::graphics;
+
+using math::Vector2;
+using math::toScalar;
+using physics::RigidActor;
+using physics::CollisionShape;
 
 BirdActor::BirdActor(Vector2 pos) 
     : RigidActor(Vector2(pos.x - BIRD_RADIUS, pos.y - BIRD_RADIUS), BIRD_RADIUS * 2, BIRD_RADIUS * 2) {

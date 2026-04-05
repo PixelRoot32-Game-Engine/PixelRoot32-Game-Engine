@@ -7,6 +7,9 @@
 
 #pragma once
 
+// Enable testing-only features (like exposing private methods)
+#define PIXELROOT32_TESTING 1
+
 #include <unity.h>
 #include <cmath>
 

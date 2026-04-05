@@ -128,15 +128,109 @@ Rules for internal namespaces:
 
 ### Namespace Usage Rules
 
-- Public headers must not use `using namespace`
-- Public headers must always reference fully-qualified names
-- In internal implementation files (`.cpp`), namespace aliases are preferred
+#### Public Headers (`.h`)
 
-Recommended internal alias:
+- **Prohibited:** `using namespace` in any form
+- **Required:** Fully qualified names or local aliases within limited scopes
 
-namespace pr32 = pixelroot32;
+```cpp
+// ✅ Correct: Fully qualified
+pixelroot32::graphics::Renderer renderer;
 
-The use of `using namespace pixelroot32::...` is discouraged even internally, except in very small, localized implementation files.
+// ✅ Correct: Subsystem alias (inside function or method)
+void MyClass::draw() {
+    namespace gfx = pixelroot32::graphics;
+    gfx::Renderer renderer;
+}
+
+// ❌ Prohibited: using namespace in header
+using namespace pixelroot32::graphics;
+```
+
+#### Implementation Files (`.cpp`)
+
+| Approach | Recommended Use | Example |
+|----------|-----------------|---------|
+| **Subsystem alias** | Daily use in large modules (rendering, physics) | `namespace gfx = pixelroot32::graphics;` |
+| **Root alias** | Multiple references to `pixelroot32::*` | `namespace pr32 = pixelroot32;` |
+| **Selective using** | Specific frequently-used symbols | `using pixelroot32::graphics::Renderer;` |
+| **Using namespace** | Only in: tests, small scopes (<20 lines), prototypes | `using namespace pixelroot32::math;` // inside function |
+
+**Recommended subsystem aliases:**
+
+```cpp
+// graphics
+namespace gfx = pixelroot32::graphics;
+
+// ui (inside graphics)
+namespace ui = pixelroot32::graphics::ui;
+
+// physics
+namespace phy = pixelroot32::physics;
+
+// math (when used intensively)
+namespace math = pixelroot32::math;
+
+// input
+namespace input = pixelroot32::input;
+
+// core
+namespace core = pixelroot32::core;
+```
+
+**Restrictions for `using namespace`:**
+
+✅ **Acceptable in:**
+
+- Unit tests (files `test_*.cpp`)
+- Function scopes (not file or namespace scope)
+- Internal prototype/tool files (<50 lines)
+- Very local initialization functions
+
+❌ **Prohibited in:**
+
+- Engine core files (`.cpp` in `src/core/`, `src/physics/`, etc.)
+- Namespace scope (affects entire file)
+- Public headers (`.h`)
+- Production code on devices
+
+**Example of selective using (preferred over using namespace):**
+
+```cpp
+// ✅ Correct: Import only specific symbols
+using pixelroot32::graphics::Renderer;
+using pixelroot32::graphics::Sprite;
+using pixelroot32::math::Vector2;
+
+Renderer r;      // Clearly graphics::Renderer
+Sprite s;        // Clearly graphics::Sprite
+Vector2 pos;     // Clearly math::Vector2
+
+// ❌ Incorrect: Pollutes entire namespace
+using namespace pixelroot32::graphics;  // Renderer? Sprite? From where?
+```
+
+**Example of limited scope:**
+
+```cpp
+void processPhysics() {
+    // ✅ Correct: Alias inside function
+    namespace phy = pixelroot32::physics;
+    
+    phy::CollisionSystem cs;
+    phy::KinematicActor actor;
+    
+    // Does not affect other functions in the file
+}
+
+void processInput() {
+    // ✅ Different subsystem, same file, no conflicts
+    namespace input = pixelroot32::input;
+    
+    input::TouchEvent event;
+    // phy:: is not available here (intentional)
+}
+```
 
 ---
 
@@ -163,7 +257,7 @@ These guidelines are derived from practical implementation in `examples/Geometry
 
 ### 💾 Memory & Resources
 
-**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](MEMORY_MANAGEMENT_GUIDE.md)**
+**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](architecture/ARCH_MEMORY_SYSTEM.md)**
 
 - **Smart Pointers (C++17)**: Prefer `std::unique_ptr` for owning objects (like Scenes, Actors, UI elements) to automate memory management and document ownership.
   - Use `std::make_unique<T>(...)` to create objects.
@@ -232,6 +326,7 @@ The modular compilation system provides powerful memory optimization capabilitie
 
 - **Conditional Logic**: Use `#if PIXELROOT32_ENABLE_*` guards around subsystem-specific code
 - **Fallback Systems**: When a subsystem is disabled, provide simplified alternatives:
+
   ```cpp
   #if PIXELROOT32_ENABLE_PHYSICS
       // Full physics collision
@@ -294,6 +389,7 @@ The unified logging system (`pixelroot32::core::logging`) provides conditional l
 
 - **Zero overhead in production**: When `PIXELROOT32_DEBUG_MODE` is not defined, all `log()` calls become no-ops at compile time
 - **Enable only in development**: Add to `platformio.ini` for debug builds only:
+
   ```ini
   [env:debug]
   build_flags = -DPIXELROOT32_DEBUG_MODE
@@ -401,6 +497,7 @@ The engine uses a **Math Policy Layer** to support both FPU (Float) and non-FPU 
   - Keep tile indices in a compact `uint8_t` array and reuse tiles across the map to minimize RAM and flash usage on ESP32.
   - *Trade-off*: Greatly reduces background RAM compared to full bitmaps, but adds a predictable per-tile draw cost; avoid unnecessarily large maps or resolutions on ESP32.
   - For side-scrolling platformers, combine tilemaps with `Camera2D` and `Renderer::setDisplayOffset` instead of manually offsetting individual actors. Keep camera logic centralized (for example in a `Scene`-level camera object) and use different parallax factors per layer to achieve multi-layer scrolling without additional allocations.
+  - **ESP32 / 4bpp multi-layer fast path:** use **`StaticTilemapLayerCache`** for snapshotted **static** `TileMap4bpp` layers plus per-frame **dynamic** layers. Call **`allocateForRenderer`** (or **`allocateForLogicalSize`**) from **`Scene::init()`** only; call **`invalidate()`** when any **static** layer’s pixels change (e.g. after **`TileAnimationManager::step()`** on that layer). Do not hand-roll `malloc`/`memcpy` in every scene—see [Architecture — Static tilemap layer cache](ARCHITECTURE.md#static-tilemap-layer-cache-engine--scenes).
 
 ### Tile Animation Usage
 
@@ -500,6 +597,8 @@ void MyScene::update(unsigned long dt) {
 
 3. **Global timing**: All animations advance together. For desynchronized animations (e.g., two water pools with different phases), create separate animation managers with different frame offsets, or use conditional `step()` calls.
 
+4. **`StaticTilemapLayerCache`:** If a tilemap is in the **static** snapshot group, **`step()`** on its **`TileAnimationManager`** requires **`invalidate()`** on the cache (or move that map to the **dynamic** group). **Dynamic**-group layers do not need cache invalidation for animation updates.
+
 ---
 
 ### 🎨 Multi-Palette Systems (Sprites & Backgrounds)
@@ -509,6 +608,7 @@ The engine supports multiple palettes for both sprites and backgrounds through p
 #### Naming Conventions
 
 **Palette Slot Functions:**
+
 ```cpp
 // Background palette slots (for tilemaps)
 initBackgroundPaletteSlots()           // Initialize all slots
@@ -524,6 +624,7 @@ getSpritePaletteSlot(slot)              // Get palette pointer (never nullptr)
 ```
 
 **Context Functions:**
+
 ```cpp
 // Sprite palette slot context (for batch rendering)
 setSpritePaletteSlotContext(slot)       // Set global context slot
@@ -531,6 +632,7 @@ getSpritePaletteSlotContext()           // Get current context slot
 ```
 
 **Constants:**
+
 ```cpp
 MAX_BACKGROUND_PALETTE_SLOTS   // Default: 8, configurable
 MAX_SPRITE_PALETTE_SLOTS       // Default: 8, configurable
@@ -539,6 +641,7 @@ MAX_SPRITE_PALETTE_SLOTS       // Default: 8, configurable
 #### Usage Patterns
 
 **1. Game Initialization - Setup Palette Slots**
+
 ```cpp
 class MyGameScene : public pixelroot32::core::Scene {
 public:
@@ -565,6 +668,7 @@ public:
 ```
 
 **2. Custom Palettes - Define and Apply**
+
 ```cpp
 // Define custom palettes (typically as static const for flash storage)
 static const uint16_t CUSTOM_PLAYER_PALETTE[] = {
@@ -588,6 +692,7 @@ public:
 ```
 
 **3. Rendering - Use Palette Slots**
+
 ```cpp
 class PlayerActor : public pixelroot32::core::Actor {
 public:
@@ -620,6 +725,7 @@ public:
 ```
 
 **4. Batch Rendering - Use Context for Performance**
+
 ```cpp
 class BulletManager {
 public:
@@ -638,6 +744,7 @@ public:
 ```
 
 **5. Comments and Documentation**
+
 ```cpp
 // Background palette slot assignments:
 // Slot 0: Default ground tiles (PR32 palette)

@@ -16,6 +16,7 @@
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
 #include <memory>
+#include <functional>
 
 using namespace pixelroot32::graphics;
 using namespace pixelroot32::graphics::ui;
@@ -44,8 +45,8 @@ void test_horizontal_layout_spacing_calculation() {
     layout.setPadding(toScalar(10));
     layout.setSpacing(toScalar(20));
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
@@ -64,8 +65,8 @@ void test_vertical_layout_spacing_calculation() {
     layout.setPadding(toScalar(10));
     layout.setSpacing(toScalar(15));
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
@@ -80,7 +81,7 @@ void test_vertical_layout_zero_spacing() {
 }
 
 void test_button_state_transitions_advanced() {
-    UIButton btn("Test", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    UIButton btn("Test", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     TEST_ASSERT_FALSE(btn.getSelected());
     btn.setSelected(true);
     TEST_ASSERT_TRUE(btn.getSelected());
@@ -144,9 +145,9 @@ void test_nested_container_hierarchy() {
 void test_sibling_order_in_horizontal_layout() {
     UIHorizontalLayout layout(0, 0, 300, 50);
     
-    auto btn1 = std::make_unique<UIButton>("First", 0, Vector2::ZERO(), Vector2(50, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("Second", 1, Vector2::ZERO(), Vector2(50, 30), std::function<void()>());
-    auto btn3 = std::make_unique<UIButton>("Third", 2, Vector2::ZERO(), Vector2(50, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("First", 0, Vector2::ZERO(), Vector2(50, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("Second", 1, Vector2::ZERO(), Vector2(50, 30), nullptr);
+    auto btn3 = std::make_unique<UIButton>("Third", 2, Vector2::ZERO(), Vector2(50, 30), nullptr);
     
     UIElement* ptr1 = btn1.get();
     UIElement* ptr2 = btn2.get();
@@ -165,9 +166,9 @@ void test_sibling_order_in_horizontal_layout() {
 void test_sibling_order_in_vertical_layout() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("First", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("Second", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn3 = std::make_unique<UIButton>("Third", 2, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("First", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("Second", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn3 = std::make_unique<UIButton>("Third", 2, Vector2::ZERO(), Vector2(80, 30), nullptr);
     
     UIElement* ptr1 = btn1.get();
     UIElement* ptr2 = btn2.get();
@@ -186,8 +187,8 @@ void test_sibling_order_in_vertical_layout() {
 void test_element_index_tracking() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("Btn1", 5, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("Btn2", 3, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("Btn1", 5, Vector2::ZERO(), Vector2(80, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("Btn2", 3, Vector2::ZERO(), Vector2(80, 20), nullptr);
     
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
@@ -201,8 +202,8 @@ void test_element_index_tracking() {
 void test_element_removal_from_hierarchy() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("Btn1", 0, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("Btn2", 1, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("Btn1", 0, Vector2::ZERO(), Vector2(80, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("Btn2", 1, Vector2::ZERO(), Vector2(80, 20), nullptr);
     
     UIElement* ptr1 = btn1.get();
     UIElement* ptr2 = btn2.get();
@@ -220,9 +221,9 @@ void test_element_removal_from_hierarchy() {
 void test_selected_index_navigation() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("Btn1", 0, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("Btn2", 1, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
-    auto btn3 = std::make_unique<UIButton>("Btn3", 2, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("Btn1", 0, Vector2::ZERO(), Vector2(80, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("Btn2", 1, Vector2::ZERO(), Vector2(80, 20), nullptr);
+    auto btn3 = std::make_unique<UIButton>("Btn3", 2, Vector2::ZERO(), Vector2(80, 20), nullptr);
     
     UIElement* ptr1 = btn1.get();
     UIElement* ptr2 = btn2.get();
@@ -271,12 +272,12 @@ void test_layout_element_count() {
     
     TEST_ASSERT_EQUAL(0, static_cast<int>(layout.getElementCount()));
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 20), nullptr);
     layout.addElement(btn1.get());
     
     TEST_ASSERT_EQUAL(1, static_cast<int>(layout.getElementCount()));
     
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 20), nullptr);
     layout.addElement(btn2.get());
     
     TEST_ASSERT_EQUAL(2, static_cast<int>(layout.getElementCount()));
@@ -295,7 +296,7 @@ void test_grid_layout_draw() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
@@ -306,7 +307,7 @@ void test_grid_layout_update() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.update(16); // 16ms delta
@@ -320,7 +321,7 @@ void test_horizontal_layout_draw() {
     
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
@@ -330,7 +331,7 @@ void test_horizontal_layout_draw() {
 void test_horizontal_layout_update() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.update(16);
@@ -344,7 +345,7 @@ void test_vertical_layout_draw() {
     
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
@@ -354,7 +355,7 @@ void test_vertical_layout_draw() {
 void test_vertical_layout_update() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.update(16);
@@ -365,7 +366,7 @@ void test_grid_layout_handle_input() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     // Test with empty input - should not crash
@@ -378,7 +379,7 @@ void test_grid_layout_handle_input() {
 void test_horizontal_layout_handle_input() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     pixelroot32::input::InputConfig config;
@@ -390,7 +391,7 @@ void test_horizontal_layout_handle_input() {
 void test_vertical_layout_handle_input() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     pixelroot32::input::InputConfig config;
@@ -402,8 +403,8 @@ void test_vertical_layout_handle_input() {
 void test_layout_clear_elements() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 20), nullptr);
     
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
@@ -423,9 +424,9 @@ void test_grid_layout_calculate_rows_basic() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn3 = std::make_unique<UIButton>("3", 2, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn3 = std::make_unique<UIButton>("3", 2, Vector2::ZERO(), Vector2(40, 20), nullptr);
     
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
@@ -438,7 +439,7 @@ void test_grid_layout_calculate_rows_single_element() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     TEST_ASSERT_EQUAL(1, layout.getRows());
@@ -455,8 +456,8 @@ void test_grid_layout_set_selected_index() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -468,7 +469,7 @@ void test_grid_layout_set_selected_index_invalid() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(100); // Invalid index
@@ -479,7 +480,7 @@ void test_grid_layout_get_selected_element() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(0);
@@ -496,7 +497,7 @@ void test_grid_layout_get_selected_element_invalid() {
 void test_grid_layout_add_duplicate_element() {
     UIGridLayout layout(0, 0, 100, 100);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn1.get()); // Add same element twice
     
@@ -507,7 +508,7 @@ void test_grid_layout_set_button_style() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.setButtonStyle(Color::White, Color::Blue, Color::Gray, Color::Black);
@@ -518,7 +519,7 @@ void test_grid_layout_set_selected_index_negative() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(-1);
@@ -529,8 +530,8 @@ void test_grid_layout_remove_selected_element() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -547,8 +548,8 @@ void test_grid_layout_remove_selected_element() {
 void test_horizontal_layout_set_selected_index() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -559,7 +560,7 @@ void test_horizontal_layout_set_selected_index() {
 void test_horizontal_layout_set_selected_index_negative() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(-1);
@@ -569,7 +570,7 @@ void test_horizontal_layout_set_selected_index_negative() {
 void test_horizontal_layout_get_selected_element() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(0);
@@ -579,8 +580,8 @@ void test_horizontal_layout_get_selected_element() {
 void test_horizontal_layout_remove_selected() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -601,8 +602,8 @@ void test_horizontal_layout_scroll_to_selected() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     layout.setScrollEnabled(true);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -617,8 +618,8 @@ void test_horizontal_layout_scroll_to_selected() {
 void test_vertical_layout_set_selected_index() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -629,7 +630,7 @@ void test_vertical_layout_set_selected_index() {
 void test_vertical_layout_set_selected_index_negative() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(-1);
@@ -639,7 +640,7 @@ void test_vertical_layout_set_selected_index_negative() {
 void test_vertical_layout_get_selected_element() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     layout.setSelectedIndex(0);
@@ -649,8 +650,8 @@ void test_vertical_layout_get_selected_element() {
 void test_vertical_layout_remove_selected() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -667,8 +668,8 @@ void test_vertical_layout_remove_selected() {
 void test_horizontal_layout_handle_input_with_selection() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -683,8 +684,8 @@ void test_horizontal_layout_handle_input_with_selection() {
 void test_vertical_layout_handle_input_with_selection() {
     UIVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -700,8 +701,8 @@ void test_grid_layout_handle_input_with_selection() {
     UIGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -717,8 +718,8 @@ void test_horizontal_layout_ensure_visible() {
     UIHorizontalLayout layout(0, 0, 100, 50);
     layout.setScrollEnabled(true);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -730,8 +731,8 @@ void test_vertical_layout_ensure_visible() {
     UIVerticalLayout layout(0, 0, 100, 100);
     layout.setScrollEnabled(true);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -781,7 +782,7 @@ public:
 void test_vertical_layout_protected_calculate_content_height() {
     TestableVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     // Call protected method directly
@@ -792,7 +793,7 @@ void test_vertical_layout_protected_calculate_content_height() {
 void test_vertical_layout_protected_update_element_visibility() {
     TestableVerticalLayout layout(0, 0, 100, 200);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     // Call protected method directly
@@ -811,7 +812,7 @@ void test_vertical_layout_protected_clamp_scroll() {
 void test_horizontal_layout_protected_calculate_content_width() {
     TestableHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     // Call protected method directly
@@ -822,7 +823,7 @@ void test_horizontal_layout_protected_calculate_content_width() {
 void test_horizontal_layout_protected_update_element_visibility() {
     TestableHorizontalLayout layout(0, 0, 200, 50);
     
-    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
     layout.addElement(btn1.get());
     
     // Call protected method directly
@@ -842,8 +843,8 @@ void test_grid_layout_protected_calculate_rows() {
     TestableGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
-    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     layout.addElement(btn2.get());
     
@@ -856,7 +857,7 @@ void test_grid_layout_protected_calculate_cell_dimensions() {
     TestableGridLayout layout(0, 0, 100, 100);
     layout.setColumns(2);
     
-    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), std::function<void()>());
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
     layout.addElement(btn1.get());
     
     // Call protected method directly

@@ -28,7 +28,7 @@ Understanding the engine's memory limits is crucial for developing stable games 
 | **Max Entities Per Grid Cell** | 24 | ✅ via `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | Legacy single-grid capacity |
 | **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
 | **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
-| **Velocity Iterations** | 2 | ✅ via `PR32_VELOCITY_ITERATIONS` | Physics solver iterations |
+| **Velocity Iterations** | 2 | ✅ via `PIXELROOT32_VELOCITY_ITERATIONS` | Physics solver iterations |
 
 **Modular Compilation Impact:**
 
@@ -133,6 +133,8 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 | **240x240** | ~57 KB | ~2 KB | **~59 KB** |
 
 > **Note:** These values are for TFT (16-bit) displays. OLED displays use significantly less memory.
+
+**Optional `StaticTilemapLayerCache` (4bpp tilemap snapshot):** when enabled (`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`, default `1`), scenes may allocate a **second** logical **W×H** byte buffer (same order as one fullscreen 8bpp logical surface) via **`allocateForRenderer` / `allocateForLogicalSize`** during **`Scene::init()`** only—no heap traffic in **`draw`/`update`**. Budget an extra **~57 KB** at **240×240** if you use the fast path; set the flag to **`0`** or skip **`allocate*`** to avoid that cost (full redraw fallback).
 
 ### Per-Entity Memory Costs
 

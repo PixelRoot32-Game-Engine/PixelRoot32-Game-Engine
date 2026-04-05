@@ -1,33 +1,55 @@
 # Snake Game Example
 
-A complete Snake game implementation using PixelRoot32.
+Classic **Snake** on a grid: discrete movement (no physics engine), **pre-allocated segment pool** to avoid runtime allocations, food spawning, wall/self collision, score, and **procedural audio** through the engine **`AudioEngine`**.
 
-## Features
+## Requirements (build flags)
 
-- Snake movement with arrow keys
-- Food spawning
-- Collision detection (walls and self)
-- Optional audio feedback (I2S or DAC)
-- Score display
-- Game over state
+- **`PIXELROOT32_ENABLE_AUDIO=1`** — set in [`lib/platformio.ini`](lib/platformio.ini) `base` template so all environments inherit it.
 
-## Build
+Display size is **240×240** in the project `platformio.ini` (see **`PHYSICAL_DISPLAY_*`**).
 
-```bash
-# Native (PC with SDL2)
-pio run -e native
+## Platforms
 
-# ESP32
-pio run -e esp32dev
-```
+| Environment | Display | Audio backend |
+|-------------|---------|----------------|
+| **`native`** | SDL2, 240×240 | **`SDL2_AudioBackend`** in [`src/platforms/native.h`](src/platforms/native.h) |
+| **`esp32dev`** | **ST7789** 240×240 | Default: **`ESP32_I2S_AudioBackend`** (comment in `esp32_dev.h` documents optional internal **DAC** backend instead) |
+
+Pin choices for I2S / DAC are in **`src/platforms/esp32_dev.h`** (edit there if your wiring differs).
 
 ## Controls
 
-- Arrow keys to move
-- Goal: Eat food to grow and score points
-- Avoid: Walls and your own tail
+- **Arrow keys** (or GPIO D-pad mapped in your platform input config) to steer.
+- **180° reverse** on the same frame is blocked via `nextDir` (see [`SnakeScene.h`](src/SnakeScene.h)).
+- Eat food to grow and add score; hitting walls or yourself ends the run.
 
----
+## How audio is triggered
 
-**Note:** Looking for more examples? Check out the main samples repository:
-[https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)
+[`SnakeScene.cpp`](src/SnakeScene.cpp) builds **`pixelroot32::audio::AudioEvent`** values (move, eat, crash) and calls **`engine.getAudioEngine().playEvent(...)`**. Wave types (triangle, pulse, noise) are lightweight beeps suited for embedded output.
+
+## Features
+
+- **Scene** + **Entity** background + pooled **`SnakeSegmentActor`**
+- **Grid logic** and timers (`moveInterval`, `lastMoveTime`)
+- **Audio** subsystem integration (`AudioEngine`, platform backends)
+
+## Documentation links
+
+- [Audio API](../../docs/api/API_AUDIO.md)
+- [Core API](../../docs/api/API_CORE.md)
+- [Input API](../../docs/api/API_INPUT.md)
+
+## Build
+
+From **`examples/snake`**:
+
+```bash
+pio run -e native
+pio run -e esp32dev
+```
+
+## Upload (ESP32)
+
+```bash
+pio run -e esp32dev --target upload
+```

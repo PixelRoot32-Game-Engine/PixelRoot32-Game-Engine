@@ -4,7 +4,7 @@
 #include "GameConstants.h"
 #include "physics/CollisionTypes.h"
 
-namespace pr32 = pixelroot32;
+
 
 namespace snake {
 
@@ -14,7 +14,7 @@ namespace snake {
  *
  * Head collides with body (game over). Position is grid-based.
  */
-class SnakeSegmentActor : public pr32::core::Actor {
+class SnakeSegmentActor : public pixelroot32::core::Actor {
 public:
     /**
      * @brief Constructs segment at grid position.
@@ -25,9 +25,9 @@ public:
     SnakeSegmentActor(int gridX, int gridY, bool head);
 
     void update(unsigned long deltaTime) override;
-    void draw(pr32::graphics::Renderer& renderer) override;
-    pr32::core::Rect getHitBox() override;
-    void onCollision(pr32::core::Actor* other) override;
+    void draw(pixelroot32::graphics::Renderer& renderer) override;
+    pixelroot32::core::Rect getHitBox() override;
+    void onCollision(pixelroot32::core::Actor* other) override;
 
     void setCellPosition(int gridX, int gridY);
     int getCellX() const;
