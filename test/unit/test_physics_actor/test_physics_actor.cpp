@@ -174,7 +174,7 @@ void test_physics_actor_set_radius(void) {
 
 void test_physics_actor_bounce_default(void) {
     TestPhysicsActor actor(toScalar(0), toScalar(0), 10, 10);
-    TEST_ASSERT_TRUE(actor.bounce);
+    TEST_ASSERT_TRUE(actor.isBounce());
 }
 
 void test_physics_actor_one_way_default_false(void) {
@@ -375,7 +375,7 @@ void test_physics_actor_resolve_corner_collision(void) {
 void test_physics_actor_bounce_reverses_velocity(void) {
     TestPhysicsActor actor(toScalar(-5.0f), toScalar(50.0f), 10, 10);
     actor.setWorldBounds(200, 200);
-    actor.bounce = true;
+    actor.setBounce(true);
     actor.setRestitution(toScalar(1.0f)); // Perfect bounce
     actor.setVelocity(-10.0f, 0.0f);
     
@@ -388,7 +388,7 @@ void test_physics_actor_bounce_reverses_velocity(void) {
 void test_physics_actor_no_bounce_zeroes_velocity(void) {
     TestPhysicsActor actor(toScalar(-5.0f), toScalar(50.0f), 10, 10);
     actor.setWorldBounds(200, 200);
-    actor.bounce = false;
+    actor.setBounce(false);
     actor.setVelocity(-10.0f, 0.0f);
     
     actor.resolveWorldBounds();
@@ -400,7 +400,7 @@ void test_physics_actor_no_bounce_zeroes_velocity(void) {
 void test_physics_actor_bounce_with_partial_restitution(void) {
     TestPhysicsActor actor(toScalar(-5.0f), toScalar(50.0f), 10, 10);
     actor.setWorldBounds(200, 200);
-    actor.bounce = true;
+    actor.setBounce(true);
     actor.setRestitution(toScalar(0.5f));
     actor.setVelocity(toScalar(-10.0f), toScalar(0.0f));
     

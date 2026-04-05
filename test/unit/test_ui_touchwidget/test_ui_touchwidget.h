@@ -22,6 +22,7 @@
 using namespace pixelroot32::graphics::ui;
 using namespace pixelroot32::input;
 using namespace pixelroot32::graphics;
+using namespace pixelroot32::math;
 
 /** Concrete fixture for tests that need a minimal UITouchElement (base class is abstract). */
 class TestTouchElement : public UITouchElement {
@@ -215,7 +216,7 @@ void test_uitouch_slider_set_colors() {
 // =============================================================================
 
 void test_uitouch_checkbox_initialization() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, true);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), true);
     
     TEST_ASSERT_EQUAL_STRING("Test", checkbox.getLabel().data());
     TEST_ASSERT_EQUAL(10, checkbox.getX());
@@ -224,27 +225,27 @@ void test_uitouch_checkbox_initialization() {
 }
 
 void test_uitouch_checkbox_initialization_unchecked() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     
     TEST_ASSERT_FALSE(checkbox.isChecked());
 }
 
 void test_uitouch_checkbox_set_label() {
-    UITouchCheckbox checkbox("T", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("T", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setLabel("Test Label");
     
     TEST_ASSERT_EQUAL_STRING("Test Label", checkbox.getLabel().data());
 }
 
 void test_uitouch_checkbox_set_checked() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setChecked(true);
     
     TEST_ASSERT_TRUE(checkbox.isChecked());
 }
 
 void test_uitouch_checkbox_toggle() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.toggle();
     
     TEST_ASSERT_TRUE(checkbox.isChecked());
@@ -254,7 +255,7 @@ void test_uitouch_checkbox_toggle() {
 }
 
 void test_uitouch_checkbox_toggle_disabled() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setWidgetEnabled(false);
     checkbox.toggle();
     
@@ -263,7 +264,7 @@ void test_uitouch_checkbox_toggle_disabled() {
 }
 
 void test_uitouch_checkbox_set_colors() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setColors(Color::White, Color::Cyan, Color::Gray);
     
     TEST_ASSERT_EQUAL(Color::White, checkbox.getNormalColor());
@@ -284,7 +285,7 @@ void test_uitouch_checkbox_callback() {
     gCheckboxCallbackTestCalled = false;
     gCheckboxCallbackTestValue = false;
 
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setOnChanged(onCheckboxCallbackTest);
 
     checkbox.setChecked(true);
@@ -294,7 +295,7 @@ void test_uitouch_checkbox_callback() {
 }
 
 void test_uitouch_checkbox_process_event_disabled() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setWidgetEnabled(false);
     
     TouchEvent event{};
@@ -308,7 +309,7 @@ void test_uitouch_checkbox_process_event_disabled() {
 }
 
 void test_uitouch_checkbox_process_event_outside_bounds() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setWidgetEnabled(true);
     
     TouchEvent event{};
@@ -322,7 +323,7 @@ void test_uitouch_checkbox_process_event_outside_bounds() {
 }
 
 void test_uitouch_checkbox_process_event_inside_bounds() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setWidgetEnabled(true);
     
     TouchEvent event{};
@@ -336,7 +337,7 @@ void test_uitouch_checkbox_process_event_inside_bounds() {
 }
 
 void test_uitouch_checkbox_toggle_on_touch_up() {
-    UITouchCheckbox checkbox("Test", 10, 20, 100, 40, false);
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
     checkbox.setWidgetEnabled(true);
     
     // Touch down
