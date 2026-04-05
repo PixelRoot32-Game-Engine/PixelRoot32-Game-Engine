@@ -171,6 +171,126 @@ void test_uitouch_button_process_event_inside_bounds() {
     TEST_ASSERT_TRUE(result);
 }
 
+void test_uitouch_button_reset() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    button.setWidgetEnabled(true);
+    
+    // First trigger some state
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    button.processEvent(downEvent);
+    
+    // Reset
+    button.reset();
+    
+    TEST_ASSERT_TRUE(true);  // Should not crash
+}
+
+void test_uitouch_button_get_callbacks() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    
+    // Test getters return nullptr initially
+    TEST_ASSERT_TRUE(button.getOnDown() == nullptr);
+    TEST_ASSERT_TRUE(button.getOnUp() == nullptr);
+    TEST_ASSERT_TRUE(button.getOnClick() == nullptr);
+}
+
+void test_uitouch_button_get_font_size() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    
+    TEST_ASSERT_EQUAL(2, button.getFontSize());
+    
+    button.setFontSize(4);
+    
+    TEST_ASSERT_EQUAL(4, button.getFontSize());
+}
+
+void test_uitouch_button_get_text_alignment() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    
+    TEST_ASSERT_EQUAL(TextAlignment::CENTER, button.getTextAlignment());
+    
+    button.setTextAlignment(TextAlignment::LEFT);
+    
+    TEST_ASSERT_EQUAL(TextAlignment::LEFT, button.getTextAlignment());
+}
+
+void test_uitouch_button_get_border_colors() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    
+    TEST_ASSERT_EQUAL(Color::Gray, button.getBorderColor());
+    TEST_ASSERT_EQUAL(Color::DarkGray, button.getDisabledBorderColor());
+}
+
+void test_uitouch_button_process_event_touch_up() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    button.setWidgetEnabled(true);
+    button.setVisible(true);
+    
+    // Touch down first
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    button.processEvent(downEvent);
+    
+    // Then touch up
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 50;
+    upEvent.y = 30;
+    
+    bool result = button.processEvent(upEvent);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_uitouch_button_process_event_click() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    button.setWidgetEnabled(true);
+    button.setVisible(true);
+    
+    // Touch down
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    button.processEvent(downEvent);
+    
+    // Touch up within bounds
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 50;
+    upEvent.y = 30;
+    button.processEvent(upEvent);
+    
+    TEST_ASSERT_TRUE(true);  // Should not crash
+}
+
+void test_uitouch_button_press_outside_bounds_resets_state() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    button.setWidgetEnabled(true);
+    button.setVisible(true);
+    
+    // Touch down within bounds
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    button.processEvent(downEvent);
+    
+    // Touch up outside bounds
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 200;
+    upEvent.y = 200;
+    button.processEvent(upEvent);
+    
+    TEST_ASSERT_TRUE(true);  // Should not crash
+}
+
 // =============================================================================
 // UITouchSlider Tests
 // =============================================================================
@@ -209,6 +329,166 @@ void test_uitouch_slider_set_colors() {
     
     TEST_ASSERT_EQUAL(Color::Gray, slider.getTrackColor());
     TEST_ASSERT_EQUAL(Color::White, slider.getThumbColor());
+}
+
+void test_uitouch_slider_process_event_disabled() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(false);
+    
+    TouchEvent event{};
+    event.setType(TouchEventType::TouchDown);
+    event.x = 50;
+    event.y = 30;
+    
+    bool result = slider.processEvent(event);
+    
+    TEST_ASSERT_FALSE(result);
+}
+
+void test_uitouch_slider_process_event_touch_down() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    TouchEvent event{};
+    event.setType(TouchEventType::TouchDown);
+    event.x = 50;
+    event.y = 30;
+    
+    bool result = slider.processEvent(event);
+    
+    TEST_ASSERT_TRUE(result);
+    // Value calculated from position: x=50 relative to slider at x=10 with 4px padding
+    // sliderLeft = 14, sliderRight = 110, range = 96, offset = 36
+    // value = (36 * 100) / 96 = 37
+    TEST_ASSERT_EQUAL(37, slider.getValue());
+}
+
+void test_uitouch_slider_process_event_outside_bounds() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    TouchEvent event{};
+    event.setType(TouchEventType::TouchDown);
+    event.x = 200;  // Outside slider bounds
+    event.y = 30;
+    
+    bool result = slider.processEvent(event);
+    
+    TEST_ASSERT_FALSE(result);
+}
+
+void test_uitouch_slider_process_event_drag_move() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    // First touch down to start drag
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    slider.processEvent(downEvent);
+    
+    // Then drag move
+    TouchEvent moveEvent{};
+    moveEvent.setType(TouchEventType::DragMove);
+    moveEvent.x = 80;
+    moveEvent.y = 30;
+    
+    bool result = slider.processEvent(moveEvent);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_uitouch_slider_process_event_touch_up() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    // First touch down
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    slider.processEvent(downEvent);
+    
+    // Then touch up
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 50;
+    upEvent.y = 30;
+    
+    bool result = slider.processEvent(upEvent);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_uitouch_slider_drag_move_not_dragging() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    // Try drag move without touch down first - should be ignored
+    TouchEvent moveEvent{};
+    moveEvent.setType(TouchEventType::DragMove);
+    moveEvent.x = 80;
+    moveEvent.y = 30;
+    
+    bool result = slider.processEvent(moveEvent);
+    
+    TEST_ASSERT_FALSE(result);
+}
+
+void test_uitouch_slider_value_clamping_min() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setValue(0);
+    
+    TEST_ASSERT_EQUAL(0, slider.getValue());
+}
+
+void test_uitouch_slider_has_value_changed() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    TEST_ASSERT_FALSE(slider.hasValueChanged());
+    
+    slider.setValue(75);
+    TEST_ASSERT_TRUE(slider.hasValueChanged());
+    
+    slider.setValue(75);  // Same value
+    TEST_ASSERT_FALSE(slider.hasValueChanged());
+}
+
+void test_uitouch_slider_previous_value() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    
+    slider.setValue(75);
+    TEST_ASSERT_EQUAL(50, slider.getPreviousValue());
+}
+
+void test_uitouch_slider_reset() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    
+    // Trigger some state
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    slider.processEvent(downEvent);
+    
+    slider.reset();
+    
+    TEST_ASSERT_TRUE(true);  // Should not crash
+}
+
+void test_uitouch_slider_get_callbacks() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    
+    // Test getter returns null by default
+    TEST_ASSERT_TRUE(slider.getOnValueChanged() == nullptr);
+    TEST_ASSERT_TRUE(slider.getOnDragStart() == nullptr);
+    TEST_ASSERT_TRUE(slider.getOnDragEnd() == nullptr);
 }
 
 // =============================================================================

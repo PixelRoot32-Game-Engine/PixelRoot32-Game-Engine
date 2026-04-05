@@ -30,7 +30,7 @@ int main() {
     RUN_TEST(test_uitouch_element_is_visible);
     RUN_TEST(test_uitouch_element_is_not_visible);
     
-    // UITouchButton tests (7 tests)
+    // UITouchButton tests (15 tests)
     RUN_TEST(test_uitouch_button_initialization);
     RUN_TEST(test_uitouch_button_set_label);
     RUN_TEST(test_uitouch_button_set_colors);
@@ -38,13 +38,32 @@ int main() {
     RUN_TEST(test_uitouch_button_process_event_disabled);
     RUN_TEST(test_uitouch_button_process_event_outside_bounds);
     RUN_TEST(test_uitouch_button_process_event_inside_bounds);
+    RUN_TEST(test_uitouch_button_process_event_touch_up);
+    RUN_TEST(test_uitouch_button_process_event_click);
+    RUN_TEST(test_uitouch_button_press_outside_bounds_resets_state);
+    RUN_TEST(test_uitouch_button_reset);
+    RUN_TEST(test_uitouch_button_get_callbacks);
+    RUN_TEST(test_uitouch_button_get_font_size);
+    RUN_TEST(test_uitouch_button_get_text_alignment);
+    RUN_TEST(test_uitouch_button_get_border_colors);
     
-    // UITouchSlider tests (5 tests)
+    // UITouchSlider tests (19 tests)
     RUN_TEST(test_uitouch_slider_initialization);
     RUN_TEST(test_uitouch_slider_get_value);
     RUN_TEST(test_uitouch_slider_set_value);
     RUN_TEST(test_uitouch_slider_set_value_clamped);
     RUN_TEST(test_uitouch_slider_set_colors);
+    RUN_TEST(test_uitouch_slider_process_event_disabled);
+    RUN_TEST(test_uitouch_slider_process_event_outside_bounds);
+    RUN_TEST(test_uitouch_slider_process_event_touch_down);
+    RUN_TEST(test_uitouch_slider_process_event_drag_move);
+    RUN_TEST(test_uitouch_slider_process_event_touch_up);
+    RUN_TEST(test_uitouch_slider_drag_move_not_dragging);
+    RUN_TEST(test_uitouch_slider_value_clamping_min);
+    RUN_TEST(test_uitouch_slider_has_value_changed);
+    RUN_TEST(test_uitouch_slider_previous_value);
+    RUN_TEST(test_uitouch_slider_reset);
+    RUN_TEST(test_uitouch_slider_get_callbacks);
     
     // UITouchCheckbox tests (12 tests)
     RUN_TEST(test_uitouch_checkbox_initialization);
