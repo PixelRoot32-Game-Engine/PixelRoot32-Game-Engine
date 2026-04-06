@@ -18,7 +18,7 @@
 // Audio Feature Defaults
 // -----------------------------------------------------------------------------
 // By default, the audio system is enabled.
-#ifndef PIXELROOT32_ENABLE_AUDIO
+#if !defined(PIXELROOT32_ENABLE_AUDIO)
 #define PIXELROOT32_ENABLE_AUDIO 1
 #endif
 
@@ -26,7 +26,7 @@
 // Physics Feature Defaults
 // -----------------------------------------------------------------------------
 // By default, the physics system is enabled.
-#ifndef PIXELROOT32_ENABLE_PHYSICS
+#if !defined(PIXELROOT32_ENABLE_PHYSICS)
 #define PIXELROOT32_ENABLE_PHYSICS 1
 #endif
 
@@ -34,7 +34,7 @@
 // UI System Feature Defaults
 // -----------------------------------------------------------------------------
 // By default, the UI system is enabled.
-#ifndef PIXELROOT32_ENABLE_UI_SYSTEM
+#if !defined(PIXELROOT32_ENABLE_UI_SYSTEM)
 #define PIXELROOT32_ENABLE_UI_SYSTEM 1
 #endif
 
@@ -42,8 +42,19 @@
 // Particle System Feature Defaults
 // -----------------------------------------------------------------------------   
 // By default, the particle system is enabled.
-#ifndef PIXELROOT32_ENABLE_PARTICLES
+#if !defined(PIXELROOT32_ENABLE_PARTICLES)
 #define PIXELROOT32_ENABLE_PARTICLES 1
+#endif
+
+// -----------------------------------------------------------------------------
+// Static tilemap framebuffer cache (4bpp direct sprite buffer path)
+// -----------------------------------------------------------------------------
+// When enabled, StaticTilemapLayerCache can snapshot the logical 8bpp framebuffer
+// after drawing “static” layers and restore it on subsequent frames until the
+// camera moves or the cache is invalidated. Set to 0 per env to force the
+// full-draw fallback on low-RAM targets or when profiling without the fast path.
+#if !defined(PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE)
+#define PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE 1
 #endif
 
 // =============================================================================

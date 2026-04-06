@@ -113,14 +113,10 @@ protected:
      */
     void* userData = nullptr;
 
-    /** When true, this body generates collision events but does not produce physical response (no impulse, no penetration correction). */
-    bool sensor = false;
-
-    /** When true, this body only blocks from one side (e.g. one-way platform: land from above, pass through from below). */
-    bool oneWay = false;
+    /** Packed physics flags: bit0=sensor, bit1=oneWay, bit2=bounce (default: bounce=true) */
+    uint8_t physicsFlags = 0x04;
 
 public:
-    bool bounce = true; ///< When true, velocity is reflected on static contact. When false, velocity is zeroed.
     /**
      * @brief Constructs a new PhysicsActor.
      * @param x Initial X position.
@@ -361,23 +357,43 @@ public:
      * @brief Sets whether this body is a sensor (trigger).
      * @param s true = sensor (events only, no physics response); false = solid (default).
      */
-    void setSensor(bool s) { sensor = s; }
+    void setSensor(bool s) { 
+        if (s) physicsFlags |= 0x01;
+        else physicsFlags &= ~0x01;
+    }
 
     /**
      * @brief Returns true if this body is a sensor (trigger).
      */
-    bool isSensor() const { return sensor; }
+    bool isSensor() const { return (physicsFlags & 0x01) != 0; }
 
     /**
      * @brief Sets whether this body is a one-way platform (blocks only from one side).
      * @param w true = one-way (e.g. land from above, pass through from below); false = solid from all sides.
      */
-    void setOneWay(bool w) { oneWay = w; }
+    void setOneWay(bool w) { 
+        if (w) physicsFlags |= 0x02;
+        else physicsFlags &= ~0x02;
+    }
 
     /**
      * @brief Returns true if this body is a one-way platform.
      */
-    bool isOneWay() const { return oneWay; }
+    bool isOneWay() const { return (physicsFlags & 0x02) != 0; }
+
+    /**
+     * @brief Sets whether this body bounces on collision.
+     * @param b true = bounce (velocity reflected on static contact); false = no bounce (velocity zeroed).
+     */
+    void setBounce(bool b) { 
+        if (b) physicsFlags |= 0x04;
+        else physicsFlags &= ~0x04;
+    }
+
+    /**
+     * @brief Returns true if this body bounces on collision.
+     */
+    bool isBounce() const { return (physicsFlags & 0x04) != 0; }
 
     /**
      * @brief Updates the previous position to the current position.

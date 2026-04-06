@@ -17,7 +17,9 @@
 
 namespace pixelroot32::audio {
 
-    using namespace pixelroot32::core::logging;
+    namespace logging = pixelroot32::core::logging;
+    using logging::LogLevel;
+    using logging::log;
 
     ESP32AudioScheduler::ESP32AudioScheduler(int coreId, int priority)
         : coreId(coreId), priority(priority) {

@@ -140,6 +140,17 @@ public:
                        pixelroot32::graphics::Color unselectedTextCol,
                        pixelroot32::graphics::Color unselectedBgCol);
 
+protected:
+    /**
+     * @brief Calculates the number of rows based on element count and columns.
+     */
+    void calculateRows();
+
+    /**
+     * @brief Calculates cell dimensions based on layout size and grid configuration.
+     */
+    void calculateCellDimensions();
+
 private:
     uint8_t columns = 1;                                                            ///< Number of columns in the grid
     uint8_t rows = 0;                                                               ///< Number of rows (calculated)
@@ -160,16 +171,6 @@ private:
     pixelroot32::graphics::Color selectedBgColor = pixelroot32::graphics::Color::Cyan;
     pixelroot32::graphics::Color unselectedTextColor = pixelroot32::graphics::Color::White;
     pixelroot32::graphics::Color unselectedBgColor = pixelroot32::graphics::Color::Black;
-
-    /**
-     * @brief Calculates the number of rows based on element count and columns.
-     */
-    void calculateRows();
-
-    /**
-     * @brief Calculates cell dimensions based on layout size and grid configuration.
-     */
-    void calculateCellDimensions();
 };
 
 }

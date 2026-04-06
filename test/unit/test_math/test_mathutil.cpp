@@ -353,6 +353,205 @@ void test_mathutil_atan2_basic(void) {
 }
 
 // =============================================================================
+// Tests for PRNG (Pseudo-Random Number Generator)
+// =============================================================================
+
+/**
+ * @test PRNG deterministic behavior with same seed
+ * @expected Same seed produces identical sequences
+ */
+void test_prng_deterministic_same_seed(void) {
+    set_seed(12345);
+    float val1 = rand01();
+    float val2 = rand01();
+    float val3 = rand01();
+    
+    set_seed(12345);
+    float val1b = rand01();
+    float val2b = rand01();
+    float val3b = rand01();
+    
+    TEST_ASSERT_EQUAL_FLOAT(val1, val1b);
+    TEST_ASSERT_EQUAL_FLOAT(val2, val2b);
+    TEST_ASSERT_EQUAL_FLOAT(val3, val3b);
+}
+
+/**
+ * @test PRNG different seeds produce different sequences
+ * @expected Different seeds produce different first values
+ */
+void test_prng_different_seeds(void) {
+    set_seed(12345);
+    float val1 = rand01();
+    
+    set_seed(67890);
+    float val2 = rand01();
+    
+    TEST_ASSERT_NOT_EQUAL(val1, val2);
+}
+
+/**
+ * @test Global RNG and Random struct produce identical sequences from same seed
+ * @expected Both produce the same values when initialized with same seed
+ */
+void test_prng_global_vs_random_struct(void) {
+    set_seed(54321);
+    float global1 = rand01();
+    float global2 = rand01();
+    
+    Random rng(54321);
+    float rng1 = rng.rand01();
+    float rng2 = rng.rand01();
+    
+    TEST_ASSERT_EQUAL_FLOAT(global1, rng1);
+    TEST_ASSERT_EQUAL_FLOAT(global2, rng2);
+}
+
+/**
+ * @test Random struct instances are independent
+ * @expected Each instance has its own state
+ */
+void test_prng_random_struct_independent(void) {
+    Random rng1(11111);
+    Random rng2(22222);
+    
+    float val1a = rng1.rand01();
+    float val2a = rng2.rand01();
+    
+    // Both should produce different values (different seeds)
+    TEST_ASSERT_NOT_EQUAL(val1a, val2a);
+    
+    // Continue generating from rng1 only
+    float val1b = rng1.rand01();
+    
+    // rng2's next value should still be different from rng1's sequence
+    float val2b = rng2.rand01();
+    TEST_ASSERT_NOT_EQUAL(val1b, val2b);
+}
+
+/**
+ * @test rand_int returns values within specified range
+ * @expected All values are within [min, max]
+ */
+void test_prng_rand_int_range(void) {
+    set_seed(99999);
+    
+    for (int i = 0; i < 100; i++) {
+        int val = rand_int(1, 6);  // 6-sided die
+        TEST_ASSERT_TRUE(val >= 1 && val <= 6);
+    }
+}
+
+/**
+ * @test rand_int distribution uniformity (basic check)
+ * @expected Values are reasonably distributed across range
+ */
+void test_prng_rand_int_distribution(void) {
+    set_seed(77777);
+    
+    int counts[6] = {0};  // For range 1-6
+    const int iterations = 6000;
+    
+    for (int i = 0; i < iterations; i++) {
+        int val = rand_int(1, 6);
+        counts[val - 1]++;
+    }
+    
+    // Each value should appear approximately 1000 times
+    // Allow 20% tolerance (800-1200)
+    for (int i = 0; i < 6; i++) {
+        TEST_ASSERT_TRUE(counts[i] >= 800 && counts[i] <= 1200);
+    }
+}
+
+/**
+ * @test rand01 returns values in [0, 1] range
+ * @expected All values are within valid range
+ */
+void test_prng_rand01_range(void) {
+    set_seed(55555);
+    
+    for (int i = 0; i < 100; i++) {
+        float val = rand01();
+        TEST_ASSERT_TRUE(val >= 0.0f && val <= 1.0f);
+    }
+}
+
+/**
+ * @test rand_chance with probability 0 always returns false
+ * @expected Always false
+ */
+void test_prng_rand_chance_zero(void) {
+    set_seed(44444);
+    
+    for (int i = 0; i < 50; i++) {
+        TEST_ASSERT_FALSE(rand_chance(0.0f));
+    }
+}
+
+/**
+ * @test rand_chance with probability 1 always returns true
+ * @expected Always true
+ */
+void test_prng_rand_chance_one(void) {
+    set_seed(33333);
+    
+    for (int i = 0; i < 50; i++) {
+        TEST_ASSERT_TRUE(rand_chance(1.0f));
+    }
+}
+
+/**
+ * @test rand_sign returns only -1 or 1
+ * @expected All values are either -1 or 1
+ */
+void test_prng_rand_sign_values(void) {
+    set_seed(22222);
+    
+    for (int i = 0; i < 100; i++) {
+        float val = rand_sign();
+        TEST_ASSERT_TRUE(val == 1.0f || val == -1.0f);
+    }
+}
+
+/**
+ * @test rand_sign distribution (approx 50/50)
+ * @expected Roughly equal number of -1 and 1
+ */
+void test_prng_rand_sign_distribution(void) {
+    set_seed(11111);
+    
+    int positive = 0;
+    int negative = 0;
+    const int iterations = 1000;
+    
+    for (int i = 0; i < iterations; i++) {
+        float val = rand_sign();
+        if (val == 1.0f) positive++;
+        else negative++;
+    }
+    
+    // Should be roughly 50/50, allow 30% tolerance
+    TEST_ASSERT_TRUE(positive >= 350 && positive <= 650);
+    TEST_ASSERT_TRUE(negative >= 350 && negative <= 650);
+}
+
+/**
+ * @test seed 0 uses fallback value
+ * @expected set_seed(0) produces valid random sequence
+ */
+void test_prng_seed_zero_fallback(void) {
+    set_seed(0);  // Should use fallback 0xDEADBEEF
+    float val1 = rand01();
+    
+    // Verify we got a valid value in range
+    TEST_ASSERT_TRUE(val1 >= 0.0f && val1 <= 1.0f);
+    
+    // Verify it's not all zeros (which would indicate broken state)
+    TEST_ASSERT_NOT_EQUAL(0.0f, val1);
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -413,6 +612,20 @@ int main(int argc, char **argv) {
 
     // Atan2 tests
     RUN_TEST(test_mathutil_atan2_basic);
+    
+    // PRNG tests
+    RUN_TEST(test_prng_deterministic_same_seed);
+    RUN_TEST(test_prng_different_seeds);
+    RUN_TEST(test_prng_global_vs_random_struct);
+    RUN_TEST(test_prng_random_struct_independent);
+    RUN_TEST(test_prng_rand_int_range);
+    RUN_TEST(test_prng_rand_int_distribution);
+    RUN_TEST(test_prng_rand01_range);
+    RUN_TEST(test_prng_rand_chance_zero);
+    RUN_TEST(test_prng_rand_chance_one);
+    RUN_TEST(test_prng_rand_sign_values);
+    RUN_TEST(test_prng_rand_sign_distribution);
+    RUN_TEST(test_prng_seed_zero_fallback);
     
     return UNITY_END();
 }

@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
-  <a href="https://github.com/Gperez88/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
+  <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
   <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
@@ -37,10 +37,6 @@
 **PixelRoot32** is a lightweight, modular 2D game engine written in **C++17**, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
-
-> **✅ Project Status**: PixelRoot32 v1.1.0 is stable release.
-The core rendering and physics systems are production-ready.
-New features and optimizations will continue to evolve in future minor versions.
 
 ---
 
@@ -67,11 +63,84 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
-> 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
+> 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/guide/getting-started).
 
 ---
 
-## 🚀 Quick Start
+## ⚠️ Known Issues
+
+### DMA + ESP32-S3 + Arduino Core > 2.0.14
+
+**Problem**: When using ESP32-S3 with Arduino Core versions newer than 2.0.14, DMA-based transfers may freeze after the first frame. This is a known issue affecting the ESP32-S3 GDMA subsystem in ESP-IDF 4.4.7+ (used by Arduino Core 2.0.15+).
+
+**Symptoms**:
+
+- Display freezes after rendering the first frame
+- DMA transfer not completing
+- Random crashes during display initialization
+
+**Workaround**: Use Arduino Core 2.0.14 (the last stable version before the GDMA changes).
+
+In PlatformIO, this is configured via the `platform_packages` directive:
+
+```ini
+[env:esp32s3]
+platform_packages =
+    framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32#2.0.14
+```
+
+> **Note**: This workaround is already configured in the `hello_world` example's `platformio.ini` for ESP32-S3. If you create new projects, ensure this is set when targeting ESP32-S3.
+
+> **💡 Ongoing Solution**: Work is underway for a definitive fix by migrating from `TFT_eSPI` to `LovyanGFX`. This change will provide better alignment with modern drivers and significantly improved stability on ESP32-S3.
+
+**Related Issues**:
+
+- [espressif/arduino-esp32 #9618](https://github.com/espressif/arduino-esp32/issues/9618) - Original report: ESP32-S3 DMA issues with Core > 2.0.14
+- [TFT_eSPI #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)
+- [TFT_eSPI #3367](https://github.com/Bodmer/TFT_eSPI/issues/3367)
+- [ESP32-HUB75-MatrixPanel-DMA #775](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/775)
+
+---
+
+### Framework Cache Corruption (pins_arduino.h missing)
+
+**Problem**: When Arduino Core packages become corrupted (especially after changing versions like the DMA workaround), you may encounter:
+
+```bash
+fatal error: pins_arduino.h: No such file or directory
+```
+
+**Symptoms**:
+
+- Build fails with `pins_arduino.h` not found
+- Previously working projects suddenly stop compiling
+- Happens after changing Arduino Core versions (e.g., applying the DMA workaround)
+
+**Solution**:
+
+1. Clean the build cache:
+
+   ```bash
+   pio run --target clean
+   ```
+
+2. Remove the corrupted framework package:
+
+   ```bash
+   rmdir /s /q %USERPROFILE%\.platformio\packages\framework-arduinoespressif32
+   ```
+
+3. Rebuild - PlatformIO will reinstall the framework:
+
+   ```bash
+   pio run
+   ```
+
+**Prevention**: After changing `platform_packages` for Arduino Core versions, always run a clean build to ensure the framework is properly reinstalled.
+
+---
+
+## Quick Start
 
 ### ⚠️ Configuration Requirement
 
@@ -89,19 +158,32 @@ build_flags =
 - **VS Code + PlatformIO**
 - **ESP32 DevKit** or **SDL2** (for PC simulation)
 
+### 📦 Installation (via PlatformIO)
+
+To use PixelRoot32 in your own project, add the following to the `lib_deps` option of your `platformio.ini`:
+
+```ini
+lib_deps =
+    gperez88/PixelRoot32-Game-Engine@^1.2.0
+```
+
+PlatformIO will automatically download and install the library and its dependencies during the next build.
+
 ### Fast Setup
 
-1. **Clone the samples repository:**
+1. **Clone this repository** and open an example under [`examples/`](examples/):
 
    ```bash
-   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples.git
-   cd PixelRoot32-Game-Engine-Samples
+   git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
+   cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-2. **Open in VS Code** and select your environment (`env:esp32dev`, `env:esp32s3`, or `env:native`).
+   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvanina`, `tic_tac_toe`, `physics`, `camera`, `dual_palette`, `sprites`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+
+2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
 
-> 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/getting_started/what_is_pixelroot32/).
+> 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/guide/getting-started).
 
 ---
 
@@ -124,16 +206,18 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Online Resources
 
 - **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
-- **[🎮 Game Samples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Samples)**: Complete examples to start building.
+- **[📦 Examples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/examples)**: Runnable demos in-repo (`examples/*`, each with its own `platformio.ini`).
 - **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
 ### Local Reference
 
+- **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
 - **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
-- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
-- **[Physics System](docs/PHYSICS_SYSTEM_REFERENCE.md)**: Flat Solver documentation.
+- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy (includes [ESP32 tilemap static cache](docs/ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)).
+- **[Animated tilemap example](examples/animated_tilemap/README.md)**: **Read this** if you use `AnimatedTilemapScene` or **`StaticTilemapLayerCache`**—documents engine snapshot API, **`invalidateStaticLayerCache()`**, and **static vs dynamic** layer groups (performance-critical on ESP32).
+- **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
+- **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
 - **[Migration v1.1.0](docs/MIGRATION_v1.1.0.md)**: Guide for upgrading from v1.0.0.
-- **[Audio Subsystem](docs/AUDIO_NES_SUBSYSTEM_REFERENCE.md)**: Sound engine details.
 - **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
 ---
@@ -142,6 +226,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 - 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
 - 🎵 **Music Editor**: Mini DAW for SFX and music creation.
+- 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 
 ### Completed Features ✅
@@ -157,29 +242,39 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - ✅ **One-Way Platform Collision**: Jump-through platforms with spatial crossing detection.
 - ✅ **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
 - ✅ **Unified Logging System**: Cross-platform `log()` abstraction with `PIXELROOT32_DEBUG_MODE`.
+- ✅ **Touch Screen Support**: `UITouchButton`, `UITouchCheckbox`, and `UITouchSlider`.
 
 ---
 
 ## 🕒 Changelog
 
-## 1.1.0
-
-### 🎨 Graphics & Animations
-
-- **Multi-Palette Support**: Multi-palette tilemaps and sprites with per-cell palette indexing.
-- **Tile Animation System**: O(1) frame resolution animations with zero-allocation policy.
-
-### 🎮 Physics
-
-- **One-Way Platforms**: Jump-through platforms with spatial crossing detection.
-- **TileCollisionBuilder**: New builder for generating physics bodies from tile layers.
+## 1.2.0
 
 ### ⚡ Architecture
 
-- **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
-- **Unified Logging**: Cross-platform `log()` with `PIXELROOT32_DEBUG_MODE` flag.
+- **Refactor Physics Conditionals**: Switch from `constexpr` to preprocessor macros for runtime configuration.
+- **Namespace Cleanup**: Replace `using namespace` with aliases and selective `using` declarations.
 
-> **Migration guide v1.0.0 → v1.1.0**: [MIGRATION_v1.1.0](docs/MIGRATION_v1.1.0.md)
+### 🎨 Graphics
+
+- **ILI9341 Display Support**: New display type with factory integration.
+- **Static Tilemap Layer Cache**: Fast path rendering for ESP32 with `memcpy` layer restoration.
+- **Tile Animation Fix**: Properly respect `PIXELROOT32_ENABLE_TILE_ANIMATIONS` define.
+
+### 🔢 Math
+
+- **Deterministic PRNG**: Xorshift32 algorithm with thread-safe `Random` struct and rejection sampling.
+
+### 🎮 Input
+
+- **Touch Pipeline & ESP32 CYD**: Hardware-agnostic abstraction (`XPT2046`/`GT911`), gesture system with consume/propagate semantics.
+
+### 🎨 UI
+
+- **Function Pointer Callbacks**: Replace `std::function` with function pointers to reduce binary size.
+- **Touch UI Components**: `UITouchButton` with `autoSize`, `UITouchCheckbox`, and `UITouchSlider` with drag support.
+
+> **Migration guide v1.1.0 → v1.2.0**: [MIGRATION_v1.2.0](docs/MIGRATION_v1.2.0.md)
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

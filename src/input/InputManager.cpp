@@ -11,20 +11,23 @@
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
 
+#ifdef PLATFORM_NATIVE
+#include <SDL2/SDL.h>
+#endif
+
 namespace pixelroot32::input {
 
-    InputManager::InputManager(const InputConfig& config) : config(config) {}
+    InputManager::InputManager(const InputConfig& config) 
+        : config(config)
+        #ifdef PLATFORM_NATIVE
+        , mouseButtonDown(false)
+        #endif
+    {}
 
     void InputManager::init(){
-        if (config.count <= 0) return;
+        if (config.count <= 0 || config.count > MAX_BUTTONS) return;
 
-        // Initialize button pins
-        buttonPins.resize(config.count);
-        buttonState.assign(config.count, false);
-        stateChanged.assign(config.count, false);
-        waitTime.assign(config.count, 0);
-        clickFlag.assign(config.count, false);
-        
+        // Initialize button pins - arrays are pre-initialized to zero/false
         // Set all pins as INPUT_PULLUP
         for (int i = 0; i < config.count; i++) {
             #ifdef PLATFORM_NATIVE
@@ -125,4 +128,69 @@ namespace pixelroot32::input {
         }
         return false;    
     }
+
+    // =========================================================================
+    // Touch Event API Implementation
+    // =========================================================================
+
+    uint8_t InputManager::getTouchEvents(TouchEvent* buffer, uint8_t maxCount) {
+        return touchDispatcher.getEvents(buffer, maxCount);
+    }
+
+    bool InputManager::hasTouchEvents() const {
+        return touchDispatcher.hasEvents();
+    }
+
+    TouchState InputManager::getTouchState(uint8_t touchId) const {
+        return touchDispatcher.getTouchState(touchId);
+    }
+
+    #ifdef PLATFORM_NATIVE
+    void InputManager::processSDLEvent(const void* sdlEvent) {
+        const SDL_Event* e = static_cast<const SDL_Event*>(sdlEvent);
+        
+        // Handle mouse events - map to touch
+        switch (e->type) {
+            case SDL_MOUSEBUTTONDOWN:
+                if (e->button.button == SDL_BUTTON_LEFT) {
+                    mouseButtonDown = true;
+                    touchDispatcher.processTouch(0, true, 
+                        static_cast<int16_t>(e->button.x),
+                        static_cast<int16_t>(e->button.y),
+                        e->button.timestamp);
+                }
+                break;
+                
+            case SDL_MOUSEBUTTONUP:
+                if (e->button.button == SDL_BUTTON_LEFT) {
+                    mouseButtonDown = false;
+                    touchDispatcher.processTouch(0, false,
+                        static_cast<int16_t>(e->button.x),
+                        static_cast<int16_t>(e->button.y),
+                        e->button.timestamp);
+                }
+                break;
+                
+            case SDL_MOUSEMOTION:
+                // Only process motion as drag if mouse button is held
+                if (mouseButtonDown) {
+                    touchDispatcher.processTouch(0, true,
+                        static_cast<int16_t>(e->motion.x),
+                        static_cast<int16_t>(e->motion.y),
+                        e->motion.timestamp);
+                }
+                break;
+                
+            default:
+                // Not a mouse event - ignore
+                break;
+        }
+    }
+    #endif
+
+    #ifndef PLATFORM_NATIVE
+    void InputManager::injectTouchPoint(int16_t x, int16_t y, bool pressed, uint8_t id, uint32_t timestamp) {
+        touchDispatcher.processTouch(id, pressed, x, y, timestamp);
+    }
+    #endif
 }

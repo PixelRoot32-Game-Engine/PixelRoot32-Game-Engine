@@ -31,7 +31,10 @@ void RigidActor::applyImpulse(const pixelroot32::math::Vector2& j) {
 }
 
 void RigidActor::integrate(pixelroot32::math::Scalar dt) {
-    using namespace pixelroot32::math;
+    namespace math = pixelroot32::math;
+    using math::Scalar;
+    using math::Vector2;
+    using math::toScalar;
 
     Scalar worldGravityY = toScalar(200.0f); 
     force.y += worldGravityY * gravityScale * mass;

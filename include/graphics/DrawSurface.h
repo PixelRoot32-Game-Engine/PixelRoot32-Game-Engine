@@ -52,6 +52,34 @@ public:
     virtual void drawPixel(int x, int y, uint16_t color) = 0;
 
     /**
+     * @brief Direct tile write to sprite buffer (optimized for tilemap rendering).
+     * 
+     * Default implementation returns without doing anything.
+     * Override in drivers that support direct buffer access (e.g., TFT_eSPI).
+     * 
+     * @param x Tile X position in sprite coordinates
+     * @param y Tile Y position in sprite coordinates
+     * @param width Tile width in pixels
+     * @param height Tile height in pixels
+     * @param data Pointer to 8bpp tile data (one byte per pixel, index into palette)
+     */
+    virtual void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) {
+        (void)x; (void)y; (void)width; (void)height; (void)data;
+    }
+
+    /**
+     * @brief Get pointer to sprite buffer for direct manipulation.
+     * 
+     * Default implementation returns nullptr.
+     * Override in drivers that support direct buffer access.
+     * 
+     * @return Pointer to 8bpp sprite buffer, or nullptr if not supported
+     */
+    virtual uint8_t* getSpriteBuffer() {
+        return nullptr;
+    }
+
+    /**
      * @brief Sets the display contrast/brightness.
      * @param level Contrast level (0-255).
      */

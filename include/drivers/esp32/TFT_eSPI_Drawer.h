@@ -59,6 +59,27 @@ public:
     void drawPixel(int x, int y, uint16_t color) override;
 
     /**
+     * @brief Direct tile write to sprite buffer (optimized for tilemap rendering).
+     * 
+     * Writes tile data directly to the 8bpp sprite buffer without function call overhead.
+     * This is significantly faster than calling drawPixel() for each pixel.
+     * 
+     * @param x Tile X position in sprite coordinates
+     * @param y Tile Y position in sprite coordinates
+     * @param width Tile width in pixels
+     * @param height Tile height in pixels
+     * @param data Pointer to 8bpp tile data (one byte per pixel, index into palette)
+     */
+    void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data) override;
+
+    /**
+     * @brief Get pointer to sprite buffer for direct manipulation.
+     * 
+     * @return Pointer to 8bpp sprite buffer, or nullptr if sprite not created
+     */
+    uint8_t* getSpriteBuffer() override;
+
+    /**
      * @brief Processes system events. Always true for embedded.
      */
     bool processEvents() override;
@@ -69,6 +90,8 @@ private:
 
     // Scaling support
     static constexpr int LINES_PER_BLOCK = 60;    ///< Number of lines per DMA transfer block. Larger = less overhead, more RAM.
+    static constexpr int LINES_PER_BLOCK_FALLBACK = 30;  ///< Fallback if IRAM allocation fails
+    int activeLinesPerBlock = LINES_PER_BLOCK;  ///< Actual lines per block in use (set during init)
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
     uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)

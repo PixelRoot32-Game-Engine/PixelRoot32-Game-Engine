@@ -17,9 +17,12 @@
 
 namespace pixelroot32::core {
 
-    using namespace pixelroot32::modules;
-    using namespace pixelroot32::graphics;
-    using namespace pixelroot32::physics;
+    namespace modules = pixelroot32::modules;
+    namespace gfx = pixelroot32::graphics;
+    namespace phy = pixelroot32::physics;
+
+    using gfx::Renderer;
+    using gfx::PaletteContext;
 
     extern unsigned long gProfilerCollisionTime;
 
@@ -52,6 +55,22 @@ namespace pixelroot32::core {
         }
     }
 
+    void Scene::processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count) {
+        if (events == nullptr || count == 0) {
+            return;
+        }
+
+        #if PIXELROOT32_ENABLE_UI_SYSTEM
+            uiManager.processEvents(events, count);
+        #endif
+
+        for (uint8_t i = 0; i < count; ++i) {
+            if (!events[i].isConsumed()) {
+                onUnconsumedTouchEvent(events[i]);
+            }
+        }
+    }
+
     void Scene::update(unsigned long deltaTime) {
         // Flat Solver Pipeline
         // Physics integration and collision resolution now handled entirely by CollisionSystem
@@ -70,9 +89,9 @@ namespace pixelroot32::core {
             t0 = pixelroot32::platforms::config::profilerMicros();
         }
         
-        if constexpr (modules::Physics) {
+        #if PIXELROOT32_ENABLE_PHYSICS
             collisionSystem.update();
-        }
+        #endif
 
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {
             gProfilerCollisionTime += pixelroot32::platforms::config::profilerMicros() - t0;
@@ -80,16 +99,6 @@ namespace pixelroot32::core {
     }
 
     void Scene::sortEntities() {
-        // for (int i = 0; i < entityCount - 1; i++) {
-        //     for (int j = 0; j < entityCount - i - 1; j++) {
-        //         if (entities[j]->getRenderLayer() > entities[j + 1]->getRenderLayer()) {
-        //             Entity* temp = entities[j];
-        //             entities[j] = entities[j + 1];
-        //             entities[j + 1] = temp;
-        //         }
-        //     }
-        // }
-        // needsSorting = false;
         for (int i = 1; i < entityCount; i++) {
             Entity* key = entities[i];
             int j = i - 1;
@@ -154,13 +163,13 @@ namespace pixelroot32::core {
             entities[entityCount++] = entity;
             needsSorting = true;
 
-            if constexpr (modules::Physics) {
+            #if PIXELROOT32_ENABLE_PHYSICS
                 collisionSystem.addEntity(entity);
             
                 if (entity->type == EntityType::ACTOR) {
                     static_cast<Actor*>(entity)->collisionSystem = &collisionSystem;
                 }
-            }
+            #endif
         }
     }
 
@@ -168,9 +177,9 @@ namespace pixelroot32::core {
         assert(entity != nullptr && "Cannot remove null entity from scene");
         for (int i = 0; i < entityCount; i++) {
             if (entities[i] == entity) {
-                if constexpr (modules::Physics) {
+                #if PIXELROOT32_ENABLE_PHYSICS
                     collisionSystem.removeEntity(entity);
-                }
+                #endif
                 
                 for (int j = i; j < entityCount - 1; j++) {
                     entities[j] = entities[j + 1];
@@ -182,11 +191,11 @@ namespace pixelroot32::core {
     }
 
     void Scene::clearEntities() {
-        if constexpr (modules::Physics) {
+        #if PIXELROOT32_ENABLE_PHYSICS
             for (int i = 0; i < entityCount; i++) {
                 collisionSystem.removeEntity(entities[i]);
             }
-        }
+        #endif
         entityCount = 0;
     }   
 }
