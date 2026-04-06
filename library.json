@@ -43,52 +43,52 @@
     {
       "name": "Hello World",
       "base": "examples/hello_world",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Sprites Demo",
       "base": "examples/sprites",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Dual Palette Demo",
       "base": "examples/dual_palette",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Physics Demo",
       "base": "examples/physics",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Animated Tilemap",
       "base": "examples/animated_tilemap",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Camera Demo",
       "base": "examples/camera",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Flappy Bird Demo",
       "base": "examples/flappy_bird",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Snake Game",
       "base": "examples/snake",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Tic Tac Toe Game",
       "base": "examples/tic_tac_toe",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     },
     {
       "name": "Metroidvania Game",
       "base": "examples/metroidvania",
-      "files": ["**"]
+      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
     }
   ]
 }
