@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.2.0
+
+### ⚡ Architecture & Build
+
+- **Refactor Physics Conditionals**: Switch from compile-time `constexpr` checks to preprocessor macros for physics module conditionals to allow runtime configuration. Enables optional inclusion of physics functionality at build time.
+- **Namespace Cleanup**: Replace `using namespace` directives with namespace aliases and selective `using` declarations. Update style guide with detailed namespace usage rules and examples while maintaining code clarity.
+
+### 🎨 Graphics & Animations
+
+- **ILI9341 Display Support**: Add ILI9341 display type enum values and integrate into display factory. Conditionally compile mock SDL2 events only for native platform.
+- **Static Tilemap Layer Cache**: Introduce `StaticTilemapLayerCache` to snapshot logical framebuffer for static 4bpp tilemap layers, enabling fast path rendering on ESP32 with `TFT_eSPI_Drawer`. Reduces per-frame redraw overhead by restoring static layers via `memcpy` and only redrawing dynamic layers when camera is stable. Add `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` build flag (default enabled).
+- **Tile Animation Config Fix**: Fix tile animation enable flag to properly respect the `PIXELROOT32_ENABLE_TILE_ANIMATIONS` define, defaulting to false when undefined.
+
+### 🔢 Math
+
+- **Deterministic PRNG System**: Implement global PRNG functions (`rand01`, `rand_int`, `rand_chance`, etc.) with Xorshift32 algorithm. Add thread-safe `Random` struct for independent RNG instances with bias-free integer generation using rejection sampling. Optimize `Fixed16` path to avoid float operations. Include comprehensive test suite covering determinism, distribution, and edge cases.
+
+### 🎮 Input
+
+- **Touch Pipeline & ESP32 CYD Support**: Implement hardware-agnostic touch abstraction (`TouchPoint`, `TouchCalibration`, `XPT2046`/`GT911` adapters) and `TouchManager` polling with fixed-size buffers. Add gesture event system: `TouchStateMachine`, `TouchEventQueue`, `TouchEventDispatcher`, and `TouchEvent` types with consume/propagate semantics (UI-first, then scene). Integrate with `Scene::processTouchEvents` and `onUnconsumedTouchEvent`. Support ESP32-2432S028R (CYD) XPT2046 on GPIO bit-bang SPI (`XPT2046_USE_GPIO_SPI`), optional axis swap/mirror, raw-range mapping, and TFT_eSPI touch bridge path for shared-bus builds. Wire PhysicsDemo and `esp32cyd` platform (calibration before init, debug touch marker under `PIXELROOT32_ENABLE_DEBUG_OVERLAY`).
+
+> [TOUCH_INPUT](docs/architecture/ARCH_TOUCH_INPUT.md)
+
+### 🎨 UI
+
+- **Function Pointer Callbacks**: Change `UIButton` callback from `std::function<void()>` to `ButtonCallback` (function pointer). Add normalized constructor to `UITouchButton` using `Vector2` parameters. Consolidate `UIElementVoidCallback`, `UIElementBoolCallback` type definitions in `UIElement` to avoid duplication. Remove `<functional>` include to reduce binary size and heap allocations.
+- **Touch UI Components**: Add `UITouchButton` with `autoSize` method for dynamic width adjustment, `UITouchCheckbox` for touch-optimized checkbox functionality, and `UITouchSlider` with drag support and value callbacks. Update `UIManager` to manage non-owning pointers for touch widgets.
+
+> **Migration guide v1.1.0 → v1.2.0**: [MIGRATION_v1.2.0](docs/MIGRATION_v1.2.0.md)
+
 ## 1.1.0
 
 ### 🎨 Graphics & Animations
@@ -25,6 +55,8 @@ All notable changes to this project will be documented in this file.
 ### 📚 Documentation
 
 - **Touch input**: Added [TOUCH_INPUT.md](docs/TOUCH_INPUT.md) (pipeline, calibration, scene integration). Extended [API_REFERENCE.md](docs/API_REFERENCE.md) Input module and Scene touch hooks; [ARCHITECTURE.md](docs/ARCHITECTURE.md) documents touch as parallel to `InputManager`.
+
+> **Migration guide v1.0.0 → v1.1.0**: [MIGRATION_v1.1.0](docs/MIGRATION_v1.1.0.md)
 
 ## 1.0.0
 

@@ -17,7 +17,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 
 | Example | What it demonstrates | PlatformIO environments |
 |--------|----------------------|-------------------------|
-| [hello_world](hello_world/) | Minimal `Scene`, `UILabel`, button input, background color cycle | `native`, `esp32dev` |
+| [hello_world](hello_world/) | Minimal `Scene`, `UILabel`, button input, background color cycle | `native`, `esp32dev` , `esp32s3` |
 | [camera](camera/) | `Camera2D`, parallax, tile platforms, `KinematicActor` | `native`, `esp32dev` |
 | [dual_palette](dual_palette/) | Dual palette mode (background vs sprite color tables) | `native`, `esp32dev` |
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
