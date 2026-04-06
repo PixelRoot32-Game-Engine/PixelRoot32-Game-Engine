@@ -14,6 +14,11 @@ The scene uses **`extern pixelroot32::core::Engine engine`** from your platform 
 |-------------|---------|
 | **`native`** | SDL2, 128×128 logical size |
 | **`esp32dev`** | **ST7735** 128×128 (GreenTab3 profile), SPI pins in **`platformio.ini`**: MOSI **23**, SCLK **18**, DC **2**, RST **4**, CS **-1** |
+| **`esp32s3`** | **ST7735** 128×128 (GreenTab3 profile), SPI pins in **`platformio.ini`**: MOSI **12**, MISO **14**, SCLK **13**, DC **10**, RST **11**, CS **9** |
+
+> ⚠️ **Note for ESP32-S3**: The `env:esp32s3` uses Arduino Core **2.0.14** as a workaround for DMA freeze issues (see [espressif/arduino-esp32#9618](https://github.com/espressif/arduino-esp32/issues/9618)). This is configured in `platformio.ini` via `platform_packages`.
+
+
 
 ## Controls
 
@@ -39,6 +44,7 @@ From **`examples/hello_world`**:
 ```bash
 pio run -e native
 pio run -e esp32dev
+pio run -e esp32_s3
 ```
 
 ## Upload (ESP32)

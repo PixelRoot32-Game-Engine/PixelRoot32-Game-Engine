@@ -1,4 +1,4 @@
-#ifdef PLATFORM_ESP32DEV
+#ifdef PLATFORM_ESP32S3
 
 #include <Arduino.h>
 #include <drivers/esp32/TFT_eSPI_Drawer.h>
@@ -11,12 +11,12 @@ namespace pr32 = pixelroot32;
 
 // Button Mapping (Arduino ESP32)
 // Common mapping for 5-directional pad and A button
-const int BTN_UP = 32;
-const int BTN_DOWN = 27;
-const int BTN_LEFT = 33;
-const int BTN_RIGHT = 14;
-const int BTN_A = 13;
-const int BTN_B = 12;
+const int BTN_UP = 15;
+const int BTN_DOWN = 37;
+const int BTN_LEFT = 36;
+const int BTN_RIGHT = 35;
+const int BTN_A = 1;
+const int BTN_B = 2;
 
 pr32::graphics::DisplayConfig config(
     pr32::graphics::DisplayType::ST7735, 

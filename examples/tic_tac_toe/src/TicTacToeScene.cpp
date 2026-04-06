@@ -102,7 +102,7 @@ void TicTacToeScene::createResetButton() {
 #else
     // UIButton for GPIO input (no touch)
     resetButton = std::make_unique<gfx::ui::UIButton>("Play Again", 0, pos, sz, onResetButtonClickStatic);
-    resetButton->setColors(Color::Navy, Color::LightBlue, Color::DarkGray);
+
     resetButton->setVisible(false);
     addEntity(resetButton.get());
 #endif

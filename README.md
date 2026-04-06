@@ -71,7 +71,78 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ---
 
-## 🚀 Quick Start
+## ⚠️ Known Issues
+
+### DMA + ESP32-S3 + Arduino Core > 2.0.14
+
+**Problem**: When using ESP32-S3 with Arduino Core versions newer than 2.0.14, DMA-based transfers may freeze after the first frame. This is a known issue affecting the ESP32-S3 GDMA subsystem in ESP-IDF 4.4.7+ (used by Arduino Core 2.0.15+).
+
+**Symptoms**:
+
+- Display freezes after rendering the first frame
+- DMA transfer not completing
+- Random crashes during display initialization
+
+**Workaround**: Use Arduino Core 2.0.14 (the last stable version before the GDMA changes).
+
+In PlatformIO, this is configured via the `platform_packages` directive:
+
+```ini
+[env:esp32s3]
+platform_packages =
+    framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32#2.0.14
+```
+
+> **Note**: This workaround is already configured in the `hello_world` example's `platformio.ini` for ESP32-S3. If you create new projects, ensure this is set when targeting ESP32-S3.
+
+**Related Issues**:
+
+- [espressif/arduino-esp32 #9618](https://github.com/espressif/arduino-esp32/issues/9618) - Original report: ESP32-S3 DMA issues with Core > 2.0.14
+- [TFT_eSPI #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)
+- [TFT_eSPI #3367](https://github.com/Bodmer/TFT_eSPI/issues/3367)
+- [ESP32-HUB75-MatrixPanel-DMA #775](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/775)
+
+---
+
+### Framework Cache Corruption (pins_arduino.h missing)
+
+**Problem**: When Arduino Core packages become corrupted (especially after changing versions like the DMA workaround), you may encounter:
+
+```
+fatal error: pins_arduino.h: No such file or directory
+```
+
+**Symptoms**:
+
+- Build fails with `pins_arduino.h` not found
+- Previously working projects suddenly stop compiling
+- Happens after changing Arduino Core versions (e.g., applying the DMA workaround)
+
+**Solution**:
+
+1. Clean the build cache:
+
+   ```bash
+   pio run --target clean
+   ```
+
+2. Remove the corrupted framework package:
+
+   ```bash
+   rmdir /s /q %USERPROFILE%\.platformio\packages\framework-arduinoespressif32
+   ```
+
+3. Rebuild - PlatformIO will reinstall the framework:
+
+   ```bash
+   pio run
+   ```
+
+**Prevention**: After changing `platform_packages` for Arduino Core versions, always run a clean build to ensure the framework is properly reinstalled.
+
+---
+
+## Quick Start
 
 ### ⚠️ Configuration Requirement
 
