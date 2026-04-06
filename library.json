@@ -42,43 +42,53 @@
   "examples": [
     {
       "name": "Hello World",
-      "base": "examples/hello_world"
+      "base": "examples/hello_world",
+      "files": ["**"]
     },
     {
       "name": "Sprites Demo",
-      "base": "examples/sprites"
+      "base": "examples/sprites",
+      "files": ["**"]
     },
     {
       "name": "Dual Palette Demo",
-      "base": "examples/dual_palette"
+      "base": "examples/dual_palette",
+      "files": ["**"]
     },
     {
       "name": "Physics Demo",
-      "base": "examples/physics"
+      "base": "examples/physics",
+      "files": ["**"]
     },
     {
       "name": "Animated Tilemap",
-      "base": "examples/animated_tilemap"
+      "base": "examples/animated_tilemap",
+      "files": ["**"]
     },
     {
       "name": "Camera Demo",
-      "base": "examples/camera"
+      "base": "examples/camera",
+      "files": ["**"]
     },
     {
       "name": "Flappy Bird Demo",
-      "base": "examples/flappy_bird"
+      "base": "examples/flappy_bird",
+      "files": ["**"]
     },
     {
       "name": "Snake Game",
-      "base": "examples/snake"
+      "base": "examples/snake",
+      "files": ["**"]
     },
     {
       "name": "Tic Tac Toe Game",
-      "base": "examples/tic_tac_toe"
+      "base": "examples/tic_tac_toe",
+      "files": ["**"]
     },
     {
       "name": "Metroidvania Game",
-      "base": "examples/metroidvania"
+      "base": "examples/metroidvania",
+      "files": ["**"]
     }
   ]
 }
