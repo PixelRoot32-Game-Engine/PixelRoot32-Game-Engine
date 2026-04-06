@@ -158,6 +158,17 @@ build_flags =
 - **VS Code + PlatformIO**
 - **ESP32 DevKit** or **SDL2** (for PC simulation)
 
+### 📦 Installation (via PlatformIO)
+
+To use PixelRoot32 in your own project, add the following to the `lib_deps` option of your `platformio.ini`:
+
+```ini
+lib_deps =
+    gperez88/PixelRoot32-Game-Engine@^1.2.0
+```
+
+PlatformIO will automatically download and install the library and its dependencies during the next build.
+
 ### Fast Setup
 
 1. **Clone this repository** and open an example under [`examples/`](examples/):

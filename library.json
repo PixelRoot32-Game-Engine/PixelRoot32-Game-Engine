@@ -38,57 +38,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git"
-  },
-  "examples": [
-    {
-      "name": "Hello World",
-      "base": "examples/hello_world",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Sprites Demo",
-      "base": "examples/sprites",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Dual Palette Demo",
-      "base": "examples/dual_palette",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Physics Demo",
-      "base": "examples/physics",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Animated Tilemap",
-      "base": "examples/animated_tilemap",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Camera Demo",
-      "base": "examples/camera",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Flappy Bird Demo",
-      "base": "examples/flappy_bird",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Snake Game",
-      "base": "examples/snake",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Tic Tac Toe Game",
-      "base": "examples/tic_tac_toe",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    },
-    {
-      "name": "Metroidvania Game",
-      "base": "examples/metroidvania",
-      "files": ["platformio.ini", "src/**/*.cpp", "src/**/*.h", "include/**", "lib/**", "README*", ".gitignore"]
-    }
-  ]
+  }
 }
