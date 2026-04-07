@@ -27,8 +27,8 @@
   "license": "MIT",
   "dependencies": {
     "TFT_eSPI": "^2.5.43",
-    "U8g2": "^2.36.4",
-    "OneButton": "^2.6.1"
+    "U8g2": "^2.36.18",
+    "OneButton": "^2.6.2"
   },
   "frameworks": [],
   "platforms": [
