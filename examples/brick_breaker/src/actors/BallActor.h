@@ -41,7 +41,7 @@ public:
      * @param initialSpeed Unused; kept for API compatibility.
      * @param radius Ball radius in pixels.
      */
-    BallActor(pixelroot32::math::Vector2 position, float initialSpeed, int radius);
+    BallActor(pixelroot32::math::Vector2 position, pixelroot32::math::Scalar initialSpeed, int radius);
 
     /**
      * @brief Attaches ball to paddle before launch
@@ -57,7 +57,7 @@ public:
      * Transitions from "stuck" state to physics simulation.
      * Velocity is applied and physics system takes over movement.
      */
-    void launch(float velocityX, float velocityY);
+    void launch(pixelroot32::math::Vector2 velocity);
     
     /**
      * @brief Resets to paddle-sticking state
@@ -82,7 +82,7 @@ public:
     void onWorldCollision() override;
 
 private:
-    float initialSpeed;    ///< Unused; kept for API compatibility
+    pixelroot32::math::Scalar initialSpeed;    ///< Unused; kept for API compatibility
     pixelroot32::core::Actor* paddleReference = nullptr; ///< Paddle to stick to before launch
 };
 

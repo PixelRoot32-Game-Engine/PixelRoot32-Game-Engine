@@ -62,9 +62,9 @@ void BrickBreakerScene::init() {
     brickActive.reset();
     activeBrickCount = 0;
 
-    paddle = std::make_unique<PaddleActor>(math::Vector2(sw/2.0f - PADDLE_W/2.0f, sh - 20.0f), PADDLE_W, PADDLE_H, sw);
+    paddle = std::make_unique<PaddleActor>(math::Vector2(sw/2 - PADDLE_W/2, sh - 20), PADDLE_W, PADDLE_H, sw);
 
-    ball = std::make_unique<BallActor>(math::Vector2(sw/2.0f, sh - 30.0f), 0.0f, BALL_SIZE);
+    ball = std::make_unique<BallActor>(math::Vector2(sw/2, sh - 3), 0, BALL_SIZE);
     ball->attachTo(paddle.get());
     
     explosionEffect = std::make_unique<gfx::particles::ParticleEmitter>(math::Vector2(100,100), gfx::particles::ParticlePresets::Explosion);
@@ -223,7 +223,7 @@ void BrickBreakerScene::update(unsigned long deltaTime) {
     } else if (!gameStarted) {
         if (engine.getInputManager().isButtonPressed(BTN_START)) {
             gameStarted = true;
-            ball->launch(120.0f, -120.0f);
+            ball->launch(math::Vector2(120, -120));
             engine.getAudioEngine().playEvent(sfx::START_GAME);
             setupMusic();
         }

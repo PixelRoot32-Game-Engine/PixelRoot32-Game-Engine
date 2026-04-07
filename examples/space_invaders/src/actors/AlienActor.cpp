@@ -4,26 +4,26 @@
 
 namespace spaceinvaders {
 
-using pixelroot32::graphics::Sprite;
-using pixelroot32::graphics::MultiSprite;
-using pixelroot32::graphics::SpriteAnimationFrame;
+namespace core = pixelroot32::core;
+namespace gfx = pixelroot32::graphics;
+namespace math = pixelroot32::math;
 
-static const SpriteAnimationFrame SQUID_ANIM_FRAMES[] = {
+static const gfx::SpriteAnimationFrame SQUID_ANIM_FRAMES[] = {
     { &SQUID_F1, nullptr },
     { &SQUID_F2, nullptr }
 };
 
-static const SpriteAnimationFrame CRAB_ANIM_FRAMES[] = {
+static const gfx::SpriteAnimationFrame CRAB_ANIM_FRAMES[] = {
     { nullptr, &CRAB_F1_MULTI }
 };
 
-static const SpriteAnimationFrame OCTOPUS_ANIM_FRAMES[] = {
+static const gfx::SpriteAnimationFrame OCTOPUS_ANIM_FRAMES[] = {
     { &OCTOPUS_F1, nullptr },
     { &OCTOPUS_F2, nullptr }
 };
 
-AlienActor::AlienActor(pixelroot32::math::Vector2 position, AlienType type)
-    : pixelroot32::core::Actor(position, 0, 0), type(type), active(true) {
+AlienActor::AlienActor(math::Vector2 position, AlienType type)
+    : core::Actor(position, 0, 0), type(type), active(true) {
 
     switch (type) {
         case AlienType::SQUID:
@@ -42,13 +42,13 @@ AlienActor::AlienActor(pixelroot32::math::Vector2 position, AlienType type)
 
     if (type == AlienType::SQUID) {
         animation.frames     = SQUID_ANIM_FRAMES;
-        animation.frameCount = static_cast<uint8_t>(sizeof(SQUID_ANIM_FRAMES) / sizeof(SpriteAnimationFrame));
+        animation.frameCount = static_cast<uint8_t>(sizeof(SQUID_ANIM_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
     } else if (type == AlienType::CRAB) {
         animation.frames     = CRAB_ANIM_FRAMES;
-        animation.frameCount = static_cast<uint8_t>(sizeof(CRAB_ANIM_FRAMES) / sizeof(SpriteAnimationFrame));
+        animation.frameCount = static_cast<uint8_t>(sizeof(CRAB_ANIM_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
     } else {
         animation.frames     = OCTOPUS_ANIM_FRAMES;
-        animation.frameCount = static_cast<uint8_t>(sizeof(OCTOPUS_ANIM_FRAMES) / sizeof(SpriteAnimationFrame));
+        animation.frameCount = static_cast<uint8_t>(sizeof(OCTOPUS_ANIM_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
     }
     animation.reset();
 }
@@ -57,21 +57,17 @@ void AlienActor::update(unsigned long deltaTime) {
     (void)deltaTime;
 }
 
-void AlienActor::move(pixelroot32::math::Scalar dx, pixelroot32::math::Scalar dy) {
+void AlienActor::move(math::Scalar dx, math::Scalar dy) {
     position.x += dx;
     position.y += dy;
     animation.step();
 }
 
-void AlienActor::draw(pixelroot32::graphics::Renderer& renderer) {
+void AlienActor::draw(gfx::Renderer& renderer) {
     if (!active) return;
 
-    using Color       = pixelroot32::graphics::Color;
-    using Sprite      = pixelroot32::graphics::Sprite;
-    using MultiSprite = pixelroot32::graphics::MultiSprite;
-
-    const Sprite*      sprite      = animation.getCurrentSprite();
-    const MultiSprite* multiSprite = animation.getCurrentMultiSprite();
+    const gfx::Sprite*      sprite      = animation.getCurrentSprite();
+    const gfx::MultiSprite* multiSprite = animation.getCurrentMultiSprite();
 
     const int drawX = static_cast<int>(position.x);
     const int drawY = static_cast<int>(position.y);
@@ -79,15 +75,15 @@ void AlienActor::draw(pixelroot32::graphics::Renderer& renderer) {
     if (multiSprite) {
         renderer.drawMultiSprite(*multiSprite, drawX, drawY, SPRITE_SCALE, SPRITE_SCALE);
     } else if (sprite) {
-        renderer.drawSprite(*sprite, drawX, drawY, SPRITE_SCALE, SPRITE_SCALE, Color::Orange);
+        renderer.drawSprite(*sprite, drawX, drawY, SPRITE_SCALE, SPRITE_SCALE, gfx::Color::Orange);
     }
 }
 
-pixelroot32::core::Rect AlienActor::getHitBox() {
+core::Rect AlienActor::getHitBox() {
     return {position, width, height};
 }
 
-void AlienActor::onCollision(pixelroot32::core::Actor* other) {
+void AlienActor::onCollision(core::Actor* other) {
     (void)other;
 }
 

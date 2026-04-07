@@ -1,56 +1,57 @@
 #include "PlayerActor.h"
-#include "platforms/EngineConfig.h"
 #include "GameConstants.h"
-#include "core/Engine.h"
 #include "assets/PlayerSprites.h"
+#include <core/Engine.h>
+#include <platforms/EngineConfig.h>
 
 namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
 
 namespace spaceinvaders {
 
-using Sprite = pr32::graphics::Sprite;
+namespace core = pixelroot32::core;
+namespace physics = pixelroot32::physics;
+namespace gfx = pixelroot32::graphics;
+namespace math = pixelroot32::math;
 
-
-PlayerActor::PlayerActor(pixelroot32::math::Vector2 position)
-    : KinematicActor(position, static_cast<int>(PLAYER_WIDTH), static_cast<int>(PLAYER_HEIGHT)), 
+PlayerActor::PlayerActor(math::Vector2 position)
+    : physics::KinematicActor(position, static_cast<int>(PLAYER_WIDTH), static_cast<int>(PLAYER_HEIGHT)), 
       isAlive(true),
       currentPosition(0),
       targetPosition(0),
       isMoving(false),
       moveTimer(0),
-      startX(pr32::math::toScalar(0)),
-      targetX(pr32::math::toScalar(0)),
+      startX(math::toScalar(0)),
+      targetX(math::toScalar(0)),
       leftButtonPressed(false),
       rightButtonPressed(false),
       autoRepeatTimer(0),
       autoRepeatActive(false) {
     
-    setShape(pr32::core::CollisionShape::AABB);
+    setShape(core::CollisionShape::AABB);
 
     currentPosition = calculatePositionFromX(position.x);
     targetPosition = currentPosition;
     position.x = calculateXFromPosition(currentPosition);
 }
 
-int PlayerActor::calculatePositionFromX(pixelroot32::math::Scalar x) const {
-    float xFloat = static_cast<float>(x);
-    float usableWidth = DISPLAY_WIDTH - PLAYER_WIDTH;
-    float step = usableWidth / (NUM_POSITIONS - 1);
+int PlayerActor::calculatePositionFromX(math::Scalar x) const {
+    math::Scalar usableWidth = math::toScalar(DISPLAY_WIDTH - PLAYER_WIDTH);
+    math::Scalar step = usableWidth / math::toScalar(NUM_POSITIONS - 1);
     
-    int pos = static_cast<int>((xFloat / step) + 0.5f);
+    int pos = static_cast<int>((x / step) + math::toScalar(0.5f));
     if (pos < 0) pos = 0;
     if (pos >= NUM_POSITIONS) pos = NUM_POSITIONS - 1;
     
     return pos;
 }
 
-pr32::math::Scalar PlayerActor::calculateXFromPosition(int pos) const {
-    float usableWidth = DISPLAY_WIDTH - PLAYER_WIDTH;
-    float step = usableWidth / (NUM_POSITIONS - 1);
-    float x = pos * step;
+math::Scalar PlayerActor::calculateXFromPosition(int pos) const {
+    math::Scalar usableWidth = math::toScalar(DISPLAY_WIDTH - PLAYER_WIDTH);
+    math::Scalar step = usableWidth / math::toScalar(NUM_POSITIONS - 1);
+    math::Scalar x = math::toScalar(pos) * step;
     
-    return pr32::math::toScalar(x);
+    return x;
 }
 
 void PlayerActor::moveToPosition(int newPosition) {
@@ -82,11 +83,11 @@ void PlayerActor::updatePositionMovement(unsigned long deltaTime) {
         currentPosition = targetPosition;
         isMoving = false;
     } else {
-        float t = static_cast<float>(moveTimer) / static_cast<float>(MOVE_DURATION_MS);
-        t = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);  // Ease-out-cubic
+        math::Scalar t = math::toScalar(moveTimer) / math::toScalar(MOVE_DURATION_MS);
+        t = math::toScalar(1.0f) - (math::toScalar(1.0f) - t) * (math::toScalar(1.0f) - t) * (math::toScalar(1.0f) - t);  // Ease-out-cubic
         
-        float currentX = static_cast<float>(startX) + (static_cast<float>(targetX) - static_cast<float>(startX)) * t;
-        position.x = pr32::math::toScalar(currentX);
+        math::Scalar currentX = math::toScalar(startX) + (math::toScalar(targetX) - math::toScalar(startX)) * t;
+        position.x = currentX;
     }
 }
 
@@ -150,19 +151,19 @@ bool PlayerActor::wantsToShoot() const {
     return input.isButtonPressed(BTN_FIRE);
 }
 
-void PlayerActor::draw(pr32::graphics::Renderer& renderer) {
+void PlayerActor::draw(gfx::Renderer& renderer) {
     if (!isAlive) return;
     
-    using Color = pr32::graphics::Color;
     renderer.drawSprite(PLAYER_SHIP_SPRITE,
                         static_cast<int>(position.x),
                         static_cast<int>(position.y),
                         SPRITE_SCALE,
                         SPRITE_SCALE,
-                        Color::Yellow);
+                        gfx::Color::Yellow
+                    );
 }
 
-void PlayerActor::onCollision(pr32::core::Actor* other) {
+void PlayerActor::onCollision(core::Actor* other) {
     (void)other;
 }
 

@@ -16,7 +16,7 @@ namespace core = pr32::core;
 namespace gfx = pr32::graphics;
 namespace math = pr32::math;
 
-BallActor::BallActor(math::Vector2 position, float initialSpeed, int radius)
+BallActor::BallActor(math::Vector2 position, math::Scalar initialSpeed, int radius)
     : RigidActor(math::Vector2(position.x - radius, position.y - radius), radius * 2, radius * 2),
       radius(radius),
       isLaunched(false),
@@ -43,9 +43,8 @@ void BallActor::attachTo(core::Actor* paddle) {
     this->velocity.y = math::Scalar(0);
 }
 
-void BallActor::launch(float velocityX, float velocityY) {
-    this->velocity.x = math::Scalar(velocityX);
-    this->velocity.y = math::Scalar(velocityY);
+void BallActor::launch(math::Vector2 velocity) {
+    this->velocity = velocity;
     this->isLaunched = true;
     this->paddleReference = nullptr;
 }
@@ -63,8 +62,8 @@ void BallActor::update(unsigned long deltaTime) {
 
     RigidActor::update(deltaTime);
 
-    if (isLaunched && abs(velocity.y) < math::Scalar(10.0f)) {
-        velocity.y = (velocity.y >= math::Scalar(0)) ? math::Scalar(10.0f) : math::Scalar(-10.0f);
+    if (isLaunched && abs(velocity.y) < math::Scalar(10)) {
+        velocity.y = (velocity.y >= math::Scalar(0)) ? math::Scalar(10) : math::Scalar(-10);
     }
 }
 
@@ -79,18 +78,18 @@ void BallActor::onCollision(core::Actor* other) {
     }
 
     if (other->isInLayer(Layers::PADDLE)) {
-        float hitPoint = (static_cast<float>(this->position.x + radius) - 
-                            (static_cast<float>(other->position.x) + other->width / 2.0f)) / 
-                            (other->width / 2.0f);
+        math::Scalar hitPoint = (this->position.x + math::toScalar(radius) - 
+                            (other->position.x + math::toScalar(other->width / 2))) / 
+                            math::toScalar(other->width / 2);
 
-        if (hitPoint > 1.0f) hitPoint = 1.0f;
-        if (hitPoint < -1.0f) hitPoint = -1.0f;
+        if (hitPoint > math::toScalar(1)) hitPoint = math::toScalar(1);
+        if (hitPoint < math::toScalar(-1)) hitPoint = math::toScalar(-1);
 
-        this->velocity.x = math::Scalar(hitPoint * 150.0f);
+        this->velocity.x = math::toScalar(hitPoint * 150);
         this->velocity.y = -math::abs(this->velocity.y);
 
-        if (abs(this->velocity.y) < math::Scalar(50.0f)) {
-            this->velocity.y = math::Scalar(-50.0f);
+        if (math::abs(this->velocity.y) < math::toScalar(50)) {
+            this->velocity.y = math::toScalar(-50);
         }
 
         engine.getAudioEngine().playEvent(sfx::PADDLE_HIT);

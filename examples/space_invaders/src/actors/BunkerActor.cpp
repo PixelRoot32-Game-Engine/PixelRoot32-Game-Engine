@@ -3,37 +3,40 @@
 
 namespace spaceinvaders {
 
-BunkerActor::BunkerActor(pixelroot32::math::Vector2 position, int w, int h, int maxHealth)
+namespace core = pixelroot32::core;
+namespace gfx = pixelroot32::graphics;
+namespace math = pixelroot32::math;
+
+BunkerActor::BunkerActor(math::Vector2 position, int w, int h, int maxHealth)
     : StaticActor(position, w, h), health(maxHealth), maxHealth(maxHealth) {
-    setShape(pixelroot32::core::CollisionShape::AABB);
+    setShape(core::CollisionShape::AABB);
 }
 
 void BunkerActor::update(unsigned long deltaTime) {
     (void)deltaTime;
 }
 
-void BunkerActor::draw(pixelroot32::graphics::Renderer& renderer) {
+void BunkerActor::draw(gfx::Renderer& renderer) {
     if (health <= 0) return;
 
-    using Color = pixelroot32::graphics::Color;
-    float ratio = (maxHealth > 0) ? (float)health / (float)maxHealth : 0.0f;
-    if (ratio <= 0.0f) return;
+    math::Scalar ratio = (maxHealth > 0) ? math::toScalar(health) / math::toScalar(maxHealth) : math::toScalar(0.0f);
+    if (ratio <= math::toScalar(0.0f)) return;
 
-    int visibleHeight = (int)(height * ratio);
+    int visibleHeight = static_cast<int>(height * ratio);
     if (visibleHeight <= 0) return;
 
-    int drawY = (int)(position.y + (height - visibleHeight));
-    Color c = Color::Green;
-    if (ratio < 0.5f && ratio >= 0.25f) {
-        c = Color::Yellow;  // Warning: Damaged
-    } else if (ratio < 0.25f) {
-        c = Color::Red;
+    int drawY = static_cast<int>(position.y + math::toScalar(height - visibleHeight));
+    gfx::Color c = gfx::Color::Green;
+    if (ratio < math::toScalar(0.5f) && ratio >= math::toScalar(0.25f)) {
+        c = gfx::Color::Yellow;  // Warning: Damaged
+    } else if (ratio < math::toScalar(0.25f)) {
+        c = gfx::Color::Red;
     }
 
-    renderer.drawFilledRectangle((int)position.x, drawY, width, visibleHeight, c);
+    renderer.drawFilledRectangle(static_cast<int>(position.x), drawY, width, visibleHeight, c);
 }
 
-void BunkerActor::onCollision(pixelroot32::core::Actor* other) {
+void BunkerActor::onCollision(core::Actor* other) {
     (void)other;
 }
 
