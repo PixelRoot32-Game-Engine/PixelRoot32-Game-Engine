@@ -602,9 +602,3 @@ void RigidActor::update(unsigned long deltaTime) {
 - [API Reference](API_REFERENCE.md) - Class documentation
 - [Architecture](ARCHITECTURE.md) - System design
 - [Migration Guide v1.2.0](MIGRATION_v1.2.0.md) - PhysicsActor flags packing changes
-
----
-
-**Document Version**: Flat Solver  
-**Last Updated**: April 2026  
-**Engine Version**: v1.2.0

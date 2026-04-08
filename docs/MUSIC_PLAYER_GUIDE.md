@@ -1,9 +1,5 @@
 # MusicPlayer Integration Guide - PixelRoot32
 
-**Document Version:** 1.0  
-**Last Updated:** February 2026  
-**Engine Version:** v1.0.0
-
 ## Overview
 
 The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with NES-style audio system and supports tempo control, looping, and dynamic music switching.

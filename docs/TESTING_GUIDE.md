@@ -1,9 +1,5 @@
 # Testing Guide - PixelRoot32 Game Engine
 
-**Document Version:** 1.1  
-**Last Updated:** February 2026  
-**Engine Version:** v1.0.0
-
 ## Overview
 
 This comprehensive guide covers testing practices for the PixelRoot32 Game Engine. It includes unit testing, integration testing, platform-specific testing, and continuous integration setup. The test suite uses the **Unity** framework and runs on the **native** platform by default (`native_test`).

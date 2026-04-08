@@ -42,6 +42,26 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
+## 🧠 Engine Philosophy 
+
+PixelRoot32 is not the product of a traditional electronics expert or a large engineering team.
+
+It was born from curiosity, experimentation, and a deep love for retro games from the 90s.
+
+Coming from a mobile development background with limited experience in C++, this project represents a leap into embedded systems. What made that possible is how accessible knowledge has become today — especially with the help of AI, lowering the barrier to building complex systems.
+
+PixelRoot32 is a reflection of that shift: exploring new domains driven by curiosity rather than specialization.
+
+At its core, the engine is built around a few simple ideas:
+
+- Determinism over convenience  
+- No hidden costs (no runtime allocations, no magic)  
+- Simplicity and explicit control  
+- Performance as a core constraint  
+- Retro-inspired design with modern practices  
+
+👉 Learn more: [Engine Philosophy](docs/ENGINE_PHILOSOPHY.md)
+
 ---
 
 ## Demo in Action
