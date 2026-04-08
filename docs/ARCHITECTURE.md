@@ -1,6 +1,5 @@
 # Architecture Document - PixelRoot32 Game Engine
 
-
 ## Quick Navigation
 
 The architecture documentation is organized into **layers** (hardware to game code) and **subsystem deep dives**.
@@ -164,9 +163,3 @@ For animation data flow and linking managers to tilemaps, see [Tile Animation](a
 | [Platform Compatibility](PLATFORM_COMPATIBILITY.md) | Supported hardware matrix |
 | [Testing Guide](TESTING_GUIDE.md) | Unit and integration testing |
 | [Migration Guides](MIGRATION_v1.0.0.md) | Version upgrade guides |
-
----
-
-**Document Version**: 2.0 (Modular)  
-**Last Updated**: April 2026  
-**Engine Version**: v1.2.0

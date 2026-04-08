@@ -1,9 +1,5 @@
 # PixelRoot32 Platform Compatibility Guide
 
-**Document Version:** 1.1  
-**Last Updated:** March 2026  
-**Engine Version:** v1.0.0
-
 ## Overview
 
 This document provides detailed information about PixelRoot32 Game Engine compatibility across different ESP32 variants and platforms. It helps developers understand which features are available on their target hardware.

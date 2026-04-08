@@ -1,9 +1,5 @@
 # Memory Management Guide - PixelRoot32 C++17
 
-**Document Version:** 1.1  
-**Last Updated:** March 2026  
-**Engine Version:** v1.1.0
-
 > **Note:** For the complete memory management guide with optimization strategies, visit the [official documentation](https://docs.pixelroot32.org/manual/optimization/memory_management/).
 
 ## Overview
