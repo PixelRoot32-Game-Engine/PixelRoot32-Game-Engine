@@ -47,6 +47,73 @@ static constexpr Scalar BIAS = toScalar(0.2f);               // 20% correction p
 static constexpr Scalar VELOCITY_THRESHOLD = toScalar(0.5f); // Zero restitution below this
 static constexpr int VELOCITY_ITERATIONS = 2;                // Impulse solver iterations
 static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation threshold
+
+// vPhysics Scheduler constants
+static constexpr Scalar VELOCITY_DAMPING = toScalar(0.999f);  // Per-frame velocity damping
+static constexpr Scalar MAX_VELOCITY = toScalar(500.0f);     // Maximum velocity cap (units/s)
+```
+
+---
+
+## 2.1 PhysicsScheduler
+
+The **PhysicsScheduler** implements a **fixed timestep with time accumulator** pattern to ensure consistent physics simulation regardless of frame rate variations (critical for ESP32).
+
+### 2.1.1 Why Do We Need It?
+
+On ESP32, frame rates vary widely (30-60 FPS) due to WiFi/BT interrupts and limited resources. Without a scheduler:
+
+- 30 FPS → ~33ms/frame → 1 physics step per frame → **slower physics**
+- 60 FPS → ~16ms/frame → 1 physics step per frame → **faster physics**
+
+This caused inconsistent motion speeds between ESP32 and Native targets.
+
+### 2.1.2 How It Works
+
+```
+Frame 1 (16ms): accumulator = 16000µs → 0 steps (accumulate)
+Frame 2 (16ms): accumulator = 32000µs → 1 step, accumulator = 15333µs
+Frame 3 (16ms): accumulator = 31333µs → 1 step, accumulator = 14666µs
+Frame 4 (16ms): accumulator = 30666µs → 1 step, accumulator = 14000µs
+```
+
+### 2.1.3 Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Time Accumulator** | Accumulates real microseconds, never discards time |
+| **Adaptive Steps** | 2 steps normal, up to 4 when behind (catch-up mode) |
+| **No Clamping** | Preserves real time for catch-up, avoids "slow motion" |
+| **ESP32 Optimized** | Early skip for stationary bodies, IRAM_ATTR |
+
+### 2.1.4 Integration
+
+The PhysicsScheduler is owned by `Scene` and called in `Scene::update()`:
+
+```cpp
+// Scene.cpp
+void Scene::update(unsigned long deltaTime) {
+    // 1. Logic update - entities update game logic only
+    for (int i = 0; i < entityCount; i++) {
+        entities[i]->update(deltaTime);
+    }
+    
+    // 2. Physics update with fixed timestep scheduler
+    #if PIXELROOT32_ENABLE_PHYSICS
+        uint32_t deltaMicros = static_cast<uint32_t>(deltaTime * 1000);
+        physicsScheduler.update(deltaMicros, collisionSystem);
+    #endif
+}
+```
+
+### 2.1.5 Build Flags
+
+```ini
+# platformio.ini
+-D PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP=1  ; Enable scheduler (profile_full/arcade)
+-D PIXELROOT32_VELOCITY_DAMPING=0.999           ; Per-frame damping (default)
+-D PIXELROOT32_MAX_VELOCITY=500                  ; Max velocity (units/s, default)
+-D PIXELROOT32_HAS_FAST_RSQRT=1                   ; Enable fast reciprocal sqrt
 ```
 
 ---
@@ -199,6 +266,7 @@ bool validateOneWayPlatform(PhysicsActor* actor, PhysicsActor* platform,
 ```
 
 **Test Coverage**: `test/unit/test_collision_system/test_collision_system.cpp` includes:
+
 - `test_one_way_platform_crossing_from_above`
 - `test_one_way_platform_crossing_from_below`
 - `test_one_way_platform_wrong_normal_direction`

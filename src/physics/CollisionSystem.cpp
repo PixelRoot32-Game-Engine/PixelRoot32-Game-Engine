@@ -394,10 +394,35 @@ namespace pixelroot32::physics {
             if (pa->getBodyType() != PhysicsBodyType::RIGID) continue;
             
             Vector2 vel = pa->getVelocity();
+            
+            // Phase 3: Early skip for stationary bodies (ESP32 micro-optimization)
+            if (vel.x == toScalar(0.0f) && vel.y == toScalar(0.0f)) continue;
+            
+            // Phase 3: Velocity clamping (before integration)
+            Scalar velLen2 = vel.x * vel.x + vel.y * vel.y;
+            Scalar maxVel2 = MAX_VELOCITY * MAX_VELOCITY;
+            if (velLen2 > maxVel2 && velLen2 > toScalar(0.0f)) {
+                #ifdef PIXELROOT32_HAS_FAST_RSQRT
+                    // Faster: 1 multiplication instead of sqrt + division
+                    Scalar invLen = math::rsqrt(velLen2);
+                    vel = vel * (MAX_VELOCITY * invLen);
+                #else
+                    // Standard: sqrt + division
+                    Scalar len = math::sqrt(velLen2);
+                    Scalar scale = MAX_VELOCITY / len;
+                    vel = vel * scale;
+                #endif
+            }
+            
+            // Phase 3: Velocity damping
+            vel = vel * VELOCITY_DAMPING;
+            
+            // Zero out tiny velocities
             if (abs(vel.x) < MIN_VELOCITY) vel.x = toScalar(0.0f);
             if (abs(vel.y) < MIN_VELOCITY) vel.y = toScalar(0.0f);
             pa->setVelocity(vel);
             
+            // Integrate position
             pa->position = pa->position + vel * FIXED_DT;
         }
     }

@@ -202,7 +202,15 @@ The Entity class is always available. However, specialized subclasses may be aff
 
 **Inherits:** None
 
-Represents a game level or screen containing entities. A Scene manages a collection of Entities and a CollisionSystem. It is responsible for updating and drawing all entities it contains.
+Represents a game level or screen containing entities. A Scene manages a collection of Entities, a **PhysicsScheduler**, and a CollisionSystem. It is responsible for updating and drawing all entities it contains.
+
+### Public Properties
+
+- **`physics::CollisionSystem collisionSystem`** (when `PIXELROOT32_ENABLE_PHYSICS=1`)
+  The collision system used for physics simulation. Managed automatically by the scene.
+
+- **`physics::PhysicsScheduler physicsScheduler`** (when `PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP=1`)
+  The fixed timestep scheduler for consistent physics. Uses time accumulator to ensure consistent physics regardless of frame rate variations.
 
 ### Public Methods
 

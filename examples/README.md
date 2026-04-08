@@ -22,11 +22,14 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [dual_palette](dual_palette/) | Dual palette mode (background vs sprite color tables) | `native`, `esp32dev` |
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
 | [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
+| [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
+| [space_invaders](space_invaders/) | Classic Space Invaders: alien formation, shooting, bunkers, score system, `AudioEngine` | `native`, `esp32dev` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD) | `native`, `esp32dev`, `esp32cyd` |
 | [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, platformer player | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
 | [tic_tac_toe](tic_tac_toe/) | UI, GPIO vs touch, minimax AI, vector-drawn board | `native`, `esp32dev`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics-based flappy clone, U8g2 OLED, ESP32-C3 preset | `native`, `esp32c3` |
+
 
 ## Suggested learning order
 
@@ -34,7 +37,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 2. **sprites** or **dual_palette** — graphics and color models.  
 3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
 4. **physics** — bodies, sensors, touch.  
-5. **snake** / **flappy_bird** / **tic_tac_toe** — small full games and audio or UI patterns.
+5. **snake** / **flappy_bird** / **tic_tac_toe** / **brick_breaker** / **space_invaders** — small full games and audio or UI patterns.
 
 ## Engine documentation
 

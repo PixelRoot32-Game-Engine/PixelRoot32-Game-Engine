@@ -10,9 +10,13 @@
 
 <p align="center">
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://registry.platformio.org/libraries/gperez88/PixelRoot32-Game-Engine"><img src="https://badges.registry.platformio.org/packages/gperez88/library/PixelRoot32-Game-Engine.svg" alt="PlatformIO Registry" /></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
+</p>
+
+<p align="center">
   <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
@@ -164,7 +168,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.2.0
+    gperez88/PixelRoot32-Game-Engine@^1.2.1
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -178,7 +182,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvanina`, `tic_tac_toe`, `physics`, `camera`, `dual_palette`, `sprites`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvanina`, `tic_tac_toe`, `space_invaders`, `brick_breaker`, `physics`, `camera`, `dual_palette`, `sprites`) is a **standalone PlatformIO project** with its own `platformio.ini`.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -247,6 +251,24 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.2.1
+
+### 🏀 Physics
+
+- **Fixed Timestep Scheduler**: New `PhysicsScheduler` with accumulator-based 60Hz simulation for stable physics across variable frame rates, especially on ESP32 under WiFi/BT interrupt load.
+- **Scene Integration**: `Scene` now uses the scheduler instead of direct `CollisionSystem::update()` calls.
+- **Physics Optimizations**: Added adaptive step limiting, velocity clamping, damping, and fast reciprocal square root optimizations.
+
+### 🎮 Examples
+
+- **Space Invaders**: Complete sample game with grid-based movement, alien formations, projectile pooling, bunker defenses, swept collision, procedural audio, and native/ESP32 support.
+- **Brick Breaker**: New breakout-style sample with paddle/ball physics, destructible bricks, collision layers, particles, audio, starfield effects, and HUD.
+
+### ⚡ Architecture & QA
+
+- **Build Profiles**: Fixed timestep physics is now enabled by default across build profiles.
+- **Docs & Tests**: Expanded documentation and added comprehensive unit tests for the scheduler and physics behavior.
 
 ## 1.2.0
 

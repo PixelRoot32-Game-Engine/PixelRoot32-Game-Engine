@@ -44,6 +44,19 @@ public:
     static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
     static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
     static constexpr pixelroot32::math::Scalar MIN_VELOCITY = pixelroot32::math::toScalar(0.01f);
+    
+    // Velocity enhancements (Phase 3)
+    #ifdef PIXELROOT32_VELOCITY_DAMPING
+        static constexpr pixelroot32::math::Scalar VELOCITY_DAMPING = pixelroot32::math::toScalar(PIXELROOT32_VELOCITY_DAMPING);
+    #else
+        static constexpr pixelroot32::math::Scalar VELOCITY_DAMPING = pixelroot32::math::toScalar(0.999f);
+    #endif
+    
+    #ifdef PIXELROOT32_MAX_VELOCITY
+        static constexpr pixelroot32::math::Scalar MAX_VELOCITY = pixelroot32::math::toScalar(PIXELROOT32_MAX_VELOCITY);
+    #else
+        static constexpr pixelroot32::math::Scalar MAX_VELOCITY = pixelroot32::math::toScalar(500.0f);
+    #endif
     static constexpr int VELOCITY_ITERATIONS = pixelroot32::platforms::config::VelocityIterations;
     static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
     

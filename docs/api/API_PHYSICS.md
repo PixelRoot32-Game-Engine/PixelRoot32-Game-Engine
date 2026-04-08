@@ -472,6 +472,62 @@ The solver executes in strict order:
   - If the collision normal points upward (actor above platform)
   - If the actor crossed the platform surface from above (using previous position)
   - If the actor is moving downward or stationary
+
+---
+
+## PhysicsScheduler
+
+**Include:** `physics/PhysicsScheduler.h`
+
+**Namespace:** `pixelroot32::physics`
+
+The PhysicsScheduler implements a **fixed timestep with time accumulator** pattern to ensure consistent physics simulation regardless of frame rate variations. This is critical for ESP32 where frame rates vary due to WiFi/BT interrupts.
+
+### Public Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FIXED_DT_MICROS` | 16667 µs | Fixed timestep (60 Hz) |
+| `MAX_STEPS_NORMAL` | 2 | Max steps per frame under normal conditions |
+| `MAX_STEPS_BACKLOG` | 4 | Max steps when behind (catch-up mode) |
+
+### CollisionSystem Constants
+
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `VELOCITY_DAMPING` | 0.999f | Per-frame velocity damping factor |
+| `MAX_VELOCITY` | 500.0f | Maximum velocity cap (units/s) |
+
+These can be overridden at compile time:
+```ini
+-D PIXELROOT32_VELOCITY_DAMPING=0.995
+-D PIXELROOT32_MAX_VELOCITY=300
+```
+
+### Public Methods
+
+- **`void init()`**
+  Initializes the scheduler. Resets accumulator and step counter.
+
+- **`uint8_t update(uint32_t realDeltaMicros, CollisionSystem& collisionSystem)`**
+  Updates physics with fixed timestep. Accumulates real time and executes as many steps as fit (max 2-4). Returns number of steps executed.
+
+- **`uint8_t getStepsExecuted() const`**
+  Returns number of physics steps executed in last update (for debugging/profiling).
+
+- **`uint32_t getAccumulator() const`**
+  Returns current accumulator value in microseconds (for debugging/profiling).
+
+### Usage
+
+The PhysicsScheduler is automatically used by `Scene`. You typically don't need to interact with it directly:
+
+```cpp
+// Scene automatically calls physicsScheduler.update() with fixed timestep
+// Enable in platformio.ini:
+build_flags =
+    -D PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP=1
+```
   - Rejects horizontal collisions (side collisions with one-way platforms)
 
 - **`size_t getEntityCount() const`**  

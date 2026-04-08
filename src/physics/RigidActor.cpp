@@ -52,6 +52,8 @@ void RigidActor::integrate(pixelroot32::math::Scalar dt) {
 
 void RigidActor::update(unsigned long deltaTime) {
     (void)deltaTime;
+    // NO physics integration here. Handled by CollisionSystem via PhysicsScheduler.
+    // This ensures fixed timestep physics regardless of frame rate.
     integrate(pixelroot32::physics::CollisionSystem::FIXED_DT);
 }
 
