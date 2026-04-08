@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.2.1
+
+### 🏀 Physics
+
+- **Fixed Timestep Scheduler**: Implement `PhysicsScheduler` using a time accumulator pattern to keep physics simulation stable at 60Hz regardless of frame rate fluctuations. Improves consistency on ESP32 where WiFi/BT interrupts can cause uneven frame pacing.
+- **Scene Integration Update**: Replace direct `CollisionSystem::update()` calls in `Scene` with the new scheduler-based physics update flow.
+- **Physics Optimizations**: Add adaptive step limiting (2 normal steps, 4 catch-up steps), velocity clamping, damping support, and fast reciprocal square root optimizations for more stable and efficient simulation.
+
+### 🎮 Examples
+
+- **Space Invaders Example**: Add a complete Space Invaders clone showcasing discrete grid-based player movement with `KinematicActor`, alien formation movement with step-based animation, projectile object pooling with `RigidActor`, bunker defense using `StaticActor`, swept-circle collision detection, procedural audio, and multi-platform support for native/SDL2 and ESP32/TFT_eSPI.
+- **Brick Breaker Example**: Add a full breakout-style sample with paddle, ball, destructible bricks, layer-based collision filtering, audio synthesis with SFX and background music via `MusicPlayer`, particle effects, starfield and explosion visuals, HUD for score and lives, and multi-platform support for native/SDL2 and ESP32 (ST7789 + I2S/DAC).
+- **Runtime Allocation Improvements**: Use object pooling in gameplay systems such as projectiles and bricks to avoid runtime heap allocations in sample games.
+
+### ⚡ Architecture & Build
+
+- **Fixed Physics by Default**: Update build flags across all profiles to enable the fixed timestep scheduler by default.
+
+### 📚 Documentation & QA
+
+- **Documentation Expansion**: Extend engine and example documentation to cover the new fixed timestep workflow and sample game setups.
+- **Unit Test Coverage**: Add comprehensive unit tests for the fixed timestep scheduler and related physics behavior.
+
 ## 1.2.0
 
 ### ⚡ Architecture & Build

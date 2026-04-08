@@ -168,7 +168,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.2.0
+    gperez88/PixelRoot32-Game-Engine@^1.2.1
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -251,6 +251,24 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.2.1
+
+### 🏀 Physics
+
+- **Fixed Timestep Scheduler**: New `PhysicsScheduler` with accumulator-based 60Hz simulation for stable physics across variable frame rates, especially on ESP32 under WiFi/BT interrupt load.
+- **Scene Integration**: `Scene` now uses the scheduler instead of direct `CollisionSystem::update()` calls.
+- **Physics Optimizations**: Added adaptive step limiting, velocity clamping, damping, and fast reciprocal square root optimizations.
+
+### 🎮 Examples
+
+- **Space Invaders**: Complete sample game with grid-based movement, alien formations, projectile pooling, bunker defenses, swept collision, procedural audio, and native/ESP32 support.
+- **Brick Breaker**: New breakout-style sample with paddle/ball physics, destructible bricks, collision layers, particles, audio, starfield effects, and HUD.
+
+### ⚡ Architecture & QA
+
+- **Build Profiles**: Fixed timestep physics is now enabled by default across build profiles.
+- **Docs & Tests**: Expanded documentation and added comprehensive unit tests for the scheduler and physics behavior.
 
 ## 1.2.0
 
