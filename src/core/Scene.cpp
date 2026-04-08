@@ -82,15 +82,16 @@ namespace pixelroot32::core {
             }
         }
 
-        // 2. Physics update (Flat Solver)
-        // Pipeline: Detect → Solve Velocity → Integrate Position → Solve Penetration → Callbacks
+        // 2. Physics update with fixed timestep scheduler
         unsigned long t0 = 0;
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {
             t0 = pixelroot32::platforms::config::profilerMicros();
         }
         
         #if PIXELROOT32_ENABLE_PHYSICS
-            collisionSystem.update();
+            // Convert deltaTime (ms) to microseconds for physics scheduler
+            uint32_t deltaMicros = static_cast<uint32_t>(deltaTime * 1000);
+            physicsScheduler.update(deltaMicros, collisionSystem);
         #endif
 
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {

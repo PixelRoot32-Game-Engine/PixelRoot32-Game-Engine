@@ -15,6 +15,8 @@
 namespace metroidvania {
 
 namespace pr32 = pixelroot32;
+using Scalar = pixelroot32::math::Scalar;
+namespace math = pixelroot32::math;
 using pr32::graphics::Sprite4bpp;
 
 static const int NUM_IDLE_FRAMES = 2;
@@ -48,14 +50,14 @@ PlayerActor::PlayerActor(pixelroot32::math::Vector2 position)
     setCollisionMask(Layers::ENEMY | Layers::GROUND | Layers::PLATFORM); 
 }
 
-void PlayerActor::setInput(float dir, float vDir, bool jumpPressed) {
+void PlayerActor::setInput(math::Scalar dir, math::Scalar vDir, bool jumpPressed) {
     moveDir = dir;
     verticalDir = vDir;
     if (jumpPressed) {
         // If climbing, jump releases the ladder
         if (currentState == PlayerState::CLIMBING) {
             changeState(PlayerState::JUMP);
-            velocity.y = pixelroot32::math::toScalar(-PLAYER_JUMP_VELOCITY * 0.8f);
+            velocity.y = math::toScalar(-PLAYER_JUMP_VELOCITY * 0.8f);  // NOLINT(readability-magic-numbers)
         } else {
             wantsJump = true;
         }
@@ -93,15 +95,20 @@ void PlayerActor::buildStairsCache() {
 bool PlayerActor::isOverlappingStairs() const {
     if (!stairsIndices && !stairsMaskReady) return false;
     
-    float centerX = static_cast<float>(position.x) + width / 2.0f;
+    auto centerX = position.x + math::toScalar(width / 2);
     int col = static_cast<int>(centerX) / stairsTileSize;
     
     if (col < 0 || col >= stairsWidth) return false;
 
     // Check points: head, center, feet and slightly below feet.
-    float posY = static_cast<float>(position.y);
-    float yPoints[] = { posY, posY + height / 2.0f, posY + height - 1.0f, posY + height + 2.0f };
-    for (float py : yPoints) {
+    auto posY = position.y;
+    math::Scalar yPoints[] = { 
+        posY, 
+        posY + math::toScalar(height / 2), 
+        posY + math::toScalar(height - 1), 
+        posY + math::toScalar(height + 2) 
+    };
+    for (auto py : yPoints) {
         int row = static_cast<int>(py) / stairsTileSize;
         if (row >= 0 && row < stairsHeight) {
             const int idx = col + row * stairsWidth;
@@ -117,8 +124,8 @@ bool PlayerActor::isOverlappingStairs() const {
 }
 
 void PlayerActor::update(unsigned long deltaTime) {
-    float dt = deltaTime * 0.001f;
-    if (dt > 0.05f) dt = 0.05f; // Cap to avoid large jumps due to lag
+    math::Scalar dt = math::toScalar(deltaTime) * math::toScalar(0.001f);
+    if (dt > math::toScalar(0.05f)) dt = math::toScalar(0.05f); // Cap to avoid large jumps due to lag
 
     bool overlappingStairs = isOverlappingStairs();
 
@@ -129,18 +136,18 @@ void PlayerActor::update(unsigned long deltaTime) {
             changeState(PlayerState::IDLE);
         }
         // Drop off the ladder if we hit the floor and are not climbing up
-        else if (is_on_floor() && verticalDir >= 0.0f) {
+        else if (is_on_floor() && verticalDir >= math::toScalar(0.0f)) {
             changeState(PlayerState::IDLE);
         }
     } else {
         // Try to enter climbing mode
-        if (overlappingStairs && verticalDir != 0.0f) {
+        if (overlappingStairs && verticalDir != math::toScalar(0.0f)) {
             bool canClimbDown = false;
             
             // Allow climbing down only if we are on the floor AND there are stairs physically below us
-            if (verticalDir > 0 && is_on_floor()) {
-                float checkY = static_cast<float>(position.y) + height + 2.0f;
-                int checkCol = static_cast<int>(position.x + width / 2.0f) / stairsTileSize;
+            if (verticalDir > math::toScalar(0) && is_on_floor()) {
+                auto checkY = position.y + math::toScalar(height + 2);
+                int checkCol = static_cast<int>(position.x + math::toScalar(width / 2)) / stairsTileSize;
                 int checkRow = static_cast<int>(checkY) / stairsTileSize;
                 if (checkCol >= 0 && checkCol < stairsWidth && checkRow >= 0 && checkRow < stairsHeight) {
                     const int idx = checkCol + checkRow * stairsWidth;
@@ -148,18 +155,18 @@ void PlayerActor::update(unsigned long deltaTime) {
                 }
             }
             
-            bool canClimbUp = (verticalDir < 0); // Climb up from ground or air
+            bool canClimbUp = (verticalDir < math::toScalar(0)); // Climb up from ground or air
 
             if (canClimbUp || canClimbDown) {
                 changeState(PlayerState::CLIMBING);
                 
                 // Auto-center player on the ladder
-                int col = static_cast<int>(position.x + width / pixelroot32::math::toScalar(2.0f)) / stairsTileSize;
-                position.x = pixelroot32::math::toScalar(col * stairsTileSize + (stairsTileSize - width) / 2.0f);
+                int col = static_cast<int>(position.x + math::toScalar(width / 2)) / stairsTileSize;
+                position.x = math::toScalar(col * stairsTileSize + (stairsTileSize - width) / 2);
                 
                 // If climbing down through a platform, give a small nudge to bypass the initial floor collision
                 if (canClimbDown) {
-                    position.y += pixelroot32::math::toScalar(4.0f); 
+                    position.y += math::toScalar(4); 
                 }
             }
         }
@@ -168,16 +175,16 @@ void PlayerActor::update(unsigned long deltaTime) {
     // 2. MOVEMENT & COLLISION MASK LOGIC
     if (currentState == PlayerState::CLIMBING) {
         // Lock lateral movement to keep the character firmly on the ladder rail
-        velocity.x = pixelroot32::math::toScalar(0); 
-        velocity.y = pixelroot32::math::toScalar(verticalDir * PLAYER_CLIMB_SPEED);
+        velocity.x = math::toScalar(0); 
+        velocity.y = math::toScalar(verticalDir * PLAYER_CLIMB_SPEED);
         
         pixelroot32::physics::CollisionLayer climbMask = Layers::ENEMY; 
         
         // Are we moving down and about to hit the bottom of the ladder?
-        if (velocity.y > pixelroot32::math::toScalar(0)) {
+        if (velocity.y > math::toScalar(0)) {
             // Check if there are stairs right below our feet
-            float py = static_cast<float>(position.y) + height + 2.0f; 
-            float px = static_cast<float>(position.x) + width / 2.0f;
+            auto py = position.y + math::toScalar(height + 2); 
+            auto px = position.x + math::toScalar(width / 2);
             int col = static_cast<int>(px) / stairsTileSize;
             int row = static_cast<int>(py) / stairsTileSize;
             
@@ -195,12 +202,12 @@ void PlayerActor::update(unsigned long deltaTime) {
         
         setCollisionMask(climbMask);
     } else {
-        velocity.x = pixelroot32::math::toScalar(moveDir * PLAYER_MOVE_SPEED);
-        velocity.y += pixelroot32::math::toScalar(PLAYER_GRAVITY * dt); // Apply gravity
+        velocity.x = math::toScalar(moveDir * PLAYER_MOVE_SPEED);
+        velocity.y += math::toScalar(PLAYER_GRAVITY * dt); // Apply gravity
         
         // Dynamic Mask Logic:
         // Ignore platforms (ceilings) when moving up, so we can jump through them
-        if (velocity.y < pixelroot32::math::toScalar(0)) {
+        if (velocity.y < math::toScalar(0)) {
             if (overlappingStairs) {
                 // If moving up and overlapping stairs, ignore completely so we don't hit our head
                 setCollisionMask(Layers::ENEMY);
@@ -215,26 +222,26 @@ void PlayerActor::update(unsigned long deltaTime) {
 
         if (wantsJump) {
             if (is_on_floor()) {
-                velocity.y = pixelroot32::math::toScalar(-PLAYER_JUMP_VELOCITY);
+                velocity.y = math::toScalar(-PLAYER_JUMP_VELOCITY);
             }
             wantsJump = false; // Always consume input
         }
     }
 
     // Sprite orientation
-    if (moveDir > 0.0f) facingLeft = false;
-    else if (moveDir < 0.0f) facingLeft = true;
+    if (moveDir > math::toScalar(0.0f)) facingLeft = false;
+    else if (moveDir < math::toScalar(0.0f)) facingLeft = true;
 
     // Execute Move and Slide against the physics system
     // Using KinematicActor standard API for environmental collisions
-    moveAndSlide(velocity * pixelroot32::math::toScalar(dt), pixelroot32::math::Vector2(0, -1));
+    moveAndSlide(velocity * dt, math::Vector2(0, -1));
 
     // Reset velocity on axis that collided
     if (is_on_floor() || is_on_ceiling()) {
-        velocity.y = pixelroot32::math::toScalar(0);
+        velocity.y = math::toScalar(0);
     }
     if (is_on_wall()) {
-        velocity.x = pixelroot32::math::toScalar(0);
+        velocity.x = math::toScalar(0);
     }
 
     // World bounds (screen edges)
@@ -244,8 +251,8 @@ void PlayerActor::update(unsigned long deltaTime) {
     }
 
     if (worldWidth > 0) {
-        if (position.x < pixelroot32::math::toScalar(0)) {
-            position.x = pixelroot32::math::toScalar(0);
+        if (position.x < math::toScalar(0)) {
+            position.x = math::toScalar(0);
             velocity.x = pixelroot32::math::toScalar(0);
         } else if (position.x + pixelroot32::math::toScalar(width) > pixelroot32::math::toScalar(worldWidth)) {
             position.x = pixelroot32::math::toScalar(worldWidth - width);
@@ -269,15 +276,15 @@ void PlayerActor::update(unsigned long deltaTime) {
     switch (currentState) {
         case PlayerState::IDLE:
             if (!is_on_floor()) nextState = PlayerState::JUMP;
-            else if (moveDir != 0.0f) nextState = PlayerState::RUN;
+            else if (moveDir != math::toScalar(0.0f)) nextState = PlayerState::RUN;
             break;
         case PlayerState::RUN:
             if (!is_on_floor()) nextState = PlayerState::JUMP;
-            else if (moveDir == 0.0f) nextState = PlayerState::IDLE;
+            else if (moveDir == math::toScalar(0.0f)) nextState = PlayerState::IDLE;
             break;
         case PlayerState::JUMP:
             if (is_on_floor()) {
-                nextState = (moveDir != 0.0f) ? PlayerState::RUN : PlayerState::IDLE;
+                nextState = (moveDir != math::toScalar(0.0f)) ? PlayerState::RUN : PlayerState::IDLE;
             }
             break;
         case PlayerState::CLIMBING:

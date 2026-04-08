@@ -41,7 +41,7 @@ public:
     void onCollision(pixelroot32::core::Actor* other) override;
 
     /** @brief Updates input state received from the scene. */
-    void setInput(float dir, float vDir, bool jumpPressed);
+    void setInput(pixelroot32::math::Scalar dir, pixelroot32::math::Scalar vDir, bool jumpPressed);
 
     /**
      * @brief Assigns stairs layer data from the map.
@@ -60,8 +60,8 @@ private:
     uint8_t currentFrame = 0;
     PlayerState currentState = PlayerState::IDLE;
 
-    float moveDir = 0.0f;       ///< Horizontal direction (-1, 0, 1)
-    float verticalDir = 0.0f;   ///< Vertical direction for ladders
+    pixelroot32::math::Scalar moveDir = pixelroot32::math::toScalar(0.0f);       ///< Horizontal direction (-1, 0, 1)
+    pixelroot32::math::Scalar verticalDir = pixelroot32::math::toScalar(0.0f);   ///< Vertical direction for ladders
     bool wantsJump = false;     ///< Jump intent flag
     bool onGround = false;      ///< Ground contact flag
     bool facingLeft = false;    ///< Sprite orientation

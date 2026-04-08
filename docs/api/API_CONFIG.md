@@ -40,6 +40,10 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_DIRTY_TRACKER_SIZE` | Number of tiles to track for animation changes. | `256` |
 | `PIXELROOT32_CHUNK_SIZE` | Chunk size for viewport culling (tiles per chunk). | `8` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
+| `PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP` | Enable PhysicsScheduler for consistent physics across variable frame rates. | `1` (profile_full/arcade) |
+| `PIXELROOT32_VELOCITY_DAMPING` | Per-frame velocity damping factor (0.0-1.0). | `0.999` |
+| `PIXELROOT32_MAX_VELOCITY` | Maximum velocity cap in units/s. | `500` |
+| `PIXELROOT32_HAS_FAST_RSQRT` | Enable fast reciprocal square root (1/sqrt). | `1` (profile_full/arcade) |
 
 ---
 
