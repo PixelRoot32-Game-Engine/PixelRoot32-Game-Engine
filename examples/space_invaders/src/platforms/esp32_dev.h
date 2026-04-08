@@ -18,7 +18,7 @@ const int I2S_LRCK = 25;
 const int I2S_DOUT = 22;
 
 // Audio Pin Configuration (DAC)
-const int DAC_PIN = 25; // GPIO 25 or 26
+//const int DAC_PIN = 25; // GPIO 25 or 26
 
 // Button Mapping (Arduino ESP32)
 // Common mapping for 5-directional pad and A button
