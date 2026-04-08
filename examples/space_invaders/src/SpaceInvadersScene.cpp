@@ -19,21 +19,13 @@ extern pr32::core::Engine engine;
 
 namespace spaceinvaders {
 
-using pixelroot32::graphics::Sprite;
-using pixelroot32::graphics::SpriteAnimationFrame;
-using pixelroot32::audio::AudioEvent;
-using pixelroot32::audio::WaveType;
-using pixelroot32::audio::MusicNote;
-using pixelroot32::audio::MusicTrack;
-using pixelroot32::audio::InstrumentPreset;
-using pixelroot32::audio::INSTR_PULSE_BASS;
-using pixelroot32::audio::Note;
-using pixelroot32::math::Scalar;
-using pixelroot32::math::Vector2;
+namespace core = pr32::core;
+namespace gfx = pr32::graphics;
+namespace physics = pr32::physics;
+namespace audio = pr32::audio;
+namespace math = pr32::math;
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
-using pixelroot32::core::SceneArena;
-using pixelroot32::core::arenaNew;
 
 /** Arena for all scene entities (background, player, aliens, bunkers, projectiles).
  *  Before the tile-attributes changes, PhysicsActor was smaller (no userData, sensor, oneWay, etc.),
@@ -47,125 +39,125 @@ static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[4096];
 class StarfieldBackground : public pr32::core::Entity {
 public:
     StarfieldBackground()
-        : pr32::core::Entity(Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, pr32::core::EntityType::GENERIC) {
+        : pr32::core::Entity(math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, core::EntityType::GENERIC) {
         setRenderLayer(0);
     }
 
     void update(unsigned long) override {
     }
 
-    void draw(pr32::graphics::Renderer& renderer) override {
-        renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, pr32::graphics::Color::Black);
+    void draw(gfx::Renderer& renderer) override {
+        renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, gfx::Color::Black);
         for (int i = 0; i < background_assets::STAR_COUNT; ++i) {
             renderer.drawPixel(static_cast<int>(background_assets::STAR_X[i]),
                                static_cast<int>(background_assets::STAR_Y[i]),
-                               pr32::graphics::Color::White);
+                               gfx::Color::White);
         }
     }
 };
 
 // Base four-note bass pattern: "tu tu tu tu"
-static const InstrumentPreset BASS_INSTRUMENT = INSTR_PULSE_BASS;
+static const audio::InstrumentPreset BASS_INSTRUMENT = audio::INSTR_PULSE_BASS;
 
-static const MusicNote BGM_SLOW_NOTES[] = {
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.21f),
-    pixelroot32::audio::makeRest(0.207f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.21f),
-    pixelroot32::audio::makeRest(0.207f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.21f),
-    pixelroot32::audio::makeRest(0.207f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.21f),
-    pixelroot32::audio::makeRest(0.207f),
+static const audio::MusicNote BGM_SLOW_NOTES[] = {
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
+    audio::makeRest(0.207f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
+    audio::makeRest(0.207f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
+    audio::makeRest(0.207f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
+    audio::makeRest(0.207f),
 };
 
-static const MusicNote BGM_MEDIUM_NOTES[] = {
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.12f),
-    pixelroot32::audio::makeRest(0.06f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.12f),
-    pixelroot32::audio::makeRest(0.06f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.12f),
-    pixelroot32::audio::makeRest(0.06f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.12f),
-    pixelroot32::audio::makeRest(0.06f),
+static const audio::MusicNote BGM_MEDIUM_NOTES[] = {
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
+    audio::makeRest(0.06f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
+    audio::makeRest(0.06f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
+    audio::makeRest(0.06f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
+    audio::makeRest(0.06f),
 };
 
-static const MusicNote BGM_FAST_NOTES[] = {
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.08f),
-    pixelroot32::audio::makeRest(0.04f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.08f),
-    pixelroot32::audio::makeRest(0.04f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.08f),
-    pixelroot32::audio::makeRest(0.04f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.08f),
-    pixelroot32::audio::makeRest(0.04f),
+static const audio::MusicNote BGM_FAST_NOTES[] = {
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
+    audio::makeRest(0.04f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
+    audio::makeRest(0.04f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
+    audio::makeRest(0.04f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
+    audio::makeRest(0.04f),
 };
 
-static const MusicTrack BGM_SLOW_TRACK = {
+static const audio::MusicTrack BGM_SLOW_TRACK = {
     BGM_SLOW_NOTES,
-    sizeof(BGM_SLOW_NOTES) / sizeof(MusicNote),
+    sizeof(BGM_SLOW_NOTES) / sizeof(audio::MusicNote),
     true,
-    WaveType::PULSE,
+    audio::WaveType::PULSE,
     BASS_INSTRUMENT.duty
 };
 
-static const MusicTrack BGM_MEDIUM_TRACK = {
+static const audio::MusicTrack BGM_MEDIUM_TRACK = {
     BGM_MEDIUM_NOTES,
-    sizeof(BGM_MEDIUM_NOTES) / sizeof(MusicNote),
+    sizeof(BGM_MEDIUM_NOTES) / sizeof(audio::MusicNote),
     true,
-    WaveType::PULSE,
+    audio::WaveType::PULSE,
     BASS_INSTRUMENT.duty
 };
 
-static const MusicTrack BGM_FAST_TRACK = {
+static const audio::MusicTrack BGM_FAST_TRACK = {
     BGM_FAST_NOTES,
-    sizeof(BGM_FAST_NOTES) / sizeof(MusicNote),
+    sizeof(BGM_FAST_NOTES) / sizeof(audio::MusicNote),
     true,
-    WaveType::PULSE,
+    audio::WaveType::PULSE,
     BASS_INSTRUMENT.duty
 };
 
 // --- WIN / GAME OVER MUSIC ---
 
-static const MusicNote WIN_NOTES[] = {
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.15f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::E, 0.15f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::G, 0.15f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.4f), // C High ideally, but using C for safety if C_High undefined
-    pixelroot32::audio::makeRest(0.1f)
+static const audio::MusicNote WIN_NOTES[] = {
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.15f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.15f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.15f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f), // C High ideally, but using C for safety if C_High undefined
+    audio::makeRest(0.1f)
 };
 
-static const MusicTrack WIN_TRACK = {
+static const audio::MusicTrack WIN_TRACK = {
     WIN_NOTES,
-    sizeof(WIN_NOTES) / sizeof(MusicNote),
+    sizeof(WIN_NOTES) / sizeof(audio::MusicNote),
     false, // No loop
-    WaveType::PULSE,
+    audio::WaveType::PULSE,
     BASS_INSTRUMENT.duty
 };
 
-static const MusicNote GAME_OVER_NOTES[] = {
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::G, 0.2f),
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::E, 0.2f), // Using E instead of Eb if Eb undefined, checking later
-    pixelroot32::audio::makeNote(BASS_INSTRUMENT, Note::C, 0.4f),
-    pixelroot32::audio::makeRest(0.1f)
+static const audio::MusicNote GAME_OVER_NOTES[] = {
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.2f),
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.2f), // Using E instead of Eb if Eb undefined, checking later
+    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f),
+    audio::makeRest(0.1f)
 };
 
-static const MusicTrack GAME_OVER_TRACK = {
+static const audio::MusicTrack GAME_OVER_TRACK = {
     GAME_OVER_NOTES,
-    sizeof(GAME_OVER_NOTES) / sizeof(MusicNote),
+    sizeof(GAME_OVER_NOTES) / sizeof(audio::MusicNote),
     false, // No loop
-    WaveType::PULSE,
+    audio::WaveType::PULSE,
     BASS_INSTRUMENT.duty
 };
 
 
 ExplosionAnimation::ExplosionAnimation()
-    : active(false), position(pr32::math::toScalar(0), pr32::math::toScalar(0)), timeAccumulator(0), stepsDone(0) {
+    : active(false), position(math::toScalar(0), math::toScalar(0)), timeAccumulator(0), stepsDone(0) {
     animation.frames = PLAYER_EXPLOSION_FRAMES;
-    animation.frameCount = static_cast<uint8_t>(sizeof(PLAYER_EXPLOSION_FRAMES) / sizeof(SpriteAnimationFrame));
+    animation.frameCount = static_cast<uint8_t>(sizeof(PLAYER_EXPLOSION_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
     animation.current = 0;
 }
 
-void ExplosionAnimation::start(pr32::math::Vector2 pos) {
+void ExplosionAnimation::start(math::Vector2 pos) {
     position = pos;
     timeAccumulator = 0;
     stepsDone = 0;
@@ -193,12 +185,12 @@ void ExplosionAnimation::update(unsigned long deltaTime) {
     }
 }
 
-void ExplosionAnimation::draw(pr32::graphics::Renderer& renderer) {
+void ExplosionAnimation::draw(gfx::Renderer& renderer) {
     if (!active) {
         return;
     }
 
-    const Sprite* sprite = animation.getCurrentSprite();
+    const gfx::Sprite* sprite = animation.getCurrentSprite();
     if (!sprite) {
         return;
     }
@@ -206,7 +198,7 @@ void ExplosionAnimation::draw(pr32::graphics::Renderer& renderer) {
     const int drawX = static_cast<int>(position.x);
     const int drawY = static_cast<int>(position.y);
 
-    renderer.drawSprite(*sprite, drawX, drawY, pr32::graphics::Color::White);
+    renderer.drawSprite(*sprite, drawX, drawY, gfx::Color::White);
 }
 
 bool ExplosionAnimation::isActive() const {
@@ -237,7 +229,7 @@ SpaceInvadersScene::SpaceInvadersScene()
 
     for (int i = 0; i < MaxEnemyExplosions; ++i) {
         enemyExplosions[i].active = false;
-        enemyExplosions[i].position = pr32::math::Vector2(0, 0);
+        enemyExplosions[i].position = math::Vector2(0, 0);
         enemyExplosions[i].remainingMs = 0;
     }
 }
@@ -253,7 +245,7 @@ void SpaceInvadersScene::init() {
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     arena.init(SPACE_INVADERS_SCENE_ARENA_BUFFER, sizeof(SPACE_INVADERS_SCENE_ARENA_BUFFER));
 #endif
-    pr32::graphics::setSpritePalette(pr32::graphics::PaletteType::NES);
+    gfx::setSpritePalette(gfx::PaletteType::NES);
     background_assets::init();
     resetGame();
 
@@ -286,16 +278,16 @@ void SpaceInvadersScene::resetGame() {
 #endif
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
-    background = arenaNew<StarfieldBackground>(arena);
+    background = core::arenaNew<StarfieldBackground>(arena);
     addEntity(background);
 
-    player = arenaNew<PlayerActor>(arena, pr32::math::Vector2(PLAYER_START_X, PLAYER_START_Y));
+    player = core::arenaNew<PlayerActor>(arena, math::Vector2(PLAYER_START_X, PLAYER_START_Y));
     addEntity(player);
 #else
     if (background) {
         addEntity(background.get());
     }
-    player = std::make_unique<PlayerActor>(pr32::math::Vector2(PLAYER_START_X, PLAYER_START_Y));
+    player = std::make_unique<PlayerActor>(math::Vector2(PLAYER_START_X, PLAYER_START_Y));
     addEntity(player.get());
 #endif
 
@@ -305,7 +297,7 @@ void SpaceInvadersScene::resetGame() {
     projectiles.reserve(MaxProjectiles);
     for (int i = 0; i < MaxProjectiles; ++i) {
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
-        ProjectileActor* projectile = arenaNew<ProjectileActor>(arena, pr32::math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
+        ProjectileActor* projectile = core::arenaNew<ProjectileActor>(arena, pr32::math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         if (!projectile) {
             continue;
         }
@@ -313,7 +305,7 @@ void SpaceInvadersScene::resetGame() {
         projectiles.push_back(projectile);
         addEntity(projectile);
 #else
-        auto projectile = std::make_unique<ProjectileActor>(pr32::math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
+        auto projectile = std::make_unique<ProjectileActor>(math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         projectile->deactivate();
         addEntity(projectile.get());
         projectiles.push_back(std::move(projectile));
@@ -349,7 +341,7 @@ void SpaceInvadersScene::spawnAliens() {
             float y = ALIEN_START_Y + (row * ALIEN_SPACING_Y);
             
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
-            AlienActor* alien = arenaNew<AlienActor>(arena, pr32::math::Vector2(x, y), type);
+            AlienActor* alien = core::arenaNew<AlienActor>(arena, pr32::math::Vector2(x, y), type);
             if (!alien) {
                 continue;
             }
@@ -376,14 +368,14 @@ void SpaceInvadersScene::spawnBunkers() {
         float x = gap + i * (BUNKER_WIDTH + gap);
         float y = BUNKER_Y - BUNKER_HEIGHT;
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
-        BunkerActor* bunker = arenaNew<BunkerActor>(arena, pr32::math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
+        BunkerActor* bunker = core::arenaNew<BunkerActor>(arena, math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
         if (!bunker) {
             continue;
         }
         bunkers.push_back(bunker);
         addEntity(bunker);
 #else
-        auto bunker = std::make_unique<BunkerActor>(pr32::math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
+        auto bunker = std::make_unique<BunkerActor>(math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
         addEntity(bunker.get());
         bunkers.push_back(std::move(bunker));
 #endif
@@ -434,15 +426,15 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
             unsigned long now = engine.getMillis();
             if (playerBulletCount < MAX_PLAYER_BULLETS && 
                 (now - lastFireTime) >= PLAYER_FIRE_COOLDOWN) {
-                pr32::math::Scalar px = player->position.x + pr32::math::toScalar(PLAYER_WIDTH - PROJECTILE_WIDTH) * pr32::math::toScalar(0.5f);
-                pr32::math::Scalar py = player->position.y - pr32::math::toScalar(PROJECTILE_HEIGHT);
+                math::Scalar px = player->position.x + math::toScalar(PLAYER_WIDTH - PROJECTILE_WIDTH) * math::toScalar(0.5f);
+                math::Scalar py = player->position.y - math::toScalar(PROJECTILE_HEIGHT);
 
                 for (auto& proj : projectiles) {
                     if (!proj->isActive()) {
-                        proj->reset(pr32::math::Vector2(px, py), ProjectileType::PLAYER_BULLET);
+                        proj->reset(math::Vector2(px, py), ProjectileType::PLAYER_BULLET);
 
-                        AudioEvent event{};
-                        event.type = WaveType::PULSE;
+                        audio::AudioEvent event{};
+                        event.type = audio::WaveType::PULSE;
                         event.frequency = 880.0f;
                         event.duration = 0.08f;
                         event.volume = 0.4f;
@@ -498,10 +490,10 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
                 }
             }
         } else {
-            pr32::math::Scalar dx = pr32::math::toScalar(moveDirection) * pr32::math::toScalar(ALIEN_STEP_AMOUNT_X);
+            math::Scalar dx = math::toScalar(moveDirection) * math::toScalar(ALIEN_STEP_AMOUNT_X);
             for (auto& alien : aliens) {
                 if (alien->isActive()) {
-                    alien->move(dx, pr32::math::toScalar(0));
+                    alien->move(dx, math::toScalar(0));
                 }
             }
         }
@@ -513,7 +505,7 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
                 if (!alien->isActive()) {
                     continue;
                 }
-                pr32::math::Scalar bottom = alien->position.y + pr32::math::toScalar(alien->height);
+                math::Scalar bottom = alien->position.y + math::toScalar(alien->height);
                 if (bottom >= player->position.y) {
                     lives = 0;
                     gameOver = true;
@@ -527,16 +519,16 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
 }
 
 void SpaceInvadersScene::handleCollisions() {
-    using pixelroot32::physics::Circle;
-    using pixelroot32::physics::sweepCircleVsRect;
+    using physics::Circle;
+    using physics::sweepCircleVsRect;
 
     for (auto& proj : projectiles) {
         if (!proj->isActive()) {
             continue;
         }
         if (proj->getType() == ProjectileType::PLAYER_BULLET) {
-            pr32::math::Scalar radius = pr32::math::toScalar(PROJECTILE_WIDTH * 0.5f);
-            pr32::math::Scalar halfHeight = pr32::math::toScalar(PROJECTILE_HEIGHT * 0.5f);
+            math::Scalar radius = math::toScalar(PROJECTILE_WIDTH * 0.5f);
+            math::Scalar halfHeight = math::toScalar(PROJECTILE_HEIGHT * 0.5f);
 
             Circle startCircle;
             startCircle.x = proj->getPreviousX() + radius;
@@ -554,20 +546,20 @@ void SpaceInvadersScene::handleCollisions() {
                 if (!alien->isActive()) {
                     continue;
                 }
-                pr32::math::Scalar tHit = pr32::math::toScalar(0);
-                pixelroot32::core::Rect targetBox = alien->getHitBox();
+                math::Scalar tHit = math::toScalar(0);
+                core::Rect targetBox = alien->getHitBox();
                 if (sweepCircleVsRect(startCircle, endCircle, targetBox, tHit) ||
                     proj->getHitBox().intersects(targetBox)) {
                     proj->deactivate();
                     alien->kill();
                     score += alien->getScoreValue();
 
-                    pr32::math::Scalar ex = alien->position.x + pr32::math::toScalar(alien->width) * pr32::math::toScalar(0.5f);
-                    pr32::math::Scalar ey = alien->position.y + pr32::math::toScalar(alien->height) * pr32::math::toScalar(0.5f);
+                    math::Scalar ex = alien->position.x + math::toScalar(alien->width) * math::toScalar(0.5f);
+                    math::Scalar ey = alien->position.y + math::toScalar(alien->height) * math::toScalar(0.5f);
                     spawnEnemyExplosion(ex, ey);
 
-                    AudioEvent event{};
-                    event.type = WaveType::NOISE;
+                    audio::AudioEvent event{};
+                    event.type = audio::WaveType::NOISE;
                     event.frequency = 600.0f;
                     event.duration = 0.12f;
                     event.volume = 0.6f;
@@ -590,8 +582,8 @@ void SpaceInvadersScene::handleCollisions() {
                     if (bunker->isDestroyed()) {
                         continue;
                     }
-                    pr32::math::Scalar tHit = pr32::math::toScalar(0);
-                    pixelroot32::core::Rect bunkerBox = bunker->getHitBox();
+                    math::Scalar tHit = math::toScalar(0);
+                    core::Rect bunkerBox = bunker->getHitBox();
                     if (sweepCircleVsRect(startCircle, endCircle, bunkerBox, tHit) ||
                         proj->getHitBox().intersects(bunkerBox)) {
                         proj->deactivate();
@@ -607,16 +599,16 @@ void SpaceInvadersScene::handleCollisions() {
         return;
     }
 
-    pixelroot32::core::Rect playerBox = player->getHitBox();
+    core::Rect playerBox = player->getHitBox();
     for (auto& proj : projectiles) {
         if (!proj->isActive()) {
             continue;
         }
         if (proj->getType() == ProjectileType::ENEMY_BULLET) {
-            pr32::math::Scalar radius = pr32::math::toScalar(PROJECTILE_WIDTH * 0.5f);
-            pr32::math::Scalar halfHeight = pr32::math::toScalar(PROJECTILE_HEIGHT * 0.5f);
+            math::Scalar radius = math::toScalar(PROJECTILE_WIDTH * 0.5f);
+            math::Scalar halfHeight = math::toScalar(PROJECTILE_HEIGHT * 0.5f);
 
-            using pixelroot32::physics::Circle;
+            using physics::Circle;
             Circle startCircle;
             startCircle.x = proj->getPreviousX() + radius;
             startCircle.y = proj->getPreviousY() + halfHeight;
@@ -627,14 +619,14 @@ void SpaceInvadersScene::handleCollisions() {
             endCircle.y = proj->position.y + halfHeight;
             endCircle.radius = radius;
 
-            pixelroot32::core::Rect eBox = proj->getHitBox();
+            core::Rect eBox = proj->getHitBox();
             bool handled = false;
             for (auto& bunker : bunkers) {
                 if (bunker->isDestroyed()) {
                     continue;
                 }
-                pixelroot32::core::Rect bunkerBox = bunker->getHitBox();
-                pr32::math::Scalar tHit = pr32::math::toScalar(0);
+                core::Rect bunkerBox = bunker->getHitBox();
+                math::Scalar tHit = math::toScalar(0);
                 if (sweepCircleVsRect(startCircle, endCircle, bunkerBox, tHit) ||
                     eBox.intersects(bunkerBox)) {
                     proj->deactivate();
@@ -646,7 +638,7 @@ void SpaceInvadersScene::handleCollisions() {
             if (handled) {
                 continue;
             }
-            pr32::math::Scalar tHitPlayer = pr32::math::toScalar(0);
+            math::Scalar tHitPlayer = math::toScalar(0);
             if (sweepCircleVsRect(startCircle, endCircle, playerBox, tHitPlayer) ||
                 eBox.intersects(playerBox)) {
                 proj->deactivate();
@@ -658,7 +650,8 @@ void SpaceInvadersScene::handleCollisions() {
 }
 
 void SpaceInvadersScene::enemyShoot() {
-    std::vector<AlienActor*> potentialShooters;
+    AlienActor* potentialShooters[ALIEN_COLS];
+    int shooterCount = 0;
 
     for (int col = 0; col < ALIEN_COLS; ++col) {
         AlienActor* lowestAlien = nullptr;
@@ -678,22 +671,22 @@ void SpaceInvadersScene::enemyShoot() {
             }
         }
         
-        if (lowestAlien) {
-            potentialShooters.push_back(lowestAlien);
+        if (lowestAlien && shooterCount < ALIEN_COLS) {
+            potentialShooters[shooterCount++] = lowestAlien;
         }
     }
     
-    if (potentialShooters.empty()) return;
+    if (shooterCount == 0) return;
 
-    int idx = std::rand() % potentialShooters.size();
+    int idx = std::rand() % shooterCount;
     AlienActor* shooter = potentialShooters[idx];
 
     for (auto& proj : projectiles) {
         if (!proj->isActive()) {
-            pr32::math::Scalar sx = shooter->position.x + pr32::math::toScalar(shooter->width) * pr32::math::toScalar(0.5f);
-            pr32::math::Scalar sy = shooter->position.y + pr32::math::toScalar(shooter->height);
+            math::Scalar sx = shooter->position.x + math::toScalar(shooter->width) * math::toScalar(0.5f);
+            math::Scalar sy = shooter->position.y + math::toScalar(shooter->height);
             
-            proj->reset(Vector2(sx, sy), ProjectileType::ENEMY_BULLET);
+            proj->reset(math::Vector2(sx, sy), ProjectileType::ENEMY_BULLET);
             break;
         }
     }
@@ -707,8 +700,8 @@ int SpaceInvadersScene::getActiveAlienCount() const {
     return count;
 }
 
-void SpaceInvadersScene::draw(pr32::graphics::Renderer& renderer) {
-    renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, pr32::graphics::Color::Black);
+void SpaceInvadersScene::draw(gfx::Renderer& renderer) {
+    renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, gfx::Color::Black);
     Scene::draw(renderer);
     drawEnemyExplosions(renderer);
     playerExplosion.draw(renderer);
@@ -716,25 +709,25 @@ void SpaceInvadersScene::draw(pr32::graphics::Renderer& renderer) {
     char buffer[32];
 
     std::snprintf(buffer, sizeof(buffer), "SCORE %04d", score);
-    renderer.drawText(buffer, 4, 4, pr32::graphics::Color::White, 1);
+    renderer.drawText(buffer, 4, 4, gfx::Color::White, 1);
 
     std::snprintf(buffer, sizeof(buffer), "LIVES %d", lives);
-    renderer.drawText(buffer, DISPLAY_WIDTH - 70, 4, pr32::graphics::Color::White, 1);
+    renderer.drawText(buffer, DISPLAY_WIDTH - 70, 4, gfx::Color::White, 1);
 
     if (gameOver) {
         if (gameWon) {
             std::snprintf(buffer, sizeof(buffer), "YOU WIN!");
             int textY = DISPLAY_HEIGHT / 2 - 8;
-            renderer.drawTextCentered(buffer, textY, pr32::graphics::Color::Green, 2);
+            renderer.drawTextCentered(buffer, textY, gfx::Color::Green, 2);
         } else {
             std::snprintf(buffer, sizeof(buffer), "GAME OVER");
             int textY = DISPLAY_HEIGHT / 2 - 8;
-            renderer.drawTextCentered(buffer, textY, pr32::graphics::Color::Red, 2);
+            renderer.drawTextCentered(buffer, textY, gfx::Color::Red, 2);
         }
 
         std::snprintf(buffer, sizeof(buffer), "PRESS FIRE");
         int textY = DISPLAY_HEIGHT / 2 - 8;
-        renderer.drawTextCentered(buffer, textY + 20, pr32::graphics::Color::White, 1);
+        renderer.drawTextCentered(buffer, textY + 20, gfx::Color::White, 1);
     }
 }
 
@@ -746,7 +739,7 @@ void SpaceInvadersScene::updateMusicTempo() {
 
     for (const auto& alien : aliens) {
         if (alien->isActive()) {
-            float y = static_cast<float>(alien->position.y + pr32::math::toScalar(alien->height));
+            float y = static_cast<float>(alien->position.y + math::toScalar(alien->height));
             if (y > lowestY) {
                 lowestY = y;
                 found = true;
@@ -781,9 +774,7 @@ void SpaceInvadersScene::updateEnemyExplosions(unsigned long deltaTime) {
     }
 }
 
-void SpaceInvadersScene::drawEnemyExplosions(pr32::graphics::Renderer& renderer) {
-    using Color = pr32::graphics::Color;
-
+void SpaceInvadersScene::drawEnemyExplosions(gfx::Renderer& renderer) {
     for (int i = 0; i < MaxEnemyExplosions; ++i) {
         const EnemyExplosion& e = enemyExplosions[i];
         if (!e.active) {
@@ -806,7 +797,7 @@ void SpaceInvadersScene::drawEnemyExplosions(pr32::graphics::Renderer& renderer)
                 hw = DISPLAY_WIDTH - hx;
             }
             if (hw > 0 && hy >= 0 && hy < DISPLAY_HEIGHT) {
-                renderer.drawFilledRectangle(hx, hy, hw, 1, Color::White);
+                renderer.drawFilledRectangle(hx, hy, hw, 1, gfx::Color::White);
             }
         }
 
@@ -823,13 +814,13 @@ void SpaceInvadersScene::drawEnemyExplosions(pr32::graphics::Renderer& renderer)
                 vh = DISPLAY_HEIGHT - vy;
             }
             if (vh > 0 && vx >= 0 && vx < DISPLAY_WIDTH) {
-                renderer.drawFilledRectangle(vx, vy, 1, vh, Color::White);
+                renderer.drawFilledRectangle(vx, vy, 1, vh, gfx::Color::White);
             }
         }
     }
 }
 
-void SpaceInvadersScene::spawnEnemyExplosion(pr32::math::Scalar x, pr32::math::Scalar y) {
+void SpaceInvadersScene::spawnEnemyExplosion(math::Scalar x, math::Scalar y) {
     for (int i = 0; i < MaxEnemyExplosions; ++i) {
         EnemyExplosion& e = enemyExplosions[i];
         if (!e.active) {
@@ -847,8 +838,8 @@ void SpaceInvadersScene::handlePlayerHit() {
         lives -= 1;
     }
 
-    AudioEvent event{};
-    event.type = WaveType::NOISE;
+    audio::AudioEvent event{};
+    event.type = audio::WaveType::NOISE;
     event.frequency = 400.0f;
     event.duration = 0.18f;
     event.volume = 0.7f;
@@ -884,10 +875,10 @@ void SpaceInvadersScene::respawnPlayerUnderBunker() {
         }
     }
 
-    pr32::math::Scalar newX = pr32::math::toScalar(PLAYER_START_X);
+    math::Scalar newX = math::toScalar(PLAYER_START_X);
 
     if (targetBunker) {
-        newX = targetBunker->position.x + (pr32::math::toScalar(targetBunker->width - PLAYER_WIDTH) * pr32::math::toScalar(0.5f));
+        newX = targetBunker->position.x + (math::toScalar(targetBunker->width - PLAYER_WIDTH) * math::toScalar(0.5f));
     }
 
     player->position.x = newX;

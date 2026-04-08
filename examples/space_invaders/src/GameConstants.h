@@ -36,7 +36,7 @@ namespace spaceinvaders {
     constexpr int PROJECTILE_HEIGHT = 4;
     constexpr float PROJECTILE_SPEED = 80.0f;
     constexpr int MAX_PLAYER_BULLETS = 4;           ///< Max simultaneous player bullets
-    constexpr unsigned long PLAYER_FIRE_COOLDOWN = 150;  ///< Milliseconds between shots
+    constexpr unsigned long PLAYER_FIRE_COOLDOWN = 100;  ///< Milliseconds between shots
 
     /** Bunker layout and dimensions */
     constexpr int BUNKER_COUNT = 4;

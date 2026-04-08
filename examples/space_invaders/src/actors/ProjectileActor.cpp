@@ -19,7 +19,7 @@ ProjectileActor::ProjectileActor(math::Vector2 position, ProjectileType type)
     setRadius(math::toScalar(PROJECTILE_WIDTH * 0.5f));
     setBounce(false);
 
-    Scalar speed = (type == ProjectileType::PLAYER_BULLET) ? math::toScalar(-PROJECTILE_SPEED) : math::toScalar(PROJECTILE_SPEED);
+    math::Scalar speed = (type == ProjectileType::PLAYER_BULLET) ? math::toScalar(-PROJECTILE_SPEED) : math::toScalar(PROJECTILE_SPEED);
     setVelocity(math::toScalar(0), speed);
 }
 
@@ -28,7 +28,7 @@ void ProjectileActor::reset(math::Vector2 newPosition, ProjectileType newType) {
     previousPosition = newPosition;
     type = newType;
     active = true;
-    Scalar speed = (type == ProjectileType::PLAYER_BULLET) ? math::toScalar(-PROJECTILE_SPEED) : math::toScalar(PROJECTILE_SPEED);
+    math::Scalar speed = (type == ProjectileType::PLAYER_BULLET) ? math::toScalar(-PROJECTILE_SPEED) : math::toScalar(PROJECTILE_SPEED);
     setVelocity(math::toScalar(0), speed);
 }
 
