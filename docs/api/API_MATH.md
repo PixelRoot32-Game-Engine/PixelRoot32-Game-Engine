@@ -56,6 +56,11 @@ On platforms without a Hardware Floating Point Unit (FPU), the engine uses `Fixe
 - **`Scalar sqrt(Scalar v)`**
     Returns the square root. **Warning:** Expensive operation. Prefer squared distances for comparisons.
 
+- **`Scalar rsqrt(Scalar v)`**
+    Returns the reciprocal square root: `1/sqrt(v)`. Faster than `1/sqrt(v)` for normalization operations.
+    *Example:* `Vector2 normalized = velocity * (1.0f / velocity.length());` becomes `velocity * rsqrt(velocity.lengthSquared());`
+    Enable with `-D PIXELROOT32_HAS_FAST_RSQRT=1` in build flags.
+
 - **`Scalar min(Scalar a, Scalar b)`**
     Returns the smaller of two values.
 

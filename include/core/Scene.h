@@ -11,6 +11,7 @@
 #pragma once
 #include <cstddef>
 #include "physics/CollisionSystem.h"
+#include "physics/PhysicsScheduler.h"
 #include "Entity.h"
 #include "platforms/EngineConfig.h"
 #include "input/TouchEvent.h"
@@ -145,6 +146,7 @@ protected:
     // Physics 
     #if PIXELROOT32_ENABLE_PHYSICS
         pixelroot32::physics::CollisionSystem collisionSystem; ///< System to handle collisions between actors.
+        pixelroot32::physics::PhysicsScheduler physicsScheduler; ///< Fixed timestep scheduler for physics.
     #endif
 
     // UI System

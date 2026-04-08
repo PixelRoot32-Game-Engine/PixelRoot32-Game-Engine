@@ -48,6 +48,18 @@ namespace detail {
     }
 
     template <typename T>
+    inline T rsqrt_impl(T x) {
+        // Reciprocal square root: 1/sqrt(x)
+        // Uses sqrt-based implementation for accuracy
+        if constexpr (std::is_same_v<T, float>) {
+            return static_cast<T>(1.0f) / std::sqrt(x);
+        } else {
+            // Fixed16: compute sqrt then invert
+            return static_cast<T>(toScalar(1.0f)) / static_cast<T>(Fixed16::sqrt(x.toFloat()));
+        }
+    }
+
+    template <typename T>
     inline T sin_impl(T x) {
         if constexpr (std::is_same_v<T, float>) {
             return std::sin(x);
@@ -123,9 +135,19 @@ inline Scalar max(Scalar a, Scalar b) {
 
 /**
  * @brief Square root function adaptable for float or Fixed16.
-*/
+ */
 inline Scalar sqrt(Scalar x) {
     return detail::sqrt_impl(x);
+}
+
+/**
+ * @brief Reciprocal square root function: 1/sqrt(x)
+ * Faster than computing sqrt(x) then dividing.
+ * @param x Input value (must be > 0)
+ * @return 1/sqrt(x)
+ */
+inline Scalar rsqrt(Scalar x) {
+    return detail::rsqrt_impl(x);
 }
 /**
  * @brief Sine function.
