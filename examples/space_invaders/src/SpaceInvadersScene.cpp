@@ -54,107 +54,7 @@ public:
                                gfx::Color::White);
         }
     }
-};
-
-// Base four-note bass pattern: "tu tu tu tu"
-static const audio::InstrumentPreset BASS_INSTRUMENT = audio::INSTR_PULSE_BASS;
-
-static const audio::MusicNote BGM_SLOW_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-};
-
-static const audio::MusicNote BGM_MEDIUM_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-};
-
-static const audio::MusicNote BGM_FAST_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-};
-
-static const audio::MusicTrack BGM_SLOW_TRACK = {
-    BGM_SLOW_NOTES,
-    sizeof(BGM_SLOW_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicTrack BGM_MEDIUM_TRACK = {
-    BGM_MEDIUM_NOTES,
-    sizeof(BGM_MEDIUM_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicTrack BGM_FAST_TRACK = {
-    BGM_FAST_NOTES,
-    sizeof(BGM_FAST_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-// --- WIN / GAME OVER MUSIC ---
-
-static const audio::MusicNote WIN_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f), // C High ideally, but using C for safety if C_High undefined
-    audio::makeRest(0.1f)
-};
-
-static const audio::MusicTrack WIN_TRACK = {
-    WIN_NOTES,
-    sizeof(WIN_NOTES) / sizeof(audio::MusicNote),
-    false, // No loop
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicNote GAME_OVER_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.2f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.2f), // Using E instead of Eb if Eb undefined, checking later
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f),
-    audio::makeRest(0.1f)
-};
-
-static const audio::MusicTrack GAME_OVER_TRACK = {
-    GAME_OVER_NOTES,
-    sizeof(GAME_OVER_NOTES) / sizeof(audio::MusicNote),
-    false, // No loop
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-
-ExplosionAnimation::ExplosionAnimation()
-    : active(false), position(math::toScalar(0), math::toScalar(0)), timeAccumulator(0), stepsDone(0) {
-    animation.frames = PLAYER_EXPLOSION_FRAMES;
-    animation.frameCount = static_cast<uint8_t>(sizeof(PLAYER_EXPLOSION_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
-    animation.current = 0;
+    activeAlienCount = ALIEN_ROWS * ALIEN_COLS;
 }
 
 void ExplosionAnimation::start(math::Vector2 pos) {
@@ -212,6 +112,7 @@ SpaceInvadersScene::SpaceInvadersScene()
       lives(3),
       gameOver(false),
       gameWon(false),
+      activeAlienCount(0),
       stepTimer(0.0f),
       stepDelay(BASE_STEP_DELAY),
       moveDirection(1),
@@ -462,61 +363,64 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
     float scaledDelta = static_cast<float>(deltaTime) * currentMusicTempoFactor;
     stepTimer += scaledDelta;
     
-    if (stepTimer >= stepDelay) {
-        stepTimer = 0.0f;
+    if (stepTimer < stepDelay) {
+        return;
+    }
+    
+    stepTimer = 0.0f;
+    
+    bool edgeHit = false;
+    bool alienReachedPlayer = false;
+    
+    // Single pass: check edges and game over condition
+    for (const auto& alien : aliens) {
+        if (!alien->isActive()) continue;
         
-        bool edgeHit = false;
-
-        for (auto& alien : aliens) {
-            if (!alien->isActive()) continue;
-            
-            if (moveDirection == 1) { // Moving Right
-                if (alien->position.x + alien->width >= DISPLAY_WIDTH - 2) {
-                    edgeHit = true;
-                    break;
-                }
-            } else { // Moving Left
-                if (alien->position.x <= 2) {
-                    edgeHit = true;
-                    break;
-                }
-            }
-        }
-
-        if (edgeHit) {
-            moveDirection *= -1;
-            for (auto& alien : aliens) {
-                if (alien->isActive()) {
-                    alien->move(0, ALIEN_DROP_AMOUNT);
-                }
+        // Edge detection
+        if (moveDirection == 1) {
+            if (alien->position.x + alien->width >= DISPLAY_WIDTH - 2) {
+                edgeHit = true;
             }
         } else {
-            math::Scalar dx = math::toScalar(moveDirection) * math::toScalar(ALIEN_STEP_AMOUNT_X);
-            for (auto& alien : aliens) {
-                if (alien->isActive()) {
-                    alien->move(dx, math::toScalar(0));
-                }
+            if (alien->position.x <= 2) {
+                edgeHit = true;
             }
         }
-
-        enemyShoot();
-
-        if (!gameOver && player) {
-            for (auto& alien : aliens) {
-                if (!alien->isActive()) {
-                    continue;
-                }
-                math::Scalar bottom = alien->position.y + math::toScalar(alien->height);
-                if (bottom >= player->position.y) {
-                    lives = 0;
-                    gameOver = true;
-                    engine.getMusicPlayer().setTempoFactor(1.0f);
-                    engine.getMusicPlayer().play(GAME_OVER_TRACK);
-                    break;
-                }
+        
+        // Game over check
+        if (player) {
+            math::Scalar alienBottom = alien->position.y + math::toScalar(alien->height);
+            if (alienBottom >= player->position.y) {
+                alienReachedPlayer = true;
             }
         }
     }
+    
+    // Handle direction change and drop
+    if (edgeHit) {
+        moveDirection *= -1;
+    }
+    
+    math::Scalar dx = math::toScalar(moveDirection) * math::toScalar(ALIEN_STEP_AMOUNT_X);
+    math::Scalar dy = edgeHit ? math::toScalar(ALIEN_DROP_AMOUNT) : math::toScalar(0);
+    
+    // Move all aliens in single pass
+    for (const auto& alien : aliens) {
+        if (alien->isActive()) {
+            alien->move(dx, dy);
+        }
+    }
+    
+    // Handle game over
+    if (alienReachedPlayer) {
+        lives = 0;
+        gameOver = true;
+        engine.getMusicPlayer().setTempoFactor(1.0f);
+        engine.getMusicPlayer().play(GAME_OVER_TRACK);
+        return;
+    }
+    
+    enemyShoot();
 }
 
 void SpaceInvadersScene::handleCollisions() {
@@ -567,7 +471,8 @@ void SpaceInvadersScene::handleCollisions() {
                     event.duty = 0.5f;
                     engine.getAudioEngine().playEvent(event);
 
-                    if (getActiveAlienCount() == 0) {
+                    activeAlienCount--;
+                    if (activeAlienCount == 0) {
                         gameOver = true;
                         gameWon = true;
                         engine.getMusicPlayer().setTempoFactor(1.0f);

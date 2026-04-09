@@ -119,10 +119,11 @@ namespace spaceinvaders {
         std::vector<std::unique_ptr<BunkerActor>> bunkers;
 #endif
 
-        int score;                                 ///< Current score
-        int lives;                                 ///< Remaining lives
-        bool gameOver;                             ///< True when game has ended
-        bool gameWon;                               ///< True if player cleared all aliens
+        int score;
+        int lives;
+        bool gameOver;
+        bool gameWon;
+        int activeAlienCount;  // Track alive aliens without scanning
 
         float stepTimer;                           ///< Accumulator for alien step timing
         unsigned long stepDelay;                   ///< Delay between alien steps (ms)
