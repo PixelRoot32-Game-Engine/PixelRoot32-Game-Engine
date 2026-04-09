@@ -17,7 +17,9 @@
 
 namespace pixelroot32::audio {
 
+    namespace platforms = pixelroot32::platforms;
     namespace logging = pixelroot32::core::logging;
+    
     using logging::LogLevel;
     using logging::log;
 
@@ -29,7 +31,7 @@ namespace pixelroot32::audio {
         stop();
     }
 
-    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
+    void ESP32AudioScheduler::init(AudioBackend* backend, int sampleRate, const platforms::PlatformCapabilities& /*caps*/) {
         this->backend = backend;
         this->sampleRate = sampleRate;
         for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -68,7 +70,16 @@ namespace pixelroot32::audio {
     void ESP32AudioScheduler::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
-        processCommands();
+        // Performance timing (when profiling enabled)
+        uint32_t startTime = 0;
+        if constexpr (platforms::config::EnableProfiling) {
+            startTime = micros();
+        }
+
+        // Only process commands if queue is not empty to avoid atomic overhead
+        if (!commandQueue.isEmpty()) {
+            processCommands();
+        }
         updateMusicSequencer(length);
 
         static float currentPeak = 0.0f;
@@ -118,9 +129,9 @@ namespace pixelroot32::audio {
                 }
             }
 
-            // Apply Master Volume
-            if (masterVolume != 1.0f) {
-                sum = (int32_t)(sum * masterVolume);
+            // Apply Master Volume using pre-computed Q16 fixed-point scale
+            if (masterVolumeScale != 65536) {
+                sum = (sum * masterVolumeScale) >> 16;
             }
 
             // Map sum [-131072, 131071] to LUT index [0, 1024]
@@ -128,7 +139,7 @@ namespace pixelroot32::audio {
             int32_t index = (sum + 131072) >> 8;
             if (index < 0) index = 0;
             if (index > 1024) index = 1024;
-            
+
             int16_t finalSample = audio_mixer_lut[index];
             stream[j] = finalSample;
 
@@ -142,7 +153,7 @@ namespace pixelroot32::audio {
         static uint32_t lastLog = 0;
         uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
         if (now - lastLog > 1000) {
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            if constexpr (platforms::config::EnableProfiling) {
                 if (currentPeak > 32767.0f) {
                     log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
                 } else {
@@ -154,6 +165,16 @@ namespace pixelroot32::audio {
         }
         
         audioTimeSamples += length;
+
+        // Performance timing (when profiling enabled)
+        if constexpr (platforms::config::EnableProfiling) {
+            uint32_t elapsed = micros() - startTime;
+            totalGenerateTimeUs += elapsed;
+            generateSampleCount++;
+            if (elapsed > maxGenerateTimeUs) {
+                maxGenerateTimeUs = elapsed;
+            }
+        }
     }
 
     void ESP32AudioScheduler::processCommands() {
@@ -167,6 +188,8 @@ namespace pixelroot32::audio {
                     masterVolume = cmd.volume;
                     if (masterVolume > 1.0f) masterVolume = 1.0f;
                     if (masterVolume < 0.0f) masterVolume = 0.0f;
+                    // Pre-compute for LUT path (Q16 fixed-point)
+                    masterVolumeScale = (int32_t)(masterVolume * 65536.0f);
                     break;
                 case AudioCommandType::STOP_CHANNEL:
                     if (cmd.channelIndex < NUM_CHANNELS) {
@@ -202,7 +225,28 @@ namespace pixelroot32::audio {
     void ESP32AudioScheduler::updateMusicSequencer(int /*length*/) {
         if (!musicPlaying || musicPaused || !currentTrack) return;
 
+        int notesProcessed = 0;
         while (musicPlaying && currentTrack && audioTimeSamples >= nextNoteSample) {
+            if (notesProcessed >= MAX_NOTES_PER_FRAME) {
+                notesSkipped++;
+                // Skip ahead to catch up without playing
+                while (audioTimeSamples >= nextNoteSample && musicPlaying && currentTrack) {
+                    const MusicNote& note = currentTrack->notes[currentNoteIndex];
+                    uint64_t noteDurationSamples = (uint64_t)((note.duration / tempoFactor) * (float)sampleRate);
+                    nextNoteSample += noteDurationSamples;
+                    currentNoteIndex++;
+                    if (currentNoteIndex >= currentTrack->count) {
+                        if (currentTrack->loop) {
+                            currentNoteIndex = 0;
+                        } else {
+                            musicPlaying = false;
+                            currentTrack = nullptr;
+                        }
+                    }
+                }
+                break;
+            }
+
             playCurrentNote();
 
             const MusicNote& note = currentTrack->notes[currentNoteIndex];
@@ -218,6 +262,12 @@ namespace pixelroot32::audio {
                     currentTrack = nullptr;
                 }
             }
+
+            notesProcessed++;
+        }
+
+        if (notesProcessed > maxNotesProcessed) {
+            maxNotesProcessed = notesProcessed;
         }
     }
 
@@ -288,13 +338,18 @@ namespace pixelroot32::audio {
                     sample = 3.0f - 4.0f * ch.phase;
                 }
                 break;
-            case WaveType::NOISE:
-                // Update noise register only on phase wrap
+            case WaveType::NOISE:  
                 if (ch.phase < ch.phaseIncrement) {
                     ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
                 }
                 sample = (ch.noiseRegister & 1) ? 1.0f : -1.0f;
-                break;
+                break;  
+                // NES-style 15-bit LFSR with taps at bits 0 and 1
+                // Update every sample for better noise quality
+                // uint16_t feedback = ((ch.lfsrState & 1) ^ ((ch.lfsrState >> 1) & 1));
+                // ch.lfsrState = (ch.lfsrState >> 1) | (feedback << 14);
+                // sample = (ch.lfsrState & 1) ? 1.0f : -1.0f;
+                // break;
         }
 
         ch.phase += ch.phaseIncrement;

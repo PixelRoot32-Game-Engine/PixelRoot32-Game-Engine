@@ -36,6 +36,7 @@ namespace pixelroot32::audio {
         
         int sampleRate = 44100;
         float masterVolume = 1.0f;
+        int32_t masterVolumeScale = 65536; // Pre-computed for LUT path (Q16 fixed-point)
         uint64_t audioTimeSamples = 0;
         bool running = false;
 
@@ -46,6 +47,16 @@ namespace pixelroot32::audio {
         float tempoFactor = 1.0f;
         bool musicPlaying = false;
         bool musicPaused = false;
+
+        // Sequencer limits to prevent CPU spikes
+        static constexpr int MAX_NOTES_PER_FRAME = 8;
+        uint32_t notesSkipped = 0;
+        uint32_t maxNotesProcessed = 0;
+
+        // Performance metrics (when profiling enabled)
+        uint64_t totalGenerateTimeUs = 0;
+        uint32_t generateSampleCount = 0;
+        uint32_t maxGenerateTimeUs = 0;
 
         void processCommands();
         void executePlayEvent(const AudioEvent& event);

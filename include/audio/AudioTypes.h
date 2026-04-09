@@ -38,21 +38,19 @@ namespace pixelroot32::audio {
         
         // Wave specific parameters
         float dutyCycle = 0.5f;    // For Pulse wave [0.0 - 1.0]
-        uint16_t noiseRegister = 1; // LFSR for Noise
+        uint16_t noiseRegister = 1; // Deprecated: legacy noise register
+        uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
 
-        // Duration control
-        unsigned long durationMs = 0;
-        unsigned long remainingMs = 0; // Deprecated in Phase 2
-        
-        uint64_t remainingSamples = 0; // Sample-accurate duration
+        // Duration control (sample-accurate timing)
+        uint64_t remainingSamples = 0;
 
         void reset() {
             enabled = false;
             phase = 0.0f;
             volume = 0.0f;
-            remainingMs = 0;
             remainingSamples = 0;
             noiseRegister = 1;
+            lfsrState = 0x4000; // Initialize LFSR to non-zero state
         }
     };
 

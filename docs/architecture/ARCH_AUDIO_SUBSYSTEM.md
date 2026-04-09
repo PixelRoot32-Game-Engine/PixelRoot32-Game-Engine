@@ -72,15 +72,19 @@ struct AudioChannel {
     float volume = 0.0f;
     float targetVolume = 0.0f;
     float dutyCycle = 0.5f;
-    uint16_t noiseRegister = 1;
-    unsigned long durationMs = 0;
-    unsigned long remainingMs = 0;
+    uint16_t noiseRegister = 1;         // Deprecated: legacy noise register
+    uint16_t lfsrState = 0x4000;        // NES-style 15-bit LFSR for deterministic noise
+
+    // Duration control (sample-accurate timing)
+    uint64_t remainingSamples = 0;
 
     void reset() {
         enabled = false;
         phase = 0.0f;
         volume = 0.0f;
-        remainingMs = 0;
+        remainingSamples = 0;
+        noiseRegister = 1;
+        lfsrState = 0x4000;
     }
 };
 ```
@@ -165,10 +169,12 @@ Important:
      - First half: `0 → 0.5` rises from -1 to +1.
      - Second half: `0.5 → 1.0` falls from +1 to -1.
 3. `NOISE`:
-   - Simple noise using `noiseRegister`:
-   - On each phase wrap (when `phase` resets) it updates:
-     - `noiseRegister = rand() & 0xFFFF;`
+   - NES-style 15-bit LFSR noise using `lfsrState`:
+   - Updates every sample (44,100 times/sec at 44.1kHz):
+     - `feedback = ((lfsrState & 1) ^ ((lfsrState >> 1) & 1));`
+     - `lfsrState = (lfsrState >> 1) | (feedback << 14);`
    - The least significant bit decides the sign of the sample.
+   - Deterministic: same input always produces same noise pattern.
 
 After computing the base value:
 
@@ -333,8 +339,9 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 - **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
   driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
 - **Key points**:
-- Uses the ESP32 DAC driver (`dac_output_voltage`) for 0–255 output values.
+- Uses `dacWrite()` for direct register access (faster than `dac_output_voltage`).
 - **Software Mode**: Samples are pushed from a dedicated FreeRTOS task. (I2S-DMA mode is not supported due to hardware instability).
+- **Optimized**: Removed redundant delay for lower latency.
 - **Attenuation**: Includes a **0.7x** scale to prevent saturation on sensitive amplifiers like the PAM8302A.
 - **Limitations**:
   - 8-bit resolution (inherent background noise).
@@ -637,16 +644,17 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 ### 8.2 Remaining Limitations
 
 - No exact cycle-accurate emulation of the NES APU.
-- **Noise Generator**: Still uses a simplified `rand()`-based approach instead of a precise deterministic LFSR.
 - **Pitch Sweeps**: Frequency slides (pitch slides) are not yet implemented.
 - **Complex Envelopes**: ADSR or complex multi-point envelopes are not supported (only linear interpolation).
+- **Music Sequencer**: Has note limit (MAX_NOTES_PER_FRAME = 8) to prevent CPU spikes, may skip notes when audio thread falls behind.
 
 ### 8.3 Future Extensions
 
-- **Deterministic LFSR**: Replace `rand()` with a proper 15-bit LFSR for authentic NES noise sounds.
+- ~~**Deterministic LFSR**~~: ✅ Implemented - NES-style 15-bit LFSR with taps at bits 0 and 1.
 - **Frequency Sweeps**: Add `frequencyDelta` to the scheduler for pitch slides.
 - **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.
 - **Advanced Music Tooling**: Better support for patterns and multi-track sequencing in the `MusicPlayer`.
+- **SIMD Optimizations**: Investigate SSE/AVX for native platforms and DSP instructions for ESP32-S3 (see research document).
 
 ---
 
