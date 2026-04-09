@@ -137,6 +137,7 @@ namespace spaceinvaders {
 
         bool fireInputReady;                        ///< Fire rate limiting state
         unsigned long lastFireTime;                 ///< Timestamp of last player shot
+        int activePlayerBulletCount;               ///< Cached count of active player bullets (O(1) vs O(n) scan)
         float currentMusicTempoFactor;              ///< BGM tempo based on alien proximity
 
         void updateAliens(unsigned long deltaTime);

@@ -218,6 +218,7 @@ SpaceInvadersScene::SpaceInvadersScene()
       isPaused(false),
       fireInputReady(false),
       lastFireTime(0),
+      activePlayerBulletCount(0),
       currentMusicTempoFactor(1.0f) {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
@@ -318,6 +319,7 @@ void SpaceInvadersScene::resetGame() {
     gameWon = false;
     isPaused = false;
     fireInputReady = false;
+    activePlayerBulletCount = 0;
 
     for (int i = 0; i < MaxEnemyExplosions; ++i) {
         enemyExplosions[i].active = false;
@@ -406,6 +408,13 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
 
     Scene::update(deltaTime);
 
+    activePlayerBulletCount = 0;
+    for (const auto& proj : projectiles) {
+        if (proj->isActive() && proj->getType() == ProjectileType::PLAYER_BULLET) {
+            activePlayerBulletCount++;
+        }
+    }
+
     if (player) {
         if (!fireInputReady) {
             if (!player->isFireDown()) {
@@ -414,17 +423,9 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
         }
 
         if (fireInputReady && player->wantsToShoot()) {
-            // Count active player bullets
-            int playerBulletCount = 0;
-            for (const auto& proj : projectiles) {
-                if (proj->isActive() && proj->getType() == ProjectileType::PLAYER_BULLET) {
-                    playerBulletCount++;
-                }
-            }
-
-            // Check cooldown and bullet limit
+            // Use cached active bullet count instead of O(n) scan
             unsigned long now = engine.getMillis();
-            if (playerBulletCount < MAX_PLAYER_BULLETS && 
+            if (activePlayerBulletCount < MAX_PLAYER_BULLETS && 
                 (now - lastFireTime) >= PLAYER_FIRE_COOLDOWN) {
                 math::Scalar px = player->position.x + math::toScalar(PLAYER_WIDTH - PROJECTILE_WIDTH) * math::toScalar(0.5f);
                 math::Scalar py = player->position.y - math::toScalar(PROJECTILE_HEIGHT);
