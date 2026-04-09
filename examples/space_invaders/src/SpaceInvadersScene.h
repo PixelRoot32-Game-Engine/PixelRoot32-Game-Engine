@@ -7,6 +7,8 @@
 #include <vector>
 #include <memory>
 
+#include "actors/StarfieldBackground.h"
+
 namespace spaceinvaders {
 
     class PlayerActor;

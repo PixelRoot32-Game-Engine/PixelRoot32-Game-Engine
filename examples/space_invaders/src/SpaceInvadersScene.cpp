@@ -35,28 +35,6 @@ namespace math = pr32::math;
 static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[4096];
 #endif
 
-
-class StarfieldBackground : public pr32::core::Entity {
-public:
-    StarfieldBackground()
-        : pr32::core::Entity(math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, core::EntityType::GENERIC) {
-        setRenderLayer(0);
-    }
-
-    void update(unsigned long) override {
-    }
-
-    void draw(gfx::Renderer& renderer) override {
-        renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, gfx::Color::Black);
-        for (int i = 0; i < background_assets::STAR_COUNT; ++i) {
-            renderer.drawPixel(static_cast<int>(background_assets::STAR_X[i]),
-                               static_cast<int>(background_assets::STAR_Y[i]),
-                               gfx::Color::White);
-        }
-    }
-    activeAlienCount = ALIEN_ROWS * ALIEN_COLS;
-}
-
 void ExplosionAnimation::start(math::Vector2 pos) {
     position = pos;
     timeAccumulator = 0;
