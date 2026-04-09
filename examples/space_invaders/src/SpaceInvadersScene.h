@@ -125,9 +125,10 @@ namespace spaceinvaders {
         bool gameWon;
         int activeAlienCount;  // Track alive aliens without scanning
 
-        float stepTimer;                           ///< Accumulator for alien step timing
-        unsigned long stepDelay;                   ///< Delay between alien steps (ms)
-        int moveDirection;                         ///< 1: Right, -1: Left
+        float stepTimer;
+        unsigned long stepDelay;
+        int moveDirection;
+        int lowestAlienInColumn[ALIEN_COLS];  // Precomputed shooter indices
 
         static constexpr int MaxEnemyExplosions = 8;
         EnemyExplosion enemyExplosions[MaxEnemyExplosions];

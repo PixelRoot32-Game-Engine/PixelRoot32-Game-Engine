@@ -257,6 +257,18 @@ void SpaceInvadersScene::spawnAliens() {
 #endif
         }
     }
+    activeAlienCount = ALIEN_ROWS * ALIEN_COLS;
+
+    for (int col = 0; col < ALIEN_COLS; ++col) {
+        lowestAlienInColumn[col] = -1;
+    }
+    for (int i = 0; i < static_cast<int>(aliens.size()); ++i) {
+        if (!aliens[i]->isActive()) continue;
+        int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
+        if (col >= 0 && col < ALIEN_COLS) {
+            lowestAlienInColumn[col] = i;
+        }
+    }
 }
 
 void SpaceInvadersScene::spawnBunkers() {
@@ -352,6 +364,21 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
     }
 
     updateAliens(deltaTime);
+
+    // Rebuild shooter lookup after alien movement
+    for (int col = 0; col < ALIEN_COLS; ++col) {
+        lowestAlienInColumn[col] = -1;
+    }
+    for (int i = 0; i < static_cast<int>(aliens.size()); ++i) {
+        if (!aliens[i]->isActive()) continue;
+        int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
+        if (col >= 0 && col < ALIEN_COLS) {
+            if (lowestAlienInColumn[col] == -1 ||
+                aliens[i]->position.y > aliens[lowestAlienInColumn[col]]->position.y) {
+                lowestAlienInColumn[col] = i;
+            }
+        }
+    }
 
     handleCollisions();
     updateEnemyExplosions(deltaTime);
@@ -560,25 +587,9 @@ void SpaceInvadersScene::enemyShoot() {
     int shooterCount = 0;
 
     for (int col = 0; col < ALIEN_COLS; ++col) {
-        AlienActor* lowestAlien = nullptr;
-        float maxY = -1.0f;
-        
-        for (auto& alien : aliens) {
-            if (!alien->isActive()) continue;
-
-            float ax = static_cast<float>(alien->position.x);
-            float colX = ALIEN_START_X + (col * ALIEN_SPACING_X);
-            
-            if (std::abs(ax - colX) < 5.0f) {
-                if (static_cast<float>(alien->position.y) > maxY) {
-                    maxY = static_cast<float>(alien->position.y);
-                    lowestAlien = &*alien;
-                }
-            }
-        }
-        
-        if (lowestAlien && shooterCount < ALIEN_COLS) {
-            potentialShooters[shooterCount++] = lowestAlien;
+        int alienIdx = lowestAlienInColumn[col];
+        if (alienIdx >= 0 && alienIdx < static_cast<int>(aliens.size())) {
+            potentialShooters[shooterCount++] = &*aliens[alienIdx];
         }
     }
     
