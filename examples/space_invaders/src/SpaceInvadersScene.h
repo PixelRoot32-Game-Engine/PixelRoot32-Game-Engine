@@ -4,10 +4,12 @@
 #include <graphics/Renderer.h>
 #include <platforms/EngineConfig.h>
 
-#include <vector>
+#include <array>
+#include <bitset>
 #include <memory>
 
 #include "actors/StarfieldBackground.h"
+#include "GameConstants.h"
 
 namespace spaceinvaders {
 
@@ -107,18 +109,29 @@ namespace spaceinvaders {
         void spawnBunkers();
         void cleanup();
 
+        // Entity capacity constants (fixed-size arrays per MEMORY_GUIDELINES.md)
+        static constexpr int MAX_ALIENS = ALIEN_ROWS * ALIEN_COLS;  // 32
+        static constexpr int MAX_BUNKERS = 4;
+        static constexpr int MAX_PROJECTILES_POOL = 8;  // Player bullets + enemy bullets share pool
+
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
         StarfieldBackground* background;
         PlayerActor* player;
-        std::vector<AlienActor*> aliens;
-        std::vector<ProjectileActor*> projectiles;
-        std::vector<BunkerActor*> bunkers;
+        std::array<AlienActor*, MAX_ALIENS> aliens;
+        std::array<ProjectileActor*, MAX_PROJECTILES_POOL> projectiles;
+        std::array<BunkerActor*, MAX_BUNKERS> bunkers;
+        std::bitset<MAX_ALIENS> alienActive;
+        std::bitset<MAX_PROJECTILES_POOL> projectileActive;
+        std::bitset<MAX_BUNKERS> bunkerActive;
 #else
         std::unique_ptr<StarfieldBackground> background;
         std::unique_ptr<PlayerActor> player;
-        std::vector<std::unique_ptr<AlienActor>> aliens;
-        std::vector<std::unique_ptr<ProjectileActor>> projectiles;
-        std::vector<std::unique_ptr<BunkerActor>> bunkers;
+        std::array<AlienActor*, MAX_ALIENS> aliens;
+        std::array<ProjectileActor*, MAX_PROJECTILES_POOL> projectiles;
+        std::array<BunkerActor*, MAX_BUNKERS> bunkers;
+        std::bitset<MAX_ALIENS> alienActive;
+        std::bitset<MAX_PROJECTILES_POOL> projectileActive;
+        std::bitset<MAX_BUNKERS> bunkerActive;
 #endif
 
         int score;
@@ -137,7 +150,7 @@ namespace spaceinvaders {
         ExplosionAnimation playerExplosion;
         bool isPaused;                              ///< True during player death/respawn
 
-        static constexpr int MaxProjectiles = 12;
+        static constexpr int MaxProjectiles = 4;
 
         bool fireInputReady;                        ///< Fire rate limiting state
         unsigned long lastFireTime;                 ///< Timestamp of last player shot

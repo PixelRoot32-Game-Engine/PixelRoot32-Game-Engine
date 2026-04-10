@@ -11,6 +11,7 @@
 #include <core/Engine.h>
 #include <audio/AudioTypes.h>
 #include <audio/AudioMusicTypes.h>
+#include "assets/AudioTracks.h"
 #include <cstdlib>
 #include <cstdio>
 
@@ -34,6 +35,12 @@ namespace math = pr32::math;
  *  PIXELROOT32_ENABLE_SCENE_ARENA so the scene uses heap instead of this fixed buffer. */
 static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[4096];
 #endif
+
+ExplosionAnimation::ExplosionAnimation()
+    : active(false), position(0, 0), timeAccumulator(0), stepsDone(0) {
+    animation.frames = PLAYER_EXPLOSION_FRAMES;
+    animation.frameCount = static_cast<uint8_t>(sizeof(PLAYER_EXPLOSION_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
+}
 
 void ExplosionAnimation::start(math::Vector2 pos) {
     position = pos;
@@ -139,15 +146,18 @@ void SpaceInvadersScene::cleanup() {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     player = nullptr;
-    aliens.clear();
-    projectiles.clear();
-    bunkers.clear();
+    for (auto& alien : aliens) alien = nullptr;
+    for (auto& proj : projectiles) proj = nullptr;
+    for (auto& bunker : bunkers) bunker = nullptr;
 #else
     player.reset();
-    aliens.clear();
-    projectiles.clear();
-    bunkers.clear();
+    for (auto& alien : aliens) alien = nullptr;
+    for (auto& proj : projectiles) proj = nullptr;
+    for (auto& bunker : bunkers) bunker = nullptr;
 #endif
+    alienActive.reset();
+    projectileActive.reset();
+    bunkerActive.reset();
 }
 
 void SpaceInvadersScene::resetGame() {
@@ -174,22 +184,23 @@ void SpaceInvadersScene::resetGame() {
     spawnAliens();
     spawnBunkers();
 
-    projectiles.reserve(MaxProjectiles);
-    for (int i = 0; i < MaxProjectiles; ++i) {
+    // Pre-allocate projectile pool (all inactive at start)
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
         ProjectileActor* projectile = core::arenaNew<ProjectileActor>(arena, pr32::math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         if (!projectile) {
             continue;
         }
         projectile->deactivate();
-        projectiles.push_back(projectile);
+        projectiles[i] = projectile;
         addEntity(projectile);
 #else
         auto projectile = std::make_unique<ProjectileActor>(math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         projectile->deactivate();
         addEntity(projectile.get());
-        projectiles.push_back(std::move(projectile));
+        projectiles[i] = projectile.get();
 #endif
+        projectileActive.set(i);  // Mark slot as allocated (actor exists)
     }
 
     score = 0;
@@ -211,6 +222,8 @@ void SpaceInvadersScene::resetGame() {
 }
 
 void SpaceInvadersScene::spawnAliens() {
+    int alienIndex = 0;
+    
     for (int row = 0; row < ALIEN_ROWS; ++row) {
         AlienType type;
         if (row == 0) type = AlienType::SQUID;
@@ -218,6 +231,8 @@ void SpaceInvadersScene::spawnAliens() {
         else type = AlienType::OCTOPUS;
 
         for (int col = 0; col < ALIEN_COLS; ++col) {
+            if (alienIndex >= MAX_ALIENS) break;
+            
             float x = ALIEN_START_X + (col * ALIEN_SPACING_X);
             float y = ALIEN_START_Y + (row * ALIEN_SPACING_Y);
             
@@ -226,13 +241,14 @@ void SpaceInvadersScene::spawnAliens() {
             if (!alien) {
                 continue;
             }
-            aliens.push_back(alien);
-            addEntity(alien);
+            aliens[alienIndex] = alien;
 #else
             auto alien = std::make_unique<AlienActor>(pr32::math::Vector2(x, y), type);
-            addEntity(alien.get());
-            aliens.push_back(std::move(alien));
+            aliens[alienIndex] = alien.get();
 #endif
+            addEntity(aliens[alienIndex]);
+            alienActive.set(alienIndex);
+            alienIndex++;
         }
     }
     activeAlienCount = ALIEN_ROWS * ALIEN_COLS;
@@ -240,7 +256,8 @@ void SpaceInvadersScene::spawnAliens() {
     for (int col = 0; col < ALIEN_COLS; ++col) {
         lowestAlienInColumn[col] = -1;
     }
-    for (int i = 0; i < static_cast<int>(aliens.size()); ++i) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
         if (!aliens[i]->isActive()) continue;
         int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
         if (col >= 0 && col < ALIEN_COLS) {
@@ -258,6 +275,8 @@ void SpaceInvadersScene::spawnBunkers() {
     float gap = (DISPLAY_WIDTH - totalBunkersWidth) / (BUNKER_COUNT + 1);
 
     for (int i = 0; i < BUNKER_COUNT; ++i) {
+        if (i >= MAX_BUNKERS) break;
+        
         float x = gap + i * (BUNKER_WIDTH + gap);
         float y = BUNKER_Y - BUNKER_HEIGHT;
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
@@ -265,13 +284,13 @@ void SpaceInvadersScene::spawnBunkers() {
         if (!bunker) {
             continue;
         }
-        bunkers.push_back(bunker);
-        addEntity(bunker);
+        bunkers[i] = bunker;
 #else
         auto bunker = std::make_unique<BunkerActor>(math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
-        addEntity(bunker.get());
-        bunkers.push_back(std::move(bunker));
+        bunkers[i] = bunker.get();
 #endif
+        addEntity(bunkers[i]);
+        bunkerActive.set(i);
     }
 }
 
@@ -300,7 +319,9 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
     Scene::update(deltaTime);
 
     activePlayerBulletCount = 0;
-    for (const auto& proj : projectiles) {
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+        if (!projectileActive[i]) continue;
+        ProjectileActor* proj = projectiles[i];
         if (proj->isActive() && proj->getType() == ProjectileType::PLAYER_BULLET) {
             activePlayerBulletCount++;
         }
@@ -316,12 +337,14 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
         if (fireInputReady && player->wantsToShoot()) {
             // Use cached active bullet count instead of O(n) scan
             unsigned long now = engine.getMillis();
-            if (activePlayerBulletCount < MAX_PLAYER_BULLETS && 
+            if (activePlayerBulletCount < MAX_PLAYER_BULLETS &&
                 (now - lastFireTime) >= PLAYER_FIRE_COOLDOWN) {
                 math::Scalar px = player->position.x + math::toScalar(PLAYER_WIDTH - PROJECTILE_WIDTH) * math::toScalar(0.5f);
                 math::Scalar py = player->position.y - math::toScalar(PROJECTILE_HEIGHT);
 
-                for (auto& proj : projectiles) {
+                for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+                    if (!projectileActive[i]) continue;
+                    ProjectileActor* proj = projectiles[i];
                     if (!proj->isActive()) {
                         proj->reset(math::Vector2(px, py), ProjectileType::PLAYER_BULLET);
 
@@ -347,7 +370,8 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
     for (int col = 0; col < ALIEN_COLS; ++col) {
         lowestAlienInColumn[col] = -1;
     }
-    for (int i = 0; i < static_cast<int>(aliens.size()); ++i) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
         if (!aliens[i]->isActive()) continue;
         int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
         if (col >= 0 && col < ALIEN_COLS) {
@@ -378,7 +402,9 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
     bool alienReachedPlayer = false;
     
     // Single pass: check edges and game over condition
-    for (const auto& alien : aliens) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
         if (!alien->isActive()) continue;
         
         // Edge detection
@@ -410,7 +436,9 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
     math::Scalar dy = edgeHit ? math::toScalar(ALIEN_DROP_AMOUNT) : math::toScalar(0);
     
     // Move all aliens in single pass
-    for (const auto& alien : aliens) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
         if (alien->isActive()) {
             alien->move(dx, dy);
         }
@@ -432,7 +460,9 @@ void SpaceInvadersScene::handleCollisions() {
     using physics::Circle;
     using physics::sweepCircleVsRect;
 
-    for (auto& proj : projectiles) {
+    for (int p = 0; p < MAX_PROJECTILES_POOL; ++p) {
+        if (!projectileActive[p]) continue;
+        ProjectileActor* proj = projectiles[p];
         if (!proj->isActive()) {
             continue;
         }
@@ -452,7 +482,9 @@ void SpaceInvadersScene::handleCollisions() {
 
             bool hitResolved = false;
 
-            for (auto& alien : aliens) {
+            for (int a = 0; a < MAX_ALIENS; ++a) {
+                if (!alienActive[a]) continue;
+                AlienActor* alien = aliens[a];
                 if (!alien->isActive()) {
                     continue;
                 }
@@ -462,6 +494,7 @@ void SpaceInvadersScene::handleCollisions() {
                     proj->getHitBox().intersects(targetBox)) {
                     proj->deactivate();
                     alien->kill();
+                    alienActive.reset(a);
                     score += alien->getScoreValue();
 
                     math::Scalar ex = alien->position.x + math::toScalar(alien->width) * math::toScalar(0.5f);
@@ -489,7 +522,9 @@ void SpaceInvadersScene::handleCollisions() {
                 }
             }
             if (!hitResolved && proj->isActive()) {
-                for (auto& bunker : bunkers) {
+                for (int b = 0; b < MAX_BUNKERS; ++b) {
+                    if (!bunkerActive[b]) continue;
+                    BunkerActor* bunker = bunkers[b];
                     if (bunker->isDestroyed()) {
                         continue;
                     }
@@ -511,7 +546,9 @@ void SpaceInvadersScene::handleCollisions() {
     }
 
     core::Rect playerBox = player->getHitBox();
-    for (auto& proj : projectiles) {
+    for (int p = 0; p < MAX_PROJECTILES_POOL; ++p) {
+        if (!projectileActive[p]) continue;
+        ProjectileActor* proj = projectiles[p];
         if (!proj->isActive()) {
             continue;
         }
@@ -532,7 +569,9 @@ void SpaceInvadersScene::handleCollisions() {
 
             core::Rect eBox = proj->getHitBox();
             bool handled = false;
-            for (auto& bunker : bunkers) {
+            for (int b = 0; b < MAX_BUNKERS; ++b) {
+                if (!bunkerActive[b]) continue;
+                BunkerActor* bunker = bunkers[b];
                 if (bunker->isDestroyed()) {
                     continue;
                 }
@@ -566,8 +605,8 @@ void SpaceInvadersScene::enemyShoot() {
 
     for (int col = 0; col < ALIEN_COLS; ++col) {
         int alienIdx = lowestAlienInColumn[col];
-        if (alienIdx >= 0 && alienIdx < static_cast<int>(aliens.size())) {
-            potentialShooters[shooterCount++] = &*aliens[alienIdx];
+        if (alienIdx >= 0 && alienIdx < MAX_ALIENS && alienActive[alienIdx]) {
+            potentialShooters[shooterCount++] = aliens[alienIdx];
         }
     }
     
@@ -576,7 +615,9 @@ void SpaceInvadersScene::enemyShoot() {
     int idx = std::rand() % shooterCount;
     AlienActor* shooter = potentialShooters[idx];
 
-    for (auto& proj : projectiles) {
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+        if (!projectileActive[i]) continue;
+        ProjectileActor* proj = projectiles[i];
         if (!proj->isActive()) {
             math::Scalar sx = shooter->position.x + math::toScalar(shooter->width) * math::toScalar(0.5f);
             math::Scalar sy = shooter->position.y + math::toScalar(shooter->height);
@@ -589,8 +630,9 @@ void SpaceInvadersScene::enemyShoot() {
 
 int SpaceInvadersScene::getActiveAlienCount() const {
     int count = 0;
-    for (const auto& alien : aliens) {
-        if (alien->isActive()) count++;
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        if (aliens[i]->isActive()) count++;
     }
     return count;
 }
@@ -632,7 +674,9 @@ void SpaceInvadersScene::updateMusicTempo() {
     float lowestY = ALIEN_START_Y;
     bool found = false;
 
-    for (const auto& alien : aliens) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
         if (alien->isActive()) {
             float y = static_cast<float>(alien->position.y + math::toScalar(alien->height));
             if (y > lowestY) {
@@ -763,9 +807,11 @@ void SpaceInvadersScene::respawnPlayerUnderBunker() {
     }
 
     BunkerActor* targetBunker = nullptr;
-    for (const auto& bunker : bunkers) {
+    for (int i = 0; i < MAX_BUNKERS; ++i) {
+        if (!bunkerActive[i]) continue;
+        BunkerActor* bunker = bunkers[i];
         if (!bunker->isDestroyed()) {
-            targetBunker = &*bunker;
+            targetBunker = bunker;
             break;
         }
     }
