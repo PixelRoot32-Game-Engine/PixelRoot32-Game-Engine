@@ -11,6 +11,7 @@
 #include <core/Engine.h>
 #include <audio/AudioTypes.h>
 #include <audio/AudioMusicTypes.h>
+#include "assets/AudioTracks.h"
 #include <cstdlib>
 #include <cstdio>
 
@@ -35,126 +36,10 @@ namespace math = pr32::math;
 static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[4096];
 #endif
 
-
-class StarfieldBackground : public pr32::core::Entity {
-public:
-    StarfieldBackground()
-        : pr32::core::Entity(math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, core::EntityType::GENERIC) {
-        setRenderLayer(0);
-    }
-
-    void update(unsigned long) override {
-    }
-
-    void draw(gfx::Renderer& renderer) override {
-        renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, gfx::Color::Black);
-        for (int i = 0; i < background_assets::STAR_COUNT; ++i) {
-            renderer.drawPixel(static_cast<int>(background_assets::STAR_X[i]),
-                               static_cast<int>(background_assets::STAR_Y[i]),
-                               gfx::Color::White);
-        }
-    }
-};
-
-// Base four-note bass pattern: "tu tu tu tu"
-static const audio::InstrumentPreset BASS_INSTRUMENT = audio::INSTR_PULSE_BASS;
-
-static const audio::MusicNote BGM_SLOW_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.21f),
-    audio::makeRest(0.207f),
-};
-
-static const audio::MusicNote BGM_MEDIUM_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.12f),
-    audio::makeRest(0.06f),
-};
-
-static const audio::MusicNote BGM_FAST_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.08f),
-    audio::makeRest(0.04f),
-};
-
-static const audio::MusicTrack BGM_SLOW_TRACK = {
-    BGM_SLOW_NOTES,
-    sizeof(BGM_SLOW_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicTrack BGM_MEDIUM_TRACK = {
-    BGM_MEDIUM_NOTES,
-    sizeof(BGM_MEDIUM_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicTrack BGM_FAST_TRACK = {
-    BGM_FAST_NOTES,
-    sizeof(BGM_FAST_NOTES) / sizeof(audio::MusicNote),
-    true,
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-// --- WIN / GAME OVER MUSIC ---
-
-static const audio::MusicNote WIN_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.15f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f), // C High ideally, but using C for safety if C_High undefined
-    audio::makeRest(0.1f)
-};
-
-static const audio::MusicTrack WIN_TRACK = {
-    WIN_NOTES,
-    sizeof(WIN_NOTES) / sizeof(audio::MusicNote),
-    false, // No loop
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-static const audio::MusicNote GAME_OVER_NOTES[] = {
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::G, 0.2f),
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::E, 0.2f), // Using E instead of Eb if Eb undefined, checking later
-    audio::makeNote(BASS_INSTRUMENT, audio::Note::C, 0.4f),
-    audio::makeRest(0.1f)
-};
-
-static const audio::MusicTrack GAME_OVER_TRACK = {
-    GAME_OVER_NOTES,
-    sizeof(GAME_OVER_NOTES) / sizeof(audio::MusicNote),
-    false, // No loop
-    audio::WaveType::PULSE,
-    BASS_INSTRUMENT.duty
-};
-
-
 ExplosionAnimation::ExplosionAnimation()
-    : active(false), position(math::toScalar(0), math::toScalar(0)), timeAccumulator(0), stepsDone(0) {
+    : active(false), position(0, 0), timeAccumulator(0), stepsDone(0) {
     animation.frames = PLAYER_EXPLOSION_FRAMES;
     animation.frameCount = static_cast<uint8_t>(sizeof(PLAYER_EXPLOSION_FRAMES) / sizeof(gfx::SpriteAnimationFrame));
-    animation.current = 0;
 }
 
 void ExplosionAnimation::start(math::Vector2 pos) {
@@ -212,12 +97,14 @@ SpaceInvadersScene::SpaceInvadersScene()
       lives(3),
       gameOver(false),
       gameWon(false),
+      activeAlienCount(0),
       stepTimer(0.0f),
       stepDelay(BASE_STEP_DELAY),
       moveDirection(1),
       isPaused(false),
       fireInputReady(false),
       lastFireTime(0),
+      activePlayerBulletCount(0),
       currentMusicTempoFactor(1.0f) {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
@@ -259,15 +146,18 @@ void SpaceInvadersScene::cleanup() {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     player = nullptr;
-    aliens.clear();
-    projectiles.clear();
-    bunkers.clear();
+    for (auto& alien : aliens) alien = nullptr;
+    for (auto& proj : projectiles) proj = nullptr;
+    for (auto& bunker : bunkers) bunker = nullptr;
 #else
     player.reset();
-    aliens.clear();
-    projectiles.clear();
-    bunkers.clear();
+    for (auto& alien : aliens) alien = nullptr;
+    for (auto& proj : projectiles) proj = nullptr;
+    for (auto& bunker : bunkers) bunker = nullptr;
 #endif
+    alienActive.reset();
+    projectileActive.reset();
+    bunkerActive.reset();
 }
 
 void SpaceInvadersScene::resetGame() {
@@ -294,22 +184,23 @@ void SpaceInvadersScene::resetGame() {
     spawnAliens();
     spawnBunkers();
 
-    projectiles.reserve(MaxProjectiles);
-    for (int i = 0; i < MaxProjectiles; ++i) {
+    // Pre-allocate projectile pool (all inactive at start)
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
         ProjectileActor* projectile = core::arenaNew<ProjectileActor>(arena, pr32::math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         if (!projectile) {
             continue;
         }
         projectile->deactivate();
-        projectiles.push_back(projectile);
+        projectiles[i] = projectile;
         addEntity(projectile);
 #else
         auto projectile = std::make_unique<ProjectileActor>(math::Vector2(0, -PROJECTILE_HEIGHT), ProjectileType::PLAYER_BULLET);
         projectile->deactivate();
         addEntity(projectile.get());
-        projectiles.push_back(std::move(projectile));
+        projectiles[i] = projectile.get();
 #endif
+        projectileActive.set(i);  // Mark slot as allocated (actor exists)
     }
 
     score = 0;
@@ -318,6 +209,7 @@ void SpaceInvadersScene::resetGame() {
     gameWon = false;
     isPaused = false;
     fireInputReady = false;
+    activePlayerBulletCount = 0;
 
     for (int i = 0; i < MaxEnemyExplosions; ++i) {
         enemyExplosions[i].active = false;
@@ -330,6 +222,8 @@ void SpaceInvadersScene::resetGame() {
 }
 
 void SpaceInvadersScene::spawnAliens() {
+    int alienIndex = 0;
+    
     for (int row = 0; row < ALIEN_ROWS; ++row) {
         AlienType type;
         if (row == 0) type = AlienType::SQUID;
@@ -337,6 +231,8 @@ void SpaceInvadersScene::spawnAliens() {
         else type = AlienType::OCTOPUS;
 
         for (int col = 0; col < ALIEN_COLS; ++col) {
+            if (alienIndex >= MAX_ALIENS) break;
+            
             float x = ALIEN_START_X + (col * ALIEN_SPACING_X);
             float y = ALIEN_START_Y + (row * ALIEN_SPACING_Y);
             
@@ -345,13 +241,27 @@ void SpaceInvadersScene::spawnAliens() {
             if (!alien) {
                 continue;
             }
-            aliens.push_back(alien);
-            addEntity(alien);
+            aliens[alienIndex] = alien;
 #else
             auto alien = std::make_unique<AlienActor>(pr32::math::Vector2(x, y), type);
-            addEntity(alien.get());
-            aliens.push_back(std::move(alien));
+            aliens[alienIndex] = alien.get();
 #endif
+            addEntity(aliens[alienIndex]);
+            alienActive.set(alienIndex);
+            alienIndex++;
+        }
+    }
+    activeAlienCount = ALIEN_ROWS * ALIEN_COLS;
+
+    for (int col = 0; col < ALIEN_COLS; ++col) {
+        lowestAlienInColumn[col] = -1;
+    }
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        if (!aliens[i]->isActive()) continue;
+        int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
+        if (col >= 0 && col < ALIEN_COLS) {
+            lowestAlienInColumn[col] = i;
         }
     }
 }
@@ -365,6 +275,8 @@ void SpaceInvadersScene::spawnBunkers() {
     float gap = (DISPLAY_WIDTH - totalBunkersWidth) / (BUNKER_COUNT + 1);
 
     for (int i = 0; i < BUNKER_COUNT; ++i) {
+        if (i >= MAX_BUNKERS) break;
+        
         float x = gap + i * (BUNKER_WIDTH + gap);
         float y = BUNKER_Y - BUNKER_HEIGHT;
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
@@ -372,13 +284,13 @@ void SpaceInvadersScene::spawnBunkers() {
         if (!bunker) {
             continue;
         }
-        bunkers.push_back(bunker);
-        addEntity(bunker);
+        bunkers[i] = bunker;
 #else
         auto bunker = std::make_unique<BunkerActor>(math::Vector2(x, y), BUNKER_WIDTH, BUNKER_HEIGHT, 4);
-        addEntity(bunker.get());
-        bunkers.push_back(std::move(bunker));
+        bunkers[i] = bunker.get();
 #endif
+        addEntity(bunkers[i]);
+        bunkerActive.set(i);
     }
 }
 
@@ -406,6 +318,15 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
 
     Scene::update(deltaTime);
 
+    activePlayerBulletCount = 0;
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+        if (!projectileActive[i]) continue;
+        ProjectileActor* proj = projectiles[i];
+        if (proj->isActive() && proj->getType() == ProjectileType::PLAYER_BULLET) {
+            activePlayerBulletCount++;
+        }
+    }
+
     if (player) {
         if (!fireInputReady) {
             if (!player->isFireDown()) {
@@ -414,22 +335,16 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
         }
 
         if (fireInputReady && player->wantsToShoot()) {
-            // Count active player bullets
-            int playerBulletCount = 0;
-            for (const auto& proj : projectiles) {
-                if (proj->isActive() && proj->getType() == ProjectileType::PLAYER_BULLET) {
-                    playerBulletCount++;
-                }
-            }
-
-            // Check cooldown and bullet limit
+            // Use cached active bullet count instead of O(n) scan
             unsigned long now = engine.getMillis();
-            if (playerBulletCount < MAX_PLAYER_BULLETS && 
+            if (activePlayerBulletCount < MAX_PLAYER_BULLETS &&
                 (now - lastFireTime) >= PLAYER_FIRE_COOLDOWN) {
                 math::Scalar px = player->position.x + math::toScalar(PLAYER_WIDTH - PROJECTILE_WIDTH) * math::toScalar(0.5f);
                 math::Scalar py = player->position.y - math::toScalar(PROJECTILE_HEIGHT);
 
-                for (auto& proj : projectiles) {
+                for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+                    if (!projectileActive[i]) continue;
+                    ProjectileActor* proj = projectiles[i];
                     if (!proj->isActive()) {
                         proj->reset(math::Vector2(px, py), ProjectileType::PLAYER_BULLET);
 
@@ -451,6 +366,22 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
 
     updateAliens(deltaTime);
 
+    // Rebuild shooter lookup after alien movement
+    for (int col = 0; col < ALIEN_COLS; ++col) {
+        lowestAlienInColumn[col] = -1;
+    }
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        if (!aliens[i]->isActive()) continue;
+        int col = static_cast<int>((aliens[i]->position.x - ALIEN_START_X) / ALIEN_SPACING_X + 0.5f);
+        if (col >= 0 && col < ALIEN_COLS) {
+            if (lowestAlienInColumn[col] == -1 ||
+                aliens[i]->position.y > aliens[lowestAlienInColumn[col]]->position.y) {
+                lowestAlienInColumn[col] = i;
+            }
+        }
+    }
+
     handleCollisions();
     updateEnemyExplosions(deltaTime);
 
@@ -461,68 +392,77 @@ void SpaceInvadersScene::updateAliens(unsigned long deltaTime) {
     float scaledDelta = static_cast<float>(deltaTime) * currentMusicTempoFactor;
     stepTimer += scaledDelta;
     
-    if (stepTimer >= stepDelay) {
-        stepTimer = 0.0f;
+    if (stepTimer < stepDelay) {
+        return;
+    }
+    
+    stepTimer = 0.0f;
+    
+    bool edgeHit = false;
+    bool alienReachedPlayer = false;
+    
+    // Single pass: check edges and game over condition
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
+        if (!alien->isActive()) continue;
         
-        bool edgeHit = false;
-
-        for (auto& alien : aliens) {
-            if (!alien->isActive()) continue;
-            
-            if (moveDirection == 1) { // Moving Right
-                if (alien->position.x + alien->width >= DISPLAY_WIDTH - 2) {
-                    edgeHit = true;
-                    break;
-                }
-            } else { // Moving Left
-                if (alien->position.x <= 2) {
-                    edgeHit = true;
-                    break;
-                }
-            }
-        }
-
-        if (edgeHit) {
-            moveDirection *= -1;
-            for (auto& alien : aliens) {
-                if (alien->isActive()) {
-                    alien->move(0, ALIEN_DROP_AMOUNT);
-                }
+        // Edge detection
+        if (moveDirection == 1) {
+            if (alien->position.x + alien->width >= DISPLAY_WIDTH - 2) {
+                edgeHit = true;
             }
         } else {
-            math::Scalar dx = math::toScalar(moveDirection) * math::toScalar(ALIEN_STEP_AMOUNT_X);
-            for (auto& alien : aliens) {
-                if (alien->isActive()) {
-                    alien->move(dx, math::toScalar(0));
-                }
+            if (alien->position.x <= 2) {
+                edgeHit = true;
             }
         }
-
-        enemyShoot();
-
-        if (!gameOver && player) {
-            for (auto& alien : aliens) {
-                if (!alien->isActive()) {
-                    continue;
-                }
-                math::Scalar bottom = alien->position.y + math::toScalar(alien->height);
-                if (bottom >= player->position.y) {
-                    lives = 0;
-                    gameOver = true;
-                    engine.getMusicPlayer().setTempoFactor(1.0f);
-                    engine.getMusicPlayer().play(GAME_OVER_TRACK);
-                    break;
-                }
+        
+        // Game over check
+        if (player) {
+            math::Scalar alienBottom = alien->position.y + math::toScalar(alien->height);
+            if (alienBottom >= player->position.y) {
+                alienReachedPlayer = true;
             }
         }
     }
+    
+    // Handle direction change and drop
+    if (edgeHit) {
+        moveDirection *= -1;
+    }
+    
+    math::Scalar dx = math::toScalar(moveDirection) * math::toScalar(ALIEN_STEP_AMOUNT_X);
+    math::Scalar dy = edgeHit ? math::toScalar(ALIEN_DROP_AMOUNT) : math::toScalar(0);
+    
+    // Move all aliens in single pass
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
+        if (alien->isActive()) {
+            alien->move(dx, dy);
+        }
+    }
+    
+    // Handle game over
+    if (alienReachedPlayer) {
+        lives = 0;
+        gameOver = true;
+        engine.getMusicPlayer().setTempoFactor(1.0f);
+        engine.getMusicPlayer().play(GAME_OVER_TRACK);
+        return;
+    }
+    
+    enemyShoot();
 }
 
 void SpaceInvadersScene::handleCollisions() {
     using physics::Circle;
     using physics::sweepCircleVsRect;
 
-    for (auto& proj : projectiles) {
+    for (int p = 0; p < MAX_PROJECTILES_POOL; ++p) {
+        if (!projectileActive[p]) continue;
+        ProjectileActor* proj = projectiles[p];
         if (!proj->isActive()) {
             continue;
         }
@@ -542,7 +482,9 @@ void SpaceInvadersScene::handleCollisions() {
 
             bool hitResolved = false;
 
-            for (auto& alien : aliens) {
+            for (int a = 0; a < MAX_ALIENS; ++a) {
+                if (!alienActive[a]) continue;
+                AlienActor* alien = aliens[a];
                 if (!alien->isActive()) {
                     continue;
                 }
@@ -552,6 +494,7 @@ void SpaceInvadersScene::handleCollisions() {
                     proj->getHitBox().intersects(targetBox)) {
                     proj->deactivate();
                     alien->kill();
+                    alienActive.reset(a);
                     score += alien->getScoreValue();
 
                     math::Scalar ex = alien->position.x + math::toScalar(alien->width) * math::toScalar(0.5f);
@@ -566,7 +509,8 @@ void SpaceInvadersScene::handleCollisions() {
                     event.duty = 0.5f;
                     engine.getAudioEngine().playEvent(event);
 
-                    if (getActiveAlienCount() == 0) {
+                    activeAlienCount--;
+                    if (activeAlienCount == 0) {
                         gameOver = true;
                         gameWon = true;
                         engine.getMusicPlayer().setTempoFactor(1.0f);
@@ -578,7 +522,9 @@ void SpaceInvadersScene::handleCollisions() {
                 }
             }
             if (!hitResolved && proj->isActive()) {
-                for (auto& bunker : bunkers) {
+                for (int b = 0; b < MAX_BUNKERS; ++b) {
+                    if (!bunkerActive[b]) continue;
+                    BunkerActor* bunker = bunkers[b];
                     if (bunker->isDestroyed()) {
                         continue;
                     }
@@ -600,7 +546,9 @@ void SpaceInvadersScene::handleCollisions() {
     }
 
     core::Rect playerBox = player->getHitBox();
-    for (auto& proj : projectiles) {
+    for (int p = 0; p < MAX_PROJECTILES_POOL; ++p) {
+        if (!projectileActive[p]) continue;
+        ProjectileActor* proj = projectiles[p];
         if (!proj->isActive()) {
             continue;
         }
@@ -621,7 +569,9 @@ void SpaceInvadersScene::handleCollisions() {
 
             core::Rect eBox = proj->getHitBox();
             bool handled = false;
-            for (auto& bunker : bunkers) {
+            for (int b = 0; b < MAX_BUNKERS; ++b) {
+                if (!bunkerActive[b]) continue;
+                BunkerActor* bunker = bunkers[b];
                 if (bunker->isDestroyed()) {
                     continue;
                 }
@@ -654,25 +604,9 @@ void SpaceInvadersScene::enemyShoot() {
     int shooterCount = 0;
 
     for (int col = 0; col < ALIEN_COLS; ++col) {
-        AlienActor* lowestAlien = nullptr;
-        float maxY = -1.0f;
-        
-        for (auto& alien : aliens) {
-            if (!alien->isActive()) continue;
-
-            float ax = static_cast<float>(alien->position.x);
-            float colX = ALIEN_START_X + (col * ALIEN_SPACING_X);
-            
-            if (std::abs(ax - colX) < 5.0f) {
-                if (static_cast<float>(alien->position.y) > maxY) {
-                    maxY = static_cast<float>(alien->position.y);
-                    lowestAlien = &*alien;
-                }
-            }
-        }
-        
-        if (lowestAlien && shooterCount < ALIEN_COLS) {
-            potentialShooters[shooterCount++] = lowestAlien;
+        int alienIdx = lowestAlienInColumn[col];
+        if (alienIdx >= 0 && alienIdx < MAX_ALIENS && alienActive[alienIdx]) {
+            potentialShooters[shooterCount++] = aliens[alienIdx];
         }
     }
     
@@ -681,7 +615,9 @@ void SpaceInvadersScene::enemyShoot() {
     int idx = std::rand() % shooterCount;
     AlienActor* shooter = potentialShooters[idx];
 
-    for (auto& proj : projectiles) {
+    for (int i = 0; i < MAX_PROJECTILES_POOL; ++i) {
+        if (!projectileActive[i]) continue;
+        ProjectileActor* proj = projectiles[i];
         if (!proj->isActive()) {
             math::Scalar sx = shooter->position.x + math::toScalar(shooter->width) * math::toScalar(0.5f);
             math::Scalar sy = shooter->position.y + math::toScalar(shooter->height);
@@ -694,8 +630,9 @@ void SpaceInvadersScene::enemyShoot() {
 
 int SpaceInvadersScene::getActiveAlienCount() const {
     int count = 0;
-    for (const auto& alien : aliens) {
-        if (alien->isActive()) count++;
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        if (aliens[i]->isActive()) count++;
     }
     return count;
 }
@@ -737,7 +674,9 @@ void SpaceInvadersScene::updateMusicTempo() {
     float lowestY = ALIEN_START_Y;
     bool found = false;
 
-    for (const auto& alien : aliens) {
+    for (int i = 0; i < MAX_ALIENS; ++i) {
+        if (!alienActive[i]) continue;
+        AlienActor* alien = aliens[i];
         if (alien->isActive()) {
             float y = static_cast<float>(alien->position.y + math::toScalar(alien->height));
             if (y > lowestY) {
@@ -868,9 +807,11 @@ void SpaceInvadersScene::respawnPlayerUnderBunker() {
     }
 
     BunkerActor* targetBunker = nullptr;
-    for (const auto& bunker : bunkers) {
+    for (int i = 0; i < MAX_BUNKERS; ++i) {
+        if (!bunkerActive[i]) continue;
+        BunkerActor* bunker = bunkers[i];
         if (!bunker->isDestroyed()) {
-            targetBunker = &*bunker;
+            targetBunker = bunker;
             break;
         }
     }

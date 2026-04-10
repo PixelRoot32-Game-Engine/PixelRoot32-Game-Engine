@@ -4,8 +4,12 @@
 #include <graphics/Renderer.h>
 #include <platforms/EngineConfig.h>
 
-#include <vector>
+#include <array>
+#include <bitset>
 #include <memory>
+
+#include "actors/StarfieldBackground.h"
+#include "GameConstants.h"
 
 namespace spaceinvaders {
 
@@ -105,38 +109,52 @@ namespace spaceinvaders {
         void spawnBunkers();
         void cleanup();
 
+        // Entity capacity constants (fixed-size arrays per MEMORY_GUIDELINES.md)
+        static constexpr int MAX_ALIENS = ALIEN_ROWS * ALIEN_COLS;  // 32
+        static constexpr int MAX_BUNKERS = 4;
+        static constexpr int MAX_PROJECTILES_POOL = 8;  // Player bullets + enemy bullets share pool
+
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
         StarfieldBackground* background;
         PlayerActor* player;
-        std::vector<AlienActor*> aliens;
-        std::vector<ProjectileActor*> projectiles;
-        std::vector<BunkerActor*> bunkers;
+        std::array<AlienActor*, MAX_ALIENS> aliens;
+        std::array<ProjectileActor*, MAX_PROJECTILES_POOL> projectiles;
+        std::array<BunkerActor*, MAX_BUNKERS> bunkers;
+        std::bitset<MAX_ALIENS> alienActive;
+        std::bitset<MAX_PROJECTILES_POOL> projectileActive;
+        std::bitset<MAX_BUNKERS> bunkerActive;
 #else
         std::unique_ptr<StarfieldBackground> background;
         std::unique_ptr<PlayerActor> player;
-        std::vector<std::unique_ptr<AlienActor>> aliens;
-        std::vector<std::unique_ptr<ProjectileActor>> projectiles;
-        std::vector<std::unique_ptr<BunkerActor>> bunkers;
+        std::array<AlienActor*, MAX_ALIENS> aliens;
+        std::array<ProjectileActor*, MAX_PROJECTILES_POOL> projectiles;
+        std::array<BunkerActor*, MAX_BUNKERS> bunkers;
+        std::bitset<MAX_ALIENS> alienActive;
+        std::bitset<MAX_PROJECTILES_POOL> projectileActive;
+        std::bitset<MAX_BUNKERS> bunkerActive;
 #endif
 
-        int score;                                 ///< Current score
-        int lives;                                 ///< Remaining lives
-        bool gameOver;                             ///< True when game has ended
-        bool gameWon;                               ///< True if player cleared all aliens
+        int score;
+        int lives;
+        bool gameOver;
+        bool gameWon;
+        int activeAlienCount;  // Track alive aliens without scanning
 
-        float stepTimer;                           ///< Accumulator for alien step timing
-        unsigned long stepDelay;                   ///< Delay between alien steps (ms)
-        int moveDirection;                         ///< 1: Right, -1: Left
+        float stepTimer;
+        unsigned long stepDelay;
+        int moveDirection;
+        int lowestAlienInColumn[ALIEN_COLS];  // Precomputed shooter indices
 
         static constexpr int MaxEnemyExplosions = 8;
         EnemyExplosion enemyExplosions[MaxEnemyExplosions];
         ExplosionAnimation playerExplosion;
         bool isPaused;                              ///< True during player death/respawn
 
-        static constexpr int MaxProjectiles = 12;
+        static constexpr int MaxProjectiles = 4;
 
         bool fireInputReady;                        ///< Fire rate limiting state
         unsigned long lastFireTime;                 ///< Timestamp of last player shot
+        int activePlayerBulletCount;               ///< Cached count of active player bullets (O(1) vs O(n) scan)
         float currentMusicTempoFactor;              ///< BGM tempo based on alien proximity
 
         void updateAliens(unsigned long deltaTime);
