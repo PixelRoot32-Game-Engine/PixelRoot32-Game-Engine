@@ -41,6 +41,11 @@ namespace pixelroot32::audio {
         uint16_t noiseRegister = 1; // Deprecated: legacy noise register
         uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
 
+        /** Samples until next LFSR step on NOISE; `frequency` sets noise clock rate (not pitch). */
+        uint32_t noisePeriodSamples = 1;
+        /** Counts down each output sample; at 0 the LFSR advances and reloads to noisePeriodSamples. */
+        uint32_t noiseCountdown = 0;
+
         // Duration control (sample-accurate timing)
         uint64_t remainingSamples = 0;
 
@@ -51,6 +56,8 @@ namespace pixelroot32::audio {
             remainingSamples = 0;
             noiseRegister = 1;
             lfsrState = 0x4000; // Initialize LFSR to non-zero state
+            noisePeriodSamples = 1;
+            noiseCountdown = 0;
         }
     };
 

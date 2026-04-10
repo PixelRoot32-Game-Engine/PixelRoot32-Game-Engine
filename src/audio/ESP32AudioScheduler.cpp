@@ -12,7 +12,6 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <cstring>
-#include <cstdlib>
 #include <soc/soc_caps.h>
 
 namespace pixelroot32::audio {
@@ -23,8 +22,12 @@ namespace pixelroot32::audio {
     using logging::LogLevel;
     using logging::log;
 
-    ESP32AudioScheduler::ESP32AudioScheduler(int coreId, int priority)
-        : coreId(coreId), priority(priority) {
+    static inline void stepNoiseLfsr15(uint16_t& state) {
+        const uint16_t feedback = (uint16_t)(((state & 1u) ^ ((state >> 1) & 1u)) & 1u);
+        state = (uint16_t)((state >> 1) | (feedback << 14));
+    }
+
+    ESP32AudioScheduler::ESP32AudioScheduler(int /*reservedCoreId*/, int /*reservedTaskPriority*/) {
     }
 
     ESP32AudioScheduler::~ESP32AudioScheduler() {
@@ -48,7 +51,17 @@ namespace pixelroot32::audio {
     }
 
     void ESP32AudioScheduler::submitCommand(const AudioCommand& cmd) {
-        commandQueue.enqueue(cmd);
+        if (!commandQueue.enqueue(cmd)) {
+            droppedCommands.fetch_add(1u, std::memory_order_relaxed);
+#if defined(PIXELROOT32_DEBUG_MODE)
+            static uint32_t lastDropLogCount = 0;
+            const uint32_t total = droppedCommands.load(std::memory_order_relaxed);
+            if (total - lastDropLogCount >= 16u) {
+                lastDropLogCount = total;
+                log(LogLevel::Warning, "[AUDIO] command queue full; dropped %u total", (unsigned)total);
+            }
+#endif
+        }
     }
 
     void ESP32AudioScheduler::start() {
@@ -299,6 +312,20 @@ namespace pixelroot32::audio {
             ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
             if (event.type == WaveType::PULSE) {
                 ch->dutyCycle = event.duty;
+            } else if (event.type == WaveType::NOISE) {
+                float noiseHz = event.frequency;
+                if (noiseHz < 1.0f) {
+                    noiseHz = 1.0f;
+                }
+                uint32_t period = (uint32_t)((float)sampleRate / noiseHz);
+                if (period < 1u) {
+                    period = 1u;
+                }
+                ch->noisePeriodSamples = period;
+                ch->noiseCountdown = 1u;
+                ch->lfsrState = 0x4000;
+                ch->phase = 0.0f;
+                ch->phaseIncrement = 0.0f;
             }
         }
     }
@@ -338,22 +365,25 @@ namespace pixelroot32::audio {
                     sample = 3.0f - 4.0f * ch.phase;
                 }
                 break;
-            case WaveType::NOISE:  
-                if (ch.phase < ch.phaseIncrement) {
-                    ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
+            case WaveType::NOISE: {
+                if (ch.noiseCountdown > 0u) {
+                    ch.noiseCountdown--;
                 }
-                sample = (ch.noiseRegister & 1) ? 1.0f : -1.0f;
-                break;  
-                // NES-style 15-bit LFSR with taps at bits 0 and 1
-                // Update every sample for better noise quality
-                // uint16_t feedback = ((ch.lfsrState & 1) ^ ((ch.lfsrState >> 1) & 1));
-                // ch.lfsrState = (ch.lfsrState >> 1) | (feedback << 14);
-                // sample = (ch.lfsrState & 1) ? 1.0f : -1.0f;
-                // break;
+                if (ch.noiseCountdown == 0u) {
+                    stepNoiseLfsr15(ch.lfsrState);
+                    ch.noiseCountdown = ch.noisePeriodSamples;
+                }
+                sample = (ch.lfsrState & 1u) ? 1.0f : -1.0f;
+                break;
+            }
         }
 
-        ch.phase += ch.phaseIncrement;
-        if (ch.phase >= 1.0f) ch.phase -= 1.0f;
+        if (ch.type != WaveType::NOISE) {
+            ch.phase += ch.phaseIncrement;
+            if (ch.phase >= 1.0f) {
+                ch.phase -= 1.0f;
+            }
+        }
 
         if (ch.volumeDelta != 0.0f) {
             ch.volume += ch.volumeDelta;
