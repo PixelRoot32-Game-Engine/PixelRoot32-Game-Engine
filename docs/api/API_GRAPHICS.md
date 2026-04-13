@@ -380,16 +380,9 @@ Manages tile animations for a tilemap.
 
 ---
 
-## Tilemap Optimization System
+## Tilemap rendering notes
 
-When `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION=1` (default):
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `TileCache` | `graphics/TileCache.h` | LRU cache for pre-rendered tiles |
-| `ChunkManager` | `graphics/ChunkManager.h` | Chunk-based viewport culling |
-| `DirtyTileTracker` | `graphics/TileAnimation.h` | Animation change tracking |
-| `drawTileDirect()` | `graphics/DrawSurface.h` | Direct buffer write (ESP32 only) |
+`Renderer::drawTileMap` always applies **viewport culling** and per-tile rasterization. Optional **`drawTileDirect()`** on `DrawSurface` (when implemented by the driver) can blit pre-packed 8bpp tile rows into the logical sprite buffer. For static **4bpp** layer reuse, use **`StaticTilemapLayerCache`** (section above) and **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`**.
 
 ---
 

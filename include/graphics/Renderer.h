@@ -18,8 +18,6 @@
 #include "Color.h"
 #include "Font.h"
 #include "TileAnimation.h"
-#include "TileCache.h"
-#include "ChunkManager.h"
 
 #include <memory>
 #include <string_view>
@@ -1018,17 +1016,6 @@ public:
         return offsetBypass;
     }
 
-#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
-    // Tile caching methods
-    bool initTileCache(size_t capacity = PIXELROOT32_TILE_CACHE_SIZE);
-    TileCache& getTileCache() { return tileCache; }
-
-    // Chunk management methods
-    void initChunkManager(uint8_t mapWidth, uint8_t mapHeight, uint8_t tileWidth, uint8_t tileHeight);
-    ChunkManager& getChunkManager() { return chunkManager; }
-    size_t updateVisibleChunks(int viewportX, int viewportY, int viewportW, int viewportH);
-#endif
-
 private:
     std::unique_ptr<DrawSurface> drawer;
     DisplayConfig config;
@@ -1037,11 +1024,6 @@ private:
     int xOffset = 0;
     int yOffset = 0;
     bool offsetBypass = false;
-
-#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
-    TileCache tileCache;
-    ChunkManager chunkManager;
-#endif
 
     PaletteContext* currentRenderContext = nullptr;
 

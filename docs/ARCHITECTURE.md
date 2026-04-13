@@ -119,7 +119,6 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
-| Tilemap Optimization | `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Enabled |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
 
 ---

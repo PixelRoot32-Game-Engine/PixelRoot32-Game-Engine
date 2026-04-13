@@ -199,7 +199,7 @@ Engine
 | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Enable debug overlay |
 | `PIXELROOT32_ENABLE_2BPP_SPRITES` | 2bpp sprite support |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | 4bpp sprite support |
-| `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION` | Tilemap optimizations |
+| `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Static 4bpp tilemap layer framebuffer snapshot (`StaticTilemapLayerCache`) |
 
 ---
 

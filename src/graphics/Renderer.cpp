@@ -805,18 +805,4 @@ namespace pixelroot32::graphics {
         return currentSpritePaletteSlot;
     }
 
-#if PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION
-    bool Renderer::initTileCache(size_t capacity) {
-        return tileCache.init(capacity);
-    }
-
-    void Renderer::initChunkManager(uint8_t mapWidth, uint8_t mapHeight, uint8_t tileWidth, uint8_t tileHeight) {
-        chunkManager.init(mapWidth, mapHeight, tileWidth, tileHeight);
-    }
-
-    size_t Renderer::updateVisibleChunks(int viewportX, int viewportY, int viewportW, int viewportH) {
-        return chunkManager.update(viewportX, viewportY, viewportW, viewportH);
-    }
-#endif
-
 }
