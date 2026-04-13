@@ -47,7 +47,7 @@ namespace pixelroot32::drivers::esp32 {
             .communication_format = I2S_COMM_FORMAT_STAND_I2S,
             .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
             .dma_buf_count = 8,
-            .dma_buf_len = 64, // Small buffers for low latency
+            .dma_buf_len = 128, // Increased from 64 to support 1024 samples (8 * 128 = 1024)
             .use_apll = false,
             .tx_desc_auto_clear = true
         };
@@ -86,7 +86,7 @@ namespace pixelroot32::drivers::esp32 {
     }
 
     void ESP32_I2S_AudioBackend::audioTaskLoop() {
-        const int BUFFER_SAMPLES = 256;
+        const int BUFFER_SAMPLES = 1024; // Increased from 256 to match Native configuration
         int16_t sampleBuffer[BUFFER_SAMPLES];
         size_t bytesWritten;
 

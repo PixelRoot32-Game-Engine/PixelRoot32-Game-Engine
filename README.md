@@ -48,7 +48,7 @@ PixelRoot32 is not the product of a traditional electronics expert or a large en
 
 It was born from curiosity, experimentation, and a deep love for retro games from the 90s.
 
-Coming from a mobile development background with limited experience in C++, this project represents a leap into embedded systems. What made that possible is how accessible knowledge has become today — especially with the help of AI, lowering the barrier to building complex systems.
+Coming from a mobile development background with limited experience in C++, this project represents a leap into embedded systems. This was made possible by how accessible knowledge has become today—especially with AI-assisted tools lowering the barrier to building complex systems.
 
 PixelRoot32 is a reflection of that shift: exploring new domains driven by curiosity rather than specialization.
 
