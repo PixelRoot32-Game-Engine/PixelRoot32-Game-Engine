@@ -24,6 +24,24 @@ namespace logging = pixelroot32::core::logging;
 using logging::log;
 using logging::LogLevel;
 
+#ifdef PIXELROOT32_ENABLE_PROFILING
+// Per-frame block timings inside sendBufferScaled (8bpp→RGB565 + DMA). Scoped vars live in sendBufferScaled().
+#define PR32_SEND_BUF_PROFILE_VARS()                                                               \
+    uint32_t pr32_sendbuf_mark = micros();                                                         \
+    uint32_t const pr32_sendbuf_t0 = pr32_sendbuf_mark;                                            \
+    uint32_t pr32_acc_setup = 0, pr32_acc_scale = 0, pr32_acc_push = 0, pr32_acc_wait = 0,       \
+             pr32_acc_end = 0
+
+#define PR32_SEND_BUF_PROFILE_ACC(acc_var)                                                         \
+    do {                                                                                           \
+        uint32_t pr32_pf_n = micros();                                                             \
+        acc_var += static_cast<uint32_t>(pr32_pf_n - pr32_sendbuf_mark);                           \
+        pr32_sendbuf_mark = pr32_pf_n;                                                             \
+    } while (0)
+#else
+#define PR32_SEND_BUF_PROFILE_VARS() ((void)0)
+#define PR32_SEND_BUF_PROFILE_ACC(acc_var) ((void)0)
+#endif
 
 // --------------------------------------------------
 // Constructor / Destructor
@@ -175,7 +193,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     freeScalingBuffers();
     
     // Determine actual lines per block - try optimal first, fallback if IRAM constrained
-    int linesPerBlock = LINES_PER_BLOCK;
+    int linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK;
     size_t blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
     
     // Allocate double line buffers for DMA
@@ -186,7 +204,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     if (lineBuffer[0] && !lineBuffer[1]) {
         heap_caps_free(lineBuffer[0]);
         
-        linesPerBlock = LINES_PER_BLOCK_FALLBACK;
+        linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK;
         blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
         
         lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -277,19 +295,21 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
 }
 
 void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
-    uint32_t start = 0;
-    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-        uint32_t start = micros();
-    }
-
     uint8_t* spritePtr = (uint8_t*)spr.getPointer();
     if (!spritePtr) {
         return;
     }
 
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    PR32_SEND_BUF_PROFILE_VARS();
+#endif
+
     tft.startWrite();
     tft.setAddrWindow(xOffset, yOffset, physicalWidth, physicalHeight);
-    
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    PR32_SEND_BUF_PROFILE_ACC(pr32_acc_setup);
+#endif
+
     currentBuffer = 0;
     int startY = 0;
 
@@ -309,7 +329,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         if (!needsScaling()) {
              // 1:1 Optimization for the first block
              for (int i = 0; i < numLines; ++i) {
-                 uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
+                 uint8_t* srcRow = spritePtr + ((startY + i) * logicalWidth);
                  const uint16_t* __restrict pLUT = paletteLUT;
                  int x = 0;
                  uint32_t* dst32 = (uint32_t*)dst;
@@ -334,7 +354,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
             // 2x Fast-Path: Duplicate pixels and rows using 32-bit writes
             for (int physY = startY; physY < endY; physY += 2) {
                 int srcY = physY / 2;
-                uint8_t* srcRow = (uint8_t*)spr.getPointer() + (srcY * logicalWidth);
+                uint8_t* srcRow = spritePtr + (srcY * logicalWidth);
                 const uint16_t* __restrict pLUT = paletteLUT;
                 uint32_t* dst32 = (uint32_t*)dst;
 
@@ -350,13 +370,19 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
             // Normal path with scaling
             for (int physY = startY; physY < endY; ++physY) {
                 int srcY = yLUT[physY];
-                scaleLine(srcY, dst);
+                scaleLine(spritePtr, srcY, dst);
                 dst += physicalWidth;
             }
         }
 
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_scale);
+#endif
         // Start DMA transfer of block 0
         tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
+#endif
 
         // Prepare indices for the next one
         currentBuffer = 1 - currentBuffer; // Switch to the other buffer
@@ -381,7 +407,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         if (!needsScaling()) {
              // Process block of lines directly
              for (int i = 0; i < numLines; ++i) {
-                 uint8_t* srcRow = (uint8_t*)spr.getPointer() + ((startY + i) * logicalWidth);
+                 uint8_t* srcRow = spritePtr + ((startY + i) * logicalWidth);
                  const uint16_t* __restrict pLUT = paletteLUT;
                  int x = 0;
                  uint32_t* dst32 = (uint32_t*)dst;
@@ -406,7 +432,7 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
             // 2x Fast-Path for the main loop blocks
             for (int physY = startY; physY < endY; physY += 2) {
                 int srcY = physY / 2;
-                uint8_t* srcRow = (uint8_t*)spr.getPointer() + (srcY * logicalWidth);
+                uint8_t* srcRow = spritePtr + (srcY * logicalWidth);
                 const uint16_t* __restrict pLUT = paletteLUT;
                 uint32_t* dst32 = (uint32_t*)dst;
 
@@ -421,17 +447,26 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
             // Normal path with scaling (using LUTs)
             for (int physY = startY; physY < endY; ++physY) {
                 int srcY = yLUT[physY];
-                scaleLine(srcY, dst);
+                scaleLine(spritePtr, srcY, dst);
                 dst += physicalWidth;
             }
         }
 
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_scale);
+#endif
         // 2. Now we wait for DMA to finish the previous block
         // If CPU calculation was slower than SPI, this returns immediately.
         tft.dmaWait();
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_wait);
+#endif
 
         // 3. Send the new calculated block
         tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
+#endif
 
         // 4. Swap and advance
         currentBuffer = 1 - currentBuffer;
@@ -440,22 +475,71 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     
     // Wait for the last pending transfer to finish
     tft.dmaWait();
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    PR32_SEND_BUF_PROFILE_ACC(pr32_acc_wait);
+#endif
     tft.endWrite();
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    PR32_SEND_BUF_PROFILE_ACC(pr32_acc_end);
 
-    if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-        uint32_t elapsed = micros() - start;
-        static uint32_t lastReport = 0;
-        if (millis() - lastReport > 1000) {
-            log(LogLevel::Profiling, "Scaled DMA Transfer: %u us (%u FPS max)", elapsed, 1000000 / (elapsed > 0 ? elapsed : 1));
-            lastReport = millis();
+    {
+        const uint32_t totalUs = static_cast<uint32_t>(micros() - pr32_sendbuf_t0);
+        static uint32_t sumSetup = 0;
+        static uint32_t sumScale = 0;
+        static uint32_t sumPush = 0;
+        static uint32_t sumWait = 0;
+        static uint32_t sumEnd = 0;
+        static uint32_t sumTotal = 0;
+        static uint32_t frameCount = 0;
+        static uint32_t lastReportMs = 0;
+
+        sumSetup += pr32_acc_setup;
+        sumScale += pr32_acc_scale;
+        sumPush += pr32_acc_push;
+        sumWait += pr32_acc_wait;
+        sumEnd += pr32_acc_end;
+        sumTotal += totalUs;
+        ++frameCount;
+
+        if (millis() - lastReportMs > 1000) {
+            if (frameCount > 0) {
+                const uint32_t n = frameCount;
+                const uint32_t avgTotal = sumTotal / n;
+                const uint32_t avgSetup = sumSetup / n;
+                const uint32_t avgScale = sumScale / n;
+                const uint32_t avgPush = sumPush / n;
+                const uint32_t avgWait = sumWait / n;
+                const uint32_t avgEnd = sumEnd / n;
+                const uint32_t sumParts = avgSetup + avgScale + avgPush + avgWait + avgEnd;
+                const int delta = static_cast<int>(avgTotal) - static_cast<int>(sumParts);
+
+                log(LogLevel::Profiling,
+                    "[TFT sendBufferScaled avg/%u fr] total %uu | setup %uu | scale %uu | dmaWait %uu | pushDMA %uu | endWrite %uu | Σparts %uu (Δ %d) | %u FPS",
+                    static_cast<unsigned>(n),
+                    static_cast<unsigned>(avgTotal),
+                    static_cast<unsigned>(avgSetup),
+                    static_cast<unsigned>(avgScale),
+                    static_cast<unsigned>(avgWait),
+                    static_cast<unsigned>(avgPush),
+                    static_cast<unsigned>(avgEnd),
+                    static_cast<unsigned>(sumParts),
+                    delta,
+                    static_cast<unsigned>(1000000 / (avgTotal > 0 ? avgTotal : 1)));
+
+                log(LogLevel::Profiling, "Scaled DMA Transfer: %u us (%u FPS max)",
+                    static_cast<unsigned>(avgTotal),
+                    static_cast<unsigned>(1000000 / (avgTotal > 0 ? avgTotal : 1)));
+            }
+            sumSetup = sumScale = sumPush = sumWait = sumEnd = sumTotal = 0;
+            frameCount = 0;
+            lastReportMs = millis();
         }
     }
+#endif
 }
 
-void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(int srcY, uint16_t* dst) {
-    // Get pointer to source row in 8bpp sprite
-    uint8_t* spritePtr = (uint8_t*)spr.getPointer();
-    uint8_t* srcRow = spritePtr + (srcY * logicalWidth);
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(const uint8_t* spriteBase, int srcY, uint16_t* dst) {
+    const uint8_t* srcRow = spriteBase + (srcY * logicalWidth);
     
     // Use local pointers to help optimization
     const uint16_t* __restrict pLUT = paletteLUT;

@@ -119,6 +119,15 @@ public:
     virtual void draw(pixelroot32::graphics::Renderer& renderer);
 
     /**
+     * @brief When false, Engine may skip `draw()` and `present()` for this iteration (after `update()`).
+     *
+     * Default `true` preserves legacy behavior. Override to return false only when the logical
+     * framebuffer would be identical to the last presented frame (same camera, same visuals).
+     * When `PIXELROOT32_ENABLE_DEBUG_OVERLAY` is on, Engine forces a full redraw regardless.
+     */
+    virtual bool shouldRedrawFramebuffer() const { return true; }
+
+    /**
      * @brief Adds an entity to the scene.
      * @param entity Pointer to the Entity to add.
      */

@@ -3,8 +3,8 @@
  * Licensed under the MIT License
  */
 #pragma once
-#ifndef U8G2_DRAEWER_H
-#define U8G2_DRAEWER_H
+#ifndef U8G2_DRAWER_H
+#define U8G2_DRAWER_H
 
 #include "platforms/PlatformDefaults.h"
 
@@ -116,4 +116,4 @@ private:
 
 #endif // PIXELROOT32_USE_U8G2_DRIVER
 
-#endif // U8G2_DRAEWER_H
+#endif // U8G2_DRAWER_H

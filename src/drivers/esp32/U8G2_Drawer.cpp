@@ -227,8 +227,24 @@ void pr32::drivers::esp32::U8G2_Drawer::buildScaleLUTs() {
     if (!needsScaling()) return;
 
     // Build LUTs
+#ifdef ESP32
+    _xLUT = (uint16_t*)heap_caps_malloc(static_cast<size_t>(physicalWidth) * sizeof(uint16_t), MALLOC_CAP_8BIT);
+    _yLUT = (uint16_t*)heap_caps_malloc(static_cast<size_t>(physicalHeight) * sizeof(uint16_t), MALLOC_CAP_8BIT);
+    if (!_xLUT || !_yLUT) {
+        if (_xLUT) {
+            heap_caps_free(_xLUT);
+            _xLUT = nullptr;
+        }
+        if (_yLUT) {
+            heap_caps_free(_yLUT);
+            _yLUT = nullptr;
+        }
+        return;
+    }
+#else
     _xLUT = new uint16_t[physicalWidth];
     _yLUT = new uint16_t[physicalHeight];
+#endif
 
     for (int i = 0; i < physicalWidth; ++i) {
         _xLUT[i] = (i * logicalWidth) / physicalWidth;
@@ -282,11 +298,19 @@ void pr32::drivers::esp32::U8G2_Drawer::freeScalingBuffers() {
         _physicalBuffer = nullptr;
     }
     if (_xLUT) {
+#ifdef ESP32
+        heap_caps_free(_xLUT);
+#else
         delete[] _xLUT;
+#endif
         _xLUT = nullptr;
     }
     if (_yLUT) {
+#ifdef ESP32
+        heap_caps_free(_yLUT);
+#else
         delete[] _yLUT;
+#endif
         _yLUT = nullptr;
     }
 }
@@ -301,10 +325,7 @@ void IRAM_ATTR pr32::drivers::esp32::U8G2_Drawer::sendBufferScaled() {
 
     _u8g2->clearBuffer();
 
-    // 1:1 Mapping with Offset (Bypass scaling if offsets are defined)
-    // This allows centering a logical resolution on a larger physical screen without stretching.
-    // 1:1 Mapping with Offset (Bypass scaling if offsets are defined)
-    // This allows centering a logical resolution on a larger physical screen without stretching.
+    // 1:1 mapping with offset: center logical resolution on a larger physical screen without stretching.
     if (xOffset != 0 || yOffset != 0) {
         // Zero-copy attempt: If no rotation and 1:1, we could write to u8g2 buffer.
         // For now, keep drawXBM as it handles the "Page/Tile" conversion which is complex.
