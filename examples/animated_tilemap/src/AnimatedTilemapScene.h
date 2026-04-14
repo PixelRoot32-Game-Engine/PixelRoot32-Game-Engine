@@ -44,8 +44,9 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
     /**
-     * When background/ground tile animations or tile data change, call this so the
-     * static layer cache is rebuilt (required for correct visuals with the fast path).
+     * When the static draw group (background only in this example) changes — tile data,
+     * palette, mask, or stepping an animator bound to background — call this so the
+     * framebuffer snapshot is rebuilt.
      */
     void invalidateStaticLayerCache();
 

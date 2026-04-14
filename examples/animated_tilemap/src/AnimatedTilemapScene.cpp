@@ -88,20 +88,18 @@ void AnimatedTilemapScene::setupLevelData() {
 }
 
 void AnimatedTilemapScene::setupTilemapLayers() {
-    // Tilemaps are drawn in draw() via StaticTilemapLayerCache (background + ground snapshotted;
-    // details redrawn each frame when fast path applies). Adjust TileMap4bppDrawSpec lists in draw()
+    // Tilemaps are drawn in draw() via StaticTilemapLayerCache: only background is snapshotted;
+    // ground + details are dynamic (both have animManager). Adjust TileMap4bppDrawSpec lists in draw()
     // for other layer splits. Use TileMapLayerEntity + Scene::draw for the generic entity path.
 }
 
 void AnimatedTilemapScene::update(unsigned long deltaTime) {
 
-    // Update animated tiles — if you enable stepping, also call invalidateStaticLayerCache()
-    // when the stepped manager affects background or ground layers (details-only fast path).
+    // Ground and details animate every frame; they live in the dynamic draw group (see draw()).
+    // Do not invalidate the static snapshot each frame — only background is cached.
     animatedtiles::getGroundAnimManager().step();
     animatedtiles::getDetailsAnimManager().step();
 
-    invalidateStaticLayerCache();
-    
     // Update scene entities
     Scene::update(deltaTime);
 }
@@ -116,9 +114,9 @@ void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
 
     const gfx::TileMap4bppDrawSpec staticLayers[] = {
         {levelData.background, 0, 0},
-        {levelData.ground, 0, 0},
     };
     const gfx::TileMap4bppDrawSpec dynamicLayers[] = {
+        {levelData.ground, 0, 0},
         {levelData.details, 0, 0},
     };
 

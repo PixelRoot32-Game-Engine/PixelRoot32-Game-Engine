@@ -94,6 +94,20 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// TFT_eSPI present path (DMA line batches)
+// -----------------------------------------------------------------------------
+// Rows of RGB565 assembled per CPU step before pushPixelsDMA. Larger = fewer
+// DMA transactions, more internal RAM per line buffer. Override per board.
+#if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+#if !defined(PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK)
+#define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK 60
+#endif
+#if !defined(PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK)
+#define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK 30
+#endif
+#endif
+
+// -----------------------------------------------------------------------------
 // Audio Backend Selection
 // -----------------------------------------------------------------------------
 

@@ -139,7 +139,7 @@ Use this when a **direct logical 8bpp sprite buffer** exists (`DrawSurface::getS
 
 **Memory:** about **W×H** bytes (malloc-backed in `allocate*`; no heap use inside `draw`). If **`getSpriteBuffer()`** is **`nullptr`**, the implementation draws all groups every frame (same as SDL2 / non-sprite drivers).
 
-**Example:** **`examples/animated_tilemap`** — `AnimatedTilemapScene` holds a **`StaticTilemapLayerCache`**, calls **`allocateForRenderer(engine.getRenderer())`** in **`init()`**, builds **`TileMap4bppDrawSpec`** arrays for **background + ground** (static) and **details** (dynamic), and exposes **`invalidateStaticLayerCache()`** as a thin wrapper over **`invalidate()`**.
+**Example:** **`examples/animated_tilemap`** — `AnimatedTilemapScene` holds a **`StaticTilemapLayerCache`**, calls **`allocateForRenderer(engine.getRenderer())`** in **`init()`**, builds **`TileMap4bppDrawSpec`** arrays for **background** (static) and **ground + details** (dynamic), and exposes **`invalidateStaticLayerCache()`** as a thin wrapper over **`invalidate()`** when the static group changes.
 
 For the full pipeline diagram and layering context, see [Architecture — ESP32 rendering pipeline and tilemap caching](../ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching).
 
