@@ -28,6 +28,8 @@ The primary color display driver using the popular TFT_eSPI library.
 - Resolution scaling (nearest-neighbor)
 - Double-buffering for smooth rendering
 
+**Future optimization (Opción B — diseño, no implementado):** `sendBufferScaled()` hoy envía el rectángulo completo (**`setAddrWindow`** + bloques DMA). Una variante sería **comparar** el sprite 8 bpp contra una **copia del frame anterior** (o un diff por bandas) y emitir **varias ventanas** SPI solo donde cambiaron píxeles. Mejora el techo SPI cuando el área sucia es pequeña; coste típico **~W×H bytes** RAM y más llamadas a **`setAddrWindow`**. La **Opción A** (omitir `draw`+`present` en el **`Engine`** cuando la escena lo indica) está descrita en [ESP32 rendering](../ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching).
+
 **Supported Displays**:
 - ST7789 (240x240, 320x240)
 - ST7735 (128x128, 160x128)

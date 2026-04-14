@@ -139,11 +139,16 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 - **Opt-out:** build flag **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE=0`**, or **`setFramebufferCacheEnabled(false)`**.
 - **Reflection in config:** **`pixelroot32::platforms::config::EnableStaticTilemapFbCache`** (`EngineConfig.h`).
 
-**Example:** **`examples/animated_tilemap`** — **`AnimatedTilemapScene`** owns a **`StaticTilemapLayerCache`**, registers **background + ground** as **static** and **details** as **dynamic** (any split is possible via spec lists).
+**Example:** **`examples/animated_tilemap`** — **`AnimatedTilemapScene`** owns a **`StaticTilemapLayerCache`**, registers **background** as **static** and **ground + details** as **dynamic** (any split is possible via spec lists).
+
+### Present-path savings (optional)
+
+- **Opción A (implementada):** `Scene::shouldRedrawFramebuffer()` — el **`Engine`** omite **`draw()`** + **`present()`** cuando la escena devuelve `false`. **`AnimatedTilemapScene`** usa firmas de **`TileAnimationManager::getVisualSignature()`** y muestras de cámara para detectar frames sin cambio visual (p. ej. entre avances de frame de animación). Con **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** el motor **siempre** redibuja para mantener el overlay coherente.
+- **Opción B (documentada, no implementada):** **bandas sucias / diff por líneas** dentro de **`TFT_eSPI_Drawer::sendBufferScaled`**: guardar el framebuffer lógico 8 bpp anterior (o comparar por bloques) y emitir **varios** `setAddrWindow` + **`pushPixelsDMA`** solo por bandas que cambiaron. Ahorra SPI cuando una fracción pequeña del panel cambia; coste: RAM extra (~**W×H** bytes para copia) y overhead por múltiples transacciones. Ver [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md).
 
 **Game / scene developer contract**
 
-- Call **`invalidate()`** (or a scene wrapper like **`invalidateStaticLayerCache()`**) when something inside the **static** group changes visually, e.g. after **`TileAnimationManager::step()`** on a layer in that group, or when mutating **indices** / **palettes** / **`runtimeMask`** on those maps.
+- Call **`invalidate()`** (or a scene wrapper like **`invalidateStaticLayerCache()`**) when something inside the **static** group changes visually, e.g. after **`TileAnimationManager::step(deltaTime)`** on a layer in that group, or when mutating **indices** / **palettes** / **`runtimeMask`** on those maps.
 - Layers in the **dynamic** group are drawn every frame on the fast path—no invalidation needed for **`step()`** on **dynamic-only** animators.
 - **Scroll:** cache rebuilds when the camera sample changes; no extra invalidation solely for scroll.
 - **`getSpriteBuffer() == nullptr`:** full redraw of all groups every frame; no snapshot used.

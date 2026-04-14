@@ -5,6 +5,7 @@
 #include "core/Engine.h"
 #include "core/Scene.h"
 #include "core/EngineModules.h"
+#include "platforms/EngineConfig.h"
 #include "core/Log.h"
 #include "input/InputConfig.h"
 #include "input/TouchManager.h"
@@ -188,10 +189,15 @@ namespace pixelroot32::core {
                 running = drawer->processEvents();
 
                 update();
-                draw();
 
-                // Present frame (SDL2)
-                drawer->present();
+                bool redraw = sceneManager.aggregateShouldRedrawFramebuffer();
+                if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
+                    redraw = true;
+                }
+                if (redraw) {
+                    draw();
+                    drawer->present();
+                }
 
                 SDL_Delay(1);
             }
@@ -260,22 +266,28 @@ namespace pixelroot32::core {
                 t2 = pixelroot32::platforms::config::profilerMicros();
             }
 
-            draw();
-
-            uint32_t t3 = 0;
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t3 = pixelroot32::platforms::config::profilerMicros();
+            bool redraw = sceneManager.aggregateShouldRedrawFramebuffer();
+            if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
+                redraw = true;
             }
 
-            // Present frame (TFT_eSPI)
-            drawer->present();
+            uint32_t t3 = t2;
+            if (redraw) {
+                draw();
+                if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+                    t3 = pixelroot32::platforms::config::profilerMicros();
+                }
+
+                // Present frame (TFT_eSPI)
+                drawer->present();
+            }
 
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                uint32_t t4 = pixelroot32::platforms::config::profilerMicros();
+                const uint32_t t4 = pixelroot32::platforms::config::profilerMicros();
                 totalUpdateTime += (t1 - t0);
                 totalEventsTime += (t2 - t1);
-                totalDrawTime += (t3 - t2);
-                totalPresentTime += (t4 - t3);
+                totalDrawTime += redraw ? (t3 - t2) : 0u;
+                totalPresentTime += redraw ? (t4 - t3) : 0u;
                 frameCount++;
             }
 

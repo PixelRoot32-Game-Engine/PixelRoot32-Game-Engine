@@ -24,13 +24,17 @@ Snapshot logic is **`pixelroot32::graphics::StaticTilemapLayerCache`** (`graphic
 
 | Situation | What to do |
 |-----------|------------|
-| Something in the **static** group must change visually (tiles, palette, mask, or **`step()`** on an animator bound to **background** only in this split) | Call **`invalidateStaticLayerCache()`** (or the fast path can show stale pixels). |
+| Something in the **static** group must change visually (tiles, palette, mask, or **`step(deltaTime)`** on an animator bound to **background** only in this split) | Call **`invalidateStaticLayerCache()`** (or the fast path can show stale pixels). |
 | **Ground** and **details** animate (dynamic group) | No per-frame **`invalidate()`** needed; they are redrawn every frame after **`memcpy`** restore. |
-| **Ground** is in the **static** group **and** you **`step()`** its animator every frame | Either **invalidate every frame** or move **ground** to **dynamic** — this example uses the latter. |
+| **Ground** is in the **static** group **and** you **`step(deltaTime)`** its animator every frame | Either **invalidate every frame** or move **ground** to **dynamic** — this example uses the latter. |
 | Camera / scroll only | Rebuild follows offset samples; no invalidation needed **only** for scroll. |
 | **`getSpriteBuffer()`** is **`nullptr`** (e.g. some native paths) | All layers drawn every frame; snapshot unused. |
 
 **Current example code:** `update()` steps both animators; **`draw()`** keeps **background** in the static group and **ground + details** in the dynamic group so the ESP32 fast path can **`memcpy`** restore the snapshot and only raster the animated layers (until the camera offset changes, which forces a rebuild).
+
+### Opción A: omitir `draw` + `present` sin cambio visual
+
+La escena implementa **`Scene::shouldRedrawFramebuffer()`**: combina **`TileAnimationManager::getVisualSignature()`** (ground + details) y el offset de cámara del **`Renderer`**. Si coincide con el último frame presentado **y** no hay entidades en la escena, el **`Engine`** no llama a **`draw()`** ni **`present()`** ese tick (ahorra casi todo el coste SPI en los ticks entre avances de frame de animación). Con **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** el motor siempre redibuja.
 
 ## Disabling the snapshot
 

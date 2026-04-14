@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <platforms/PlatformDefaults.h>
 
 // This example requires tile animation support
@@ -42,6 +43,7 @@ public:
     void init() override;
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
+    bool shouldRedrawFramebuffer() const override;
 
     /**
      * When the static draw group (background only in this example) changes — tile data,
@@ -69,7 +71,13 @@ private:
     void setupLevelData();
     void setupTilemapLayers();
 
+    uint32_t computePresentSignature() const;
+
     pixelroot32::graphics::StaticTilemapLayerCache tilemapLayerCache;
+    uint32_t pendingPresentSignature = 0;
+    uint32_t lastPresentedSignature = 0;
+    bool hasPresentedFramebuffer = false;
+    bool omitDrawPresentThisFrame = false;
 };
 
 /**

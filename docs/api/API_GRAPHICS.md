@@ -361,7 +361,7 @@ The Tile Animation System enables frame-based tile animations (water, lava, fire
 
 - **`uint8_t baseTileIndex`**: First tile in the animation sequence.
 - **`uint8_t frameCount`**: Number of frames in the animation.
-- **`uint8_t frameDuration`**: Number of game frames to display each animation frame.
+- **`uint8_t frameDuration`**: How many **60 Hz logical ticks** each animation cell is held before advancing to the next frame (1–255). Ticks are paced from **wall time** (`micros()` between `step` calls), capped at ~60 ticks/s, so speed does not depend on how fast the main loop runs when **`draw`/`present`** are skipped.
 
 ### TileAnimationManager
 
@@ -369,14 +369,17 @@ Manages tile animations for a tilemap.
 
 #### Public Methods
 
-- **`void step()`**  
-  Advances all animations by one step. Call once per frame in `Scene::update()`.
+- **`void step(unsigned long deltaTimeMs)`**  
+  Advances animations from elapsed time. Pass the same **`deltaTime`** you receive in **`Scene::update(unsigned long deltaTime)`**. Internally, pacing uses **high-resolution time** between calls so animations stay correct when **`millis()`**-based delta is often **0** on tight loops; **`deltaTimeMs`** is used as a fallback when the high-resolution clock does not advance (e.g. some unit tests).
 
 - **`void reset()`**  
   Resets all animations to frame 0.
 
-- **`uint8_t resolveFrame(uint8_t tileIndex) const`**  
+- **`uint8_t resolveFrame(uint8_t tileIndex)`**  
   Resolves tile index to current animated frame. O(1) lookup.
+
+- **`uint32_t getVisualSignature() const`**  
+  Fingerprint of the current resolved animation state (O(animCount)); stable across **`step(...)`** until a visible frame advances. Used with **`Scene::shouldRedrawFramebuffer()`** to skip **`draw`/`present`** when the framebuffer would be unchanged.
 
 ---
 

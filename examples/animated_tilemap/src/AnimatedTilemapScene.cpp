@@ -52,6 +52,11 @@ AnimatedTilemapScene::AnimatedTilemapScene()
 }
 
 void AnimatedTilemapScene::init() {
+    hasPresentedFramebuffer = false;
+    lastPresentedSignature = 0;
+    pendingPresentSignature = 0;
+    omitDrawPresentThisFrame = false;
+
     animatedtiles::init();
 
     tilemapLayerCache.clear();
@@ -97,18 +102,41 @@ void AnimatedTilemapScene::update(unsigned long deltaTime) {
 
     // Ground and details animate every frame; they live in the dynamic draw group (see draw()).
     // Do not invalidate the static snapshot each frame — only background is cached.
-    animatedtiles::getGroundAnimManager().step();
-    animatedtiles::getDetailsAnimManager().step();
+    animatedtiles::getGroundAnimManager().step(deltaTime);
+    animatedtiles::getDetailsAnimManager().step(deltaTime);
 
     // Update scene entities
     Scene::update(deltaTime);
+
+    pendingPresentSignature = computePresentSignature();
+    // Conservative: any scene entity forces a full redraw (movement, particles, etc.).
+    omitDrawPresentThisFrame = hasPresentedFramebuffer && entityCount == 0 &&
+        (pendingPresentSignature == lastPresentedSignature);
+}
+
+uint32_t AnimatedTilemapScene::computePresentSignature() const {
+    const uint32_t g = animatedtiles::getGroundAnimManager().getVisualSignature();
+    const uint32_t d = animatedtiles::getDetailsAnimManager().getVisualSignature();
+    const int camX = -engine.getRenderer().getXOffset();
+    const int camY = -engine.getRenderer().getYOffset();
+    const uint32_t c = static_cast<uint32_t>(camX) ^ (static_cast<uint32_t>(camY) * 2654435761u);
+    return g ^ (d * 2246822519u) ^ c;
+}
+
+bool AnimatedTilemapScene::shouldRedrawFramebuffer() const {
+    return !omitDrawPresentThisFrame;
 }
 
 void AnimatedTilemapScene::invalidateStaticLayerCache() {
     tilemapLayerCache.invalidate();
+    // Next frame must redraw (signature alone may not capture static bitmap changes).
+    hasPresentedFramebuffer = false;
 }
 
 void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
+    lastPresentedSignature = pendingPresentSignature;
+    hasPresentedFramebuffer = true;
+
     const int camX = -renderer.getXOffset();
     const int camY = -renderer.getYOffset();
 

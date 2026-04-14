@@ -27,7 +27,7 @@ The main engine class that manages the game loop and core subsystems. `Engine` a
     Initializes the engine subsystems. Must be called before `run()`.
 
 - **`void run()`**
-    Starts the main game loop. This method contains the infinite loop that calls `update()` and `draw()` repeatedly.
+    Starts the main game loop. Each iteration calls **`update()`**; **`draw()`** and **`present()`** run only when **`SceneManager::aggregateShouldRedrawFramebuffer()`** is `true` (any stacked scene may request a pass). Equivalent to checking the top scene only when the stack has one entry. Always redraws when **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** is enabled.
 
 - **`unsigned long getDeltaTime() const`**
     Returns the time elapsed since the last frame in milliseconds.
@@ -223,6 +223,9 @@ Represents a game level or screen containing entities. A Scene manages a collect
 - **`virtual void draw(Renderer& renderer)`**
     Draws all visible entities in the scene, iterating them by logical render layers (0 = background, 1 = gameplay, 2 = UI). Touch widgets draw through this path as entities; **`UIManager::draw`** is a no-op.
 
+- **`virtual bool shouldRedrawFramebuffer() const`**
+    Return **`false`** only when the logical framebuffer would be **identical** to the last successful present (same camera, same pixels). Default **`true`**. **`Engine::run()`** skips **`draw()`** and **`present()`** when this returns **`false`** (except the debug overlay build forces a full frame).
+
 - **`virtual void processTouchEvents(TouchEvent* events, uint8_t count)`**
     Runs the central touch pipeline for one frame: if `PIXELROOT32_ENABLE_UI_SYSTEM`, **`UIManager::processEvents`** runs first and may mark events consumed; then **`onUnconsumedTouchEvent`** is called for each unconsumed event. Override in a subclass only if you need preprocessing before the base implementation; otherwise override **`onUnconsumedTouchEvent`** for gameplay.
 
@@ -278,6 +281,9 @@ Manages the stack of active scenes. Allows for scene transitions (replacing) and
 
 - **`std::optional<Scene*> getCurrentScene() const`**
     Gets the currently active scene, or std::nullopt if no scene is active.
+
+- **`bool aggregateShouldRedrawFramebuffer() const`**
+    True if the stack is empty or **any** stacked scene’s **`Scene::shouldRedrawFramebuffer()`** is true. **`Engine::run()`** uses this so a menu on top cannot suppress drawing a game scene below that still reports dirty.
 
 ---
 

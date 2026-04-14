@@ -18,10 +18,11 @@ namespace pixelroot32::graphics {
  * Memory Layout: 4 bytes total (POD structure)
  * - baseTileIndex: First tile in animation sequence (0-255)
  * - frameCount: Number of frames in animation (1-255) 
- * - frameDuration: Ticks to display each frame (1-255)
+ * - frameDuration: Hold each animation cell for this many **60 Hz ticks** (1-255).
+ *   Logical tick rate is capped at 60/s (wall clock), independent of Engine loop speed.
  * - reserved: Padding for alignment (future use)
  * 
- * Example: Water animation with 4 frames, 8 ticks per frame
+ * Example: Water animation with 4 frames, 8 ticks per frame (~133 ms per cell at 60 Hz)
  * { baseTileIndex: 42, frameCount: 4, frameDuration: 8, reserved: 0 }
  * 
  * @note This structure is stored in PROGMEM (flash memory)
@@ -65,23 +66,37 @@ public:
     uint8_t resolveFrame(uint8_t tileIndex);
     
     /**
-     * @brief Advance all animations by one step.
-     * Call once per frame in Scene::update().
-     * 
-     * Complexity: O(animations × frameCount) - typically 4-32 operations
+     * @brief Advance animations from elapsed wall time (60 Hz logical ticks max).
+     * Uses high-resolution time between calls (micros); deltaTimeMs is a fallback when
+     * the clock does not advance between calls (e.g. unit tests without real time).
+     *
+     * Complexity: O(animations × frameCount) when at least one tick elapses; else O(1)
      */
-    void step();
+    void step(unsigned long deltaTimeMs);
     
     /**
      * @brief Reset all animations to frame 0.
      */
     void reset();
+
+    /**
+     * @brief Fingerprint of the current resolved animation state (O(animCount)).
+     *
+     * Stable across `step(deltaTimeMs)` calls until a visible frame advances (same contract as
+     * `resolveFrame` / lookup table). Used by scenes to skip draw+present when output
+     * would be identical (e.g. ESP32 SPI budget).
+     */
+    uint32_t getVisualSignature() const;
     
 private:
+    void rebuildLookupTable();
+
     const TileAnimation* animations;  ///< PROGMEM animation definitions
     uint8_t animCount;               ///< Number of animations
     uint16_t tileCount;               ///< Number of tiles in tileset (uint16_t para 512+)
-    uint16_t globalFrameCounter;      ///< Global animation timer
+    uint32_t globalFrameCounter;      ///< 60 Hz–paced animation time (ticks since start / reset)
+    uint32_t tickAccumUs;             ///< Fraction of 1/60 s wall time in microseconds
+    uint32_t lastStepMicros;          ///< Previous micros() sample for pacing
     uint8_t lookupTable[MAX_TILESET_SIZE];  ///< tileIndex → currentFrame
 };
 
