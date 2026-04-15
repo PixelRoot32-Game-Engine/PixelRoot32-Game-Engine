@@ -1,201 +1,173 @@
 # UI Guidelines - PixelRoot32
 
-Patterns and best practices for building user interfaces with the UI system.
+Patterns and best practices for building user interfaces with the UI system. Authoritative signatures live in `include/graphics/ui/` and [api/API_UI.md](api/API_UI.md).
 
 ---
 
-## 🎨 Layout System
+## Layout system
 
-### Choosing the Right Layout
+### Choosing the right layout
 
-| Layout | Use Case | Navigation |
+| Layout | Use case | Navigation |
 |--------|----------|------------|
-| `UIVerticalLayout` | Lists, menus | UP/DOWN |
+| `UIVerticalLayout` | Lists, menus | UP/DOWN (via `handleInput`) |
 | `UIHorizontalLayout` | Toolbars, option rows | LEFT/RIGHT |
-| `UIGridLayout` | Inventories, galleries | 4-direction |
-| `UIAnchorLayout` | HUD elements, fixed positions | None |
+| `UIGridLayout` | Inventories, galleries | Four-way |
+| `UIAnchorLayout` | HUD elements, fixed positions | None at layout level |
 
-### Vertical Layout (Lists)
+Layouts take a **viewport rectangle** `(x, y, width, height)` and use **`addElement` / `removeElement`**, not `addChild`.
+
+### Vertical layout (lists)
 
 ```cpp
-// ✅ Simple list with automatic navigation
-UIVerticalLayout menu(10, 20);  // x=10, y=20
-menu.setSpacing(4);
+using namespace pixelroot32;
 
-menu.addChild(std::make_unique<UIButton>("Start"));
-menu.addChild(std::make_unique<UIButton>("Options"));
-menu.addChild(std::make_unique<UIButton>("Quit"));
+void onStart() { /* ... */ }
 
-// UP/DOWN automatically handled
-// Selection wraps at edges
+auto* menu = new graphics::ui::UIVerticalLayout(
+    math::toScalar(10), math::toScalar(20),
+    200, 120);
+menu->setSpacing(4);
+
+auto* start = new graphics::ui::UIButton(
+    "Start", 0,
+    math::Vector2(math::toScalar(0), math::toScalar(0)),
+    math::Vector2(math::toScalar(80), math::toScalar(24)),
+    onStart);
+menu->addElement(start);
+// ... more buttons
+
+// From scene update: drive D-pad / focus navigation
+menu->handleInput(engine.getInputManager());
 ```
 
-### Horizontal Layout (Bars)
+### Horizontal layout (bars)
 
 ```cpp
-// ✅ Toolbar or button row
-UIHorizontalLayout toolbar(10, 200);
-toolbar.setSpacing(8);
-
-toolbar.addChild(std::make_unique<UIButton>("A"));
-toolbar.addChild(std::make_unique<UIButton>("B"));
-toolbar.addChild(std::make_unique<UIButton>("C"));
-
-// LEFT/RIGHT automatically handled
+auto* toolbar = new graphics::ui::UIHorizontalLayout(
+    math::toScalar(10), math::toScalar(200),
+    240, 32);
+toolbar->setSpacing(8);
+// toolbar->addElement(... UIButton with full constructor ...)
 ```
 
-### Grid Layout (Inventories)
+### Grid layout (inventories)
+
+Grid **cell size is computed** from the layout’s width/height, `setColumns`, padding, and `setSpacing`. There is **no** `setCellSize`.
 
 ```cpp
-// ✅ Matrix layout with 4-direction navigation
-UIGridLayout inventory(10, 50, 4, 3);  // x, y, cols, rows
-inventory.setCellSize(32, 32);
-inventory.setSpacing(4);
+auto* inventory = new graphics::ui::UIGridLayout(
+    math::toScalar(10), math::toScalar(50),
+    200, 160);
+inventory->setColumns(4);
+inventory->setSpacing(4);
 
 for (int i = 0; i < 12; ++i) {
-    inventory.addChild(std::make_unique<UIItemSlot>(i));
+    // new UIButton(...) with index i, callback, etc.
+    // inventory->addElement(btn);
 }
-
-// UP/DOWN/LEFT/RIGHT with wrapping
 ```
 
-### Anchor Layout (HUDs)
+### Anchor layout (HUDs)
+
+`addElement` takes **`(UIElement*, Anchor)`** only. There are **no** extra `(ox, oy)` parameters; use a full-screen layout and `setScreenSize`, or adjust the layout’s position/size for margins.
 
 ```cpp
-// ✅ Fixed positions without manual calculation
-UIAnchorLayout hud;
+constexpr int SW = 320;
+constexpr int SH = 240;
 
-// Score at top-left
-auto score = std::make_unique<UILabel>("Score: 0");
-hud.addChild(std::move(score), UIAnchor::TopLeft, 8, 8);
+auto* hud = new graphics::ui::UIAnchorLayout(
+    math::toScalar(0), math::toScalar(0), SW, SH);
+hud->setFixedPosition(true);
+hud->setScreenSize(SW, SH);
 
-// Lives at top-right
-auto lives = std::make_unique<UILabel>("Lives: 3");
-hud.addChild(std::move(lives), UIAnchor::TopRight, -8, 8);
+auto* score = new graphics::ui::UILabel(
+    "Score: 0",
+    math::Vector2(math::toScalar(0), math::toScalar(0)),
+    graphics::Color::White,
+    1);
+hud->addElement(score, graphics::ui::Anchor::TOP_LEFT);
+```
 
-// No reflow - positions calculated once
+Enum literals use **`Anchor::TOP_LEFT`**, `TOP_RIGHT`, `BOTTOM_RIGHT`, etc.
+
+---
+
+## Container patterns
+
+### Padding container
+
+`UIPaddingContainer` wraps **one** child (`setChild`) and uses a normal **bounding box** `(x, y, w, h)`.
+
+```cpp
+auto* padded = new graphics::ui::UIPaddingContainer(
+    math::toScalar(0), math::toScalar(0), 120, 40);
+// padded->setPadding(...);
+// padded->setChild(button);
+```
+
+### Panel (visual containers)
+
+`UIPanel` also wraps **one** child. Nest a `UILayout` for multiple rows.
+
+```cpp
+auto* dialog = new graphics::ui::UIPanel(
+    math::toScalar(50), math::toScalar(50), 140, 100);
+dialog->setBackgroundColor(graphics::Color::Black);
+dialog->setBorderColor(graphics::Color::White);
+
+auto* layout = new graphics::ui::UIVerticalLayout(
+    math::toScalar(0), math::toScalar(0), 130, 90);
+// layout->addElement(...);
+dialog->setChild(layout);
 ```
 
 ---
 
-## 🧱 Container Patterns
+## Navigation
 
-### Padding Container
+### D-pad and `handleInput`
 
-Add spacing around elements or nest layouts:
-
-```cpp
-// ✅ Padding around a button
-auto paddedButton = std::make_unique<UIPaddingContainer>(8);  // 8px padding
-paddedButton->addChild(std::make_unique<UIButton>("Click Me"));
-
-// ✅ Nesting layouts with spacing
-auto outer = std::make_unique<UIVerticalLayout>(0, 0);
-auto inner = std::make_unique<UIPaddingContainer>(16);
-inner->addChild(std::make_unique<UIButton>("Nested"));
-outer->addChild(std::move(inner));
-```
-
-### Panel (Visual Containers)
-
-Create retro-style windows and dialogs:
+`Scene::update` does **not** call `UILayout::handleInput` for you. Call it from your scene when you want list/grid/toolbar navigation:
 
 ```cpp
-// ✅ Game & Watch style dialog
-auto dialog = std::make_unique<UIPanel>(50, 50, 140, 100);
-dialog->setTitle("Pause");
-
-auto layout = std::make_unique<UIVerticalLayout>(0, 0);
-layout->addChild(std::make_unique<UIButton>("Resume"));
-layout->addChild(std::make_unique<UIButton>("Quit"));
-
-dialog->addChild(std::move(layout));
-```
-
----
-
-## 🎮 Navigation
-
-### Automatic Navigation
-
-Layouts handle D-pad input automatically:
-
-```cpp
-// VerticalLayout: UP/DOWN
-UIVerticalLayout menu;
-menu.addChild(button1);  // First selected
-menu.addChild(button2);  // DOWN goes here
-menu.addChild(button3);  // DOWN goes here
-
-// UP at top wraps to bottom (configurable)
-// DOWN at bottom wraps to top
-```
-
-### Manual Selection
-
-```cpp
-// Programmatically select
-layout.setSelectedIndex(2);  // Select third item
-
-// Get current
-int current = layout.getSelectedIndex();
-UIElement* selected = layout.getSelectedChild();
-```
-
----
-
-## ⚡ ESP32 Performance
-
-### Viewport Culling
-
-Layouts automatically cull off-screen elements:
-
-```cpp
-// ✅ Only visible items rendered
-UIVerticalLayout longList(0, 0);
-for (int i = 0; i < 100; ++i) {
-    longList.addChild(std::make_unique<UIButton>("Item " + i));
-}
-// Items outside viewport not drawn
-```
-
-### Optimized Clearing
-
-Layouts clear only when scroll changes:
-
-```cpp
-// ✅ Efficient: No redraw if position unchanged
-void update(unsigned long dt) {
-    if (scrollChanged) {
-        layout.setScrollOffset(newOffset);
-        // Redraw happens here
+void MyScene::update(unsigned long dt) {
+    if (mainMenu) {
+        mainMenu->handleInput(engine.getInputManager());
     }
-    // No redraw if offset same
+    Scene::update(dt);
 }
 ```
 
-### Instant Scroll (NES-style)
-
-Default behavior for responsive navigation:
+### Selection helpers
 
 ```cpp
-// ✅ Instant jump on selection change
-layout.setScrollMode(UIScrollMode::Instant);
-
-// Optional: Smooth for manual scroll
-layout.setScrollMode(UIScrollMode::Smooth);
+layout->setSelectedIndex(2);
+int idx = layout->getSelectedIndex();
+graphics::ui::UIElement* sel = layout->getSelectedElement();  // not getSelectedChild
 ```
 
 ---
 
-## 🎨 Sprite & Graphics
+## ESP32 performance
 
-### Sprite Descriptors
+### Viewport culling
+
+`UIVerticalLayout` and `UIGridLayout` skip drawing children outside the visible viewport when scrolling is relevant. Still prefer **fewer nodes** and **less frequent text changes**.
+
+### Scrolling
+
+Use **`setScrollEnabled`** / **`setScrollingEnabled`** (see `UIVerticalLayout` and `UILayout`) and **`setScrollOffset`** where applicable. There is **no** `UIScrollMode` enum in the current API.
+
+---
+
+## Sprite and graphics
+
+### Sprite descriptors
 
 Wrap bitmaps in descriptors before rendering:
 
 ```cpp
-// ✅ Use Sprite descriptor
 pixelroot32::graphics::Sprite playerSprite = {
     .width = 16,
     .height = 16,
@@ -205,17 +177,16 @@ pixelroot32::graphics::Sprite playerSprite = {
 renderer.drawSprite(playerSprite, x, y, paletteSlot, flipX);
 ```
 
-### Multi-Sprite (Layered)
+### Multi-sprite (layered)
 
 Compose multi-color sprites from 1bpp layers:
 
 ```cpp
-// ✅ Layered sprite for color
 pixelroot32::graphics::MultiSprite ship = {
     .layers = {
-        {shipOutline, PaletteType::PR32},    // Outline
-        {shipCockpit, PaletteType::NES},     // Cockpit detail
-        {shipEngine, PaletteType::GB}          // Engine glow
+        {shipOutline, PaletteType::PR32},
+        {shipCockpit, PaletteType::NES},
+        {shipEngine, PaletteType::GB}
     },
     .layerCount = 3
 };
@@ -225,9 +196,9 @@ renderer.drawMultiSprite(ship, x, y);
 
 **Keep layer data `static const`** for flash storage.
 
-### Bit Depth Guidelines
+### Bit depth guidelines
 
-| Format | Use For | Memory Cost |
+| Format | Use for | Memory cost |
 |--------|---------|-------------|
 | 1bpp | Game sprites, tiles | 1x |
 | 2bpp | Logos, detailed UI | 2x |
@@ -237,21 +208,21 @@ renderer.drawMultiSprite(ship, x, y);
 
 ---
 
-## 🚫 What Actors Should NOT Do
+## What actors should not do
 
 ```cpp
-// ❌ WRONG: Actors iterating pixels
+// Wrong: per-pixel loops in actors
 void MyActor::draw(Renderer& r) {
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             if (bitmap[y] & (1 << x)) {
-                r.drawPixel(x, y, color);  // NEVER!
+                r.drawPixel(x, y, color);
             }
         }
     }
 }
 
-// ✅ CORRECT: Use renderer
+// Correct: batch drawing via renderer
 void MyActor::draw(Renderer& r) {
     r.drawSprite(mySprite, position.x, position.y);
 }
@@ -259,15 +230,24 @@ void MyActor::draw(Renderer& r) {
 
 ---
 
-## 📚 Related Documentation
+## Touch vs classic widgets
+
+- **`UITouchButton` / `UITouchCheckbox` / `UITouchSlider`**: register with `UIManager::addElement` and implement `Scene::processTouchEvents`. Also `addEntity` so widgets draw.
+- **`UIButton` / `UICheckBox`**: use **`handleInput`** and focus/selection; they do not use the touch event dispatcher for hit testing.
+
+See [architecture/ARCH_TOUCH_INPUT.md](architecture/ARCH_TOUCH_INPUT.md).
+
+---
+
+## Related documentation
 
 | Document | Topic |
 |----------|-------|
 | [GRAPHICS_GUIDELINES.md](GRAPHICS_GUIDELINES.md) | Sprites, tilemaps, palettes |
 | [CODING_STYLE.md](CODING_STYLE.md) | C++ conventions |
 | [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Optimization |
-| [API_UI.md](api/API_UI.md) | Complete UI API reference |
+| [api/API_UI.md](api/API_UI.md) | UI API reference |
 
 ---
 
-*UIs should be responsive, efficient, and retro-authentic.*
+UIs should be responsive, efficient, and consistent with the real `UIElement` / `UITouchElement` split.
