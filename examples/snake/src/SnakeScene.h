@@ -4,6 +4,7 @@
 #include "platforms/EngineConfig.h"
 #include "GameConstants.h"
 #include "SnakeSegmentActor.h"
+#include "SnakeBackground.h"
 #include "math/Vector2.h"
 #include <vector>
 #include <memory>
@@ -38,7 +39,6 @@ public:
 
 private:
     static constexpr int MaxSnakeSegments = GRID_WIDTH * GRID_HEIGHT;
-    class SnakeBackground;
     std::unique_ptr<SnakeBackground> background;
 
     std::vector<SnakeSegmentActor*> snakeSegments;

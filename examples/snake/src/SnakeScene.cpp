@@ -13,29 +13,9 @@ extern pr32::core::Engine engine;
 namespace snake {
 
 namespace gfx = pr32::graphics;
-
-using Color = gfx::Color;
-
-class SnakeScene::SnakeBackground : public pr32::core::Entity {
-public:
-    SnakeBackground()
-        : pr32::core::Entity(pr32::math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, pr32::core::EntityType::GENERIC) {
-        setRenderLayer(0);
-    }
-
-    void update(unsigned long) override {
-    }
-
-    void draw(gfx::Renderer& renderer) override {
-        renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, Color::Black);
-
-        int playAreaX = 0;
-        int playAreaY = TOP_UI_GRID_ROWS * CELL_SIZE;
-        int playAreaW = GRID_WIDTH * CELL_SIZE - 1;
-        int playAreaH = (GRID_HEIGHT - TOP_UI_GRID_ROWS) * CELL_SIZE - 1;
-        renderer.drawRectangle(playAreaX, playAreaY, playAreaW, playAreaH, Color::DarkGreen);
-    }
-};
+namespace core = pr32::core;
+namespace audio = pr32::audio;
+namespace math = pr32::math;
 
 SnakeScene::SnakeScene()
     : background(nullptr),
@@ -150,8 +130,8 @@ void SnakeScene::update(unsigned long deltaTime) {
             gameOver = true;
             
             // Play crash sound
-            pr32::audio::AudioEvent crashSound;
-            crashSound.type = pr32::audio::WaveType::NOISE;
+            audio::AudioEvent crashSound;
+            crashSound.type = audio::WaveType::NOISE;
             crashSound.frequency = 50.0f;
             crashSound.duration = 0.5f;
             crashSound.volume = 0.8f;
@@ -167,8 +147,8 @@ void SnakeScene::update(unsigned long deltaTime) {
                 gameOver = true;
                 
                 // Play crash sound
-                pr32::audio::AudioEvent crashSound;
-                crashSound.type = pr32::audio::WaveType::NOISE;
+                audio::AudioEvent crashSound;
+                crashSound.type = audio::WaveType::NOISE;
                 crashSound.frequency = 50.0f;
                 crashSound.duration = 0.5f;
                 crashSound.volume = 0.8f;
@@ -180,8 +160,8 @@ void SnakeScene::update(unsigned long deltaTime) {
         }
 
         // Play move sound
-        pr32::audio::AudioEvent moveSound;
-        moveSound.type = pr32::audio::WaveType::TRIANGLE;
+        audio::AudioEvent moveSound;
+        moveSound.type = audio::WaveType::TRIANGLE;
         moveSound.frequency = 200.0f;
         moveSound.duration = 0.05f;
         moveSound.volume = 0.2f;
@@ -232,8 +212,8 @@ void SnakeScene::update(unsigned long deltaTime) {
                     }
                     
                     // Play eat sound
-                    pr32::audio::AudioEvent eatSound;
-                    eatSound.type = pr32::audio::WaveType::PULSE;
+                    audio::AudioEvent eatSound;
+                    eatSound.type = audio::WaveType::PULSE;
                     eatSound.frequency = 600.0f;
                     eatSound.duration = 0.1f;
                     eatSound.volume = 0.7f;
@@ -260,16 +240,16 @@ void SnakeScene::draw(gfx::Renderer& renderer) {
     Scene::draw(renderer);
 
     // Draw Food
-    renderer.drawFilledRectangle(static_cast<int>(food.x), static_cast<int>(food.y), CELL_SIZE - 1, CELL_SIZE - 1, Color::Red);
+    renderer.drawFilledRectangle(static_cast<int>(food.x), static_cast<int>(food.y), CELL_SIZE - 1, CELL_SIZE - 1, gfx::Color::Red);
 
     // Score
     char scoreBuffer[16];
     std::snprintf(scoreBuffer, sizeof(scoreBuffer), "SCORE: %d", score);
-    renderer.drawText(scoreBuffer, 2, 2, Color::White, 1);
+    renderer.drawText(scoreBuffer, SCORE_TEXT_X, SCORE_TEXT_Y, gfx::Color::Red, 1);
 
     if (gameOver) {
-        renderer.drawTextCentered("GAME OVER", 20, Color::White, 1);
-        renderer.drawTextCentered("PRESS ACTION", 40, Color::White, 1);
+        renderer.drawTextCentered("GAME OVER", GAME_OVER_TEXT_Y, gfx::Color::Red, 1);
+        renderer.drawTextCentered("PRESS ACTION", PRESS_ACTION_TEXT_Y, gfx::Color::Red, 1);
     }
 }
 
@@ -278,8 +258,8 @@ void SnakeScene::spawnFood() {
     while (!valid) {
         int gx = std::rand() % GRID_WIDTH;
         int gy = std::rand() % (GRID_HEIGHT - TOP_UI_GRID_ROWS) + TOP_UI_GRID_ROWS;
-        food.x = pr32::math::toScalar(gx * CELL_SIZE);
-        food.y = pr32::math::toScalar(gy * CELL_SIZE);
+        food.x = math::toScalar(gx * CELL_SIZE);
+        food.y = math::toScalar(gy * CELL_SIZE);
 
         valid = true;
         for (auto* segment : snakeSegments) {
