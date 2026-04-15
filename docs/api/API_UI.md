@@ -59,8 +59,8 @@ A clickable button UI element with support for physical buttons and D-pad naviga
 
 ### Public Methods
 
-- **`UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, std::function<void()> callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
-    Constructs a new UIButton.
+- **`UIButton(std::string_view t, uint8_t index, Vector2 position, Vector2 size, UIElementVoidCallback callback, TextAlignment textAlign = CENTER, int fontSize = 2)`**
+    Constructs a new UIButton. `UIElementVoidCallback` is `void(*)()` (function pointer, not `std::function`).
 
 - **`void setStyle(Color textCol, Color bgCol, bool drawBg)`**
     Configures the button's visual style.
@@ -273,8 +273,8 @@ A checkbox UI element with support for physical buttons and D-pad navigation.
 
 ### Public Methods
 
-- **`UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked = false, std::function<void(bool)> callback = nullptr, int fontSize = 2)`**
-    Constructs a new UICheckBox.
+- **`UICheckBox(std::string_view label, uint8_t index, Vector2 position, Vector2 size, bool checked = false, UIElementBoolCallback callback = nullptr, int fontSize = 2)`**
+    Constructs a new UICheckBox. `UIElementBoolCallback` is `void(*)(bool)` (function pointer, not `std::function`).
 
 - **`void setStyle(Color textCol, Color bgCol, bool drawBg = false)`**
     Configures the checkbox's visual style.

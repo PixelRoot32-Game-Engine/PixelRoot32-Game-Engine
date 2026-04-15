@@ -24,21 +24,26 @@ SnakeScene::SnakeScene()
       score(0),
       gameOver(false),
       lastMoveTime(0),
-      moveInterval(INITIAL_MOVE_INTERVAL_MS) {
+      moveInterval(INITIAL_MOVE_INTERVAL_MS),
+      snakeLength(0) {
     background = std::make_unique<SnakeBackground>();
     addEntity(background.get());
+    
+    // Initialize segment pool with null pointers
+    for (auto& segment : segmentPool) {
+        segment = nullptr;
+    }
 }
 
 SnakeScene::~SnakeScene() {
-    for (auto* segment : snakeSegments) {
-        removeEntity(segment);
+    for (size_t i = 0; i < snakeLength; ++i) {
+        if (snakeSegments[i]) {
+            removeEntity(snakeSegments[i]);
+        }
     }
-    snakeSegments.clear();
-    segmentPool.clear();
-
+    
     if (background) {
         removeEntity(background.get());
-        background = nullptr;
     }
 }
 
@@ -54,34 +59,49 @@ void SnakeScene::init() {
 }
 
 void SnakeScene::resetGame() {
-    if (segmentPool.empty()) {
-        segmentPool.reserve(MaxSnakeSegments);
-        for (int i = 0; i < MaxSnakeSegments; ++i) {
-            auto segment = std::make_unique<SnakeSegmentActor>(0, 0, false);
-            segmentPool.push_back(std::move(segment));
+    // Remove existing segments from scene
+    for (size_t i = 0; i < snakeLength; ++i) {
+        if (snakeSegments[i]) {
+            removeEntity(snakeSegments[i]);
         }
     }
-
-    for (auto* segment : snakeSegments) {
-        removeEntity(segment);
+    
+    // Initialize pool if empty
+    static std::unique_ptr<SnakeSegmentActor> poolStorage[MaxSnakeSegments];
+    static bool poolInitialized = false;
+    
+    if (!poolInitialized) {
+        for (int i = 0; i < MaxSnakeSegments; ++i) {
+            poolStorage[i] = std::make_unique<SnakeSegmentActor>(0, 0, false);
+            segmentPool[i] = poolStorage[i].get();
+        }
+        poolInitialized = true;
     }
-    snakeSegments.clear();
+
+    // Clear active tracking
+    activeSegments.reset();
+    snakeLength = 0;
 
     int centerX = GRID_WIDTH / 2;
     int centerY = GRID_HEIGHT / 2;
 
+    // Spawn initial snake (growing backwards from center)
     const int initialLength = 4;
     for (int i = 0; i < initialLength; ++i) {
         int x = centerX - i;
         int y = centerY;
         bool head = (i == 0);
-        SnakeSegmentActor* segment = segmentPool[i].get();
+        
+        SnakeSegmentActor* segment = segmentPool[i];
         segment->setCellPosition(x, y);
         segment->resetAlive();
         segment->setHead(head);
-        snakeSegments.push_back(segment);
+        
+        snakeSegments[i] = segment;
+        activeSegments.set(i);
         addEntity(segment);
     }
+    snakeLength = initialLength;
 
     spawnFood();
     dir = DIR_RIGHT;
@@ -114,6 +134,7 @@ void SnakeScene::update(unsigned long deltaTime) {
         lastMoveTime = now;
         dir = nextDir;
 
+        // Get head position
         int newHeadX = snakeSegments[0]->getCellX();
         int newHeadY = snakeSegments[0]->getCellY();
 
@@ -141,9 +162,9 @@ void SnakeScene::update(unsigned long deltaTime) {
             return;
         }
 
-        // Collision with self
-        for (auto* segment : snakeSegments) {
-            if (segment->getCellX() == newHeadX && segment->getCellY() == newHeadY) {
+        // Collision with self (check all active segments)
+        for (size_t i = 0; i < snakeLength; ++i) {
+            if (snakeSegments[i]->getCellX() == newHeadX && snakeSegments[i]->getCellY() == newHeadY) {
                 gameOver = true;
                 
                 // Play crash sound
@@ -168,69 +189,73 @@ void SnakeScene::update(unsigned long deltaTime) {
         moveSound.duty = 0.5f;
         engine.getAudioEngine().playEvent(moveSound);
 
-        // Move snake
+        // Check if ate food
         bool ateFood = (newHeadX * CELL_SIZE == static_cast<int>(food.x) && newHeadY * CELL_SIZE == static_cast<int>(food.y));
 
         if (ateFood) {
-            // Add new segment
-            if (snakeSegments.size() < MaxSnakeSegments) {
-                 // Use a pooled segment if available (we always have pool full, but some are unused?)
-                 // Ah, logic: segmentPool owns ALL segments. snakeSegments points to active ones.
-                 // We need to find an unused segment in the pool.
-                 
-                 SnakeSegmentActor* newSegment = nullptr;
-                 for (auto& pooled : segmentPool) {
-                     bool used = false;
-                     for (auto* active : snakeSegments) {
-                         if (active == pooled.get()) {
-                             used = true;
-                             break;
-                         }
-                     }
-                     if (!used) {
-                         newSegment = pooled.get();
-                         break;
-                     }
-                 }
-                 
-                 if (newSegment) {
-                    newSegment->setCellPosition(newHeadX, newHeadY);
-                    newSegment->setHead(true);
-                    newSegment->resetAlive();
-                    snakeSegments[0]->setHead(false); // Old head becomes body
-                    
-                    // Insert at front
-                    snakeSegments.insert(snakeSegments.begin(), newSegment);
-                    addEntity(newSegment);
-                    
-                    score += 10;
-                    spawnFood();
-                    
-                    // Speed up
-                    if (moveInterval > MIN_MOVE_INTERVAL_MS) {
-                        moveInterval -= 2;
+            // Growth: Find free slot in pool
+            if (snakeLength < MaxSnakeSegments) {
+                size_t newIndex = 0;
+                for (size_t i = 0; i < MaxSnakeSegments; ++i) {
+                    if (!activeSegments.test(i)) {
+                        newIndex = i;
+                        break;
                     }
-                    
-                    // Play eat sound
-                    audio::AudioEvent eatSound;
-                    eatSound.type = audio::WaveType::PULSE;
-                    eatSound.frequency = 600.0f;
-                    eatSound.duration = 0.1f;
-                    eatSound.volume = 0.7f;
-                    eatSound.duty = 0.5f;
-                    engine.getAudioEngine().playEvent(eatSound);
-                 }
+                }
+                
+                SnakeSegmentActor* newSegment = segmentPool[newIndex];
+                newSegment->setCellPosition(newHeadX, newHeadY);
+                newSegment->setHead(true);
+                newSegment->resetAlive();
+                
+                if (snakeLength > 0) {
+                    snakeSegments[0]->setHead(false); // Old head becomes body
+                }
+                
+                // Shift all segments back to make room at front
+                for (size_t i = snakeLength; i > 0; --i) {
+                    snakeSegments[i] = snakeSegments[i - 1];
+                }
+                
+                snakeSegments[0] = newSegment;
+                activeSegments.set(newIndex);
+                ++snakeLength;
+                addEntity(newSegment);
+                
+                score += 10;
+                spawnFood();
+                
+                // Speed up
+                if (moveInterval > MIN_MOVE_INTERVAL_MS) {
+                    moveInterval -= 2;
+                }
+                
+                // Play eat sound
+                audio::AudioEvent eatSound;
+                eatSound.type = audio::WaveType::PULSE;
+                eatSound.frequency = 600.0f;
+                eatSound.duration = 0.1f;
+                eatSound.volume = 0.7f;
+                eatSound.duty = 0.5f;
+                engine.getAudioEngine().playEvent(eatSound);
             }
         } else {
-            // Move tail to head
-            SnakeSegmentActor* tail = snakeSegments.back();
-            snakeSegments.pop_back();
+            // Movement only: reuse tail as new head
+            SnakeSegmentActor* tail = snakeSegments[snakeLength - 1];
             
             tail->setCellPosition(newHeadX, newHeadY);
             tail->setHead(true);
-            snakeSegments[0]->setHead(false);
             
-            snakeSegments.insert(snakeSegments.begin(), tail);
+            if (snakeLength > 0) {
+                snakeSegments[0]->setHead(false);
+            }
+            
+            // Shift all segments back
+            for (size_t i = snakeLength; i > 0; --i) {
+                snakeSegments[i] = snakeSegments[i - 1];
+            }
+            
+            snakeSegments[0] = tail;
         }
     }
 }
@@ -262,8 +287,8 @@ void SnakeScene::spawnFood() {
         food.y = math::toScalar(gy * CELL_SIZE);
 
         valid = true;
-        for (auto* segment : snakeSegments) {
-            if (segment->position == food) {
+        for (size_t i = 0; i < snakeLength; ++i) {
+            if (snakeSegments[i]->position == food) {
                 valid = false;
                 break;
             }
