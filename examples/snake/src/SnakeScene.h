@@ -4,8 +4,10 @@
 #include "platforms/EngineConfig.h"
 #include "GameConstants.h"
 #include "SnakeSegmentActor.h"
+#include "SnakeBackground.h"
 #include "math/Vector2.h"
-#include <vector>
+#include <array>
+#include <bitset>
 #include <memory>
 
 namespace snake {
@@ -38,11 +40,12 @@ public:
 
 private:
     static constexpr int MaxSnakeSegments = GRID_WIDTH * GRID_HEIGHT;
-    class SnakeBackground;
     std::unique_ptr<SnakeBackground> background;
 
-    std::vector<SnakeSegmentActor*> snakeSegments;
-    std::vector<std::unique_ptr<SnakeSegmentActor>> segmentPool;
+    std::array<SnakeSegmentActor*, MaxSnakeSegments> segmentPool;
+    std::array<SnakeSegmentActor*, MaxSnakeSegments> snakeSegments;
+    std::bitset<MaxSnakeSegments> activeSegments;
+    size_t snakeLength;
     pixelroot32::math::Vector2 food;
     Direction dir;
     Direction nextDir;
