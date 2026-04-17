@@ -65,6 +65,14 @@ public:
     std::optional<Scene*> getCurrentScene() const;
 
     /**
+     * @brief True if any scene on the stack needs a framebuffer pass this iteration.
+     *
+     * Used by Engine to skip draw+present only when every stacked scene returns false from
+     * Scene::shouldRedrawFramebuffer().
+     */
+    bool aggregateShouldRedrawFramebuffer() const;
+
+    /**
      * @brief Gets the number of scenes in the stack.
      * @return The number of scenes.
      */

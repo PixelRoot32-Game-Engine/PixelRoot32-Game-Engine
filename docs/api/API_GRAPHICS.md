@@ -139,7 +139,7 @@ Use this when a **direct logical 8bpp sprite buffer** exists (`DrawSurface::getS
 
 **Memory:** about **W×H** bytes (malloc-backed in `allocate*`; no heap use inside `draw`). If **`getSpriteBuffer()`** is **`nullptr`**, the implementation draws all groups every frame (same as SDL2 / non-sprite drivers).
 
-**Example:** **`examples/animated_tilemap`** — `AnimatedTilemapScene` holds a **`StaticTilemapLayerCache`**, calls **`allocateForRenderer(engine.getRenderer())`** in **`init()`**, builds **`TileMap4bppDrawSpec`** arrays for **background + ground** (static) and **details** (dynamic), and exposes **`invalidateStaticLayerCache()`** as a thin wrapper over **`invalidate()`**.
+**Example:** **`examples/animated_tilemap`** — `AnimatedTilemapScene` holds a **`StaticTilemapLayerCache`**, calls **`allocateForRenderer(engine.getRenderer())`** in **`init()`**, builds **`TileMap4bppDrawSpec`** arrays for **background** (static) and **ground + details** (dynamic), and exposes **`invalidateStaticLayerCache()`** as a thin wrapper over **`invalidate()`** when the static group changes.
 
 For the full pipeline diagram and layering context, see [Architecture — ESP32 rendering pipeline and tilemap caching](../ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching).
 
@@ -361,7 +361,7 @@ The Tile Animation System enables frame-based tile animations (water, lava, fire
 
 - **`uint8_t baseTileIndex`**: First tile in the animation sequence.
 - **`uint8_t frameCount`**: Number of frames in the animation.
-- **`uint8_t frameDuration`**: Number of game frames to display each animation frame.
+- **`uint8_t frameDuration`**: How many **60 Hz logical ticks** each animation cell is held before advancing to the next frame (1–255). Ticks are paced from **wall time** (`micros()` between `step` calls), capped at ~60 ticks/s, so speed does not depend on how fast the main loop runs when **`draw`/`present`** are skipped.
 
 ### TileAnimationManager
 
@@ -369,27 +369,23 @@ Manages tile animations for a tilemap.
 
 #### Public Methods
 
-- **`void step()`**  
-  Advances all animations by one step. Call once per frame in `Scene::update()`.
+- **`void step(unsigned long deltaTimeMs)`**  
+  Advances animations from elapsed time. Pass the same **`deltaTime`** you receive in **`Scene::update(unsigned long deltaTime)`**. Internally, pacing uses **high-resolution time** between calls so animations stay correct when **`millis()`**-based delta is often **0** on tight loops; **`deltaTimeMs`** is used as a fallback when the high-resolution clock does not advance (e.g. some unit tests).
 
 - **`void reset()`**  
   Resets all animations to frame 0.
 
-- **`uint8_t resolveFrame(uint8_t tileIndex) const`**  
+- **`uint8_t resolveFrame(uint8_t tileIndex)`**  
   Resolves tile index to current animated frame. O(1) lookup.
+
+- **`uint32_t getVisualSignature() const`**  
+  Fingerprint of the current resolved animation state (O(animCount)); stable across **`step(...)`** until a visible frame advances. Used with **`Scene::shouldRedrawFramebuffer()`** to skip **`draw`/`present`** when the framebuffer would be unchanged.
 
 ---
 
-## Tilemap Optimization System
+## Tilemap rendering notes
 
-When `PIXELROOT32_ENABLE_TILEMAP_OPTIMIZATION=1` (default):
-
-| Component | File | Description |
-|-----------|------|-------------|
-| `TileCache` | `graphics/TileCache.h` | LRU cache for pre-rendered tiles |
-| `ChunkManager` | `graphics/ChunkManager.h` | Chunk-based viewport culling |
-| `DirtyTileTracker` | `graphics/TileAnimation.h` | Animation change tracking |
-| `drawTileDirect()` | `graphics/DrawSurface.h` | Direct buffer write (ESP32 only) |
+`Renderer::drawTileMap` always applies **viewport culling** and per-tile rasterization. Optional **`drawTileDirect()`** on `DrawSurface` (when implemented by the driver) can blit pre-packed 8bpp tile rows into the logical sprite buffer. For static **4bpp** layer reuse, use **`StaticTilemapLayerCache`** (section above) and **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`**.
 
 ---
 

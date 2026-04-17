@@ -26,7 +26,8 @@ void test_fixed_timestep_constant(void) {
 
 // Test that MAX_STEPS constants are correct
 void test_max_steps_constants(void) {
-    TEST_ASSERT_EQUAL_UINT8(2, PhysicsScheduler::MAX_STEPS_NORMAL);
+    // MAX_STEPS_NORMAL = 1 (single integration per frame to avoid double integration bug)
+    TEST_ASSERT_EQUAL_UINT8(1, PhysicsScheduler::MAX_STEPS_NORMAL);
     TEST_ASSERT_EQUAL_UINT8(4, PhysicsScheduler::MAX_STEPS_BACKLOG);
 }
 
@@ -157,13 +158,16 @@ void test_adaptive_threshold(void) {
     PhysicsScheduler scheduler;
     scheduler.init();
     
-    // At exactly 2.5 frames (41667 µs), should use MAX_STEPS_NORMAL (2)
+    // At exactly 2.5 frames (41667 µs), should use MAX_STEPS_NORMAL (1 now)
+    // With MAX_STEPS_NORMAL=1, we get 1 step (not 2 as before)
     uint8_t steps1 = scheduler.update(41667, *gCollisionSystem);
-    TEST_ASSERT_EQUAL_UINT8(2, steps1);
+    TEST_ASSERT_EQUAL_UINT8(1, steps1);
     
-    // Reset and try at 2.5+ frames
+    // Reset and try at 2.5+ frames (exceeds threshold, triggers catch-up)
+    // This triggers MAX_STEPS_BACKLOG=4, but with 41667µs we get only 2 steps
     scheduler.init();
     uint8_t steps2 = scheduler.update(45000, *gCollisionSystem);
+    // 45000/16667 = 2.7 frames, should get 2 steps (2 * 16667 = 33334, remainder 11666)
     TEST_ASSERT_EQUAL_UINT8(2, steps2);
 }
 

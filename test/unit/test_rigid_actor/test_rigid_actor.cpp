@@ -202,15 +202,17 @@ void test_rigid_actor_integrate_zero_gravity(void) {
     TEST_ASSERT_EQUAL(0, static_cast<int>(actor.getVelocityY()));
 }
 
-void test_rigid_actor_update_calls_integrate(void) {
+void test_rigid_actor_update_does_not_call_integrate(void) {
     RigidActor actor(toScalar(0), toScalar(0), 10, 10);
     actor.setMass(1.0f);
     
-    // update() should call integrate()
-    actor.update(16); // 16ms delta time (not used directly)
+    // Note: integrate() is now called by CollisionSystem, not by update()
+    // update() only handles visual updates, not physics integration
+    // This test verifies that update() doesn't double-integrate
+    actor.update(16); // This should NOT call integrate()
     
-    // Gravity should have been applied
-    TEST_ASSERT_TRUE(actor.getVelocityY() > toScalar(0));
+    // Without calling integrate(), velocity should remain unchanged
+    TEST_ASSERT_EQUAL(0, static_cast<int>(actor.getVelocityY()));
 }
 
 // =============================================================================
@@ -277,7 +279,7 @@ int main(void) {
     RUN_TEST(test_rigid_actor_integrate_applies_gravity);
     RUN_TEST(test_rigid_actor_integrate_with_gravity_scale);
     RUN_TEST(test_rigid_actor_integrate_zero_gravity);
-    RUN_TEST(test_rigid_actor_update_calls_integrate);
+    RUN_TEST(test_rigid_actor_update_does_not_call_integrate);
     
     // Friction tests
     RUN_TEST(test_rigid_actor_friction_reduces_velocity);

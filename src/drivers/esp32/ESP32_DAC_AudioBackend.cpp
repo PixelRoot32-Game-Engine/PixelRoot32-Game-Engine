@@ -78,16 +78,16 @@ namespace pixelroot32::drivers::esp32 {
                 for (int i = 0; i < BUFFER_SAMPLES; i++) {
                     // Apply 0.7f scale for PAM8302A
                     int32_t scaled = (int32_t)(sampleBuffer[i] * 0.7f);
-                    
+
                     if (scaled > 32767) scaled = 32767;
                     if (scaled < -32768) scaled = -32768;
 
                     // Convert 16-bit signed to 8-bit unsigned
                     uint8_t dacValue = (uint8_t)((scaled + 32768) >> 8);
-                    dac_output_voltage(dacChannel, dacValue);
+                    // Use dacWrite() for direct register access (faster than dac_output_voltage)
+                    dacWrite(dacPin, dacValue);
                 }
-                
-                vTaskDelay(1); 
+
                 vTaskDelayUntil(&lastWakeTime, bufferTicks);
             } else {
                 vTaskDelay(10 / portTICK_PERIOD_MS);

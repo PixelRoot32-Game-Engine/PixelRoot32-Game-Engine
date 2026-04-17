@@ -55,7 +55,11 @@ public:
     /**
      * @brief Initializes the scene. Called when entering the scene.
      */
-    virtual void init() {}
+    virtual void init() {
+        #if PIXELROOT32_ENABLE_PHYSICS
+            physicsScheduler.init();
+        #endif
+    }
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM
     /**
@@ -117,6 +121,15 @@ public:
      * @param renderer The renderer to use.
      */
     virtual void draw(pixelroot32::graphics::Renderer& renderer);
+
+    /**
+     * @brief When false, Engine may skip `draw()` and `present()` for this iteration (after `update()`).
+     *
+     * Default `true` preserves legacy behavior. Override to return false only when the logical
+     * framebuffer would be identical to the last presented frame (same camera, same visuals).
+     * When `PIXELROOT32_ENABLE_DEBUG_OVERLAY` is on, Engine forces a full redraw regardless.
+     */
+    virtual bool shouldRedrawFramebuffer() const { return true; }
 
     /**
      * @brief Adds an entity to the scene.

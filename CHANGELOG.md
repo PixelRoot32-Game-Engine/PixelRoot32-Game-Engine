@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.2.2
+
+### 🔊 Audio
+
+- **NES-Style Deterministic Noise**: Replace legacy random-based noise with 15-bit LFSR for deterministic noise patterns matching authentic NES sound behavior.
+- **Performance Limits**: Add `MAX_NOTES_PER_FRAME=8` limit to music sequencer to prevent CPU spikes during dense musical passages.
+- **Fixed-Point Volume**: Pre-compute master volume as Q16 fixed-point for faster LUT mixing path.
+- **ESP32 I2S Buffer**: Increase buffer size to 1024 samples to match native configuration and improve audio stability.
+- **ESP32 DAC Optimization**: Use `dacWrite()` for direct register access instead of higher-level abstractions.
+- **Performance Metrics**: Add metrics collection when profiling is enabled for audio system analysis.
+- **Noise Timing Control**: Introduce `noisePeriodSamples` and `noiseCountdown` for better control of noise generation timing.
+- **Command Queue Overflow Handling**: Update `ESP32AudioScheduler` to handle command queue overflow and log warnings when commands are dropped.
+- **Interface Refinement**: Adjust `AudioEngine` and `AudioScheduler` interfaces to streamline audio event processing and sample generation.
+
+### 🎨 Graphics & Animations
+
+- **Tile Animation Wall-Clock Pacing**: Update `TileAnimationManager` to support wall-clock pacing with `step(deltaTimeMs)` for improved animation timing independent of frame rate.
+- **Framebuffer Redraw Optimization**: Introduce `shouldRedrawFramebuffer()` in `Scene` to conditionally skip `draw()` and `present()` calls when visual state hasn't changed, reducing unnecessary rendering.
+- **Visual Signature Computation**: Add efficient visual signature computation to determine framebuffer changes, avoiding redundant redraws.
+- **Frame Duration Documentation**: Enhance documentation for `frameDuration` in `TileAnimation` to clarify its relation to logical ticks and animation pacing.
+- **Example Optimization**: Refine `AnimatedTilemapScene` example code to demonstrate new optimizations and caching behavior.
+
+### 🏀 Physics
+
+- **Centralized Integration**: Move velocity integration from `Actor::update()` to `CollisionSystem::update()` ensuring single integration path where velocities are updated before positions.
+- **Invisible Entity Optimization**: Skip invisible entities in collision detection to improve performance.
+- **MAX_STEPS_NORMAL Reduction**: Reduce `MAX_STEPS_NORMAL` from 2 to 1 for ESP32-C3 stability while maintaining simulation accuracy.
+- **Unit Test Updates**: Adjust unit tests to reflect new integration flow and updated physics behavior.
+
+### ⚡ API & Architecture
+
+- **TFT_eSPI Configuration**: Add new configuration options `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` and `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK` to optimize DMA line transfers.
+- **Tilemap Optimization Removal**: Delete `TileCache` and `ChunkManager` classes to streamline graphics rendering, updating documentation to emphasize the `StaticTilemapLayerCache` approach instead.
+- **Physics Example Config**: Update physics example configs and fix namespace usage for consistency.
+
+### 📚 Documentation & QA
+
+- **Audio Architecture Updates**: Update documentation to reflect noise implementation changes, remaining limitations, and audio architecture refinements.
+- **API Documentation**: Update API references to clarify `StaticTilemapLayerCache` usage and improve examples for dynamic and static layer handling.
+- **Refined Comments**: Update comments in `AnimatedTilemapScene` to accurately reflect caching behavior and animation management.
+
 ## 1.2.1
 
 ### 🏀 Physics

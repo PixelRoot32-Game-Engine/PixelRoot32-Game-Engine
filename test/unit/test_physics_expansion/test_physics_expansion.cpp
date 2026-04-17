@@ -59,13 +59,14 @@ void test_static_actor_vector2_ctor_and_draw() {
     wall.draw(renderer);
 }
 
-void test_rigid_actor_gravity() {
+void test_rigid_actor_gravity_via_integrate(void) {
     RigidActor box(toScalar(0), toScalar(0), 10, 10);
     box.setGravityScale(toScalar(1.0f));
     box.setMass(toScalar(1.0f));
     
-    // Simulate one frame (16ms)
-    box.update(16);
+    // Note: integrate() is now called by CollisionSystem, not by update()
+    // Test that integrate() properly applies gravity
+    box.integrate(toScalar(0.016f)); // 16ms dt
     
     // Should have accumulated downward velocity due to gravity
     TEST_ASSERT_TRUE(box.getVelocityY() > toScalar(0));
@@ -132,7 +133,7 @@ int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_static_actor_immobility);
     RUN_TEST(test_static_actor_vector2_ctor_and_draw);
-    RUN_TEST(test_rigid_actor_gravity);
+    RUN_TEST(test_rigid_actor_gravity_via_integrate);
     RUN_TEST(test_rigid_actor_vector2_ctor_force_impulse_draw);
     RUN_TEST(test_kinematic_move_and_collide);
     RUN_TEST(test_kinematic_actor_vector2_ctor_and_draw);

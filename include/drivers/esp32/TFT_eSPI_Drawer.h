@@ -1,4 +1,7 @@
-
+/*
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
+ */
 #pragma once
 #ifndef TFT_eSPI_DRAWER_H
 #define TFT_eSPI_DRAWER_H
@@ -7,8 +10,15 @@
 
 #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
 
+#ifndef PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK
+#define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK 60
+#endif
+#ifndef PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK
+#define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK 30
+#endif
+
 #include "graphics/BaseDrawSurface.h"
-// TFT_esPI pecific includes would go here
+// TFT_eSPI-specific includes
 #include <TFT_eSPI.h>
 #include <stdint.h>
 
@@ -88,10 +98,8 @@ private:
     TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
     TFT_eSprite spr; ///< The sprite used as a framebuffer.
 
-    // Scaling support
-    static constexpr int LINES_PER_BLOCK = 60;    ///< Number of lines per DMA transfer block. Larger = less overhead, more RAM.
-    static constexpr int LINES_PER_BLOCK_FALLBACK = 30;  ///< Fallback if IRAM allocation fails
-    int activeLinesPerBlock = LINES_PER_BLOCK;  ///< Actual lines per block in use (set during init)
+    // Scaling support (batch sizes: PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK in PlatformDefaults.h)
+    int activeLinesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK; ///< Set during init from buildScaleLUTs()
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
     uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
@@ -124,11 +132,11 @@ private:
     /**
      * @brief Scales a single line from 8bpp logical to 16bpp physical.
      */
-    void scaleLine(int srcY, uint16_t* dst);
+    void scaleLine(const uint8_t* spriteBase, int srcY, uint16_t* dst);
 };
 
 } // namespace pixelroot32::drivers::esp32
 
 #endif // PIXELROOT32_USE_TFT_ESPI_DRIVER
 
-#endif // TFT_eSPI_DRAEWER_H
+#endif // TFT_eSPI_DRAWER_H

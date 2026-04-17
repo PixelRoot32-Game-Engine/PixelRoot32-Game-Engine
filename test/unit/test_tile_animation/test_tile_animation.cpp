@@ -19,6 +19,9 @@
 
 using namespace pixelroot32::graphics;
 
+// One wall-clock step slightly above 1/60 s so tickAccum crosses 1000 (60 Hz pacing).
+static constexpr unsigned long kOne60HzTickMs = 17u;
+
 #define TEST_TILE_COUNT 64
 #define MAX_ANIMATIONS 4
 
@@ -59,10 +62,11 @@ void test_tile_animation_constructor_initializes_lookup_to_identity(void) {
 void test_tile_animation_constructor_with_single_animation(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 1) };
     TileAnimationManager manager(anims, 1, 20);
-    
+
+    // Frame 0: all slots in the sequence map to the visible tile (base + frame 0).
     TEST_ASSERT_EQUAL_UINT8(10, manager.resolveFrame(10));
-    TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(11));
-    TEST_ASSERT_EQUAL_UINT8(12, manager.resolveFrame(12));
+    TEST_ASSERT_EQUAL_UINT8(10, manager.resolveFrame(11));
+    TEST_ASSERT_EQUAL_UINT8(10, manager.resolveFrame(12));
 }
 
 void test_tile_animation_constructor_validates_tile_count(void) {
@@ -82,7 +86,7 @@ void test_tile_animation_step_simple_animation(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 1) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(11));
@@ -93,20 +97,20 @@ void test_tile_animation_step_multiple_frames(void) {
     TileAnimation anims[1] = { createAnimation(5, 4, 1) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(6, manager.resolveFrame(5));
     TEST_ASSERT_EQUAL_UINT8(6, manager.resolveFrame(6));
     TEST_ASSERT_EQUAL_UINT8(6, manager.resolveFrame(7));
     TEST_ASSERT_EQUAL_UINT8(6, manager.resolveFrame(8));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(7, manager.resolveFrame(5));
     TEST_ASSERT_EQUAL_UINT8(7, manager.resolveFrame(6));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(8, manager.resolveFrame(5));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(5, manager.resolveFrame(5));
 }
 
@@ -114,13 +118,13 @@ void test_tile_animation_step_wraps_after_full_cycle(void) {
     TileAnimation anims[1] = { createAnimation(0, 2, 1) };
     TileAnimationManager manager(anims, 1, 10);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(1, manager.resolveFrame(0));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(0, manager.resolveFrame(0));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(1, manager.resolveFrame(0));
 }
 
@@ -128,16 +132,16 @@ void test_tile_animation_step_frame_duration_greater_than_one(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 2) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(10, manager.resolveFrame(10));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(12, manager.resolveFrame(10));
 }
 
@@ -148,7 +152,7 @@ void test_tile_animation_step_multiple_animations(void) {
     };
     TileAnimationManager manager(anims, 2, 30);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
     TEST_ASSERT_EQUAL_UINT8(21, manager.resolveFrame(20));
@@ -158,10 +162,23 @@ void test_tile_animation_step_empty_animations_array(void) {
     TileAnimation anims[0] = {};
     TileAnimationManager manager(anims, 0, 10);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     
     TEST_ASSERT_EQUAL_UINT8(0, manager.resolveFrame(0));
     TEST_ASSERT_EQUAL_UINT8(5, manager.resolveFrame(5));
+}
+
+void test_tile_animation_step_zero_delta_preserves_frame(void) {
+    TileAnimation anims[1] = { createAnimation(10, 3, 1) };
+    TileAnimationManager manager(anims, 1, 20);
+
+    manager.step(kOne60HzTickMs);
+    const uint8_t afterOne = manager.resolveFrame(10);
+
+    manager.step(0);
+    manager.step(0);
+
+    TEST_ASSERT_EQUAL_UINT8(afterOne, manager.resolveFrame(10));
 }
 
 // =============================================================================
@@ -180,7 +197,7 @@ void test_tile_animation_resolve_animated_tile_returns_current_frame(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 1) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(11));
@@ -210,25 +227,38 @@ void test_tile_animation_reset_returns_to_frame_zero(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 1) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
-    manager.step();
+    manager.step(kOne60HzTickMs);
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(12, manager.resolveFrame(10));
     
     manager.reset();
     TEST_ASSERT_EQUAL_UINT8(10, manager.resolveFrame(10));
 }
 
+void test_tile_animation_get_visual_signature_stable_within_frame_duration(void) {
+    TileAnimation anims[1] = { createAnimation(0, 4, 8) };
+    TileAnimationManager manager(anims, 1, 20);
+
+    const uint32_t s0 = manager.getVisualSignature();
+    for (int i = 0; i < 7; ++i) {
+        manager.step(kOne60HzTickMs);
+        TEST_ASSERT_EQUAL_UINT32(s0, manager.getVisualSignature());
+    }
+    manager.step(kOne60HzTickMs);
+    TEST_ASSERT_NOT_EQUAL(static_cast<int>(s0), static_cast<int>(manager.getVisualSignature()));
+}
+
 void test_tile_animation_reset_clears_global_frame_counter(void) {
     TileAnimation anims[1] = { createAnimation(10, 3, 1) };
     TileAnimationManager manager(anims, 1, 20);
     
-    manager.step();
-    manager.step();
-    manager.step();
-    manager.step();
+    manager.step(kOne60HzTickMs);
+    manager.step(kOne60HzTickMs);
+    manager.step(kOne60HzTickMs);
+    manager.step(kOne60HzTickMs);
     
     manager.reset();
-    manager.step();
+    manager.step(kOne60HzTickMs);
     
     TEST_ASSERT_EQUAL_UINT8(11, manager.resolveFrame(10));
 }
@@ -247,11 +277,11 @@ void test_tile_animation_full_lifecycle(void) {
     TEST_ASSERT_EQUAL_UINT8(0, manager.resolveFrame(0));
     TEST_ASSERT_EQUAL_UINT8(16, manager.resolveFrame(16));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(0, manager.resolveFrame(0));
     TEST_ASSERT_EQUAL_UINT8(17, manager.resolveFrame(16));
     
-    manager.step();
+    manager.step(kOne60HzTickMs);
     TEST_ASSERT_EQUAL_UINT8(1, manager.resolveFrame(0));
     TEST_ASSERT_EQUAL_UINT8(16, manager.resolveFrame(16));
     
@@ -281,8 +311,10 @@ int main(void) {
     RUN_TEST(test_tile_animation_step_multiple_frames);
     RUN_TEST(test_tile_animation_step_wraps_after_full_cycle);
     RUN_TEST(test_tile_animation_step_frame_duration_greater_than_one);
+    RUN_TEST(test_tile_animation_get_visual_signature_stable_within_frame_duration);
     RUN_TEST(test_tile_animation_step_multiple_animations);
     RUN_TEST(test_tile_animation_step_empty_animations_array);
+    RUN_TEST(test_tile_animation_step_zero_delta_preserves_frame);
     
     RUN_TEST(test_tile_animation_resolve_non_animated_tile_returns_same);
     RUN_TEST(test_tile_animation_resolve_animated_tile_returns_current_frame);

@@ -165,8 +165,8 @@ public:
 ```cpp
 // In PROGMEM
 PIXELROOT32_SCENE_FLASH_ATTR const TileAnimation animations[] = {
-    { 2, 4, 8, 0 },  // Water: tiles 2-5, 4 frames, 8 ticks
-    { 6, 2, 6, 0 },  // Lava: tiles 6-7, 2 frames, 6 ticks
+    { 2, 4, 8, 0 },  // Water: tiles 2-5, 4 frames, 8× (1/60 s) ticks per cell
+    { 6, 2, 6, 0 },  // Lava: tiles 6-7, 2 frames, 6× (1/60 s) ticks per cell
 };
 
 TileAnimationManager animManager(animations, 2, 64);
@@ -182,7 +182,7 @@ TileMap2bpp backgroundLayer = {
 
 ```cpp
 void MyScene::update(unsigned long dt) {
-    animManager.step();  // Advance once per frame
+    animManager.step(dt);  // Wall-time pacing (see TileAnimationManager API)
     Scene::update(dt);
 }
 
@@ -194,15 +194,12 @@ void MyScene::draw(Renderer& r) {
 
 ### Speed Control
 
-```cpp
-// Half speed: advance every 2 frames
-if (frameCount % 2 == 0) {
-    animManager.step();
-}
+Animation speed is driven by **`frameDuration`** in **`TileAnimation`** data (larger value → each sprite frame held longer). Do not gate **`step(dt)`** on engine loop count to change speed; that breaks wall-clock pacing when the loop runs faster than the display.
 
-// Pause when game paused
+```cpp
+// Pause when game paused (do not call step while frozen)
 if (!isPaused) {
-    animManager.step();
+    animManager.step(dt);
 }
 ```
 
@@ -210,7 +207,7 @@ if (!isPaused) {
 
 1. **Sequential frames only**: Tiles 2,3,4,5 - not 2,5,9,12
 2. **Shared state**: All instances of a tile share the same frame
-3. **StaticTilemapLayerCache**: If tilemap is in **static** group, `step()` requires `invalidate()` on cache
+3. **StaticTilemapLayerCache**: If tilemap is in **static** group, advancing tile animation requires `invalidate()` on that cache when applicable
 
 ---
 

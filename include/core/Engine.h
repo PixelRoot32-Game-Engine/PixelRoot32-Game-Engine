@@ -88,9 +88,9 @@ public:
 
     /**
      * @brief Starts the main game loop.
-     * 
-     * This method contains the infinite loop that calls update() and draw() repeatedly.
-     * It handles frame timing and delta time calculation.
+     *
+     * Infinite loop: update() each iteration; draw() and present() only when the active
+     * scene's Scene::shouldRedrawFramebuffer() is true (always when PIXELROOT32_ENABLE_DEBUG_OVERLAY).
      */
     void run();
 

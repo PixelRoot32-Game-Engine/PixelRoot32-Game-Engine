@@ -276,6 +276,7 @@ namespace animatedtiles {
     // - TileAnimation: 4-byte POD structure stored in PROGMEM
     // - TileAnimationManager: Engine runtime system with O(1) frame resolution
     // - Global sync: All tiles with same base_tile animate together
+    // - frameDuration is in 60 Hz logical ticks (see TileAnimation.h); pacing uses micros().
     // ============================================================================
 
     // Animation definitions for layer: Ground

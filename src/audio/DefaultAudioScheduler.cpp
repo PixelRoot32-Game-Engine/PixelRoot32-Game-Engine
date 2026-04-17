@@ -20,7 +20,8 @@
 #endif
 
 namespace pixelroot32::audio {
-
+    
+    namespace platforms = pixelroot32::platforms;
     namespace logging = pixelroot32::core::logging;
     using logging::LogLevel;
     using logging::log;
@@ -36,7 +37,7 @@ namespace pixelroot32::audio {
         }
     }
 
-    void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
+    void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate, const platforms::PlatformCapabilities& /*caps*/) {
         this->sampleRate = sampleRate;
     }
 
@@ -59,7 +60,16 @@ namespace pixelroot32::audio {
     void DefaultAudioScheduler::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
-        processCommands();
+        // Performance timing (when profiling enabled)
+        uint32_t startTime = 0;
+        if constexpr (platforms::config::EnableProfiling) {
+            startTime = micros();
+        }
+
+        // Only process commands if queue is not empty to avoid atomic overhead
+        if (!commandQueue.isEmpty()) {
+            processCommands();
+        }
 
         // Advance music sequencer (Phase 3)
         updateMusicSequencer(length);
@@ -103,14 +113,15 @@ namespace pixelroot32::audio {
                 }
             }
 
-            if (masterVolume != 1.0f) {
-                sum = (int32_t)(sum * masterVolume);
+            // Apply master volume using pre-computed Q16 fixed-point scale
+            if (masterVolumeScale != 65536) {
+                sum = (sum * masterVolumeScale) >> 16;
             }
 
             int32_t index = (sum + 131072) >> 8;
             if (index < 0) index = 0;
             if (index > 1024) index = 1024;
-            
+
             int16_t finalSample = audio_mixer_lut[index];
             stream[i] = finalSample;
 
@@ -150,7 +161,7 @@ namespace pixelroot32::audio {
         static uint64_t totalSamplesProcessed = 0;
         totalSamplesProcessed += length;
         if (totalSamplesProcessed >= (uint64_t)sampleRate) { // Approx every second
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            if constexpr (platforms::config::EnableProfiling) {
                 if (currentPeak > 32767.0f) {
                     log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
                 } else {
@@ -162,6 +173,16 @@ namespace pixelroot32::audio {
         }
         
         audioTimeSamples += length;
+
+        // Performance timing (when profiling enabled)
+        if constexpr (platforms::config::EnableProfiling) {
+            uint32_t elapsed = micros() - startTime;
+            totalGenerateTimeUs += elapsed;
+            generateSampleCount++;
+            if (elapsed > maxGenerateTimeUs) {
+                maxGenerateTimeUs = elapsed;
+            }
+        }
     }
 
     void DefaultAudioScheduler::processCommands() {
@@ -175,6 +196,8 @@ namespace pixelroot32::audio {
                     masterVolume = cmd.volume;
                     if (masterVolume > 1.0f) masterVolume = 1.0f;
                     if (masterVolume < 0.0f) masterVolume = 0.0f;
+                    // Pre-compute for LUT path (Q16 fixed-point)
+                    masterVolumeScale = (int32_t)(masterVolume * 65536.0f);
                     break;
                 case AudioCommandType::STOP_CHANNEL:
                     if (cmd.channelIndex < NUM_CHANNELS) {
@@ -210,7 +233,28 @@ namespace pixelroot32::audio {
     void DefaultAudioScheduler::updateMusicSequencer(int /*length*/) {
         if (!musicPlaying || musicPaused || !currentTrack) return;
 
+        int notesProcessed = 0;
         while (musicPlaying && currentTrack && audioTimeSamples >= nextNoteSample) {
+            if (notesProcessed >= MAX_NOTES_PER_FRAME) {
+                notesSkipped++;
+                // Skip ahead to catch up without playing
+                while (audioTimeSamples >= nextNoteSample && musicPlaying && currentTrack) {
+                    const MusicNote& note = currentTrack->notes[currentNoteIndex];
+                    uint64_t noteDurationSamples = (uint64_t)((note.duration / tempoFactor) * (float)sampleRate);
+                    nextNoteSample += noteDurationSamples;
+                    currentNoteIndex++;
+                    if (currentNoteIndex >= currentTrack->count) {
+                        if (currentTrack->loop) {
+                            currentNoteIndex = 0;
+                        } else {
+                            musicPlaying = false;
+                            currentTrack = nullptr;
+                        }
+                    }
+                }
+                break;
+            }
+
             playCurrentNote();
 
             // Calculate when the next note should play
@@ -228,10 +272,11 @@ namespace pixelroot32::audio {
                 }
             }
 
-            // Safety: if we are too far behind, catch up
-            if (nextNoteSample < audioTimeSamples && musicPlaying) {
-                // Optional: handle extreme lag by skipping notes or just letting it run fast
-            }
+            notesProcessed++;
+        }
+
+        if (notesProcessed > maxNotesProcessed) {
+            maxNotesProcessed = notesProcessed;
         }
     }
 
@@ -264,12 +309,10 @@ namespace pixelroot32::audio {
             ch->volume = event.volume;
             ch->targetVolume = event.volume;
             ch->volumeDelta = 0.0f;
-            
+
             // Convert seconds to samples
             ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
-            ch->durationMs = (unsigned long)(event.duration * 1000.0f);
-            ch->remainingMs = ch->durationMs;
-            
+
             if (event.type == WaveType::PULSE) {
                 ch->dutyCycle = event.duty;
             }
@@ -310,10 +353,11 @@ namespace pixelroot32::audio {
                 }
                 break;
             case WaveType::NOISE:
-                if (ch.phase < ch.phaseIncrement) {
-                    ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
-                }
-                sample = (ch.noiseRegister & 1) ? 1.0f : -1.0f;
+                // NES-style 15-bit LFSR with taps at bits 0 and 1
+                // Update every sample for better noise quality
+                uint16_t feedback = ((ch.lfsrState & 1) ^ ((ch.lfsrState >> 1) & 1));
+                ch.lfsrState = (ch.lfsrState >> 1) | (feedback << 14);
+                sample = (ch.lfsrState & 1) ? 1.0f : -1.0f;
                 break;
         }
 

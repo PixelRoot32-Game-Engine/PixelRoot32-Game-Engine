@@ -38,8 +38,10 @@ void FlappyBirdScene::init() {
 }
 
 void FlappyBirdScene::createPipes() {
-    topPipe = std::make_unique<PipeActor>(Vector2(toScalar(screenWidth), toScalar(0)), PIPE_WIDTH, 20, true);
-    bottomPipe = std::make_unique<PipeActor>(Vector2(toScalar(screenWidth), toScalar(40)), PIPE_WIDTH, 20, false);
+    // Spawn pipes completely off-screen (x = screenWidth + PIPE_WIDTH)
+    // to prevent collision before they scroll into view
+    topPipe = std::make_unique<PipeActor>(Vector2(toScalar(screenWidth + PIPE_WIDTH), toScalar(0)), PIPE_WIDTH, 20, true);
+    bottomPipe = std::make_unique<PipeActor>(Vector2(toScalar(screenWidth + PIPE_WIDTH), toScalar(40)), PIPE_WIDTH, 20, false);
     
     topPipe->isVisible = false;
     bottomPipe->isVisible = false;
@@ -51,6 +53,7 @@ void FlappyBirdScene::createPipes() {
 void FlappyBirdScene::resetGame() {
     bird->reset(Vector2(toScalar(BIRD_START_X), toScalar(screenHeight / 2.0f)));
 
+    // Calculate pipe gap position
     int maxGapY = screenHeight - PIPE_GAP - 10;
     int minGapY = 10;
     if (maxGapY <= minGapY) maxGapY = minGapY + 1;

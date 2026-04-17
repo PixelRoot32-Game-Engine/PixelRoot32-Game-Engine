@@ -60,4 +60,16 @@ namespace pixelroot32::core {
         }
         return std::nullopt;
     }
+
+    bool SceneManager::aggregateShouldRedrawFramebuffer() const {
+        if (sceneCount <= 0) {
+            return true;
+        }
+        for (int i = 0; i < sceneCount; ++i) {
+            if (sceneStack[i]->shouldRedrawFramebuffer()) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -48,7 +48,7 @@ PixelRoot32 is not the product of a traditional electronics expert or a large en
 
 It was born from curiosity, experimentation, and a deep love for retro games from the 90s.
 
-Coming from a mobile development background with limited experience in C++, this project represents a leap into embedded systems. What made that possible is how accessible knowledge has become today — especially with the help of AI, lowering the barrier to building complex systems.
+Coming from a mobile development background with limited experience in C++, this project represents a leap into embedded systems. This was made possible by how accessible knowledge has become today—especially with AI-assisted tools lowering the barrier to building complex systems.
 
 PixelRoot32 is a reflection of that shift: exploring new domains driven by curiosity rather than specialization.
 
@@ -188,7 +188,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.2.1
+    gperez88/PixelRoot32-Game-Engine@^1.2.2
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -230,18 +230,15 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Online Resources
 
 - **[📖 Full Documentation](https://docs.pixelroot32.org)**: Guides, API reference, and tutorials.
-- **[📦 Examples](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/examples)**: Runnable demos in-repo (`examples/*`, each with its own `platformio.ini`).
 - **[🛠️ Asset Tools](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler)**: Sprite compiler and development tools.
 
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
 - **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
-- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy (includes [ESP32 tilemap static cache](docs/ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)).
-- **[Animated tilemap example](examples/animated_tilemap/README.md)**: **Read this** if you use `AnimatedTilemapScene` or **`StaticTilemapLayerCache`**—documents engine snapshot API, **`invalidateStaticLayerCache()`**, and **static vs dynamic** layer groups (performance-critical on ESP32).
+- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
 - **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
-- **[Migration v1.1.0](docs/MIGRATION_v1.1.0.md)**: Guide for upgrading from v1.0.0.
 - **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
 
 ---
@@ -272,51 +269,31 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.2.1
+## 1.2.2
+
+### 🔊 Audio
+
+- **NES-Style Noise**: Replaced legacy random-based noise with 15-bit LFSR for deterministic sound patterns.
+- **Performance Limits**: Added `MAX_NOTES_PER_FRAME=8` limit to prevent CPU spikes during dense musical passages.
+- **Fixed-Point Volume**: Pre-compute master volume as Q16 fixed-point for faster mixing.
+- **ESP32 Optimizations**: Increased I2S buffer to 1024 samples, use `dacWrite()` for direct register access.
+- **Queue Overflow Handling**: ESP32AudioScheduler now handles command queue overflow with warning logs.
+
+### 🎨 Graphics & Animations
+
+- **Wall-Clock Pacing**: `TileAnimationManager` now supports `step(deltaTimeMs)` for frame-rate-independent animations.
+- **Framebuffer Optimization**: New `shouldRedrawFramebuffer()` in `Scene` skips unnecessary rendering when visual state hasn't changed.
+- **Visual Signature**: Efficient computation to detect framebuffer changes and avoid redundant redraws.
 
 ### 🏀 Physics
 
-- **Fixed Timestep Scheduler**: New `PhysicsScheduler` with accumulator-based 60Hz simulation for stable physics across variable frame rates, especially on ESP32 under WiFi/BT interrupt load.
-- **Scene Integration**: `Scene` now uses the scheduler instead of direct `CollisionSystem::update()` calls.
-- **Physics Optimizations**: Added adaptive step limiting, velocity clamping, damping, and fast reciprocal square root optimizations.
+- **Centralized Integration**: Velocity integration moved from `Actor::update()` to `CollisionSystem::update()` for single integration path.
+- **Performance**: Skip invisible entities in collision detection, reduce `MAX_STEPS_NORMAL` to 1 for ESP32-C3 stability.
 
-### 🎮 Examples
+### ⚡ API & Architecture
 
-- **Space Invaders**: Complete sample game with grid-based movement, alien formations, projectile pooling, bunker defenses, swept collision, procedural audio, and native/ESP32 support.
-- **Brick Breaker**: New breakout-style sample with paddle/ball physics, destructible bricks, collision layers, particles, audio, starfield effects, and HUD.
-
-### ⚡ Architecture & QA
-
-- **Build Profiles**: Fixed timestep physics is now enabled by default across build profiles.
-- **Docs & Tests**: Expanded documentation and added comprehensive unit tests for the scheduler and physics behavior.
-
-## 1.2.0
-
-### ⚡ Architecture
-
-- **Refactor Physics Conditionals**: Switch from `constexpr` to preprocessor macros for runtime configuration.
-- **Namespace Cleanup**: Replace `using namespace` with aliases and selective `using` declarations.
-
-### 🎨 Graphics
-
-- **ILI9341 Display Support**: New display type with factory integration.
-- **Static Tilemap Layer Cache**: Fast path rendering for ESP32 with `memcpy` layer restoration.
-- **Tile Animation Fix**: Properly respect `PIXELROOT32_ENABLE_TILE_ANIMATIONS` define.
-
-### 🔢 Math
-
-- **Deterministic PRNG**: Xorshift32 algorithm with thread-safe `Random` struct and rejection sampling.
-
-### 🎮 Input
-
-- **Touch Pipeline & ESP32 CYD**: Hardware-agnostic abstraction (`XPT2046`/`GT911`), gesture system with consume/propagate semantics.
-
-### 🎨 UI
-
-- **Function Pointer Callbacks**: Replace `std::function` with function pointers to reduce binary size.
-- **Touch UI Components**: `UITouchButton` with `autoSize`, `UITouchCheckbox`, and `UITouchSlider` with drag support.
-
-> **Migration guide v1.1.0 → v1.2.0**: [MIGRATION_v1.2.0](docs/MIGRATION_v1.2.0.md)
+- **TFT_eSPI Config**: New `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` options for DMA optimization.
+- **Tilemap Cleanup**: Removed `TileCache` and `ChunkManager`, documentation updated to emphasize `StaticTilemapLayerCache`.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

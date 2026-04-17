@@ -46,7 +46,7 @@
 1. Scene creates TileAnimationManager
    ├─ Reads TileAnimation[] from PROGMEM
    ├─ Initializes lookupTable[MAX_TILESET_SIZE]
-   └─ Sets identity mapping (i → i)
+   └─ Sets identity mapping (i → i), then rebuilds animated ranges for frame 0
 
 2. Scene links manager to tilemap
    └─ backgroundLayer.animManager = &animManager
@@ -63,35 +63,40 @@ Tilemap indices → AnimationManager → Tileset
 # Update Loop (Scene::update)
 
 ```
-┌─────────────────────────────────────────────┐
-│ Scene::update()                             │
-│                                             │
-│   └─▶ animManager.step()                    │
-│        │                                    │
-│        ├─ globalFrameCounter++              │
-│        │                                    │
-│        └─ For each animation:               │
-│             │                               │
-│             ├─ currentFrame =               │
-│             │   (counter / duration) % frames
-│             │                               │
-│             ├─ currentTile =                │
-│             │   baseTile + currentFrame     │
-│             │                               │
-│             └─ Update lookup table:         │
-│                 for f in 0..frameCount-1    │
-│                     lookupTable[base+f] =   │
-│                       currentTile           │
-│                                             │
-│   Return (~3–7 µs)                          │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│ Scene::update(deltaTime)                        │
+│                                                 │
+│   └─▶ animManager.step(deltaTime)               |
+│        │                                        │
+│        ├─ Wall pacing (~60 Hz max):             │
+│        │   accumulate micros between calls      │
+│        │   (fallback: deltaTime when 0)         │
+│        │   → emit 0..N logical ticks            │
+│        │                                        │
+│        ├─ For each tick: globalFrameCounter++   │
+│        │                                        │
+│        └─ For each animation:                   │
+│             │                                   │
+│             ├─ currentFrame =                   │
+│             │   (counter / duration) % frames   │
+│             │                                   │
+│             ├─ currentTile =                    │
+│             │   baseTile + currentFrame         │
+│             │                                   │
+│             └─ Update lookup table:             │
+│                 for f in 0..frameCount-1        │
+│                     lookupTable[base+f] =       │
+│                       currentTile               │
+│                                                 │
+│   Return O(1) when no tick; else O(A×F)         │
+└─────────────────────────────────────────────────┘
 ```
 
 Key properties:
 
-• deterministic update cost
+• deterministic update cost when the lookup rebuilds (same as before)
 • no dynamic allocations
-• small constant runtime
+• small constant runtime; pacing decoupled from main-loop iteration rate
 
 ---
 
@@ -219,7 +224,7 @@ lookupTable[45] = 45
 
 ## Animation Example
 
-Water animation:
+Water animation (`frameDuration` = **8 logical ticks at ~60 Hz** ≈ **133 ms** per animation cell):
 
 ```
 baseTile = 42
@@ -235,7 +240,7 @@ Frames stored in tiles:
 
 ---
 
-### Frames 0–7
+### Logical ticks 0–7 (counter 0–7)
 
 ```
 currentFrame = (counter / 8) % 4 = 0
@@ -251,7 +256,7 @@ lookupTable[45] = 42
 
 ---
 
-### Frames 8–15
+### Logical ticks 8–15 (counter 8–15)
 
 ```
 currentFrame = 1
@@ -267,7 +272,7 @@ lookupTable[45] = 43
 
 ---
 
-### Frames 16–23
+### Logical ticks 16–23 (counter 16–23)
 
 ```
 currentFrame = 2
@@ -283,7 +288,7 @@ lookupTable[45] = 44
 
 ---
 
-### Frames 24–31
+### Logical ticks 24–31 (counter 24–31)
 
 ```
 currentFrame = 3
@@ -487,3 +492,16 @@ Result:
 Production-ready tile animation system
 optimized for ESP32-class hardware
 ```
+
+---
+
+## Related Documentation
+
+### Framebuffer Optimization (v1.2.2+)
+
+For additional rendering optimizations, see [ARCHITECTURE.md](../ARCHITECTURE.md):
+
+- **`shouldRedrawFramebuffer()`**: Scene method that conditionally skips `draw()` and `present()` calls when visual state hasn't changed, reducing unnecessary rendering.
+- **`getVisualSignature()`**: Visual signature computation to efficiently detect framebuffer changes and avoid redundant redraws.
+
+See [ARCHITECTURE.md - Rendering Pipeline](../ARCHITECTURE.md#rendering-pipeline) for details.

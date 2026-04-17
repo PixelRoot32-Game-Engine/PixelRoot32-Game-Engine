@@ -89,9 +89,8 @@ namespace pixelroot32::core {
         }
         
         #if PIXELROOT32_ENABLE_PHYSICS
-            // Convert deltaTime (ms) to microseconds for physics scheduler
-            uint32_t deltaMicros = static_cast<uint32_t>(deltaTime * 1000);
-            physicsScheduler.update(deltaMicros, collisionSystem);
+            // Use fixed timestep scheduler for physics (converts deltaTime ms to micros)
+            physicsScheduler.update(deltaTime * 1000, collisionSystem);
         #endif
 
         if constexpr (pixelroot32::platforms::config::EnableProfiling) {

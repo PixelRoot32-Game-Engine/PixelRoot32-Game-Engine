@@ -52,6 +52,11 @@ AnimatedTilemapScene::AnimatedTilemapScene()
 }
 
 void AnimatedTilemapScene::init() {
+    hasPresentedFramebuffer = false;
+    lastPresentedSignature = 0;
+    pendingPresentSignature = 0;
+    omitDrawPresentThisFrame = false;
+
     animatedtiles::init();
 
     tilemapLayerCache.clear();
@@ -88,37 +93,58 @@ void AnimatedTilemapScene::setupLevelData() {
 }
 
 void AnimatedTilemapScene::setupTilemapLayers() {
-    // Tilemaps are drawn in draw() via StaticTilemapLayerCache (background + ground snapshotted;
-    // details redrawn each frame when fast path applies). Adjust TileMap4bppDrawSpec lists in draw()
+    // Tilemaps are drawn in draw() via StaticTilemapLayerCache: only background is snapshotted;
+    // ground + details are dynamic (both have animManager). Adjust TileMap4bppDrawSpec lists in draw()
     // for other layer splits. Use TileMapLayerEntity + Scene::draw for the generic entity path.
 }
 
 void AnimatedTilemapScene::update(unsigned long deltaTime) {
 
-    // Update animated tiles — if you enable stepping, also call invalidateStaticLayerCache()
-    // when the stepped manager affects background or ground layers (details-only fast path).
-    animatedtiles::getGroundAnimManager().step();
-    animatedtiles::getDetailsAnimManager().step();
+    // Ground and details animate every frame; they live in the dynamic draw group (see draw()).
+    // Do not invalidate the static snapshot each frame — only background is cached.
+    animatedtiles::getGroundAnimManager().step(deltaTime);
+    animatedtiles::getDetailsAnimManager().step(deltaTime);
 
-    invalidateStaticLayerCache();
-    
     // Update scene entities
     Scene::update(deltaTime);
+
+    pendingPresentSignature = computePresentSignature();
+    // Conservative: any scene entity forces a full redraw (movement, particles, etc.).
+    omitDrawPresentThisFrame = hasPresentedFramebuffer && entityCount == 0 &&
+        (pendingPresentSignature == lastPresentedSignature);
+}
+
+uint32_t AnimatedTilemapScene::computePresentSignature() const {
+    const uint32_t g = animatedtiles::getGroundAnimManager().getVisualSignature();
+    const uint32_t d = animatedtiles::getDetailsAnimManager().getVisualSignature();
+    const int camX = -engine.getRenderer().getXOffset();
+    const int camY = -engine.getRenderer().getYOffset();
+    const uint32_t c = static_cast<uint32_t>(camX) ^ (static_cast<uint32_t>(camY) * 2654435761u);
+    return g ^ (d * 2246822519u) ^ c;
+}
+
+bool AnimatedTilemapScene::shouldRedrawFramebuffer() const {
+    return !omitDrawPresentThisFrame;
 }
 
 void AnimatedTilemapScene::invalidateStaticLayerCache() {
     tilemapLayerCache.invalidate();
+    // Next frame must redraw (signature alone may not capture static bitmap changes).
+    hasPresentedFramebuffer = false;
 }
 
 void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
+    lastPresentedSignature = pendingPresentSignature;
+    hasPresentedFramebuffer = true;
+
     const int camX = -renderer.getXOffset();
     const int camY = -renderer.getYOffset();
 
     const gfx::TileMap4bppDrawSpec staticLayers[] = {
         {levelData.background, 0, 0},
-        {levelData.ground, 0, 0},
     };
     const gfx::TileMap4bppDrawSpec dynamicLayers[] = {
+        {levelData.ground, 0, 0},
         {levelData.details, 0, 0},
     };
 
