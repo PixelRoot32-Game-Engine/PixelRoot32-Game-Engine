@@ -55,7 +55,11 @@ public:
     /**
      * @brief Initializes the scene. Called when entering the scene.
      */
-    virtual void init() {}
+    virtual void init() {
+        #if PIXELROOT32_ENABLE_PHYSICS
+            physicsScheduler.init();
+        #endif
+    }
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM
     /**
