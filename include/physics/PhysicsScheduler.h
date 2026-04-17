@@ -20,7 +20,7 @@ public:
     static constexpr uint32_t FIXED_DT_MICROS = 16667;
     
     /// Maximum physics steps per frame under normal conditions
-    static constexpr uint8_t MAX_STEPS_NORMAL = 2;
+    static constexpr uint8_t MAX_STEPS_NORMAL = 1;
     
     /// Maximum physics steps when behind (catch-up mode)
     static constexpr uint8_t MAX_STEPS_BACKLOG = 4;

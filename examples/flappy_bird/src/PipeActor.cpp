@@ -5,15 +5,17 @@ namespace pr32 = pixelroot32;
 
 namespace flappy {
 
+namespace core = pr32::core;
 namespace math = pr32::math;
 namespace physics = pr32::physics;
-namespace core = pr32::core;
-namespace graphics = pr32::graphics;
+namespace gfx = pr32::graphics;
 
 using math::Vector2;
 using math::toScalar;
 using physics::KinematicActor;
-using physics::CollisionShape;
+using core::CollisionShape;
+using gfx::Renderer;
+using gfx::Color;
 
 PipeActor::PipeActor(Vector2 pos, int width, int height, bool isTop) 
     : KinematicActor(pos, width, height), isTopPipe(isTop) {

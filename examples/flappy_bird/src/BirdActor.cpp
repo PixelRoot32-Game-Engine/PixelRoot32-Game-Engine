@@ -5,15 +5,17 @@ namespace pr32 = pixelroot32;
 
 namespace flappy {
 
+namespace core = pr32::core;
 namespace math = pr32::math;
 namespace physics = pr32::physics;
-namespace core = pr32::core;
-namespace graphics = pr32::graphics;
+namespace gfx = pr32::graphics;
 
 using math::Vector2;
 using math::toScalar;
 using physics::RigidActor;
-using physics::CollisionShape;
+using core::CollisionShape;
+using gfx::Renderer;
+using gfx::Color;
 
 BirdActor::BirdActor(Vector2 pos) 
     : RigidActor(Vector2(pos.x - BIRD_RADIUS, pos.y - BIRD_RADIUS), BIRD_RADIUS * 2, BIRD_RADIUS * 2) {
@@ -41,6 +43,8 @@ void BirdActor::draw(Renderer& renderer) {
 }
 
 void BirdActor::onCollision(Actor* other) {
+    (void)other;
+    
     if (!dead) {
         dead = true;
     }

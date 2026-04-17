@@ -7,6 +7,7 @@
  * Note: Integration happens first to enable spatial crossing detection for one-way platforms
  */
 #include "physics/CollisionSystem.h"
+#include "physics/RigidActor.h"
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
 #include "math/MathUtil.h"
@@ -83,7 +84,23 @@ namespace pixelroot32::physics {
             }
         }
         
-        // Integrate positions FIRST to enable spatial crossing detection
+        // Integrate velocities/forces FIRST (RigidActor::integrate updates velocity)
+        PIXELROOT32_PROFILE_BEGIN(Physics_IntegrateVelocity);
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
+            if (e->type != EntityType::ACTOR) continue;
+            Actor* actor = static_cast<Actor*>(e);
+            if (!actor->isPhysicsBody()) continue;
+            PhysicsActor* pa = static_cast<PhysicsActor*>(actor);
+            if (pa->getBodyType() == PhysicsBodyType::RIGID) {
+                // Cast to RigidActor to call its integrate (updates velocity from forces/gravity)
+                RigidActor* rigid = static_cast<RigidActor*>(pa);
+                rigid->integrate(FIXED_DT);
+            }
+        }
+        PIXELROOT32_PROFILE_END(Physics_IntegrateVelocity);
+        
+        // Integrate positions SECOND to enable spatial crossing detection
         PIXELROOT32_PROFILE_BEGIN(Physics_IntegratePositions);
         integratePositions();
         PIXELROOT32_PROFILE_END(Physics_IntegratePositions);
@@ -125,6 +142,8 @@ namespace pixelroot32::physics {
             if (e->type != EntityType::ACTOR) continue;
             Actor* actorA = static_cast<Actor*>(e);
             if (!actorA->isPhysicsBody()) continue;
+            // Skip invisible entities from collision detection
+            if (!actorA->isVisible) continue;
             PhysicsActor* pA = static_cast<PhysicsActor*>(actorA);
             
             int count = 0;
@@ -132,6 +151,9 @@ namespace pixelroot32::physics {
             
             for (int i = 0; i < count; ++i) {
                 Actor* actorB = potential[i];
+                // Skip invisible entities from collision detection
+                if (!actorB->isVisible) continue;
+                
                 // Deduplicate by entityId: process each pair once (A with smaller id).
                 if (actorA->entityId >= actorB->entityId) continue;
                 
@@ -393,37 +415,9 @@ namespace pixelroot32::physics {
             PhysicsActor* pa = static_cast<PhysicsActor*>(actor);
             if (pa->getBodyType() != PhysicsBodyType::RIGID) continue;
             
-            Vector2 vel = pa->getVelocity();
-            
-            // Phase 3: Early skip for stationary bodies (ESP32 micro-optimization)
-            if (vel.x == toScalar(0.0f) && vel.y == toScalar(0.0f)) continue;
-            
-            // Phase 3: Velocity clamping (before integration)
-            Scalar velLen2 = vel.x * vel.x + vel.y * vel.y;
-            Scalar maxVel2 = MAX_VELOCITY * MAX_VELOCITY;
-            if (velLen2 > maxVel2 && velLen2 > toScalar(0.0f)) {
-                #ifdef PIXELROOT32_HAS_FAST_RSQRT
-                    // Faster: 1 multiplication instead of sqrt + division
-                    Scalar invLen = math::rsqrt(velLen2);
-                    vel = vel * (MAX_VELOCITY * invLen);
-                #else
-                    // Standard: sqrt + division
-                    Scalar len = math::sqrt(velLen2);
-                    Scalar scale = MAX_VELOCITY / len;
-                    vel = vel * scale;
-                #endif
-            }
-            
-            // Phase 3: Velocity damping
-            vel = vel * VELOCITY_DAMPING;
-            
-            // Zero out tiny velocities
-            if (abs(vel.x) < MIN_VELOCITY) vel.x = toScalar(0.0f);
-            if (abs(vel.y) < MIN_VELOCITY) vel.y = toScalar(0.0f);
-            pa->setVelocity(vel);
-            
-            // Integrate position
-            pa->position = pa->position + vel * FIXED_DT;
+            // v1.2.0 behavior: simple position integration using existing velocity
+            // (velocity update happens in RigidActor::integrate() called by entity.update())
+            pa->position = pa->position + pa->getVelocity() * FIXED_DT;
         }
     }
 
