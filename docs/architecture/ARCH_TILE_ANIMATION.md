@@ -492,3 +492,16 @@ Result:
 Production-ready tile animation system
 optimized for ESP32-class hardware
 ```
+
+---
+
+## Related Documentation
+
+### Framebuffer Optimization (v1.2.2+)
+
+For additional rendering optimizations, see [ARCHITECTURE.md](../ARCHITECTURE.md):
+
+- **`shouldRedrawFramebuffer()`**: Scene method that conditionally skips `draw()` and `present()` calls when visual state hasn't changed, reducing unnecessary rendering.
+- **`getVisualSignature()`**: Visual signature computation to efficiently detect framebuffer changes and avoid redundant redraws.
+
+See [ARCHITECTURE.md - Rendering Pipeline](../ARCHITECTURE.md#rendering-pipeline) for details.

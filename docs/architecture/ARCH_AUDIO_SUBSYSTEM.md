@@ -209,6 +209,11 @@ Used on architectures without floating-point units.
 
 The asymptotic nature of the curve ensures that the output **never** exceeds the `int16_t` limits, eliminating the need for hard clipping and reducing harmonic distortion.
 
+#### Volume Optimization (v1.2.2+)
+
+- **Q16 Fixed-Point Volume**: Master volume is pre-computed as Q16 fixed-point for faster LUT mixing path on no-FPU architectures (ESP32-C3). This eliminates floating-point operations during the mixing hot path.
+- **ESP32 I2S Buffer**: The I2S DMA buffer size is increased to 1024 samples to match native configuration and improve audio stability on ESP32.
+
 ### 3.5 Event playback: playEvent
 
 `void AudioEngine::playEvent(const AudioEvent& event)`:

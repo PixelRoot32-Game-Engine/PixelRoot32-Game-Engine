@@ -445,6 +445,10 @@ static const MusicNote DRUM_PATTERN[] = {
 - More memory available for longer/complex tracks
 - Higher quality mixing and effects
 
+### Performance Notes (v1.2.2+)
+
+**Note:** When the audio clock jumps ahead significantly (e.g., after a frame drop or heavy computation), the music sequencer processes notes with a catch-up mechanism. The scheduler limits processing to `MAX_NOTES_PER_FRAME = 8` notes per audio quantum to prevent CPU spikes. During heavy catch-up scenarios, some notes may be skipped to bound CPU usage. This behavior is designed to maintain audio stability at the cost of occasional dropped notes during extreme lag conditions.
+
 ---
 
 ## Troubleshooting

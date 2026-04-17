@@ -488,7 +488,7 @@ The PhysicsScheduler implements a **fixed timestep with time accumulator** patte
 | Constant | Value | Description |
 |----------|-------|-------------|
 | `FIXED_DT_MICROS` | 16667 µs | Fixed timestep (60 Hz) |
-| `MAX_STEPS_NORMAL` | 2 | Max steps per frame under normal conditions |
+| `MAX_STEPS_NORMAL` | 1 | Max steps per frame under normal conditions (v1.2.2+: reduced from 2 for ESP32-C3 stability) |
 | `MAX_STEPS_BACKLOG` | 4 | Max steps when behind (catch-up mode) |
 
 ### CollisionSystem Constants
@@ -503,6 +503,11 @@ These can be overridden at compile time:
 -D PIXELROOT32_VELOCITY_DAMPING=0.995
 -D PIXELROOT32_MAX_VELOCITY=300
 ```
+
+### Performance Optimizations (v1.2.2+)
+
+- **Skip Invisible Entities**: Collision detection skips entities where `isVisible() == false`. This optimization improves performance by avoiding unnecessary collision checks for hidden entities.
+- **Centralized Velocity Integration**: Velocity integration is now centralized in `CollisionSystem::update()` rather than in `Actor::update()`. This ensures a single integration path where velocities are updated before positions.
 
 ### Public Methods
 

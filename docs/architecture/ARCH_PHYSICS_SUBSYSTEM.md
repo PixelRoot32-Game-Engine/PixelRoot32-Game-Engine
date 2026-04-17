@@ -24,11 +24,14 @@ Every frame, the `CollisionSystem` executes physics in strict order:
 
 ```
 1. Detect Collisions       → Identify all overlapping pairs
-2. Solve Velocity          → Apply impulse-based collision response
-3. Integrate Positions     → Update positions: p = p + v * FIXED_DT
-4. Solve Penetration       → Baumgarte stabilization + Slop
-5. Trigger Callbacks       → Notify gameplay code (onCollision)
+2. Integrate Velocity      → Update velocities (v = v + a * dt) in CollisionSystem
+3. Solve Velocity          → Apply impulse-based collision response
+4. Integrate Positions     → Update positions: p = p + v * FIXED_DT
+5. Solve Penetration      → Baumgarte stabilization + Slop
+6. Trigger Callbacks       → Notify gameplay code (onCollision)
 ```
+
+> **Note (v1.2.2+):** Velocity integration has been centralized in `CollisionSystem::update()`. The `Actor::update()` no longer handles velocity integration — this ensures a single integration path where velocities are updated before positions, improving determinism and consistency.
 
 This order is critical:
 
@@ -82,9 +85,12 @@ Frame 4 (16ms): accumulator = 30666µs → 1 step, accumulator = 14000µs
 | Feature | Description |
 |---------|-------------|
 | **Time Accumulator** | Accumulates real microseconds, never discards time |
-| **Adaptive Steps** | 2 steps normal, up to 4 when behind (catch-up mode) |
+| **Adaptive Steps** | 1 step normal (2 on desktop), up to 4 when behind (catch-up mode) |
 | **No Clamping** | Preserves real time for catch-up, avoids "slow motion" |
-| **ESP32 Optimized** | Early skip for stationary bodies, IRAM_ATTR |
+| **ESP32 Optimized** | Early skip for stationary bodies, skip invisible entities, IRAM_ATTR |
+| **Skip Invisible** | Collision detection skips entities with `isVisible() == false` for performance |
+
+> **Note (v1.2.2+):** `MAX_STEPS_NORMAL` was reduced from 2 to 1 for ESP32-C3 stability while maintaining simulation accuracy. Desktop builds may use 2 steps.
 
 ### 2.1.4 Integration
 
