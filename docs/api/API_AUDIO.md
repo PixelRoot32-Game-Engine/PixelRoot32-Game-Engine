@@ -205,6 +205,51 @@ void MyScene::init() {
 
 ---
 
+## Audio Configuration Constants
+
+### Build Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `PIXELROOT32_ENABLE_AUDIO` | 1 | Enable/disable entire audio subsystem |
+| `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
+| `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
+
+### ESP32 Buffer Configuration
+
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `ESP32_I2S_BUFFER_SIZE` | 1024 | I2S DMA buffer size in samples (must be power of 2) |
+| `ESP32_DAC_USE_DAC_WRITE` | true | Use dacWrite() for direct register access (faster) |
+
+### Audio Scheduler Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MAX_NOTES_PER_FRAME` | 8 | Max notes processed per audio quantum to prevent CPU spikes |
+| `AUDIO_COMMAND_QUEUE_SIZE` | 128 | SPSC queue capacity for audio commands |
+
+> **Note:** When the audio clock jumps ahead (e.g., after frame drop), the scheduler may skip notes if `MAX_NOTES_PER_FRAME` is reached. This prevents audio thread starvation but may result in dropped notes during catch-up.
+
+### Noise Channel Configuration
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `lfsrState` | `uint16_t` | NES-style 15-bit LFSR state for deterministic noise |
+| `noisePeriodSamples` | `uint32_t` | Sample interval for noise clock (ESP32 only) |
+| `noiseCountdown` | `uint16_t` | Countdown counter for noise timing |
+
+> **Note:** The noise channel uses a 15-bit Linear Feedback Shift Register (LFSR) for deterministic, reproducible noise patterns, matching authentic NES behavior. The LFSR advances every output sample in DefaultAudioScheduler, or at the rate specified by `noisePeriodSamples` in ESP32AudioScheduler.
+
+### Volume Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MASTER_VOLUME_Q16` | Fixed16 | Master volume pre-computed as Q16 fixed-point for faster LUT mixing |
+| `CHANNEL_GAIN` | 0.4f | Per-channel gain applied before mixing |
+
+---
+
 ## AudioConfig
 
 Configuration struct for the audio system.
