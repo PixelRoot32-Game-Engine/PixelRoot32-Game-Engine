@@ -6,6 +6,7 @@
 
 #include "AudioTypes.h"
 #include "AudioBackend.h"
+#include "ApuCore.h"
 #include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::audio {
@@ -70,6 +71,11 @@ namespace pixelroot32::audio {
          * @brief Reports whether the music sequencer is paused.
          */
         virtual bool isMusicPaused() const { return false; }
+
+        /**
+         * @brief Gets reference to the underlying ApuCore for diagnostics/profiling.
+         */
+        virtual ApuCore& getApuCore() = 0;
     };
 
 } // namespace pixelroot32::audio

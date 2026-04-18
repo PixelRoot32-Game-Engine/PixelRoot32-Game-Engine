@@ -394,9 +394,9 @@ namespace pixelroot32::audio {
     void ApuCore::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
-#if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
-        const uint32_t startTime = micros();
-#endif
+// #if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
+//         const uint32_t startTime = micros();
+// #endif
 
         if (!commandQueue.isEmpty()) processCommands();
         updateMusicSequencer();
@@ -572,11 +572,13 @@ namespace pixelroot32::audio {
 
         if constexpr (platforms::config::EnableProfiling) {
             if (samplesSinceLog >= (uint64_t)sampleRate) {
-                if (currentPeak > 32767.0f) {
-                    log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", currentPeak);
-                } else {
-                    log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)",
-                        currentPeak, (currentPeak / 32767.0f) * 100.0f);
+                uint8_t idx = profileWriteIdx.fetch_add(1, std::memory_order_relaxed);
+                idx %= PROFILE_RING_SIZE;
+                profileRing[idx].audioTimeSamples = audioTimeSamples;
+                profileRing[idx].peak = currentPeak;
+                profileRing[idx].clipped = (currentPeak >= 32767.0f);
+                if (profileCount < PROFILE_RING_SIZE) {
+                    profileCount++;
                 }
                 currentPeak = 0.0f;
                 samplesSinceLog = 0;
@@ -586,9 +588,18 @@ namespace pixelroot32::audio {
             samplesSinceLog = 0;
         }
 
-#if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
-        (void)startTime;
-#endif
+// #if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
+//         (void)startTime;
+// #endif
+    }
+
+void ApuCore::getAndResetProfileStats(ProfileEntry* out, uint8_t& count) {
+        count = profileCount;
+        uint8_t startIdx = profileCount > 0 ? (profileWriteIdx.load(std::memory_order_relaxed) - profileCount + PROFILE_RING_SIZE) % PROFILE_RING_SIZE : 0;
+        for (uint8_t i = 0; i < count; ++i) {
+            out[i] = profileRing[(startIdx + i) % PROFILE_RING_SIZE];
+        }
+        profileCount = 0;
     }
 
 } // namespace pixelroot32::audio

@@ -70,6 +70,15 @@ namespace pixelroot32::audio {
         /** Reset all state. Intended for unit tests. */
         void reset();
 
+        // -- Profiling API (public for Engine access) -------------
+        static constexpr int PROFILE_RING_SIZE = 64;
+        struct ProfileEntry {
+            uint64_t audioTimeSamples;
+            float peak;
+            bool clipped;
+        };
+        void getAndResetProfileStats(ProfileEntry* out, uint8_t& count);
+
     private:
         void processCommands();
         void updateMusicSequencer();
@@ -93,7 +102,13 @@ namespace pixelroot32::audio {
         float hpfPrevIn = 0.0f;
         float hpfPrevOut = 0.0f;
 
-        // -- Diagnostics (per instance, not static!) ----------------------
+        // -- Profiling ring buffer (thread-safe offload) --------------------
+        ProfileEntry profileRing[PROFILE_RING_SIZE];
+        uint8_t profileHead = 0;
+        uint8_t profileCount = 0;
+        std::atomic<uint8_t> profileWriteIdx{0};
+
+        // -- Legacy diagnostics (keep for non-profiling builds) ----------
         float currentPeak = 0.0f;
         uint64_t samplesSinceLog = 0;
 

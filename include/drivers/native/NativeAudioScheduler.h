@@ -38,6 +38,7 @@ namespace pixelroot32::audio {
         void generateSamples(int16_t* stream, int length) override;
         bool isMusicPlaying() const override { return apu.isMusicPlaying(); }
         bool isMusicPaused()  const override { return apu.isMusicPaused(); }
+        ApuCore& getApuCore() override { return apu; }
 
         const ApuCore& core() const { return apu; }
         ApuCore& core() { return apu; }

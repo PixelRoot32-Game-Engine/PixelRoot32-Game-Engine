@@ -51,6 +51,11 @@ namespace pixelroot32::audio {
          */
         void setScheduler(std::unique_ptr<AudioScheduler> scheduler);
 
+        /**
+         * @brief Gets the underlying scheduler for diagnostics/profiling.
+         */
+        AudioScheduler* getScheduler() const { return scheduler.get(); }
+
     private:
         AudioConfig config;
         pixelroot32::platforms::PlatformCapabilities capabilities;
