@@ -36,6 +36,16 @@ namespace pixelroot32::audio {
         void submitCommand(const AudioCommand& cmd);
 
         /**
+         * @brief Reports the real-time music transport state from the
+         *        underlying scheduler/ApuCore (not a cached flag).
+         *
+         * This lets MusicPlayer and game code observe natural end-of-track
+         * for non-looping music without polling private scheduler state.
+         */
+        bool isMusicPlaying() const;
+        bool isMusicPaused() const;
+
+        /**
          * @brief Sets a custom scheduler.
          * @param scheduler The scheduler to use.
          */

@@ -19,7 +19,7 @@ The architecture documentation is organized into **layers** (hardware to game co
 
 | Subsystem | Document | Description |
 |-----------|----------|-------------|
-| **Audio NES** | [Audio Subsystem](architecture/ARCH_AUDIO_SUBSYSTEM.md) | 4-channel NES-style audio (ex-AUDIO_NES_*) |
+| **Audio NES** | [Audio Subsystem](architecture/ARCH_AUDIO_SUBSYSTEM.md) | 4-channel NES-style: shared **`ApuCore`**, `AudioScheduler`, backends — see [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md), [API Audio](api/API_AUDIO.md) |
 | **Physics** | [Physics Subsystem](architecture/ARCH_PHYSICS_SUBSYSTEM.md) | Flat Solver, collisions, CCD (ex-PHYSICS_*) |
 | **Memory** | [Memory System](architecture/ARCH_MEMORY_SYSTEM.md) | Smart pointers, RAII, ESP32 DRAM (ex-MEMORY_*) |
 | **Resolution Scaling** | [Resolution Scaling](architecture/ARCH_RESOLUTION_SCALING.md) | Logical vs physical resolution (ex-RESOLUTION_*) |
@@ -42,6 +42,8 @@ For class-level API documentation, see `docs/api/`:
 | Audio | [API_AUDIO.md](api/API_AUDIO.md) |
 | Input | [API_INPUT.md](api/API_INPUT.md) |
 | Platform | [API_PLATFORM.md](api/API_PLATFORM.md) |
+
+**Audio (lectura recomendada):** [Arquitectura audio NES](architecture/ARCH_AUDIO_SUBSYSTEM.md) (diseño e implementación) → [API Audio](api/API_AUDIO.md) (clases y tipos) → [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md) (melodías y multi-pista).
 
 ---
 
@@ -87,7 +89,7 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 ├─────────────────────────────────────────────────────────────┤
 │  LAYER 2: Abstraction Layer                                 │
 │  ├─ DrawSurface (Bridge Pattern)                            │
-│  ├─ AudioScheduler (Strategy Pattern)                       │
+│  ├─ AudioScheduler → ApuCore (Strategy + núcleo compartido) │
 │  ├─ PlatformMemory, PlatformCapabilities                    │
 │  ├─ Math System (Scalar abstraction)                        │
 │  └─ Unified Logging                                         │
@@ -167,3 +169,4 @@ For animation data flow and linking managers to tilemaps, see [Tile Animation](a
 | [Platform Compatibility](PLATFORM_COMPATIBILITY.md) | Supported hardware matrix |
 | [Testing Guide](TESTING_GUIDE.md) | Unit and integration testing |
 | [Migration Guides](MIGRATION_v1.0.0.md) | Version upgrade guides |
+| [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md) | Música de fondo, multi-pista, tempo/BPM |

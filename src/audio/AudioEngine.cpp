@@ -70,6 +70,14 @@ namespace pixelroot32::audio {
         }
     }
 
+    bool AudioEngine::isMusicPlaying() const {
+        return scheduler ? scheduler->isMusicPlaying() : false;
+    }
+
+    bool AudioEngine::isMusicPaused() const {
+        return scheduler ? scheduler->isMusicPaused() : false;
+    }
+
     void AudioEngine::setScheduler(std::unique_ptr<AudioScheduler> newScheduler) {
         if (newScheduler) {
             newScheduler->init(config.backend, config.sampleRate, capabilities);

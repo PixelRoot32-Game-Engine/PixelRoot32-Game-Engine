@@ -7,81 +7,54 @@
 #ifdef PLATFORM_NATIVE
 
 #include "audio/AudioScheduler.h"
-#include "audio/AudioCommandQueue.h"
-#include "audio/AudioMusicTypes.h"
-#include <thread>
+#include "audio/ApuCore.h"
+
 #include <atomic>
+#include <thread>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 
 namespace pixelroot32::audio {
 
     /**
      * @class NativeAudioScheduler
-     * @brief Audio scheduler for native platforms using a dedicated thread.
-     * 
-     * This mimics the multi-core behavior of the ESP32 by running audio generation
-     * in a separate std::thread and communicating via a ring buffer.
+     * @brief Audio scheduler for native builds.
+     *
+     * Runs ApuCore in its own std::thread and double-buffers samples through
+     * a lock-free ring, mirroring the dual-core ESP32 behaviour. All
+     * synthesis / sequencer logic lives in ApuCore; this class owns only
+     * threading and the ring buffer.
      */
     class NativeAudioScheduler : public AudioScheduler {
     public:
-        NativeAudioScheduler(size_t ringBufferSize = 4096);
-        virtual ~NativeAudioScheduler();
+        explicit NativeAudioScheduler(size_t ringBufferSize = 4096);
+        ~NativeAudioScheduler() override;
 
-        void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override;
+        void init(AudioBackend* backend, int sampleRate,
+                  const pixelroot32::platforms::PlatformCapabilities& caps) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
         bool isIndependent() const override { return true; }
         void generateSamples(int16_t* stream, int length) override;
+        bool isMusicPlaying() const override { return apu.isMusicPlaying(); }
+        bool isMusicPaused()  const override { return apu.isMusicPaused(); }
+
+        const ApuCore& core() const { return apu; }
+        ApuCore& core() { return apu; }
 
     private:
-        static constexpr int NUM_CHANNELS = 4;
-        AudioChannel channels[NUM_CHANNELS];
-        AudioCommandQueue commandQueue;
-        
-        int sampleRate = 44100;
-        float masterVolume = 1.0f;
-        uint64_t audioTimeSamples = 0;
-        
+        ApuCore apu;
+
         std::thread audioThread;
         std::atomic<bool> running{false};
-        
-        // Sample Ring Buffer (Thread-safe SPSC)
+
         std::vector<int16_t> ringBuffer;
         std::atomic<size_t> rbReadPos{0};
         std::atomic<size_t> rbWritePos{0};
         size_t rbCapacity;
 
-        // Music Sequencer State - NES-style tick synchronization
-        static constexpr size_t MAX_MUSIC_TRACKS = 4;
-        static constexpr float DEFAULT_BPM = 150.0f;  // Typical NES tempo
-        static constexpr int TICKS_PER_BEAT = 4;        // 4 ticks per beat (quarter notes)
-        
-        const MusicTrack* tracks[MAX_MUSIC_TRACKS] = {nullptr, nullptr, nullptr, nullptr};
-        size_t currentNoteIndices[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
-        uint64_t nextNoteSamples[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
-        
-        // NES-style tick-based synchronization
-        uint64_t globalTickCounter = 0;
-        uint64_t tickDurationSamples = 0;
-        float tempoBPM = DEFAULT_BPM;
-        size_t activeTrackCount = 0;
-        float tempoFactor = 1.0f;
-        bool musicPlaying = false;
-        bool musicPaused = false;
-
         void threadLoop();
-        void processCommands();
-        void executePlayEvent(const AudioEvent& event);
-        void updateMusicSequencer(int length);
-        void playCurrentNote();
-        
-        AudioChannel* findFreeChannel(WaveType type);
-        float generateSampleForChannel(AudioChannel& ch);
 
-        // Ring buffer helpers
         size_t rbAvailableToRead() const;
         size_t rbAvailableToWrite() const;
         void rbWrite(const int16_t* data, size_t count);

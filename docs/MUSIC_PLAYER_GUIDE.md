@@ -498,19 +498,29 @@ static const MusicNote DRUM_PATTERN[] = {
 
 **ESP32:**
 
-- Music timing is sample-accurate and runs on Core 0
-- Limited memory - keep tracks short and efficient
-- Use 1bpp sprites and simple music for best performance
+- Music timing is **sample-accurate** inside `ApuCore` (shared by all schedulers). The backend’s audio task or I2S callback calls `AudioEngine::generateSamples`, which advances the sequencer and mixes PCM.
+- Limited memory: keep tracks short and efficient; prefer `static const` data in flash.
+- Subsystem is compiled only when `PIXELROOT32_ENABLE_AUDIO=1`.
 
 **Native (PC/Mac/Linux):**
 
-- Full SDL2 audio backend
-- More memory available for longer/complex tracks
-- Higher quality mixing and effects
+- `NativeAudioScheduler` runs `ApuCore` in a dedicated `std::thread` and double-buffers PCM for the SDL2 callback—same synthesis and music logic as ESP32.
+- More headroom for longer tracks; mixing path uses the same non-linear curve as ESP32 (FPU).
 
-### Performance Notes (v1.2.2+)
+### `isPlaying()` and transport state
 
-**Note:** When the audio clock jumps ahead significantly (e.g., after a frame drop or heavy computation), the music sequencer processes notes with a catch-up mechanism. The scheduler limits processing to `MAX_NOTES_PER_FRAME = 8` notes per audio quantum to prevent CPU spikes. During heavy catch-up scenarios, some notes may be skipped to bound CPU usage. This behavior is designed to maintain audio stability at the cost of occasional dropped notes during extreme lag conditions.
+`MusicPlayer::isPlaying()` reflects **whether music is actively being sequenced**, not only a client-side flag:
+
+- The authoritative signal is `AudioEngine::isMusicPlaying()` / `isMusicPaused()`, which read atomics updated by **`ApuCore`** when `MUSIC_PLAY` / `MUSIC_STOP` / end-of-non-looping-track / pause / resume are processed.
+- **While paused**, `isPlaying()` returns **false** (playback is suspended).
+- **Right after `play()`**, before the audio thread has dequeued `MUSIC_PLAY`, `isPlaying()` may still return **true** briefly so game code does not see a spurious “stopped” window (command in flight).
+- **Non-looping** tracks: when the last note finishes, `ApuCore` clears the music-playing flag; `isPlaying()` becomes **false** without an explicit `stop()`.
+
+For raw transport without the MusicPlayer wrapper, call `engine.getAudioEngine().isMusicPlaying()` / `isMusicPaused()`.
+
+### BPM API
+
+Besides `setTempoFactor` / `getTempoFactor`, you can drive absolute tempo with **`setBPM`** / **`getBPM`** (default 150 BPM, 4 ticks per beat in the sequencer).
 
 ---
 
@@ -676,11 +686,12 @@ private:
 
 ## References
 
-- **Audio Types:** See `AudioMusicTypes.h` for complete type definitions
-- **MusicPlayer API:** See `MusicPlayer.h` for full method documentation
-- **Audio Engine:** See `AudioEngine.h` for sound effects integration
-- **Examples:** Check `examples/Games/SpaceInvaders/` and `examples/Games/BrickBreaker/` for real-world usage
+- **Audio types & presets:** `include/audio/AudioMusicTypes.h`
+- **MusicPlayer API:** `include/audio/MusicPlayer.h`
+- **Audio facade & music transport:** `include/audio/AudioEngine.h` (`isMusicPlaying` / `isMusicPaused`)
+- **Shared synthesis & sequencer:** `include/audio/ApuCore.h`
+- **Examples:** See game samples under `examples/` for real-world usage.
 
 ---
 
-**Note:** Music timing is sample-accurate and independent of frame rate, ensuring consistent playback across different hardware platforms and performance conditions.
+**Note:** Music timing is sample-accurate inside `ApuCore` and is independent of render frame rate, so melody tempo does not slow down when the main loop stalls (within the limits of the audio backend’s buffer).

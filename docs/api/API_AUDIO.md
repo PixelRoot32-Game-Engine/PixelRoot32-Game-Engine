@@ -10,7 +10,7 @@ This document covers the audio system, sound effects, and music playback in Pixe
 
 ## Audio Module Overview
 
-The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus a lightweight melody subsystem for background music.
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus a lightweight melody subsystem for background music. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
 
 ---
 
@@ -40,11 +40,17 @@ The core class managing audio generation and playback.
 - **`void setMasterVolume(float volume)`**
     Sets the master volume level (0.0 to 1.0).
 
-- **`void setScheduler(std::shared_ptr<AudioScheduler> scheduler)`**
-    Sets a custom audio scheduler. For advanced use.
+- **`void setScheduler(std::unique_ptr<AudioScheduler> scheduler)`**
+    Replaces the active scheduler (advanced use; ownership transfers to the engine).
 
-- **`void submitCommand(const Command& command)`**
-    Submits a low-level command to the audio thread. For advanced use.
+- **`void submitCommand(const AudioCommand& cmd)`**
+    Submits a low-level command to the audio consumer (`ApuCore` via the active scheduler). Same SPSC contract as `playEvent`.
+
+- **`bool isMusicPlaying() const`**
+    True when the shared `ApuCore` sequencer reports active music transport (after `MUSIC_PLAY`, cleared on `MUSIC_STOP` or natural end of a non-looping track).
+
+- **`bool isMusicPaused() const`**
+    True after `MUSIC_PAUSE` until `MUSIC_RESUME`.
 
 - **`float getMasterVolume() const`**
     Gets the current master volume level.
@@ -72,7 +78,7 @@ audio.playEvent(evt);
 
 - `PULSE`: Square wave with variable duty cycle.
 - `TRIANGLE`: Triangle wave (fixed volume/duty).
-- `NOISE`: Pseudo-random noise.
+- `NOISE`: LFSR-based noise (deterministic, NES-style 15-bit polynomial).
 
 ### AudioEvent (Struct)
 
@@ -83,7 +89,7 @@ Structure defining a sound effect to be played.
 - **`float duration`**: Duration in seconds.
 - **`float volume`**: Volume level (0.0 to 1.0).
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
-- **`uint8_t noisePeriod`** (optional): LFSR period for NOISE channel. 0 = calc from frequency, >0 = direct period (for percussion).
+- **`uint8_t noisePeriod`**: For `NOISE`, `0` = derive LFSR step period from `frequency`; `> 0` = fixed period in samples (percussion presets).
 
 ---
 
@@ -165,8 +171,7 @@ These helpers reduce boilerplate when defining melodies and keep instruments con
 
 **Inherits:** None
 
-High-level sequencer for playing `MusicTrack` instances as background music.
-Music timing is handled internally by the `AudioEngine`.
+High-level API for playing `MusicTrack` instances as background music. It only **enqueues** `AudioCommand`s; note advancement and `AudioEvent` triggering run inside **`ApuCore`** on the audio consumer thread/context.
 
 ### Public Methods
 
@@ -186,7 +191,7 @@ Music timing is handled internally by the `AudioEngine`.
     Resumes playback after pause.
 
 - **`bool isPlaying() const`**
-    Returns true if a track is currently playing and not finished.
+    Returns **true** only when music is **actively sequencing** and **not paused** (combines `AudioEngine::isMusicPlaying()` / `isMusicPaused()` with a short “command in flight” window after `play()` so callers do not flicker to false before the audio thread dequeues `MUSIC_PLAY`). While **paused**, returns **false**.
 
 - **`void setTempoFactor(float factor)`**
     Sets the global tempo scaling factor.
@@ -197,8 +202,14 @@ Music timing is handled internally by the `AudioEngine`.
 - **`float getTempoFactor() const`**
     Gets the current tempo scaling factor (default 1.0f).
 
+- **`void setBPM(float bpm)`**
+    Sets sequencer BPM (clamped roughly to 30–300); issues `MUSIC_SET_BPM`.
+
+- **`float getBPM() const`**
+    Gets the last BPM sent from the game side (default 150).
+
 - **`size_t getActiveTrackCount() const`**
-    Returns the number of currently active tracks (1-4). Returns 0 if not playing.
+    Returns the number of layered tracks (1–4) based on the last `play()` and local `playing` state; returns **0** if not playing.
 
 ### Typical Usage
 
@@ -237,38 +248,29 @@ void MyScene::init() {
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 
-### ESP32 Buffer Configuration
+### ESP32 buffer notes
 
-| Constant | Default | Description |
-|----------|---------|-------------|
-| `ESP32_I2S_BUFFER_SIZE` | 1024 | I2S DMA buffer size in samples (must be power of 2) |
-| `ESP32_DAC_USE_DAC_WRITE` | true | Use dacWrite() for direct register access (faster) |
+I2S backends typically aggregate **1024 samples** per DMA transaction (implementation detail in `ESP32_I2S_AudioBackend`). Internal DAC output uses **I2S in `I2S_MODE_DAC_BUILT_IN`** so samples reach the 8-bit DAC via DMA (not per-sample `dacWrite()`).
 
-### Audio Scheduler Constants
+### Audio / queue constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MAX_NOTES_PER_FRAME` | 8 | Max notes processed per audio quantum to prevent CPU spikes |
-| `AUDIO_COMMAND_QUEUE_SIZE` | 128 | SPSC queue capacity for audio commands |
+| Symbol / concept | Value | Description |
+|------------------|-------|-------------|
+| `AudioCommandQueue::CAPACITY` | 128 | SPSC ring capacity (`AudioCommandQueue.h`) |
+| `ApuCore::MIXER_SCALE` | `0.4f` | Per-channel gain before non-linear mix (FPU path) |
+| `ApuCore::MIXER_K` | `0.5f` | Soft-knee compressor: `mixed = sum / (1 + \|sum\| * K)` |
 
-> **Note:** When the audio clock jumps ahead (e.g., after frame drop), the scheduler may skip notes if `MAX_NOTES_PER_FRAME` is reached. This prevents audio thread starvation but may result in dropped notes during catch-up.
+On **no-FPU** ESP32 (e.g. ESP32-C3), `ApuCore` uses an **integer oscillator mirror** (`phaseQ32`, `phaseIncQ32`, …) plus the precomputed **`audio_mixer_lut`** (`inline constexpr` in `AudioMixerLUT.h`) so the inner loop avoids soft-float.
 
-### Noise Channel Configuration
+### Noise channel (`AudioChannel`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lfsrState` | `uint16_t` | NES-style 15-bit LFSR state for deterministic noise |
-| `noisePeriodSamples` | `uint32_t` | Sample interval for noise clock (ESP32 only) |
-| `noiseCountdown` | `uint16_t` | Countdown counter for noise timing |
+| `lfsrState` | `uint16_t` | NES-style 15-bit LFSR (same polynomial on all platforms) |
+| `noisePeriodSamples` | `uint32_t` | Samples between LFSR steps |
+| `noiseCountdown` | `uint32_t` | Countdown to next LFSR tick |
 
-> **Note:** The noise channel uses a 15-bit Linear Feedback Shift Register (LFSR) for deterministic, reproducible noise patterns, matching authentic NES behavior. The LFSR advances every output sample in DefaultAudioScheduler, or at the rate specified by `noisePeriodSamples` in ESP32AudioScheduler.
-
-### Volume Constants
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MASTER_VOLUME_Q16` | Fixed16 | Master volume pre-computed as Q16 fixed-point for faster LUT mixing |
-| `CHANNEL_GAIN` | 0.4f | Per-channel gain applied before mixing |
+Noise is **deterministic** everywhere (including native): no `rand()` in the audio path.
 
 ---
 
@@ -281,7 +283,14 @@ Configuration struct for the audio system.
 
 ---
 
+## Implementation pointer (`ApuCore`)
+
+Synthesis (oscillators, LFSR noise), **non-linear mixing**, optional **HPF** (FPU / native path), **fade-in** on new notes, music sequencing, and the **SPSC command queue** live in **`ApuCore`** (`include/audio/ApuCore.h`, `src/audio/ApuCore.cpp`). `DefaultAudioScheduler`, `ESP32AudioScheduler`, and `NativeAudioScheduler` are thin wrappers that decide **when** `ApuCore::generateSamples` runs.
+
+---
+
 ## Related Documentation
 
 - [API Reference](../API_REFERENCE.md) - Main index
 - [API Core](API_CORE.md) - Engine, Scene
+- [Architecture: Audio subsystem](../architecture/ARCH_AUDIO_SUBSYSTEM.md) - Deep dive

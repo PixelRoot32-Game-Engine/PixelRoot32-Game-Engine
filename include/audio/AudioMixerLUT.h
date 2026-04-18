@@ -13,8 +13,16 @@ namespace pixelroot32::audio {
      * Maps a sum of channels (int32_t) to a compressed result (int16_t).
      * Range: -131072 to 131071 (approx. 4 channels of 16-bit audio).
      * Resolution: 1025 entries, index = (suma + 131072) >> 8
+     *
+     * Curve: LUT[i] ≈ 32767 * x / (1 + |x|*0.5) where x = sum * 1.6 / 131072.
+     * This matches the FPU mixing path when each channel is pre-scaled by 0.4
+     * before summation (see ApuCore::generateSamples).
+     *
+     * Marked `inline constexpr` (C++17) so every translation unit shares the
+     * same storage — avoids multiple ~2 KB .rodata copies that the default
+     * `const` (internal linkage) rule would produce.
      */
-    const int16_t audio_mixer_lut[1025] = {
+    inline constexpr int16_t audio_mixer_lut[1025] = {
         -29126, -29094, -29062, -29031, -28999, -28967, -28935, -28903,
         -28871, -28839, -28807, -28775, -28742, -28710, -28678, -28645,
         -28613, -28580, -28548, -28515, -28482, -28450, -28417, -28384,

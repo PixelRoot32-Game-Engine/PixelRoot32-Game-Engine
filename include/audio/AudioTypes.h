@@ -27,19 +27,27 @@ namespace pixelroot32::audio {
         bool enabled = false;
         WaveType type;
         
-        // Oscillator state
+        // Oscillator state (float — used by FPU and native paths)
         float frequency = 0.0f;
         float phase = 0.0f;
         float phaseIncrement = 0.0f; // Pre-calculated (freq / sampleRate)
+
+        // Fixed-point mirror of the oscillator state — used by the no-FPU
+        // (ESP32-C3 RISC-V) hot path so we avoid soft-float emulation for
+        // the phase accumulator, which runs NUM_CHANNELS × sampleRate
+        // times per second.
+        // phaseQ32 wraps naturally at 2^32, encoding one period.
+        uint32_t phaseQ32 = 0;
+        uint32_t phaseIncQ32 = 0;
+        uint32_t dutyCycleQ32 = 0x80000000u; // 50% default
 
         // Envelope / Volume
         float volume = 0.0f;       // Current volume [0.0 - 1.0]
         float targetVolume = 0.0f; // Target volume for interpolation
         float volumeDelta = 0.0f;  // Volume change per sample
-        
+
         // Wave specific parameters
-        float dutyCycle = 0.5f;    // For Pulse wave [0.0 - 1.0]
-        uint16_t noiseRegister = 1; // Deprecated: legacy noise register
+        float dutyCycle = 0.5f;      // For Pulse wave [0.0 - 1.0]
         uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
 
         /** Samples until next LFSR step on NOISE; `frequency` sets noise clock rate (not pitch). */
@@ -53,9 +61,11 @@ namespace pixelroot32::audio {
         void reset() {
             enabled = false;
             phase = 0.0f;
+            phaseQ32 = 0;
+            phaseIncQ32 = 0;
+            dutyCycleQ32 = 0x80000000u;
             volume = 0.0f;
             remainingSamples = 0;
-            noiseRegister = 1;
             lfsrState = 0x4000; // Initialize LFSR to non-zero state
             noisePeriodSamples = 1;
             noiseCountdown = 0;

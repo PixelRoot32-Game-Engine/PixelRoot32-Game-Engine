@@ -30,16 +30,19 @@ high-level architecture and the concrete implementation details.
 - **Conditionally compiled**: Entire subsystem can be excluded with `PIXELROOT32_ENABLE_AUDIO=0` to save firmware size and RAM.
 - **Platform-agnostic API** with concrete work split as follows:
   - [`AudioEngine`](include/audio/AudioEngine.h) is a thin facade: it forwards `playEvent` / `setMasterVolume` as commands and delegates `generateSamples` to an `AudioScheduler`.
-  - **Mixing, channel state, and music sequencing** live inside scheduler implementations (see §4.1).
-  - Backends (SDL2, ESP32 I2S/DAC) pull PCM by calling `AudioEngine::generateSamples` from their callback or audio task.
+  - **Mixing, channel state, music sequencing, and the SPSC command queue** live in **[`ApuCore`](include/audio/ApuCore.h)** (`src/audio/ApuCore.cpp`). The three schedulers only decide **execution context** (same-thread vs FreeRTOS task vs `std::thread` + ring buffer).
+  - Backends (SDL2, ESP32 I2S/DAC) pull PCM by calling `AudioEngine::generateSamples`, which reaches `ApuCore::generateSamples`.
 
 Main files:
 
-- Core: [`audio/AudioEngine.h`](include/audio/AudioEngine.h)
-- Audio types: [`audio/AudioTypes.h`](include/audio/AudioTypes.h)
+- Facade: [`audio/AudioEngine.h`](include/audio/AudioEngine.h)
+- Shared core: [`audio/ApuCore.h`](include/audio/ApuCore.h), [`src/audio/ApuCore.cpp`](src/audio/ApuCore.cpp)
+- Schedulers: [`audio/DefaultAudioScheduler.h`](include/audio/DefaultAudioScheduler.h), [`drivers/esp32/ESP32AudioScheduler.h`](include/drivers/esp32/ESP32AudioScheduler.h), [`drivers/native/NativeAudioScheduler.h`](include/drivers/native/NativeAudioScheduler.h)
+- Audio types & commands: [`audio/AudioTypes.h`](include/audio/AudioTypes.h), [`audio/AudioCommandQueue.h`](include/audio/AudioCommandQueue.h)
+- Mixer LUT: [`audio/AudioMixerLUT.h`](include/audio/AudioMixerLUT.h) (`inline constexpr` table, single rodata copy per link)
 - SDL2 backend: [`SDL2_AudioBackend`](include/drivers/native/SDL2_AudioBackend.h)
 - ESP32 I2S backend: [`ESP32_I2S_AudioBackend`](include/drivers/esp32/ESP32_I2S_AudioBackend.h)
-- ESP32 DAC backend: [`ESP32_DAC_AudioBackend`](include/drivers/esp32/ESP32_DAC_AudioBackend.h)
+- ESP32 DAC backend: [`ESP32_DAC_AudioBackend`](include/drivers/esp32/ESP32_DAC_AudioBackend.h) (I2S **DAC-built-in** + DMA)
 
 ---
 
@@ -61,48 +64,16 @@ enum class WaveType {
 
 ### 2.2 AudioChannel
 
-Each channel in the system is represented by a static `AudioChannel` struct:
+Each channel is an `AudioChannel` instance owned by **`ApuCore`** (fixed array of four entries).
 
-```cpp
-struct AudioChannel {
-    bool enabled = false;
-    WaveType type;
-    float frequency = 0.0f;
-    float phase = 0.0f;
-    float phaseIncrement = 0.0f;
-    float volume = 0.0f;
-    float targetVolume = 0.0f;
-    float dutyCycle = 0.5f;
-    uint16_t noiseRegister = 1;         // Deprecated: legacy noise register
-    uint16_t lfsrState = 0x4000;        // NES-style 15-bit LFSR for deterministic noise
+Highlights (see [`AudioTypes.h`](include/audio/AudioTypes.h) for the full struct):
 
-    // Duration control (sample-accurate timing)
-    uint64_t remainingSamples = 0;
+- **Float path** (FPU ESP32, native): `phase` in `[0,1)`, `phaseIncrement = frequency / sampleRate`, linear volume ramp (`volume`, `targetVolume`, `volumeDelta`).
+- **Integer mirror** (ESP32-C3, no FPU): `phaseQ32`, `phaseIncQ32`, `dutyCycleQ32` — updated on each `PLAY_EVENT` so the hot inner loop in `ApuCore::generateSamples` avoids per-sample soft-float.
+- **Noise**: `lfsrState` (15-bit LFSR), `noisePeriodSamples`, `noiseCountdown` — same deterministic polynomial on **all** platforms.
+- **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled.
 
-    void reset() {
-        enabled = false;
-        phase = 0.0f;
-        volume = 0.0f;
-        remainingSamples = 0;
-        noiseRegister = 1;
-        lfsrState = 0x4000;
-    }
-};
-```
-
-Key characteristics:
-
-- **No dynamic allocation**: all 4 channels live in a static array inside the audio subsystem (managed by the `AudioScheduler`).
-- `frequency` and `phaseIncrement`:
-  - `phaseIncrement = frequency / sampleRate`.
-  - Phase runs in `[0.0, 1.0)`.
-- **Sample-based timing**:
-  - `durationSamples` and `remainingSamples`:
-  - Control the lifetime of each sound event in absolute sample counts.
-  - Managed by the `AudioScheduler` during sample generation.
-- `noiseRegister` / `lfsrState` / **`noisePeriodSamples` / `noiseCountdown`**:
-  - All three schedulers now use **NES-style 15-bit LFSR** for deterministic noise.
-  - LFSR is clocked using `noisePeriodSamples` / `noiseCountdown` to control the rhythm/timing of noise bursts (not pitch).
+On **note on**, `ApuCore` applies a short **fade-in** (attack) from 0 to `event.volume` to reduce clicks when stealing or retriggering a voice.
 
 ### 2.3 AudioEvent
 
@@ -125,20 +96,17 @@ struct AudioEvent {
 
 ---
 
-## 3. AudioEngine: mixing core
+## 3. AudioEngine and ApuCore: mixing core
 
-Defined in [`AudioEngine.h`](include/audio/AudioEngine.h) and
-[`AudioEngine.cpp`](src/audio/AudioEngine.cpp).
+[`AudioEngine`](include/audio/AudioEngine.h) forwards `generateSamples` to the active [`AudioScheduler`](include/audio/AudioScheduler.h), which in all stock implementations delegates to **[`ApuCore::generateSamples`](include/audio/ApuCore.h)**.
 
 ### 3.1 Channel initialization
 
-Channel arrays are owned by each `AudioScheduler` implementation, not by `AudioEngine`. On construction / `init`, schedulers assign:
+`ApuCore` constructs the four channels with fixed types:
 
-- `channels[0]` and `channels[1]` → `WaveType::PULSE`
+- `channels[0]`, `channels[1]` → `WaveType::PULSE`
 - `channels[2]` → `WaveType::TRIANGLE`
 - `channels[3]` → `WaveType::NOISE`
-
-Each channel is reset by calling `AudioChannel::reset()`.
 
 **Note**: This entire subsystem is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`.
 
@@ -148,7 +116,7 @@ The audio system no longer uses `deltaTime` or frame-based updates. Instead, it 
 
 - **Audio Time**: Internal unit is samples (e.g., 1 second = 44100 samples at 44.1kHz).
 - **Decoupled Logic**: The `AudioScheduler` runs in a separate thread (SDL2) or core (ESP32).
-- **Lifetime**: For each active `AudioChannel`, the scheduler subtracts 1 from `remainingSamples` for every sample generated.
+- **Lifetime**: For each active `AudioChannel`, `ApuCore` subtracts 1 from `remainingSamples` for every sample generated.
 - When `remainingSamples` reaches 0, the channel is automatically disabled.
 
 Important:
@@ -159,60 +127,47 @@ Important:
 
 ### 3.3 Per-channel sample generation
 
-Oscillator work is done inside each scheduler’s `generateSampleForChannel(AudioChannel& ch)` (naming matches the implementation). If the channel is disabled, the contribution is `0`.
+Oscillator work is implemented in **`ApuCore::generateSampleForChannel`** (float path) and in the **integer inner loop** of `ApuCore::generateSamples` on no-FPU ESP32 builds. If the channel is disabled, the contribution is `0`.
 
-1. `PULSE`:
-   - Square wave with duty cycle:
-     - `sample = (phase < dutyCycle) ? 1.0f : -1.0f;`
-2. `TRIANGLE`:
-   - Triangle wave in `[-1, 1]`:
-     - First half of phase: rise from -1 to +1; second half: fall from +1 to -1.
-3. `NOISE` (implementation-dependent):
-   - **[`DefaultAudioScheduler`](src/audio/DefaultAudioScheduler.cpp)** (and the same pattern in tests driven by it): NES-style **15-bit LFSR** using `lfsrState`, advanced every sample:
-     - `feedback = ((lfsrState & 1) ^ ((lfsrState >> 1) & 1));`
-     - `lfsrState = (lfsrState >> 1) | (feedback << 14);`
-     - Sign from the LSB. **Deterministic** for a given initial state.
-   - **[`ESP32AudioScheduler`](src/audio/ESP32AudioScheduler.cpp)**: same 15-bit LFSR polynomial, but **clocked in software** at `sampleRate / frequency` (minimum one sample per step). `AudioEvent::frequency` for `NOISE` sets the **noise clock / coarseness** (NES-like hit vs static), not a musical pitch. State: `noisePeriodSamples`, `noiseCountdown` on [`AudioChannel`](include/audio/AudioTypes.h).
-   - **[`NativeAudioScheduler`](src/drivers/native/NativeAudioScheduler.cpp)**: `NOISE` still uses **`rand()`** + `noiseRegister` (not identical to ESP32 firmware).
+1. **`PULSE`**: square with configurable duty (`dutyCycle` / `dutyCycleQ32`).
+2. **`TRIANGLE`**: symmetric triangle in `[-1, 1]` (float) or quantized from `phaseQ32` high bits (integer path).
+3. **`NOISE`**: **NES-style 15-bit LFSR** on **all** targets — same bit taps, advanced when `noiseCountdown` reaches 0, then reloaded from `noisePeriodSamples`. `AudioEvent::frequency` for noise sets the default clock when `noisePeriod == 0`; otherwise a fixed period can be supplied for percussion.
 
-After the waveform sample is computed:
+After the per-channel sample (float path):
 
-- Phase is advanced: `ch.phase += ch.phaseIncrement;` then wrap in `[0, 1)` (on ESP32, `NOISE` skips phase advance and uses `noiseCountdown` only).
-- Channel volume is applied as `sample * ch.volume` (and optional linear volume interpolation when `volumeDelta` is non-zero).
-- **Master volume** and **per-channel scaling (0.4×)** and **non-linear mix** are applied in `generateSamples`, not inside `generateSampleForChannel` (see §3.4). Legacy docs sometimes cited a `12000.0f` scale; current schedulers use the §3.4 mixer (`0.4` per-channel gain, soft saturation, then scale toward full `int16_t` range).
+- Phase advances for non-noise waves; noise uses only the countdown/LFSR.
+- Linear volume ramp when `volumeDelta != 0`.
+- **Per-channel `MIXER_SCALE` (0.4)**, **master volume**, and the **non-linear compressor** are applied in `ApuCore::generateSamples` (see §3.4). On FPU/native builds a **single-pole HPF** runs on the mixed float signal before scaling to `int16_t` to tame DC and retrigger clicks. The no-FPU LUT path omits that float HPF for CPU reasons; the LUT output is already centred.
 
 ### 3.4 Mixing all channels (Non-Linear Mixer)
 
-`AudioEngine::generateSamples` forwards to the active `AudioScheduler::generateSamples(int16_t* stream, int length)`.
+`AudioEngine::generateSamples` → scheduler → **`ApuCore::generateSamples`**.
 
-The system uses a **non-linear mixing strategy** that adapts to the underlying hardware to maximize volume and quality while preventing digital clipping.
+The system uses a **non-linear mixing strategy** aligned across FPU and LUT paths:
 
-#### Strategy A: Floating-Point Soft Clipping (FPU-enabled)
+- Per channel: `s = wave(ch) * volume(ch) * MIXER_SCALE` (`MIXER_SCALE = 0.4`).
+- Sum `S = Σ s`, then **`mixed = S / (1 + |S| * MIXER_K)`** with `MIXER_K = 0.5`.
+- Scale to PCM and apply **master volume**.
 
-Used on ESP32, ESP32-S3, and Native (SDL2). It applies a compression curve:
-`Output = Sum / (1.0 + |Sum| * 0.5)`
+#### Strategy A: Floating-Point (FPU ESP32, ESP32-S3, native)
 
-- Each channel is scaled by **0.4x**.
-- Peak volume reaches ~88% of the dynamic range.
-- Provides a natural "analog" saturation.
+- Compressor as above, then **HPF** on the mixed float, then clamp to `int16_t`.
+- `std::fabs` / float path.
 
-#### Strategy B: Look-Up Table (LUT) Mixing (No-FPU / ESP32-C3)
+#### Strategy B: Integer + LUT (ESP32-C3, no FPU)
 
-Used on architectures without floating-point units.
+- Inner loop uses **fixed-point phase** and **Q15 volume** so the oscillator does not touch soft-float every sample.
+- Per-channel samples are scaled with the same **0.4** intent (`≈ 13107/32768` in Q15) before summation.
+- **`audio_mixer_lut`**: `index = (sum + 131072) >> 8` into 1025 entries; table documented in `AudioMixerLUT.h` to match the FPU curve.
+- **Master volume** via precomputed **Q16** `masterVolumeScale` when ≠ 1.0.
 
-- Channels are summed using `int32_t`.
-- A precomputed **1025-entry LUT** (`AudioMixerLUT.h`) maps the 32-bit sum to a 16-bit compressed value.
-- Calculated as: `index = (sum + 131072) >> 8`.
-- Zero CPU overhead for floating-point math.
+#### Clipping prevention
 
-#### Clipping Prevention
+The compressor / LUT asymptote keeps peaks bounded; final clamp remains as a safety net on the FPU path.
 
-The asymptotic nature of the curve ensures that the output **never** exceeds the `int16_t` limits, eliminating the need for hard clipping and reducing harmonic distortion.
+#### Profiling peaks
 
-#### Volume Optimization (v1.2.2+)
-
-- **Q16 Fixed-Point Volume**: Master volume is pre-computed as Q16 fixed-point for faster LUT mixing path on no-FPU architectures (ESP32-C3). This eliminates floating-point operations during the mixing hot path.
-- **ESP32 I2S Buffer**: The I2S DMA buffer size is increased to 1024 samples to match native configuration and improve audio stability on ESP32.
+When **`PIXELROOT32_ENABLE_PROFILING`** is defined (`platforms/EngineConfig.h` → `pixelroot32::platforms::config::EnableProfiling`), `ApuCore` may log peak statistics roughly once per second of audio. Peak tracking uses **per-instance** members (no `static` locals inside `generateSamples`).
 
 ### 3.5 Event playback: playEvent
 
@@ -225,39 +180,32 @@ The asymptotic nature of the curve ensures that the output **never** exceeds the
 **Queue contract and overflow**
 
 - The implementation is only safe with **one producer** and **one consumer**. Do not call `playEvent` / `submitCommand` from multiple threads unless you replace the queue with an MPMC-safe structure.
-- If the queue is **full**, `enqueue` **drops the newest command** and returns `false`. On **ESP32**, [`ESP32AudioScheduler::submitCommand`](src/audio/ESP32AudioScheduler.cpp) increments an atomic drop counter and may emit a throttled warning when `PIXELROOT32_DEBUG_MODE` is enabled. Other schedulers may still ignore the return value; avoid flooding more than ~127 outstanding commands between consumer passes.
+- If the queue is **full**, `enqueue` **drops the newest command** and returns `false`. **`ApuCore::submitCommand`** increments an atomic **`droppedCommands`** counter and may emit a **throttled** warning when `PIXELROOT32_DEBUG_MODE` is defined. Avoid flooding more than ~127 outstanding commands between consumer passes.
 
-The scheduler then:
+`ApuCore` then:
 
 - Looks for a free channel of the requested type (`WaveType`).
 - Applies **voice stealing** if necessary (using the channel with the smallest `remainingSamples`).
 - Converts the event's duration (seconds) into `remainingSamples` based on the current sample rate.
-- Initializes the channel state (`enabled`, `frequency`, `phase`, `volume`, etc.).
+- Initializes the channel state (`enabled`, `frequency`, `phase`, fixed-point mirrors, fade-in envelope, LFSR for noise, etc.).
 
 ---
 
 ## 4. Audio Schedulers and Backends
 
-The system uses a decoupled architecture where an `AudioScheduler` owns the audio state and timing, while the `AudioBackend` handles the final hardware output.
+The system uses a decoupled architecture: **`ApuCore`** owns channel state, the command queue, music sequencing, and mixing. An **`AudioScheduler`** selects **when** `ApuCore::generateSamples` runs; an **`AudioBackend`** pushes PCM to hardware.
 
 ### 4.1 AudioScheduler
 
-The `AudioScheduler` is the heart of the decoupled audio system. It:
+The `AudioScheduler` interface provides `init`, `submitCommand` (forwards to `ApuCore`), `start` / `stop`, `isIndependent`, `generateSamples`, and optional **`isMusicPlaying` / `isMusicPaused`** (all stock implementations delegate to the same `ApuCore` atomics).
 
-- Processes the `AudioCommandQueue`.
-- Manages the `AudioChannel` states.
-- Performs the actual software mixing (`generateSamples`).
-- Handles music sequencing (notes, durations, loops).
+| Scheduler | Typical use | Where `ApuCore::generateSamples` runs |
+|-----------|-------------|----------------------------------------|
+| **`NativeAudioScheduler`** | `PLATFORM_NATIVE` && !unit tests | Dedicated **`std::thread`**; PCM pushed to a lock-free ring; SDL callback drains via `AudioEngine::generateSamples`. |
+| **`ESP32AudioScheduler`** | ESP32 firmware | Same **CPU context** as the backend audio task (I2S/DAC backend creates the FreeRTOS task and calls `engine->generateSamples`). |
+| **`DefaultAudioScheduler`** | Unit tests, minimal hosts | Whatever thread invokes `generateSamples` (no extra audio thread). |
 
-There are **three** runtime-relevant implementations:
-
-| Scheduler | Typical use | Where mixing runs |
-|-----------|-------------|-------------------|
-| **`NativeAudioScheduler`** | SDL2 / `PLATFORM_NATIVE` | Dedicated `std::thread`; PCM is written to a ring buffer; SDL callback reads via `AudioEngine::generateSamples`. |
-| **`ESP32AudioScheduler`** | ESP32 firmware | Same **CPU context** as the backend’s audio task: the backend (e.g. I2S) creates a FreeRTOS task and calls `engine->generateSamples`, which runs the ESP32 scheduler’s mixer. |
-| **`DefaultAudioScheduler`** | `UNIT_TEST`, or builds without the above | Mixing runs **in whatever thread** invokes `generateSamples` (often the backend callback); no dedicated audio thread. |
-
-The header comment on `ESP32AudioScheduler` mentions a FreeRTOS task; in current wiring, **task creation lives in the ESP32 audio backends** ([`ESP32_I2S_AudioBackend`](src/drivers/esp32/ESP32_I2S_AudioBackend.cpp), DAC backend), not in `ESP32AudioScheduler::start()`.
+**Task creation** for ESP32 still lives in the **backends** ([`ESP32_I2S_AudioBackend`](src/drivers/esp32/ESP32_I2S_AudioBackend.cpp), [`ESP32_DAC_AudioBackend`](src/drivers/esp32/ESP32_DAC_AudioBackend.cpp)), not inside `ESP32AudioScheduler::start()`.
 
 #### 4.1.1 Platform-Agnostic Core Management
 
@@ -337,18 +285,13 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 
 - **Class**: `ESP32_DAC_AudioBackend`
 - **Header**: [`include/drivers/esp32/ESP32_DAC_AudioBackend.h`](include/drivers/esp32/ESP32_DAC_AudioBackend.h)
-- **Use case**: Retro audio using the ESP32's **internal 8-bit DAC** (GPIO 25 or 26), either
-  driving a small speaker directly or feeding a simple amplifier like **PAM8302A**.
+- **Use case**: Retro audio using the ESP32 **internal 8-bit DAC** (GPIO **25** = DAC1 or **26** = DAC2), e.g. with **PAM8302A**.
 - **Key points**:
-- Uses `dacWrite()` for direct register access (faster than `dac_output_voltage`).
-- **Software Mode**: Samples are pushed from a dedicated FreeRTOS task. (I2S-DMA mode is not supported due to hardware instability).
-- **Optimized**: Removed redundant delay for lower latency.
-- **Attenuation**: Includes a **0.7x** scale to prevent saturation on sensitive amplifiers like the PAM8302A.
-- **Limitations**:
-  - 8-bit resolution (inherent background noise).
-  - Residual jitter due to being a software-based driver.
-  - Not recommended for high-fidelity audio.
-- **Recommendation**: For final projects or clean audio, it is recommended to migrate to the **I2S backend with MAX98357A**.
+  - Uses the legacy **I2S driver** in **`I2S_MODE_DAC_BUILT_IN`**: samples are written with **`i2s_write`** in blocks (DMA), **not** per-sample `dacWrite()`.
+  - A FreeRTOS task fills a buffer from `AudioEngine::generateSamples`, converts signed `int16` to **offset-binary** for the DAC path, and applies **~0.7×** headroom before `i2s_write` (same intent as the old PAM8302A scaling).
+  - **Hardware note**: internal DAC exists on **classic ESP32** / **ESP32-S2** class chips, not on **S3** / **C3**.
+- **Limitations**: 8-bit effective resolution, mono, more noise than external I2S DAC.
+- **Recommendation**: For higher fidelity, prefer **`ESP32_I2S_AudioBackend`** + external codec.
 
 #### C) Reference Pinout (ESP32)
 
@@ -581,27 +524,21 @@ octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
 
-**📖 For comprehensive MusicPlayer integration guide, see [MusicPlayer Guide](MUSIC_PLAYER_GUIDE.md)**
+**📖 Guía detallada:** [MusicPlayer Guide](../MUSIC_PLAYER_GUIDE.md)
 
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).
 
-**Responsibilities (Thin Client):**
+**Responsibilities (thin client):**
 
-- Acts as a **Command Producer** for the music system.
-- Provides high-level controls: `play`, `stop`, `pause`, `resume`, `setTempoFactor`.
-- Enqueues music commands to the `AudioScheduler`.
+- **`play` / `stop` / `pause` / `resume` / `setTempoFactor` / `setBPM`**: build `AudioCommand`s and call `AudioEngine::submitCommand`.
+- **`isPlaying()`**: combines **`AudioEngine::isMusicPlaying()`** and **`isMusicPaused()`** (fed by `ApuCore` atomics) with a short grace window after `play()` so the game thread does not observe a false “stopped” before `MUSIC_PLAY` is consumed.
+- **`getActiveTrackCount()`**: derives from the last `play()` request and local flags (1 + non-null sub-tracks).
 
-**Sequencing (Audio Thread):**
+**Sequencing (audio consumer):**
 
-- The actual sequencing (advancing notes, timing) is handled by the **`MusicSequencer`** inside the `AudioScheduler`.
-- Uses **sample-accurate timing** instead of `deltaTime`.
-- Triggers internal audio events directly in the audio thread/core.
-
-**Platform difference (catch-up behavior):**
-
-- [`DefaultAudioScheduler`](src/audio/DefaultAudioScheduler.cpp) and [`ESP32AudioScheduler`](src/audio/ESP32AudioScheduler.cpp) cap how many notes can execute per audio quantum with **`MAX_NOTES_PER_FRAME` (8)**. If time skips ahead, remaining notes are advanced with a **catch-up loop** that may **skip playing** some notes to bound CPU (see §8.2).
-- [`NativeAudioScheduler`](src/drivers/native/NativeAudioScheduler.cpp) uses an **uncapped** `while` for overdue notes: a large lag can process many note transitions in one step (**higher CPU spike risk** on desktop than on ESP32 for the same lag).
+- Tick-based sequencer lives in **`ApuCore::updateMusicSequencer`**: `globalTickCounter` is derived from **`audioTimeSamples / tickDurationSamples`** each block; when a tick elapses, pending `MusicNote`s emit internal **`executePlayEvent`** calls (same path as SFX).
+- **All platforms share identical sequencing math** because there is a single implementation in `ApuCore`.
 
 ### 7.3 Integration with Engine
 
@@ -649,11 +586,11 @@ void GeometryJumpScene::init() {
 ```
 
 - Music uses one `PULSE` channel; the remaining channels stay available for SFX.
-- Timing is **sample-accurate** in the scheduler, so melody playback does not depend on render FPS; game logic should still avoid assuming instant delivery of `enqueue`d commands if the audio queue overflows (§3.5).
+- Timing is **sample-accurate** in `ApuCore`, so melody playback does not depend on render FPS; game logic should still avoid assuming instant delivery of enqueued commands if the audio queue overflows (§3.5).
 
-### 7.2.1 Multi-Track Music Playback
+### 7.5 Multi-track music playback
 
-The MusicPlayer supports up to 4 simultaneous tracks (main + 3 sub-tracks):
+The MusicPlayer supports up to **4** simultaneous tracks (main + 3 sub-tracks):
 
 ```cpp
 // Define separate tracks for different layers
@@ -681,27 +618,12 @@ size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
 ```
 
 Key behaviors:
-- All sub-tracks default to `nullptr` for backward compatibility
-- `isPlaying()` returns true if ANY track is active
-- `stop()`, `pause()`, `resume()` affect all tracks
-- Tempo factor applies equally to all tracks
 
-### AudioCommand Multi-Track Extension
+- Sub-track pointers default to `nullptr` for single-layer music.
+- `stop()`, `pause()`, `resume()` affect the whole arrangement enqueued by the last `MUSIC_PLAY`.
+- Tempo factor / BPM commands apply to the shared sequencer in `ApuCore`.
 
-The `AudioCommand` struct now carries sub-track data:
-
-```cpp
-struct AudioCommand {
-    // ... existing fields ...
-    
-    // Multi-track support
-    static constexpr size_t MAX_SUB_TRACKS = 3;
-    const MusicTrack* subTracks[MAX_SUB_TRACKS];
-    size_t subTrackCount;
-};
-```
-
-The MusicPlayer populates `subTracks` with non-null sub-tracks when calling `play()`. The scheduler processes all tracks in parallel starting at the same sample/time.
+`AudioCommand` carries **`subTracks[MAX_SUB_TRACKS]`** and **`subTrackCount`** for `MUSIC_PLAY`; `ApuCore::processCommands` copies them into its internal `tracks[]` array.
 
 ---
 
@@ -714,21 +636,20 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **Sample-Accurate Timing**: The system now uses samples instead of `deltaTime` for all internal logic, eliminating jitter and drift.
 - **Decoupled Execution**: Audio logic is completely isolated from the game's frame rate, preventing audio stuttering during heavy CPU load.
 - **Music Tempo Control**: Added support for real-time tempo changes via `MUSIC_SET_TEMPO`.
-- **Simple Volume Envelopes**: Basic volume interpolation (linear fade) is now supported in the scheduler.
+- **Simple volume envelopes**: linear **`volumeDelta`** ramp plus a fixed **attack fade** on each `PLAY_EVENT`, implemented in **`ApuCore`**.
 
 ### 8.2 Remaining Limitations
 
 - No exact cycle-accurate emulation of the NES APU.
-- **Pitch Sweeps**: Frequency slides (pitch slides) are not yet implemented.
-- **Complex Envelopes**: ADSR or complex multi-point envelopes are not supported (only linear interpolation).
-- **Music Sequencer**: [`DefaultAudioScheduler`](src/audio/DefaultAudioScheduler.cpp) and [`ESP32AudioScheduler`](src/audio/ESP32AudioScheduler.cpp) use **`MAX_NOTES_PER_FRAME = 8`** to prevent CPU spikes when the audio clock jumps ahead; **some notes may be skipped** in that catch-up path. [`NativeAudioScheduler`](src/drivers/native/NativeAudioScheduler.cpp) does **not** use this cap (different tradeoff: see §7.2).
-- **Command queue**: Fixed depth (128); overflow drops the newest command; **ESP32** tracks drops atomically (§3.5). Intended **SPSC** use.
-- **`MusicPlayer` state**: The high-level `MusicPlayer` object caches `playing` / `paused` / track pointer on the game side; if a command is dropped, that cache can **disagree** with the scheduler until the next successful command.
+- **Pitch sweeps**: hardware-style sweep units / continuous frequency slides are not implemented.
+- **Complex envelopes**: no ADSR; only the linear **`volumeDelta`** ramp (plus the fixed attack fade on `PLAY_EVENT`).
+- **Music catch-up**: if `generateSamples` is not called for a long wall-clock gap (host suspended, debugger break), **`updateMusicSequencer`** may advance many ticks in one call — CPU time grows with backlog (no hard cap on processed ticks).
+- **Command queue**: fixed depth **128**; overflow **drops** the newest command and increments **`ApuCore::droppedCommands`**. Contract: **single producer, single consumer** — do not call `playEvent` / `submitCommand` from multiple threads without external serialization.
+- **`MusicPlayer` vs. drops**: local `playing` / `paused` flags can briefly disagree with `ApuCore` if a command is dropped. For diagnostics, **`ApuCore::getDroppedCommands()`** is public (e.g. tests or a custom scheduler wrapper); stock `AudioEngine` does not expose it—avoid saturating the queue instead.
 
 ### 8.3 Future Extensions
 
-- **Unified deterministic NOISE (Native)**: Replace `rand()` in [`NativeAudioScheduler`](src/drivers/native/NativeAudioScheduler.cpp) with the same **clocked LFSR** model as ESP32 (or full-rate LFSR like `DefaultAudioScheduler`) so desktop and firmware match.
-- **Frequency Sweeps**: Add `frequencyDelta` to the scheduler for pitch slides.
+- **Frequency sweeps**: add `frequencyDelta` (or NES-style sweep unit) to `ApuCore`.
 - **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.
 - **Advanced Music Tooling**: Better support for patterns and multi-track sequencing in the `MusicPlayer`.
 - **SIMD Optimizations**: Investigate SSE/AVX for native platforms and DSP instructions for ESP32-S3 (see research document).
@@ -740,7 +661,7 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - The NES-like audio system in PixelRoot32:
   - Uses 4 static channels (2 Pulse, 1 Triangle, 1 Noise).
   - Produces mono 16-bit audio via software mixing.
-  - Is platform-agnostic thanks to the `AudioBackend` and `AudioScheduler` interfaces.
-  - Is **decoupled** from the game loop, running on Core 0 (ESP32) or a separate thread (SDL2).
-  - Uses **sample-accurate timing** for both SFX and music.
+  - Is platform-agnostic thanks to `AudioBackend`, `AudioScheduler`, and the shared **`ApuCore`** implementation.
+  - Is **decoupled** from the game loop, running on Core 0 (ESP32) or a separate thread (native/SDL2).
+  - Uses **sample-accurate timing** for both SFX and music inside **`ApuCore`**.
   - Is controlled from games through `AudioEngine` (SFX) and `MusicPlayer` (Music) via a **lock-free SPSC command queue** (bounded capacity; **overflow drops** the latest command; see §3.5).

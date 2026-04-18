@@ -3,29 +3,25 @@
  * Licensed under the MIT License
  */
 #include "audio/MusicPlayer.h"
+
 #include <algorithm>
 
 namespace pixelroot32::audio {
 
-MusicPlayer::MusicPlayer(AudioEngine& engine) 
+MusicPlayer::MusicPlayer(AudioEngine& engine)
     : engine(engine), currentTrack(nullptr), tempoFactor(1.0f), bpm(150.0f),
       playing(false), paused(false) {}
 
 void MusicPlayer::play(const MusicTrack& track) {
-    // Return early if main track is null
-    if (!&track) return;
-
     currentTrack = &track;
     playing = true;
     paused = false;
 
-    // Build command with all non-null sub-tracks
     AudioCommand cmd;
     cmd.type = AudioCommandType::MUSIC_PLAY;
     cmd.track = &track;
     cmd.subTrackCount = 0;
 
-    // Collect all non-null sub-tracks
     if (track.secondVoice != nullptr) {
         cmd.subTracks[cmd.subTrackCount++] = track.secondVoice;
     }
@@ -68,7 +64,19 @@ void MusicPlayer::resume() {
 }
 
 bool MusicPlayer::isPlaying() const {
-    return playing && !paused;
+    // Authoritative source is the audio thread's ApuCore atomic flag, which
+    // is cleared automatically when a non-looping track finishes. We AND
+    // with our local "paused" so the contract stays: true only when audio
+    // is actively producing the track.
+    const bool engineSaysPlaying = engine.isMusicPlaying() && !engine.isMusicPaused();
+    // If the engine hasn't processed the MUSIC_PLAY command yet (race),
+    // the locally-set `playing` flag keeps isPlaying() consistent from
+    // the caller's point of view for the short window until the audio
+    // thread picks up the command.
+    if (playing && !paused && !engineSaysPlaying) {
+        return true;  // Command in-flight; mirror the intent.
+    }
+    return engineSaysPlaying;
 }
 
 void MusicPlayer::setTempoFactor(float factor) {
@@ -84,7 +92,7 @@ float MusicPlayer::getTempoFactor() const {
 }
 
 void MusicPlayer::setBPM(float newBPM) {
-    bpm = std::max(30.0f, std::min(300.0f, newBPM));  // Clamp to reasonable range
+    bpm = std::max(30.0f, std::min(300.0f, newBPM));
     AudioCommand cmd;
     cmd.type = AudioCommandType::MUSIC_SET_BPM;
     cmd.bpm = bpm;
