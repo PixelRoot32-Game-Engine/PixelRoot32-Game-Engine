@@ -54,10 +54,20 @@ namespace pixelroot32::audio {
         std::atomic<size_t> rbWritePos{0};
         size_t rbCapacity;
 
-        // Music Sequencer State
-        const MusicTrack* currentTrack = nullptr;
-        size_t currentNoteIndex = 0;
-        uint64_t nextNoteSample = 0;
+        // Music Sequencer State - NES-style tick synchronization
+        static constexpr size_t MAX_MUSIC_TRACKS = 4;
+        static constexpr float DEFAULT_BPM = 150.0f;  // Typical NES tempo
+        static constexpr int TICKS_PER_BEAT = 4;        // 4 ticks per beat (quarter notes)
+        
+        const MusicTrack* tracks[MAX_MUSIC_TRACKS] = {nullptr, nullptr, nullptr, nullptr};
+        size_t currentNoteIndices[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
+        uint64_t nextNoteSamples[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
+        
+        // NES-style tick-based synchronization
+        uint64_t globalTickCounter = 0;
+        uint64_t tickDurationSamples = 0;
+        float tempoBPM = DEFAULT_BPM;
+        size_t activeTrackCount = 0;
         float tempoFactor = 1.0f;
         bool musicPlaying = false;
         bool musicPaused = false;

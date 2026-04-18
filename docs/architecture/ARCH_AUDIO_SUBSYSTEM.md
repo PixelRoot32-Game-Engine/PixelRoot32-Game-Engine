@@ -101,9 +101,8 @@ Key characteristics:
   - Control the lifetime of each sound event in absolute sample counts.
   - Managed by the `AudioScheduler` during sample generation.
 - `noiseRegister` / `lfsrState` / **`noisePeriodSamples` / `noiseCountdown`**:
-  - **`DefaultAudioScheduler`**: LFSR advanced **every output sample** (§3.3).
-  - **`ESP32AudioScheduler`**: same LFSR polynomial but **clocked** using `noisePeriodSamples` / `noiseCountdown` (§3.3).
-  - **`NativeAudioScheduler`**: `NOISE` still uses **`rand()`** + `noiseRegister` (§3.3).
+  - All three schedulers now use **NES-style 15-bit LFSR** for deterministic noise.
+  - LFSR is clocked using `noisePeriodSamples` / `noiseCountdown` to control the rhythm/timing of noise bursts (not pitch).
 
 ### 2.3 AudioEvent
 
@@ -116,6 +115,7 @@ struct AudioEvent {
     float duration; // seconds
     float volume;   // 0.0 - 1.0
     float duty;     // only for PULSE
+    uint8_t noisePeriod = 0;  // for NOISE: 0=calc from frequency, >0=direct LFSR period
 };
 ```
 
@@ -536,7 +536,15 @@ struct MusicTrack {
     bool loop;
     WaveType channelType;
     float duty;
+    
+    // Multi-track support (optional - nullptr = disabled)
+    const MusicTrack* secondVoice = nullptr;  // Second melody voice
+    const MusicTrack* thirdVoice = nullptr;   // Third melody voice
+    const MusicTrack* percussion = nullptr;  // Drum/percussion track
 };
+
+// Maximum simultaneous tracks: main + 3 sub-tracks
+constexpr size_t MAX_MUSIC_TRACKS = 4;
 ```
 
 For convenience there are simple “instrument” presets and helpers:
@@ -544,19 +552,29 @@ For convenience there are simple “instrument” presets and helpers:
 ```cpp
 struct InstrumentPreset {
     float baseVolume;
-    float duty;
+    float duty;           // 0.0 = NOISE (percussion), >0 = PULSE/TRIANGLE
     uint8_t defaultOctave;
+float defaultDuration = 0.0f;  // 0.0 = use note.duration, >0 = fixed (percussion)
+    uint8_t noisePeriod = 0;        // 0 = calc from freq, >0 = direct LFSR period
 };
 
+// Melodic instruments
 inline constexpr InstrumentPreset INSTR_PULSE_LEAD{0.35f, 0.5f, 4};
-inline constexpr InstrumentPreset INSTR_PULSE_BASS{0.30f, 0.25f, 3};
-inline constexpr InstrumentPreset INSTR_PULSE_CHIP_HIGH{0.32f, 0.125f, 5};
-inline constexpr InstrumentPreset INSTR_TRIANGLE_PAD{0.28f, 0.5f, 4};
+inline constexpr InstrumentPreset INSTR_PULSE_HARMONY{0.22f, 0.125f, 5};
+inline constexpr InstrumentPreset INSTR_TRIANGLE_BASS{0.30f, 0.5f, 3};
+
+// Percussion instruments (duty=0, use with WaveType::NOISE)
+inline constexpr InstrumentPreset INSTR_KICK{0.40f, 0.0f, 1, 0.12f, 25};     // Kick: octave=1, dur=0.12s, period=25
+inline constexpr InstrumentPreset INSTR_SNARE{0.30f, 0.0f, 2, 0.15f, 50};   // Snare: octave=2, dur=0.15s, period=50
+inline constexpr InstrumentPreset INSTR_HIHAT{0.20f, 0.0f, 3, 0.05f, 12};    // Hi-HAT: octave=3, dur=0.05s, period=12
 
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration);
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration);
 inline MusicNote makeRest(float duration);
+inline float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave);
 ```
+
+> **Note:** For percussion, use `duty == 0.0f` to signal NOISE channel. The `defaultOctave` field determines drum type: 1=Kick, 2=Snare, 3+=Hi-HAT. The `instrumentToFrequency()` helper converts presets to frequencies (Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz).
 
 These helpers reduce boilerplate when defining tracks and keep note volumes and
 octaves consistent per instrument.
@@ -632,6 +650,58 @@ void GeometryJumpScene::init() {
 
 - Music uses one `PULSE` channel; the remaining channels stay available for SFX.
 - Timing is **sample-accurate** in the scheduler, so melody playback does not depend on render FPS; game logic should still avoid assuming instant delivery of `enqueue`d commands if the audio queue overflows (§3.5).
+
+### 7.2.1 Multi-Track Music Playback
+
+The MusicPlayer supports up to 4 simultaneous tracks (main + 3 sub-tracks):
+
+```cpp
+// Define separate tracks for different layers
+static const MusicNote MELODY_NOTES[] = { /* ... */ };
+static const MusicNote BASS_NOTES[] = { /* ... */ };
+static const MusicNote DRUM_NOTES[] = { /* ... */ };
+
+static const MusicTrack MELODY_TRACK = { MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f };
+static const MusicTrack BASS_TRACK = { BASS_NOTES, 2, true, WaveType::PULSE, 0.25f };
+static const MusicTrack DRUM_TRACK = { DRUM_NOTES, 4, true, WaveType::NOISE, 0.0f };
+
+// Combine into main track
+static const MusicTrack FULL_MUSIC = {
+    MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f,
+    &BASS_TRACK,      // secondVoice - bass line
+    nullptr,          // thirdVoice
+    &DRUM_TRACK       // percussion - drums
+};
+
+// Play all 3 tracks simultaneously
+musicPlayer.play(FULL_MUSIC);
+
+// Query active track count
+size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
+```
+
+Key behaviors:
+- All sub-tracks default to `nullptr` for backward compatibility
+- `isPlaying()` returns true if ANY track is active
+- `stop()`, `pause()`, `resume()` affect all tracks
+- Tempo factor applies equally to all tracks
+
+### AudioCommand Multi-Track Extension
+
+The `AudioCommand` struct now carries sub-track data:
+
+```cpp
+struct AudioCommand {
+    // ... existing fields ...
+    
+    // Multi-track support
+    static constexpr size_t MAX_SUB_TRACKS = 3;
+    const MusicTrack* subTracks[MAX_SUB_TRACKS];
+    size_t subTrackCount;
+};
+```
+
+The MusicPlayer populates `subTracks` with non-null sub-tracks when calling `play()`. The scheduler processes all tracks in parallel starting at the same sample/time.
 
 ---
 

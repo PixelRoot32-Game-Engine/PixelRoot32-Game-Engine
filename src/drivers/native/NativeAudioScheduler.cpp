@@ -155,15 +155,40 @@ namespace pixelroot32::audio {
                     }
                     break;
                 case AudioCommandType::MUSIC_PLAY:
-                    currentTrack = cmd.track;
-                    currentNoteIndex = 0;
-                    nextNoteSample = audioTimeSamples;
-                    musicPlaying = true;
-                    musicPaused = false;
+                    {
+                        // Initialize multi-track playback with NES-style tick sync
+                        activeTrackCount = 1;
+                        tracks[0] = cmd.track;
+                        currentNoteIndices[0] = 0;
+                        
+                        // Initialize tick-based timing (NES-style)
+                        tickDurationSamples = (uint64_t)((float)sampleRate * 60.0f / (tempoBPM * (float)TICKS_PER_BEAT));
+                        globalTickCounter = 0;
+                        nextNoteSamples[0] = 0;
+                        
+                        // Add sub-tracks - all synchronized to global ticks
+                        for (size_t i = 0; i < cmd.subTrackCount && activeTrackCount < MAX_MUSIC_TRACKS; ++i) {
+                            if (cmd.subTracks[i]) {
+                                tracks[activeTrackCount] = cmd.subTracks[i];
+                                currentNoteIndices[activeTrackCount] = 0;
+                                nextNoteSamples[activeTrackCount] = 0;
+                                activeTrackCount++;
+                            }
+                        }
+                        
+                        musicPlaying = true;
+                        musicPaused = false;
+                    }
                     break;
                 case AudioCommandType::MUSIC_STOP:
+                    // Stop all tracks
+                    for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
+                        tracks[i] = nullptr;
+                        currentNoteIndices[i] = 0;
+                        nextNoteSamples[i] = 0;
+                    }
+                    activeTrackCount = 0;
                     musicPlaying = false;
-                    currentTrack = nullptr;
                     break;
                 case AudioCommandType::MUSIC_PAUSE:
                     musicPaused = true;
@@ -174,6 +199,10 @@ namespace pixelroot32::audio {
                 case AudioCommandType::MUSIC_SET_TEMPO:
                     tempoFactor = std::max(0.1f, cmd.tempoFactor);
                     break;
+                case AudioCommandType::MUSIC_SET_BPM:
+                    tempoBPM = std::max(30.0f, std::min(300.0f, cmd.bpm));
+                    tickDurationSamples = (uint64_t)((float)sampleRate * 60.0f / (tempoBPM * (float)TICKS_PER_BEAT));
+                    break;
                 default:
                     break;
             }
@@ -181,40 +210,121 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::updateMusicSequencer(int /*length*/) {
-        if (!musicPlaying || musicPaused || !currentTrack) return;
+        if (!musicPlaying || musicPaused || activeTrackCount == 0) return;
 
-        while (musicPlaying && currentTrack && audioTimeSamples >= nextNoteSample) {
-            playCurrentNote();
+        // NES-style: Advance global tick counter based on elapsed samples
+        uint64_t currentTick = audioTimeSamples / tickDurationSamples;
+        
+        // Only process if we've moved to a new tick
+        if (currentTick <= globalTickCounter && globalTickCounter > 0) {
+            return;
+        }
+        
+        // Update global tick counter
+        globalTickCounter = currentTick;
 
-            const MusicNote& note = currentTrack->notes[currentNoteIndex];
-            uint64_t noteDurationSamples = (uint64_t)((note.duration / tempoFactor) * (float)sampleRate);
-            nextNoteSample += noteDurationSamples;
+        // Process notes for all active tracks synchronously on each tick
+        for (size_t trackIdx = 0; trackIdx < activeTrackCount; ++trackIdx) {
+            const MusicTrack* track = tracks[trackIdx];
+            if (!track) continue;
 
-            currentNoteIndex++;
-            if (currentNoteIndex >= currentTrack->count) {
-                if (currentTrack->loop) {
-                    currentNoteIndex = 0;
-                } else {
-                    musicPlaying = false;
-                    currentTrack = nullptr;
+            size_t& noteIdx = currentNoteIndices[trackIdx];
+            uint64_t& nextTick = nextNoteSamples[trackIdx];
+
+            // Check if it's time to play the next note for this track
+            while (musicPlaying && globalTickCounter >= nextTick) {
+                const MusicNote& note = track->notes[noteIdx];
+                
+                // Play the note (skip rests for melodic tracks, but NOT for noise/percussion)
+                // Percussion tracks use Note::Rest to indicate when to play the drum sound
+                bool shouldPlay = (note.note != Note::Rest);
+                
+                // For noise channel (percussion), always play - even for Rest notes
+                if (!shouldPlay && track->channelType == WaveType::NOISE) {
+                    shouldPlay = true;
                 }
+                
+                if (shouldPlay) {
+                    AudioEvent event;
+                    event.type = track->channelType;
+                    
+                    // Use note.preset for percussion (duty==0 means NOISE/percussion)
+                    const InstrumentPreset* percPreset = nullptr;
+                    if (note.preset && note.preset->duty == 0.0f) {
+                        percPreset = note.preset;
+                    }
+                    
+                    if (percPreset) {
+                        // Percussion: use instrumentToFrequency from preset
+                        event.frequency = instrumentToFrequency(*percPreset, note.note, note.octave);
+                        // Use defaultDuration if defined (>0), otherwise use note.duration
+                        event.duration = (percPreset->defaultDuration > 0.0f) 
+                            ? percPreset->defaultDuration / tempoFactor
+                            : note.duration / tempoFactor;
+                        event.noisePeriod = percPreset->noisePeriod;
+                    } else {
+                        // Melodic: legacy behavior
+                        // For percussion (Note::Rest on NOISE channel), use default frequency
+                        if (note.note == Note::Rest && event.type == WaveType::NOISE) {
+                            event.frequency = 1000.0f;
+                        } else {
+                            event.frequency = noteToFrequency(note.note, note.octave);
+                        }
+                        event.duration = note.duration / tempoFactor;
+                        event.noisePeriod = 0;
+                    }
+                    
+                    event.volume = note.volume;
+                    event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
+                    executePlayEvent(event);
+                }
+
+                // Calculate note duration in ticks
+                uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+                if (noteTicks == 0) noteTicks = 1;
+                
+                nextTick += noteTicks;
+
+                // Advance to next note
+                noteIdx++;
+                if (noteIdx >= track->count) {
+                    if (track->loop) {
+                        noteIdx = 0;
+                    } else {
+                        track = nullptr;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Check if all non-looping tracks have finished
+        bool allFinished = true;
+        for (size_t trackIdx = 0; trackIdx < activeTrackCount; ++trackIdx) {
+            const MusicTrack* track = tracks[trackIdx];
+            if (track && (currentNoteIndices[trackIdx] < track->count || track->loop)) {
+                allFinished = false;
+                break;
+            }
+        }
+        
+        if (allFinished && activeTrackCount > 0) {
+            bool anyLooping = false;
+            for (size_t trackIdx = 0; trackIdx < activeTrackCount; ++trackIdx) {
+                const MusicTrack* track = tracks[trackIdx];
+                if (track && track->loop) {
+                    anyLooping = true;
+                    break;
+                }
+            }
+            if (!anyLooping) {
+                musicPlaying = false;
             }
         }
     }
 
     void NativeAudioScheduler::playCurrentNote() {
-        if (!currentTrack) return;
-        const MusicNote& note = currentTrack->notes[currentNoteIndex];
-        if (note.note == Note::Rest) return;
-
-        AudioEvent event;
-        event.type = currentTrack->channelType;
-        event.frequency = noteToFrequency(note.note, note.octave);
-        event.duration = note.duration / tempoFactor;
-        event.volume = note.volume;
-        event.duty = (event.type == WaveType::PULSE) ? currentTrack->duty : 0.5f;
-
-        executePlayEvent(event);
+        // Multi-track: notes are played in updateMusicSequencer directly
     }
 
     void NativeAudioScheduler::executePlayEvent(const AudioEvent& event) {
@@ -230,6 +340,21 @@ namespace pixelroot32::audio {
             ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
             if (event.type == WaveType::PULSE) {
                 ch->dutyCycle = event.duty;
+            } else if (event.type == WaveType::NOISE) {
+                // Initialize noise channel
+                // If noisePeriod is set (>0), use it, otherwise use frequency-based calc
+                if (event.noisePeriod > 0) {
+                    ch->noisePeriodSamples = event.noisePeriod;
+                } else {
+                    float noiseHz = event.frequency;
+                    if (noiseHz <= 0.0f) {
+                        noiseHz = 1000.0f;
+                    }
+                    ch->noisePeriodSamples = (uint32_t)((float)sampleRate / noiseHz);
+                }
+                ch->noiseRegister = 0x4000;
+                ch->noiseCountdown = 1u;  // Initialize countdown
+                ch->phaseIncrement = 0.0f;
             }
         }
     }
@@ -266,8 +391,13 @@ namespace pixelroot32::audio {
                 }
                 break;
             case WaveType::NOISE:
-                if (ch.phase < ch.phaseIncrement) {
+                // Use noisePeriodSamples to control LFSR update rate
+                if (ch.noiseCountdown > 0u) {
+                    ch.noiseCountdown--;
+                }
+                if (ch.noiseCountdown == 0u) {
                     ch.noiseRegister = (uint16_t)(rand() & 0xFFFF);
+                    ch.noiseCountdown = ch.noisePeriodSamples;
                 }
                 sample = (ch.noiseRegister & 1) ? 1.0f : -1.0f;
                 break;

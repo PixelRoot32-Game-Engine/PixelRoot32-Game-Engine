@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 namespace pixelroot32::audio {
 
@@ -73,6 +74,7 @@ namespace pixelroot32::audio {
         float duration; // seconds
         float volume;   // 0.0 - 1.0
         float duty;     // For pulse only
+        uint8_t noisePeriod = 0;  // For NOISE channel: 0 = calc from frequency, >0 = direct LFSR period
     };
 
     // --- Command Types (Phase 1) ---
@@ -85,7 +87,8 @@ namespace pixelroot32::audio {
         MUSIC_STOP,
         MUSIC_PAUSE,
         MUSIC_RESUME,
-        MUSIC_SET_TEMPO
+        MUSIC_SET_TEMPO,
+        MUSIC_SET_BPM
     };
 
     // Forward declaration for MusicTrack
@@ -103,10 +106,16 @@ namespace pixelroot32::audio {
             float volume;
             const MusicTrack* track;
             float tempoFactor;
+            float bpm;
         };
 
+        // Multi-track support
+        static constexpr size_t MAX_SUB_TRACKS = 3;
+        const MusicTrack* subTracks[MAX_SUB_TRACKS];
+        size_t subTrackCount;
+
         // Default constructor to allow use in arrays/buffers
-        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0) {}
+        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0), subTrackCount(0), subTracks{nullptr, nullptr, nullptr} {}
     };
 
 }

@@ -50,11 +50,21 @@ namespace pixelroot32::audio {
         volatile bool running = false;
         std::atomic<uint32_t> droppedCommands{0};
 
-        // Music Sequencer State
-        const MusicTrack* currentTrack = nullptr;
-        size_t currentNoteIndex = 0;
-        uint64_t nextNoteSample = 0;
-        float tempoFactor = 1.0f;
+        // Music Sequencer State - NES-style tick synchronization
+        static constexpr size_t MAX_MUSIC_TRACKS = 4;
+        static constexpr float DEFAULT_BPM = 150.0f;  // Typical NES tempo
+        static constexpr int TICKS_PER_BEAT = 4;        // 4 ticks per beat (quarter notes)
+        
+        const MusicTrack* tracks[MAX_MUSIC_TRACKS] = {nullptr, nullptr, nullptr, nullptr};
+        size_t currentNoteIndices[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
+        uint64_t nextNoteSamples[MAX_MUSIC_TRACKS] = {0, 0, 0, 0};
+        
+        // NES-style tick-based synchronization
+        uint64_t globalTickCounter = 0;         // Global tick counter (synchronizes all tracks)
+        uint64_t tickDurationSamples = 0;       // Samples per tick
+        float tempoBPM = DEFAULT_BPM;            // Beats per minute
+        size_t activeTrackCount = 0;
+        float tempoFactor = 1.0f;                // Speed multiplier
         bool musicPlaying = false;
         bool musicPaused = false;
 

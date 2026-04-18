@@ -61,17 +61,77 @@ struct MusicTrack {
     bool loop;                   // Whether to loop the track
     WaveType channelType;        // Wave type (PULSE, TRIANGLE, NOISE)
     float duty;                  // Duty cycle for pulse waves (0.0-1.0)
+    
+    // Multi-track support (optional)
+    const MusicTrack* secondVoice = nullptr;  // Second melody voice
+    const MusicTrack* thirdVoice = nullptr;   // Third melody voice
+    const MusicTrack* percussion = nullptr;  // Drum/percussion track
 };
 ```
+
+### Multi-Track Music Playback
+
+The MusicPlayer supports up to 4 simultaneous tracks playing in parallel:
+
+```cpp
+// Define three separate tracks
+static const MusicNote MELODY_NOTES[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 4, 0.25f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 4, 0.25f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 4, 0.25f),
+};
+
+static const MusicNote BASS_NOTES[] = {
+    makeNote(INSTR_PULSE_BASS, Note::C, 2, 0.5f),
+    makeNote(INSTR_PULSE_BASS, Note::G, 2, 0.5f),
+};
+
+static const MusicNote DRUM_NOTES[] = {
+    makeNote(INSTR_KICK, Note::Rest, 0.25f),
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),
+    makeRest(0.25f),
+};
+
+// Create individual tracks
+static const MusicTrack MELODY_TRACK = {
+    MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f
+};
+
+static const MusicTrack BASS_TRACK = {
+    BASS_NOTES, 2, true, WaveType::PULSE, 0.25f
+};
+
+static const MusicTrack DRUM_TRACK = {
+    DRUM_NOTES, 4, true, WaveType::NOISE, 0.0f
+};
+
+// Combine into main track with sub-tracks
+static const MusicTrack FULL_MUSIC = {
+    MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f,
+    &BASS_TRACK,      // secondVoice - bass line
+    nullptr,          // thirdVoice - not used
+    &DRUM_TRACK       // percussion - drums
+};
+
+// Play all 3 tracks simultaneously
+musicPlayer.play(FULL_MUSIC);
+
+// Query active track count
+size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
+```
+
+> **Note:** All sub-track pointers default to `nullptr` for backward compatibility with existing single-track code.
 
 ### MusicNote Definition
 
 ```cpp
 struct MusicNote {
-    Note note;                   // Musical note (C, D, E, etc.)
-    uint8_t octave;              // Octave number (0-8)
-    float duration;              // Duration in seconds
-    float volume;                // Volume (0.0-1.0)
+    Note note;                        // Musical note (C, D, E, etc.)
+    uint8_t octave;                   // Octave number (0-8). For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT
+    float duration;                   // Duration in seconds
+    float volume;                     // Volume (0.0-1.0)
+    const InstrumentPreset* preset;   // Optional: pointer to instrument preset for percussion
 };
 ```
 
@@ -396,15 +456,18 @@ static const MusicNote ARPEGGIO[] = {
 ### Percussive Rhythm
 
 ```cpp
+// Use INSTR_KICK, INSTR_SNARE, INSTR_HIHAT presets with WaveType::NOISE
 static const MusicNote DRUM_PATTERN[] = {
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
+    makeNote(INSTR_KICK, Note::Rest, 0.25f),    // Kick on beat 1
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),   // Snare on beat 2
+    makeRest(0.25f),
+    makeNote(INSTR_KICK, Note::Rest, 0.125f),   // Kick (eighth note)
+    makeNote(INSTR_HIHAT, Note::Rest, 0.125f),  // Hi-HAT (eighth note)
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),   // Snare on beat 4
     makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
-    makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.25f),   // Snare
-    makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
-    makeRest(0.125f),
+    makeNote(INSTR_HIHAT, Note::Rest, 0.125f),  // Hi-HAT
 };
 ```
 

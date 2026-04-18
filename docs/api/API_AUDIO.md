@@ -83,6 +83,7 @@ Structure defining a sound effect to be played.
 - **`float duration`**: Duration in seconds.
 - **`float volume`**: Volume level (0.0 to 1.0).
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
+- **`uint8_t noisePeriod`** (optional): LFSR period for NOISE channel. 0 = calc from frequency, >0 = direct period (for percussion).
 
 ---
 
@@ -103,9 +104,10 @@ Use `noteToFrequency(Note note, int octave)` to convert a note and octave to Hz.
 Represents a single musical note in a melody.
 
 - **`Note note`**: Musical note (C, D, E, etc. or Rest).
-- **`uint8_t octave`**: Octave index (0–8).
+- **`uint8_t octave`**: Octave index (0–8). For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT.
 - **`float duration`**: Duration in seconds.
 - **`float volume`**: Volume level (0.0 to 1.0).
+- **`const InstrumentPreset* preset`** (optional): Pointer to instrument preset. When set, overrides track defaults for percussion (duty==0).
 
 ### MusicTrack (Struct)
 
@@ -116,27 +118,44 @@ Represents a sequence of notes to be played as a track.
 - **`bool loop`**: If true, the track loops when it reaches the end.
 - **`WaveType channelType`**: Which channel type to use (typically `PULSE`).
 - **`float duty`**: Duty cycle for Pulse tracks.
+- **`const MusicTrack* secondVoice`** (optional): Second melody voice for layered playback.
+- **`const MusicTrack* thirdVoice`** (optional): Third melody voice.
+- **`const MusicTrack* percussion`** (optional): Drum/percussion track.
+
+> **Note:** The multi-track pointers default to `nullptr` for backward compatibility. Maximum 4 simultaneous tracks supported.
+
+### MAX_MUSIC_TRACKS
+
+- **`constexpr size_t MAX_MUSIC_TRACKS = 4`**: Maximum simultaneous tracks (main + 3 sub-tracks).
 
 ### InstrumentPreset (Struct)
 
 Simple preset describing a reusable "instrument":
 
 - **`float baseVolume`**: Default volume for notes.
-- **`float duty`**: Duty cycle suggestion (for Pulse).
-- **`uint8_t defaultOctave`**: Default octave for the instrument.
+- **`float duty`**: Duty cycle suggestion (for Pulse). For percussion (NOISE), use 0.0.
+- **`uint8_t defaultOctave`**: Default octave for the instrument. For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT.
+- **`float defaultDuration`** (optional): Fixed duration for percussion hits. 0.0 = use note.duration.
+- **`uint8_t noisePeriod`** (optional): LFSR period for noise channel. 0 = calc from frequency, >0 = direct period (Kick=25, Snare=50, Hi-HAT=12).
 
 #### Predefined Presets
 
-- `INSTR_PULSE_LEAD` – main lead pulse in octave 4.
-- `INSTR_PULSE_BASS` – bass pulse in octave 3.
-- `INSTR_PULSE_CHIP_HIGH` – high-pitched chiptune pulse in octave 5.
-- `INSTR_TRIANGLE_PAD` – soft triangle pad in octave 4.
+Melodic instruments:
+- `INSTR_PULSE_LEAD` – main lead pulse in octave 4 (duty 0.5).
+- `INSTR_PULSE_HARMONY` – harmony pulse in octave 5 (duty 0.125).
+- `INSTR_TRIANGLE_BASS` – triangle bass in octave 3 (duty 0.5).
+
+Percussion instruments (duty=0, use with WaveType::NOISE):
+- `INSTR_KICK` – kick drum (defaultOctave=1, duration=0.12s, noisePeriod=25).
+- `INSTR_SNARE` – snare drum (defaultOctave=2, duration=0.15s, noisePeriod=50).
+- `INSTR_HIHAT` – hi-hat (defaultOctave=3, duration=0.05s, noisePeriod=12).
 
 #### Helper Functions
 
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration)`**
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration)`**
 - **`MusicNote makeRest(float duration)`**
+- **`float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave)`** – converts preset to frequency (for percussion: Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz)
 
 These helpers reduce boilerplate when defining melodies and keep instruments consistent.
 
@@ -177,6 +196,9 @@ Music timing is handled internally by the `AudioEngine`.
 
 - **`float getTempoFactor() const`**
     Gets the current tempo scaling factor (default 1.0f).
+
+- **`size_t getActiveTrackCount() const`**
+    Returns the number of currently active tracks (1-4). Returns 0 if not playing.
 
 ### Typical Usage
 
