@@ -107,6 +107,7 @@ private:
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
     uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp to 16bpp palette LUT
+    bool dmaAvailable_ = true;      ///< DMA availability flag (set false on allocation failure)
     
     // ============================================================================
     // Display Bottleneck Optimization Managers

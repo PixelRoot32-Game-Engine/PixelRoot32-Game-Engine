@@ -242,8 +242,36 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     xLUT = (uint16_t*)heap_caps_malloc(physicalWidth * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     yLUT = (uint16_t*)heap_caps_malloc(physicalHeight * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
 
-    if (!lineBuffer[0] || !lineBuffer[1] || !paletteLUT || !xLUT || !yLUT) {
-        log(LogLevel::Error, "Failed to allocate DMA or Palette buffers in Internal RAM!");
+    // Check each allocation individually and log specific failures
+    bool allocationFailed = false;
+    
+    if (!lineBuffer[0]) {
+        log(LogLevel::Error, "Failed to allocate lineBuffer[0] (%zu bytes) in DMA internal RAM!", blockSize);
+        allocationFailed = true;
+    }
+    
+    if (!lineBuffer[1]) {
+        log(LogLevel::Error, "Failed to allocate lineBuffer[1] (%zu bytes) in DMA internal RAM!", blockSize);
+        allocationFailed = true;
+    }
+    
+    if (!paletteLUT) {
+        log(LogLevel::Error, "Failed to allocate paletteLUT (%zu bytes) in internal RAM!", 256UL * sizeof(uint16_t));
+        allocationFailed = true;
+    }
+    
+    if (!xLUT) {
+        log(LogLevel::Error, "Failed to allocate xLUT (%zu bytes) in internal RAM!", physicalWidth * sizeof(uint16_t));
+        allocationFailed = true;
+    }
+    
+    if (!yLUT) {
+        log(LogLevel::Error, "Failed to allocate yLUT (%zu bytes) in internal RAM!", physicalHeight * sizeof(uint16_t));
+        allocationFailed = true;
+    }
+    
+    if (allocationFailed) {
+        dmaAvailable_ = false;
     } else {
         activeLinesPerBlock = linesPerBlock;
     }
@@ -403,8 +431,12 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
 #ifdef PIXELROOT32_ENABLE_PROFILING
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_scale);
 #endif
-        // Start DMA transfer of block 0
-        tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+        // Start transfer of block 0 (DMA if available, otherwise software)
+        if (dmaAvailable_) {
+            tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+        } else {
+            tft.pushPixels(lineBuffer[currentBuffer], physicalWidth * numLines);
+        }
 #ifdef PIXELROOT32_ENABLE_PROFILING
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
 #endif
@@ -487,8 +519,12 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_wait);
 #endif
 
-        // 3. Send the new calculated block
-        tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+        // 3. Send the new calculated block (DMA if available, otherwise software)
+        if (dmaAvailable_) {
+            tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
+        } else {
+            tft.pushPixels(lineBuffer[currentBuffer], physicalWidth * numLines);
+        }
 #ifdef PIXELROOT32_ENABLE_PROFILING
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
 #endif

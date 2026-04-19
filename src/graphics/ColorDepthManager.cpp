@@ -15,6 +15,9 @@
 
 namespace pixelroot32::graphics {
 
+// Note: Native builds may skip detailed logging
+// Logging is handled via core::logging::log() in DEBUG_MODE
+
 // PR32 standard palette (256 colors - official PixelRoot32 palette)
 // Converted to RGB565 format - 16 color PALETTE_PR32 repeated 16 times to fill 256 slots
 // The official PR32 palette provides superior color distribution for game graphics
@@ -74,6 +77,27 @@ void ColorDepthManager::setDepth(Depth depth) {
         paletteDirty_ = true;
         // Note: palette rebuild would happen here in full implementation
         // For now, flag as dirty so caller knows to rebuild
+    }
+}
+
+bool ColorDepthManager::setDepth(int depthBits) {
+    switch (depthBits) {
+        case 24:
+            setDepth(Depth::Depth24);
+            return true;
+        case 16:
+            setDepth(Depth::Depth16);
+            return true;
+        case 8:
+            setDepth(Depth::Depth8);
+            return true;
+        case 4:
+            setDepth(Depth::Depth4);
+            return true;
+        default:
+            // Invalid - setDepth already defaults to Depth16 by constructor
+            // Log is conditional on DEBUG_MODE - skip for simpler native build
+            return false;
     }
 }
 

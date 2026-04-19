@@ -62,16 +62,9 @@ public:
     /**
      * @brief Set color depth from integer value.
      * @param depthBits Number of bits (24, 16, 8, 4)
+     * @return true if valid depth was set, false for invalid values
      */
-    void setDepth(int depthBits) {
-        switch (depthBits) {
-            case 24: setDepth(Depth::Depth24); break;
-            case 16: setDepth(Depth::Depth16); break;
-            case 8:  setDepth(Depth::Depth8); break;
-            case 4:  setDepth(Depth::Depth4); break;
-            default: setDepth(Depth::Depth16); break;
-        }
-    }
+    bool setDepth(int depthBits);
 
     /**
      * @brief Get current depth.

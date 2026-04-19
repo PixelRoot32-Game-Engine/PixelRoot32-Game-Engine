@@ -12,9 +12,18 @@ namespace pixelroot32::graphics {
 DirtyRectTracker::DirtyRectTracker() {
     // Initialize bitmap to zero
     std::memset(dirtyBitmap_, 0, sizeof(dirtyBitmap_));
-    std::memset(prevBitmap_, 0, sizeof(prevBitmap_));
+
+    // Allocate processed_ array on heap (GRID_WIDTH * GRID_HEIGHT = 1200 bools)
+    processed_ = new bool[GRID_WIDTH * GRID_HEIGHT]();
+
     hasDirty_ = false;
     combineEnabled_ = true;
+}
+
+DirtyRectTracker::~DirtyRectTracker() {
+    // Clean up heap-allocated processed_ array
+    delete[] processed_;
+    processed_ = nullptr;
 }
 
 inline void DirtyRectTracker::setBit(int blockX, int blockY) {
@@ -93,8 +102,8 @@ void DirtyRectTracker::combineRegions() {
 }
 
 void DirtyRectTracker::computeMergedRegions() {
-    // Track which blocks have been processed
-    bool processed[GRID_WIDTH * GRID_HEIGHT] = {false};
+    // Reset processed_ tracking array
+    std::memset(processed_, 0, GRID_WIDTH * GRID_HEIGHT * sizeof(bool));
 
     // Scan in row-major order
     for (int by = 0; by < GRID_HEIGHT; ++by) {
@@ -102,7 +111,7 @@ void DirtyRectTracker::computeMergedRegions() {
             int idx = by * GRID_WIDTH + bx;
 
             // Skip if already processed or not dirty
-            if (processed[idx] || !getBit(bx, by)) {
+            if (processed_[idx] || !getBit(bx, by)) {
                 continue;
             }
 
@@ -113,13 +122,13 @@ void DirtyRectTracker::computeMergedRegions() {
             uint16_t rh = BLOCK_SIZE;
 
             // Mark initial block as processed BEFORE expanding
-            processed[idx] = true;
+            processed_[idx] = true;
 
             // Expand right while adjacent blocks are dirty
             int expandX = bx + 1;
-            while (expandX < GRID_WIDTH && getBit(expandX, by) && !processed[by * GRID_WIDTH + expandX]) {
+            while (expandX < GRID_WIDTH && getBit(expandX, by) && !processed_[by * GRID_WIDTH + expandX]) {
                 rw += BLOCK_SIZE;
-                processed[by * GRID_WIDTH + expandX] = true;
+                processed_[by * GRID_WIDTH + expandX] = true;
                 ++expandX;
             }
 
@@ -132,7 +141,7 @@ void DirtyRectTracker::computeMergedRegions() {
                 // Check if all columns in current region width are dirty in next row
                 for (int dx = 0; dx < colsInRegion; ++dx) {
                     int cx = bx + dx;
-                    if (cx >= GRID_WIDTH || !getBit(cx, nextRow) || processed[nextRow * GRID_WIDTH + cx]) {
+                    if (cx >= GRID_WIDTH || !getBit(cx, nextRow) || processed_[nextRow * GRID_WIDTH + cx]) {
                         rowComplete = false;
                         break;
                     }
@@ -143,7 +152,7 @@ void DirtyRectTracker::computeMergedRegions() {
                 // Extend region downward
                 rh += BLOCK_SIZE;
                 for (int dx = 0; dx < colsInRegion; ++dx) {
-                    processed[nextRow * GRID_WIDTH + (bx + dx)] = true;
+                    processed_[nextRow * GRID_WIDTH + (bx + dx)] = true;
                 }
             }
 

@@ -93,11 +93,12 @@ private:
     bool hasDirty_ = false;
     bool combineEnabled_ = true;
 
-    // Previous frame bitmap for incremental tracking (optional, future use)
-    uint8_t prevBitmap_[BITMAP_SIZE] = {};
+    // Processed blocks tracking (heap-allocated for stack optimization)
+    bool* processed_;
 
 public:
     DirtyRectTracker();
+    ~DirtyRectTracker();
 
     /**
      * @brief Mark a region as dirty (O(1) operation).
