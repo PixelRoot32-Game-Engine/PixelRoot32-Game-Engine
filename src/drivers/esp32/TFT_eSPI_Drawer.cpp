@@ -117,7 +117,23 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::clearBuffer() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::sendBuffer() {
+    // Check if partial updates are enabled and beneficial
+    if (partialController_.isPartialUpdateEnabled()) {
+        // End frame tracking - this calculates dirty regions and decides mode
+        partialController_.endFrame(logicalWidth, logicalHeight);
+        
+        // Check if partial update is beneficial
+        if (partialController_.shouldUsePartial()) {
+            // Send only the dirty regions (optimized path)
+            sendBufferPartial(partialController_.getRegions());
+            partialController_.clear();
+            return;
+        }
+    }
+    
+    // Fallback: full frame send (original behavior for compatibility)
     sendBufferScaled();
+    partialController_.clear();
 }
 
 // --------------------------------------------------
@@ -182,6 +198,11 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::drawTileDirect(uint16_t x,
     for (uint16_t row = 0; row < clippedH; row++) {
         uint16_t destOffset = (y + row) * logicalWidth + x;
         std::memcpy(&buffer[destOffset], data + row * width, clippedW);
+    }
+
+    // Auto-mark dirty region if enabled (default behavior)
+    if (autoMarkDirty_) {
+        markDirty(x, y, clippedW, clippedH);
     }
 }
 
@@ -568,6 +589,184 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(const uint8_t* s
 
 bool pr32::drivers::esp32::TFT_eSPI_Drawer::processEvents() {
     return true;
+}
+
+// ============================================================================
+// Partial Update API Implementations
+// ============================================================================
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::markDirty(int x, int y, int width, int height) {
+    partialController_.markDirty(x, y, width, height);
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::clearDirtyFlags() {
+    partialController_.clear();
+}
+
+bool pr32::drivers::esp32::TFT_eSPI_Drawer::hasDirtyRegions() const {
+    return partialController_.shouldUsePartial();
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setPartialUpdateEnabled(bool enabled) {
+    partialController_.setPartialUpdateEnabled(enabled);
+}
+
+bool pr32::drivers::esp32::TFT_eSPI_Drawer::isPartialUpdateEnabled() const {
+    return partialController_.isPartialUpdateEnabled();
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setColorDepth(int depth) {
+    colorDepthManager_.setDepth(depth);
+}
+
+// ============================================================================
+// Partial Update Transfer Implementations
+// ============================================================================
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferPartial(const std::vector<pr32::graphics::DirtyRect>& regions) {
+    if (regions.empty()) {
+        // Fallback to full frame if no regions
+        sendBufferScaled();
+        return;
+    }
+    
+    tft.startWrite();
+    
+    // Send each dirty region
+    for (const auto& region : regions) {
+        sendRegion(region.x, region.y, region.width, region.height);
+    }
+    
+    tft.dmaWait();
+    tft.endWrite();
+    
+    // Update statistics
+    for (const auto& region : regions) {
+        colorDepthManager_.addBytesTransferred(
+            colorDepthManager_.estimateTransferSize(region.width, region.height)
+        );
+    }
+    colorDepthManager_.incrementFrameCount();
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uint16_t w, uint16_t h) {
+    if (w == 0 || h == 0) {
+        return;
+    }
+    
+    // ============================================================================
+    // Task 2.5: Region coordinate scaling for physical display coordinates
+    // ============================================================================
+    // Scale from logical (sprite) coordinates to physical display coordinates
+    // Physical = offset + (logical * scale)
+    
+    int physX = xOffset + (x * physicalWidth / logicalWidth);
+    int physY = yOffset + (y * physicalHeight / logicalHeight);
+    int physW = w * physicalWidth / logicalWidth;
+    int physH = h * physicalHeight / logicalHeight;
+    
+    // Ensure minimum size
+    if (physW < 1) physW = 1;
+    if (physH < 1) physH = 1;
+    
+    // Set address window for this specific region (partial update)
+    tft.setAddrWindow(physX, physY, physW, physH);
+    
+    // Get sprite buffer pointer
+    uint8_t* spritePtr = (uint8_t*)spr.getPointer();
+    if (!spritePtr) {
+        return;
+    }
+    
+    // Process lines in blocks (same as sendBufferScaled for consistency)
+    int linesPerBlock = activeLinesPerBlock;
+    
+    for (int startY = 0; startY < h; startY += linesPerBlock) {
+        int endY = (startY + linesPerBlock > h) ? h : startY + linesPerBlock;
+        int numLines = endY - startY;
+        
+        // Scale lines into line buffer
+        uint16_t* dst = lineBuffer[currentBuffer];
+        
+        if (!needsScaling()) {
+            // 1:1 path (no scaling) - optimized for partial regions
+            for (int i = 0; i < numLines; ++i) {
+                int srcY = y + startY + i;
+                if (srcY >= logicalHeight) break;
+                
+                uint8_t* srcRow = spritePtr + (srcY * logicalWidth) + x;
+                const uint16_t* __restrict pLUT = paletteLUT;
+                int xi = 0;
+                uint32_t* dst32 = (uint32_t*)dst;
+                
+                // Process 8 pixels at a time using 32-bit writes
+                for (; xi <= static_cast<int>(w) - 8; xi += 8) {
+                    uint32_t p01 = ((uint32_t)pLUT[srcRow[xi+1]] << 16) | pLUT[srcRow[xi]];
+                    uint32_t p23 = ((uint32_t)pLUT[srcRow[xi+3]] << 16) | pLUT[srcRow[xi+2]];
+                    uint32_t p45 = ((uint32_t)pLUT[srcRow[xi+5]] << 16) | pLUT[srcRow[xi+4]];
+                    uint32_t p67 = ((uint32_t)pLUT[srcRow[xi+7]] << 16) | pLUT[srcRow[xi+6]];
+                    
+                    dst32[xi/2]     = p01;
+                    dst32[xi/2 + 1] = p23;
+                    dst32[xi/2 + 2] = p45;
+                    dst32[xi/2 + 3] = p67;
+                }
+                // Handle remaining pixels
+                for (; xi < static_cast<int>(w); ++xi) {
+                    dst[xi] = pLUT[srcRow[xi]];
+                }
+                dst += physW;  // Advance by physical width
+            }
+        } else {
+            // Scaling path for this region
+            for (int physRow = 0; physRow < numLines; ++physRow) {
+                int srcY = yLUT[physY + physRow];
+                scaleLine(spritePtr, srcY, dst);
+                dst += physW;
+            }
+        }
+        
+        // DMA transfer for this region block
+        tft.pushPixelsDMA(lineBuffer[currentBuffer], physW * numLines);
+        tft.dmaWait();
+        
+        // Swap buffer for next block
+        currentBuffer = 1 - currentBuffer;
+    }
+
+    // ============================================================================
+    // Task 5.3: Debug overlay - draw 2px red border around sent region
+    // ============================================================================
+    #if PIXELROOT32_DEBUG_DIRTY_REGIONS
+    if (debugDirtyRegions_) {
+        // 0xF800 = RGB565 pure red
+        constexpr uint16_t DEBUG_BORDER_COLOR = 0xF800;
+        constexpr uint8_t BORDER_THICKNESS = 2;
+
+        // Draw top border
+        for (uint16_t i = 0; i < physW && i < BORDER_THICKNESS * 2; i++) {
+            tft.drawPixel(physX + i, physY, DEBUG_BORDER_COLOR);
+            tft.drawPixel(physX + i, physY + 1, DEBUG_BORDER_COLOR);
+        }
+        // Draw bottom border
+        for (uint16_t i = 0; i < physW && i < BORDER_THICKNESS * 2; i++) {
+            tft.drawPixel(physX + i, physY + physH - 1, DEBUG_BORDER_COLOR);
+            tft.drawPixel(physX + i, physY + physH - 2, DEBUG_BORDER_COLOR);
+        }
+        // Draw left border
+        for (uint8_t i = 0; i < BORDER_THICKNESS; i++) {
+            for (uint16_t j = 0; j < physH; j++) {
+                tft.drawPixel(physX + i, physY + j, DEBUG_BORDER_COLOR);
+            }
+        }
+        // Draw right border
+        for (uint8_t i = 0; i < BORDER_THICKNESS; i++) {
+            for (uint16_t j = 0; j < physH; j++) {
+                tft.drawPixel(physX + physW - 1 - i, physY + j, DEBUG_BORDER_COLOR);
+            }
+        }
+    }
+    #endif
 }
 
 #endif // ESP32

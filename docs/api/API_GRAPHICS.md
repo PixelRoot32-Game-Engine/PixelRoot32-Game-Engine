@@ -526,8 +526,122 @@ Abstract interface for platform-specific drawing operations.
 - **`virtual void sendBuffer()`**: Sends the frame buffer to the display.
 - **`virtual void drawPixel(int x, int y, uint16_t color)`**: Draws a single pixel.
 - **`virtual uint8_t* getSpriteBuffer()`**: Returns a pointer to the **logical** framebuffer for direct CPU writes when supported (**TFT_eSPI_Drawer** 8bpp sprite); default returns **`nullptr`** (e.g. **SDL2_Drawer**).
-- **`virtual void drawTileDirect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, const uint8_t* data)`**: Optional 8bpp tile blit into that buffer; default no-op.
+- **`virtual void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data)`**
+    Direct tile write to sprite buffer, optimized for tilemap rendering. This method provides a fast path for writing pre-packed 8bpp tile data directly to the sprite framebuffer.
+  - **Parameters:**
+    - `x`: Tile X position in sprite coordinates (destination column)
+    - `y`: Tile Y position in sprite coordinates (destination row)
+    - `width`: Tile width in pixels
+    - `height`: Tile height in pixels
+    - `data`: Pointer to 8bpp tile data (one byte per pixel, index into palette)
+  - **Returns:** void
+  - **Default:** No-op (base class returns without doing anything)
+  - **Override:** Implement in drivers that support direct buffer access (e.g., TFT_eSPI_Drawer)
+  - **Key behavior:** Automatically marks the region as dirty for partial screen updates when the subclass supports it. This enables zero-config partial updates - simply use `drawTileDirect()` and the dirty region is automatically tracked.
+  - **Note:** The default base class implementation automatically calls `markDirty(x, y, width, height)` after receiving the tile data. Subclasses can override for more optimized implementations that handle marking internally.
+  - **See also:** [Partial Update API](#partial-update-api-v130) for dirty region tracking.
 - **`virtual void drawLine(...)`**, **`drawRectangle(...)`**, **`drawCircle(...)`**, etc.
+
+### Partial Update API (v1.3.0+)
+
+The following methods provide display bottleneck optimization by enabling partial screen updates. These reduce SPI transfer time on slow displays by only sending changed regions instead of the entire framebuffer.
+
+> **Note:** These methods have default no-op implementations in the base class. Override in drivers that support partial updates (e.g., **TFT_eSPI_Drawer**) for the optimization to take effect.
+
+- **`virtual void markDirty(int x, int y, int width, int height)`**
+    Marks a rectangular region as dirty for partial screen updates. This is the primary method used by `DirtyRectTracker` to track which regions have changed since the last frame.
+  - **Parameters:**
+    - `x`: X coordinate in sprite pixels (top-left corner)
+    - `y`: Y coordinate in sprite pixels (top-left corner)
+    - `width`: Width of the region in pixels
+    - `height`: Height of the region in pixels
+  - **Returns:** void
+  - **Default:** No-op (base class does nothing)
+  - **Override in:** Drivers supporting partial updates (TFT_eSPI_Drawer)
+  - **Note:** The system automatically combines adjacent dirty regions to optimize transfer. Call this after any direct buffer writes or use `drawTileDirect()` which automatically marks regions.
+  - **Example:**
+
+      ```cpp
+      // After drawing a tile directly to the buffer
+      renderer.beginFrame();
+      uint8_t* buffer = renderer.getSpriteBuffer();
+      // ... write to buffer ...
+      renderer.markDirty(tileX, tileY, 16, 16);  // Mark region as modified
+      renderer.endFrame();
+      ```
+
+- **`virtual void clearDirtyFlags()`**
+    Clears all dirty tracking flags for the next frame. This resets the dirty region tracking state.
+  - **Parameters:** None
+  - **Returns:** void
+  - **Note:** Called automatically at the start of each frame via `beginFrame()`. Typically not needed to call manually unless manual reset is required.
+  - **Example:**
+
+      ```cpp
+      // Force clearing dirty regions before normal frame cycle
+      renderer.clearDirtyFlags();
+      ```
+
+- **`virtual bool hasDirtyRegions() const`**
+    Checks if there are any dirty regions awaiting update.
+  - **Parameters:** None
+  - **Returns:** `true` if dirty regions exist and partial updates should be used; `false` otherwise.
+  - **Default:** Returns `false` (base class)
+  - **Use case:** Query this before `sendBuffer()` to decide whether to use partial or fullframe update strategy.
+
+- **`virtual void setPartialUpdateEnabled(bool enabled)`**
+    Enables or disables the partial update system at runtime.
+  - **Parameters:**
+    - `enabled`: `true` to enable partial updates, `false` to use full frame updates
+  - **Returns:** void
+  - **Default:** Disabled (base class)
+  - **Note:** When disabled, the entire framebuffer is sent to the display each frame (original behavior).
+
+- **`virtual bool isPartialUpdateEnabled() const`**
+    Queries whether partial updates are currently enabled.
+  - **Parameters:** None
+  - **Returns:** `true` if partial updates are enabled; `false` otherwise.
+  - **Default:** Returns `false` (base class)
+
+- **`virtual void beginFrame()`**
+    Called at the beginning of each frame to prepare for partial update tracking. This is the frame initialization hook.
+  - **Parameters:** None
+  - **Returns:** void
+  - **Default:** No-op (base class)
+  - **Note:** The default implementation clears dirty flags and prepares the tracker. Called automatically by the highlevel Renderer before game drawing begins.
+  - **Override:** Drivers should clear their dirty tracking state here.
+
+- **`virtual void endFrame()`**
+    Called at the end of each frame to finalize dirty region tracking, after all game drawing is complete but before `sendBuffer`.
+  - **Parameters:** None
+  - **Returns:** void
+  - **Default:** No-op (base class)
+  - **Note:** Allows controllers to merge dirty regions and prepare for transfer. This is where the decision to use partial vs. full updates is typically finalized.
+  - **Override:** Drivers should finalize their dirty region tracking here (combining adjacent regions, etc.).
+
+- **`virtual void setColorDepth(int depth)`**
+    Sets the color depth for display output. This controls the color format used when sending data to the physical display, affecting bandwidth requirements.
+  - **Parameters:**
+    - `depth`: Color depth in bits. Supported values:
+      - `24`: RGB888 (24-bit true color) - highest quality, highest bandwidth
+      - `16`: RGB565 (default) - balanced quality/performance
+      - `8`: Indexed (256 colors) - reduces bandwidth by 66%
+      - `4`: Indexed (16 colors) - reduces bandwidth by 83%
+  - **Returns:** void
+  - **Default:** No-op (base class)
+  - **Platform support:**
+    - ESP32/TFT_eSPI: Supports 16-bit (default), 8-bit with sprite
+    - SDL2/Native: Supports 24-bit, 16-bit
+  - **Note:** Lower color depths reduce SPI transfer time but limit color fidelity. Use 8-bit or 4-bit for displays with slow SPI interfaces.
+  - **Example:**
+
+      ```cpp
+      // Switch to 8-bit indexed for slower displays
+      renderer.setColorDepth(8);  // Reduce bandwidth
+
+      // Restore to 16-bit RGB565 (default)
+      renderer.setColorDepth(16);
+      ```
 
 ---
 
@@ -539,6 +653,236 @@ Optional base class that provides default primitive rendering.
 
 - At minimum, implement: `init()`, `drawPixel()`, `sendBuffer()`, `clearBuffer()`
 - Default implementations use `drawPixel()` - slow but functional.
+
+### Auto-Mark Dirty API (v1.3.0+)
+
+The Auto-Mark Dirty API provides automatic dirty region tracking without requiring manual `markDirty()` calls in game code. This is designed for games that use the standard rendering pipeline and want zero-config partial updates.
+
+- **`virtual void setAutoMarkDirty(bool enabled)`**
+    Enables or disables automatic dirty region marking. When enabled, the surface automatically tracks all drawing operations by calling `markDirty()` internally.
+  - **Parameters:**
+    - `enabled`: `true` to enable automatic dirty marking, `false` to disable
+  - **Returns:** void
+  - **Default:** Enabled (default behavior for most games)
+  - **Use case:** Enable this for zero-config partial updates - the surface automatically marks regions as they are drawn. Disable when you need precise manual control over which regions are updated, or for custom rendering pipelines.
+  - **Example:**
+
+      ```cpp
+      // Enable automatic dirty tracking (default)
+      surface.setAutoMarkDirty(true);
+
+      // Disable for manual control
+      surface.setAutoMarkDirty(false);
+      // Now you must call markDirty() manually after buffer writes
+      ```
+
+- **`virtual bool isAutoMarkDirty() const`**
+    Queries whether automatic dirty region marking is currently enabled.
+  - **Parameters:** None
+  - **Returns:** `true` if auto-marking is enabled; `false` otherwise.
+  - **Default:** Returns `true` (automatic tracking enabled by default)
+
+### Debug Dirty Regions API (v1.3.0+)
+
+The Debug Dirty Regions API provides visual debugging of partial update behavior by overlaying rectangles around regions being sent to the display.
+
+- **`virtual void setDebugDirtyRegions(bool enabled)`**
+    Enables or disables the debug overlay that shows sent dirty regions. When enabled, a 2-pixel red border is drawn around each dirty region sent to the display.
+  - **Parameters:**
+    - `enabled`: `true` to enable debug overlay, `false` to disable
+  - **Returns:** void
+  - **Note:** Requires `PIXELROOT32_DEBUG_DIRTY_REGIONS` compile flag to include the debug drawing code in the build. Without this flag, the method is a no-op.
+  - **Use case:** Debug and tune the partial update system. Visualizing which regions are sent helps identify opportunities for better dirty region combining or areas where more drawing occurs than expected.
+  - **Example:**
+
+      ```cpp
+      // Enable debug overlay to see which regions update
+      surface.setDebugDirtyRegions(true);
+      // Red borders appear around dirty regions
+
+      // Disable debug overlay
+      surface.setDebugDirtyRegions(false);
+      ```
+
+- **`virtual bool isDebugDirtyRegions() const`**
+    Queries whether the debug dirty regions overlay is currently enabled.
+  - **Parameters:** None
+  - **Returns:** `true` if debug overlay is enabled; `false` otherwise.
+  - **Default:** Returns `false` (debug overlay disabled by default)
+
+---
+
+## DirtyRectTracker
+
+**Namespace:** `pixelroot32::graphics`
+
+Tracks which regions of the screen have been modified since last frame using a bitmap-based approach for O(1) marking performance. Uses 8x8 block granularity (40x30 grid for 320x240 resolution) to minimize memory: only 150 bytes for the bitmap.
+
+### Public Methods
+
+- **`void markDirty(int x, int y, int w, int h)`**
+    Marks a region as dirty (O(1) operation).
+  - **x, y:** Coordinates in sprite pixels
+  - **w, h:** Width and height in pixels
+
+- **`void combineRegions()`**
+    Combines adjacent/overlapping dirty blocks into merged regions. Must be called after all `markDirty()` calls and before `getRegions()`.
+
+- **`bool hasDirtyRegions() const`**
+    Returns `true` if there are dirty regions.
+
+- **`const std::vector<DirtyRect>& getRegions() const`**
+    Returns the merged dirty regions (valid after `combineRegions()`).
+
+- **`void clear()`**
+    Clears all dirty tracking state for the next frame.
+
+- **`void setCombineEnabled(bool enabled)`**
+    Enables or disables region combining for performance tuning.
+
+- **`bool isCombineEnabled() const`**
+    Returns `true` if combining is enabled.
+
+### Thread Safety
+
+This class is **NOT thread-safe** by default. It is designed for single-threaded game loops where all rendering and tracking occurs on the same execution context. For future parallel rendering (e.g., split screen), use `portENTER_CRITICAL()` around bitmap operations to make them atomic.
+
+---
+
+## ColorDepthManager
+
+**Namespace:** `pixelroot32::graphics`
+
+Manages color depth selection for display output. Provides runtime selection of color depth to reduce SPI transfer bandwidth.
+
+### Depth (Enum)
+
+- **`Depth24`**: RGB888 (24-bit, not currently used for output)
+- **`Depth16`**: RGB565 (16-bit, default)
+- **`Depth8`**: Indexed palette (256 colors, reduces bandwidth by 66%)
+- **`Depth4`**: Indexed palette (16 colors, reduces bandwidth by 83%)
+
+### Public Methods
+
+- **`void setDepth(Depth depth)`**
+    Sets color depth at runtime.
+
+- **`void setDepth(int depthBits)`**
+    Sets color depth from integer value (24, 16, 8, or 4).
+
+- **`Depth getDepth() const`**
+    Returns current depth.
+
+- **`int getDepthBits() const`**
+    Returns current depth as integer bits.
+
+- **`int getBytesPerPixel() const`**
+    Returns bytes per pixel for current depth (1-3).
+
+- **`size_t estimateTransferSize(int width, int height) const`**
+    Estimates transfer size in bytes for a region.
+
+- **`bool needsPaletteConversion() const`**
+    Returns `true` for 8-bit or 4-bit modes (requires palette conversion).
+
+- **`bool canUse8BitSprites() const`**
+    Returns `true` for 8-bit or 4-bit depth (can use 8bpp sprite format directly).
+
+- **`float getTransferRatio() const`**
+    Returns transfer reduction ratio vs 24-bit (e.g., 0.67 for 16-bit).
+
+### 8-bit Indexed Palette API (v1.3.0+)
+
+- **`void setCustomPalette(const uint16_t* palette256)`**
+    Sets a custom 256-color palette for 8-bit indexed mode. The palette should be an array of 256 RGB565 color values (512 bytes total). Use `nullptr` to revert to the built-in default palette. The palette is stored by reference - the caller must ensure the array remains valid for the lifetime of the ColorDepthManager. For ESP32, store the palette in PROGMEM/flash to conserve RAM.
+
+- **`const uint16_t* getPalette() const`**
+    Returns the current palette (never null).
+
+- **`bool isUsingCustomPalette() const`**
+    Returns `true` if a custom palette is set.
+
+### Statistics Methods
+
+- **`uint32_t getTotalBytesTransferred() const`**
+    Returns total bytes transferred.
+
+- **`uint32_t getFrameCount() const`**
+    Returns frame count.
+
+- **`uint32_t getAverageBytesPerFrame() const`**
+    Returns average bytes per frame.
+
+- **`void resetStatistics()`**
+    Resets statistics.
+
+---
+
+## PartialUpdateController
+
+**Namespace:** `pixelroot32::graphics`
+
+Coordinates dirty rect tracking and decides update strategy. Tracks the dirty ratio and automatically falls back to full frame updates when partial updates would not provide benefit (>70% dirty threshold).
+
+### Mode (Enum)
+
+- **`Full`**: Send complete frame (original behavior)
+- **`Partial`**: Send only dirty regions (optimized)
+
+### Public Methods (v1.3.0+)
+
+- **`void beginFrame()`**
+    Called at start of frame to prepare tracking. Clears dirty flags.
+
+- **`void endFrame(int frameWidth, int frameHeight)`**
+    Called after all game drawing completes, before `sendBuffer`.
+
+- **`void markDirty(int x, int y, int w, int h)`**
+    Marks region as dirty (delegates to tracker).
+
+- **`bool shouldUsePartial() const`**
+    Returns `true` if partial mode is beneficial.
+
+- **`const std::vector<DirtyRect>& getRegions() const`**
+    Returns merged dirty regions.
+
+- **`void clear()`**
+    Clears for next frame.
+
+- **`void setMode(Mode mode)`**
+    Sets the update mode (Full or Partial).
+
+- **`Mode getMode() const`**
+    Returns current mode.
+
+- **`bool isModeFull() const`**
+    Returns `true` if in full frame mode.
+
+- **`void setPartialUpdateEnabled(bool enabled)`**
+    Enables or disables partial updates.
+
+- **`bool isPartialUpdateEnabled() const`**
+    Returns `true` if partial updates are enabled.
+
+- **`bool hasDirtyRegions() const`**
+    Returns `true` if tracker has dirty regions.
+
+- **`int getDirtyPixelCount() const`**
+    Returns number of dirty pixels in last frame.
+
+### Benchmark API (v1.3.0+)
+
+- **`void setMinRegionPixels(int pixels)`**
+    Sets minimum region pixel threshold for partial updates. Only regions with at least this many pixels will be sent as partial updates. Lower values = more regions = more granular but potentially slower. Higher values = fewer regions = less granular but faster. Valid range: 64 to 4096 pixels (16x16 to 64x64). Default: 256 (16x16).
+
+- **`int getMinRegionPixels() const`**
+    Returns current minimum region pixel threshold.
+
+- **`int getLastRegionCount() const`**
+    Returns number of regions sent in last frame.
+
+- **`int getLastTotalSentPixels() const`**
+    Returns total pixels sent in last frame.
 
 ---
 

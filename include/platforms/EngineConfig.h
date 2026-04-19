@@ -70,6 +70,47 @@
 #endif
 
 // =============================================================================
+// Display Bottleneck Optimization Configuration
+// =============================================================================
+// These control the partial update and color depth optimization features.
+// Override these via build flags (-DENABLE_PARTIAL_UPDATES=1, etc.)
+// or set to 0 to disable (restores original behavior for backward compatibility).
+
+// Enable partial screen updates (dirty rect tracking).
+// When enabled, only modified regions are sent to display.
+// Default: enabled (1).
+#ifndef ENABLE_PARTIAL_UPDATES
+#define ENABLE_PARTIAL_UPDATES 1
+#endif
+
+// Color depth for display output.
+// Options: 24 (RGB888), 16 (RGB565 default), 8 (indexed), 4 (indexed)
+// Default: 16 (RGB565)
+#ifndef DISPLAY_COLOR_DEPTH
+#define DISPLAY_COLOR_DEPTH 16
+#endif
+
+// Maximum dirty ratio threshold.
+// If dirty pixels / total pixels > this ratio, fallback to full frame.
+// Default: 70 (70%)
+#ifndef MAX_DIRTY_RATIO_PERCENT
+#define MAX_DIRTY_RATIO_PERCENT 70
+#endif
+
+// Enable region combining (merge adjacent dirty blocks).
+// Default: enabled (1)
+#ifndef ENABLE_DIRTY_RECT_COMBINE
+#define ENABLE_DIRTY_RECT_COMBINE 1
+#endif
+
+// Enable debug overlay for dirty regions.
+// When enabled, draws 2px red border around each sent region.
+// Default: disabled (0) - zero cost when disabled.
+#ifndef PIXELROOT32_DEBUG_DIRTY_REGIONS
+#define PIXELROOT32_DEBUG_DIRTY_REGIONS 0
+#endif
+
+// =============================================================================
 // Deprecated Macros (for backward compatibility)
 // =============================================================================
 // These are kept for compatibility with existing code.
@@ -300,4 +341,20 @@ namespace pixelroot32::platforms::config {
     inline unsigned long profilerMicros() {
         return micros();
     }
+
+    // Display Bottleneck Optimization Configs
+    #if ENABLE_PARTIAL_UPDATES
+    inline constexpr bool EnablePartialUpdates = true;
+    #else
+    inline constexpr bool EnablePartialUpdates = false;
+    #endif
+
+    inline constexpr int DisplayColorDepth = DISPLAY_COLOR_DEPTH;
+    inline constexpr int MaxDirtyRatio = MAX_DIRTY_RATIO_PERCENT;
+
+    #if ENABLE_DIRTY_RECT_COMBINE
+    inline constexpr bool EnableDirtyRectCombine = true;
+    #else
+    inline constexpr bool EnableDirtyRectCombine = false;
+    #endif
 }

@@ -25,6 +25,7 @@ The architecture documentation is organized into **layers** (hardware to game co
 | **Resolution Scaling** | [Resolution Scaling](architecture/ARCH_RESOLUTION_SCALING.md) | Logical vs physical resolution (ex-RESOLUTION_*) |
 | **Tile Animation** | [Tile Animation](architecture/ARCH_TILE_ANIMATION.md) | Lookup tables, O(1) resolve; see also static layer cache in [ESP32 rendering](#esp32-rendering-pipeline-and-tilemap-caching) (ex-TILE_ANIMATION_*) |
 | **Touch Input** | [Touch Input](architecture/ARCH_TOUCH_INPUT.md) | Pipeline, XPT2046, calibration (ex-TOUCH_INPUT) |
+| **Display Bottleneck Optimization** | [Display Optimization](#display-bottleneck-optimization-subsystem) | Dirty rect tracking, partial updates, color depth config (v1.3.0+) |
 | **Extensibility** | [Extending PixelRoot32](EXTENDING_PIXELROOT32.md) | Custom drivers, configuration |
 
 ### API Reference
@@ -85,7 +86,8 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 │  ├─ CollisionSystem (Flat Solver)                           │
 │  ├─ UI System                                               │
 │  ├─ InputManager                                            │
-│  └─ Particle System                                         │
+│  ├─ Particle System                                         │
+│  └─ Display Optimization (DirtyRect, PartialUpdate)         │
 ├─────────────────────────────────────────────────────────────┤
 │  LAYER 2: Abstraction Layer                                 │
 │  ├─ DrawSurface (Bridge Pattern)                            │
@@ -121,7 +123,9 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
+| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Enabled (v1.3.0) |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
+| Debug Dirty Regions | `PIXELROOT32_DEBUG_DIRTY_REGIONS` | Disabled |
 
 ---
 
@@ -130,8 +134,186 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 On ESP32 with **TFT_eSPI** (`TFT_eSPI_Drawer`), the logical framebuffer is typically an **8-bit color-depth sprite** (`TFT_eSprite`). Each frame:
 
 1. **`Renderer::beginFrame()`** obtains a pointer to that buffer via **`DrawSurface::getSpriteBuffer()`** (when the driver supports it), clears the buffer, then draws the scene.
-2. **2bpp / 4bpp tilemaps and sprites** can write **directly into that buffer** (matching TFT_eSPI’s 8bpp packing for RGB565), avoiding a virtual `drawPixel` per pixel where possible.
+2. **2bpp / 4bpp tilemaps and sprites** can write **directly into that buffer** (matching TFT_eSPI's 8bpp packing for RGB565), avoiding a virtual `drawPixel` per pixel where possible.
 3. **`present()` / `sendBuffer()`** converts logical 8bpp rows to **RGB565** using a LUT and pushes pixels to the panel via **DMA** (see [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md), [System Layer / Renderer](architecture/ARCH_LAYER_SYSTEMS.md)).
+
+### Display Bottleneck Optimization Subsystem (v1.3.0+)
+
+Version 1.3.0 introduces **display bottleneck optimization** to reduce SPI transfer time on slow displays. The system consists of three coordinated components:
+
+#### Architecture Overview
+
+```
+┌────────────────────────────────────────────────────────┐
+│         Display Bottleneck Optimization                │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  ┌───────────────────┐   ┌──────────────────────────┐  │
+│  │  DirtyRectTracker │   │  PartialUpdateController │  │
+│  │                   │   │                          │  │
+│  │  - Bitmap-based   │──▶│  - Threshold decision    │  │
+│  │  - 8x8 blocks     │   │  - Full vs Partial mode  │  │
+│  │  - O(1) marking   │   │  - Region combining      │  │
+│  └───────────────────┘   └───────────┬──────────────┘  │
+│                                      │                 │
+│                                      ▼                 │
+│  ┌──────────────────┐   ┌──────────────────────────┐   │
+│  │ ColorDepthManager│◀──│  TFT_eSPI_Drawer         │   │
+│  │                  │   │                          │   │
+│  │  - 24/16/8-bit   │   │  - sendBufferScaled()    │   │
+│  │  - Palette mgmt  │   │  - PartialUpdate path    │   │
+│  └──────────────────┘   └──────────────────────────┘   │
+└────────────────────────────────────────────────────────┘
+```
+
+#### 5-Step Rendering Pipeline (v1.3.0+)
+
+With display bottleneck optimization enabled, the rendering pipeline follows these steps:
+
+```
+Step 1: Dirty Marking
+        ├── drawTileDirect() → markDirty(x,y,w,h)
+        ├── drawSprite() → markDirty(bounding box)
+        └── Auto-mark: markDirty() called automatically after each draw operation
+
+Step 2: Region Batching
+        ├── DirtyRectTracker accumulates all markDirty() calls
+        └── Uses 8x8 block bitmap (150 bytes for 320x240)
+
+Step 3: Threshold Decision (PartialUpdateController)
+        ├── Calculate dirty ratio = dirtyPixels / totalPixels
+        ├── If dirty% > MAX_DIRTY_RATIO_PERCENT (default 70%): use Full mode
+        └── Otherwise: use Partial mode
+
+Step 4: Region Combining (optional)
+        ├── ENABLED: Merge adjacent 8x8 blocks into larger regions
+        └── DISABLED: Each 8x8 block sent separately
+
+Step 5: Partial vs Full Update
+        ├── Full: send entire framebuffer via DMA
+        └── Partial: send only combined regions via setAddrWindow + pushPixelsDMA
+```
+
+#### Components
+
+##### DirtyRectTracker
+
+**File**: `include/graphics/DirtyRectTracker.h`, `src/graphics/DirtyRectTracker.cpp`
+
+Tracks which regions of the screen have been modified using a bitmap-based approach.
+
+| Property | Value |
+|----------|-------|
+| Grid granularity | 8x8 pixels |
+| Grid dimensions | 40x30 (for 320x240) |
+| Bitmap size | 150 bytes |
+| Mark operation | O(1) |
+| Merge operation | O(grid size) |
+
+**Key Methods**:
+- `markDirty(x, y, w, h)`: Mark region as dirty
+- `combineRegions()`: Merge adjacent blocks
+- `hasDirtyRegions()`: Check if any regions dirty
+- `getRegions()`: Get merged dirty rectangles
+
+##### PartialUpdateController
+
+**File**: `include/graphics/PartialUpdateController.h`, `src/graphics/PartialUpdateController.cpp`
+
+Coordinates dirty region tracking and decides update strategy.
+
+| Property | Default | Range |
+|----------|---------|-------|
+| Mode | Partial | Full/Partial |
+| Min region pixels | 256 | 64-4096 |
+| Dirty ratio threshold | 70% | 0-100% |
+
+**Key Methods**:
+- `beginFrame()`: Prepare tracking for frame
+- `endFrame(width, height)`: Finalize dirty regions
+- `shouldUsePartial()`: Check if partial is beneficial
+- `getRegions()`: Get dirty regions to send
+- `setMinRegionPixels(n)`: Tune minimum region size
+
+**Benchmark APIs**:
+- `getLastRegionCount()`: Regions sent in last frame
+- `getLastTotalSentPixels()`: Pixels sent in last frame
+
+##### ColorDepthManager
+
+**File**: `include/graphics/ColorDepthManager.h`, `src/graphics/ColorDepthManager.cpp`
+
+Manages color depth for display output to reduce SPI transfer.
+
+| Depth | Format | Memory (320x240) | Transfer Reduction |
+|-------|--------|------------------|--------------------|
+| 24 | RGB888 | 230,400 bytes | 100% (baseline) |
+| 16 | RGB565 | 153,600 bytes | 66% |
+| 8 | Indexed | 76,800 bytes | 33% |
+| 4 | Indexed | 38,400 bytes | 17% |
+
+**Key Methods**:
+- `setDepth(bits)`: Set color depth (24/16/8/4)
+- `needsPaletteConversion()`: Check if palette needed
+- `setCustomPalette()`: Set custom 256-color palette
+- `getTransferRatio()`: Get reduction vs 24-bit
+
+#### Configuration Options
+
+| Flag | Default | Valid Range | Description |
+|------|---------|-------------|-------------|
+| `ENABLE_PARTIAL_UPDATES` | 1 | 0-1 | Enable partial screen updates |
+| `DISPLAY_COLOR_DEPTH` | 16 | 24, 16, 8 | Color depth in bits |
+| `MAX_DIRTY_RATIO_PERCENT` | 70 | 0-100 | Threshold for full update |
+| `ENABLE_DIRTY_RECT_COMBINE` | 1 | 0-1 | Enable region combining |
+| `PIXELROOT32_DEBUG_DIRTY_REGIONS` | 0 | 0-1 | Show dirty region borders |
+
+#### Performance Impact
+
+| Scenario | Without Optimization | With Optimization | Savings |
+|----------|---------------------|------------------|---------|
+| Static scene (tiles only) | ~115,200 bytes/frame | ~5,000 bytes/frame | ~95% |
+| UI button press | ~115,200 bytes/frame | ~2,500 bytes/frame | ~98% |
+| Player movement | ~57,600 bytes/frame | ~30,000 bytes/frame | ~48% |
+| Full screen change | ~115,200 bytes/frame | ~115,200 bytes/frame | 0% |
+
+**Memory Overhead**: ~300 bytes (DirtyRectTracker bitmap + partial controller state)
+
+#### BaseDrawSurface Partial Update API
+
+The partial update API is defined in `BaseDrawSurface.h` with default no-op implementations:
+
+```cpp
+// Mark region as dirty (auto-called by default)
+virtual void markDirty(int x, int y, int width, int height);
+
+// Clear for next frame
+virtual void clearDirtyFlags();
+
+// Check if partial updates beneficial
+virtual bool hasDirtyRegions() const;
+
+// Enable/disable partial updates
+virtual void setPartialUpdateEnabled(bool enabled);
+virtual bool isPartialUpdateEnabled() const;
+
+// Frame lifecycle
+virtual void beginFrame();
+virtual void endFrame();
+
+// Color depth control
+virtual void setColorDepth(int depth);
+
+// Auto-mark dirty control
+virtual void setAutoMarkDirty(bool enabled);
+virtual bool isAutoMarkDirty() const;
+
+// Debug overlay
+virtual void setDebugDirtyRegions(bool enabled);
+virtual bool isDebugDirtyRegions() const;
+```
+
+**Backward Compatibility**: All methods have default no-op implementations in `BaseDrawSurface`. Existing games work without modifications. Only drivers that support partial updates (e.g., `TFT_eSPI_Drawer`) override these methods.
 
 ### Static tilemap layer cache (engine + scenes)
 
@@ -146,7 +328,7 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 ### Present-path savings (optional)
 
 - **Opción A (implementada):** `Scene::shouldRedrawFramebuffer()` — el **`Engine`** omite **`draw()`** + **`present()`** cuando la escena devuelve `false`. **`AnimatedTilemapScene`** usa firmas de **`TileAnimationManager::getVisualSignature()`** y muestras de cámara para detectar frames sin cambio visual (p. ej. entre avances de frame de animación). Con **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** el motor **siempre** redibuja para mantener el overlay coherente.
-- **Opción B (documentada, no implementada):** **bandas sucias / diff por líneas** dentro de **`TFT_eSPI_Drawer::sendBufferScaled`**: guardar el framebuffer lógico 8 bpp anterior (o comparar por bloques) y emitir **varios** `setAddrWindow` + **`pushPixelsDMA`** solo por bandas que cambiaron. Ahorra SPI cuando una fracción pequeña del panel cambia; coste: RAM extra (~**W×H** bytes para copia) y overhead por múltiples transacciones. Ver [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md).
+- **Opción B (implemented v1.3.0):** **dirty region / partial updates** via **`TFT_eSPI_Drawer::sendBufferScaled`**: uses dirty bitmap tracking and sends only modified regions via `setAddrWindow` + `pushPixelsDMA`. Saves SPI when a fraction of the panel changes. Enabled by default in v1.3.0 via `ENABLE_PARTIAL_UPDATES=1`. See [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md).
 
 **Game / scene developer contract**
 
@@ -154,6 +336,7 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 - Layers in the **dynamic** group are drawn every frame on the fast path—no invalidation needed for **`step()`** on **dynamic-only** animators.
 - **Scroll:** cache rebuilds when the camera sample changes; no extra invalidation solely for scroll.
 - **`getSpriteBuffer() == nullptr`:** full redraw of all groups every frame; no snapshot used.
+- **Dirty rect tracking (v1.3.0+):** The partial update system automatically tracks dirty regions. For custom rendering (drawing directly to framebuffer), call **`renderer.markDirty(x, y, w, h)`** to mark modified regions. Auto-mark dirty is enabled by default.
 
 For animation data flow and linking managers to tilemaps, see [Tile Animation](architecture/ARCH_TILE_ANIMATION.md). API surface: [API Reference — ESP32 graphics / tilemap cache](api/API_GRAPHICS.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache).
 

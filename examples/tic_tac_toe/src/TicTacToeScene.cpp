@@ -46,6 +46,7 @@ void TicTacToeScene::init() {
     createResetButton();
     resetGame();
 
+    engine.getMusicPlayer().setBPM(130.0f);
     engine.getMusicPlayer().play(BG_MUSIC);
 
     static bool seeded = false;
@@ -151,6 +152,7 @@ void TicTacToeScene::handleInput() {
             return;
         }
         if (input.isButtonPressed(BTN_SELECT)) {
+            engine.getMusicPlayer().setBPM(130.0f);
             engine.getMusicPlayer().play(BG_MUSIC);
             resetGame();
         }

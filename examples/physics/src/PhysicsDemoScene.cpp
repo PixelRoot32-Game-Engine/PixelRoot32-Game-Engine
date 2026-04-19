@@ -24,6 +24,7 @@ namespace physicsdemo {
 namespace math = pr32::math;
 namespace input = pr32::input;
 namespace gfx = pr32::graphics;
+namespace ui = pr32::graphics::ui;
 
 using pr32::core::arenaNew;
 using math::Vector2;
@@ -33,11 +34,11 @@ using input::TouchEvent;
 using input::TouchEventType;
 using gfx::Renderer;
 using gfx::Color;
-using gfx::ui::UIVerticalLayout;
-using gfx::ui::UIHorizontalLayout;
-using gfx::ui::UITouchButton;
-using gfx::ui::UITouchSlider;
-using gfx::ui::UITouchCheckbox;
+using ui::UIVerticalLayout;
+using ui::UIHorizontalLayout;
+using ui::UITouchButton;
+using ui::UITouchSlider;
+using ui::UITouchCheckbox;
 
 
 #if PIXELROOT32_ENABLE_UI_SYSTEM

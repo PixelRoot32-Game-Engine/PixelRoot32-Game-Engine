@@ -2,7 +2,7 @@
 #include <audio/AudioMusicTypes.h>
 
 // Base four-note bass pattern: "tu tu tu tu"
-static const pixelroot32::audio::InstrumentPreset BASS_INSTRUMENT = pixelroot32::audio::INSTR_PULSE_BASS;
+static const pixelroot32::audio::InstrumentPreset BASS_INSTRUMENT = pixelroot32::audio::INSTR_TRIANGLE_BASS;
 
 static const pixelroot32::audio::MusicNote BGM_SLOW_NOTES[] = {
     pixelroot32::audio::makeNote(BASS_INSTRUMENT, pixelroot32::audio::Note::C, 0.21f),

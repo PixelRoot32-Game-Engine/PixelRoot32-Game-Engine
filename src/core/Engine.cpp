@@ -248,6 +248,8 @@ namespace pixelroot32::core {
                         gProfilerPhysicsIntegrateTime = 0;
                         gProfilerPhysicsIntegrateCount = 0;
                     }
+
+                    #if PIXELROOT32_ENABLE_AUDIO
                     audio::ApuCore::ProfileEntry audioEntries[audio::ApuCore::PROFILE_RING_SIZE];
                     uint8_t audioCount = 0;
                     audioEngine.getScheduler()->getApuCore().getAndResetProfileStats(audioEntries, audioCount);
@@ -259,6 +261,7 @@ namespace pixelroot32::core {
                                 audioEntries[i].peak, (audioEntries[i].peak / 32767.0f) * 100.0f);
                         }
                     }
+                    #endif
                 }
                 lastHeartbeat = millis();
             }
@@ -379,11 +382,21 @@ namespace pixelroot32::core {
     }
 
     void Engine::draw() {
+        // Begin frame for partial update tracking (display bottleneck optimization)
+        // The DrawSurface.beginFrame() notifies controllers to prepare for new frame
         renderer.beginFrame();
+        
+        // If the drawer supports partial updates, begin tracking
+        DrawSurface* drawer = static_cast<DrawSurface*>(&renderer.getDrawSurface());
+        drawer->beginFrame();
+        
         sceneManager.draw(renderer);
         if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
             drawDebugOverlay(renderer);
         }
+        
+        // End frame for partial update tracking - prepares dirty regions for transfer
+        drawer->endFrame();
     }
 
     void Engine::drawDebugOverlay(pixelroot32::graphics::Renderer& r) {

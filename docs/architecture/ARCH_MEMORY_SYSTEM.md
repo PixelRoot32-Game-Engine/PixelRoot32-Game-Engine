@@ -132,6 +132,16 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 
 **Optional `StaticTilemapLayerCache` (4bpp tilemap snapshot):** when enabled (`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`, default `1`), scenes may allocate a **second** logical **W×H** byte buffer (same order as one fullscreen 8bpp logical surface) via **`allocateForRenderer` / `allocateForLogicalSize`** during **`Scene::init()`** only—no heap traffic in **`draw`/`update`**. Budget an extra **~57 KB** at **240×240** if you use the fast path; set the flag to **`0`** or skip **`allocate*`** to avoid that cost (full redraw fallback).
 
+**Display Bottleneck Optimization (v1.3.0+)**: The `DirtyRectTracker` uses an 8x8 block bitmap for dirty region tracking. At 320×240 resolution, this requires only **150 bytes** (40×30 grid = 1200 blocks / 8 = 150 bytes). Combined with `PartialUpdateController` and `ColorDepthManager`, total overhead is approximately **~300 bytes**—negligible compared to the framebuffer savings achieved.
+
+| Optimization Feature | Memory Cost | Frame Savings |
+|---------------------|-------------|--------------|
+| DirtyRectTracker bitmap (320x240) | ~150 bytes | Up to ~95% |
+| PartialUpdateController | ~100 bytes | partial updates |
+| ColorDepthManager | ~50 bytes | optional |
+
+The dirty rect tracking is enabled by default in v1.3.0+ (`ENABLE_PARTIAL_UPDATES=1`). Disable via build flag if not needed (`ENABLE_PARTIAL_UPDATES=0`).
+
 ### Per-Entity Memory Costs
 
 | Component | Memory Cost |

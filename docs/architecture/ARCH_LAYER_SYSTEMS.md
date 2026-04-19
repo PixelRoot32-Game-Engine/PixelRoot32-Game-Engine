@@ -21,31 +21,60 @@ The System Layer contains the following major subsystems:
 | **Camera2D** | Viewport transformations | See API Reference |
 | **Tile Animation** | Animated tilemaps | [Tile Animation](ARCH_TILE_ANIMATION.md) |
 | **Resolution Scaling** | Logical vs physical resolution | [Resolution Scaling](ARCH_RESOLUTION_SCALING.md) |
+| **Display Optimization** | Partial updates, dirty rect tracking | [ESP32 Rendering](#esp32-rendering-pipeline-and-tilemap-caching) |
 
 ---
 
 ## System Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        System Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│   │ Renderer │  │  Input   │  │  Audio   │  │ Physics  │        │
-│   │          │  │ Manager  │  │ Engine   │  │   (Flat  │        │
-│   │          │  │          │  │          │  │  Solver) │        │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘        │
-│        │             │             │             │              │
-│        └─────────────┴─────────────┴─────────────┘              │
-│                      │                                          │
-│                      ▼                                          │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│   │   UI     │  │ Particle │  │ Camera   │  │   Tile   │        │
-│   │  System  │  │  System  │  │   2D     │  │ Animation│        │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        System Layer                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│   │ Renderer │  │  Input   │  │  Audio   │  │ Physics  │    │
+│   │          │  │ Manager  │  │ Engine   │  │   (Flat  │    │
+│   │ + Display│  │          │  │          │  │  Solver) │    │
+│   │ Optimize │  │          │  │          │  │          │    │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
+│        │             │             │             │          │
+│        └─────────────┴─────────────┴─────────────┘          │
+│                      │                                      │
+│                      ▼                                      │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│   │   UI     │  │ Particle │  │ Camera   │  │   Tile   │    │
+│   │  System  │  │  System  │  │   2D     │  │Animation │    │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │   Scene Layer    │
+                    │  (coordinates    │
+                    │   game objects)  │
+                    └──────────────────┘
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        System Layer                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│   │ Renderer │  │  Input   │  │  Audio   │  │ Physics  │    │
+│   │          │  │ Manager  │  │ Engine   │  │   (Flat  │    │
+│   │          │  │          │  │          │  │  Solver) │    │
+│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
+│        │             │             │             │          │
+│        └─────────────┴─────────────┴─────────────┘          │
+│                      │                                      │
+│                      ▼                                      │
+│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│   │   UI     │  │ Particle │  │ Camera   │  │   Tile   │    │
+│   │  System  │  │  System  │  │   2D     │  │ Animation│    │
+│   └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
                     ┌──────────────────┐
@@ -246,6 +275,7 @@ See [Tile Animation](ARCH_TILE_ANIMATION.md) for the animation system.
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap framebuffer cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
+| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Enabled (v1.3.0+) |
 
 ---
 

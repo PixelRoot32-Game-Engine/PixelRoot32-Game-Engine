@@ -138,6 +138,50 @@ build_flags =
 
 ---
 
+## 🔄 Partial Updates Configuration
+
+### Habilitar Partial Updates
+
+Para habilitar las partial updates (dirty rect tracking), agregar en `platform.ini` (PlatformIO):
+
+```ini
+[env:esp32dev]
+build_flags =
+    -DENABLE_PARTIAL_UPDATES=1
+```
+
+### Configurar Color Depth
+
+```ini
+[env:esp32dev]
+build_flags =
+    -DDISPLAY_COLOR_DEPTH=16    ; RGB565 (default)
+    ; -DDISPLAY_COLOR_DEPTH=8   ; 8-bit indexed
+    ; -DDISPLAY_COLOR_DEPTH=4   ; 4-bit indexed
+```
+
+### Configuración Completa
+
+```ini
+[env:esp32dev]
+build_flags =
+    -DENABLE_PARTIAL_UPDATES=1
+    -DDISPLAY_COLOR_DEPTH=16
+    -DMAX_DIRTY_RATIO_PERCENT=70
+    -DENABLE_DIRTY_RECT_COMBINE=1
+```
+
+### Combinación de Configuración
+
+| Config | Partial Updates | Color Depth | Dirty Combine | Use Case |
+|--------|----------------|------------|--------------|---------|
+| Default | 1 (enabled) | 16 | 1 | Normal games |
+| Max Perf | 1 | 8 | 1 | Slow displays |
+| Compatibility | 0 | 24 | 0 | Legacy games |
+| Debug | 1 | 16 | 0 | Visualize regions |
+
+---
+
 ## 📚 Related Documentation
 
 | Document | Description |
@@ -145,3 +189,47 @@ build_flags =
 | [Memory Management Guide](../architecture/ARCH_MEMORY_SYSTEM.md) | Complete C++17 memory guide with smart pointers |
 | [Platform Compatibility](../PLATFORM_COMPATIBILITY.md) | Hardware matrix and feature support |
 | [Architecture Overview](../ARCHITECTURE.md) | Layer architecture and subsystem navigation |
+
+---
+
+## 🎮 Display Bottleneck Optimization Details (v1.3.0+)
+
+### Components
+
+| Component | File | Memory | Purpose |
+|------------|------|--------|---------|
+| `DirtyRectTracker` | `include/graphics/DirtyRectTracker.h` | ~150 bytes | 8x8 block bitmap for dirty tracking |
+| `PartialUpdateController` | `include/graphics/PartialUpdateController.h` | ~100 bytes | Threshold decision, region combining |
+| `ColorDepthManager` | `include/graphics/ColorDepthManager.h` | ~50 bytes | Color depth configuration |
+| **Total** | | **~300 bytes** | |
+
+### Pipeline Flow
+
+```
+Game Loop:
+  1. beginFrame() → clear dirty bitmap
+  2. draw operations → markDirty(x,y,w,h) called automatically
+  3. endFrame() → combineRegions() → shouldUsePartial()
+  4. sendBuffer:
+       ├─ Full mode: send entire buffer
+       └─ Partial mode: send only dirty regions via setAddrWindow+pushPixelsDMA
+```
+
+### Tuning Tips
+
+1. **High motion scenes** (full screen updates): Keep default threshold at 70%
+2. **Mostly static UI** (button presses): Reduce threshold to 50%
+3. **Heavy animation** (particles): Consider keeping full updates disabled
+4. **Small modified areas**: Reduce min region size (`setMinRegionPixels(64)`)
+
+### Debug Commands
+
+```cpp
+// At runtime - enable dirty region visualization
+renderer.setDebugDirtyRegions(true);
+
+// Check performance
+Serial.printf("Regions: %d, Pixels: %d\n",
+    renderer.getLastRegionCount(),
+    renderer.getLastTotalSentPixels());
+```

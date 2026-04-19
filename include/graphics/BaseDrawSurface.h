@@ -111,6 +111,143 @@ public:
         }
     }
 
+    // ============================================================================
+    // Partial Update API (Default implementations - override for optimization)
+    // ============================================================================
+
+    /**
+     * @brief Mark a region as dirty for partial screen updates.
+     * 
+     * Default implementation does nothing (base class can work without optimization).
+     * Override in drivers that support partial updates (e.g., TFT_eSPI_Drawer).
+     * 
+     * @param x X coordinate in sprite pixels
+     * @param y Y coordinate in sprite pixels
+     * @param width Width in pixels
+     * @param height Height in pixels
+     */
+    virtual void markDirty(int x, int y, int width, int height) {
+        (void)x; (void)y; (void)width; (void)height;
+        // Default: no-op, base class doesn't track dirty regions
+    }
+
+    /**
+     * @brief Clear all dirty tracking flags for next frame.
+     * 
+     * Default implementation does nothing.
+     * Override in drivers that support partial updates.
+     */
+    virtual void clearDirtyFlags() {
+        // Default: no-op
+    }
+
+    /**
+     * @brief Check if partial updates are enabled and beneficial.
+     * 
+     * @return true if should use partial updates
+     */
+    virtual bool hasDirtyRegions() const {
+        return false;
+    }
+
+    /**
+     * @brief Set partial update mode.
+     * @param enabled true to enable partial updates
+     */
+    virtual void setPartialUpdateEnabled(bool enabled) {
+        (void)enabled;
+        // Default: no-op
+    }
+
+    /**
+     * @brief Check if partial updates are enabled.
+     * @return true if partial updates are enabled
+     */
+    virtual bool isPartialUpdateEnabled() const {
+        return false;
+    }
+
+    /**
+     * @brief Called at the beginning of each frame to prepare for partial update tracking.
+     * Default implementation does nothing.
+     */
+    virtual void beginFrame() override {
+        // Default: no-op
+    }
+
+    /**
+     * @brief Called at the end of each frame to finalize dirty region tracking.
+     * Default implementation does nothing.
+     */
+    virtual void endFrame() override {
+        // Default: no-op
+    }
+
+    /**
+     * @brief Set the color depth for display output.
+     * Default implementation does nothing.
+     */
+    virtual void setColorDepth(int depth) override {
+        (void)depth;
+        // Default: no-op
+    }
+
+    // ============================================================================
+    // Auto-Mark Dirty API
+    // ============================================================================
+
+    /**
+     * @brief Enable or disable automatic dirty region marking.
+     *
+     * When enabled (default), the surface automatically calls markDirty() after
+     * drawing operations. This provides zero-config partial updates for most games.
+     *
+     * When disabled, games must manually call markDirty() for regions they want
+     * to update. This is useful for custom rendering pipelines that need precise
+     * control over which regions are updated.
+     *
+     * @param enabled true to enable auto-marking (default), false for manual marking
+     */
+    virtual void setAutoMarkDirty(bool enabled) {
+        autoMarkDirty_ = enabled;
+    }
+
+    /**
+     * @brief Check if automatic dirty marking is enabled.
+     * @return true if auto-marking is enabled
+     */
+    virtual bool isAutoMarkDirty() const {
+        return autoMarkDirty_;
+    }
+
+    // ============================================================================
+    // Debug Dirty Regions API
+    // ============================================================================
+
+    /**
+     * @brief Enable or disable debug overlay showing sent dirty regions.
+     *
+     * When enabled, a 2px red border is drawn around each dirty region sent to
+     * the display. This is useful for debugging and tuning the partial update
+     * system. Can be toggled at runtime without recompilation.
+     *
+     * Note: Requires PIXELROOT32_DEBUG_DIRTY_REGIONS compile flag to include
+     * the debug drawing code in the build.
+     *
+     * @param enabled true to enable debug overlay
+     */
+    virtual void setDebugDirtyRegions(bool enabled) {
+        debugDirtyRegions_ = enabled;
+    }
+
+    /**
+     * @brief Check if debug dirty regions overlay is enabled.
+     * @return true if debug overlay is enabled
+     */
+    virtual bool isDebugDirtyRegions() const {
+        return debugDirtyRegions_;
+    }
+
 protected:
     uint16_t textColor = 0xFFFF;
     uint8_t textSize = 1;
@@ -120,6 +257,13 @@ protected:
     int logicalWidth = 240, logicalHeight = 240;
     int physicalWidth = 240, physicalHeight = 240;
     int xOffset = 0, yOffset = 0;
+
+    // Auto-marking for dirty regions (default: enabled)
+    // When true, markDirty() is called automatically after draw operations
+    bool autoMarkDirty_ = true;
+
+    // Debug overlay for dirty regions (default: disabled)
+    bool debugDirtyRegions_ = false;
 };
 
 } // namespace pixelroot32::graphics

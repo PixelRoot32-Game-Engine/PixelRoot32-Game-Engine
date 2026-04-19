@@ -18,6 +18,8 @@
 #endif
 
 #include "graphics/BaseDrawSurface.h"
+#include "graphics/PartialUpdateController.h"
+#include "graphics/ColorDepthManager.h"
 // TFT_eSPI-specific includes
 #include <TFT_eSPI.h>
 #include <stdint.h>
@@ -105,6 +107,62 @@ private:
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
     uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp to 16bpp palette LUT
+    
+    // ============================================================================
+    // Display Bottleneck Optimization Managers
+    // ============================================================================
+    pixelroot32::graphics::PartialUpdateController partialController_;  ///< Partial update controller
+    pixelroot32::graphics::ColorDepthManager colorDepthManager_;  ///< Color depth manager
+    
+    /**
+     * @brief Send buffer using partial updates (only dirty regions).
+     * @param regions Vector of dirty regions to send
+     */
+    void sendBufferPartial(const std::vector<pixelroot32::graphics::DirtyRect>& regions);
+    
+    /**
+     * @brief Send a single region to the display.
+     * @param x Region X position in sprite pixels
+     * @param y Region Y position in sprite pixels
+     * @param w Region width in pixels
+     * @param h Region height in pixels
+     */
+    void sendRegion(int16_t x, int16_t y, uint16_t w, uint16_t h);
+    
+    // ============================================================================
+    // Partial Update API - Override base class implementations
+    // ============================================================================
+    
+    /**
+     * @brief Mark a region as dirty (delegates to partial controller).
+     */
+    void markDirty(int x, int y, int width, int height) override;
+    
+    /**
+     * @brief Clear dirty flags for next frame.
+     */
+    void clearDirtyFlags() override;
+    
+    /**
+     * @brief Check if partial updates are beneficial.
+     */
+    bool hasDirtyRegions() const override;
+    
+    /**
+     * @brief Enable or disable partial updates.
+     */
+    void setPartialUpdateEnabled(bool enabled) override;
+    
+    /**
+     * @brief Check if partial updates are enabled.
+     */
+    bool isPartialUpdateEnabled() const override;
+    
+    /**
+     * @brief Set color depth for display output.
+     * @param depth Color depth (24, 16, 8, or 4 bits per pixel)
+     */
+    void setColorDepth(int depth);
     
     /**
      * @brief Checks if scaling is needed.
