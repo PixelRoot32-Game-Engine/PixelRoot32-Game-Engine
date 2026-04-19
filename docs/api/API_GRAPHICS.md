@@ -794,7 +794,7 @@ Manages color depth selection for display output. Provides runtime selection of 
 ### 8-bit Indexed Palette API (v1.3.0+)
 
 - **`void setCustomPalette(const uint16_t* palette256)`**
-    Sets a custom 256-color palette for 8-bit indexed mode. The palette should be an array of 256 RGB565 color values (512 bytes total). Use `nullptr` to revert to the built-in default palette. The palette is stored by reference - the caller must ensure the array remains valid for the lifetime of the ColorDepthManager. For ESP32, store the palette in PROGMEM/flash to conserve RAM.
+    Sets a custom 256-color palette for 8-bit indexed mode. The palette should be an array of 256 RGB565 color values (512 bytes total). Use `nullptr` to revert to the **PALETTE_PR32** (PixelRoot32) built-in default palette. The palette is stored by reference - the caller must ensure the array remains valid for the lifetime of the ColorDepthManager. For ESP32, store the palette in PROGMEM/flash to conserve RAM.
 
 - **`const uint16_t* getPalette() const`**
     Returns the current palette (never null).
