@@ -9,6 +9,11 @@
 
 namespace pixelroot32::graphics {
 
+namespace logging = pixelroot32::core::logging;
+
+using logging::log;
+using logging::LogLevel;
+
 PartialUpdateController::PartialUpdateController()
     : mode_(Mode::Partial)
     , dirtyPixelCount_(0)
@@ -59,7 +64,7 @@ void PartialUpdateController::endFrame(int frameWidth, int frameHeight) {
 
     // Benchmark logging (if profiling enabled)
     #ifdef PIXELROOT32_ENABLE_PROFILING
-    log("PartialUpdate: regions=%d, pixels=%d, ratio=%.2f%%\n",
+    log(LogLevel::Profiling, "PartialUpdate: regions=%d, pixels=%d, ratio=%.2f%%\n",
         lastRegionCount_, lastTotalSentPixels_,
         (totalPixels > 0 ? (float)dirtyPixelCount_ / totalPixels * 100.0f : 0.0f));
     #endif
