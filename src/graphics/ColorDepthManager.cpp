@@ -95,8 +95,7 @@ bool ColorDepthManager::setDepth(int depthBits) {
             setDepth(Depth::Depth4);
             return true;
         default:
-            // Invalid - setDepth already defaults to Depth16 by constructor
-            // Log is conditional on DEBUG_MODE - skip for simpler native build
+            // Invalid depth value
             return false;
     }
 }

@@ -78,6 +78,18 @@ private:
     uint32_t lastPresentedSignature = 0;
     bool hasPresentedFramebuffer = false;
     bool omitDrawPresentThisFrame = false;
+
+    // Benchmarking variables
+    unsigned long benchmarkFrameCounter = 0;
+    static constexpr int BENCHMARK_INTERVAL = 60; // Report every 60 frames (~2 seconds)
+    int lastRegionCount = 0;
+    int lastTotalSentPixels = 0;
+    int totalRegionCount = 0;
+    int totalSentPixels = 0;
+    int framesWithOptimization = 0;
+    int framesWithoutOptimization = 0;
+
+    void reportBenchmarkStats(pixelroot32::graphics::Renderer& renderer);
 };
 
 /**

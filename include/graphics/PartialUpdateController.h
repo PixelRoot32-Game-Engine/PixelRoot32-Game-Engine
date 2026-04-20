@@ -92,6 +92,17 @@ public:
     void clear();
 
     /**
+     * @brief Configure tracker for actual sprite resolution.
+     *
+     * Must be called during init when the logical display dimensions are known.
+     * Without this call, defaults to 320x240 (backward compatible).
+     *
+     * @param spriteWidth Sprite buffer width in pixels
+     * @param spriteHeight Sprite buffer height in pixels
+     */
+    void configure(int spriteWidth, int spriteHeight);
+
+    /**
      * @brief Set the update mode.
      * @param mode New mode (Full or Partial)
      */

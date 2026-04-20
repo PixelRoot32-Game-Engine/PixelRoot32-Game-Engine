@@ -9,36 +9,67 @@
 
 namespace pixelroot32::graphics {
 
-DirtyRectTracker::DirtyRectTracker() {
-    // Initialize bitmap to zero
-    std::memset(dirtyBitmap_, 0, sizeof(dirtyBitmap_));
+DirtyRectTracker::DirtyRectTracker()
+    : spriteWidth_(DEFAULT_SPRITE_WIDTH)
+    , spriteHeight_(DEFAULT_SPRITE_HEIGHT)
+    , gridWidth_((DEFAULT_SPRITE_WIDTH + BLOCK_SIZE - 1) / BLOCK_SIZE)
+    , gridHeight_((DEFAULT_SPRITE_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE)
+    , bitmapSize_(0)
+    , dirtyBitmap_(nullptr)
+    , hasDirty_(false)
+    , combineEnabled_(true)
+    , processed_(nullptr)
+{
+    bitmapSize_ = (gridWidth_ * gridHeight_ + 7) / 8;
+    dirtyBitmap_ = new uint8_t[bitmapSize_]();
+    processed_ = new bool[gridWidth_ * gridHeight_]();
 
-    // Allocate processed_ array on heap (GRID_WIDTH * GRID_HEIGHT = 1200 bools)
-    processed_ = new bool[GRID_WIDTH * GRID_HEIGHT]();
-
-    hasDirty_ = false;
-    combineEnabled_ = true;
+    // Pre-allocate region storage to avoid heap churn during gameplay.
+    // After reserve(), clear() keeps capacity — push_back never re-allocates.
+    mergedRegions_.reserve(64);
 }
 
 DirtyRectTracker::~DirtyRectTracker() {
-    // Clean up heap-allocated processed_ array
+    // Clean up heap-allocated arrays
     delete[] processed_;
     processed_ = nullptr;
+    delete[] dirtyBitmap_;
+    dirtyBitmap_ = nullptr;
+}
+
+void DirtyRectTracker::configure(int spriteWidth, int spriteHeight) {
+    if (spriteWidth <= 0 || spriteHeight <= 0) return;
+    if (spriteWidth == spriteWidth_ && spriteHeight == spriteHeight_) return;
+
+    spriteWidth_ = spriteWidth;
+    spriteHeight_ = spriteHeight;
+    gridWidth_ = (spriteWidth + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    gridHeight_ = (spriteHeight + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    bitmapSize_ = (gridWidth_ * gridHeight_ + 7) / 8;
+
+    // Reallocate memory for new dimensions
+    delete[] dirtyBitmap_;
+    delete[] processed_;
+    dirtyBitmap_ = new uint8_t[bitmapSize_]();
+    processed_ = new bool[gridWidth_ * gridHeight_]();
+
+    hasDirty_ = false;
+    mergedRegions_.clear();
 }
 
 inline void DirtyRectTracker::setBit(int blockX, int blockY) {
-    if (blockX < 0 || blockX >= GRID_WIDTH || blockY < 0 || blockY >= GRID_HEIGHT) {
+    if (blockX < 0 || blockX >= gridWidth_ || blockY < 0 || blockY >= gridHeight_) {
         return;
     }
-    int index = blockY * GRID_WIDTH + blockX;
+    int index = blockY * gridWidth_ + blockX;
     dirtyBitmap_[index / 8] |= (1 << (index % 8));
 }
 
 inline bool DirtyRectTracker::getBit(int blockX, int blockY) const {
-    if (blockX < 0 || blockX >= GRID_WIDTH || blockY < 0 || blockY >= GRID_HEIGHT) {
+    if (blockX < 0 || blockX >= gridWidth_ || blockY < 0 || blockY >= gridHeight_) {
         return false;
     }
-    int index = blockY * GRID_WIDTH + blockX;
+    int index = blockY * gridWidth_ + blockX;
     return (dirtyBitmap_[index / 8] & (1 << (index % 8))) != 0;
 }
 
@@ -47,11 +78,11 @@ void DirtyRectTracker::markDirty(int x, int y, int w, int h) {
     if (x < 0) { w += x; x = 0; }
     if (y < 0) { h += y; y = 0; }
     if (w <= 0 || h <= 0) return;
-    if (x >= SPRITE_WIDTH || y >= SPRITE_HEIGHT) return;
+    if (x >= spriteWidth_ || y >= spriteHeight_) return;
 
     // Clamp to sprite bounds
-    w = std::min(w, SPRITE_WIDTH - x);
-    h = std::min(h, SPRITE_HEIGHT - y);
+    w = std::min(w, spriteWidth_ - x);
+    h = std::min(h, spriteHeight_ - y);
     if (w <= 0 || h <= 0) return;
 
     // Convert to block coordinates
@@ -61,8 +92,8 @@ void DirtyRectTracker::markDirty(int x, int y, int w, int h) {
     int endBlockY = (y + h + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     // Clamp to grid bounds
-    endBlockX = std::min(endBlockX, GRID_WIDTH);
-    endBlockY = std::min(endBlockY, GRID_HEIGHT);
+    endBlockX = std::min(endBlockX, gridWidth_);
+    endBlockY = std::min(endBlockY, gridHeight_);
 
     // Mark all covered blocks as dirty (O(blocks) operation)
     for (int by = startBlockY; by < endBlockY; ++by) {
@@ -86,8 +117,8 @@ void DirtyRectTracker::combineRegions() {
         computeMergedRegions();
     } else {
         // Fast path: just iterate bitmap, each dirty block is a separate region
-        for (int by = 0; by < GRID_HEIGHT; ++by) {
-            for (int bx = 0; bx < GRID_WIDTH; ++bx) {
+        for (int by = 0; by < gridHeight_; ++by) {
+            for (int bx = 0; bx < gridWidth_; ++bx) {
                 if (getBit(bx, by)) {
                     mergedRegions_.push_back(DirtyRect(
                         static_cast<int16_t>(bx * BLOCK_SIZE),
@@ -103,12 +134,12 @@ void DirtyRectTracker::combineRegions() {
 
 void DirtyRectTracker::computeMergedRegions() {
     // Reset processed_ tracking array
-    std::memset(processed_, 0, GRID_WIDTH * GRID_HEIGHT * sizeof(bool));
+    std::memset(processed_, 0, gridWidth_ * gridHeight_ * sizeof(bool));
 
     // Scan in row-major order
-    for (int by = 0; by < GRID_HEIGHT; ++by) {
-        for (int bx = 0; bx < GRID_WIDTH; ++bx) {
-            int idx = by * GRID_WIDTH + bx;
+    for (int by = 0; by < gridHeight_; ++by) {
+        for (int bx = 0; bx < gridWidth_; ++bx) {
+            int idx = by * gridWidth_ + bx;
 
             // Skip if already processed or not dirty
             if (processed_[idx] || !getBit(bx, by)) {
@@ -126,14 +157,14 @@ void DirtyRectTracker::computeMergedRegions() {
 
             // Expand right while adjacent blocks are dirty
             int expandX = bx + 1;
-            while (expandX < GRID_WIDTH && getBit(expandX, by) && !processed_[by * GRID_WIDTH + expandX]) {
+            while (expandX < gridWidth_ && getBit(expandX, by) && !processed_[by * gridWidth_ + expandX]) {
                 rw += BLOCK_SIZE;
-                processed_[by * GRID_WIDTH + expandX] = true;
+                processed_[by * gridWidth_ + expandX] = true;
                 ++expandX;
             }
 
             // Now expand down - check each row for full horizontal coverage
-            while (by + rh / BLOCK_SIZE < GRID_HEIGHT) {
+            while (by + rh / BLOCK_SIZE < gridHeight_) {
                 int nextRow = by + rh / BLOCK_SIZE;
                 bool rowComplete = true;
                 int colsInRegion = rw / BLOCK_SIZE;
@@ -141,7 +172,7 @@ void DirtyRectTracker::computeMergedRegions() {
                 // Check if all columns in current region width are dirty in next row
                 for (int dx = 0; dx < colsInRegion; ++dx) {
                     int cx = bx + dx;
-                    if (cx >= GRID_WIDTH || !getBit(cx, nextRow) || processed_[nextRow * GRID_WIDTH + cx]) {
+                    if (cx >= gridWidth_ || !getBit(cx, nextRow) || processed_[nextRow * gridWidth_ + cx]) {
                         rowComplete = false;
                         break;
                     }
@@ -152,7 +183,7 @@ void DirtyRectTracker::computeMergedRegions() {
                 // Extend region downward
                 rh += BLOCK_SIZE;
                 for (int dx = 0; dx < colsInRegion; ++dx) {
-                    processed_[nextRow * GRID_WIDTH + (bx + dx)] = true;
+                    processed_[nextRow * gridWidth_ + (bx + dx)] = true;
                 }
             }
 
@@ -163,7 +194,7 @@ void DirtyRectTracker::computeMergedRegions() {
 
 void DirtyRectTracker::clear() {
     // Zero the bitmap
-    std::memset(dirtyBitmap_, 0, sizeof(dirtyBitmap_));
+    std::memset(dirtyBitmap_, 0, bitmapSize_);
     mergedRegions_.clear();
     hasDirty_ = false;
 }

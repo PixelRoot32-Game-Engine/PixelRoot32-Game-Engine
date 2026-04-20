@@ -114,6 +114,8 @@ private:
     // ============================================================================
     pixelroot32::graphics::PartialUpdateController partialController_;  ///< Partial update controller
     pixelroot32::graphics::ColorDepthManager colorDepthManager_;  ///< Color depth manager
+
+    
     
     /**
      * @brief Send buffer using partial updates (only dirty regions).
@@ -129,7 +131,8 @@ private:
      * @param h Region height in pixels
      */
     void sendRegion(int16_t x, int16_t y, uint16_t w, uint16_t h);
-    
+
+public:
     // ============================================================================
     // Partial Update API - Override base class implementations
     // ============================================================================
@@ -158,13 +161,43 @@ private:
      * @brief Check if partial updates are enabled.
      */
     bool isPartialUpdateEnabled() const override;
+
+    /**
+     * @brief Get the number of regions sent in the last partial update.
+     */
+    int getLastRegionCount() const override;
+    
+    /**
+     * @brief Get the total number of pixels sent in the last partial update.
+     */
+    int getLastTotalSentPixels() const override;
+    
+    /**
+     * @brief Get the number of dirty pixels in the last frame.
+     */
+    int getDirtyPixelCount() const override;
+    
+    /**
+     * @brief Get the width of the last frame sent.
+     */
+    int getLastFrameWidth() const override;
+    
+    /**
+     * @brief Get the height of the last frame sent.
+     */
+    int getLastFrameHeight() const override;
     
     /**
      * @brief Set color depth for display output.
      * @param depth Color depth (24, 16, 8, or 4 bits per pixel)
      */
-    void setColorDepth(int depth);
-    
+    void setColorDepth(int depth) override;
+
+private:
+    // ============================================================================
+    // Internal scaling helpers
+    // ============================================================================
+
     /**
      * @brief Checks if scaling is needed.
      * @return true if logical != physical resolution.

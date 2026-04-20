@@ -15,9 +15,11 @@ Version 1.3.0 introduces display bottleneck optimization through partial screen 
 | Feature | Description | Breaking Change |
 |---------|-------------|-----------------|
 | Partial Updates | Dirty rect tracking - only modified regions sent to display | No |
+| Resolution Independence | Dirty rect grid/bitmap adjusts to any logical resolution | No |
 | Color Depth Config | Configurable color depth (24/16/8 bits) | No |
+| DMA Pipelining | Overlap CPU processing with DMA SPI transfers | No |
 | Auto-Mark Dirty | Automatic dirty region marking in drawTileDirect | No |
-| Debug Overlay | Visual debug for dirty regions | No |
+| Debug Overlay | High-perf visual debug for dirty regions | No |
 | Region Combining | Merge adjacent dirty blocks to reduce SPI transfers | No |
 | Benchmark APIs | Query last frame statistics for tuning | No |
 
@@ -179,10 +181,21 @@ void setup() {
 
 | Platform | 24-bit | 16-bit | 8-bit |
 |----------|--------|--------|-------|
-| ESP32/TFT_eSPI | No | Yes (default) | Yes (with sprite) |
+| ESP32/TFT_eSPI | No | Yes (default) | Yes (full palette) |
 | SDL2/Native | Yes | Yes | No |
 
 ---
+
+## DMA Pipelining (Advanced)
+
+Version 1.3.0 introduces **DMA Pipelining** in `TFT_eSPI_Drawer`. This optimization overlaps the CPU intensive color-conversion/copy operations with the SPI DMA transfer of the previous block.
+
+**Benefit**: Reduces total frame time by up to **15-25%** during active screen updates compared to synchronous DMA.
+
+**Requirements**:
+1. `PLATFORM_ESP32` must be defined.
+2. `ENABLE_PARTIAL_UPDATES` must be 1.
+3. Logical resolution must be equal to or smaller than physical resolution (internal sprite buffer used).
 
 ## API Changes
 
@@ -205,10 +218,9 @@ All new methods have default no-op implementations in `DrawSurface` base class, 
 | `isAutoMarkDirty()` | DrawSurface | Check auto-marking status |
 | `setDebugDirtyRegions(bool)` | DrawSurface | Enable debug overlay |
 | `isDebugDirtyRegions()` | DrawSurface | Check debug overlay status |
-| **PartialUpdateController:** |
-| `setMinRegionPixels(int)` | PartialUpdateController | Set min region size (default: 256) |
-| `getLastRegionCount()` | PartialUpdateController | Get last frame region count |
-| `getLastTotalSentPixels()` | PartialUpdateController | Get last frame pixels sent |
+| **Benchmark APIs (TFT_eSPI_Drawer / PartialUpdateController):** |
+| `getLastRegionCount()` | Both | Get last frame region count |
+| `getLastTotalSentPixels()` | Both | Get last frame pixels sent |
 | **ColorDepthManager:** |
 | `setCustomPalette(const uint16_t*)` | ColorDepthManager | Set custom 256-color palette |
 | `getPalette()` | ColorDepthManager | Get current palette pointer |
@@ -279,25 +291,13 @@ build_flags =
 
 ## Known Issues
 
-- **8-bit color depth** requires sprite support in display driver (TFT_eSPI). Only available on ESP32 with `TFT_eSPI` and when using `beginFrame()`/`getSpriteBuffer()` workflow.
-- **Debug overlay** draws 2px red borders around each dirty region sent to display. Use `PIXELROOT32_DEBUG_DIRTY_REGIONS=0` to disable or `setDebugDirtyRegions(false)` at runtime.
-- **Partial updates** requires driver implementation for actual optimization. Default no-op implementations in `DrawSurface` always return "no dirty regions" - override in `TFT_eSPI_Drawer`.
-- **Dirty ratio threshold**: If more than `MAX_DIRTY_RATIO_PERCENT` (default 70%) of screen is dirty, system automatically falls back to full frame update.
-- **Minimum region size**: Regions smaller than `setMinRegionPixels()` (default 256 pixels / 16x16) may be skipped. Tune with `setMinRegionPixels(64)` for smaller regions or `setMinRegionPixels(4096)` to filter noise.
-- **4-bit color depth**: Not implemented in current release. Use 8-bit (256 colors) for indexed mode.
-- **Auto-mark dirty**: Enabled by default in `BaseDrawSurface`. If drawing directly to raw framebuffer without using engine's draw methods, call `markDirty()` manually.
+- **8-bit color depth**: Now supports a full 256-color palette. The default palette is `PALETTE_PR32`. Custom palettes can be set via `ColorDepthManager`.
+- **Debug overlay**: Performance optimized in v1.3.0. Draws 2px red borders around each sent region. Enable/disable at runtime via `setDebugDirtyRegions()`.
+- **4-bit color depth**: Not implemented. Calls to `setColorDepth(4)` will be rejected and return `false`.
+- **DMA Pipelining**: Automatically active in `TFT_eSPI_Drawer` when using partial updates. Overlaps CPU/SPI for maximum throughput.
 
 ---
 
-## Related Documentation
-
-| Document | Description |
-|----------|-------------|
-| [ESP32_PERFORMANCE.md](./performance/ESP32_PERFORMANCE.md) | Performance optimization guide |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture |
-| [GRAPHICS_GUIDELINES.md](./GRAPHICS_GUIDELINES.md) | Graphics development guide |
-
----
 
 ## Related Documentation
 

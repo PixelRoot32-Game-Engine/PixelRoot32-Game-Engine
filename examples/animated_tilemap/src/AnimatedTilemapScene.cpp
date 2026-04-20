@@ -148,11 +148,66 @@ void AnimatedTilemapScene::draw(gfx::Renderer& renderer) {
         {levelData.details, 0, 0},
     };
 
-    tilemapLayerCache.draw(renderer, camX, camY,
+tilemapLayerCache.draw(renderer, camX, camY,
         staticLayers, sizeof(staticLayers) / sizeof(staticLayers[0]),
         dynamicLayers, sizeof(dynamicLayers) / sizeof(dynamicLayers[0]));
 
+    // Auto-mark dirty handled by Scene::draw() — no manual markDirty needed
+
+    // Benchmarking: collect metrics every BENCHMARK_INTERVAL frames
+    benchmarkFrameCounter++;
+    if (benchmarkFrameCounter >= BENCHMARK_INTERVAL) {
+        benchmarkFrameCounter = 0;
+        reportBenchmarkStats(renderer);
+    }
+
     Scene::draw(renderer);
+    // Auto-mark dirty handled by Scene::draw() — no manual markDirty needed
+}
+
+void AnimatedTilemapScene::reportBenchmarkStats(pixelroot32::graphics::Renderer& renderer) {
+    // Access the benchmark data through the renderer's DrawSurface
+    auto& drawSurface = renderer.getDrawSurface();
+    
+    // Get current frame metrics from DrawSurface
+    lastRegionCount = drawSurface.getLastRegionCount();
+    lastTotalSentPixels = drawSurface.getLastTotalSentPixels();
+    
+    // Accumulate totals for average calculation
+    totalRegionCount += lastRegionCount;
+    totalSentPixels += lastTotalSentPixels;
+    
+    // Count frames based on whether partial updates are enabled
+    if (drawSurface.isPartialUpdateEnabled()) {
+        framesWithOptimization++;
+    } else {
+        framesWithoutOptimization++;
+    }
+    
+    // Calculate averages
+    int avgRegionCount = (benchmarkFrameCounter > 0) ? totalRegionCount / (benchmarkFrameCounter + 1) : 0;
+    int avgSentPixels = (benchmarkFrameCounter > 0) ? totalSentPixels / (benchmarkFrameCounter + 1) : 0;
+    
+    // Output benchmark results
+    log("=== DISPLAY BOTTLENECK BENCHMARK ===");
+    log("Partial Updates: %s", 
+        drawSurface.isPartialUpdateEnabled() ? "ENABLED" : "DISABLED");
+    log("Current Frame - Regions: %d, Pixels Sent: %d", 
+        lastRegionCount, lastTotalSentPixels);
+    log("Average - Regions: %d, Pixels Sent: %d", 
+        avgRegionCount, avgSentPixels);
+    log("Frames with optimization: %d, without: %d", 
+        framesWithOptimization, framesWithoutOptimization);
+    
+    // Calculate and display transfer efficiency
+    int totalPixels = renderer.getLogicalWidth() * renderer.getLogicalHeight();
+    if (totalPixels > 0) {
+        float dirtyRatio = (float)lastTotalSentPixels / (float)totalPixels * 100.0f;
+        log("Dirty Ratio: %.1f%% (%d/%d pixels)", 
+            dirtyRatio, lastTotalSentPixels, totalPixels);
+    }
+    
+    log("=====================================");
 }
 
 } // namespace animatedtilemap

@@ -200,17 +200,19 @@ Step 5: Partial vs Full Update
 
 **File**: `include/graphics/DirtyRectTracker.h`, `src/graphics/DirtyRectTracker.cpp`
 
-Tracks which regions of the screen have been modified using a bitmap-based approach.
+Tracks which regions of the screen have been modified using a bitmap-based approach. The grid and bitmap size adjust automatically to the logical resolution during engine initialization.
 
 | Property | Value |
 |----------|-------|
 | Grid granularity | 8x8 pixels |
-| Grid dimensions | 40x30 (for 320x240) |
-| Bitmap size | 150 bytes |
+| Grid dimensions | Dynamic (e.g. 40x30 for 320x240) |
+| Bitmap size | Dynamic (e.g. 150 bytes for 320x240) |
+| Allocation | Heap (once in `configure()` / `init()`) |
 | Mark operation | O(1) |
 | Merge operation | O(grid size) |
 
 **Key Methods**:
+- `configure(w, h)`: Re-allocate bitmap for new resolution
 - `markDirty(x, y, w, h)`: Mark region as dirty
 - `combineRegions()`: Merge adjacent blocks
 - `hasDirtyRegions()`: Check if any regions dirty
@@ -245,15 +247,15 @@ Coordinates dirty region tracking and decides update strategy.
 
 Manages color depth for display output to reduce SPI transfer.
 
-| Depth | Format | Memory (320x240) | Transfer Reduction |
-|-------|--------|------------------|--------------------|
-| 24 | RGB888 | 230,400 bytes | 100% (baseline) |
-| 16 | RGB565 | 153,600 bytes | 66% |
-| 8 | Indexed | 76,800 bytes | 33% |
-| 4 | Indexed | 38,400 bytes | 17% |
+| Depth | Format | Bytes/Pixel | Transfer Reduction |
+|-------|--------|-------------|--------------------|
+| 24 | RGB888 | 3 | 0% (baseline) |
+| 16 | RGB565 | 2 | 33% |
+| 8 | Indexed | 1 | 66% |
+| 4 | Indexed | 0.5 | 83% (Not Implemented) |
 
 **Key Methods**:
-- `setDepth(bits)`: Set color depth (24/16/8/4)
+- `setDepth(bits)`: Set color depth (24/16/8). Returns `false` for 4-bit.
 - `needsPaletteConversion()`: Check if palette needed
 - `setCustomPalette()`: Set custom 256-color palette
 - `getTransferRatio()`: Get reduction vs 24-bit

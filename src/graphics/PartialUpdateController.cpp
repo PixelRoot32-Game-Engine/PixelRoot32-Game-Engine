@@ -126,4 +126,10 @@ void PartialUpdateController::setMinRegionPixels(int pixels) {
     }
 }
 
+void PartialUpdateController::configure(int spriteWidth, int spriteHeight) {
+    tracker_.configure(spriteWidth, spriteHeight);
+    lastFrameWidth_ = spriteWidth;
+    lastFrameHeight_ = spriteHeight;
+}
+
 } // namespace pixelroot32::graphics

@@ -72,19 +72,22 @@ struct DirtyRect {
  */
 class DirtyRectTracker {
 public:
-    // Grid dimensions for 320x240 at 8x8 block granularity
-    static constexpr int GRID_WIDTH = 40;    // 320 / 8
-    static constexpr int GRID_HEIGHT = 30;   // 240 / 8
     static constexpr int BLOCK_SIZE = 8;
-    static constexpr int SPRITE_WIDTH = 320;
-    static constexpr int SPRITE_HEIGHT = 240;
 
-    // Bitmap size: 40 * 30 / 8 = 150 bytes
-    static constexpr int BITMAP_SIZE = (GRID_WIDTH * GRID_HEIGHT) / 8;
+    // Default dimensions (backward compatible with 320x240)
+    static constexpr int DEFAULT_SPRITE_WIDTH = 320;
+    static constexpr int DEFAULT_SPRITE_HEIGHT = 240;
 
 private:
-    // Bitmap: 1 bit per 8x8 block
-    uint8_t dirtyBitmap_[BITMAP_SIZE];
+    // Resolution-dependent dimensions (configured via constructor or configure())
+    int spriteWidth_;
+    int spriteHeight_;
+    int gridWidth_;
+    int gridHeight_;
+    int bitmapSize_;
+
+    // Bitmap: 1 bit per 8x8 block (heap-allocated for flexible sizing)
+    uint8_t* dirtyBitmap_;
 
     // Merged rectangles (computed on demand after combineRegions())
     std::vector<DirtyRect> mergedRegions_;
@@ -99,6 +102,27 @@ private:
 public:
     DirtyRectTracker();
     ~DirtyRectTracker();
+
+    // Non-copyable (manages heap memory)
+    DirtyRectTracker(const DirtyRectTracker&) = delete;
+    DirtyRectTracker& operator=(const DirtyRectTracker&) = delete;
+
+    /**
+     * @brief Reconfigure tracker for a different sprite resolution.
+     *
+     * Reallocates internal structures to match the new dimensions.
+     * Clears all existing dirty state. Safe to call multiple times.
+     *
+     * @param spriteWidth Sprite buffer width in pixels
+     * @param spriteHeight Sprite buffer height in pixels
+     */
+    void configure(int spriteWidth, int spriteHeight);
+
+    // Dimension accessors
+    int getGridWidth() const { return gridWidth_; }
+    int getGridHeight() const { return gridHeight_; }
+    int getSpriteWidth() const { return spriteWidth_; }
+    int getSpriteHeight() const { return spriteHeight_; }
 
     /**
      * @brief Mark a region as dirty (O(1) operation).

@@ -16,6 +16,7 @@ using namespace pixelroot32::graphics;
 // Mock Entity implementation for testing real Entity class
 class MockEntity : public Entity {
 public:
+    using Entity::Entity; // Inherit all constructors from Entity
     bool updateCalled = false;
     bool drawCalled = false;
     unsigned long lastDeltaTime = 0;
@@ -296,6 +297,87 @@ void test_entity_state_independence(void) {
 }
 
 // =============================================================================
+// Tests for dirty tracking
+// =============================================================================
+
+void test_entity_dirty_bounds_default(void) {
+    MockEntity e(10.0f, 20.0f, 30, 40);
+    
+    // Default dirty bounds should match entity dimensions
+    Rect bounds = e.getDirtyBounds();
+    TEST_ASSERT_EQUAL_INT(0, bounds.position.x);
+    TEST_ASSERT_EQUAL_INT(0, bounds.position.y);
+    TEST_ASSERT_EQUAL_INT(30, bounds.width);
+    TEST_ASSERT_EQUAL_INT(40, bounds.height);
+}
+
+void test_entity_set_dirty_bounds(void) {
+    MockEntity e(10.0f, 20.0f, 30, 40);
+    
+    // Set custom dirty bounds
+    e.setDirtyBounds(5, 10, 20, 30);
+    
+    Rect bounds = e.getDirtyBounds();
+    TEST_ASSERT_EQUAL_INT(5, bounds.position.x);
+    TEST_ASSERT_EQUAL_INT(10, bounds.position.y);
+    TEST_ASSERT_EQUAL_INT(20, bounds.width);
+    TEST_ASSERT_EQUAL_INT(30, bounds.height);
+}
+
+void test_entity_auto_mark_dirty_default(void) {
+    MockEntity e(10.0f, 20.0f, 30, 40);
+    
+    // Default should be enabled
+    TEST_ASSERT_TRUE(e.isAutoMarkDirty());
+}
+
+void test_entity_set_auto_mark_dirty(void) {
+    MockEntity e(10.0f, 20.0f, 30, 40);
+    
+    // Disable auto-mark
+    e.setAutoMarkDirty(false);
+    TEST_ASSERT_FALSE(e.isAutoMarkDirty());
+    
+    // Re-enable
+    e.setAutoMarkDirty(true);
+    TEST_ASSERT_TRUE(e.isAutoMarkDirty());
+}
+
+void test_entity_dirty_bounds_constructors(void) {
+    // Test all three constructors initialize dirty bounds correctly
+    
+    // Constructor 1: Vector2
+    {
+        MockEntity e(pixelroot32::math::Vector2(10.0f, 20.0f), 30, 40, EntityType::GENERIC);
+        Rect bounds = e.getDirtyBounds();
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.x);
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.y);
+        TEST_ASSERT_EQUAL_INT(30, bounds.width);
+        TEST_ASSERT_EQUAL_INT(40, bounds.height);
+    }
+    
+    // Constructor 2: Scalar x, y
+    {
+        MockEntity e(pixelroot32::math::toScalar(10.0f), pixelroot32::math::toScalar(20.0f), 30, 40, EntityType::GENERIC);
+        Rect bounds = e.getDirtyBounds();
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.x);
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.y);
+        TEST_ASSERT_EQUAL_INT(30, bounds.width);
+        TEST_ASSERT_EQUAL_INT(40, bounds.height);
+    }
+    
+    // Constructor 3: float x, y (template)
+    {
+        MockEntity e(10.0f, 20.0f, 30, 40, EntityType::GENERIC);
+        Rect bounds = e.getDirtyBounds();
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.x);
+        TEST_ASSERT_EQUAL_INT(0, bounds.position.y);
+        TEST_ASSERT_EQUAL_INT(30, bounds.width);
+        TEST_ASSERT_EQUAL_INT(40, bounds.height);
+    }
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -350,6 +432,13 @@ int main(int argc, char **argv) {
     // Combined state tests
     RUN_TEST(test_entity_visibility_and_enabled);
     RUN_TEST(test_entity_state_independence);
+    
+    // Dirty tracking tests (NEWLY ADDED)
+    RUN_TEST(test_entity_dirty_bounds_default);
+    RUN_TEST(test_entity_set_dirty_bounds);
+    RUN_TEST(test_entity_auto_mark_dirty_default);
+    RUN_TEST(test_entity_set_auto_mark_dirty);
+    RUN_TEST(test_entity_dirty_bounds_constructors);
     
     return UNITY_END();
 }

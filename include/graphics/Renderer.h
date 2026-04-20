@@ -716,6 +716,82 @@ public:
      */
     DrawSurface& getDrawSurface() { return *drawer; }
 
+    // ============================================================================
+    // Display Bottleneck Benchmark API
+    // ============================================================================
+
+    /**
+     * @brief Get number of regions sent in last frame.
+     * @return Region count
+     */
+    int getLastRegionCount() const { return drawer->getLastRegionCount(); }
+
+    /**
+     * @brief Get total pixels sent in last frame.
+     * @return Total sent pixels
+     */
+    int getLastTotalSentPixels() const { return drawer->getLastTotalSentPixels(); }
+
+    /**
+     * @brief Get number of dirty pixels in last frame.
+     * @return Dirty pixel count
+     */
+    int getDirtyPixelCount() const { return drawer->getDirtyPixelCount(); }
+
+    /**
+     * @brief Get last frame width.
+     * @return Frame width
+     */
+    int getLastFrameWidth() const { return drawer->getLastFrameWidth(); }
+
+    /**
+     * @brief Get last frame height.
+     * @return Frame height
+     */
+    int getLastFrameHeight() const { return drawer->getLastFrameHeight(); }
+
+    /**
+     * @brief Set the color depth for display output.
+     * @param depth Color depth in bits (24, 16, 8, 4).
+     */
+    void setColorDepth(int depth) { drawer->setColorDepth(depth); }
+
+    /**
+     * @brief Enable or disable the partial update system at runtime.
+     * @param enabled true to enable partial updates.
+     */
+    void setPartialUpdateEnabled(bool enabled) { drawer->setPartialUpdateEnabled(enabled); }
+
+    /**
+     * @brief Queries whether partial updates are currently enabled.
+     * @return true if partial updates are enabled.
+     */
+    bool isPartialUpdateEnabled() const { return drawer->isPartialUpdateEnabled(); }
+
+    /**
+     * @brief Enables or disables the debug overlay for dirty regions.
+     * @param enabled true to enable debug overlay.
+     */
+    void setDebugDirtyRegions(bool enabled) { drawer->setDebugDirtyRegions(enabled); }
+
+    /**
+     * @brief Queries whether the debug dirty regions overlay is currently enabled.
+     * @return true if debug overlay is enabled.
+     */
+    bool isDebugDirtyRegions() const { return drawer->isDebugDirtyRegions(); }
+
+    /**
+     * @brief Enables or disables automatic dirty region marking.
+     * @param enabled true to enable automatic dirty marking.
+     */
+    void setAutoMarkDirty(bool enabled) { drawer->setAutoMarkDirty(enabled); }
+
+    /**
+     * @brief Queries whether automatic dirty region marking is currently enabled.
+     * @return true if auto-marking is enabled.
+     */
+    bool isAutoMarkDirty() const { return drawer->isAutoMarkDirty(); }
+
     /**
      * @brief Draws a string of text using the default font.
      * @param text The text to draw.

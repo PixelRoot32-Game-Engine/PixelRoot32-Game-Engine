@@ -103,13 +103,28 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Available when `PIXELROOT32_ENABLE_4BPP_SPRITES` is defined. Draws a 4bpp tilemap.
 
 - **`void setDisplaySize(int w, int h)`**
-    Sets the logical display size.
+    Sets the logical display size (rendering resolution).
 
 - **`void setDisplayOffset(int x, int y)`**
     Sets a global offset for all drawing operations.
 
 - **`void setContrast(uint8_t level)`**
     Sets the display contrast/brightness (0-255).
+
+- **`int getLastRegionCount() const`**
+    Returns the number of dirty regions sent to the display in the last frame.
+
+- **`int getLastTotalSentPixels() const`**
+    Returns the total number of pixels sent to the display in the last frame.
+
+- **`void setColorDepth(int depth)`**
+    Sets the color depth for display output (24, 16, 8 bits).
+
+- **`void setPartialUpdateEnabled(bool enabled)`**
+    Enables or disables partial screen updates.
+
+- **`void setDebugDirtyRegions(bool enabled)`**
+    Enables or disables the visual debug overlay for dirty regions.
 
 ---
 
@@ -712,17 +727,16 @@ The Debug Dirty Regions API provides visual debugging of partial update behavior
 
 ---
 
-## DirtyRectTracker
-
-**Namespace:** `pixelroot32::graphics`
-
-Tracks which regions of the screen have been modified since last frame using a bitmap-based approach for O(1) marking performance. Uses 8x8 block granularity (40x30 grid for 320x240 resolution) to minimize memory: only 150 bytes for the bitmap.
+Tracks which regions of the screen have been modified since last frame using a bitmap-based approach for O(1) marking performance. The grid granularity is 8x8 pixels. The grid dimensions and bitmap size adjust automatically based on the logical rendering resolution.
 
 ### Public Methods
 
+- **`void configure(int w, int h)`**
+    Re-allocates internal tracking structures for a new logical resolution.
+
 - **`void markDirty(int x, int y, int w, int h)`**
     Marks a region as dirty (O(1) operation).
-  - **x, y:** Coordinates in sprite pixels
+  - **x, y:** Coordinates in logical pixels
   - **w, h:** Width and height in pixels
 
 - **`void combineRegions()`**
@@ -757,10 +771,10 @@ Manages color depth selection for display output. Provides runtime selection of 
 
 ### Depth (Enum)
 
-- **`Depth24`**: RGB888 (24-bit, not currently used for output)
+- **`Depth24`**: RGB888 (24-bit)
 - **`Depth16`**: RGB565 (16-bit, default)
 - **`Depth8`**: Indexed palette (256 colors, reduces bandwidth by 66%)
-- **`Depth4`**: Indexed palette (16 colors, reduces bandwidth by 83%)
+- **`Depth4`**: Indexed palette (16 colors, **Not Implemented**)
 
 ### Public Methods
 

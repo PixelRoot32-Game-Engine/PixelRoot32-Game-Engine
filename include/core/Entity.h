@@ -14,6 +14,7 @@
 #include "math/Scalar.h"
 #include "math/Vector2.h"
 #include "platforms/EngineConfig.h"
+#include <type_traits>
 
 namespace pixelroot32::core {
 
@@ -54,6 +55,8 @@ enum class EntityType { GENERIC, ACTOR, UI_ELEMENT };
  * Uses adaptable Scalar type for position to ensure consistent physics across platforms.
  */
 class Entity {
+    friend class Scene;  // Scene accesses protected update/draw/renderLayer
+
 public:
     pixelroot32::math::Vector2 position;        ///< Position in world space.
     int width, height; ///< Width and Height of the entity.
@@ -63,6 +66,8 @@ public:
     
 protected:
     unsigned char renderLayer = 1;
+    Rect dirtyBounds_;  ///< Dirty region for partial updates (initialized in constructor).
+    bool autoMarkDirty_ = true;  ///< Auto-mark dirty after draw() (default: enabled).
 
 public:
     /**
@@ -78,6 +83,42 @@ public:
      * @param e true to enable, false to disable.
      */
     virtual void setEnabled(bool e) { isEnabled = e; }
+
+    // ========================================================================
+    // Dirty tracking API
+    // ========================================================================
+
+    /**
+     * @brief Sets the dirty bounds region for auto-marking.
+     * @param x X offset from entity position.
+     * @param y Y offset from entity position.
+     * @param w Width of dirty region.
+     * @param h Height of dirty region.
+     */
+    void setDirtyBounds(int x, int y, int w, int h) {
+        dirtyBounds_.position.x = pixelroot32::math::toScalar(x);
+        dirtyBounds_.position.y = pixelroot32::math::toScalar(y);
+        dirtyBounds_.width = w;
+        dirtyBounds_.height = h;
+    }
+
+    /**
+     * @brief Gets the dirty bounds region.
+     * @return The Rect representing the dirty region.
+     */
+    Rect getDirtyBounds() const { return dirtyBounds_; }
+
+    /**
+     * @brief Enables or disables automatic dirty marking after draw.
+     * @param enabled true to enable auto-marking, false to disable.
+     */
+    void setAutoMarkDirty(bool enabled) { autoMarkDirty_ = enabled; }
+
+    /**
+     * @brief Checks if automatic dirty marking is enabled.
+     * @return true if auto-marking is enabled.
+     */
+    bool isAutoMarkDirty() const { return autoMarkDirty_; }
 
     /**
      * @brief Gets the current render layer.
@@ -105,7 +146,8 @@ public:
      * @param t EntityType.
      */
     Entity(pixelroot32::math::Vector2 pos, int w, int h, EntityType t) 
-        : position(pos), width(w), height(h), type(t) {}
+        : position(pos), width(w), height(h), type(t), 
+          dirtyBounds_(Rect{{pixelroot32::math::toScalar(0), pixelroot32::math::toScalar(0)}, w, h}) {}
 
     /**
      * @brief Constructor.
@@ -116,7 +158,8 @@ public:
      * @param t EntityType.
      */
     Entity(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y, int w, int h, EntityType t) 
-        : position(x, y), width(w), height(h), type(t) {}
+        : position(x, y), width(w), height(h), type(t),
+          dirtyBounds_(Rect{{pixelroot32::math::toScalar(0), pixelroot32::math::toScalar(0)}, w, h}) {}
     
     /**
      * @brief Constructor with float coordinates for convenience.
@@ -124,7 +167,8 @@ public:
      */
     template <typename T = float, typename std::enable_if<!std::is_same<pixelroot32::math::Scalar, T>::value, int>::type = 0>
     Entity(float x, float y, int w, int h, EntityType t) 
-        : position(pixelroot32::math::toScalar(x), pixelroot32::math::toScalar(y)), width(w), height(h), type(t) {}
+        : position(pixelroot32::math::toScalar(x), pixelroot32::math::toScalar(y)), width(w), height(h), type(t),
+          dirtyBounds_(Rect{{pixelroot32::math::toScalar(0), pixelroot32::math::toScalar(0)}, w, h}) {}
 
         
     virtual ~Entity() {}

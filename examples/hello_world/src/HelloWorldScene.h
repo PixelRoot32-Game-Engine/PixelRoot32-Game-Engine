@@ -6,6 +6,7 @@
 #include <graphics/ui/UILabel.h>
 #include <math/Vector2.h>
 #include <memory>
+#include <graphics/PartialUpdateController.h>
 
 namespace helloworld {
 
@@ -23,9 +24,20 @@ private:
     int frameCounter = 0;
     static constexpr int COLOR_CHANGE_INTERVAL = 60;
     char buttonPressText[32];
+    
+    // Benchmarking variables
+    unsigned long benchmarkFrameCounter = 0;
+    static constexpr int BENCHMARK_INTERVAL = 60; // Report every 60 frames (~2 seconds)
+    int lastRegionCount = 0;
+    int lastTotalSentPixels = 0;
+    int totalRegionCount = 0;
+    int totalSentPixels = 0;
+    int framesWithOptimization = 0;
+    int framesWithoutOptimization = 0;
 
     void changeBackground();
     void checkButtonPress();
+    void reportBenchmarkStats(pixelroot32::graphics::Renderer& renderer);
 };
 
 } // namespace helloworld

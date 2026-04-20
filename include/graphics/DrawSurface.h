@@ -86,10 +86,54 @@ public:
     }
 
     /**
-     * @brief Sets the display contrast/brightness.
-     * @param level Contrast level (0-255).
+     * @brief Set the color depth for display output.
+     * @param depth Contrast level (0-255).
      */
     virtual void setContrast(uint8_t level) = 0;
+
+    // ============================================================================
+    // Partial Update Benchmark API
+    // ============================================================================
+
+    /**
+     * @brief Get number of regions sent in last frame.
+     * @return Region count
+     */
+    virtual int getLastRegionCount() const {
+        return 0;
+    }
+
+    /**
+     * @brief Get total pixels sent in last frame.
+     * @return Total sent pixels
+     */
+    virtual int getLastTotalSentPixels() const {
+        return 0;
+    }
+
+    /**
+     * @brief Get number of dirty pixels in last frame.
+     * @return Dirty pixel count
+     */
+    virtual int getDirtyPixelCount() const {
+        return 0;
+    }
+
+    /**
+     * @brief Get last frame width.
+     * @return Frame width
+     */
+    virtual int getLastFrameWidth() const {
+        return 0;
+    }
+
+    /**
+     * @brief Get last frame height.
+     * @return Frame height
+     */
+    virtual int getLastFrameHeight() const {
+        return 0;
+    }
 
     // Text State Management
     virtual void setTextColor(uint16_t color) = 0;
@@ -286,6 +330,66 @@ public:
         (void)depth;
         // Default: no-op
     }
+
+        // ============================================================================
+    // Auto-Mark Dirty API
+    // ============================================================================
+
+    /**
+     * @brief Enable or disable automatic dirty region marking.
+     *
+     * When enabled (default), the surface automatically calls markDirty() after
+     * drawing operations. This provides zero-config partial updates for most games.
+     *
+     * When disabled, games must manually call markDirty() for regions they want
+     * to update. This is useful for custom rendering pipelines that need precise
+     * control over which regions are updated.
+     *
+     * @param enabled true to enable auto-marking (default), false for manual marking
+     */
+    virtual void setAutoMarkDirty(bool enabled) {
+        (void)enabled;
+        // Default: no-op
+    }
+
+        /**
+     * @brief Check if automatic dirty marking is enabled.
+     * @return true if auto-marking is enabled
+     */
+    virtual bool isAutoMarkDirty() const {
+        return false;
+    }
+
+        // ============================================================================
+    // Debug Dirty Regions API
+    // ============================================================================
+
+    /**
+     * @brief Enable or disable debug overlay showing sent dirty regions.
+     *
+     * When enabled, a 2px red border is drawn around each dirty region sent to
+     * the display. This is useful for debugging and tuning the partial update
+     * system. Can be toggled at runtime without recompilation.
+     *
+     * Note: Requires PIXELROOT32_DEBUG_DIRTY_REGIONS compile flag to include
+     * the debug drawing code in the build.
+     *
+     * @param enabled true to enable debug overlay
+     */
+    virtual void setDebugDirtyRegions(bool enabled) {
+        (void)enabled;
+        // Default: no-op
+    }
+
+    /**
+     * @brief Check if debug dirty regions overlay is enabled.
+     * @return true if debug overlay is enabled
+     */
+    virtual bool isDebugDirtyRegions() const {
+        return false;
+    }
+
+
 };
 
 }

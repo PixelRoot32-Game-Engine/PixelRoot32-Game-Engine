@@ -86,6 +86,23 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     
     // Build scaling lookup tables and palette conversion buffers
     buildScaleLUTs();
+
+    // Configure partial update tracker for actual logical resolution
+    partialController_.configure(logicalWidth, logicalHeight);
+
+    // Wire build-time configuration flags to runtime behavior
+    // ENABLE_PARTIAL_UPDATES: controls whether partial updates are active
+    partialController_.setPartialUpdateEnabled(
+        pixelroot32::platforms::config::EnablePartialUpdates);
+
+    // ENABLE_DIRTY_RECT_COMBINE: controls region merging algorithm
+    partialController_.setCombineEnabled(
+        pixelroot32::platforms::config::EnableDirtyRectCombine);
+
+    // DISPLAY_COLOR_DEPTH: set initial color depth from build config
+    colorDepthManager_.setDepth(
+        pixelroot32::platforms::config::DisplayColorDepth);
+
     log("[TFT_eSPI_Drawer] Initialization complete.");
 
     pixelroot32::drivers::esp32::registerTftForXpt2046Touch(&tft);
@@ -224,18 +241,20 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     // Allocate double line buffers for DMA
 #ifdef ESP32
     lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     
-    // If first buffer succeeded but second failed, try fallback size
-    if (lineBuffer[0] && !lineBuffer[1]) {
-        heap_caps_free(lineBuffer[0]);
+    // If either buffer failed, try fallback (smaller) size for both
+    if (!lineBuffer[0] || !lineBuffer[1]) {
+        // Free any partial allocation
+        if (lineBuffer[0]) { heap_caps_free(lineBuffer[0]); lineBuffer[0] = nullptr; }
+        if (lineBuffer[1]) { heap_caps_free(lineBuffer[1]); lineBuffer[1] = nullptr; }
         
         linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK;
         blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
         
         lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     }
-    
-    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     
     // Force LUTs to Internal RAM for speed
     paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -651,6 +670,26 @@ bool pr32::drivers::esp32::TFT_eSPI_Drawer::isPartialUpdateEnabled() const {
     return partialController_.isPartialUpdateEnabled();
 }
 
+int pr32::drivers::esp32::TFT_eSPI_Drawer::getLastRegionCount() const {
+    return partialController_.getLastRegionCount();
+}
+
+int pr32::drivers::esp32::TFT_eSPI_Drawer::getLastTotalSentPixels() const {
+    return partialController_.getLastTotalSentPixels();
+}
+
+int pr32::drivers::esp32::TFT_eSPI_Drawer::getDirtyPixelCount() const {
+    return partialController_.getDirtyPixelCount();
+}
+
+int pr32::drivers::esp32::TFT_eSPI_Drawer::getLastFrameWidth() const {
+    return partialController_.getLastFrameWidth();
+}
+
+int pr32::drivers::esp32::TFT_eSPI_Drawer::getLastFrameHeight() const {
+    return partialController_.getLastFrameHeight();
+}
+
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setColorDepth(int depth) {
     colorDepthManager_.setDepth(depth);
 }
@@ -691,7 +730,7 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uin
     }
     
     // ============================================================================
-    // Task 2.5: Region coordinate scaling for physical display coordinates
+    // Region coordinate scaling for physical display coordinates
     // ============================================================================
     // Scale from logical (sprite) coordinates to physical display coordinates
     // Physical = offset + (logical * scale)
@@ -714,20 +753,24 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uin
         return;
     }
     
-    // Process lines in blocks (same as sendBufferScaled for consistency)
+    // Process lines in blocks
     int linesPerBlock = activeLinesPerBlock;
     
-    for (int startY = 0; startY < h; startY += linesPerBlock) {
-        int endY = (startY + linesPerBlock > h) ? h : startY + linesPerBlock;
-        int numLines = endY - startY;
+    // Total output lines: physical height when scaling, logical height for 1:1
+    int totalOutLines = needsScaling() ? physH : static_cast<int>(h);
+    bool firstBlock = true;
+    
+    for (int startLine = 0; startLine < totalOutLines; startLine += linesPerBlock) {
+        int endLine = (startLine + linesPerBlock > totalOutLines) ? totalOutLines : startLine + linesPerBlock;
+        int numLines = endLine - startLine;
         
-        // Scale lines into line buffer
+        // Scale lines into line buffer (CPU work overlaps with previous DMA)
         uint16_t* dst = lineBuffer[currentBuffer];
         
         if (!needsScaling()) {
             // 1:1 path (no scaling) - optimized for partial regions
             for (int i = 0; i < numLines; ++i) {
-                int srcY = y + startY + i;
+                int srcY = y + startLine + i;
                 if (srcY >= logicalHeight) break;
                 
                 uint8_t* srcRow = spritePtr + (srcY * logicalWidth) + x;
@@ -751,23 +794,46 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uin
                 for (; xi < static_cast<int>(w); ++xi) {
                     dst[xi] = pLUT[srcRow[xi]];
                 }
-                dst += physW;  // Advance by physical width
+                dst += physW;  // Advance by physical width (== w in 1:1 case)
             }
         } else {
-            // Scaling path for this region
-            for (int physRow = 0; physRow < numLines; ++physRow) {
-                int srcY = yLUT[physY + physRow];
-                scaleLine(spritePtr, srcY, dst);
+            // Scaling path: region-aware coordinate mapping
+            // Maps from physical output lines back to logical source lines
+            // using region-relative calculations instead of global yLUT/scaleLine
+            const uint16_t* __restrict pLUT = paletteLUT;
+            
+            for (int row = 0; row < numLines; ++row) {
+                int absPhysRow = startLine + row;
+                // Region-relative physical→logical Y mapping
+                int srcY = y + (absPhysRow * static_cast<int>(h) / physH);
+                if (srcY >= logicalHeight) srcY = logicalHeight - 1;
+                
+                const uint8_t* srcRow = spritePtr + (srcY * logicalWidth);
+                
+                // Region-relative physical→logical X mapping per pixel
+                for (int px = 0; px < physW; ++px) {
+                    int srcX = x + (px * static_cast<int>(w) / physW);
+                    if (srcX >= logicalWidth) srcX = logicalWidth - 1;
+                    dst[px] = pLUT[srcRow[srcX]];
+                }
                 dst += physW;
             }
         }
         
-        // DMA transfer for this region block
-        tft.pushPixelsDMA(lineBuffer[currentBuffer], physW * numLines);
-        tft.dmaWait();
+        // Pipelined DMA: wait for PREVIOUS block before starting this one
+        // CPU filled current buffer while DMA was transferring the previous buffer
+        if (!firstBlock) {
+            tft.dmaWait();
+        }
         
-        // Swap buffer for next block
+        tft.pushPixelsDMA(lineBuffer[currentBuffer], physW * numLines);
         currentBuffer = 1 - currentBuffer;
+        firstBlock = false;
+    }
+    
+    // Wait for the final DMA block to complete
+    if (!firstBlock) {
+        tft.dmaWait();
     }
 
     // ============================================================================
@@ -779,27 +845,15 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uin
         constexpr uint16_t DEBUG_BORDER_COLOR = 0xF800;
         constexpr uint8_t BORDER_THICKNESS = 2;
 
-        // Draw top border
-        for (uint16_t i = 0; i < physW && i < BORDER_THICKNESS * 2; i++) {
-            tft.drawPixel(physX + i, physY, DEBUG_BORDER_COLOR);
-            tft.drawPixel(physX + i, physY + 1, DEBUG_BORDER_COLOR);
-        }
-        // Draw bottom border
-        for (uint16_t i = 0; i < physW && i < BORDER_THICKNESS * 2; i++) {
-            tft.drawPixel(physX + i, physY + physH - 1, DEBUG_BORDER_COLOR);
-            tft.drawPixel(physX + i, physY + physH - 2, DEBUG_BORDER_COLOR);
-        }
-        // Draw left border
+        // Draw horizontal borders using fast line drawing
         for (uint8_t i = 0; i < BORDER_THICKNESS; i++) {
-            for (uint16_t j = 0; j < physH; j++) {
-                tft.drawPixel(physX + i, physY + j, DEBUG_BORDER_COLOR);
-            }
+            tft.drawFastHLine(physX, physY + i, physW, DEBUG_BORDER_COLOR);         // Top
+            tft.drawFastHLine(physX, physY + physH - 1 - i, physW, DEBUG_BORDER_COLOR); // Bottom
         }
-        // Draw right border
+        // Draw vertical borders using fast line drawing
         for (uint8_t i = 0; i < BORDER_THICKNESS; i++) {
-            for (uint16_t j = 0; j < physH; j++) {
-                tft.drawPixel(physX + physW - 1 - i, physY + j, DEBUG_BORDER_COLOR);
-            }
+            tft.drawFastVLine(physX + i, physY, physH, DEBUG_BORDER_COLOR);         // Left
+            tft.drawFastVLine(physX + physW - 1 - i, physY, physH, DEBUG_BORDER_COLOR); // Right
         }
     }
     #endif

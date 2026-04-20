@@ -126,7 +126,7 @@ public:
      * @param width Width in pixels
      * @param height Height in pixels
      */
-    virtual void markDirty(int x, int y, int width, int height) {
+    virtual void markDirty(int x, int y, int width, int height) override {
         (void)x; (void)y; (void)width; (void)height;
         // Default: no-op, base class doesn't track dirty regions
     }
@@ -137,7 +137,7 @@ public:
      * Default implementation does nothing.
      * Override in drivers that support partial updates.
      */
-    virtual void clearDirtyFlags() {
+    virtual void clearDirtyFlags() override {
         // Default: no-op
     }
 
@@ -146,7 +146,7 @@ public:
      * 
      * @return true if should use partial updates
      */
-    virtual bool hasDirtyRegions() const {
+    virtual bool hasDirtyRegions() const override {
         return false;
     }
 
@@ -154,7 +154,7 @@ public:
      * @brief Set partial update mode.
      * @param enabled true to enable partial updates
      */
-    virtual void setPartialUpdateEnabled(bool enabled) {
+    virtual void setPartialUpdateEnabled(bool enabled) override {
         (void)enabled;
         // Default: no-op
     }
@@ -163,7 +163,7 @@ public:
      * @brief Check if partial updates are enabled.
      * @return true if partial updates are enabled
      */
-    virtual bool isPartialUpdateEnabled() const {
+    virtual bool isPartialUpdateEnabled() const override {
         return false;
     }
 

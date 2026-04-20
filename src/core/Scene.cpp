@@ -151,6 +151,16 @@ namespace pixelroot32::core {
 
             if (isVisibleInViewport(entity, renderer)) {
                 entity->draw(renderer);
+                // Auto-mark dirty bounds after entity draws (if enabled)
+                if (entity->isAutoMarkDirty()) {
+                    auto bounds = entity->getDirtyBounds();
+                    renderer.getDrawSurface().markDirty(
+                        static_cast<int>(entity->position.x) + static_cast<int>(bounds.position.x),
+                        static_cast<int>(entity->position.y) + static_cast<int>(bounds.position.y),
+                        bounds.width,
+                        bounds.height
+                    );
+                }
             }
         }
 

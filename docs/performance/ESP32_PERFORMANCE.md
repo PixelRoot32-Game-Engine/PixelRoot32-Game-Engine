@@ -156,8 +156,8 @@ build_flags =
 [env:esp32dev]
 build_flags =
     -DDISPLAY_COLOR_DEPTH=16    ; RGB565 (default)
-    ; -DDISPLAY_COLOR_DEPTH=8   ; 8-bit indexed
-    ; -DDISPLAY_COLOR_DEPTH=4   ; 4-bit indexed
+    -DDISPLAY_COLOR_DEPTH=8     ; 8-bit indexed (256 colors)
+    ; -DDISPLAY_COLOR_DEPTH=4   ; (Not Implemented)
 ```
 
 ### Configuración Completa
@@ -177,7 +177,7 @@ build_flags =
 |--------|----------------|------------|--------------|---------|
 | Default | 1 (enabled) | 16 | 1 | Normal games |
 | Max Perf | 1 | 8 | 1 | Slow displays |
-| Compatibility | 0 | 24 | 0 | Legacy games |
+| Native Legacy | 0 | 24 | 0 | SDL2 compatibility |
 | Debug | 1 | 16 | 0 | Visualize regions |
 
 ---
@@ -196,12 +196,12 @@ build_flags =
 
 ### Components
 
-| Component | File | Memory | Purpose |
+| Component | File | Memory (320x240) | Purpose |
 |------------|------|--------|---------|
-| `DirtyRectTracker` | `include/graphics/DirtyRectTracker.h` | ~150 bytes | 8x8 block bitmap for dirty tracking |
+| `DirtyRectTracker` | `include/graphics/DirtyRectTracker.h` | ~150B grid + ~heap | Resolution-independent tracking |
 | `PartialUpdateController` | `include/graphics/PartialUpdateController.h` | ~100 bytes | Threshold decision, region combining |
 | `ColorDepthManager` | `include/graphics/ColorDepthManager.h` | ~50 bytes | Color depth configuration |
-| **Total** | | **~300 bytes** | |
+| **Total** | | **~350 bytes** | |
 
 ### Pipeline Flow
 
