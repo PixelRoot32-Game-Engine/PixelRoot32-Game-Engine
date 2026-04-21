@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #include "audio/ApuCore.h"
+#include "audio/AudioMusicTypes.h"
 #include "audio/AudioMixerLUT.h"
 #include "platforms/EngineConfig.h"
 #include "core/Log.h"
@@ -262,6 +263,7 @@ namespace pixelroot32::audio {
 
                     event.volume = note.volume;
                     event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
+                    event.preset = note.preset;  // Forward ADSR/LFO params
                     executePlayEvent(event);
                 }
 
@@ -332,15 +334,54 @@ namespace pixelroot32::audio {
         } else {
             ch->phaseIncQ32 = 0u;
         }
+        ch->basePhaseIncQ32 = ch->phaseIncQ32;
 
-        // Anti-click: instead of snapping volume to event.volume (which
-        // produces a discontinuity when voice-stealing or retriggering),
-        // ramp from 0 to the target over ~2 ms. Attack is short enough to
-        // feel instantaneous while killing pops.
-        const float attackSamples = std::max(1.0f, (float)sampleRate * 0.002f);
-        ch->volume = 0.0f;
+        // ADSR envelope initialization from preset (or legacy defaults).
+        // Default values (attack=2ms, decay=0, sustain=1.0, release=5ms)
+        // produce identical output to the old anti-click ramp.
+        float attackTime   = 0.002f;
+        float decayTime    = 0.0f;
+        float sustainLevel = 1.0f;
+        float releaseTime  = 0.005f;
+        if (event.preset) {
+            attackTime   = event.preset->attackTime;
+            decayTime    = event.preset->decayTime;
+            sustainLevel = event.preset->sustainLevel;
+            releaseTime  = event.preset->releaseTime;
+        }
+
+        auto& env = ch->envelope;
+        env.attackSamples  = (uint32_t)std::max(1.0f, attackTime  * (float)sampleRate);
+        env.decaySamples   = (uint32_t)(decayTime   * (float)sampleRate);
+        env.sustainLevel   = sustainLevel;
+        // Clamp release to <= sampleRate/10 (100 ms max) per Decision D2
+        env.releaseSamples = std::min((uint32_t)(releaseTime * (float)sampleRate),
+                                     (uint32_t)(sampleRate / 10));
+        env.sampleCounter  = 0;
+        env.currentLevel   = 0.0f;
+        env.stage          = EnvelopeState::Stage::ATTACK;
+
+        ch->volume = event.volume;  // base volume (preset level)
         ch->targetVolume = event.volume;
-        ch->volumeDelta = event.volume / attackSamples;
+        ch->volumeDelta = 0.0f;     // no longer used for anti-click
+
+        env.attackDelta  = 1.0f / (float)env.attackSamples;
+        env.decayDelta   = (env.decaySamples > 0) ? (1.0f - sustainLevel) / (float)env.decaySamples : 0.0f;
+        env.releaseDelta = (env.releaseSamples > 0) ? sustainLevel / (float)env.releaseSamples : 0.0f;
+
+        // LFO initialization
+        ch->lfo.enabled = false;
+        if (event.preset && event.preset->lfoTarget != LfoTarget::NONE && event.preset->lfoFrequency > 0.0f) {
+            ch->lfo.enabled = true;
+            ch->lfo.target = event.preset->lfoTarget;
+            ch->lfo.depth = event.preset->lfoDepth;
+            ch->lfo.periodSamples = (uint32_t)((float)sampleRate / event.preset->lfoFrequency);
+            if (ch->lfo.periodSamples < 1u) ch->lfo.periodSamples = 1u;
+            ch->lfo.sampleCounter = 0;
+            ch->lfo.currentValue = 0.0f;
+            ch->lfo.delaySamples = (uint16_t)(event.preset->lfoDelay * (float)sampleRate);
+            ch->lfo.delayCounter = 0;
+        }
 
         ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
 
@@ -350,6 +391,14 @@ namespace pixelroot32::audio {
             if (d < 0.0) d = 0.0;
             if (d > 1.0) d = 1.0;
             ch->dutyCycleQ32 = (uint32_t)(d * 4294967296.0);
+            
+            if (event.preset) {
+                ch->dutySweep = event.preset->dutySweep / (float)sampleRate;
+                ch->dutySweepQ32 = (int32_t)((double)event.preset->dutySweep * 4294967296.0 / (double)sampleRate);
+            } else {
+                ch->dutySweep = 0.0f;
+                ch->dutySweepQ32 = 0;
+            }
         } else if (event.type == WaveType::NOISE) {
             uint32_t period;
             if (event.noisePeriod > 0) {
@@ -363,6 +412,7 @@ namespace pixelroot32::audio {
             ch->noisePeriodSamples = period;
             ch->noiseCountdown = 1u;
             ch->lfsrState = 0x4000;
+            ch->noiseShortMode = (event.preset) ? event.preset->noiseShortMode : false;
             ch->phase = 0.0f;
             ch->phaseIncrement = 0.0f;
         }
@@ -383,6 +433,83 @@ namespace pixelroot32::audio {
     }
 
     // ------------------------------------------------------------------
+    // ADSR Envelope state machine (per-sample tick)
+    // ------------------------------------------------------------------
+    static inline void tickEnvelope(AudioChannel& ch) {
+        auto& env = ch.envelope;
+        switch (env.stage) {
+            case EnvelopeState::Stage::ATTACK:
+                env.sampleCounter++;
+                // env.currentLevel = (float)env.sampleCounter / (float)env.attackSamples;
+                env.currentLevel += env.attackDelta;
+                if (env.sampleCounter >= env.attackSamples) {
+                    env.currentLevel = 1.0f;
+                    env.sampleCounter = 0;
+                    // Skip decay if decaySamples == 0
+                    if (env.decaySamples > 0) {
+                        env.stage = EnvelopeState::Stage::DECAY;
+                    } else {
+                        env.currentLevel = env.sustainLevel;
+                        env.stage = EnvelopeState::Stage::SUSTAIN;
+                    }
+                }
+                break;
+
+            case EnvelopeState::Stage::DECAY:
+                env.sampleCounter++;
+                // Linear ramp from 1.0 down to sustainLevel
+                // env.currentLevel = 1.0f - (1.0f - env.sustainLevel)
+                //     * ((float)env.sampleCounter / (float)env.decaySamples);
+                env.currentLevel -= env.decayDelta;
+                if (env.sampleCounter >= env.decaySamples) {
+                    env.currentLevel = env.sustainLevel;
+                    env.sampleCounter = 0;
+                    env.stage = EnvelopeState::Stage::SUSTAIN;
+                }
+                break;
+
+            case EnvelopeState::Stage::SUSTAIN:
+                // Hold at sustainLevel — nothing to tick
+                break;
+
+            case EnvelopeState::Stage::RELEASE:
+                env.sampleCounter++;
+                // env.currentLevel = env.sustainLevel
+                //     * (1.0f - (float)env.sampleCounter / (float)env.releaseSamples);
+                env.currentLevel -= env.releaseDelta;
+                if (env.sampleCounter >= env.releaseSamples || env.currentLevel <= 0.0f) {
+                    env.currentLevel = 0.0f;
+                    env.stage = EnvelopeState::Stage::OFF;
+                    ch.enabled = false;
+                }
+                break;
+
+            case EnvelopeState::Stage::OFF:
+                break;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // LFO oscillator tick (triangle wave, per-sample)
+    // ------------------------------------------------------------------
+    static inline void tickLfo(AudioChannel& ch) {
+        auto& lfo = ch.lfo;
+        if (!lfo.enabled || lfo.periodSamples == 0) return;
+
+        if (lfo.delayCounter < lfo.delaySamples) {
+            lfo.delayCounter++;
+            return;
+        }
+
+        lfo.sampleCounter++;
+        if (lfo.sampleCounter >= lfo.periodSamples) lfo.sampleCounter = 0;
+
+        // Triangle wave in [-1.0, +1.0]
+        const float t = (float)lfo.sampleCounter / (float)lfo.periodSamples;
+        lfo.currentValue = (t < 0.5f) ? (4.0f * t - 1.0f) : (3.0f - 4.0f * t);
+    }
+
+    // ------------------------------------------------------------------
     // Per-channel sample generation
     // ------------------------------------------------------------------
     float ApuCore::generateSampleForChannel(AudioChannel& ch) {
@@ -394,6 +521,7 @@ namespace pixelroot32::audio {
                 sample = (ch.phase < ch.dutyCycle) ? 1.0f : -1.0f;
                 break;
             case WaveType::TRIANGLE:
+                // TODO: future NES-accurate 4-bit quantization (deferred)
                 sample = (ch.phase < 0.5f)
                        ? (4.0f * ch.phase - 1.0f)
                        : (3.0f - 4.0f * ch.phase);
@@ -403,7 +531,8 @@ namespace pixelroot32::audio {
                 // timbre is identical in simulator and hardware.
                 if (ch.noiseCountdown > 0u) ch.noiseCountdown--;
                 if (ch.noiseCountdown == 0u) {
-                    const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ ((ch.lfsrState >> 1) & 1u)) & 1u);
+                    const uint16_t bitToXor = ch.noiseShortMode ? ((ch.lfsrState >> 6) & 1u) : ((ch.lfsrState >> 1) & 1u);
+                    const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ bitToXor) & 1u);
                     ch.lfsrState = (uint16_t)((ch.lfsrState >> 1) | (fb << 14));
                     ch.noiseCountdown = ch.noisePeriodSamples;
                 }
@@ -415,23 +544,50 @@ namespace pixelroot32::audio {
         if (ch.type != WaveType::NOISE) {
             ch.phase += ch.phaseIncrement;
             if (ch.phase >= 1.0f) ch.phase -= 1.0f;
-        }
-
-        if (ch.volumeDelta != 0.0f) {
-            ch.volume += ch.volumeDelta;
-            if ((ch.volumeDelta > 0.0f && ch.volume >= ch.targetVolume) ||
-                (ch.volumeDelta < 0.0f && ch.volume <= ch.targetVolume)) {
-                ch.volume = ch.targetVolume;
-                ch.volumeDelta = 0.0f;
+            
+            if (ch.type == WaveType::PULSE && ch.dutySweep != 0.0f) {
+                ch.dutyCycle += ch.dutySweep;
+                if (ch.dutyCycle > 1.0f) ch.dutyCycle -= 1.0f;
+                else if (ch.dutyCycle < 0.0f) ch.dutyCycle += 1.0f;
             }
         }
 
-        if (ch.remainingSamples > 0) {
-            ch.remainingSamples--;
-            if (ch.remainingSamples == 0) ch.enabled = false;
+        // Tick the ADSR envelope
+        tickEnvelope(ch);
+
+        // Tick the LFO and apply modulation
+        tickLfo(ch);
+        float lfoVolMod = 1.0f;
+        if (ch.lfo.enabled) {
+            if (ch.lfo.target == LfoTarget::PITCH) {
+                // Vibrato: modulate phase increment (frequency)
+                ch.phaseIncrement = ch.frequency / (float)sampleRate
+                    * (1.0f + ch.lfo.currentValue * ch.lfo.depth);
+            } else if (ch.lfo.target == LfoTarget::VOLUME) {
+                // Tremolo: modulate output amplitude
+                lfoVolMod = 1.0f - ch.lfo.depth * 0.5f * (1.0f - ch.lfo.currentValue);
+            }
         }
 
-        return sample * ch.volume;
+        // Trigger RELEASE when remaining duration expires (Decision D2:
+        // release samples are added to remainingSamples at transition).
+        if (ch.remainingSamples > 0) {
+            ch.remainingSamples--;
+            if (ch.remainingSamples == 0) {
+                if (ch.envelope.stage != EnvelopeState::Stage::RELEASE
+                    && ch.envelope.stage != EnvelopeState::Stage::OFF
+                    && ch.envelope.releaseSamples > 0) {
+                    // Enter release and extend channel lifetime
+                    ch.envelope.stage = EnvelopeState::Stage::RELEASE;
+                    ch.envelope.sampleCounter = 0;
+                    ch.remainingSamples = ch.envelope.releaseSamples;
+                } else {
+                    ch.enabled = false;
+                }
+            }
+        }
+
+        return sample * ch.volume * ch.envelope.currentLevel * lfoVolMod;
     }
 
     // ------------------------------------------------------------------
@@ -491,12 +647,10 @@ namespace pixelroot32::audio {
         // block (not per sample) so volume ramps still work but the 22kHz
         // inner loop stays integer-only.
         int32_t volQ15[NUM_CHANNELS];
-        int32_t volDeltaQ15[NUM_CHANNELS];
-        int32_t volTargetQ15[NUM_CHANNELS];
+        int32_t envQ15[NUM_CHANNELS];
         for (int c = 0; c < NUM_CHANNELS; ++c) {
-            volQ15[c]       = (int32_t)(channels[c].volume       * 32768.0f);
-            volDeltaQ15[c]  = (int32_t)(channels[c].volumeDelta  * 32768.0f);
-            volTargetQ15[c] = (int32_t)(channels[c].targetVolume * 32768.0f);
+            volQ15[c] = (int32_t)(channels[c].volume * 32768.0f);
+            envQ15[c] = (int32_t)(channels[c].envelope.currentLevel * 32768.0f);
         }
 
         // Hoisted wave type dispatch - compute sample once before inner loop
@@ -534,16 +688,24 @@ namespace pixelroot32::audio {
                     // Noise requires state update - do it inline
                     if (ch.noiseCountdown > 0u) ch.noiseCountdown--;
                     if (ch.noiseCountdown == 0u) {
-                        const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ ((ch.lfsrState >> 1) & 1u)) & 1u);
+                        const uint16_t bitToXor = ch.noiseShortMode ? ((ch.lfsrState >> 6) & 1u) : ((ch.lfsrState >> 1) & 1u);
+                        const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ bitToXor) & 1u);
                         ch.lfsrState = (uint16_t)((ch.lfsrState >> 1) | (fb << 14));
                         ch.noiseCountdown = ch.noisePeriodSamples;
                     }
                     s = generateNoiseSampleQ15(ch);
                 }
 
-                // Apply per-channel Q15 volume: (s * volQ15) >> 15 keeps
-                // the result in Q15 centred around 0.
+                // Apply per-channel Q15 volume × envelope: (s * volQ15 * envQ15) >> 30
                 int32_t sv = (s * volQ15[c]) >> 15;
+                sv = (sv * envQ15[c]) >> 15;
+
+                // Volume LFO (tremolo) — applied in Q15.
+                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::VOLUME) {
+                    const int32_t lfoQ15 = (int32_t)((
+                        1.0f - ch.lfo.depth * 0.5f * (1.0f - ch.lfo.currentValue)) * 32768.0f);
+                    sv = (sv * lfoQ15) >> 15;
+                }
 
                 // MIXER_SCALE = 0.4 per channel. 0.4 ≈ 13107/32768 so we
                 // scale by 13107 and shift 15 to land back in Q15. This
@@ -554,22 +716,45 @@ namespace pixelroot32::audio {
                 // Phase accumulator (integer, wraps automatically).
                 if (ch.type != WaveType::NOISE) {
                     ch.phaseQ32 += ch.phaseIncQ32;
-                }
-
-                // Volume ramp — integer.
-                if (volDeltaQ15[c] != 0) {
-                    volQ15[c] += volDeltaQ15[c];
-                    if ((volDeltaQ15[c] > 0 && volQ15[c] >= volTargetQ15[c]) ||
-                        (volDeltaQ15[c] < 0 && volQ15[c] <= volTargetQ15[c])) {
-                        volQ15[c] = volTargetQ15[c];
-                        volDeltaQ15[c] = 0;
+                    if (ch.type == WaveType::PULSE && ch.dutySweepQ32 != 0) {
+                        ch.dutyCycleQ32 += ch.dutySweepQ32; // naturally wraps
                     }
                 }
 
-                // Duration countdown (same bookkeeping as float path).
+                // ADSR envelope tick (uses float internally, once per sample).
+                tickEnvelope(ch);
+                envQ15[c] = (int32_t)(ch.envelope.currentLevel * 32768.0f);
+
+                // LFO tick + pitch modulation (update Q32 phase increment).
+                tickLfo(ch);
+                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH) {
+                    // const double inc = (double)ch.frequency
+                    //     * (1.0 + (double)ch.lfo.currentValue * (double)ch.lfo.depth)
+                    //     * 4294967296.0 / (double)sampleRate;
+                    // ch.phaseIncQ32 = (inc < 0.0) ? 0u
+                    //               : (inc >= 4294967295.0) ? 0xFFFFFFFFu
+                    //               : (uint32_t)inc;
+
+                    // depth in Q15, lfo.currentValue already float → one float mul + shift
+                    int32_t modQ15 = (int32_t)(ch.lfo.currentValue * ch.lfo.depth * 32768.0f);
+                    int64_t inc = (int64_t)ch.basePhaseIncQ32 + ((int64_t)ch.basePhaseIncQ32 * modQ15 >> 15);
+                    ch.phaseIncQ32 = (inc < 0) ? 0u : (uint32_t)inc;
+                }
+
+                // Duration countdown + release trigger (same as float path).
                 if (ch.remainingSamples > 0) {
                     ch.remainingSamples--;
-                    if (ch.remainingSamples == 0) ch.enabled = false;
+                    if (ch.remainingSamples == 0) {
+                        if (ch.envelope.stage != EnvelopeState::Stage::RELEASE
+                            && ch.envelope.stage != EnvelopeState::Stage::OFF
+                            && ch.envelope.releaseSamples > 0) {
+                            ch.envelope.stage = EnvelopeState::Stage::RELEASE;
+                            ch.envelope.sampleCounter = 0;
+                            ch.remainingSamples = ch.envelope.releaseSamples;
+                        } else {
+                            ch.enabled = false;
+                        }
+                    }
                 }
             }
 
@@ -594,8 +779,7 @@ namespace pixelroot32::audio {
         // Sync per-channel float volume back from Q15 so the next block
         // (and the FPU fallback if ever invoked) sees up-to-date state.
         for (int c = 0; c < NUM_CHANNELS; ++c) {
-            channels[c].volume      = (float)volQ15[c]       / 32768.0f;
-            channels[c].volumeDelta = (float)volDeltaQ15[c]  / 32768.0f;
+            channels[c].volume = (float)volQ15[c] / 32768.0f;
         }
 #else
         // ---- Native / fallback path -------------------------------------

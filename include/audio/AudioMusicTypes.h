@@ -133,14 +133,131 @@ struct InstrumentPreset {
     uint8_t defaultOctave;
     float defaultDuration = 0.0f;  // 0.0 = use note.duration, >0 = fixed duration (percussion)
     uint8_t noisePeriod = 0;       // 0 = calc from frequency, >0 = direct LFSR period (percussion)
+    
+    // ADSR Envelope
+    float attackTime = 0.002f;     // seconds
+    float decayTime = 0.0f;        // seconds
+    float sustainLevel = 1.0f;     // 0.0 - 1.0
+    float releaseTime = 0.005f;    // seconds
+
+    // LFO Modulation
+    LfoTarget lfoTarget = LfoTarget::NONE;
+    float lfoFrequency = 0.0f;     // Hz
+    float lfoDepth = 0.0f;         // Pitch: ratio (e.g. 0.05 for 5%). Volume: 0.0-1.0 depth.
+    float lfoDelay = 0.0f;         // seconds before LFO starts
+
+    // Waveform Refinements
+    bool noiseShortMode = false;   // For NOISE: true = metallic timbre (93-step LFSR)
+    float dutySweep = 0.0f;        // For PULSE: duty cycle change per second
 };
 
-constexpr InstrumentPreset INSTR_PULSE_LEAD{0.35f, 0.5f, 4};
-constexpr InstrumentPreset INSTR_PULSE_HARMONY{0.22f, 0.125f, 5};
-constexpr InstrumentPreset INSTR_TRIANGLE_BASS{0.30f, 0.5f, 3};
-constexpr InstrumentPreset INSTR_KICK{0.40f, 0.0f, 1, 0.12f, 25};     // Kick: short punch, noise period 25
-constexpr InstrumentPreset INSTR_SNARE{0.30f, 0.0f, 2, 0.15f, 50};   // Snare: medium decay, noise period 50
-constexpr InstrumentPreset INSTR_HIHAT{0.20f, 0.0f, 3, 0.05f, 12};    // Hi-HAT: very short, noise period 12
+constexpr InstrumentPreset INSTR_PULSE_LEAD{
+    0.35f,    // baseVolume
+    0.5f,     // duty (square)
+    4,        // defaultOctave
+    0.0f,     // defaultDuration (use note.duration)
+    0,        // noisePeriod (unused)
+    0.005f,   // attackTime  – fast attack for lead
+    0.20f,    // decayTime   – noticeable decay to shape note
+    0.70f,    // sustainLevel– moderate sustain
+    0.20f,    // releaseTime – release tail to avoid clicks
+    LfoTarget::PITCH,   // lfoTarget – vibrato
+    5.0f,     // lfoFrequency (Hz)
+    0.02f,    // lfoDepth    – ~0.34 semitones pitch variation
+    0.0f,     // lfoDelay    – start immediately
+    false,    // noiseShortMode (unused for pulse)
+    0.0f      // dutySweep   – no sweep by default (can be added later)
+};
+
+constexpr InstrumentPreset INSTR_PULSE_HARMONY{
+    0.22f,    // baseVolume
+    0.125f,   // duty (1/8)
+    5,        // defaultOctave
+    0.0f,     // defaultDuration
+    0,        // noisePeriod
+    0.005f,   // attackTime
+    0.50f,    // decayTime   – longer decay for evolving pad
+    0.50f,    // sustainLevel– medium sustain
+    0.30f,    // releaseTime
+    LfoTarget::VOLUME,  // lfoTarget – tremolo
+    6.0f,     // lfoFrequency (Hz)
+    0.30f,    // lfoDepth    – 30 % volume modulation
+    0.0f,     // lfoDelay
+    false,    // noiseShortMode
+    0.10f     // dutySweep   – slow PWM‑like timbral movement
+};
+
+constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
+    0.30f,    // baseVolume
+    0.5f,     // duty (unused for triangle, kept for API uniformity)
+    3,        // defaultOctave
+    0.0f,     // defaultDuration
+    0,        // noisePeriod
+    0.005f,   // attackTime
+    0.10f,    // decayTime
+    0.20f,    // sustainLevel– low sustain for tight bass
+    0.10f,    // releaseTime
+    LfoTarget::NONE,
+    0.0f,     // lfoFrequency
+    0.0f,     // lfoDepth
+    0.0f,     // lfoDelay
+    false,    // noiseShortMode
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_KICK{
+    0.40f,    // baseVolume
+    0.0f,     // duty (0 → noise channel)
+    1,        // defaultOctave (kick selector)
+    0.12f,    // defaultDuration (fixed length)
+    25,       // noisePeriod (already set)
+    0.001f,   // attackTime  – instantaneous click
+    0.08f,    // decayTime   – body of the kick
+    0.00f,    // sustainLevel– no sustain
+    0.02f,    // releaseTime – short tail to kill clicks
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    false,    // noiseShortMode – kick is not metallic
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_SNARE{
+    0.30f,    // baseVolume
+    0.0f,     // duty → noise
+    2,        // defaultOctave (snare selector)
+    0.15f,    // defaultDuration
+    50,       // noisePeriod
+    0.001f,   // attackTime
+    0.10f,    // decayTime
+    0.00f,    // sustainLevel– no sustain
+    0.05f,    // releaseTime
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    true,     // noiseShortMode – metallic 93‑step LFSR for snare
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_HIHAT{
+    0.20f,    // baseVolume
+    0.0f,     // duty → noise
+    3,        // defaultOctave (hi‑hat selector)
+    0.05f,    // defaultDuration (very short)
+    12,       // noisePeriod
+    0.0005f,  // attackTime  – extremely fast
+    0.02f,    // decayTime   – quick decay
+    0.00f,    // sustainLevel– no sustain
+    0.005f,   // releaseTime – matches current anti‑click, removes click
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    true,     // noiseShortMode – metallic timbre for closed hat
+    0.0f      // dutySweep
+};
 
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration) {
     return MusicNote{note, preset.defaultOctave, duration, preset.baseVolume, &preset};

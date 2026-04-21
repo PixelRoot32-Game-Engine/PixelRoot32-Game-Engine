@@ -96,6 +96,7 @@ platformio_test.log
 .cursor/
 .trae/
 .agent/
+.atl/
 openspec/
 AGENTS.md
 

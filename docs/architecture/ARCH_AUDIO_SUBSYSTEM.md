@@ -73,7 +73,7 @@ Highlights (see [`AudioTypes.h`](include/audio/AudioTypes.h) for the full struct
 - **Noise**: `lfsrState` (15-bit LFSR), `noisePeriodSamples`, `noiseCountdown` — same deterministic polynomial on **all** platforms.
 - **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled.
 
-On **note on**, `ApuCore` applies a short **fade-in** (attack) from 0 to `event.volume` to reduce clicks when stealing or retriggering a voice.
+On **note on**, `ApuCore` initializes an ADSR envelope from the `InstrumentPreset` (or legacy defaults: 2ms attack, no decay, full sustain, 5ms release) to shape the note amplitude over time, reducing clicks and enabling expressive articulation.
 
 ### 2.3 AudioEvent
 
@@ -136,7 +136,8 @@ Oscillator work is implemented in **`ApuCore::generateSampleForChannel`** (float
 After the per-channel sample (float path):
 
 - Phase advances for non-noise waves; noise uses only the countdown/LFSR.
-- Linear volume ramp when `volumeDelta != 0`.
+- **ADSR envelope** is applied via per-sample state machine (ATTACK→DECAY→SUSTAIN→RELEASE→OFF) replacing the simple volume ramp.
+- **LFO modulation** is applied when enabled: pitch modulation alters `phaseIncrement` (frequency), volume modulation alters envelope output amplitude.
 - **Per-channel `MIXER_SCALE` (0.4)**, **master volume**, and the **non-linear compressor** are applied in `ApuCore::generateSamples` (see §3.4). On FPU/native builds a **single-pole HPF** runs on the mixed float signal before scaling to `int16_t` to tame DC and retrigger clicks. The no-FPU LUT path omits that float HPF for CPU reasons; the LUT output is already centred.
 
 ### 3.4 Mixing all channels (Non-Linear Mixer)
@@ -421,15 +422,32 @@ float current = audio.getMasterVolume(); // Query current setting
 
 ### 6.3 Designing NES-like effects
 
-Since there are no complex envelopes yet, effects are built by combining:
+Effects are built by combining basic parameters and optional ADSR envelopes:
 
+**Basic Parameters**
 - `frequency`: lower or higher pitch.
 - `duration`: effect length (seconds).
 - `volume`: 0.0–1.0.
 - `duty` (pulse only):
   - 0.125: thinner, sharper timbre.
-  - 0.25: classic “NES lead”.
-  - 0.5: symmetric square, “fatter” sound.
+  - 0.25: classic "NES lead".
+  - 0.5: symmetric square, "fatter" sound.
+
+**ADSR Envelope (via `InstrumentPreset`)**
+- `attackTime`: how quickly the sound reaches peak volume (0.0 = instant).
+- `decayTime`: how quickly it drops to sustain level after attack.
+- `sustainLevel`: volume maintained during the sustain phase (0.0-1.0).
+- `releaseTime`: how quickly the sound fades after duration ends.
+
+Use an `InstrumentPreset` with an `AudioEvent` to apply envelopes:
+```cpp
+AudioEvent evt{};
+evt.type = WaveType::PULSE;
+evt.frequency = 1500.0f;
+evt.duration = 0.12f;
+evt.preset = &INSTR_PULSE_LEAD;  // Uses built-in ADSR envelope
+audio.playEvent(evt);
+```
 
 ---
 
@@ -494,11 +512,28 @@ For convenience there are simple “instrument” presets and helpers:
 
 ```cpp
 struct InstrumentPreset {
+    // Basic parameters
     float baseVolume;
     float duty;           // 0.0 = NOISE (percussion), >0 = PULSE/TRIANGLE
     uint8_t defaultOctave;
-float defaultDuration = 0.0f;  // 0.0 = use note.duration, >0 = fixed (percussion)
+    float defaultDuration = 0.0f;  // 0.0 = use note.duration, >0 = fixed (percussion)
     uint8_t noisePeriod = 0;        // 0 = calc from freq, >0 = direct LFSR period
+    
+    // ADSR Envelope
+    float attackTime = 0.002f;      // Attack time in seconds
+    float decayTime = 0.0f;         // Decay time in seconds
+    float sustainLevel = 1.0f;      // Sustain level (0.0-1.0)
+    float releaseTime = 0.005f;     // Release time in seconds
+    
+    // LFO Modulation
+    LfoTarget lfoTarget = LfoTarget::NONE;  // NONE, PITCH, or VOLUME
+    float lfoFrequency = 0.0f;      // LFO frequency in Hz
+    float lfoDepth = 0.0f;          // Modulation depth
+    float lfoDelay = 0.0f;          // Delay before LFO starts
+    
+    // Waveform refinements
+    bool noiseShortMode = false;    // Metallic 93-step LFSR for NOISE
+    float dutySweep = 0.0f;         // Duty cycle change per second (PWM)
 };
 
 // Melodic instruments
@@ -636,13 +671,15 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **Sample-Accurate Timing**: The system now uses samples instead of `deltaTime` for all internal logic, eliminating jitter and drift.
 - **Decoupled Execution**: Audio logic is completely isolated from the game's frame rate, preventing audio stuttering during heavy CPU load.
 - **Music Tempo Control**: Added support for real-time tempo changes via `MUSIC_SET_TEMPO`.
-- **Simple volume envelopes**: linear **`volumeDelta`** ramp plus a fixed **attack fade** on each `PLAY_EVENT`, implemented in **`ApuCore`**.
+- **ADSR Envelopes**: Full Attack-Decay-Sustain-Release envelopes implemented via `InstrumentPreset` for expressive note articulation and click-free playback.
+- **LFO Modulation**: Low-frequency oscillators for vibrato (pitch) and tremolo (volume) effects.
+- **Multi-track Music**: Support for up to 4 simultaneous tracks (main + 3 sub-tracks) with independent voices and percussion.
 
 ### 8.2 Remaining Limitations
 
 - No exact cycle-accurate emulation of the NES APU.
 - **Pitch sweeps**: hardware-style sweep units / continuous frequency slides are not implemented.
-- **Complex envelopes**: no ADSR; only the linear **`volumeDelta`** ramp (plus the fixed attack fade on `PLAY_EVENT`).
+- **Complex envelopes**: ADSR is implemented; however, advanced features like delayed attack, logarithmic curves, or multiple envelope stages are not available.
 - **Music catch-up**: if `generateSamples` is not called for a long wall-clock gap (host suspended, debugger break), **`updateMusicSequencer`** may advance many ticks in one call — CPU time grows with backlog (no hard cap on processed ticks).
 - **Command queue**: fixed depth **128**; overflow **drops** the newest command and increments **`ApuCore::droppedCommands`**. Contract: **single producer, single consumer** — do not call `playEvent` / `submitCommand` from multiple threads without external serialization.
 - **`MusicPlayer` vs. drops**: local `playing` / `paused` flags can briefly disagree with `ApuCore` if a command is dropped. For diagnostics, **`ApuCore::getDroppedCommands()`** is public (e.g. tests or a custom scheduler wrapper); stock `AudioEngine` does not expose it—avoid saturating the queue instead.

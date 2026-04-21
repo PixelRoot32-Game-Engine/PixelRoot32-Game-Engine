@@ -90,6 +90,7 @@ Structure defining a sound effect to be played.
 - **`float volume`**: Volume level (0.0 to 1.0).
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
 - **`uint8_t noisePeriod`**: For `NOISE`, `0` = derive LFSR step period from `frequency`; `> 0` = fixed period in samples (percussion presets).
+- **`const struct InstrumentPreset* preset`**: Optional pointer to instrument preset for ADSR/LFO/waveform parameters. When nullptr, falls back to legacy behavior (2ms attack, no decay, full sustain, 5ms release). Must point to static/constexpr/global instance.
 
 ---
 
@@ -141,8 +142,24 @@ Simple preset describing a reusable "instrument":
 - **`float baseVolume`**: Default volume for notes.
 - **`float duty`**: Duty cycle suggestion (for Pulse). For percussion (NOISE), use 0.0.
 - **`uint8_t defaultOctave`**: Default octave for the instrument. For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT.
-- **`float defaultDuration`** (optional): Fixed duration for percussion hits. 0.0 = use note.duration.
+- **`float defaultDuration`** (optional): Fixed duration for percussion hits. 0.0 = use note.duration, >0 = fixed (percussion)
 - **`uint8_t noisePeriod`** (optional): LFSR period for noise channel. 0 = calc from frequency, >0 = direct period (Kick=25, Snare=50, Hi-HAT=12).
+
+**ADSR Envelope**
+- **`float attackTime`**: Attack time in seconds (0.0 = instant)
+- **`float decayTime`**: Decay time in seconds (0.0 = skip decay, jump to sustain)
+- **`float sustainLevel`**: Sustain level as fraction of peak volume (0.0-1.0)
+- **`float releaseTime`**: Release time in seconds (0.0 = instant off, clamped to 100ms max)
+
+**LFO Modulation**
+- **`LfoTarget lfoTarget`**: Modulation target (NONE, PITCH, or VOLUME)
+- **`float lfoFrequency`**: LFO frequency in Hz (0.0 = disabled)
+- **`float lfoDepth`**: Modulation depth. For PITCH: ratio (e.g. 0.05 for ~0.34 semitones). For VOLUME: fraction (0.0-1.0 for attenuation depth)
+- **`float lfoDelay`**: Delay before LFO starts in seconds
+
+**Waveform Refinements**
+- **`bool noiseShortMode`**: For NOISE channel: true = metallic 93-step LFSR, false = standard 32767-step
+- **`float dutySweep`**: For PULSE channel: duty cycle change per second for PWM-like timbral effects
 
 #### Predefined Presets
 

@@ -17,6 +17,63 @@ namespace pixelroot32::audio {
         NOISE
     };
 
+    struct EnvelopeState {
+        enum class Stage : uint8_t { ATTACK, DECAY, SUSTAIN, RELEASE, OFF };
+        Stage stage = Stage::OFF;
+        
+        // Timing (in samples, pre-calculated from seconds * sampleRate)
+        uint32_t attackSamples = 0;
+        uint32_t decaySamples = 0;
+        float    sustainLevel = 1.0f;
+        uint32_t releaseSamples = 0;
+        
+        // Runtime state
+        uint32_t sampleCounter = 0;
+        float    currentLevel = 0.0f;
+
+        float attackDelta = 0.0f;    // 1.0 / attackSamples
+        float decayDelta = 0.0f;     // (1.0 - sustainLevel) / decaySamples
+        float releaseDelta = 0.0f;   // sustainLevel / releaseSamples`
+
+        void reset() {
+            stage = Stage::OFF;
+            attackSamples = 0;
+            decaySamples = 0;
+            sustainLevel = 1.0f;
+            releaseSamples = 0;
+            sampleCounter = 0;
+            currentLevel = 0.0f;
+        }
+    };
+
+    // --- LFO Types ---
+    enum class LfoTarget : uint8_t { NONE, PITCH, VOLUME };
+
+    struct LfoState {
+        bool enabled = false;
+        LfoTarget target = LfoTarget::NONE;
+        
+        float depth = 0.0f;
+        uint32_t periodSamples = 0;
+        
+        uint32_t sampleCounter = 0;
+        float currentValue = 0.0f;
+
+        uint16_t delaySamples = 0;
+        uint16_t delayCounter = 0;
+        
+        void reset() {
+            enabled = false;
+            target = LfoTarget::NONE;
+            depth = 0.0f;
+            periodSamples = 0;
+            sampleCounter = 0;
+            currentValue = 0.0f;
+            delaySamples = 0;
+            delayCounter = 0;
+        }
+    };
+
     /**
      * @struct AudioChannel
      * @brief Represents the internal state of a single audio channel.
@@ -40,15 +97,23 @@ namespace pixelroot32::audio {
         uint32_t phaseQ32 = 0;
         uint32_t phaseIncQ32 = 0;
         uint32_t dutyCycleQ32 = 0x80000000u; // 50% default
+        uint32_t basePhaseIncQ32 = 0;
 
         // Envelope / Volume
+        EnvelopeState envelope;
         float volume = 0.0f;       // Current volume [0.0 - 1.0]
         float targetVolume = 0.0f; // Target volume for interpolation
         float volumeDelta = 0.0f;  // Volume change per sample
+        
+        // LFO
+        LfoState lfo;
 
         // Wave specific parameters
         float dutyCycle = 0.5f;      // For Pulse wave [0.0 - 1.0]
+        float dutySweep = 0.0f;      // Duty cycle change per sample
+        int32_t dutySweepQ32 = 0;    // Fixed-point duty sweep
         uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
+        bool noiseShortMode = false; // true = 93-step sequence (metallic), false = 32767-step
 
         /** Samples until next LFSR step on NOISE; `frequency` sets noise clock rate (not pitch). */
         uint32_t noisePeriodSamples = 1;
@@ -64,9 +129,14 @@ namespace pixelroot32::audio {
             phaseQ32 = 0;
             phaseIncQ32 = 0;
             dutyCycleQ32 = 0x80000000u;
+            dutySweep = 0.0f;
+            dutySweepQ32 = 0;
+            envelope.reset();
+            lfo.reset();
             volume = 0.0f;
             remainingSamples = 0;
             lfsrState = 0x4000; // Initialize LFSR to non-zero state
+            noiseShortMode = false;
             noisePeriodSamples = 1;
             noiseCountdown = 0;
         }
@@ -85,6 +155,13 @@ namespace pixelroot32::audio {
         float volume;   // 0.0 - 1.0
         float duty;     // For pulse only
         uint8_t noisePeriod = 0;  // For NOISE channel: 0 = calc from frequency, >0 = direct LFSR period
+        
+        /**
+         * Optional preset driving ADSR and LFO parameters. 
+         * MUST be a pointer to a static, constexpr, or global instance.
+         * If nullptr, falls back to legacy default behavior.
+         */
+        const struct InstrumentPreset* preset = nullptr;
     };
 
     // --- Command Types (Phase 1) ---

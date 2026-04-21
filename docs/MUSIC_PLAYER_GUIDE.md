@@ -82,8 +82,8 @@ static const MusicNote MELODY_NOTES[] = {
 };
 
 static const MusicNote BASS_NOTES[] = {
-    makeNote(INSTR_PULSE_BASS, Note::C, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::G, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 2, 0.5f),
 };
 
 static const MusicNote DRUM_NOTES[] = {
@@ -99,7 +99,7 @@ static const MusicTrack MELODY_TRACK = {
 };
 
 static const MusicTrack BASS_TRACK = {
-    BASS_NOTES, 2, true, WaveType::PULSE, 0.25f
+    BASS_NOTES, 2, true, WaveType::TRIANGLE, 0.5f
 };
 
 static const MusicTrack DRUM_TRACK = {
@@ -241,10 +241,10 @@ void GameScene::switchToBattleMusic() {
 ```cpp
 // Background layer (bass line)
 static const MusicNote BASS_LINE[] = {
-    makeNote(INSTR_PULSE_BASS, Note::C, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::G, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::A, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::F, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::A, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::F, 2, 0.5f),
 };
 
 // Melody layer (lead)
@@ -257,7 +257,7 @@ static const MusicNote MELODY[] = {
 
 // Use different wave types for variety
 static const MusicTrack BASS_TRACK = {
-    BASS_LINE, sizeof(BASS_LINE)/sizeof(MusicNote), true, WaveType::PULSE, 0.25f
+    BASS_LINE, sizeof(BASS_LINE)/sizeof(MusicNote), true, WaveType::TRIANGLE, 0.5f
 };
 
 static const MusicTrack MELODY_TRACK = {
@@ -442,13 +442,13 @@ static const MusicNote BLUES_PROGRESSION[] = {
 
 ```cpp
 static const MusicNote ARPEGGIO[] = {
-    makeNote(INSTR_TRIANGLE, Note::C, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::E, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::G, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::C, 5, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::G, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::E, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::C, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::E, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 5, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::E, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 4, 0.25f),
     makeRest(0.25f),
 };
 ```
