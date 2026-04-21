@@ -123,7 +123,7 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
-| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Enabled (v1.3.0) |
+| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Disabled (v1.3.0) |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
 | Debug Dirty Regions | `PIXELROOT32_DEBUG_DIRTY_REGIONS` | Disabled |
 
@@ -264,7 +264,7 @@ Manages color depth for display output to reduce SPI transfer.
 
 | Flag | Default | Valid Range | Description |
 |------|---------|-------------|-------------|
-| `ENABLE_PARTIAL_UPDATES` | 1 | 0-1 | Enable partial screen updates |
+| `ENABLE_PARTIAL_UPDATES` | 0 | 0-1 | Enable partial screen updates |
 | `DISPLAY_COLOR_DEPTH` | 16 | 24, 16, 8 | Color depth in bits |
 | `MAX_DIRTY_RATIO_PERCENT` | 70 | 0-100 | Threshold for full update |
 | `ENABLE_DIRTY_RECT_COMBINE` | 1 | 0-1 | Enable region combining |
@@ -330,7 +330,7 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 ### Present-path savings (optional)
 
 - **Opción A (implementada):** `Scene::shouldRedrawFramebuffer()` — el **`Engine`** omite **`draw()`** + **`present()`** cuando la escena devuelve `false`. **`AnimatedTilemapScene`** usa firmas de **`TileAnimationManager::getVisualSignature()`** y muestras de cámara para detectar frames sin cambio visual (p. ej. entre avances de frame de animación). Con **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`** el motor **siempre** redibuja para mantener el overlay coherente.
-- **Opción B (implemented v1.3.0):** **dirty region / partial updates** via **`TFT_eSPI_Drawer::sendBufferScaled`**: uses dirty bitmap tracking and sends only modified regions via `setAddrWindow` + `pushPixelsDMA`. Saves SPI when a fraction of the panel changes. Enabled by default in v1.3.0 via `ENABLE_PARTIAL_UPDATES=1`. See [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md).
+- **Opción B (implemented v1.3.0):** **dirty region / partial updates** via **`TFT_eSPI_Drawer::sendBufferScaled`**: uses dirty bitmap tracking and sends only modified regions via `setAddrWindow` + `pushPixelsDMA`. Saves SPI when a fraction of the panel changes. Disabled by default in v1.3.0. Enable via `ENABLE_PARTIAL_UPDATES=1`. See [Driver Layer](architecture/ARCH_LAYER_DRIVERS.md).
 
 **Game / scene developer contract**
 

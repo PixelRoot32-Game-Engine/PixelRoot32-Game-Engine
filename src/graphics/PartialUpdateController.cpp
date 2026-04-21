@@ -16,6 +16,7 @@ using logging::LogLevel;
 
 PartialUpdateController::PartialUpdateController()
     : mode_(Mode::Partial)
+    , enabled_(true)
     , dirtyPixelCount_(0)
     , lastFrameWidth_(320)
     , lastFrameHeight_(240)
@@ -34,10 +35,35 @@ void PartialUpdateController::endFrame(int frameWidth, int frameHeight) {
     lastFrameWidth_ = frameWidth;
     lastFrameHeight_ = frameHeight;
 
-    // Combine dirty regions into minimal set
+    // --- Merge 2-frame memory (Ghost Pixel Prevention) ---
+    // Any region dirty last frame must be pushed to display this frame
+    tracker_.mergeWithPreviousFrame();
+
+    // --- Quick pre-check: count dirty blocks before expensive merge ---
+    // If the raw dirty block area already exceeds the threshold, skip
+    // combineRegions() entirely (its result would be discarded anyway).
+    const int rawDirtyPixels = tracker_.countDirtyPixels();
+    const int totalPixels = frameWidth * frameHeight;
+    if (totalPixels > 0) {
+        const float rawRatio = static_cast<float>(rawDirtyPixels) / totalPixels;
+        if (rawRatio > MAX_DIRTY_RATIO_PERCENT / 100.0f) {
+            // Already over threshold — no point merging, go full
+            mode_ = Mode::Full;
+            dirtyPixelCount_ = rawDirtyPixels;
+            lastRegionCount_ = 0;
+            lastTotalSentPixels_ = 0;
+            #ifdef PIXELROOT32_ENABLE_PROFILING
+            log(LogLevel::Profiling, "PartialUpdate: fast-fallback (%.1f%% dirty > %d%% threshold)\n",
+                rawRatio * 100.0f, MAX_DIRTY_RATIO_PERCENT);
+            #endif
+            return;
+        }
+    }
+
+    // Combine dirty regions into minimal set (only if worth it)
     tracker_.combineRegions();
 
-    // Calculate dirty pixel count
+    // Calculate dirty pixel count from merged regions
     const auto& regions = tracker_.getRegions();
     dirtyPixelCount_ = 0;
     lastRegionCount_ = static_cast<int>(regions.size());
@@ -52,7 +78,6 @@ void PartialUpdateController::endFrame(int frameWidth, int frameHeight) {
     }
 
     // Calculate dirty ratio and decide mode
-    int totalPixels = frameWidth * frameHeight;
     if (totalPixels > 0) {
         float dirtyRatio = static_cast<float>(dirtyPixelCount_) / totalPixels;
 
@@ -99,8 +124,9 @@ const std::vector<DirtyRect>& PartialUpdateController::getRegions() const {
 void PartialUpdateController::clear() {
     tracker_.clear();
     dirtyPixelCount_ = 0;
-    // Reset to partial mode for next frame
-    mode_ = Mode::Partial;
+    // Reset to the user's configured mode — NOT unconditionally Partial.
+    // enabled_ is set by setPartialUpdateEnabled() and persists across frames.
+    mode_ = enabled_ ? Mode::Partial : Mode::Full;
 }
 
 void PartialUpdateController::setMode(Mode mode) {

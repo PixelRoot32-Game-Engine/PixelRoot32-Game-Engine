@@ -36,6 +36,7 @@ public:
 
 private:
     Mode mode_ = Mode::Partial;
+    bool enabled_ = true;          ///< Persistent user flag (survives clear())
     DirtyRectTracker tracker_;
 
     // Statistics
@@ -125,6 +126,7 @@ public:
      * @param enabled true to enable partial updates
      */
     void setPartialUpdateEnabled(bool enabled) {
+        enabled_ = enabled;
         setMode(enabled ? Mode::Partial : Mode::Full);
     }
 
@@ -133,7 +135,7 @@ public:
      * @return true if partial mode is enabled
      */
     bool isPartialUpdateEnabled() const {
-        return mode_ == Mode::Partial;
+        return enabled_;
     }
 
     /**

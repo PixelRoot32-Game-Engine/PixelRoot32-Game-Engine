@@ -99,6 +99,9 @@ private:
     // Processed blocks tracking (heap-allocated for stack optimization)
     bool* processed_;
 
+    // Previous frame's dirty bitmap for 2-frame carry-over (ghost pixel prevention)
+    uint8_t* prevDirtyBitmap_;
+
 public:
     DirtyRectTracker();
     ~DirtyRectTracker();
@@ -147,6 +150,18 @@ public:
     bool hasDirtyRegions() const { return hasDirty_; }
 
     /**
+     * @brief Count total dirty pixels without running combineRegions().
+     *
+     * Fast O(bitmapSize) operation: counts set bits in the dirty bitmap
+     * and multiplies by BLOCK_SIZE^2. Used for early threshold detection
+     * to avoid the more expensive combineRegions() when the dirty ratio
+     * already exceeds the fallback threshold.
+     *
+     * @return Approximate pixel count (rounded up to 8x8 block boundaries)
+     */
+    int countDirtyPixels() const;
+
+    /**
      * @brief Get the merged dirty regions.
      * @return Vector of DirtyRect regions (valid after combineRegions())
      */
@@ -156,6 +171,18 @@ public:
      * @brief Clear all dirty tracking state for next frame.
      */
     void clear();
+
+    /**
+     * @brief Merge previous frame's dirty regions into current frame.
+     *
+     * Must be called ONCE per frame, BEFORE countDirtyPixels()/combineRegions().
+     * This implements 2-frame dirty carry-over: any region that was dirty in
+     * the previous frame is also dirty this frame, ensuring "now-black" areas
+     * (moved entities, dead particles, scrolled tiles) get sent to the display.
+     *
+     * The carry-over naturally decays: regions persist for exactly 2 frames.
+     */
+    void mergeWithPreviousFrame();
 
     /**
      * @brief Enable or disable region combining for performance tuning.

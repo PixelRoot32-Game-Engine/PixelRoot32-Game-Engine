@@ -118,7 +118,7 @@ High-level graphics rendering system. Provides a unified API for drawing shapes,
     Returns the total number of pixels sent to the display in the last frame.
 
 - **`void setColorDepth(int depth)`**
-    Sets the color depth for display output (24, 16, 8 bits).
+     Sets the color depth metadata (16 or 8 bits). On ESP32, the SPI transfer always uses 16-bit RGB565 regardless of this setting. Values 24 and 4 are rejected on ESP32 (fall back to 16 with a warning). See [ColorDepthManager](#colordepthmanager) for details.
 
 - **`void setPartialUpdateEnabled(bool enabled)`**
     Enables or disables partial screen updates.
@@ -556,6 +556,29 @@ Abstract interface for platform-specific drawing operations.
   - **Note:** The default base class implementation automatically calls `markDirty(x, y, width, height)` after receiving the tile data. Subclasses can override for more optimized implementations that handle marking internally.
   - **See also:** [Partial Update API](#partial-update-api-v130) for dirty region tracking.
 - **`virtual void drawLine(...)`**, **`drawRectangle(...)`**, **`drawCircle(...)`**, etc.
+- **`virtual void setColorDepth(int depth)`**
+     Sets color depth metadata. Delegates to `ColorDepthManager::setDepth(int)`.
+   - **Parameters:**
+     - `depth`: Color depth in bits. Accepted values:
+       - `16`: RGB565 (default) — **recommended**
+       - `8`: Indexed (256 colors) — palette metadata only
+       - `24`: **Rejected on ESP32** (falls back to 16 with warning). Accepted on native.
+       - `4`: **Not implemented** — rejected, returns `false`, falls back to 16
+   - **Returns:** void
+   - **Default:** No-op (base class)
+   - **Platform support:**
+     - ESP32/TFT_eSPI: 16-bit (default), 8-bit (palette metadata only; SPI still 16-bit)
+     - SDL2/Native: 24-bit, 16-bit
+   - **⚠️ Important:** On ESP32, the SPI transfer **always** sends 16-bit RGB565 data regardless of this setting. The sprite buffer is 8bpp internally and is converted to RGB565 via `paletteLUT` during DMA transfer. This flag affects `ColorDepthManager` statistics and metadata only — it does **not** reduce SPI bandwidth.
+   - **Example:**
+
+       ```cpp
+       // Set to 8-bit palette mode (metadata only on ESP32)
+       renderer.setColorDepth(8);
+
+       // Default: 16-bit RGB565
+       renderer.setColorDepth(16);
+       ```
 
 ### Partial Update API (v1.3.0+)
 
@@ -633,30 +656,6 @@ The following methods provide display bottleneck optimization by enabling partia
   - **Default:** No-op (base class)
   - **Note:** Allows controllers to merge dirty regions and prepare for transfer. This is where the decision to use partial vs. full updates is typically finalized.
   - **Override:** Drivers should finalize their dirty region tracking here (combining adjacent regions, etc.).
-
-- **`virtual void setColorDepth(int depth)`**
-    Sets the color depth for display output. This controls the color format used when sending data to the physical display, affecting bandwidth requirements.
-  - **Parameters:**
-    - `depth`: Color depth in bits. Supported values:
-      - `24`: RGB888 (24-bit true color) - highest quality, highest bandwidth
-      - `16`: RGB565 (default) - balanced quality/performance
-      - `8`: Indexed (256 colors) - reduces bandwidth by 66%
-      - `4`: Indexed (16 colors) - reduces bandwidth by 83%
-  - **Returns:** void
-  - **Default:** No-op (base class)
-  - **Platform support:**
-    - ESP32/TFT_eSPI: Supports 16-bit (default), 8-bit with sprite
-    - SDL2/Native: Supports 24-bit, 16-bit
-  - **Note:** Lower color depths reduce SPI transfer time but limit color fidelity. Use 8-bit or 4-bit for displays with slow SPI interfaces.
-  - **Example:**
-
-      ```cpp
-      // Switch to 8-bit indexed for slower displays
-      renderer.setColorDepth(8);  // Reduce bandwidth
-
-      // Restore to 16-bit RGB565 (default)
-      renderer.setColorDepth(16);
-      ```
 
 ---
 
@@ -743,7 +742,10 @@ Tracks which regions of the screen have been modified since last frame using a b
     Combines adjacent/overlapping dirty blocks into merged regions. Must be called after all `markDirty()` calls and before `getRegions()`.
 
 - **`bool hasDirtyRegions() const`**
-    Returns `true` if there are dirty regions.
+     Returns `true` if there are dirty regions.
+
+- **`int countDirtyPixels() const`** *(v1.3.0+)*
+     Fast O(bitmapSize) count of dirty pixels without running `combineRegions()`. Counts set bits in the dirty bitmap via `__builtin_popcount` and multiplies by `BLOCK_SIZE²` (64). Returns an approximate pixel count rounded up to 8×8 block boundaries. Used internally by `PartialUpdateController::endFrame()` for early threshold detection — if the dirty ratio already exceeds `MAX_DIRTY_RATIO_PERCENT`, the expensive `combineRegions()` is skipped entirely.
 
 - **`const std::vector<DirtyRect>& getRegions() const`**
     Returns the merged dirty regions (valid after `combineRegions()`).
@@ -767,22 +769,22 @@ This class is **NOT thread-safe** by default. It is designed for single-threaded
 
 **Namespace:** `pixelroot32::graphics`
 
-Manages color depth selection for display output. Provides runtime selection of color depth to reduce SPI transfer bandwidth.
+Manages color depth metadata for display output. On ESP32 + TFT_eSPI, this controls internal statistics and palette selection but does **not** affect the actual SPI wire format (always 16-bit RGB565).
 
 ### Depth (Enum)
 
-- **`Depth24`**: RGB888 (24-bit)
-- **`Depth16`**: RGB565 (16-bit, default)
-- **`Depth8`**: Indexed palette (256 colors, reduces bandwidth by 66%)
-- **`Depth4`**: Indexed palette (16 colors, **Not Implemented**)
+- **`Depth24`**: RGB888 (24-bit) — **rejected on ESP32** (falls back to 16, logs warning)
+- **`Depth16`**: RGB565 (16-bit, default) — **recommended**
+- **`Depth8`**: Indexed palette (256 colors) — metadata only; SPI still sends 16-bit on ESP32
+- **`Depth4`**: Indexed palette (16 colors) — **not implemented**, rejected with warning
 
 ### Public Methods
 
 - **`void setDepth(Depth depth)`**
     Sets color depth at runtime.
 
-- **`void setDepth(int depthBits)`**
-    Sets color depth from integer value (24, 16, 8, or 4).
+- **`bool setDepth(int depthBits)`**
+     Sets color depth from integer value. Returns `true` if accepted, `false` if rejected (invalid value, or unsupported on current platform). Rejected values fall back to Depth16 and log a warning.
 
 - **`Depth getDepth() const`**
     Returns current depth.
@@ -803,7 +805,7 @@ Manages color depth selection for display output. Provides runtime selection of 
     Returns `true` for 8-bit or 4-bit depth (can use 8bpp sprite format directly).
 
 - **`float getTransferRatio() const`**
-    Returns transfer reduction ratio vs 24-bit (e.g., 0.67 for 16-bit).
+     Returns the *theoretical* transfer ratio vs 24-bit based on the configured depth (e.g., 0.67 for 16-bit). **Note:** On ESP32, the actual SPI transfer is always 16-bit RGB565 regardless of this value. This ratio reflects the configured metadata, not the physical wire format.
 
 ### 8-bit Indexed Palette API (v1.3.0+)
 

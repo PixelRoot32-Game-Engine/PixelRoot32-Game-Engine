@@ -138,17 +138,31 @@ void test_color_depth_manager_needs_palette(void) {
 // =============================================================================
 
 void test_color_depth_manager_set_depth_int(void) {
-    colorDepthManager->setDepth(24);
+    // 24-bit: accepted on native, rejected on ESP32
+    bool result24 = colorDepthManager->setDepth(24);
+#ifdef PLATFORM_ESP32
+    TEST_ASSERT_FALSE(result24);
+    TEST_ASSERT_EQUAL(16, colorDepthManager->getDepthBits());  // falls back to 16
+#else
+    TEST_ASSERT_TRUE(result24);
     TEST_ASSERT_EQUAL(24, colorDepthManager->getDepthBits());
+#endif
     
-    colorDepthManager->setDepth(16);
+    // 16-bit: always accepted
+    TEST_ASSERT_TRUE(colorDepthManager->setDepth(16));
     TEST_ASSERT_EQUAL(16, colorDepthManager->getDepthBits());
     
-    colorDepthManager->setDepth(8);
+    // 8-bit: always accepted
+    TEST_ASSERT_TRUE(colorDepthManager->setDepth(8));
     TEST_ASSERT_EQUAL(8, colorDepthManager->getDepthBits());
     
-    colorDepthManager->setDepth(4);
-    TEST_ASSERT_EQUAL(4, colorDepthManager->getDepthBits());
+    // 4-bit: not implemented — rejected, falls back to 16
+    TEST_ASSERT_FALSE(colorDepthManager->setDepth(4));
+    TEST_ASSERT_EQUAL(16, colorDepthManager->getDepthBits());
+    
+    // Invalid value: rejected, falls back to 16
+    TEST_ASSERT_FALSE(colorDepthManager->setDepth(32));
+    TEST_ASSERT_EQUAL(16, colorDepthManager->getDepthBits());
 }
 
 // =============================================================================

@@ -22,6 +22,7 @@ DirtyRectTracker::DirtyRectTracker()
 {
     bitmapSize_ = (gridWidth_ * gridHeight_ + 7) / 8;
     dirtyBitmap_ = new uint8_t[bitmapSize_]();
+    prevDirtyBitmap_ = new uint8_t[bitmapSize_]();
     processed_ = new bool[gridWidth_ * gridHeight_]();
 
     // Pre-allocate region storage to avoid heap churn during gameplay.
@@ -35,6 +36,8 @@ DirtyRectTracker::~DirtyRectTracker() {
     processed_ = nullptr;
     delete[] dirtyBitmap_;
     dirtyBitmap_ = nullptr;
+    delete[] prevDirtyBitmap_;
+    prevDirtyBitmap_ = nullptr;
 }
 
 void DirtyRectTracker::configure(int spriteWidth, int spriteHeight) {
@@ -49,8 +52,10 @@ void DirtyRectTracker::configure(int spriteWidth, int spriteHeight) {
 
     // Reallocate memory for new dimensions
     delete[] dirtyBitmap_;
+    delete[] prevDirtyBitmap_;
     delete[] processed_;
     dirtyBitmap_ = new uint8_t[bitmapSize_]();
+    prevDirtyBitmap_ = new uint8_t[bitmapSize_]();
     processed_ = new bool[gridWidth_ * gridHeight_]();
 
     hasDirty_ = false;
@@ -192,11 +197,42 @@ void DirtyRectTracker::computeMergedRegions() {
     }
 }
 
+void DirtyRectTracker::mergeWithPreviousFrame() {
+    if (!dirtyBitmap_ || !prevDirtyBitmap_) return;
+
+    // 2-Frame Carry-over:
+    // A := current frame explicit dirties
+    // B := previous frame explicit dirties
+    // We want to draw A | B, and save A to be the next frame's B.
+    for (int i = 0; i < bitmapSize_; ++i) {
+        uint8_t current = dirtyBitmap_[i];
+        dirtyBitmap_[i] |= prevDirtyBitmap_[i];
+        prevDirtyBitmap_[i] = current;
+    }
+}
+
 void DirtyRectTracker::clear() {
-    // Zero the bitmap
+    // Zero the bitmap. The previous frame's dirties are safely stored in
+    // prevDirtyBitmap_ (thanks to mergeWithPreviousFrame swapping them)
     std::memset(dirtyBitmap_, 0, bitmapSize_);
     mergedRegions_.clear();
     hasDirty_ = false;
+}
+
+int DirtyRectTracker::countDirtyPixels() const {
+    if (!hasDirty_ || !dirtyBitmap_) {
+        return 0;
+    }
+
+    // Count set bits in the bitmap (each bit = one 8x8 block = 64 pixels)
+    // Use byte-level popcount for broad compiler compatibility.
+    // __builtin_popcount is available on GCC/Clang (ESP32 toolchain included).
+    int blockCount = 0;
+    for (int i = 0; i < bitmapSize_; ++i) {
+        blockCount += __builtin_popcount(dirtyBitmap_[i]);
+    }
+
+    return blockCount * (BLOCK_SIZE * BLOCK_SIZE);
 }
 
 } // namespace pixelroot32::graphics

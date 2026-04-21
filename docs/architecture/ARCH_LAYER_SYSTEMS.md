@@ -275,7 +275,7 @@ See [Tile Animation](ARCH_TILE_ANIMATION.md) for the animation system.
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap framebuffer cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
-| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Enabled (v1.3.0+) |
+| Display Bottleneck Optimization | `ENABLE_PARTIAL_UPDATES` | Disabled (v1.3.0+) |
 
 ---
 

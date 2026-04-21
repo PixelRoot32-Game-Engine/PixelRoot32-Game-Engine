@@ -704,24 +704,84 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferPartial(const std::vector<
         sendBufferScaled();
         return;
     }
-    
+
+    const uint32_t minPixels = static_cast<uint32_t>(partialController_.getMinRegionPixels());
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t pr32_partial_t0 = micros();
+#endif
+
     tft.startWrite();
-    
-    // Send each dirty region
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t pr32_partial_t_setup = micros();
+#endif
+
+    // Send each dirty region that meets the minimum threshold.
+    // This is consistent with the stats computed in PartialUpdateController::endFrame()
+    // which also filters by minRegionPixels_.
+    int sentRegionCount = 0;
+    uint32_t sentPixelCount = 0;
     for (const auto& region : regions) {
+        if (region.area() < minPixels) {
+            continue;
+        }
         sendRegion(region.x, region.y, region.width, region.height);
+        ++sentRegionCount;
+        sentPixelCount += region.area();
     }
-    
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t pr32_partial_t_transfer = micros();
+#endif
+
     tft.dmaWait();
     tft.endWrite();
-    
-    // Update statistics
-    for (const auto& region : regions) {
-        colorDepthManager_.addBytesTransferred(
-            colorDepthManager_.estimateTransferSize(region.width, region.height)
-        );
-    }
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    uint32_t pr32_partial_t_end = micros();
+#endif
+
+    // Update statistics - actual SPI transfer is always 2 bytes/pixel (RGB565)
+    // regardless of colorDepthManager_ setting, because paletteLUT converts to 16-bit.
+    colorDepthManager_.addBytesTransferred(sentPixelCount * 2);
     colorDepthManager_.incrementFrameCount();
+
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    {
+        static uint32_t sumTotal = 0, sumSetup = 0, sumTransfer = 0, sumWait = 0;
+        static uint32_t frameCount = 0;
+        static uint32_t lastReportMs = 0;
+        static uint32_t sumRegions = 0, sumPixels = 0;
+
+        const uint32_t totalUs = static_cast<uint32_t>(pr32_partial_t_end - pr32_partial_t0);
+        sumTotal += totalUs;
+        sumSetup += static_cast<uint32_t>(pr32_partial_t_setup - pr32_partial_t0);
+        sumTransfer += static_cast<uint32_t>(pr32_partial_t_transfer - pr32_partial_t_setup);
+        sumWait += static_cast<uint32_t>(pr32_partial_t_end - pr32_partial_t_transfer);
+        sumRegions += sentRegionCount;
+        sumPixels += sentPixelCount;
+        ++frameCount;
+
+        if (millis() - lastReportMs > 1000) {
+            if (frameCount > 0) {
+                const uint32_t n = frameCount;
+                log(LogLevel::Profiling,
+                    "[TFT Partial avg/%u fr] total %uu | setup %uu | xfer+scale %uu | dmaWait %uu | regions %u | px %u",
+                    static_cast<unsigned>(n),
+                    static_cast<unsigned>(sumTotal / n),
+                    static_cast<unsigned>(sumSetup / n),
+                    static_cast<unsigned>(sumTransfer / n),
+                    static_cast<unsigned>(sumWait / n),
+                    static_cast<unsigned>(sumRegions / n),
+                    static_cast<unsigned>(sumPixels / n));
+            }
+            sumTotal = sumSetup = sumTransfer = sumWait = sumRegions = sumPixels = 0;
+            frameCount = 0;
+            lastReportMs = millis();
+        }
+    }
+#endif
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::sendRegion(int16_t x, int16_t y, uint16_t w, uint16_t h) {

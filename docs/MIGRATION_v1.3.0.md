@@ -2,7 +2,9 @@
 
 ## Overview
 
-Version 1.3.0 introduces display bottleneck optimization through partial screen updates and configurable color depth. These features reduce SPI transfer time on slow displays and enable memory optimization for resource-constrained games.
+Version 1.3.0 introduces display bottleneck optimization through **partial screen updates**. This reduces SPI transfer time by only sending modified screen regions to the display instead of the full frame each render cycle.
+
+> **Note on `DISPLAY_COLOR_DEPTH`**: This flag configures sprite rendering accuracy metadata (e.g. can enable palette selection for future extensions). On ESP32 + TFT_eSPI, the SPI transfer always outputs **16-bit RGB565** regardless of this setting. Color depth does **not** reduce SPI bandwidth on ESP32. See [Color Depth Limitations](#color-depth-limitations) for details.
 
 **Release Date**: 2026-04-19
 
@@ -29,8 +31,8 @@ All flags can be overridden in `platform.ini` under `[env:esp32dev]` with `-DFLA
 
 | Flag | Default | Valid Range | Description |
 |------|---------|-------------|-------------|
-| `ENABLE_PARTIAL_UPDATES` | 1 | 0-1 | Enable partial screen updates (0=full frame) |
-| `DISPLAY_COLOR_DEPTH` | 16 | 24, 16, 8 | Color depth in bits |
+| `ENABLE_PARTIAL_UPDATES` | 0 | 0-1 | Enable partial screen updates (0=full frame) |
+| `DISPLAY_COLOR_DEPTH` | 16 | 16, 8 | Color depth metadata (see limitations) |
 | `MAX_DIRTY_RATIO_PERCENT` | 70 | 0-100 | Threshold: if dirty>% then use full frame |
 | `ENABLE_DIRTY_RECT_COMBINE` | 1 | 0-1 | Enable adjacent dirty block combining |
 | `PIXELROOT32_DEBUG_DIRTY_REGIONS` | 0 | 0-1 | Enable debug overlay (red borders) | |
@@ -49,10 +51,10 @@ To restore original behavior (without partial updates):
 [env:esp32dev]
 build_flags =
     -DENABLE_PARTIAL_UPDATES=0
-    -DDISPLAY_COLOR_DEPTH=24
+    -DDISPLAY_COLOR_DEPTH=16
 ```
 
-This disables only partial updates while keeping the 24-bit color depth.
+This disables partial updates (full frame every render).
 
 ### Full Rollback (Complete v1.2.x Behavior)
 
@@ -62,7 +64,7 @@ For complete v1.2.x behavior with all optimizations disabled:
 [env:esp32dev]
 build_flags =
     -DENABLE_PARTIAL_UPDATES=0
-    -DDISPLAY_COLOR_DEPTH=24
+    -DDISPLAY_COLOR_DEPTH=16
     -DMAX_DIRTY_RATIO_PERCENT=100
     -DENABLE_DIRTY_RECT_COMBINE=0
     -DPIXELROOT32_DEBUG_DIRTY_REGIONS=0
@@ -81,7 +83,7 @@ After rollback:
 
 | Problem | Solution |
 |---------|----------|
-| Display shows wrong colors | Set `DISPLAY_COLOR_DEPTH=24` for RGB888 output |
+| Display shows wrong colors | Verify palette config; SPI always uses RGB565 on ESP32 |
 | Flickering or tearing | Set `ENABLE_PARTIAL_UPDATES=0` to disable partial updates |
 | Only partial screen updates | Disable partial updates: `ENABLE_PARTIAL_UPDATES=0` |
 | Debug borders visible | Set `PIXELROOT32_DEBUG_DIRTY_REGIONS=0` |
@@ -100,7 +102,7 @@ Version 1.3.0 maintains full backward compatibility:
 
 ### Default Behavior
 
-By default, partial updates is enabled (`ENABLE_PARTIAL_UPDATES=1`), but default implementations are no-op. Existing games work without changes because:
+By default, partial updates is disabled (`ENABLE_PARTIAL_UPDATES=0`). Existing games work without changes because they continue to use the traditional full frame updates. If you enable it (`ENABLE_PARTIAL_UPDATES=1`), it's still safe because default implementations are no-op:
 
 1. `DrawSurface::markDirty()` is a no-op by default
 2. `DrawSurface::hasDirtyRegions()` returns false by default
@@ -118,7 +120,7 @@ By default, partial updates is enabled (`ENABLE_PARTIAL_UPDATES=1`), but default
 To enable optimizations progressively:
 
 ```ini
-; Enable partial updates (already default, shown for clarity)
+; Enable partial updates (opt-in for v1.3.0+)
 [env:esp32dev]
 build_flags =
     -DENABLE_PARTIAL_UPDATES=1
@@ -132,9 +134,11 @@ build_flags =
 | Step | Change | Benefit |
 |------|--------|---------|
 | 1 | Keep defaults | Transparent upgrade |
-| 2 | Enable partial updates | ~50%+ display transfer reduction |
-| 3 | Set color depth 8 | ~50-75% memory reduction |
+| 2 | Enable partial updates | ~50%+ SPI transfer reduction (fewer pixels sent) |
+| 3 | Tune `MAX_DIRTY_RATIO_PERCENT` | Adjust full-frame fallback threshold |
 | 4 | Tune min region size | Filter noise for smaller transfers |
+
+> **What about `DISPLAY_COLOR_DEPTH=8`?** This flag is accepted but does **not** reduce SPI bandwidth on ESP32 — the wire format is always 16-bit RGB565. See [Color Depth Limitations](#color-depth-limitations).
 
 ### No Deprecated API
 
@@ -167,21 +171,31 @@ void setup() {
 
 | Setting | Optimized | Rollback | Description |
 |---------|-----------|----------|-------------|
-| `DISPLAY_COLOR_DEPTH` | 16 | 24 | Color depth in bits |
+| `DISPLAY_COLOR_DEPTH` | 16 | 16 | Color depth metadata (24 rejected on ESP32) |
 
 ### Color Depth Values
 
-| Value | Format | Memory (320x240) | Use Case |
-|-------|--------|------------------|----------|
-| 24 | RGB888 | 230,400 bytes | Highest quality |
-| 16 | RGB565 (default) | 153,600 bytes | Balance quality/performance |
-| 8 | Indexed 256-color | 76,800 bytes | Lower memory footprint |
+| Value | Format | SPI Wire Format (ESP32) | Effect |
+|-------|--------|------------------------|--------|
+| 24 | RGB888 | **Rejected on ESP32** (falls back to 16) | Config error — sets 16-bit silently | 
+| 16 | RGB565 (default) | 16-bit RGB565 | **Recommended** — accurate stats |
+| 8 | Indexed 256-color | 16-bit RGB565 | Metadata only, no SPI savings |
+| 4 | Reserved | Not implemented — rejected | Returns false, falls back to 16-bit |
+
+> **Color Depth Limitations** <a name="color-depth-limitations"></a>
+>
+> On ESP32 + `TFT_eSPI_Drawer`, the sprite buffer is always **8bpp internally** (palette-indexed). During SPI transfer, each pixel is converted from the 8bpp palette index to **16-bit RGB565** via a lookup table (`paletteLUT`). This conversion happens in hardware (DMA) and cannot be bypassed without replacing the pixel pipeline.
+>
+> As a result, **`DISPLAY_COLOR_DEPTH` does not affect SPI bandwidth on ESP32**. The setting is preserved for:
+> - Future extensibility (e.g. RGB332 direct-send)
+> - Metadata in `ColorDepthManager::getBytesPerPixel()` / `estimateTransferSize()`
+> - Native (SDL2) builds where color format can differ
 
 ### Platform Support
 
 | Platform | 24-bit | 16-bit | 8-bit |
 |----------|--------|--------|-------|
-| ESP32/TFT_eSPI | No | Yes (default) | Yes (full palette) |
+| ESP32/TFT_eSPI | **No** (rejected, falls back to 16) | Yes (default) | Yes (palette only; SPI still 16-bit) |
 | SDL2/Native | Yes | Yes | No |
 
 ---
@@ -291,10 +305,12 @@ build_flags =
 
 ## Known Issues
 
-- **8-bit color depth**: Now supports a full 256-color palette. The default palette is `PALETTE_PR32`. Custom palettes can be set via `ColorDepthManager`.
+- **8-bit color depth**: Supports a full 256-color palette. The default palette is `PALETTE_PR32`. Custom palettes can be set via `ColorDepthManager`. **Note**: On ESP32, the SPI transfer remains 16-bit RGB565 — the 8-bit setting affects the sprite internal format only, not wire bandwidth.
 - **Debug overlay**: Performance optimized in v1.3.0. Draws 2px red borders around each sent region. Enable/disable at runtime via `setDebugDirtyRegions()`.
-- **4-bit color depth**: Not implemented. Calls to `setColorDepth(4)` will be rejected and return `false`.
-- **DMA Pipelining**: Automatically active in `TFT_eSPI_Drawer` when using partial updates. Overlaps CPU/SPI for maximum throughput.
+- **4-bit color depth**: Not implemented. Calls to `setColorDepth(4)` are **rejected**, log a warning, and fall back to 16-bit.
+- **24-bit color depth on ESP32**: Not supported. Calls to `setColorDepth(24)` on ESP32 are **rejected**, log a warning, and fall back to 16-bit. Native builds accept 24-bit.
+- **DMA Pipelining**: Automatically active in `TFT_eSPI_Drawer` for both full and partial paths. Overlaps CPU color conversion with SPI transfer for maximum throughput.
+- **`DISPLAY_COLOR_DEPTH` and SPI bandwidth**: This flag does **not** reduce SPI bytes/frame on ESP32. The pixel pipeline always converts 8bpp → RGB565 via paletteLUT before DMA transfer.
 
 ---
 
@@ -310,7 +326,7 @@ build_flags =
 
 ---
 
-*Document Version: 1.1*
-*Migration Version: v1.3.0*
-*Date: 2026-04-19*
-*Updated: Verified against source code - all 17 API methods documented*
+*Document Version: 1.2*  
+*Migration Version: v1.3.0*  
+*Date: 2026-04-19*  
+*Updated: 2026-04-20 — corrected color depth limitations; removed false SPI bandwidth reduction claims*

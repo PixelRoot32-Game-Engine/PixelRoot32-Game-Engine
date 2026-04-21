@@ -33,14 +33,19 @@ void tearDown(void) {
 // =============================================================================
 
 /**
- * @test setDepth(24) returns true
- * @expected true
+ * @test setDepth(24) behavior depends on platform
+ * @expected true on native, false on ESP32 (rejected, falls back to 16)
  */
 void test_setDepth_24_returns_true(void) {
     ColorDepthManager manager;
     bool result = manager.setDepth(24);
+#ifdef PLATFORM_ESP32
+    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_EQUAL_INT(16, manager.getDepthBits());
+#else
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_EQUAL_INT(24, manager.getDepthBits());
+#endif
 }
 
 /**
@@ -66,14 +71,14 @@ void test_setDepth_8_returns_true(void) {
 }
 
 /**
- * @test setDepth(4) returns true
- * @expected true
+ * @test setDepth(4) returns false — not implemented, falls back to 16
+ * @expected false, depth falls back to 16
  */
-void test_setDepth_4_returns_true(void) {
+void test_setDepth_4_returns_false(void) {
     ColorDepthManager manager;
     bool result = manager.setDepth(4);
-    TEST_ASSERT_TRUE(result);
-    TEST_ASSERT_EQUAL_INT(4, manager.getDepthBits());
+    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_EQUAL_INT(16, manager.getDepthBits());
 }
 
 // =============================================================================
@@ -199,8 +204,11 @@ void test_setDepth_enum_depth8(void) {
 void test_getBytesPerPixel(void) {
     ColorDepthManager manager;
 
+    // 24-bit: accepted on native only
+#ifndef PLATFORM_ESP32
     manager.setDepth(24);
     TEST_ASSERT_EQUAL_INT(3, manager.getBytesPerPixel());
+#endif
 
     manager.setDepth(16);
     TEST_ASSERT_EQUAL_INT(2, manager.getBytesPerPixel());
@@ -208,7 +216,8 @@ void test_getBytesPerPixel(void) {
     manager.setDepth(8);
     TEST_ASSERT_EQUAL_INT(1, manager.getBytesPerPixel());
 
-    manager.setDepth(4);
+    // 4-bit via enum (setDepth(int) rejects 4, but enum works for metadata)
+    manager.setDepth(ColorDepthManager::Depth::Depth4);
     TEST_ASSERT_EQUAL_INT(1, manager.getBytesPerPixel());
 }
 
@@ -219,8 +228,11 @@ void test_getBytesPerPixel(void) {
 void test_needsPaletteConversion(void) {
     ColorDepthManager manager;
 
+    // 24-bit: accepted on native only
+#ifndef PLATFORM_ESP32
     manager.setDepth(24);
     TEST_ASSERT_FALSE(manager.needsPaletteConversion());
+#endif
 
     manager.setDepth(16);
     TEST_ASSERT_FALSE(manager.needsPaletteConversion());
@@ -228,7 +240,8 @@ void test_needsPaletteConversion(void) {
     manager.setDepth(8);
     TEST_ASSERT_TRUE(manager.needsPaletteConversion());
 
-    manager.setDepth(4);
+    // 4-bit via enum (setDepth(int) rejects 4, but enum works for metadata)
+    manager.setDepth(ColorDepthManager::Depth::Depth4);
     TEST_ASSERT_TRUE(manager.needsPaletteConversion());
 }
 
@@ -329,7 +342,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_setDepth_24_returns_true);
     RUN_TEST(test_setDepth_16_returns_true);
     RUN_TEST(test_setDepth_8_returns_true);
-    RUN_TEST(test_setDepth_4_returns_true);
+    RUN_TEST(test_setDepth_4_returns_false);
 
     // Invalid depth values (should return false)
     RUN_TEST(test_setDepth_0_returns_false);

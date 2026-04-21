@@ -931,8 +931,14 @@ public:
      * @param y Y offset.
      */
     void setDisplayOffset(int x, int y) {
-        xOffset = x;
-        yOffset = y;
+        if (xOffset != x || yOffset != y) {
+            xOffset = x;
+            yOffset = y;
+            // Force a full update by marking the entire logical screen dirty
+            // This is essential when the camera moves to prevent ghost pixels
+            // and tilemap scrolling artifacts (black holes).
+            getDrawSurface().markDirty(0, 0, logicalWidth, logicalHeight);
+        }
     }
 
     /**

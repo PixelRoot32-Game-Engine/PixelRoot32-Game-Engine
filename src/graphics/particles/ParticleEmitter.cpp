@@ -142,6 +142,15 @@ namespace pixelroot32::graphics::particles {
             }
             
             renderer.drawFilledRectangleW(px, py, 2, 2, p.color);
+            
+            // Explicitly mark the particle's area dirty to prevent ghosting in partial update mode.
+            // Particle Emitters typically have bounds [0,0,0,0], so their entities do not
+            // auto-mark dirty regions. This ensures each individual particle is correctly tracked.
+            // Note: renderer.getXOffset() and renderer.getYOffset() must be applied to match
+            // the logical screen space where offset bypass handles scroll/camera.
+            int finalX = renderer.isOffsetBypassEnabled() ? px : px + renderer.getXOffset();
+            int finalY = renderer.isOffsetBypassEnabled() ? py : py + renderer.getYOffset();
+            renderer.getDrawSurface().markDirty(finalX, finalY, 2, 2);
         }
     }
 

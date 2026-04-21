@@ -6,6 +6,7 @@
  */
 
 #include "graphics/ColorDepthManager.h"
+#include "core/Log.h"
 
 #ifdef PLATFORM_ESP32
 #include <Arduino.h>
@@ -13,10 +14,14 @@
 #include <cstdio>
 #endif
 
+namespace logging = pixelroot32::core::logging;
+using logging::log;
+using logging::LogLevel;
+
 namespace pixelroot32::graphics {
 
-// Note: Native builds may skip detailed logging
-// Logging is handled via core::logging::log() in DEBUG_MODE
+// Note: Use PIXELROOT32_DEBUG_MODE to enable log() calls
+// Logging is handled via core::logging::log()
 
 // PR32 standard palette (256 colors - official PixelRoot32 palette)
 // Converted to RGB565 format - 16 color PALETTE_PR32 repeated 16 times to fill 256 slots
@@ -83,8 +88,15 @@ void ColorDepthManager::setDepth(Depth depth) {
 bool ColorDepthManager::setDepth(int depthBits) {
     switch (depthBits) {
         case 24:
+#ifdef PLATFORM_ESP32
+            // 24-bit RGB888 is not supported on ESP32 (sprite is 8bpp, SPI sends 16-bit)
+            log(LogLevel::Warning, "[ColorDepthManager] 24-bit color not supported on ESP32, using 16-bit");
+            setDepth(Depth::Depth16);
+            return false;
+#else
             setDepth(Depth::Depth24);
             return true;
+#endif
         case 16:
             setDepth(Depth::Depth16);
             return true;
@@ -92,10 +104,14 @@ bool ColorDepthManager::setDepth(int depthBits) {
             setDepth(Depth::Depth8);
             return true;
         case 4:
-            setDepth(Depth::Depth4);
-            return true;
+            // 4-bit indexed is not yet implemented
+            log(LogLevel::Warning, "[ColorDepthManager] 4-bit color depth not implemented, using 16-bit");
+            setDepth(Depth::Depth16);
+            return false;
         default:
             // Invalid depth value
+            log(LogLevel::Warning, "[ColorDepthManager] Invalid color depth %d, using 16-bit", depthBits);
+            setDepth(Depth::Depth16);
             return false;
     }
 }

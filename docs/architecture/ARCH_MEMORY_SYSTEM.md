@@ -140,7 +140,7 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 | PartialUpdateController | ~100 bytes | partial updates |
 | ColorDepthManager | ~50 bytes | optional |
 
-The dirty rect tracking is enabled by default in v1.3.0+ (`ENABLE_PARTIAL_UPDATES=1`). Disable via build flag if not needed (`ENABLE_PARTIAL_UPDATES=0`).
+The dirty rect tracking is disabled by default (`ENABLE_PARTIAL_UPDATES=0`). Enable via build flag if needed (`ENABLE_PARTIAL_UPDATES=1`).
 
 ### Per-Entity Memory Costs
 

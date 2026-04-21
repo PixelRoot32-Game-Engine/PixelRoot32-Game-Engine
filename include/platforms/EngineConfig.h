@@ -78,9 +78,9 @@
 
 // Enable partial screen updates (dirty rect tracking).
 // When enabled, only modified regions are sent to display.
-// Default: enabled (1).
+// Default: disabled (0).
 #ifndef ENABLE_PARTIAL_UPDATES
-#define ENABLE_PARTIAL_UPDATES 1
+#define ENABLE_PARTIAL_UPDATES 0
 #endif
 
 // Color depth for display output.

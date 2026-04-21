@@ -175,9 +175,9 @@ build_flags =
 
 | Config | Partial Updates | Color Depth | Dirty Combine | Use Case |
 |--------|----------------|------------|--------------|---------|
-| Default | 1 (enabled) | 16 | 1 | Normal games |
-| Max Perf | 1 | 8 | 1 | Slow displays |
-| Native Legacy | 0 | 24 | 0 | SDL2 compatibility |
+| Default | 0 (disabled) | 16 | 1 | Normal games (legacy behavior) |
+| Max Perf | 1 | 16 | 1 | Slow displays (partial updates save SPI) |
+| Native Legacy | 0 | 16 | 0 | SDL2 compatibility (24-bit rejected on ESP32) |
 | Debug | 1 | 16 | 0 | Visualize regions |
 
 ---
