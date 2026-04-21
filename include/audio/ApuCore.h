@@ -41,6 +41,16 @@ namespace pixelroot32::audio {
         static constexpr int TICKS_PER_BEAT = 4;
         static constexpr float DEFAULT_BPM = 150.0f;
 
+        // Sequencer note limit: max notes processed per frame to prevent unbounded catch-up
+        static constexpr size_t DEFAULT_MAX_NOTES_PER_FRAME = 32;
+        #ifndef AUDIO_SEQUENCER_MAX_NOTES
+        static constexpr size_t MAX_NOTES_PER_FRAME = DEFAULT_MAX_NOTES_PER_FRAME;
+        #else
+        static_assert(AUDIO_SEQUENCER_MAX_NOTES >= 1 && AUDIO_SEQUENCER_MAX_NOTES <= 1024,
+            "AUDIO_SEQUENCER_MAX_NOTES must be between 1 and 1024");
+        static constexpr size_t MAX_NOTES_PER_FRAME = (AUDIO_SEQUENCER_MAX_NOTES > 1000) ? 32 : AUDIO_SEQUENCER_MAX_NOTES;
+        #endif
+
         // Mixing constants exposed for diagnostics / tests.
         static constexpr float MIXER_SCALE = 0.4f;
         static constexpr float MIXER_K     = 0.5f;
@@ -60,6 +70,16 @@ namespace pixelroot32::audio {
         uint32_t getDroppedCommands() const {
             return droppedCommands.load(std::memory_order_relaxed);
         }
+
+        // Sequencer note limit API
+        /** Set max notes processed per audio frame (1-1000, clamped internally). */
+        void setSequencerNoteLimit(size_t limit);
+
+        /** Get current max notes per frame setting. */
+        size_t getSequencerNoteLimit() const { return sequencerNoteLimit.load(std::memory_order_acquire); }
+
+        /** Get count of notes deferred to next frame due to limit. */
+        size_t getDeferredNotes() const { return deferredNotes.load(std::memory_order_relaxed); }
 
         /** Music transport reflected to the game thread (atomic). */
         bool isMusicPlaying() const { return musicPlayingFlag.load(std::memory_order_acquire); }
@@ -124,6 +144,10 @@ namespace pixelroot32::audio {
         float tempoBPM = DEFAULT_BPM;
         size_t activeTrackCount = 0;
         float tempoFactor = 1.0f;
+
+        // Sequencer note limit per frame (bounded processing to prevent audio starvation)
+        std::atomic<size_t> sequencerNoteLimit{MAX_NOTES_PER_FRAME};
+        std::atomic<size_t> deferredNotes{0};
 
         // Expose transport flags atomically so MusicPlayer can observe
         // natural end-of-track without polling private state.

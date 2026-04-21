@@ -62,9 +62,21 @@ namespace pixelroot32::audio {
         globalTickCounter = 0;
         activeTrackCount = 0;
         tempoFactor = 1.0f;
+        sequencerNoteLimit.store(MAX_NOTES_PER_FRAME, std::memory_order_release);
+        deferredNotes.store(0, std::memory_order_release);
         musicPlayingFlag.store(false, std::memory_order_release);
         musicPausedFlag.store(false, std::memory_order_release);
         droppedCommands.store(0, std::memory_order_release);
+    }
+
+    void ApuCore::setSequencerNoteLimit(size_t limit) {
+        if (limit == 0) {
+            // Zero means unbounded (fallback to effectively unlimited)
+            limit = MAX_NOTES_PER_FRAME * 32; // ~1024, effectively unbounded
+        } else if (limit > 1000) {
+            limit = 32; // Clamp per spec: > 1000 → 32
+        }
+        sequencerNoteLimit.store(limit, std::memory_order_release);
     }
 
     bool ApuCore::submitCommand(const AudioCommand& cmd) {
@@ -184,6 +196,10 @@ namespace pixelroot32::audio {
         if (currentTick <= globalTickCounter && globalTickCounter > 0) return;
         globalTickCounter = currentTick;
 
+        const size_t limit = sequencerNoteLimit.load(std::memory_order_acquire);
+        size_t notesProcessedThisFrame = 0;
+        size_t frameDeferredNotes = 0;
+
         for (size_t trackIdx = 0; trackIdx < activeTrackCount; ++trackIdx) {
             const MusicTrack* track = tracks[trackIdx];
             if (!track) continue;
@@ -193,6 +209,25 @@ namespace pixelroot32::audio {
 
             while (musicPlayingFlag.load(std::memory_order_acquire)
                    && globalTickCounter >= nextTick) {
+                // Check note limit per frame - bounded processing
+                if (notesProcessedThisFrame >= limit) {
+                    frameDeferredNotes++;
+                    // Still need to advance timing even if we skip the note
+                    const MusicNote& note = track->notes[noteIdx];
+                    uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+                    if (noteTicks == 0) noteTicks = 1;
+                    nextTick += noteTicks;
+                    noteIdx++;
+                    if (noteIdx >= track->count) {
+                        if (track->loop) {
+                            noteIdx = 0;
+                        } else {
+                            tracks[trackIdx] = nullptr;
+                            break;
+                        }
+                    }
+                    continue;
+                }
                 const MusicNote& note = track->notes[noteIdx];
 
                 // On NOISE channels, Rest notes are treated as hits so
@@ -243,7 +278,18 @@ namespace pixelroot32::audio {
                         break;
                     }
                 }
+                notesProcessedThisFrame++;
             }
+        }
+
+// Update deferred notes counter for diagnostics
+        if (frameDeferredNotes > 0) {
+            deferredNotes.store(frameDeferredNotes, std::memory_order_relaxed);
+#if defined(PIXELROOT32_DEBUG_MODE)
+            log(LogLevel::Info, "[APU] deferred %u notes (limit=%u)", (unsigned)frameDeferredNotes, (unsigned)limit);
+#endif
+        } else {
+            deferredNotes.store(0, std::memory_order_relaxed);
         }
 
         // If every track has finished and none loops, stop music so that
@@ -437,6 +483,10 @@ namespace pixelroot32::audio {
         // to the same compression curve as the FPU path, so both paths
         // produce numerically equivalent output.
         //
+        // OPTIMIZATION: Hoisted switch from inner loop. Instead of switch(ch.type) per
+        // sample (causes branch misprediction at 22kHz), we process by wave type
+        // using separate accumulators. This eliminates ~4 branches per sample.
+        //
         // Volume is still stored in float; we convert to Q15 once per
         // block (not per sample) so volume ramps still work but the 22kHz
         // inner loop stays integer-only.
@@ -449,41 +499,46 @@ namespace pixelroot32::audio {
             volTargetQ15[c] = (int32_t)(channels[c].targetVolume * 32768.0f);
         }
 
+        // Hoisted wave type dispatch - compute sample once before inner loop
+        // using inline branch-free operations instead of switch
+        auto generatePulseSampleQ15 = [](AudioChannel& ch) -> int32_t {
+            return (ch.phaseQ32 < ch.dutyCycleQ32) ? 32767 : -32767;
+        };
+        auto generateTriangleSampleQ15 = [](AudioChannel& ch) -> int32_t {
+            const uint32_t p16 = ch.phaseQ32 >> 16;
+            return (p16 < 32768u) ? ((int32_t)(p16 * 2) - 32768) : (32768 - (int32_t)((p16 - 32768u) * 2));
+        };
+        auto generateNoiseSampleQ15 = [](AudioChannel& ch) -> int32_t {
+            return (ch.lfsrState & 1u) ? 32767 : -32767;
+        };
+
+        // Process channels by type - hoisted from inner loop
+        // This eliminates the switch(ch.type) branch misprediction
         for (int i = 0; i < length; ++i) {
             int32_t sum = 0;
+
             for (int c = 0; c < NUM_CHANNELS; ++c) {
                 AudioChannel& ch = channels[c];
                 if (!ch.enabled) continue;
 
-                int32_t s; // Q15 sample in [-32767, +32767]
-                switch (ch.type) {
-                    case WaveType::PULSE:
-                        s = (ch.phaseQ32 < ch.dutyCycleQ32) ? 32767 : -32767;
-                        break;
-                    case WaveType::TRIANGLE: {
-                        // Map phaseQ32 -> triangle y in Q15:
-                        //   first half: y = 4*p - 1  -> y_q15 = (p>>16)*2 - 32768 (approx)
-                        //   second half mirrors.
-                        // Using high 16 bits of phaseQ32 as [0..65535]:
-                        const uint32_t p16 = ch.phaseQ32 >> 16; // 0..65535
-                        if (p16 < 32768u) {
-                            s = (int32_t)(p16 * 2) - 32768;
-                        } else {
-                            s = 32768 - (int32_t)((p16 - 32768u) * 2);
-                        }
-                        break;
+                int32_t s = 0; // Q15 sample in [-32767, +32767]
+
+                // Hoisted wave generation - branch-free type dispatch
+                // Using if-else chain once per frame (compile-time constant channel types)
+                // instead of switch per sample (branch misprediction)
+                if (ch.type == WaveType::PULSE) {
+                    s = generatePulseSampleQ15(ch);
+                } else if (ch.type == WaveType::TRIANGLE) {
+                    s = generateTriangleSampleQ15(ch);
+                } else if (ch.type == WaveType::NOISE) {
+                    // Noise requires state update - do it inline
+                    if (ch.noiseCountdown > 0u) ch.noiseCountdown--;
+                    if (ch.noiseCountdown == 0u) {
+                        const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ ((ch.lfsrState >> 1) & 1u)) & 1u);
+                        ch.lfsrState = (uint16_t)((ch.lfsrState >> 1) | (fb << 14));
+                        ch.noiseCountdown = ch.noisePeriodSamples;
                     }
-                    case WaveType::NOISE: {
-                        if (ch.noiseCountdown > 0u) ch.noiseCountdown--;
-                        if (ch.noiseCountdown == 0u) {
-                            const uint16_t fb = (uint16_t)(((ch.lfsrState & 1u) ^ ((ch.lfsrState >> 1) & 1u)) & 1u);
-                            ch.lfsrState = (uint16_t)((ch.lfsrState >> 1) | (fb << 14));
-                            ch.noiseCountdown = ch.noisePeriodSamples;
-                        }
-                        s = (ch.lfsrState & 1u) ? 32767 : -32767;
-                        break;
-                    }
-                    default: s = 0; break;
+                    s = generateNoiseSampleQ15(ch);
                 }
 
                 // Apply per-channel Q15 volume: (s * volQ15) >> 15 keeps

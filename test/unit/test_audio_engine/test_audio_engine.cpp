@@ -3,7 +3,7 @@
  * @brief Unit tests for audio/AudioEngine module.
  */
 
-#include <unity.h>
+#include "unity.h"
 #include "../../test_config.h"
 #include "audio/AudioEngine.h"
 #include "audio/AudioConfig.h"
