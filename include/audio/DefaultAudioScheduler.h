@@ -20,7 +20,11 @@ namespace pixelroot32::audio {
      */
     class DefaultAudioScheduler : public AudioScheduler {
     public:
-        DefaultAudioScheduler() = default;
+        DefaultAudioScheduler() : apu() {
+            // Initialize with default sample rate to ensure ApuCore is properly set up
+            // This prevents issues where init() is never called
+            apu.init(44100);
+        }
 
         void init(AudioBackend* backend, int sampleRate,
                   const pixelroot32::platforms::PlatformCapabilities& caps) override;

@@ -40,7 +40,8 @@ namespace pixelroot32::audio {
     }
 
     void ApuCore::init(int sr) {
-        sampleRate = sr;
+        // Graceful degradation: use safe default if invalid sample rate
+        sampleRate = (sr > 0) ? sr : 44100;
         tickDurationSamples =
             (uint64_t)((float)sampleRate * 60.0f / (tempoBPM * (float)TICKS_PER_BEAT));
     }

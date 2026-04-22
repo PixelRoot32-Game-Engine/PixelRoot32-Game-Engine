@@ -345,17 +345,14 @@ void test_audio_scheduler_shutdown_during_active_playback(void) {
     // Test graceful shutdown when audio is actively playing
     DefaultAudioScheduler scheduler;
     
-    // Submit 4 commands to use all available channels with correct wave types
-    // Channel map: 0=PULSE, 1=PULSE, 2=TRIANGLE, 3=NOISE
-    WaveType waveTypes[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
+    // Submit 4 commands to use all available channels (auto-assigned, not set channelIndex)
     for (int i = 0; i < 4; i++) {
         AudioCommand cmd;
         cmd.type = AudioCommandType::PLAY_EVENT;
-        cmd.event.type = waveTypes[i];
+        cmd.event.type = WaveType::TRIANGLE;
         cmd.event.frequency = 220.0f + i * 55.0f;  // Vary frequency per channel
         cmd.event.volume = 0.8f;
         cmd.event.duration = 5.0f;  // Long duration
-        cmd.event.duty = 0.5f;
         scheduler.submitCommand(cmd);
     }
     
@@ -399,24 +396,17 @@ void test_audio_scheduler_null_buffer_handling(void) {
 void test_audio_scheduler_command_queue_overflow(void) {
     // Test behavior when command queue gets full
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
-    // Submit many commands rapidly (mix of types to use all channels)
-    AudioCommand cmd{};  // Zero-initialize all fields including union
+    // Submit many commands rapidly
+    AudioCommand cmd;
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 0.5f;
-    cmd.event.duration = 0.01f;  // Short duration to avoid channel buildup
-    cmd.event.duty = 0.5f;
-    cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
+    cmd.event.duration = 0.1f;
     
-    // Use different wave types to distribute across available channels
-    WaveType types[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
-    
-    // Submit commands (test queue capacity - CAPACITY is 128)
-    for (int i = 0; i < 64; i++) {
-        cmd.event.type = types[i % 4];
+    // Submit many commands (test queue capacity)
+    for (int i = 0; i < 100; i++) {
         scheduler.submitCommand(cmd);
     }
     
@@ -431,16 +421,13 @@ void test_audio_scheduler_command_queue_overflow(void) {
 void test_audio_scheduler_zero_duration_sound(void) {
     // Test playing a sound with zero duration
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
-    AudioCommand cmd{};  // Zero-initialize all fields
+    AudioCommand cmd;
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 1.0f;
     cmd.event.duration = 0.0f;  // Zero duration
-    cmd.event.duty = 0.5f;
-    cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     
     scheduler.submitCommand(cmd);
     
@@ -454,17 +441,14 @@ void test_audio_scheduler_zero_duration_sound(void) {
 void test_audio_scheduler_exact_buffer_boundary(void) {
     // Test scheduling at exact buffer boundaries
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
     // Start a note that should span exactly buffer boundaries
-    AudioCommand cmd{};  // Zero-initialize all fields
+    AudioCommand cmd;
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::TRIANGLE;
     cmd.event.frequency = 220.5f;  // Non-integer frequency
     cmd.event.volume = 0.7f;
     cmd.event.duration = 0.01f;  // Very short, exact boundary
-    cmd.event.duty = 0.5f;
-    cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     
     scheduler.submitCommand(cmd);
     
@@ -484,18 +468,15 @@ void test_audio_scheduler_exact_buffer_boundary(void) {
 void test_audio_scheduler_rapid_schedules(void) {
     // Test multiple rapid schedules without overflow
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
     // Rapidly schedule many short notes
     for (int i = 0; i < 50; i++) {
-        AudioCommand cmd{};  // Zero-initialize all fields
+        AudioCommand cmd;
         cmd.type = AudioCommandType::PLAY_EVENT;
         cmd.event.type = WaveType::NOISE;
         cmd.event.frequency = 100.0f + (i * 10.0f);
         cmd.event.volume = 0.3f;
         cmd.event.duration = 0.001f;  // Very short
-        cmd.event.duty = 0.5f;
-        cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
         // Note: channel is auto-assigned by ApuCore, do NOT set cmd.channelIndex here
         // as it would corrupt the union (channelIndex shares memory with event)
         scheduler.submitCommand(cmd);
@@ -512,16 +493,15 @@ void test_audio_scheduler_rapid_schedules(void) {
 void test_audio_scheduler_pause_resume_functionality(void) {
     // Test pause and resume functionality thoroughly
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
     // Start music playback
-    AudioCommand playCmd{};  // Zero-initialize all fields
+    AudioCommand playCmd;
     playCmd.type = AudioCommandType::MUSIC_PLAY;
     playCmd.track = nullptr;  // Will be handled gracefully
     scheduler.submitCommand(playCmd);
     
     // Pause the music
-    AudioCommand pauseCmd{};  // Zero-initialize all fields
+    AudioCommand pauseCmd;
     pauseCmd.type = AudioCommandType::MUSIC_PAUSE;
     scheduler.submitCommand(pauseCmd);
     
@@ -529,7 +509,7 @@ void test_audio_scheduler_pause_resume_functionality(void) {
     scheduler.generateSamples(buffer, 256);
     
     // Resume the music
-    AudioCommand resumeCmd{};  // Zero-initialize all fields
+    AudioCommand resumeCmd;
     resumeCmd.type = AudioCommandType::MUSIC_RESUME;
     scheduler.submitCommand(resumeCmd);
     
@@ -542,17 +522,14 @@ void test_audio_scheduler_pause_resume_functionality(void) {
 void test_audio_scheduler_volume_interpolation(void) {
     // Test volume interpolation during note transitions
     DefaultAudioScheduler scheduler;
-    initScheduler(scheduler);
     
     // Start a note
-    AudioCommand cmd1{};  // Zero-initialize all fields
+    AudioCommand cmd1;
     cmd1.type = AudioCommandType::PLAY_EVENT;
     cmd1.event.type = WaveType::PULSE;
     cmd1.event.frequency = 440.0f;
     cmd1.event.volume = 1.0f;
     cmd1.event.duration = 0.1f;
-    cmd1.event.duty = 0.5f;
-    cmd1.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     scheduler.submitCommand(cmd1);
     
     // Generate some samples
@@ -560,14 +537,12 @@ void test_audio_scheduler_volume_interpolation(void) {
     scheduler.generateSamples(buffer, 128);
     
     // Start another note on same channel (should interpolate volume)
-    AudioCommand cmd2{};  // Zero-initialize all fields
+    AudioCommand cmd2;
     cmd2.type = AudioCommandType::PLAY_EVENT;
     cmd2.event.type = WaveType::TRIANGLE;
     cmd2.event.frequency = 880.0f;
     cmd2.event.volume = 0.5f;
     cmd2.event.duration = 0.1f;
-    cmd2.event.duty = 0.5f;
-    cmd2.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     scheduler.submitCommand(cmd2);
     
     scheduler.generateSamples(buffer, 128);
