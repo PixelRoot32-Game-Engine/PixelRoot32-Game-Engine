@@ -178,7 +178,7 @@ Percussion instruments (duty=0, use with WaveType::NOISE):
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration)`**
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration)`**
 - **`MusicNote makeRest(float duration)`**
-- **`float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave)`** – converts preset to frequency (for percussion: Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz)
+- **`float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave)`** – returns fixed LFSR clock rate for NOISE channel percussion (Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz). These control noise density/brightness, not musical pitch.
 
 These helpers reduce boilerplate when defining melodies and keep instruments consistent.
 

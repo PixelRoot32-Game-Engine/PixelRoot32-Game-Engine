@@ -552,7 +552,7 @@ inline MusicNote makeRest(float duration);
 inline float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave);
 ```
 
-> **Note:** For percussion, use `duty == 0.0f` to signal NOISE channel. The `defaultOctave` field determines drum type: 1=Kick, 2=Snare, 3+=Hi-HAT. The `instrumentToFrequency()` helper converts presets to frequencies (Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz).
+> **Note:** For percussion, use `duty == 0.0f` to signal NOISE channel. The `defaultOctave` field determines drum type: 1=Kick, 2=Snare, 3+=Hi-HAT. The `instrumentToFrequency()` helper returns **fixed LFSR clock rates** for the NOISE channel (Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz). Unlike `noteToFrequency()` which produces musical pitch, these values control noise density/brightness (higher = more chaotic/bright, lower = slower/deeper).
 
 These helpers reduce boilerplate when defining tracks and keep note volumes and
 octaves consistent per instrument.
