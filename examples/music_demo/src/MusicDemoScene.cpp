@@ -40,36 +40,57 @@ void MusicDemoScene::init() {
     sSceneInstance = this;
     
     titleLabel = std::make_unique<pr32::graphics::ui::UILabel>("Music Demo", Vector2(0, static_cast<int>(TITLE_Y)), Color::White, TITLE_FONT_SIZE);
-    titleLabel->centerX(sw); titleLabel->setRenderLayer(2); addEntity(titleLabel.get());
+    titleLabel->centerX(sw); 
+    titleLabel->setRenderLayer(2); 
+    addEntity(titleLabel.get());
 
     buttonLayout = std::make_unique<pr32::graphics::ui::UIVerticalLayout>(static_cast<int>((sw - BTN_WIDTH)/2), static_cast<int>(BTN_START_Y), static_cast<int>(BTN_WIDTH), static_cast<int>(sh - BTN_START_Y - NAV_INSTR_Y_OFFSET - 10));
-    buttonLayout->setPadding(0); buttonLayout->setSpacing(static_cast<int>(BTN_GAP));
-    buttonLayout->setScrollEnabled(true); buttonLayout->setNavigationButtons(BTN_NAV_UP, BTN_NAV_DOWN);
+    buttonLayout->setPadding(0); 
+    buttonLayout->setSpacing(static_cast<int>(BTN_GAP));
+    buttonLayout->setScrollEnabled(true); 
+    buttonLayout->setNavigationButtons(BTN_NAV_UP, BTN_NAV_DOWN);
     buttonLayout->setButtonStyle(Color::White, Color::Cyan, Color::White, Color::Black);
-    buttonLayout->setRenderLayer(2); addEntity(buttonLayout.get());
+    buttonLayout->setRenderLayer(2); 
+    addEntity(buttonLayout.get());
 
-    setupMainMenu(); setupInstrumentPresetMenu(); setupMelodiesMenu();
+    setupMainMenu(); 
+    setupInstrumentPresetMenu(); 
+    setupMelodiesMenu();
 
     lblNavigate = std::make_unique<pr32::graphics::ui::UILabel>("UP/DOWN: Navigate", Vector2(0, sh - static_cast<int>(NAV_INSTR_Y_OFFSET)), Color::Cyan, INSTRUCTION_FONT_SIZE);
-    lblNavigate->centerX(sw); lblNavigate->setRenderLayer(2); addEntity(lblNavigate.get());
+    lblNavigate->centerX(sw); 
+    lblNavigate->setRenderLayer(2);
+    addEntity(lblNavigate.get());
 
     lblSelect = std::make_unique<pr32::graphics::ui::UILabel>("A: Select", Vector2(0, sh - static_cast<int>(SEL_INSTR_Y_OFFSET)), Color::Cyan, INSTRUCTION_FONT_SIZE);
-    lblSelect->centerX(sw); lblSelect->setRenderLayer(2); addEntity(lblSelect.get());
+    lblSelect->centerX(sw); 
+    lblSelect->setRenderLayer(2); 
+    addEntity(lblSelect.get());
     
     lblBack = std::make_unique<pr32::graphics::ui::UILabel>("B: Back", Vector2(0, sh - 15), Color::Cyan, INSTRUCTION_FONT_SIZE);
-    lblBack->centerX(sw); lblBack->setRenderLayer(2); addEntity(lblBack.get());
+    lblBack->centerX(sw);
+    lblBack->setRenderLayer(2); 
+    addEntity(lblBack.get());
 
     currentState = MusicDemoState::MAIN; showMenu(MusicDemoState::MAIN);
 }
 
 void MusicDemoScene::update(unsigned long dt) {
     Scene::update(dt);
+
     auto& input = engine.getInputManager();
     static bool wasBack = false;
-    if (input.isButtonPressed(5) && !wasBack) { goBack(); }
-    wasBack = input.isButtonPressed(5);
+    bool isBackPressed = input.isButtonPressed(BTN_BACK); // B button
+    if(isBackPressed && !wasBack) { 
+        auto& player = engine.getMusicPlayer();
+        if (player.isPlaying()) { player.stop(); }
+        goBack(); 
+    }
+    wasBack = isBackPressed;
+
     static int lastIdx = -1;
     buttonLayout->handleInput(input);
+
     int newIdx = buttonLayout->getSelectedIndex();
     if (newIdx != lastIdx && newIdx >= 0) { lastIdx = newIdx; }
 }
@@ -77,25 +98,23 @@ void MusicDemoScene::update(unsigned long dt) {
 void MusicDemoScene::draw(pr32::graphics::Renderer& r) { Scene::draw(r); }
 
 void MusicDemoScene::setupMainMenu() {
-    instrumentPresetButton = std::make_unique<pr32::graphics::ui::UIButton>("INSTRUMENT PRESET", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onInstrumentPreset, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melodiesButton = std::make_unique<pr32::graphics::ui::UIButton>("MELODIES", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelodies, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrumentPresetButton = std::make_unique<pr32::graphics::ui::UIButton>("INSTRUMENT PRESET", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onInstrumentPreset, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melodiesButton = std::make_unique<pr32::graphics::ui::UIButton>("MELODIES", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelodies, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::setupInstrumentPresetMenu() {
-    // Pulse instruments (4)
-    instrLeadButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE LEAD", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onLead, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrBassButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE BASS", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onBass, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    // Additional instruments (8)
-    instrHarmonyButton = std::make_unique<pr32::graphics::ui::UIButton>("HARMONY", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHarmony, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrKickButton = std::make_unique<pr32::graphics::ui::UIButton>("KICK", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onKick, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrSnareButton = std::make_unique<pr32::graphics::ui::UIButton>("SNARE", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSnare, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrHihatButton = std::make_unique<pr32::graphics::ui::UIButton>("HI-HAT", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHihat, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrLeadButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE LEAD", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onLead, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrBassButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE BASS", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onBass, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrHarmonyButton = std::make_unique<pr32::graphics::ui::UIButton>("HARMONY", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHarmony, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrKickButton = std::make_unique<pr32::graphics::ui::UIButton>("KICK", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onKick, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrSnareButton = std::make_unique<pr32::graphics::ui::UIButton>("SNARE", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSnare, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrHihatButton = std::make_unique<pr32::graphics::ui::UIButton>("HI-HAT", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHihat, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::setupMelodiesMenu() {
-    melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 1", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 2", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 3", 0, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 1", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 2", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 3", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::showMenu(MusicDemoState st) {
@@ -153,6 +172,16 @@ void MusicDemoScene::playInstrumentSound(const pr32::audio::InstrumentPreset& pr
 
 void MusicDemoScene::playMelody(int idx) {
     auto& player = engine.getMusicPlayer();
+
+    previousMelodyIndex = currentMelodyIndex;
+    currentMelodyIndex = idx;
+    bool isSameMelody = (previousMelodyIndex == currentMelodyIndex);
+
+    if (isSameMelody && player.isPlaying()) { 
+        player.stop(); 
+        return;
+    }
+
     switch (idx) {
         case 1: {
             player.setBPM(140.0f);

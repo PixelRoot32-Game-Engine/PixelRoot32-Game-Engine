@@ -1,6 +1,7 @@
 #pragma once
 
-#include "platforms/PlatformDefaults.h"
+#include <cstdint>
+#include <platforms/PlatformDefaults.h>
 
 namespace musicdemo {
 
@@ -10,16 +11,16 @@ constexpr int DEMO_DISPLAY_HEIGHT = PHYSICAL_DISPLAY_HEIGHT;
 
 // Menu configuration
 constexpr float TITLE_Y = 20.0f;
-constexpr int TITLE_FONT_SIZE = 2;
+constexpr int TITLE_FONT_SIZE = 1;
 
 constexpr float BTN_WIDTH = 180.0f;
-constexpr float BTN_HEIGHT = 28.0f;
-constexpr float BTN_START_Y = 50.0f;
-constexpr float BTN_GAP = 6.0f;
+constexpr float BTN_HEIGHT = 20.0f;
+constexpr float BTN_START_Y = 45.0f;
+constexpr float BTN_GAP = 3.0f;
 constexpr int BTN_FONT_SIZE = 1;
 
-constexpr float NAV_INSTR_Y_OFFSET = 20.0f;
-constexpr float SEL_INSTR_Y_OFFSET = 12.0f;
+constexpr float NAV_INSTR_Y_OFFSET = 35.0f;
+constexpr float SEL_INSTR_Y_OFFSET = 25.0f;
 constexpr int INSTRUCTION_FONT_SIZE = 1;
 
 // Sound configuration
@@ -32,10 +33,9 @@ constexpr float SOUND_BLIP_DUR = 0.08f;
 constexpr float SOUND_VOL_BLIP = 0.5f;
 
 // Button mappings
-constexpr int BTN_SELECT = 0;
-constexpr int BTN_UP = 1;
-constexpr int BTN_DOWN = 2;
-constexpr int BTN_NAV_UP = 1;
-constexpr int BTN_NAV_DOWN = 2;
+constexpr uint8_t BTN_NAV_UP = 0;
+constexpr uint8_t BTN_NAV_DOWN = 1;
+constexpr uint8_t BTN_BACK = 4;
+constexpr uint8_t BTN_SELECT = 5;
 
 } // namespace musicdemo

@@ -31,6 +31,9 @@ public:
     void playMelody(int melodyIndex);
 
 private:
+    int currentMelodyIndex = -1;
+    int previousMelodyIndex = -1;
+    
     MusicDemoState currentState = MusicDemoState::MAIN;
     
     // UI Elements

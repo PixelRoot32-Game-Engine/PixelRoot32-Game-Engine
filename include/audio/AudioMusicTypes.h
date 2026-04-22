@@ -160,13 +160,13 @@ constexpr InstrumentPreset INSTR_PULSE_LEAD{
     0.005f,   // attackTime  – fast attack for lead
     0.20f,    // decayTime   – noticeable decay to shape note
     0.70f,    // sustainLevel– moderate sustain
-    0.20f,    // releaseTime – release tail to avoid clicks
+    0.15f,    // releaseTime – shorter release for fast passages
     LfoTarget::PITCH,   // lfoTarget – vibrato
     5.0f,     // lfoFrequency (Hz)
-    0.02f,    // lfoDepth    – ~0.34 semitones pitch variation
-    0.0f,     // lfoDelay    – start immediately
+    0.025f,   // lfoDepth    – slightly more vibrato
+    0.15f,    // lfoDelay    – delayed vibrato for natural feel
     false,    // noiseShortMode (unused for pulse)
-    0.0f      // dutySweep   – no sweep by default (can be added later)
+    0.0f      // dutySweep   – no sweep by default
 };
 
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
@@ -176,15 +176,15 @@ constexpr InstrumentPreset INSTR_PULSE_HARMONY{
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.005f,   // attackTime
-    0.50f,    // decayTime   – longer decay for evolving pad
-    0.50f,    // sustainLevel– medium sustain
+    0.50f,    // decayTime   – long decay for evolving pad
+    0.60f,    // sustainLevel– slightly higher sustain for more presence
     0.30f,    // releaseTime
     LfoTarget::VOLUME,  // lfoTarget – tremolo
     6.0f,     // lfoFrequency (Hz)
     0.30f,    // lfoDepth    – 30 % volume modulation
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.10f     // dutySweep   – slow PWM‑like timbral movement
+    0.15f     // dutySweep   – more pronounced PWM-like movement
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
@@ -206,13 +206,13 @@ constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
 };
 
 constexpr InstrumentPreset INSTR_KICK{
-    0.40f,    // baseVolume
+    0.45f,    // baseVolume – more punch
     0.0f,     // duty (0 → noise channel)
     1,        // defaultOctave (kick selector)
     0.12f,    // defaultDuration (fixed length)
-    25,       // noisePeriod (already set)
+    15,       // noisePeriod – lower for deeper kick sound
     0.001f,   // attackTime  – instantaneous click
-    0.08f,    // decayTime   – body of the kick
+    0.10f,    // decayTime   – slightly longer for more body
     0.00f,    // sustainLevel– no sustain
     0.02f,    // releaseTime – short tail to kill clicks
     LfoTarget::NONE,
@@ -224,13 +224,13 @@ constexpr InstrumentPreset INSTR_KICK{
 };
 
 constexpr InstrumentPreset INSTR_SNARE{
-    0.30f,    // baseVolume
+    0.35f,    // baseVolume – balanced with kick
     0.0f,     // duty → noise
     2,        // defaultOctave (snare selector)
     0.15f,    // defaultDuration
-    50,       // noisePeriod
+    60,       // noisePeriod – brighter, crisper noise
     0.001f,   // attackTime
-    0.10f,    // decayTime
+    0.08f,    // decayTime   – shorter for a snappier sound
     0.00f,    // sustainLevel– no sustain
     0.05f,    // releaseTime
     LfoTarget::NONE,
@@ -242,13 +242,13 @@ constexpr InstrumentPreset INSTR_SNARE{
 };
 
 constexpr InstrumentPreset INSTR_HIHAT{
-    0.20f,    // baseVolume
+    0.25f,    // baseVolume – cuts through the mix
     0.0f,     // duty → noise
     3,        // defaultOctave (hi‑hat selector)
     0.05f,    // defaultDuration (very short)
     12,       // noisePeriod
     0.0005f,  // attackTime  – extremely fast
-    0.02f,    // decayTime   – quick decay
+    0.015f,   // decayTime   – shorter for a more "ticky" sound
     0.00f,    // sustainLevel– no sustain
     0.005f,   // releaseTime – matches current anti‑click, removes click
     LfoTarget::NONE,
