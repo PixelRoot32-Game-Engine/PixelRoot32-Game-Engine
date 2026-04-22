@@ -26,6 +26,10 @@ static void onBass() { if (sSceneInstance) sSceneInstance->playInstrumentSound(p
 static void onKick() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_KICK); }
 static void onSnare() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_SNARE); }
 static void onHihat() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_HIHAT); }
+static void onTriangleLead() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_TRIANGLE_LEAD); }
+static void onTrianglePad() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_TRIANGLE_PAD); }
+static void onPulsePad() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_PULSE_PAD); }
+static void onPulseBass() { if (sSceneInstance) sSceneInstance->playInstrumentSound(pr32::audio::INSTR_PULSE_BASS); }
 
 static void onMelody1() { if (sSceneInstance) sSceneInstance->playMelody(1); }
 static void onMelody2() { if (sSceneInstance) sSceneInstance->playMelody(2); }
@@ -104,11 +108,15 @@ void MusicDemoScene::setupMainMenu() {
 
 void MusicDemoScene::setupInstrumentPresetMenu() {
     instrLeadButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE LEAD", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onLead, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrBassButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE BASS", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onBass, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    instrHarmonyButton = std::make_unique<pr32::graphics::ui::UIButton>("HARMONY", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHarmony, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrHarmonyButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE HARMONY", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHarmony, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrBassButton = std::make_unique<pr32::graphics::ui::UIButton>("TRIANGLE BASS", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onBass, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     instrKickButton = std::make_unique<pr32::graphics::ui::UIButton>("KICK", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onKick, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     instrSnareButton = std::make_unique<pr32::graphics::ui::UIButton>("SNARE", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSnare, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     instrHihatButton = std::make_unique<pr32::graphics::ui::UIButton>("HI-HAT", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onHihat, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrTriangleLeadButton = std::make_unique<pr32::graphics::ui::UIButton>("TRIANGLE LEAD", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onTriangleLead, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrTrianglePadButton = std::make_unique<pr32::graphics::ui::UIButton>("TRIANGLE PAD", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onTrianglePad, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrPulsePadButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE PAD", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onPulsePad, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    instrPulseBassButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE BASS", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onPulseBass, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::setupMelodiesMenu() {
@@ -126,11 +134,15 @@ void MusicDemoScene::showMenu(MusicDemoState st) {
             buttonLayout->addElement(instrumentPresetButton.get()); 
             buttonLayout->addElement(melodiesButton.get()); 
             break;
-        case MusicDemoState::INSTRUMENT_PRESET: 
-            titleLabel->setText("Instrument Preset (7)"); 
+        case MusicDemoState::INSTRUMENT_PRESET:
+            titleLabel->setText("Instruments (10)");
             buttonLayout->addElement(instrLeadButton.get());
             buttonLayout->addElement(instrHarmonyButton.get());
             buttonLayout->addElement(instrBassButton.get());
+            buttonLayout->addElement(instrPulseBassButton.get());
+            buttonLayout->addElement(instrTriangleLeadButton.get());
+            buttonLayout->addElement(instrTrianglePadButton.get());
+            buttonLayout->addElement(instrPulsePadButton.get());
             buttonLayout->addElement(instrKickButton.get());
             buttonLayout->addElement(instrSnareButton.get());
             buttonLayout->addElement(instrHihatButton.get());

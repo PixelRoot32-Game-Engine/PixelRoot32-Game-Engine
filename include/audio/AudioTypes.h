@@ -202,7 +202,7 @@ namespace pixelroot32::audio {
         size_t subTrackCount;
 
         // Default constructor to allow use in arrays/buffers
-        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0), subTrackCount(0), subTracks{nullptr, nullptr, nullptr} {}
+        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0), subTracks{nullptr, nullptr, nullptr}, subTrackCount(0) {}
     };
 
 }

@@ -166,6 +166,10 @@ Simple preset describing a reusable "instrument":
 Melodic instruments:
 - `INSTR_PULSE_LEAD` – main lead pulse in octave 4 (duty 0.5).
 - `INSTR_PULSE_HARMONY` – harmony pulse in octave 5 (duty 0.125).
+- `INSTR_PULSE_PAD` – atmospheric pad pulse in octave 4 (duty 0.25) with slow pitch drift.
+- `INSTR_PULSE_BASS` – punchy bass pulse in octave 2 (duty 0.25).
+- `INSTR_TRIANGLE_LEAD` – smooth triangle lead in octave 5 with gentle vibrato.
+- `INSTR_TRIANGLE_PAD` – soft atmospheric triangle pad in octave 4 with tremolo.
 - `INSTR_TRIANGLE_BASS` – triangle bass in octave 3 (duty 0.5).
 
 Percussion instruments (duty=0, use with WaveType::NOISE):

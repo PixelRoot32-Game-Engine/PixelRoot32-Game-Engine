@@ -46,8 +46,6 @@ void TicTacToeScene::init() {
     createResetButton();
     resetGame();
 
-    engine.getMusicPlayer().play(BG_MUSIC);
-
     static bool seeded = false;
     if (!seeded) {
         std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -134,6 +132,8 @@ void TicTacToeScene::resetGame() {
     int boardX = (DISPLAY_WIDTH - boardSize) / 2;
     int boardY = (DISPLAY_HEIGHT - boardSize) / 2;  
     boardPosition = pr32::math::Vector2(pr32::math::toScalar(boardX), pr32::math::toScalar(boardY));
+
+    engine.getMusicPlayer().play(BG_MUSIC);
 }
 
 void TicTacToeScene::update(unsigned long deltaTime) {
@@ -151,7 +151,6 @@ void TicTacToeScene::handleInput() {
             return;
         }
         if (input.isButtonPressed(BTN_SELECT)) {
-            engine.getMusicPlayer().play(BG_MUSIC);
             resetGame();
         }
         return;

@@ -44,13 +44,17 @@ private:
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrumentPresetButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> melodiesButton;
 
-    // Instrument preset buttons (6 total)
+    // Instrument preset buttons (10 total)
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrLeadButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrHarmonyButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrBassButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrKickButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrSnareButton;
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrHihatButton;
+    std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrTriangleLeadButton;
+    std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrTrianglePadButton;
+    std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrPulsePadButton;
+    std::unique_ptr<pixelroot32::graphics::ui::UIButton> instrPulseBassButton;
 
     // Melody buttons (1 total)
     std::unique_ptr<pixelroot32::graphics::ui::UIButton> melody1Button;

@@ -169,6 +169,61 @@ constexpr InstrumentPreset INSTR_PULSE_LEAD{
     0.0f      // dutySweep   – no sweep by default
 };
 
+constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
+    0.32f,    // baseVolume – slightly lower than pulse lead (triangle is softer)
+    0.5f,     // duty (unused for triangle, API uniformity)
+    5,        // defaultOctave – higher range for lead melodies
+    0.0f,     // defaultDuration
+    0,        // noisePeriod (unused)
+    0.003f,   // attackTime – fast attack
+    0.15f,    // decayTime
+    0.75f,    // sustainLevel – smooth triangle sustain
+    0.12f,    // releaseTime
+    LfoTarget::PITCH,   // lfoTarget – vibrato
+    4.0f,     // lfoFrequency (Hz) – gentle vibrato
+    0.020f,   // lfoDepth – subtle vibrato
+    0.20f,    // lfoDelay – delayed vibrato
+    false,    // noiseShortMode (unused)
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
+    0.28f,    // baseVolume – soft atmospheric pad
+    0.5f,     // duty (unused for triangle)
+    4,        // defaultOctave – mid range for pad chords
+    0.0f,     // defaultDuration
+    0,        // noisePeriod
+    0.015f,   // attackTime – slow attack for pad swells
+    0.40f,    // decayTime – long decay
+    0.65f,    // sustainLevel
+    0.50f,    // releaseTime – long release
+    LfoTarget::VOLUME,  // lfoTarget – gentle tremolo
+    2.5f,     // lfoFrequency (Hz) – slow modulation
+    0.15f,    // lfoDepth – subtle volume movement
+    0.50f,    // lfoDelay
+    false,    // noiseShortMode
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_PULSE_PAD{
+    0.26f,    // baseVolume
+    0.25f,    // duty (1/4) – hollow pulse sound
+    4,        // defaultOctave
+    0.0f,     // defaultDuration
+    0,        // noisePeriod
+    0.020f,   // attackTime – pad-like slow attack
+    0.60f,    // decayTime – very long decay
+    0.55f,    // sustainLevel
+    0.45f,    // releaseTime
+    LfoTarget::PITCH,   // lfoTarget – slow pitch drift
+    3.0f,     // lfoFrequency (Hz)
+    0.035f,   // lfoDepth – noticeable pitch modulation
+    0.30f,    // lfoDelay
+    false,    // noiseShortMode
+    0.08f     // dutySweep – gentle PWM movement for evolving texture
+};
+
+
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
     0.22f,    // baseVolume
     0.125f,   // duty (1/8)
@@ -204,6 +259,25 @@ constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
     false,    // noiseShortMode
     0.0f      // dutySweep
 };
+
+constexpr InstrumentPreset INSTR_PULSE_BASS{
+    0.30f,    // baseVolume – punchy pulse bass
+    0.25f,    // duty (1/4) – tighter, hollow sound
+    2,        // defaultOctave – low range for bass
+    0.0f,     // defaultDuration
+    0,        // noisePeriod
+    0.001f,   // attackTime – fast punch
+    0.08f,    // decayTime – tight decay
+    0.35f,    // sustainLevel – medium sustain
+    0.08f,    // releaseTime – quick release
+    LfoTarget::NONE,
+    0.0f,     // lfoFrequency
+    0.0f,     // lfoDepth
+    0.0f,     // lfoDelay
+    false,    // noiseShortMode
+    0.0f      // dutySweep
+};
+
 
 constexpr InstrumentPreset INSTR_KICK{
     0.45f,    // baseVolume – more punch

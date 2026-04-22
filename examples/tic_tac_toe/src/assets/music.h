@@ -3,13 +3,13 @@
 #include <audio/AudioMusicTypes.h>
 
 static const pixelroot32::audio::MusicNote BG_MELODY[] = {
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::C, 0.6f),
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::G, 0.6f),
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::E, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::C, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::G, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::E, 0.6f),
     pixelroot32::audio::makeRest(0.3f),
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::D, 0.6f),
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::A, 0.6f),
-    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_TRIANGLE_PAD, pixelroot32::audio::Note::F, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::D, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::A, 0.6f),
+    pixelroot32::audio::makeNote(pixelroot32::audio::INSTR_PULSE_PAD, pixelroot32::audio::Note::F, 0.6f),
     pixelroot32::audio::makeRest(0.4f)
 };
 
