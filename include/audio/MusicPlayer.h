@@ -61,10 +61,29 @@ public:
      */
     float getTempoFactor() const;
 
+    /**
+     * @brief Sets the tempo in BPM (beats per minute).
+     * @param bpm Beats per minute (default 150).
+     */
+    void setBPM(float bpm);
+
+    /**
+     * @brief Gets the current BPM setting.
+     * @return Current BPM (default 150).
+     */
+    float getBPM() const;
+
+    /**
+     * @brief Gets the number of currently active tracks.
+     * @return Number of active tracks (1-4), 0 if not playing.
+     */
+    size_t getActiveTrackCount() const;
+
 private:
     AudioEngine& engine;
     const MusicTrack* currentTrack;
-    float tempoFactor; // Global speed multiplier
+    float tempoFactor; // Global speed multiplier (1.0 = normal)
+    float bpm;         // Beats per minute (default 150)
     bool playing;
     bool paused;
 };

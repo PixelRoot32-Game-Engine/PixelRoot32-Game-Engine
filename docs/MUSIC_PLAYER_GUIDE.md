@@ -61,17 +61,77 @@ struct MusicTrack {
     bool loop;                   // Whether to loop the track
     WaveType channelType;        // Wave type (PULSE, TRIANGLE, NOISE)
     float duty;                  // Duty cycle for pulse waves (0.0-1.0)
+    
+    // Multi-track support (optional)
+    const MusicTrack* secondVoice = nullptr;  // Second melody voice
+    const MusicTrack* thirdVoice = nullptr;   // Third melody voice
+    const MusicTrack* percussion = nullptr;  // Drum/percussion track
 };
 ```
+
+### Multi-Track Music Playback
+
+The MusicPlayer supports up to 4 simultaneous tracks playing in parallel:
+
+```cpp
+// Define three separate tracks
+static const MusicNote MELODY_NOTES[] = {
+    makeNote(INSTR_PULSE_LEAD, Note::C, 4, 0.25f),
+    makeNote(INSTR_PULSE_LEAD, Note::E, 4, 0.25f),
+    makeNote(INSTR_PULSE_LEAD, Note::G, 4, 0.25f),
+};
+
+static const MusicNote BASS_NOTES[] = {
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 2, 0.5f),
+};
+
+static const MusicNote DRUM_NOTES[] = {
+    makeNote(INSTR_KICK, Note::Rest, 0.25f),
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),
+    makeRest(0.25f),
+};
+
+// Create individual tracks
+static const MusicTrack MELODY_TRACK = {
+    MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f
+};
+
+static const MusicTrack BASS_TRACK = {
+    BASS_NOTES, 2, true, WaveType::TRIANGLE, 0.5f
+};
+
+static const MusicTrack DRUM_TRACK = {
+    DRUM_NOTES, 4, true, WaveType::NOISE, 0.0f
+};
+
+// Combine into main track with sub-tracks
+static const MusicTrack FULL_MUSIC = {
+    MELODY_NOTES, 3, true, WaveType::PULSE, 0.5f,
+    &BASS_TRACK,      // secondVoice - bass line
+    nullptr,          // thirdVoice - not used
+    &DRUM_TRACK       // percussion - drums
+};
+
+// Play all 3 tracks simultaneously
+musicPlayer.play(FULL_MUSIC);
+
+// Query active track count
+size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
+```
+
+> **Note:** All sub-track pointers default to `nullptr` for backward compatibility with existing single-track code.
 
 ### MusicNote Definition
 
 ```cpp
 struct MusicNote {
-    Note note;                   // Musical note (C, D, E, etc.)
-    uint8_t octave;              // Octave number (0-8)
-    float duration;              // Duration in seconds
-    float volume;                // Volume (0.0-1.0)
+    Note note;                        // Musical note (C, D, E, etc.)
+    uint8_t octave;                   // Octave number (0-8). For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT
+    float duration;                   // Duration in seconds
+    float volume;                     // Volume (0.0-1.0)
+    const InstrumentPreset* preset;   // Optional: pointer to instrument preset for percussion
 };
 ```
 
@@ -181,10 +241,10 @@ void GameScene::switchToBattleMusic() {
 ```cpp
 // Background layer (bass line)
 static const MusicNote BASS_LINE[] = {
-    makeNote(INSTR_PULSE_BASS, Note::C, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::G, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::A, 2, 0.5f),
-    makeNote(INSTR_PULSE_BASS, Note::F, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::A, 2, 0.5f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::F, 2, 0.5f),
 };
 
 // Melody layer (lead)
@@ -197,7 +257,7 @@ static const MusicNote MELODY[] = {
 
 // Use different wave types for variety
 static const MusicTrack BASS_TRACK = {
-    BASS_LINE, sizeof(BASS_LINE)/sizeof(MusicNote), true, WaveType::PULSE, 0.25f
+    BASS_LINE, sizeof(BASS_LINE)/sizeof(MusicNote), true, WaveType::TRIANGLE, 0.5f
 };
 
 static const MusicTrack MELODY_TRACK = {
@@ -382,13 +442,13 @@ static const MusicNote BLUES_PROGRESSION[] = {
 
 ```cpp
 static const MusicNote ARPEGGIO[] = {
-    makeNote(INSTR_TRIANGLE, Note::C, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::E, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::G, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::C, 5, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::G, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::E, 4, 0.25f),
-    makeNote(INSTR_TRIANGLE, Note::C, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::E, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 5, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::G, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::E, 4, 0.25f),
+    makeNote(INSTR_TRIANGLE_BASS, Note::C, 4, 0.25f),
     makeRest(0.25f),
 };
 ```
@@ -396,15 +456,18 @@ static const MusicNote ARPEGGIO[] = {
 ### Percussive Rhythm
 
 ```cpp
+// Use INSTR_KICK, INSTR_SNARE, INSTR_HIHAT presets with WaveType::NOISE
 static const MusicNote DRUM_PATTERN[] = {
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
+    makeNote(INSTR_KICK, Note::Rest, 0.25f),    // Kick on beat 1
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),   // Snare on beat 2
+    makeRest(0.25f),
+    makeNote(INSTR_KICK, Note::Rest, 0.125f),   // Kick (eighth note)
+    makeNote(INSTR_HIHAT, Note::Rest, 0.125f),  // Hi-HAT (eighth note)
+    makeRest(0.25f),
+    makeNote(INSTR_SNARE, Note::Rest, 0.25f),   // Snare on beat 4
     makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
-    makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.25f),   // Snare
-    makeRest(0.125f),
-    makeNote(INSTR_NOISE, Note::Rest, 0, 0.125f),  // Kick
-    makeRest(0.125f),
+    makeNote(INSTR_HIHAT, Note::Rest, 0.125f),  // Hi-HAT
 };
 ```
 
@@ -435,19 +498,29 @@ static const MusicNote DRUM_PATTERN[] = {
 
 **ESP32:**
 
-- Music timing is sample-accurate and runs on Core 0
-- Limited memory - keep tracks short and efficient
-- Use 1bpp sprites and simple music for best performance
+- Music timing is **sample-accurate** inside `ApuCore` (shared by all schedulers). The backend’s audio task or I2S callback calls `AudioEngine::generateSamples`, which advances the sequencer and mixes PCM.
+- Limited memory: keep tracks short and efficient; prefer `static const` data in flash.
+- Subsystem is compiled only when `PIXELROOT32_ENABLE_AUDIO=1`.
 
 **Native (PC/Mac/Linux):**
 
-- Full SDL2 audio backend
-- More memory available for longer/complex tracks
-- Higher quality mixing and effects
+- `NativeAudioScheduler` runs `ApuCore` in a dedicated `std::thread` and double-buffers PCM for the SDL2 callback—same synthesis and music logic as ESP32.
+- More headroom for longer tracks; mixing path uses the same non-linear curve as ESP32 (FPU).
 
-### Performance Notes (v1.2.2+)
+### `isPlaying()` and transport state
 
-**Note:** When the audio clock jumps ahead significantly (e.g., after a frame drop or heavy computation), the music sequencer processes notes with a catch-up mechanism. The scheduler limits processing to `MAX_NOTES_PER_FRAME = 8` notes per audio quantum to prevent CPU spikes. During heavy catch-up scenarios, some notes may be skipped to bound CPU usage. This behavior is designed to maintain audio stability at the cost of occasional dropped notes during extreme lag conditions.
+`MusicPlayer::isPlaying()` reflects **whether music is actively being sequenced**, not only a client-side flag:
+
+- The authoritative signal is `AudioEngine::isMusicPlaying()` / `isMusicPaused()`, which read atomics updated by **`ApuCore`** when `MUSIC_PLAY` / `MUSIC_STOP` / end-of-non-looping-track / pause / resume are processed.
+- **While paused**, `isPlaying()` returns **false** (playback is suspended).
+- **Right after `play()`**, before the audio thread has dequeued `MUSIC_PLAY`, `isPlaying()` may still return **true** briefly so game code does not see a spurious “stopped” window (command in flight).
+- **Non-looping** tracks: when the last note finishes, `ApuCore` clears the music-playing flag; `isPlaying()` becomes **false** without an explicit `stop()`.
+
+For raw transport without the MusicPlayer wrapper, call `engine.getAudioEngine().isMusicPlaying()` / `isMusicPaused()`.
+
+### BPM API
+
+Besides `setTempoFactor` / `getTempoFactor`, you can drive absolute tempo with **`setBPM`** / **`getBPM`** (default 150 BPM, 4 ticks per beat in the sequencer).
 
 ---
 
@@ -613,11 +686,12 @@ private:
 
 ## References
 
-- **Audio Types:** See `AudioMusicTypes.h` for complete type definitions
-- **MusicPlayer API:** See `MusicPlayer.h` for full method documentation
-- **Audio Engine:** See `AudioEngine.h` for sound effects integration
-- **Examples:** Check `examples/Games/SpaceInvaders/` and `examples/Games/BrickBreaker/` for real-world usage
+- **Audio types & presets:** `include/audio/AudioMusicTypes.h`
+- **MusicPlayer API:** `include/audio/MusicPlayer.h`
+- **Audio facade & music transport:** `include/audio/AudioEngine.h` (`isMusicPlaying` / `isMusicPaused`)
+- **Shared synthesis & sequencer:** `include/audio/ApuCore.h`
+- **Examples:** See game samples under `examples/` for real-world usage.
 
 ---
 
-**Note:** Music timing is sample-accurate and independent of frame rate, ensuring consistent playback across different hardware platforms and performance conditions.
+**Note:** Music timing is sample-accurate inside `ApuCore` and is independent of render frame rate, so melody tempo does not slow down when the main loop stalls (within the limits of the audio backend’s buffer).
