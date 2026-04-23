@@ -57,16 +57,17 @@ void test_default_scheduler_stop_all(void) {
     DefaultAudioScheduler scheduler;
     
     // Play something
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 1.0f;
     cmd.event.duration = 1.0f;
+    cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     scheduler.submitCommand(cmd);
     
     // Stop channel 0 (DefaultAudioScheduler uses channels 0-3)
-    AudioCommand stopCmd;
+    AudioCommand stopCmd{};
     stopCmd.type = AudioCommandType::STOP_CHANNEL;
     stopCmd.channelIndex = 0;
     scheduler.submitCommand(stopCmd);
@@ -82,12 +83,13 @@ void test_default_scheduler_stop_all(void) {
 
 void test_default_scheduler_multiple_notes(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::TRIANGLE;
     cmd.event.frequency = 220.0f;
     cmd.event.volume = 0.5f;
     cmd.event.duration = 0.5f;
+    cmd.event.preset = nullptr;
     scheduler.submitCommand(cmd);
     cmd.event.frequency = 880.0f;
     scheduler.submitCommand(cmd);
