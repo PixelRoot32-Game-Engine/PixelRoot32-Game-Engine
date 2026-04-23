@@ -29,7 +29,7 @@ void test_default_scheduler_initialization(void) {
 void test_default_scheduler_play_note(void) {
     DefaultAudioScheduler scheduler;
     
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
@@ -104,12 +104,13 @@ void test_default_scheduler_multiple_notes(void) {
 
 void test_default_scheduler_triangle_wave(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::TRIANGLE;
     cmd.event.frequency = 330.0f;
     cmd.event.volume = 1.0f;
     cmd.event.duration = 0.1f;
+    cmd.event.preset = nullptr;
     scheduler.submitCommand(cmd);
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
@@ -122,12 +123,13 @@ void test_default_scheduler_triangle_wave(void) {
 
 void test_default_scheduler_noise_wave(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::NOISE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 0.5f;
     cmd.event.duration = 0.05f;
+    cmd.event.preset = nullptr;
     scheduler.submitCommand(cmd);
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
@@ -140,16 +142,17 @@ void test_default_scheduler_noise_wave(void) {
 
 void test_default_scheduler_stop_multiple_channels(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 1.0f;
     cmd.event.duration = 1.0f;
+    cmd.event.preset = nullptr;
     for (int ch = 0; ch < 4; ch++) {
         scheduler.submitCommand(cmd);
     }
-    AudioCommand stopCmd;
+    AudioCommand stopCmd{};
     stopCmd.type = AudioCommandType::STOP_CHANNEL;
     stopCmd.channelIndex = 1;
     scheduler.submitCommand(stopCmd);
@@ -163,16 +166,17 @@ void test_default_scheduler_set_master_volume(void) {
     DefaultAudioScheduler scheduler;
     
     // Play a note to verify audio is generated
-    AudioCommand playCmd;
+    AudioCommand playCmd{};
     playCmd.type = AudioCommandType::PLAY_EVENT;
     playCmd.event.type = WaveType::PULSE;
     playCmd.event.frequency = 440.0f;
     playCmd.event.volume = 1.0f;
     playCmd.event.duration = 1.0f;
+    playCmd.event.preset = nullptr;
     scheduler.submitCommand(playCmd);
     
     // Set master volume (should not affect this test's audio generation)
-    AudioCommand volCmd;
+    AudioCommand volCmd{};
     volCmd.type = AudioCommandType::SET_MASTER_VOLUME;
     volCmd.volume = 0.5f;
     scheduler.submitCommand(volCmd);
@@ -191,7 +195,7 @@ void test_default_scheduler_set_master_volume(void) {
 
 void test_default_scheduler_long_sequence(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 262.0f;
@@ -209,7 +213,7 @@ void test_default_scheduler_long_sequence(void) {
 
 void test_default_scheduler_stop(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
@@ -237,7 +241,7 @@ void test_note_to_frequency(void) {
 
 void test_music_play_command(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::MUSIC_PLAY;
     scheduler.submitCommand(cmd);
     scheduler.generateSamples(nullptr, 256);
@@ -273,7 +277,7 @@ void test_music_pause_resume_command(void) {
 
 void test_music_set_tempo_command(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::MUSIC_SET_TEMPO;
     cmd.tempoFactor = 2.0f;
     scheduler.submitCommand(cmd);
@@ -283,7 +287,7 @@ void test_music_set_tempo_command(void) {
 
 void test_set_master_volume_clamping(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::SET_MASTER_VOLUME;
     cmd.volume = 1.5f;
     scheduler.submitCommand(cmd);
@@ -303,7 +307,7 @@ void test_audio_scheduler_buffer_underrun_recovery(void) {
     DefaultAudioScheduler scheduler;
     
     // Start playing a note
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
@@ -351,7 +355,7 @@ void test_audio_scheduler_shutdown_during_active_playback(void) {
     // Channel map: 0=PULSE, 1=PULSE, 2=TRIANGLE, 3=NOISE
     WaveType waveTypes[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
     for (int i = 0; i < 4; i++) {
-        AudioCommand cmd;
+        AudioCommand cmd{};
         cmd.type = AudioCommandType::PLAY_EVENT;
         cmd.event.type = waveTypes[i];
         cmd.event.frequency = 220.0f + i * 55.0f;  // Vary frequency per channel
@@ -380,7 +384,7 @@ void test_audio_scheduler_null_buffer_handling(void) {
     DefaultAudioScheduler scheduler;
     
     // Start some audio
-    AudioCommand cmd;
+    AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::NOISE;
     cmd.event.frequency = 100.0f;
