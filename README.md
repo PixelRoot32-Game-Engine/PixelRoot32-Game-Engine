@@ -87,7 +87,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
-> 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/guide/getting-started).
+> 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/#getting-started).
 
 ---
 
@@ -188,7 +188,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.2.2
+    gperez88/PixelRoot32-Game-Engine@^1.3.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -269,31 +269,19 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.2.2
+## 1.3.0
 
-### 🔊 Audio
+### 🔊 Audio System Overhaul
 
-- **NES-Style Noise**: Replaced legacy random-based noise with 15-bit LFSR for deterministic sound patterns.
-- **Performance Limits**: Added `MAX_NOTES_PER_FRAME=8` limit to prevent CPU spikes during dense musical passages.
-- **Fixed-Point Volume**: Pre-compute master volume as Q16 fixed-point for faster mixing.
-- **ESP32 Optimizations**: Increased I2S buffer to 1024 samples, use `dacWrite()` for direct register access.
-- **Queue Overflow Handling**: ESP32AudioScheduler now handles command queue overflow with warning logs.
+- **Multi-Track Music Player**: Support for up to 4 simultaneous tracks with NES-style tick-based synchronization.
+- **ADSR Envelopes & LFO**: Full ADSR state machine with pitch (vibrato) and volume (tremolo) modulation.
+- **ApuCore Architecture**: Centralized audio synthesis and mixing core for consistent cross-platform behavior.
+- **Optimized Presets**: Improved percussion (kick, snare, hi-hat) and melodic instruments for better mix clarity.
 
-### 🎨 Graphics & Animations
+### ⚡ Performance & Profiling
 
-- **Wall-Clock Pacing**: `TileAnimationManager` now supports `step(deltaTimeMs)` for frame-rate-independent animations.
-- **Framebuffer Optimization**: New `shouldRedrawFramebuffer()` in `Scene` skips unnecessary rendering when visual state hasn't changed.
-- **Visual Signature**: Efficient computation to detect framebuffer changes and avoid redundant redraws.
-
-### 🏀 Physics
-
-- **Centralized Integration**: Velocity integration moved from `Actor::update()` to `CollisionSystem::update()` for single integration path.
-- **Performance**: Skip invisible entities in collision detection, reduce `MAX_STEPS_NORMAL` to 1 for ESP32-C3 stability.
-
-### ⚡ API & Architecture
-
-- **TFT_eSPI Config**: New `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` options for DMA optimization.
-- **Tilemap Cleanup**: Removed `TileCache` and `ChunkManager`, documentation updated to emphasize `StaticTilemapLayerCache`.
+- **Audio Peak Profiling**: New API to capture audio statistics in a ring buffer for real-time diagnostics.
+- **Multi-Producer Queue**: Enhanced command queue with multi-producer support and improved thread safety.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
