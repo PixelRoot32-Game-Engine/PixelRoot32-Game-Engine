@@ -5,66 +5,45 @@
 #pragma once
 
 #include "AudioScheduler.h"
-#include "AudioCommandQueue.h"
-#include "AudioMusicTypes.h"
-#include <atomic>
+#include "ApuCore.h"
 
 namespace pixelroot32::audio {
 
     /**
      * @class DefaultAudioScheduler
-     * @brief Standard implementation of AudioScheduler.
-     * 
-     * This implementation processes commands and generates samples in the same
-     * context (either the audio thread or the game loop).
+     * @brief Backend-driven scheduler used on platforms without a dedicated
+     *        audio task.
+     *
+     * Delegates all synthesis to ApuCore; generateSamples() runs in whichever
+     * context the backend invokes it (tests, simulators without a thread,
+     * etc.).
      */
     class DefaultAudioScheduler : public AudioScheduler {
     public:
-        DefaultAudioScheduler();
+        DefaultAudioScheduler() : apu() {
+            // Initialize with default sample rate to ensure ApuCore is properly set up
+            // This prevents issues where init() is never called
+            apu.init(44100);
+        }
 
-        void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override;
+        void init(AudioBackend* backend, int sampleRate,
+                  const pixelroot32::platforms::PlatformCapabilities& caps) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
         bool isIndependent() const override;
         void generateSamples(int16_t* stream, int length) override;
+        bool isMusicPlaying() const override { return apu.isMusicPlaying(); }
+        bool isMusicPaused()  const override { return apu.isMusicPaused(); }
+        ApuCore& getApuCore() override { return apu; }
+
+        /** Exposes the underlying core for tests or higher-level queries. */
+        const ApuCore& core() const { return apu; }
+        ApuCore& core() { return apu; }
 
     private:
-        static constexpr int NUM_CHANNELS = 4;
-        AudioChannel channels[NUM_CHANNELS];
-        AudioCommandQueue commandQueue;
-        
-        int sampleRate = 44100;
-        float masterVolume = 1.0f;
-        int32_t masterVolumeScale = 65536; // Pre-computed for LUT path (Q16 fixed-point)
-        uint64_t audioTimeSamples = 0;
+        ApuCore apu;
         bool running = false;
-
-        // Music Sequencer State (Phase 3)
-        const MusicTrack* currentTrack = nullptr;
-        size_t currentNoteIndex = 0;
-        uint64_t nextNoteSample = 0;
-        float tempoFactor = 1.0f;
-        bool musicPlaying = false;
-        bool musicPaused = false;
-
-        // Sequencer limits to prevent CPU spikes
-        static constexpr int MAX_NOTES_PER_FRAME = 8;
-        uint32_t notesSkipped = 0;
-        uint32_t maxNotesProcessed = 0;
-
-        // Performance metrics (when profiling enabled)
-        uint64_t totalGenerateTimeUs = 0;
-        uint32_t generateSampleCount = 0;
-        uint32_t maxGenerateTimeUs = 0;
-
-        void processCommands();
-        void executePlayEvent(const AudioEvent& event);
-        void updateMusicSequencer(int length);
-        void playCurrentNote();
-        
-        AudioChannel* findFreeChannel(WaveType type);
-        float generateSampleForChannel(AudioChannel& ch);
     };
 
 } // namespace pixelroot32::audio

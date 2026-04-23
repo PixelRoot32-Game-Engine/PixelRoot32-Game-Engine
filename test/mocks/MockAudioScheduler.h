@@ -5,6 +5,7 @@
 #pragma once
 
 #include "audio/AudioScheduler.h"
+#include "audio/ApuCore.h"
 #include <vector>
 
 namespace pixelroot32::audio {
@@ -21,11 +22,18 @@ public:
     bool initialized = false;
     AudioBackend* backend = nullptr;
     int sampleRate = 0;
+    ApuCore apu;
+
+    MockAudioScheduler() : apu() {}
 
     void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override {
         this->backend = backend;
         this->sampleRate = sampleRate;
         this->initialized = true;
+    }
+
+    ApuCore& getApuCore() override {
+        return apu;
     }
 
     void submitCommand(const AudioCommand& cmd) override {

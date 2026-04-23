@@ -1,0 +1,31 @@
+# Music Demo Example
+
+A demonstration of the PixelRoot32 audio engine featuring InstrumentPresets and NES-style melodies.
+
+## Building
+
+```bash
+cd examples/music_demo
+pio run -e native
+```
+
+## Running
+
+```bash
+pio run -e native -t monitor
+```
+
+Or run the compiled executable from `.pio/build/native/program.exe`.
+
+## Features
+
+- **Instrument Preset**: Play each of the 4 available InstrumentPresets:
+  - Pulse Lead
+  - Pulse Bass
+  - Pulse Chip High
+  - Triangle Pad
+  
+- **Melodies**: Play 3 different NES-style melodies:
+  - Arpeggio Master: Fast arpeggios
+  - Bass Groove: Classic 8-bit bass line
+  - Chiptune Lead: Happy melody

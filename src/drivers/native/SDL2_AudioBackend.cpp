@@ -11,6 +11,10 @@
 
 namespace pixelroot32::drivers::native {
 
+    namespace logging = pixelroot32::core::logging;
+    using logging::LogLevel;
+    using logging::log;
+
     // Global wrapper for C-style callback
     static void SDLAudioCallbackWrapper(void* userdata, uint8_t* stream, int len) {
         auto* backend = static_cast<SDL2_AudioBackend*>(userdata);
@@ -32,7 +36,7 @@ namespace pixelroot32::drivers::native {
         this->engineInstance = engine;
 
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-            std::cerr << "SDL Audio initialization failed: " << SDL_GetError() << std::endl;
+            log(LogLevel::Error, "SDL Audio initialization failed: %s\n", SDL_GetError());
             return;
         }
 
@@ -48,9 +52,9 @@ namespace pixelroot32::drivers::native {
         deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0); // 0 = no changes allowed
 
         if (deviceId == 0) {
-            pixelroot32::core::logging::log("Failed to open audio device: %s\n", SDL_GetError());
+            log(LogLevel::Error, "Failed to open audio device: %s\n", SDL_GetError());
         } else {
-            pixelroot32::core::logging::log("Audio device opened: %dHz, %dch\n", have.freq, (int)have.channels);
+            log("Audio device opened: %dHz, %dch\n", have.freq, (int)have.channels);
             // Start playback
             SDL_PauseAudioDevice(deviceId, 0);
         }

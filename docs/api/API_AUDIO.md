@@ -10,7 +10,7 @@ This document covers the audio system, sound effects, and music playback in Pixe
 
 ## Audio Module Overview
 
-The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus a lightweight melody subsystem for background music.
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus a lightweight melody subsystem for background music. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
 
 ---
 
@@ -40,11 +40,17 @@ The core class managing audio generation and playback.
 - **`void setMasterVolume(float volume)`**
     Sets the master volume level (0.0 to 1.0).
 
-- **`void setScheduler(std::shared_ptr<AudioScheduler> scheduler)`**
-    Sets a custom audio scheduler. For advanced use.
+- **`void setScheduler(std::unique_ptr<AudioScheduler> scheduler)`**
+    Replaces the active scheduler (advanced use; ownership transfers to the engine).
 
-- **`void submitCommand(const Command& command)`**
-    Submits a low-level command to the audio thread. For advanced use.
+- **`void submitCommand(const AudioCommand& cmd)`**
+    Submits a low-level command to the audio consumer (`ApuCore` via the active scheduler). Same SPSC contract as `playEvent`.
+
+- **`bool isMusicPlaying() const`**
+    True when the shared `ApuCore` sequencer reports active music transport (after `MUSIC_PLAY`, cleared on `MUSIC_STOP` or natural end of a non-looping track).
+
+- **`bool isMusicPaused() const`**
+    True after `MUSIC_PAUSE` until `MUSIC_RESUME`.
 
 - **`float getMasterVolume() const`**
     Gets the current master volume level.
@@ -72,7 +78,7 @@ audio.playEvent(evt);
 
 - `PULSE`: Square wave with variable duty cycle.
 - `TRIANGLE`: Triangle wave (fixed volume/duty).
-- `NOISE`: Pseudo-random noise.
+- `NOISE`: LFSR-based noise (deterministic, NES-style 15-bit polynomial).
 
 ### AudioEvent (Struct)
 
@@ -83,6 +89,8 @@ Structure defining a sound effect to be played.
 - **`float duration`**: Duration in seconds.
 - **`float volume`**: Volume level (0.0 to 1.0).
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
+- **`uint8_t noisePeriod`**: For `NOISE`, `0` = derive LFSR step period from `frequency`; `> 0` = fixed period in samples (percussion presets).
+- **`const struct InstrumentPreset* preset`**: Optional pointer to instrument preset for ADSR/LFO/waveform parameters. When nullptr, falls back to legacy behavior (2ms attack, no decay, full sustain, 5ms release). Must point to static/constexpr/global instance.
 
 ---
 
@@ -103,9 +111,10 @@ Use `noteToFrequency(Note note, int octave)` to convert a note and octave to Hz.
 Represents a single musical note in a melody.
 
 - **`Note note`**: Musical note (C, D, E, etc. or Rest).
-- **`uint8_t octave`**: Octave index (0–8).
+- **`uint8_t octave`**: Octave index (0–8). For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT.
 - **`float duration`**: Duration in seconds.
 - **`float volume`**: Volume level (0.0 to 1.0).
+- **`const InstrumentPreset* preset`** (optional): Pointer to instrument preset. When set, overrides track defaults for percussion (duty==0).
 
 ### MusicTrack (Struct)
 
@@ -116,27 +125,64 @@ Represents a sequence of notes to be played as a track.
 - **`bool loop`**: If true, the track loops when it reaches the end.
 - **`WaveType channelType`**: Which channel type to use (typically `PULSE`).
 - **`float duty`**: Duty cycle for Pulse tracks.
+- **`const MusicTrack* secondVoice`** (optional): Second melody voice for layered playback.
+- **`const MusicTrack* thirdVoice`** (optional): Third melody voice.
+- **`const MusicTrack* percussion`** (optional): Drum/percussion track.
+
+> **Note:** The multi-track pointers default to `nullptr` for backward compatibility. Maximum 4 simultaneous tracks supported.
+
+### MAX_MUSIC_TRACKS
+
+- **`constexpr size_t MAX_MUSIC_TRACKS = 4`**: Maximum simultaneous tracks (main + 3 sub-tracks).
 
 ### InstrumentPreset (Struct)
 
 Simple preset describing a reusable "instrument":
 
 - **`float baseVolume`**: Default volume for notes.
-- **`float duty`**: Duty cycle suggestion (for Pulse).
-- **`uint8_t defaultOctave`**: Default octave for the instrument.
+- **`float duty`**: Duty cycle suggestion (for Pulse). For percussion (NOISE), use 0.0.
+- **`uint8_t defaultOctave`**: Default octave for the instrument. For percussion: 1=Kick, 2=Snare, 3+=Hi-HAT.
+- **`float defaultDuration`** (optional): Fixed duration for percussion hits. 0.0 = use note.duration, >0 = fixed (percussion)
+- **`uint8_t noisePeriod`** (optional): LFSR period for noise channel. 0 = calc from frequency, >0 = direct period (Kick=25, Snare=50, Hi-HAT=12).
+
+**ADSR Envelope**
+- **`float attackTime`**: Attack time in seconds (0.0 = instant)
+- **`float decayTime`**: Decay time in seconds (0.0 = skip decay, jump to sustain)
+- **`float sustainLevel`**: Sustain level as fraction of peak volume (0.0-1.0)
+- **`float releaseTime`**: Release time in seconds (0.0 = instant off, clamped to 100ms max)
+
+**LFO Modulation**
+- **`LfoTarget lfoTarget`**: Modulation target (NONE, PITCH, or VOLUME)
+- **`float lfoFrequency`**: LFO frequency in Hz (0.0 = disabled)
+- **`float lfoDepth`**: Modulation depth. For PITCH: ratio (e.g. 0.05 for ~0.34 semitones). For VOLUME: fraction (0.0-1.0 for attenuation depth)
+- **`float lfoDelay`**: Delay before LFO starts in seconds
+
+**Waveform Refinements**
+- **`bool noiseShortMode`**: For NOISE channel: true = metallic 93-step LFSR, false = standard 32767-step
+- **`float dutySweep`**: For PULSE channel: duty cycle change per second for PWM-like timbral effects
 
 #### Predefined Presets
 
-- `INSTR_PULSE_LEAD` – main lead pulse in octave 4.
-- `INSTR_PULSE_BASS` – bass pulse in octave 3.
-- `INSTR_PULSE_CHIP_HIGH` – high-pitched chiptune pulse in octave 5.
-- `INSTR_TRIANGLE_PAD` – soft triangle pad in octave 4.
+Melodic instruments:
+- `INSTR_PULSE_LEAD` – main lead pulse in octave 4 (duty 0.5).
+- `INSTR_PULSE_HARMONY` – harmony pulse in octave 5 (duty 0.125).
+- `INSTR_PULSE_PAD` – atmospheric pad pulse in octave 4 (duty 0.25) with slow pitch drift.
+- `INSTR_PULSE_BASS` – punchy bass pulse in octave 2 (duty 0.25).
+- `INSTR_TRIANGLE_LEAD` – smooth triangle lead in octave 5 with gentle vibrato.
+- `INSTR_TRIANGLE_PAD` – soft atmospheric triangle pad in octave 4 with tremolo.
+- `INSTR_TRIANGLE_BASS` – triangle bass in octave 3 (duty 0.5).
+
+Percussion instruments (duty=0, use with WaveType::NOISE):
+- `INSTR_KICK` – kick drum (defaultOctave=1, duration=0.12s, noisePeriod=25).
+- `INSTR_SNARE` – snare drum (defaultOctave=2, duration=0.15s, noisePeriod=50).
+- `INSTR_HIHAT` – hi-hat (defaultOctave=3, duration=0.05s, noisePeriod=12).
 
 #### Helper Functions
 
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration)`**
 - **`MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration)`**
 - **`MusicNote makeRest(float duration)`**
+- **`float instrumentToFrequency(const InstrumentPreset& preset, Note note, uint8_t octave)`** – returns fixed LFSR clock rate for NOISE channel percussion (Kick=80Hz, Snare=150Hz, Hi-HAT=3000Hz). These control noise density/brightness, not musical pitch.
 
 These helpers reduce boilerplate when defining melodies and keep instruments consistent.
 
@@ -146,8 +192,7 @@ These helpers reduce boilerplate when defining melodies and keep instruments con
 
 **Inherits:** None
 
-High-level sequencer for playing `MusicTrack` instances as background music.
-Music timing is handled internally by the `AudioEngine`.
+High-level API for playing `MusicTrack` instances as background music. It only **enqueues** `AudioCommand`s; note advancement and `AudioEvent` triggering run inside **`ApuCore`** on the audio consumer thread/context.
 
 ### Public Methods
 
@@ -167,7 +212,7 @@ Music timing is handled internally by the `AudioEngine`.
     Resumes playback after pause.
 
 - **`bool isPlaying() const`**
-    Returns true if a track is currently playing and not finished.
+    Returns **true** only when music is **actively sequencing** and **not paused** (combines `AudioEngine::isMusicPlaying()` / `isMusicPaused()` with a short “command in flight” window after `play()` so callers do not flicker to false before the audio thread dequeues `MUSIC_PLAY`). While **paused**, returns **false**.
 
 - **`void setTempoFactor(float factor)`**
     Sets the global tempo scaling factor.
@@ -177,6 +222,15 @@ Music timing is handled internally by the `AudioEngine`.
 
 - **`float getTempoFactor() const`**
     Gets the current tempo scaling factor (default 1.0f).
+
+- **`void setBPM(float bpm)`**
+    Sets sequencer BPM (clamped roughly to 30–300); issues `MUSIC_SET_BPM`.
+
+- **`float getBPM() const`**
+    Gets the last BPM sent from the game side (default 150).
+
+- **`size_t getActiveTrackCount() const`**
+    Returns the number of layered tracks (1–4) based on the last `play()` and local `playing` state; returns **0** if not playing.
 
 ### Typical Usage
 
@@ -215,38 +269,29 @@ void MyScene::init() {
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 
-### ESP32 Buffer Configuration
+### ESP32 buffer notes
 
-| Constant | Default | Description |
-|----------|---------|-------------|
-| `ESP32_I2S_BUFFER_SIZE` | 1024 | I2S DMA buffer size in samples (must be power of 2) |
-| `ESP32_DAC_USE_DAC_WRITE` | true | Use dacWrite() for direct register access (faster) |
+I2S backends typically aggregate **1024 samples** per DMA transaction (implementation detail in `ESP32_I2S_AudioBackend`). Internal DAC output uses **I2S in `I2S_MODE_DAC_BUILT_IN`** so samples reach the 8-bit DAC via DMA (not per-sample `dacWrite()`).
 
-### Audio Scheduler Constants
+### Audio / queue constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MAX_NOTES_PER_FRAME` | 8 | Max notes processed per audio quantum to prevent CPU spikes |
-| `AUDIO_COMMAND_QUEUE_SIZE` | 128 | SPSC queue capacity for audio commands |
+| Symbol / concept | Value | Description |
+|------------------|-------|-------------|
+| `AudioCommandQueue::CAPACITY` | 128 | SPSC ring capacity (`AudioCommandQueue.h`) |
+| `ApuCore::MIXER_SCALE` | `0.4f` | Per-channel gain before non-linear mix (FPU path) |
+| `ApuCore::MIXER_K` | `0.5f` | Soft-knee compressor: `mixed = sum / (1 + \|sum\| * K)` |
 
-> **Note:** When the audio clock jumps ahead (e.g., after frame drop), the scheduler may skip notes if `MAX_NOTES_PER_FRAME` is reached. This prevents audio thread starvation but may result in dropped notes during catch-up.
+On **no-FPU** ESP32 (e.g. ESP32-C3), `ApuCore` uses an **integer oscillator mirror** (`phaseQ32`, `phaseIncQ32`, …) plus the precomputed **`audio_mixer_lut`** (`inline constexpr` in `AudioMixerLUT.h`) so the inner loop avoids soft-float.
 
-### Noise Channel Configuration
+### Noise channel (`AudioChannel`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `lfsrState` | `uint16_t` | NES-style 15-bit LFSR state for deterministic noise |
-| `noisePeriodSamples` | `uint32_t` | Sample interval for noise clock (ESP32 only) |
-| `noiseCountdown` | `uint16_t` | Countdown counter for noise timing |
+| `lfsrState` | `uint16_t` | NES-style 15-bit LFSR (same polynomial on all platforms) |
+| `noisePeriodSamples` | `uint32_t` | Samples between LFSR steps |
+| `noiseCountdown` | `uint32_t` | Countdown to next LFSR tick |
 
-> **Note:** The noise channel uses a 15-bit Linear Feedback Shift Register (LFSR) for deterministic, reproducible noise patterns, matching authentic NES behavior. The LFSR advances every output sample in DefaultAudioScheduler, or at the rate specified by `noisePeriodSamples` in ESP32AudioScheduler.
-
-### Volume Constants
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `MASTER_VOLUME_Q16` | Fixed16 | Master volume pre-computed as Q16 fixed-point for faster LUT mixing |
-| `CHANNEL_GAIN` | 0.4f | Per-channel gain applied before mixing |
+Noise is **deterministic** everywhere (including native): no `rand()` in the audio path.
 
 ---
 
@@ -259,7 +304,14 @@ Configuration struct for the audio system.
 
 ---
 
+## Implementation pointer (`ApuCore`)
+
+Synthesis (oscillators, LFSR noise), **non-linear mixing**, optional **HPF** (FPU / native path), **fade-in** on new notes, music sequencing, and the **SPSC command queue** live in **`ApuCore`** (`include/audio/ApuCore.h`, `src/audio/ApuCore.cpp`). `DefaultAudioScheduler`, `ESP32AudioScheduler`, and `NativeAudioScheduler` are thin wrappers that decide **when** `ApuCore::generateSamples` runs.
+
+---
+
 ## Related Documentation
 
 - [API Reference](../API_REFERENCE.md) - Main index
 - [API Core](API_CORE.md) - Engine, Scene
+- [Architecture: Audio subsystem](../architecture/ARCH_AUDIO_SUBSYSTEM.md) - Deep dive

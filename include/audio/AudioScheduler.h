@@ -6,6 +6,7 @@
 
 #include "AudioTypes.h"
 #include "AudioBackend.h"
+#include "ApuCore.h"
 #include "platforms/PlatformCapabilities.h"
 
 namespace pixelroot32::audio {
@@ -55,6 +56,26 @@ namespace pixelroot32::audio {
          * @brief Generates samples. Should be called by the backend or scheduler thread.
          */
         virtual void generateSamples(int16_t* stream, int length) = 0;
+
+        /**
+         * @brief Reports whether a music track is currently being sequenced.
+         *
+         * Implementations back this with the underlying ApuCore atomic flag
+         * so callers (e.g. MusicPlayer) observe the *actual* audio-thread
+         * state, including natural end-of-track for non-looping tracks.
+         * Default returns false so legacy/mock schedulers don't need to opt in.
+         */
+        virtual bool isMusicPlaying() const { return false; }
+
+        /**
+         * @brief Reports whether the music sequencer is paused.
+         */
+        virtual bool isMusicPaused() const { return false; }
+
+        /**
+         * @brief Gets reference to the underlying ApuCore for diagnostics/profiling.
+         */
+        virtual ApuCore& getApuCore() = 0;
     };
 
 } // namespace pixelroot32::audio

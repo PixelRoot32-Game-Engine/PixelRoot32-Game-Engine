@@ -26,21 +26,25 @@ using logging::LogLevel;
 
 #ifdef PIXELROOT32_ENABLE_PROFILING
 // Per-frame block timings inside sendBufferScaled (8bpp→RGB565 + DMA). Scoped vars live in sendBufferScaled().
-#define PR32_SEND_BUF_PROFILE_VARS()                                                               \
-    uint32_t pr32_sendbuf_mark = micros();                                                         \
-    uint32_t const pr32_sendbuf_t0 = pr32_sendbuf_mark;                                            \
-    uint32_t pr32_acc_setup = 0, pr32_acc_scale = 0, pr32_acc_push = 0, pr32_acc_wait = 0,       \
-             pr32_acc_end = 0
+#define PR32_SEND_BUF_PROFILE_VARS()                                   \
+    uint32_t pr32_sendbuf_mark = micros();                             \
+    uint32_t const pr32_sendbuf_t0 = pr32_sendbuf_mark;                \
+    uint32_t pr32_acc_setup = 0, pr32_acc_scale = 0,                   \
+             pr32_acc_push = 0, pr32_acc_wait = 0,                     \
+             pr32_acc_end = 0;
 
-#define PR32_SEND_BUF_PROFILE_ACC(acc_var)                                                         \
-    do {                                                                                           \
-        uint32_t pr32_pf_n = micros();                                                             \
-        acc_var += static_cast<uint32_t>(pr32_pf_n - pr32_sendbuf_mark);                           \
-        pr32_sendbuf_mark = pr32_pf_n;                                                             \
+#define PR32_SEND_BUF_PROFILE_ACC(acc_var)                             \
+    do {                                                               \
+        uint32_t pr32_pf_n = micros();                                 \
+        acc_var += static_cast<uint32_t>(pr32_pf_n - pr32_sendbuf_mark); \
+        pr32_sendbuf_mark = pr32_pf_n;                                 \
     } while (0)
+
 #else
+
 #define PR32_SEND_BUF_PROFILE_VARS() ((void)0)
 #define PR32_SEND_BUF_PROFILE_ACC(acc_var) ((void)0)
+
 #endif
 
 // --------------------------------------------------
