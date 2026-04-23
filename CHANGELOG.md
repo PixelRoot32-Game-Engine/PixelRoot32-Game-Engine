@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.3.0
+
+### 🔊 Audio System Overhaul
+
+- **Multi-Track Music Player**: Added support for up to 4 simultaneous music tracks (main + 3 sub-tracks) with NES-style tick-based synchronization for precise timing control.
+- **ADSR Envelopes & LFO Modulation**: Full ADSR state machine (Attack/Decay/Sustain/Release) and LFO modulation with pitch (vibrato) and volume (tremolo) targets for expressive instrument sounds.
+- **ApuCore Architecture**: Centralized audio synthesis, mixing, and sequencing core for consistent behavior across all platforms (ESP32 and Native).
+- **Optimized Instrument Presets**: Refined default presets with improved sonic character — punchier percussion (kick, snare, hi-hat), more expressive melodic leads, and better mix clarity.
+- **NES-Style Noise**: Support for short-mode LFSR (93-step metallic noise) and duty cycle sweeps on pulse channels for authentic retro sounds.
+
+### ⚡ Performance & Profiling
+
+- **Audio Peak Profiling**: New profiling API to capture audio peak statistics in a ring buffer for real-time diagnostics.
+- **Multi-Producer Command Queue**: Enhanced audio command queue to support multiple producers with improved thread safety.
+- **Sequencer Note Limits**: Added per-frame note limits to prevent CPU spikes during dense musical passages.
+
+### 📚 Documentation
+
+- **Audio API Clarifications**: Updated documentation to clarify that `instrumentToFrequency()` returns LFSR clock rates for the NOISE channel, not musical pitch frequencies.
+
 ## 1.2.2
 
 ### 🔊 Audio
