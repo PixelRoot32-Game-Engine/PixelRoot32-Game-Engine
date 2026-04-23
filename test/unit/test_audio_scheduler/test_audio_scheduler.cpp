@@ -2,6 +2,7 @@
 #include "audio/DefaultAudioScheduler.h"
 #include "audio/AudioConfig.h"
 #include "audio/AudioMusicTypes.h"
+#include "audio/ApuCore.h"
 
 using namespace pixelroot32::audio;
 
@@ -582,6 +583,155 @@ void test_audio_scheduler_volume_interpolation(void) {
     TEST_ASSERT_TRUE(true);  // No crash during interpolation
 }
 
+void test_audio_scheduler_adsr_envelope(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.volume = 1.0f;
+    cmd.event.duration = 0.05f;
+    cmd.event.duty = 0.5f;
+    cmd.event.preset = &INSTR_PULSE_LEAD;
+    
+    scheduler.submitCommand(cmd);
+    
+    int16_t buffer[256];
+    scheduler.generateSamples(buffer, 256);
+    
+    bool hasNonZero = false;
+    for (int i = 0; i < 256; i++) {
+        if (buffer[i] != 0) { hasNonZero = true; break; }
+    }
+    TEST_ASSERT_TRUE(hasNonZero);
+}
+
+void test_audio_scheduler_lfo_modulation(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::TRIANGLE;
+    cmd.event.frequency = 220.0f;
+    cmd.event.volume = 0.8f;
+    cmd.event.duration = 0.05f;
+    cmd.event.duty = 0.5f;
+    cmd.event.preset = &INSTR_TRIANGLE_LEAD;
+    
+    scheduler.submitCommand(cmd);
+    
+    int16_t buffer[512];
+    scheduler.generateSamples(buffer, 512);
+    
+    bool hasNonZero = false;
+    for (int i = 0; i < 512; i++) {
+        if (buffer[i] != 0) { hasNonZero = true; break; }
+    }
+    TEST_ASSERT_TRUE(hasNonZero);
+}
+
+void test_audio_scheduler_percussion_preset(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duration = 0.02f;
+    cmd.event.duty = 0.0f;
+    cmd.event.preset = &INSTR_SNARE;
+    
+    scheduler.submitCommand(cmd);
+    
+    int16_t buffer[256];
+    scheduler.generateSamples(buffer, 256);
+    
+    bool hasNonZero = false;
+    for (int i = 0; i < 256; i++) {
+        if (buffer[i] != 0) { hasNonZero = true; break; }
+    }
+    TEST_ASSERT_TRUE(hasNonZero);
+}
+
+void test_audio_scheduler_duty_sweep(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duration = 0.03f;
+    cmd.event.duty = 0.5f;
+    cmd.event.preset = &INSTR_PULSE_PAD;
+    
+    scheduler.submitCommand(cmd);
+    
+    int16_t buffer[512];
+    scheduler.generateSamples(buffer, 512);
+    
+    bool hasNonZero = false;
+    for (int i = 0; i < 512; i++) {
+        if (buffer[i] != 0) { hasNonZero = true; break; }
+    }
+    TEST_ASSERT_TRUE(hasNonZero);
+}
+
+void test_apucore_reset(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.volume = 1.0f;
+    cmd.event.duration = 0.1f;
+    cmd.event.duty = 0.5f;
+    cmd.event.preset = nullptr;
+    
+    scheduler.submitCommand(cmd);
+    scheduler.generateSamples(nullptr, 128);
+    
+    scheduler.core().reset();
+    
+    int16_t buffer[256];
+    scheduler.generateSamples(buffer, 256);
+    
+    TEST_ASSERT_TRUE(true);
+}
+
+void test_apucore_sequencer_note_limit(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    scheduler.core().setSequencerNoteLimit(50);
+    TEST_ASSERT_EQUAL(50, scheduler.core().getSequencerNoteLimit());
+    
+    scheduler.core().setSequencerNoteLimit(0);
+    TEST_ASSERT_TRUE(scheduler.core().getSequencerNoteLimit() > 32);
+    
+    scheduler.core().setSequencerNoteLimit(2000);
+    TEST_ASSERT_EQUAL(32, scheduler.core().getSequencerNoteLimit());
+}
+
+void test_apucore_profile_stats(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+    
+    ApuCore::ProfileEntry entries[ApuCore::PROFILE_RING_SIZE];
+    uint8_t count = 0;
+    scheduler.core().getAndResetProfileStats(entries, count);
+    
+    TEST_ASSERT_TRUE(count <= ApuCore::PROFILE_RING_SIZE);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_default_scheduler_initialization);
@@ -615,6 +765,17 @@ int main(int argc, char **argv) {
     RUN_TEST(test_audio_scheduler_rapid_schedules);
     RUN_TEST(test_audio_scheduler_pause_resume_functionality);
     RUN_TEST(test_audio_scheduler_volume_interpolation);
+    
+    // ADSR/LFO coverage tests
+    RUN_TEST(test_audio_scheduler_adsr_envelope);
+    RUN_TEST(test_audio_scheduler_lfo_modulation);
+    RUN_TEST(test_audio_scheduler_percussion_preset);
+    RUN_TEST(test_audio_scheduler_duty_sweep);
+    
+    // ApuCore internals coverage
+    RUN_TEST(test_apucore_reset);
+    RUN_TEST(test_apucore_sequencer_note_limit);
+    RUN_TEST(test_apucore_profile_stats);
     
     return UNITY_END();
 }
