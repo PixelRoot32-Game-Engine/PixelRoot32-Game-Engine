@@ -1,6 +1,10 @@
 #include "MusicDemoConstants.h"
 #include "MusicDemoScene.h"
-#include "assets/melodies.h"
+#include "assets/classic_arcade_melody.h"
+#include "assets/adventure_melody.h"
+#include "assets/action_melody.h"
+#include "assets/arpeggio_melody.h"
+
 #include <core/Engine.h>
 #include <cstdio>
 
