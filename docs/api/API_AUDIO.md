@@ -10,7 +10,7 @@ This document covers the audio system, sound effects, and music playback in Pixe
 
 ## Audio Module Overview
 
-The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus optional **SINE** and **SAW** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is enabled, a lightweight melody subsystem for background music, an optional **master bitcrush**, **linear frequency sweep** on pulse/triangle one-shots, a **tick-aligned arpeggiator**, and an optional **post-mix mono hook** on the final buffer. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
+The Audio module provides a NES-like audio system with Pulse, Triangle, Noise, **SINE**, and **SAW**, a lightweight melody subsystem for background music, an optional **master bitcrush**, **linear frequency sweep** on pulse/triangle one-shots, a **tick-aligned arpeggiator**, and an optional **post-mix mono hook** on the final buffer. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
 
 ---
 
@@ -99,8 +99,8 @@ audio.playEvent(sweep);
 - `PULSE`: Square wave with variable duty cycle.
 - `TRIANGLE`: Triangle wave (fixed volume/duty).
 - `NOISE`: LFSR-based noise (deterministic, NES-style 15-bit polynomial).
-- `SINE`: Band-limited sine via LUT (**only** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero). If the flag is `0`, play events requesting `SINE` do not allocate a channel (silent no-op).
-- `SAW`: Sawtooth from a linear phase ramp (**only** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero; same no-op behavior when disabled).
+- `SINE`: Band-limited sine via LUT.
+- `SAW`: Sawtooth from a linear phase ramp.
 
 Melodic `SINE` / `SAW` share the same melodic voice pool as pulse/triangle (channels 0–1); under contention the implementation may **steal** the voice with the shortest remaining note.
 
@@ -115,7 +115,7 @@ Structure defining a sound effect to be played.
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
 - **`uint8_t noisePeriod`**: For `NOISE`, `0` = derive LFSR step period from `frequency`; `> 0` = fixed period in samples (percussion presets).
 - **`const struct InstrumentPreset* preset`**: Optional pointer to instrument preset for ADSR/LFO/waveform parameters. When nullptr, falls back to legacy behavior (2ms attack, no decay, full sustain, 5ms release). Must point to static/constexpr/global instance.
-- **`float sweepEndHz`**, **`float sweepDurationSec`**: Optional linear frequency sweep for **`PULSE`** and **`TRIANGLE`** only (also applies to **`SINE`** / **`SAW`** when extra waves are enabled). Active when `sweepDurationSec > 0` and `sweepEndHz > 0`; starts at `frequency`, moves toward `sweepEndHz`, clamped to the note length. **`NOISE`** ignores these fields.
+- **`float sweepEndHz`**, **`float sweepDurationSec`**: Optional linear frequency sweep for **`PULSE`**, **`TRIANGLE`**, **`SINE`**, and **`SAW`**. Active when `sweepDurationSec > 0` and `sweepEndHz > 0`; starts at `frequency`, moves toward `sweepEndHz`, clamped to the note length. **`NOISE`** ignores these fields.
 
 ## Note (Enum)
 
@@ -146,7 +146,7 @@ Represents a sequence of notes to be played as a track.
 - **`const MusicNote* notes`**: Pointer to an array of notes.
 - **`size_t count`**: Number of notes in the array.
 - **`bool loop`**: If true, the track loops when it reaches the end.
-- **`WaveType channelType`**: Which channel type to use (typically `PULSE`, or `TRIANGLE` / `SINE` / `SAW` when appropriate; **`SINE`** / **`SAW`** require `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`).
+- **`WaveType channelType`**: Which channel type to use (typically `PULSE`, or `TRIANGLE` / `SINE` / `SAW` when appropriate).
 - **`float duty`**: Duty cycle for Pulse tracks.
 - **`const MusicTrack* secondVoice`** (optional): Second melody voice for layered playback.
 - **`const MusicTrack* thirdVoice`** (optional): Third melody voice.
@@ -291,7 +291,6 @@ void MyScene::init() {
 | Flag | Default | Description |
 |------|---------|-------------|
 | `PIXELROOT32_ENABLE_AUDIO` | 1 | Enable/disable entire audio subsystem |
-| `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` | 1 (see `EngineConfig.h`) | When non-zero, enables `WaveType::SINE` and `WaveType::SAW`; when `0`, those events are no-ops (saves flash/CPU on minimal profiles). |
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 

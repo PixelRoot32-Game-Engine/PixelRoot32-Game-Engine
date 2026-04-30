@@ -133,11 +133,7 @@ void MusicDemoScene::setupMelodiesMenu() {
     melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 1", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 2", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 3", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     melody4Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 4 + ARP voice", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody4, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-#else
-    melody4Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 4", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody4, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-#endif
 }
 
 void MusicDemoScene::setupAudioLabMenu() {
@@ -275,7 +271,6 @@ void MusicDemoScene::playSweepDemo() {
 
 void MusicDemoScene::playSineChordDemo() {
     auto& audio = engine.getAudioEngine();
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     const Note chord[] = {Note::C, Note::E, Note::G};
     for (unsigned i = 0; i < 3; i++) {
         AudioEvent ev{};
@@ -286,14 +281,10 @@ void MusicDemoScene::playSineChordDemo() {
         ev.duty = 0.5f;
         audio.playEvent(ev);
     }
-#else
-    playInstrumentSound(pr32::audio::INSTR_PULSE_LEAD);
-#endif
 }
 
 void MusicDemoScene::playSawChordDemo() {
     auto& audio = engine.getAudioEngine();
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     const Note chord[] = {Note::A, Note::Cs, Note::E};
     for (unsigned i = 0; i < 3; i++) {
         AudioEvent ev{};
@@ -304,9 +295,6 @@ void MusicDemoScene::playSawChordDemo() {
         ev.duty = 0.5f;
         audio.playEvent(ev);
     }
-#else
-    playInstrumentSound(pr32::audio::INSTR_PULSE_HARMONY);
-#endif
 }
 
 

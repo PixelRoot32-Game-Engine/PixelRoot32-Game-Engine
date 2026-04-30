@@ -4,7 +4,7 @@
 
 The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with the NES-style audio system and supports tempo control, looping, dynamic music switching, and **multi-track layering** (`secondVoice`, `thirdVoice`, `percussion`) so you can spell out arpeggiated figures with ordinary **`MusicNote`** data.
 
-**Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage. Optional waveforms **`SINE`** and **`SAW`** in `MusicTrack::channelType` require **`PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`** (non-zero); otherwise use `PULSE`, `TRIANGLE`, or `NOISE` only.
+**Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage. `MusicTrack::channelType` supports `PULSE`, `TRIANGLE`, `NOISE`, `SINE`, and `SAW`.
 
 This guide covers everything from basic music playback to advanced patterns like adaptive soundtracks and smooth transitions.
 
@@ -60,7 +60,7 @@ struct MusicTrack {
     const MusicNote* notes;      // Array of notes
     size_t count;                // Number of notes
     bool loop;                   // Whether to loop the track
-    WaveType channelType;        // PULSE, TRIANGLE, NOISE; SINE/SAW if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+    WaveType channelType;        // PULSE, TRIANGLE, NOISE, SINE, SAW
     float duty;                  // Duty cycle for pulse waves (0.0-1.0)
     
     // Multi-track support (optional)
@@ -128,7 +128,7 @@ size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
 
 ## Manual arpeggios (extra voice)
 
-There is **no separate arpeggiator API**. To get a rapid broken-chord line under a lead, add a **`MusicTrack`** hooked via **`secondVoice`** or **`thirdVoice`** whose **`MusicNote`** entries use **short `duration` values** (in **beats**, same grid as the rest of the sequencer). Optionally use **`WaveType::SINE`** / **`SAW`** on that layer when **`PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`** is enabled. See **Melody 4** in `examples/music_demo/src/assets/melodies.h`.
+There is **no separate arpeggiator API**. To get a rapid broken-chord line under a lead, add a **`MusicTrack`** hooked via **`secondVoice`** or **`thirdVoice`** whose **`MusicNote`** entries use **short `duration` values** (in **beats**, same grid as the rest of the sequencer). You can use **`WaveType::SINE`** / **`SAW`** directly on that layer. See **Melody 4** in `examples/music_demo/src/assets/melodies.h`.
 
 ### MusicNote Definition
 

@@ -358,9 +358,6 @@ namespace pixelroot32::audio {
     // Play event (retrigger a voice)
     // ------------------------------------------------------------------
     void ApuCore::executePlayEvent(const AudioEvent& event) {
-#if !PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
-        if (event.type == WaveType::SINE || event.type == WaveType::SAW) return;
-#endif
         AudioChannel* ch = findFreeChannel(event.type);
         if (!ch) return;
 
@@ -437,10 +434,7 @@ namespace pixelroot32::audio {
         ch->sweepSamplesTotal = 0;
         ch->sweepSamplesRemaining = 0;
         if ((event.type == WaveType::PULSE || event.type == WaveType::TRIANGLE
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
-                || event.type == WaveType::SINE || event.type == WaveType::SAW
-#endif
-                )
+                || event.type == WaveType::SINE || event.type == WaveType::SAW)
             && event.sweepDurationSec > 0.0f && event.sweepEndHz > 0.0f && sampleRate > 0) {
             const uint64_t noteLen = ch->remainingSamples;
             if (noteLen > 0) {
@@ -488,12 +482,10 @@ namespace pixelroot32::audio {
             ch->noiseShortMode = (event.preset) ? event.preset->noiseShortMode : false;
             ch->phase = 0.0f;
             ch->phaseIncrement = 0.0f;
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
         } else if (event.type == WaveType::SINE || event.type == WaveType::SAW) {
             ch->dutyCycle = 0.5f;
             ch->dutySweep = 0.0f;
             ch->dutySweepQ32 = 0;
-#endif
         }
     }
 
@@ -507,11 +499,7 @@ namespace pixelroot32::audio {
             return &channels[3];
         }
         // PULSE / SINE / SAW share melodic pool (channels 0–1)
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
         if (type == WaveType::PULSE || type == WaveType::SINE || type == WaveType::SAW) {
-#else
-        if (type == WaveType::PULSE) {
-#endif
             AudioChannel* candidate = nullptr;
             uint64_t minRemaining = UINT64_MAX;
             for (int i = 0; i < 2; ++i) {
@@ -622,7 +610,6 @@ namespace pixelroot32::audio {
                        ? (4.0f * ch.phase - 1.0f)
                        : (3.0f - 4.0f * ch.phase);
                 break;
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
             case WaveType::SINE: {
                 const unsigned i = (unsigned)(ch.phase * 256.0f) & 255u;
                 sample = (float)SINE_LUT_Q15[i] / 32768.0f;
@@ -631,7 +618,6 @@ namespace pixelroot32::audio {
             case WaveType::SAW:
                 sample = 2.0f * ch.phase - 1.0f;
                 break;
-#endif
             case WaveType::NOISE: {
                 // Unified 15-bit NES LFSR shared by all platforms so the
                 // timbre is identical in simulator and hardware.
@@ -793,14 +779,12 @@ namespace pixelroot32::audio {
                     s = generatePulseSampleQ15(ch);
                 } else if (ch.type == WaveType::TRIANGLE) {
                     s = generateTriangleSampleQ15(ch);
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
                 } else if (ch.type == WaveType::SINE) {
                     const unsigned idx = (unsigned)(ch.phaseQ32 >> 24);
                     s = (int32_t)SINE_LUT_Q15[idx & 255u];
                 } else if (ch.type == WaveType::SAW) {
                     const int64_t v = ((int64_t)ch.phaseQ32 << 1) - (1LL << 32);
                     s = (int32_t)(v >> 17);
-#endif
                 } else if (ch.type == WaveType::NOISE) {
                     // Noise requires state update - do it inline
                     if (ch.noiseCountdown > 0u) ch.noiseCountdown--;

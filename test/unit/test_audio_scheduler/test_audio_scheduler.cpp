@@ -907,7 +907,6 @@ void test_master_bitcrush_changes_output(void) {
     TEST_ASSERT_GREATER_THAN(50, diff);
 }
 
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
 void test_saw_wave_differs_from_pulse(void) {
     int16_t sawBuf[512];
     int16_t pulseBuf[512];
@@ -979,7 +978,6 @@ void test_sine_wave_differs_from_triangle(void) {
     }
     TEST_ASSERT_GREATER_THAN(100, diff);
 }
-#endif
 
 void test_master_bitcrush_zero_matches_default_baseline(void) {
     int16_t baseline[512];
@@ -1055,10 +1053,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_sweep_longer_than_note_truncates_to_note_length);
     RUN_TEST(test_sweep_duration_zero_matches_no_sweep);
     RUN_TEST(test_master_bitcrush_changes_output);
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     RUN_TEST(test_saw_wave_differs_from_pulse);
     RUN_TEST(test_sine_wave_differs_from_triangle);
-#endif
     RUN_TEST(test_master_bitcrush_zero_matches_default_baseline);
 
     // Error handling / stress (after stable ApuCore tests; buffer_underrun can fault on Windows+gcov)

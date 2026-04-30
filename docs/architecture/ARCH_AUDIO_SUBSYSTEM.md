@@ -691,7 +691,7 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **Multi-track Music**: Support for up to 4 simultaneous tracks (main + 3 sub-tracks) with independent voices and percussion.
 - **Linear frequency sweep**: optional portamento on `PULSE` / `TRIANGLE` via `AudioEvent::sweepEndHz` and `sweepDurationSec` (sample-accurate linear interpolation; applied before LFO pitch modulation each sample).
 - **Master bitcrush**: optional `AudioEngine::setMasterBitcrush` (0–15) on the final `int16_t` bus.
-- **extra waveforms** (when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero): `WaveType::SINE` (256-point LUT in [`AudioOscLUT.h`](include/audio/AudioOscLUT.h)) and `WaveType::SAW` (linear ramp); both use the **melodic pool** (hardware channels 0–1). `executePlayEvent` sets `AudioChannel::type` per note; linear sweep applies to SINE/SAW as well.
+- **extra waveforms**: `WaveType::SINE` (256-point LUT in [`AudioOscLUT.h`](include/audio/AudioOscLUT.h)) and `WaveType::SAW` (linear ramp); both use the **melodic pool** (hardware channels 0–1). `executePlayEvent` sets `AudioChannel::type` per note; linear sweep applies to SINE/SAW as well.
 - **— post-mix hook**: optional `AudioConfig::postMixMono` / `postMixUser`, applied in `ApuCore::generateSamples` after bitcrush on the full buffer. **RT-safe contract:** no heap allocation, no mutexes, bounded work. `AudioEngine::init` forwards the pointer to `ApuCore::setPostMixMono`.
 
 ### 8.2 Remaining Limitations

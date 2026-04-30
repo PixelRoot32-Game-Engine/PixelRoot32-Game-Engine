@@ -10,14 +10,9 @@ namespace musicdemo {
 
 static constexpr float STEP = 0.125f; // base grid (8th note)
 
-// Lead wave for layered tracks: SAW / SINE when extra waves are compiled in (Phase B demo).
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+// Lead wave for layered tracks.
 static constexpr pr32::audio::WaveType kDemoArcadeLeadWave = pr32::audio::WaveType::SAW;
 static constexpr pr32::audio::WaveType kDemoAdventureLeadWave = pr32::audio::WaveType::SINE;
-#else
-static constexpr pr32::audio::WaveType kDemoArcadeLeadWave = pr32::audio::WaveType::PULSE;
-static constexpr pr32::audio::WaveType kDemoAdventureLeadWave = pr32::audio::WaveType::PULSE;
-#endif
 
 // ========== MELODY 1: CLASSIC ARCADE (Tetris-style) ==========
 // ===================== LEAD =====================
@@ -376,8 +371,7 @@ static const pr32::audio::MusicTrack sActionTrack = {
     &sActionDrums
 };
 
-// ========== MELODY 4: E-minor loop + manual arpeggio (second voice, SINE when extra waves) ==========
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+// ========== MELODY 4: E-minor loop + manual arpeggio (second voice, SINE) ==========
 // ~2 sequencer ticks per step (duration 0.5 beat @ TICKS_PER_BEAT 4).
 static constexpr float ARP_DEMO_STEP_BEATS = 0.5f;
 static const pr32::audio::MusicNote sArpDemoArpVoiceNotes[] = {
@@ -396,7 +390,6 @@ static const pr32::audio::MusicTrack sArpDemoArpVoice = {
     nullptr,
     nullptr,
 };
-#endif
 
 static const pr32::audio::MusicNote sArpDemoLeadNotes[] = {
     pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::E, 5, STEP),
@@ -415,11 +408,7 @@ static const pr32::audio::MusicTrack sArpDemoTrack = {
     true,
     kDemoArcadeLeadWave,
     0.5f,
-#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     &sArpDemoArpVoice,
-#else
-    nullptr,
-#endif
     nullptr,
     nullptr,
 };

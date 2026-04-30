@@ -15,7 +15,7 @@ namespace pixelroot32::audio {
         PULSE,
         TRIANGLE,
         NOISE,
-        /** Band-limited sine via LUT when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`. */
+        /** Band-limited sine via LUT. */
         SINE,
         /** Polyphonic saw from linear phase ramp. */
         SAW
