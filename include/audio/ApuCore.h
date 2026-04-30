@@ -36,7 +36,9 @@ namespace pixelroot32::audio {
      */
     class ApuCore {
     public:
-        static constexpr int NUM_CHANNELS = 4;
+        static constexpr int MAX_VOICES = 8;
+        // Backward-compatible alias used in some tests/diagnostics.
+        static constexpr int NUM_CHANNELS = MAX_VOICES;
         static constexpr size_t MAX_MUSIC_TRACKS = 4;
         static constexpr int TICKS_PER_BEAT = 4;
         static constexpr float DEFAULT_BPM = 150.0f;
@@ -109,11 +111,11 @@ namespace pixelroot32::audio {
         void processCommands();
         void updateMusicSequencer();
         void executePlayEvent(const AudioEvent& event);
-        AudioChannel* findFreeChannel(WaveType type);
-        float generateSampleForChannel(AudioChannel& ch);
+        Voice* findVoiceForEvent(WaveType type);
+        float generateSampleForVoice(Voice& voice);
 
         // -- Channels and I/O ---------------------------------------------
-        AudioChannel channels[NUM_CHANNELS];
+        Voice voices[MAX_VOICES];
         AudioCommandQueue commandQueue;
         std::atomic<uint32_t> droppedCommands{0};
 

@@ -2,9 +2,11 @@
 
 ## Overview
 
-The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with the NES-style audio system and supports tempo control, looping, dynamic music switching, and **multi-track layering** (`secondVoice`, `thirdVoice`, `percussion`) so you can spell out arpeggiated figures with ordinary **`MusicNote`** data.
+The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with the **NES-inspired** audio stack and supports tempo control, looping, dynamic music switching, and **multi-track layering** (`secondVoice`, `thirdVoice`, `percussion`) so you can spell out arpeggiated figures with ordinary **`MusicNote`** data.
 
 **Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage. `MusicTrack::channelType` supports `PULSE`, `TRIANGLE`, `NOISE`, `SINE`, and `SAW`.
+
+**Voice pool vs. sequencer tracks:** `MusicPlayer` can arrange up to **`MAX_MUSIC_TRACKS` (4)** logical layers (main + sub-tracks), but every note still becomes a `PLAY_EVENT` inside **`ApuCore`**, which mixes at most **`ApuCore::MAX_VOICES` (8)** simultaneous **voices**. Dense chords, fast arps, **plus** heavy SFX can exceed eight concurrent notes and trigger **voice stealing** (shortest remaining note is replaced). Author shorter note lengths or fewer simultaneous layers if you need deterministic timbres on hardware.
 
 This guide covers everything from basic music playback to advanced patterns like adaptive soundtracks and smooth transitions.
 
@@ -494,6 +496,7 @@ static const MusicNote DRUM_PATTERN[] = {
 - Keep music tracks reasonably short (under 100 notes)
 - Use looping instead of very long sequences
 - Consider using different wave types for variety vs. complexity
+- Remember the **`ApuCore::MAX_VOICES` (8)** cap: overlapping long notes across **multi-track** layers **and** SFX can cause **voice stealing**; shorten releases or stagger hits if you hear notes cutting off unexpectedly
 
 ### 3. User Experience
 
@@ -708,7 +711,7 @@ private:
 - **MusicPlayer API:** `include/audio/MusicPlayer.h` (`play`, `stop`, tempo/BPM, …)
 - **Audio facade & music transport:** `include/audio/AudioEngine.h` (`isMusicPlaying`, `isMusicPaused`, `setMasterBitcrush`, …)
 - **Engine config & post-mix:** `include/audio/AudioConfig.h`
-- **Shared synthesis & sequencer:** `include/audio/ApuCore.h`
+- **Shared synthesis, voice pool & sequencer:** `include/audio/ApuCore.h` (`MAX_VOICES`, `NUM_CHANNELS` alias)
 - **API reference (sweep, bitcrush, SINE/SAW, hooks):** [API_AUDIO.md](api/API_AUDIO.md)
 - **Examples:** See game samples under `examples/` for real-world usage.
 

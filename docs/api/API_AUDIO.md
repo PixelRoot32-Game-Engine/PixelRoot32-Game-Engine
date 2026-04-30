@@ -10,7 +10,7 @@ This document covers the audio system, sound effects, and music playback in Pixe
 
 ## Audio Module Overview
 
-The Audio module provides a NES-like audio system with Pulse, Triangle, Noise, **SINE**, and **SAW**, a lightweight melody subsystem for background music, an optional **master bitcrush**, **linear frequency sweep** on pulse/triangle one-shots, a **tick-aligned arpeggiator**, and an optional **post-mix mono hook** on the final buffer. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
+The Audio module provides a **NES-inspired** synthesis stack (Pulse, Triangle, Noise, **SINE**, **SAW**) backed by a **dynamic voice pool** inside **`ApuCore`** (default **`MAX_VOICES = 8`**), a lightweight melody subsystem for background music, an optional **master bitcrush**, **linear frequency sweep** on eligible one-shots, a **tick-aligned arpeggiator**, and an optional **post-mix mono hook** on the final buffer. Games still author sounds with **`WaveType`** on **`AudioEvent`** / **`MusicTrack`**; allocation and optional **voice stealing** happen inside `ApuCore`. Synthesis, mixing, and sequencing live in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
 
 ---
 
@@ -35,7 +35,7 @@ The core class managing audio generation and playback.
     Fills the buffer with audio samples.
 
 - **`void playEvent(const AudioEvent& event)`**
-    Plays a one-shot audio event on the first available channel of the requested type.
+    Enqueues a one-shot `PLAY_EVENT`. The audio consumer (`ApuCore`) assigns a **voice** from the pool for the requested **`WaveType`**, preferring an inactive slot that already matches the type; if the pool is full, it may **steal** the active voice with the **shortest remaining note** (`remainingSamples`).
 
 - **`void setMasterVolume(float volume)`**
     Sets the master volume level (0.0 to 1.0).
@@ -102,7 +102,11 @@ audio.playEvent(sweep);
 - `SINE`: Band-limited sine via LUT.
 - `SAW`: Sawtooth from a linear phase ramp.
 
-Melodic `SINE` / `SAW` share the same melodic voice pool as pulse/triangle (channels 0–1); under contention the implementation may **steal** the voice with the shortest remaining note.
+All `WaveType` values (including **`SINE`** / **`SAW`**) share the same **`MAX_VOICES`** pool. Under contention the implementation may **steal** a voice (shortest `remainingSamples`) to make room for a new `PLAY_EVENT`.
+
+### VoiceType (Enum, internal)
+
+Defined in [`AudioTypes.h`](include/audio/AudioTypes.h) for maintainers: `VoiceType` mirrors the synthesis kinds (`PULSE`, `TRIANGLE`, `NOISE`, `SINE`, `SAW`) with **`constexpr`** mappers **`toVoiceType(WaveType)`** / **`toWaveType(VoiceType)`**. Game code does **not** need to use `VoiceType`; it exists to keep `ApuCore` allocation logic explicit while preserving the public **`WaveType`** surface.
 
 ### AudioEvent (Struct)
 
@@ -146,7 +150,7 @@ Represents a sequence of notes to be played as a track.
 - **`const MusicNote* notes`**: Pointer to an array of notes.
 - **`size_t count`**: Number of notes in the array.
 - **`bool loop`**: If true, the track loops when it reaches the end.
-- **`WaveType channelType`**: Which channel type to use (typically `PULSE`, or `TRIANGLE` / `SINE` / `SAW` when appropriate).
+- **`WaveType channelType`**: Which waveform the sequencer should emit for this layer (typically `PULSE`, or `TRIANGLE` / `SINE` / `SAW` when appropriate). This is **not** a fixed hardware channel index; each emitted note still goes through the shared **voice pool** in `ApuCore`.
 - **`float duty`**: Duty cycle for Pulse tracks.
 - **`const MusicTrack* secondVoice`** (optional): Second melody voice for layered playback.
 - **`const MusicTrack* thirdVoice`** (optional): Third melody voice.
@@ -302,13 +306,15 @@ I2S backends typically aggregate **1024 samples** per DMA transaction (implement
 
 | Symbol / concept | Value | Description |
 |------------------|-------|-------------|
+| `ApuCore::MAX_VOICES` | `8` | Synthesis voice pool size (`ApuCore.h`) |
+| `ApuCore::NUM_CHANNELS` | `MAX_VOICES` | Backward-compatible alias (same header) |
 | `AudioCommandQueue::CAPACITY` | 128 | SPSC ring capacity (`AudioCommandQueue.h`) |
-| `ApuCore::MIXER_SCALE` | `0.4f` | Per-channel gain before non-linear mix (FPU path) |
+| `ApuCore::MIXER_SCALE` | `0.4f` | Per-voice gain before non-linear mix (FPU path) |
 | `ApuCore::MIXER_K` | `0.5f` | Soft-knee compressor: `mixed = sum / (1 + \|sum\| * K)` |
 
 On **no-FPU** ESP32 (e.g. ESP32-C3), `ApuCore` uses an **integer oscillator mirror** (`phaseQ32`, `phaseIncQ32`, …) plus the precomputed **`audio_mixer_lut`** (`inline constexpr` in `AudioMixerLUT.h`) so the inner loop avoids soft-float.
 
-### Noise channel (`AudioChannel`)
+### Noise / LFSR state (`AudioChannel` / `Voice`)
 
 | Field | Type | Description |
 |-------|------|-------------|

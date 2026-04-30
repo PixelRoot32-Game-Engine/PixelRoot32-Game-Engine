@@ -21,6 +21,37 @@ namespace pixelroot32::audio {
         SAW
     };
 
+    // Voice abstraction for SNES-like dynamic pool (internal APU use).
+    enum class VoiceType : uint8_t {
+        PULSE,
+        TRIANGLE,
+        NOISE,
+        SINE,
+        SAW
+    };
+
+    constexpr VoiceType toVoiceType(WaveType waveType) {
+        switch (waveType) {
+            case WaveType::PULSE: return VoiceType::PULSE;
+            case WaveType::TRIANGLE: return VoiceType::TRIANGLE;
+            case WaveType::NOISE: return VoiceType::NOISE;
+            case WaveType::SINE: return VoiceType::SINE;
+            case WaveType::SAW: return VoiceType::SAW;
+            default: return VoiceType::PULSE;
+        }
+    }
+
+    constexpr WaveType toWaveType(VoiceType voiceType) {
+        switch (voiceType) {
+            case VoiceType::PULSE: return WaveType::PULSE;
+            case VoiceType::TRIANGLE: return WaveType::TRIANGLE;
+            case VoiceType::NOISE: return WaveType::NOISE;
+            case VoiceType::SINE: return WaveType::SINE;
+            case VoiceType::SAW: return WaveType::SAW;
+            default: return WaveType::PULSE;
+        }
+    }
+
     struct EnvelopeState {
         enum class Stage : uint8_t { ATTACK, DECAY, SUSTAIN, RELEASE, OFF };
         Stage stage = Stage::OFF;
@@ -137,6 +168,7 @@ namespace pixelroot32::audio {
 
         void reset() {
             enabled = false;
+            type = WaveType::PULSE;
             phase = 0.0f;
             phaseQ32 = 0;
             phaseIncQ32 = 0;
@@ -159,6 +191,8 @@ namespace pixelroot32::audio {
             sweepEndIncQ32 = 0;
         }
     };
+
+    using Voice = AudioChannel;
 
     // --- Event Types ---
     

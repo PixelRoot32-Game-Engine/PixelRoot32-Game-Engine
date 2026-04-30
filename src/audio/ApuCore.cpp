@@ -65,13 +65,9 @@ namespace pixelroot32::audio {
     // Construction / lifecycle
     // ------------------------------------------------------------------
     ApuCore::ApuCore() {
-        channels[0].type = WaveType::PULSE;
-        channels[1].type = WaveType::PULSE;
-        channels[2].type = WaveType::TRIANGLE;
-        channels[3].type = WaveType::NOISE;
-
-        for (int i = 0; i < NUM_CHANNELS; ++i) {
-            channels[i].reset();
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            voices[i].reset();
+            voices[i].type = WaveType::PULSE;
         }
     }
 
@@ -83,8 +79,9 @@ namespace pixelroot32::audio {
     }
 
     void ApuCore::reset() {
-        for (int i = 0; i < NUM_CHANNELS; ++i) {
-            channels[i].reset();
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            voices[i].reset();
+            voices[i].type = WaveType::PULSE;
         }
         masterVolume = 1.0f;
         masterVolumeScale = 65536;
@@ -162,8 +159,8 @@ namespace pixelroot32::audio {
                 }
 
                 case AudioCommandType::STOP_CHANNEL:
-                    if (cmd.channelIndex < NUM_CHANNELS) {
-                        channels[cmd.channelIndex].reset();
+                    if (cmd.channelIndex < MAX_VOICES) {
+                        voices[cmd.channelIndex].reset();
                     }
                     break;
 
@@ -358,10 +355,12 @@ namespace pixelroot32::audio {
     // Play event (retrigger a voice)
     // ------------------------------------------------------------------
     void ApuCore::executePlayEvent(const AudioEvent& event) {
-        AudioChannel* ch = findFreeChannel(event.type);
+        Voice* ch = findVoiceForEvent(event.type);
         if (!ch) return;
 
-        ch->type = event.type;
+        const VoiceType voiceType = toVoiceType(event.type);
+        // Compatibility fallback required by migration plan.
+        ch->type = toWaveType(voiceType);
         ch->enabled = true;
         ch->frequency = event.frequency;
         ch->phase = 0.0f;
@@ -489,29 +488,26 @@ namespace pixelroot32::audio {
         }
     }
 
-    AudioChannel* ApuCore::findFreeChannel(WaveType type) {
-        if (type == WaveType::TRIANGLE) {
-            if (channels[2].type != WaveType::TRIANGLE) return nullptr;
-            return &channels[2];
-        }
-        if (type == WaveType::NOISE) {
-            if (channels[3].type != WaveType::NOISE) return nullptr;
-            return &channels[3];
-        }
-        // PULSE / SINE / SAW share melodic pool (channels 0–1)
-        if (type == WaveType::PULSE || type == WaveType::SINE || type == WaveType::SAW) {
-            AudioChannel* candidate = nullptr;
-            uint64_t minRemaining = UINT64_MAX;
-            for (int i = 0; i < 2; ++i) {
-                if (!channels[i].enabled) return &channels[i];
-                if (channels[i].remainingSamples < minRemaining) {
-                    minRemaining = channels[i].remainingSamples;
-                    candidate = &channels[i];
-                }
+    Voice* ApuCore::findVoiceForEvent(WaveType type) {
+        Voice* bestInactive = nullptr;
+        Voice* bestSteal = nullptr;
+        uint64_t minRemaining = UINT64_MAX;
+
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            Voice& voice = voices[i];
+            if (!voice.enabled) {
+                if (voice.type == type) return &voice;
+                if (!bestInactive) bestInactive = &voice;
+                continue;
             }
-            return candidate;
+            if (voice.remainingSamples < minRemaining) {
+                minRemaining = voice.remainingSamples;
+                bestSteal = &voice;
+            }
         }
-        return nullptr;
+
+        if (bestInactive) return bestInactive;
+        return bestSteal;
     }
 
     // ------------------------------------------------------------------
@@ -594,7 +590,7 @@ namespace pixelroot32::audio {
     // ------------------------------------------------------------------
     // Per-channel sample generation
     // ------------------------------------------------------------------
-    float ApuCore::generateSampleForChannel(AudioChannel& ch) {
+    float ApuCore::generateSampleForVoice(Voice& ch) {
         if (!ch.enabled) return 0.0f;
 
         apply_linear_frequency_sweep_float(ch, sampleRate);
@@ -707,9 +703,9 @@ namespace pixelroot32::audio {
         // ---- FPU path (ESP32 classic, ESP32-S3, native) -----------------
         for (int i = 0; i < length; ++i) {
             float acc = 0.0f;
-            for (int c = 0; c < NUM_CHANNELS; ++c) {
-                if (channels[c].enabled) {
-                    acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
+            for (int c = 0; c < MAX_VOICES; ++c) {
+                if (voices[c].enabled) {
+                    acc += generateSampleForVoice(voices[c]) * MIXER_SCALE;
                 }
             }
             acc *= masterVolume;
@@ -741,11 +737,11 @@ namespace pixelroot32::audio {
         // Volume is still stored in float; we convert to Q15 once per
         // block (not per sample) so volume ramps still work but the 22kHz
         // inner loop stays integer-only.
-        int32_t volQ15[NUM_CHANNELS];
-        int32_t envQ15[NUM_CHANNELS];
-        for (int c = 0; c < NUM_CHANNELS; ++c) {
-            volQ15[c] = (int32_t)(channels[c].volume * 32768.0f);
-            envQ15[c] = (int32_t)(channels[c].envelope.currentLevel * 32768.0f);
+        int32_t volQ15[MAX_VOICES];
+        int32_t envQ15[MAX_VOICES];
+        for (int c = 0; c < MAX_VOICES; ++c) {
+            volQ15[c] = (int32_t)(voices[c].volume * 32768.0f);
+            envQ15[c] = (int32_t)(voices[c].envelope.currentLevel * 32768.0f);
         }
 
         // Hoisted wave type dispatch - compute sample once before inner loop
@@ -766,8 +762,8 @@ namespace pixelroot32::audio {
         for (int i = 0; i < length; ++i) {
             int32_t sum = 0;
 
-            for (int c = 0; c < NUM_CHANNELS; ++c) {
-                AudioChannel& ch = channels[c];
+            for (int c = 0; c < MAX_VOICES; ++c) {
+                Voice& ch = voices[c];
                 if (!ch.enabled) continue;
 
                 int32_t s = 0; // Q15 sample in [-32767, +32767]
@@ -895,16 +891,16 @@ namespace pixelroot32::audio {
 
         // Sync per-channel float volume back from Q15 so the next block
         // (and the FPU fallback if ever invoked) sees up-to-date state.
-        for (int c = 0; c < NUM_CHANNELS; ++c) {
-            channels[c].volume = (float)volQ15[c] / 32768.0f;
+        for (int c = 0; c < MAX_VOICES; ++c) {
+            voices[c].volume = (float)volQ15[c] / 32768.0f;
         }
 #else
         // ---- Native / fallback path -------------------------------------
         for (int i = 0; i < length; ++i) {
             float acc = 0.0f;
-            for (int c = 0; c < NUM_CHANNELS; ++c) {
-                if (channels[c].enabled) {
-                    acc += generateSampleForChannel(channels[c]) * MIXER_SCALE;
+            for (int c = 0; c < MAX_VOICES; ++c) {
+                if (voices[c].enabled) {
+                    acc += generateSampleForVoice(voices[c]) * MIXER_SCALE;
                 }
             }
             acc *= masterVolume;
