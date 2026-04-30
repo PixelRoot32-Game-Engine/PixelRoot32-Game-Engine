@@ -1,6 +1,7 @@
 #include "BrickBreakerScene.h"
 #include "GameLayers.h"
 #include "GameConstants.h"
+#include "assets/BrickAudioTracks.h"
 
 #include <platforms/EngineConfig.h>
 #include "core/Engine.h"
@@ -11,39 +12,32 @@ namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
 
+namespace brickaudio = brickbreaker::audio;
+
 namespace brickbreaker {
 
 namespace core = pr32::core;
 namespace gfx = pr32::graphics;
 namespace physics = pr32::physics;
 namespace math = pr32::math;
-namespace audio = pr32::audio;
+namespace prAudio = pr32::audio;
 namespace input = pr32::input;
 
-// Define the Atari-style background music (a simple 4-note loop)
-static const audio::MusicNote ATARI_MELODY[] = {
-    { audio::Note::A, 3, 0.25f, 0.3f },
-    { audio::Note::C, 4, 0.25f, 0.3f },
-    { audio::Note::E, 4, 0.25f, 0.3f },
-    { audio::Note::G, 4, 0.25f, 0.3f }
-};
-
 BrickBreakerScene::BrickBreakerScene() {
-    musicPlayer = std::make_unique<audio::MusicPlayer>(engine.getAudioEngine());
+    musicPlayer = std::make_unique<prAudio::MusicPlayer>(engine.getAudioEngine());
 }
 
 BrickBreakerScene::~BrickBreakerScene() {
 }
 
+void BrickBreakerScene::refreshBgmTempoForLevel() {
+    if (!musicPlayer || !musicPlayer->isPlaying()) return;
+    musicPlayer->setTempoFactor(brickaudio::tempoForLevel(currentLevel));
+}
+
 void BrickBreakerScene::setupMusic() {
-    bgmTrack.notes = ATARI_MELODY;
-    bgmTrack.count = sizeof(ATARI_MELODY) / sizeof(audio::MusicNote);
-    bgmTrack.loop = true;
-    bgmTrack.channelType = audio::WaveType::TRIANGLE; // Triangle wave for a softer Atari feel
-    bgmTrack.duty = 0.5f;
-    
-    musicPlayer->play(bgmTrack);
-    musicPlayer->setTempoFactor(1.2f);
+    musicPlayer->play(brickaudio::BGM_STAGE);
+    musicPlayer->setTempoFactor(brickaudio::tempoForLevel(currentLevel));
 }
 
 void BrickBreakerScene::init() {
@@ -201,6 +195,7 @@ void BrickBreakerScene::loadLevel(int level) {
             }
         }
     }
+    refreshBgmTempoForLevel();
 }
 
 void BrickBreakerScene::resetBall() {

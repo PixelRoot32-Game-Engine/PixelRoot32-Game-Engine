@@ -101,7 +101,7 @@ void BallActor::onCollision(core::Actor* other) {
             int previousHp = brick->hp;
             brick->hit();
 
-            engine.getAudioEngine().playEvent(sfx::BRICK_HIT);
+            engine.getAudioEngine().playEvent(sfx::BRICK_CRACK);
 
             BrickBreakerScene* scene = static_cast<BrickBreakerScene*>(
                 engine.getCurrentScene().value_or(nullptr));

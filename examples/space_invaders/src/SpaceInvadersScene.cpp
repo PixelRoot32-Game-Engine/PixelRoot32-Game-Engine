@@ -105,7 +105,8 @@ SpaceInvadersScene::SpaceInvadersScene()
       fireInputReady(false),
       lastFireTime(0),
       activePlayerBulletCount(0),
-      currentMusicTempoFactor(1.0f) {
+      currentMusicTempoFactor(1.0f),
+      bgmThreatTier(ThreatBgmTier::Slow) {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     background = nullptr;
@@ -136,8 +137,13 @@ void SpaceInvadersScene::init() {
     background_assets::init();
     resetGame();
 
-    engine.getMusicPlayer().play(BGM_SLOW_TRACK);
     currentMusicTempoFactor = 1.0f;
+    restartThreatBgmSlow();
+}
+
+void SpaceInvadersScene::restartThreatBgmSlow() {
+    bgmThreatTier = ThreatBgmTier::Slow;
+    engine.getMusicPlayer().play(BGM_SLOW_TRACK);
     engine.getMusicPlayer().setTempoFactor(currentMusicTempoFactor);
 }
 
@@ -298,9 +304,8 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
     if (gameOver) {
         if (engine.getInputManager().isButtonPressed(BTN_FIRE)) {
             resetGame();
-            engine.getMusicPlayer().play(BGM_SLOW_TRACK);
             currentMusicTempoFactor = 1.0f;
-            engine.getMusicPlayer().setTempoFactor(currentMusicTempoFactor);
+            restartThreatBgmSlow();
         }
         return;
     }
@@ -350,10 +355,13 @@ void SpaceInvadersScene::update(unsigned long deltaTime) {
 
                         audio::AudioEvent event{};
                         event.type = audio::WaveType::PULSE;
-                        event.frequency = 880.0f;
-                        event.duration = 0.08f;
-                        event.volume = 0.4f;
+                        event.frequency = 2000.0f;
+                        event.sweepEndHz = 280.0f;
+                        event.sweepDurationSec = 0.055f;
+                        event.duration = 0.082f;
+                        event.volume = 0.42f;
                         event.duty = 0.5f;
+                        event.preset = &audio::INSTR_PULSE_LEAD;
                         engine.getAudioEngine().playEvent(event);
 
                         lastFireTime = now;
@@ -501,13 +509,24 @@ void SpaceInvadersScene::handleCollisions() {
                     math::Scalar ey = alien->position.y + math::toScalar(alien->height) * math::toScalar(0.5f);
                     spawnEnemyExplosion(ex, ey);
 
-                    audio::AudioEvent event{};
-                    event.type = audio::WaveType::NOISE;
-                    event.frequency = 600.0f;
-                    event.duration = 0.12f;
-                    event.volume = 0.6f;
-                    event.duty = 0.5f;
-                    engine.getAudioEngine().playEvent(event);
+                    audio::AudioEvent chirp{};
+                    chirp.type = audio::WaveType::PULSE;
+                    chirp.frequency = 420.0f;
+                    chirp.sweepEndHz = 140.0f;
+                    chirp.sweepDurationSec = 0.045f;
+                    chirp.duration = 0.05f;
+                    chirp.volume = 0.32f;
+                    chirp.duty = 0.125f;
+                    engine.getAudioEngine().playEvent(chirp);
+
+                    audio::AudioEvent boom{};
+                    boom.type = audio::WaveType::NOISE;
+                    boom.frequency = 620.0f;
+                    boom.duration = 0.095f;
+                    boom.volume = 0.52f;
+                    boom.duty = 0.5f;
+                    boom.preset = &audio::INSTR_SNARE;
+                    engine.getAudioEngine().playEvent(boom);
 
                     activeAlienCount--;
                     if (activeAlienCount == 0) {
@@ -695,6 +714,25 @@ void SpaceInvadersScene::updateMusicTempo() {
     float targetTempo = 1.0f + (threatFactor * 0.9f);
     currentMusicTempoFactor += (targetTempo - currentMusicTempoFactor) * 0.05f;
     engine.getMusicPlayer().setTempoFactor(currentMusicTempoFactor);
+
+    ThreatBgmTier wantTier = ThreatBgmTier::Slow;
+    if (currentMusicTempoFactor >= 1.72f) {
+        wantTier = ThreatBgmTier::Fast;
+    } else if (currentMusicTempoFactor >= 1.34f) {
+        wantTier = ThreatBgmTier::Medium;
+    }
+
+    if (wantTier != bgmThreatTier) {
+        bgmThreatTier = wantTier;
+        if (wantTier == ThreatBgmTier::Slow) {
+            engine.getMusicPlayer().play(BGM_SLOW_TRACK);
+        } else if (wantTier == ThreatBgmTier::Medium) {
+            engine.getMusicPlayer().play(BGM_MEDIUM_TRACK);
+        } else {
+            engine.getMusicPlayer().play(BGM_FAST_TRACK);
+        }
+        engine.getMusicPlayer().setTempoFactor(currentMusicTempoFactor);
+    }
 }
 
 void SpaceInvadersScene::updateEnemyExplosions(unsigned long deltaTime) {
@@ -779,10 +817,11 @@ void SpaceInvadersScene::handlePlayerHit() {
 
     audio::AudioEvent event{};
     event.type = audio::WaveType::NOISE;
-    event.frequency = 400.0f;
-    event.duration = 0.18f;
-    event.volume = 0.7f;
+    event.frequency = 440.0f;
+    event.duration = 0.17f;
+    event.volume = 0.62f;
     event.duty = 0.5f;
+    event.preset = &audio::INSTR_SNARE;
     engine.getAudioEngine().playEvent(event);
 
     if (lives <= 0) {

@@ -2,6 +2,7 @@
 #include "assets/music.h"
 #include "assets/color_palette.h"
 
+#include <audio/AudioMusicTypes.h>
 #include <core/Engine.h>
 #include <input/TouchEventTypes.h>
 #include <math/MathUtil.h>
@@ -37,7 +38,45 @@ static void onResetButtonClickStatic() {
         TicTacToeScene::sResetButtonTarget->resetGame();
     }
 }
-// namespace
+
+static void playPlaceSound(audio::AudioEngine& audioEngine, bool humanMove) {
+    AudioEvent ev{};
+    ev.type = WaveType::PULSE;
+    ev.duration = 0.085f;
+    ev.volume = humanMove ? 0.55f : 0.48f;
+    ev.duty = 0.25f;
+    ev.sweepDurationSec = 0.055f;
+    if (humanMove) {
+        ev.frequency = 1320.0f;
+        ev.sweepEndHz = 360.0f;
+    } else {
+        ev.frequency = 1040.0f;
+        ev.sweepEndHz = 280.0f;
+    }
+    audioEngine.playEvent(ev);
+}
+
+static void playLoseSting(audio::AudioEngine& audioEngine) {
+    AudioEvent ev{};
+    ev.type = WaveType::NOISE;
+    ev.preset = &audio::INSTR_SNARE;
+    ev.frequency = 150.0f;
+    ev.duration = 0.34f;
+    ev.volume = 0.52f;
+    ev.duty = 0.5f;
+    audioEngine.playEvent(ev);
+}
+
+static void playDrawSting(audio::AudioEngine& audioEngine) {
+    AudioEvent ev{};
+    ev.type = WaveType::NOISE;
+    ev.preset = &audio::INSTR_HIHAT;
+    ev.frequency = 1200.0f;
+    ev.duration = 0.12f;
+    ev.volume = 0.26f;
+    ev.duty = 0.5f;
+    audioEngine.playEvent(ev);
+}
 
 void TicTacToeScene::init() {
     gfx::setCustomPalette(CUSTOM_NEON_PALETTE);
@@ -133,6 +172,7 @@ void TicTacToeScene::resetGame() {
     int boardY = (DISPLAY_HEIGHT - boardSize) / 2;  
     boardPosition = pr32::math::Vector2(pr32::math::toScalar(boardX), pr32::math::toScalar(boardY));
 
+    engine.getMusicPlayer().setBPM(128.0f);
     engine.getMusicPlayer().play(BG_MUSIC);
 }
 
@@ -224,13 +264,7 @@ void TicTacToeScene::handleInput() {
 
         if (board[row][col] == Player::None) {
             board[row][col] = humanPlayer;
-            AudioEvent placeEv{};
-            placeEv.type = WaveType::PULSE;
-            placeEv.frequency = 900.0f;
-            placeEv.duration = 0.08f;
-            placeEv.volume = 0.6f;
-            placeEv.duty = 0.5f;
-            audio.playEvent(placeEv);
+            playPlaceSound(audio, true);
             checkWinCondition();
             if (!gameOver) {
                 currentPlayer = aiPlayer;
@@ -250,13 +284,7 @@ void TicTacToeScene::performAIMove() {
         return;
     }
     board[row][col] = aiPlayer;
-    AudioEvent placeEv{};
-    placeEv.type = WaveType::PULSE;
-    placeEv.frequency = 750.0f;
-    placeEv.duration = 0.08f;
-    placeEv.volume = 0.5f;
-    placeEv.duty = 0.5f;
-    audio.playEvent(placeEv);
+    playPlaceSound(audio, false);
     checkWinCondition();
     if (!gameOver) {
         currentPlayer = humanPlayer;
@@ -442,15 +470,10 @@ void TicTacToeScene::checkWinCondition() {
 
         engine.getMusicPlayer().stop();
         if (winner == humanPlayer) {
+            engine.getMusicPlayer().setBPM(132.0f);
             engine.getMusicPlayer().play(WIN_MUSIC);
         } else {
-            AudioEvent loseEv{};
-            loseEv.type = WaveType::NOISE;
-            loseEv.frequency = 600.0f;
-            loseEv.duration = 0.4f;
-            loseEv.volume = 0.7f;
-            loseEv.duty = 0.5f;
-            audio.playEvent(loseEv);
+            playLoseSting(audio);
         }
     } else if (isBoardFull()) {
         auto& audio = engine.getAudioEngine();
@@ -465,13 +488,7 @@ void TicTacToeScene::checkWinCondition() {
 
         engine.getMusicPlayer().stop();
 
-        AudioEvent loseEv{};
-        loseEv.type = WaveType::NOISE;
-        loseEv.frequency = 600.0f;
-        loseEv.duration = 0.4f;
-        loseEv.volume = 0.7f;
-        loseEv.duty = 0.5f;
-        audio.playEvent(loseEv);
+        playDrawSting(audio);
     }
 }
 
@@ -612,13 +629,7 @@ bool TicTacToeScene::placeMark(int row, int col) {
     board[row][col] = humanPlayer;
 
     auto& audio = engine.getAudioEngine();
-    AudioEvent placeEv{};
-    placeEv.type = WaveType::PULSE;
-    placeEv.frequency = 900.0f;
-    placeEv.duration = 0.08f;
-    placeEv.volume = 0.6f;
-    placeEv.duty = 0.5f;
-    audio.playEvent(placeEv);
+    playPlaceSound(audio, true);
 
     checkWinCondition();
     if (!gameOver) {
