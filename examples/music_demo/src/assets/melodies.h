@@ -10,6 +10,15 @@ namespace musicdemo {
 
 static constexpr float STEP = 0.125f; // base grid (8th note)
 
+// Lead wave for layered tracks: SAW / SINE when extra waves are compiled in (Phase B demo).
+#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+static constexpr pr32::audio::WaveType kDemoArcadeLeadWave = pr32::audio::WaveType::SAW;
+static constexpr pr32::audio::WaveType kDemoAdventureLeadWave = pr32::audio::WaveType::SINE;
+#else
+static constexpr pr32::audio::WaveType kDemoArcadeLeadWave = pr32::audio::WaveType::PULSE;
+static constexpr pr32::audio::WaveType kDemoAdventureLeadWave = pr32::audio::WaveType::PULSE;
+#endif
+
 // ========== MELODY 1: CLASSIC ARCADE (Tetris-style) ==========
 // ===================== LEAD =====================
 // Inspired by Tetris Theme (Korobeiniki) - A minor, iconic Russian folk tune
@@ -113,7 +122,7 @@ static const pr32::audio::MusicTrack sClassicArcadeTrack = {
     sClassicArcadeLeadNotes,
     sizeof(sClassicArcadeLeadNotes) / sizeof(pr32::audio::MusicNote),
     true,
-    pr32::audio::WaveType::PULSE,
+    kDemoArcadeLeadWave,
     0.5f,
     &sClassicArcadeBass,
     nullptr,
@@ -227,7 +236,7 @@ static const pr32::audio::MusicTrack sAdventureTrack = {
     sAdventureLeadNotes,
     sizeof(sAdventureLeadNotes) / sizeof(pr32::audio::MusicNote),
     true,
-    pr32::audio::WaveType::PULSE,
+    kDemoAdventureLeadWave,
     0.5f,
     &sAdventureBass,
     nullptr,
@@ -365,6 +374,54 @@ static const pr32::audio::MusicTrack sActionTrack = {
     &sActionBass,
     nullptr,
     &sActionDrums
+};
+
+// ========== MELODY 4: E-minor loop + manual arpeggio (second voice, SINE when extra waves) ==========
+#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+// ~2 sequencer ticks per step (duration 0.5 beat @ TICKS_PER_BEAT 4).
+static constexpr float ARP_DEMO_STEP_BEATS = 0.5f;
+static const pr32::audio::MusicNote sArpDemoArpVoiceNotes[] = {
+    {pr32::audio::Note::E, 3, ARP_DEMO_STEP_BEATS, 0.3f, nullptr},
+    {pr32::audio::Note::G, 3, ARP_DEMO_STEP_BEATS, 0.3f, nullptr},
+    {pr32::audio::Note::B, 3, ARP_DEMO_STEP_BEATS, 0.3f, nullptr},
+    {pr32::audio::Note::E, 4, ARP_DEMO_STEP_BEATS, 0.3f, nullptr},
+};
+static const pr32::audio::MusicTrack sArpDemoArpVoice = {
+    sArpDemoArpVoiceNotes,
+    sizeof(sArpDemoArpVoiceNotes) / sizeof(pr32::audio::MusicNote),
+    true,
+    pr32::audio::WaveType::SINE,
+    0.5f,
+    nullptr,
+    nullptr,
+    nullptr,
+};
+#endif
+
+static const pr32::audio::MusicNote sArpDemoLeadNotes[] = {
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::E, 5, STEP),
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::G, 5, STEP),
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::B, 5, STEP),
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::E, 6, STEP * 2),
+
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::D, 5, STEP),
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::C, 5, STEP),
+    pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::B, 4, STEP * 2),
+};
+
+static const pr32::audio::MusicTrack sArpDemoTrack = {
+    sArpDemoLeadNotes,
+    sizeof(sArpDemoLeadNotes) / sizeof(pr32::audio::MusicNote),
+    true,
+    kDemoArcadeLeadWave,
+    0.5f,
+#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+    &sArpDemoArpVoice,
+#else
+    nullptr,
+#endif
+    nullptr,
+    nullptr,
 };
 
 } // namespace musicdemo

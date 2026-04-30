@@ -33,6 +33,10 @@ namespace pixelroot32::audio {
         void setMasterVolume(float volume);
         float getMasterVolume() const;
 
+        /** 0 = off; 1–15 = master bus bit depth reduction (post-mixer). */
+        void setMasterBitcrush(uint8_t bits);
+        uint8_t getMasterBitcrush() const;
+
         void submitCommand(const AudioCommand& cmd);
 
         /**
@@ -62,6 +66,7 @@ namespace pixelroot32::audio {
         std::unique_ptr<AudioScheduler> scheduler;
         
         float masterVolume = 1.0f; // Cached for getMasterVolume
+        uint8_t masterBitcrushBits = 0;
     };
 
 }

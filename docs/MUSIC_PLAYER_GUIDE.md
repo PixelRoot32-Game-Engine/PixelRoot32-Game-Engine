@@ -2,9 +2,9 @@
 
 ## Overview
 
-The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with NES-style audio system and supports tempo control, looping, and dynamic music switching.
+The `MusicPlayer` class provides a simple yet powerful way to add background music and melodies to your PixelRoot32 games. It integrates seamlessly with the NES-style audio system and supports tempo control, looping, dynamic music switching, and **multi-track layering** (`secondVoice`, `thirdVoice`, `percussion`) so you can spell out arpeggiated figures with ordinary **`MusicNote`** data.
 
-**Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage.
+**Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage. Optional waveforms **`SINE`** and **`SAW`** in `MusicTrack::channelType` require **`PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`** (non-zero); otherwise use `PULSE`, `TRIANGLE`, or `NOISE` only.
 
 This guide covers everything from basic music playback to advanced patterns like adaptive soundtracks and smooth transitions.
 
@@ -17,6 +17,7 @@ This guide covers everything from basic music playback to advanced patterns like
 ```cpp
 #include "audio/MusicPlayer.h"
 #include "audio/AudioMusicTypes.h"
+#include "audio/AudioTypes.h"
 
 using namespace pixelroot32::audio;
 
@@ -59,7 +60,7 @@ struct MusicTrack {
     const MusicNote* notes;      // Array of notes
     size_t count;                // Number of notes
     bool loop;                   // Whether to loop the track
-    WaveType channelType;        // Wave type (PULSE, TRIANGLE, NOISE)
+    WaveType channelType;        // PULSE, TRIANGLE, NOISE; SINE/SAW if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
     float duty;                  // Duty cycle for pulse waves (0.0-1.0)
     
     // Multi-track support (optional)
@@ -122,6 +123,12 @@ size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
 ```
 
 > **Note:** All sub-track pointers default to `nullptr` for backward compatibility with existing single-track code.
+
+---
+
+## Manual arpeggios (extra voice)
+
+There is **no separate arpeggiator API**. To get a rapid broken-chord line under a lead, add a **`MusicTrack`** hooked via **`secondVoice`** or **`thirdVoice`** whose **`MusicNote`** entries use **short `duration` values** (in **beats**, same grid as the rest of the sequencer). Optionally use **`WaveType::SINE`** / **`SAW`** on that layer when **`PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`** is enabled. See **Melody 4** in `examples/music_demo/src/assets/melodies.h`.
 
 ### MusicNote Definition
 
@@ -373,13 +380,14 @@ void GameScene::playAttackSound() {
     // Slight tempo reduction for dramatic effect
     musicPlayer.setTempoFactor(originalTempo * 0.95f);
     
-    // Play attack sound effect
-    engine.getAudioEngine().playEvent({
-        WaveType::NOISE,
-        200.0f,    // Low frequency for impact
-        0.8f,      // High volume
-        0.1f       // Short duration
-    });
+    // Play attack sound effect (AudioEvent: type, frequency, duration, volume, duty, ...)
+    AudioEvent hit{};
+    hit.type = WaveType::NOISE;
+    hit.frequency = 200.0f;   // noise clock / density
+    hit.duration = 0.1f;
+    hit.volume = 0.8f;
+    hit.duty = 0.5f;
+    engine.getAudioEngine().playEvent(hit);
     
     // Restore tempo after delay
     delay(100);
@@ -438,10 +446,10 @@ static const MusicNote BLUES_PROGRESSION[] = {
 };
 ```
 
-### Arpeggio Pattern
+### Broken chord / arpeggiated bass (manual)
 
 ```cpp
-static const MusicNote ARPEGGIO[] = {
+static const MusicNote ARPEGGIATED_BASS[] = {
     makeNote(INSTR_TRIANGLE_BASS, Note::C, 4, 0.25f),
     makeNote(INSTR_TRIANGLE_BASS, Note::E, 4, 0.25f),
     makeNote(INSTR_TRIANGLE_BASS, Note::G, 4, 0.25f),
@@ -522,6 +530,14 @@ For raw transport without the MusicPlayer wrapper, call `engine.getAudioEngine()
 
 Besides `setTempoFactor` / `getTempoFactor`, you can drive absolute tempo with **`setBPM`** / **`getBPM`** (default 150 BPM, 4 ticks per beat in the sequencer).
 
+### Master bitcrush and post-mix hook
+
+For global lo-fi degradation or analysis, use **`AudioEngine::setMasterBitcrush`** / **`getMasterBitcrush`** (0–15; 0 = off). For custom processing on the final mono buffer (after bitcrush), configure **`AudioConfig::postMixMono`** / **`postMixUser`** when constructing the engine—see [API_AUDIO.md](api/API_AUDIO.md).
+
+### Related API (sweeps and extra waves)
+
+One-shot **frequency sweeps** on `AudioEvent` (`sweepEndHz`, `sweepDurationSec`) apply to **`PULSE`** and **`TRIANGLE`** (and to **`SINE`** / **`SAW`** when extra waves are enabled). **`NOISE`** ignores sweep fields. Full detail: [API_AUDIO.md](api/API_AUDIO.md).
+
 ---
 
 ## Troubleshooting
@@ -579,6 +595,7 @@ Serial.println(sizeof(MY_TRACK) / sizeof(MusicNote));
 ```cpp
 #include "audio/MusicPlayer.h"
 #include "audio/AudioMusicTypes.h"
+#include "audio/AudioTypes.h"
 
 using namespace pixelroot32::audio;
 
@@ -687,9 +704,12 @@ private:
 ## References
 
 - **Audio types & presets:** `include/audio/AudioMusicTypes.h`
-- **MusicPlayer API:** `include/audio/MusicPlayer.h`
-- **Audio facade & music transport:** `include/audio/AudioEngine.h` (`isMusicPlaying` / `isMusicPaused`)
+- **Wave types, `AudioEvent`, `AudioCommand`:** `include/audio/AudioTypes.h`
+- **MusicPlayer API:** `include/audio/MusicPlayer.h` (`play`, `stop`, tempo/BPM, …)
+- **Audio facade & music transport:** `include/audio/AudioEngine.h` (`isMusicPlaying`, `isMusicPaused`, `setMasterBitcrush`, …)
+- **Engine config & post-mix:** `include/audio/AudioConfig.h`
 - **Shared synthesis & sequencer:** `include/audio/ApuCore.h`
+- **API reference (sweep, bitcrush, SINE/SAW, hooks):** [API_AUDIO.md](api/API_AUDIO.md)
 - **Examples:** See game samples under `examples/` for real-world usage.
 
 ---

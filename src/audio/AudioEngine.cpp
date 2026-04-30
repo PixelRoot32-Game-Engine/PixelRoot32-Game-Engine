@@ -30,6 +30,7 @@ namespace pixelroot32::audio {
     void AudioEngine::init() {
         if (scheduler) {
             scheduler->init(config.backend, config.sampleRate, capabilities);
+            scheduler->getApuCore().setPostMixMono(config.postMixMono, config.postMixUser);
             scheduler->start();
         }
         if (config.backend) {
@@ -62,6 +63,19 @@ namespace pixelroot32::audio {
 
     float AudioEngine::getMasterVolume() const {
         return masterVolume;
+    }
+
+    void AudioEngine::setMasterBitcrush(uint8_t bits) {
+        if (bits > 15u) bits = 15u;
+        masterBitcrushBits = bits;
+        AudioCommand cmd;
+        cmd.type = AudioCommandType::SET_MASTER_BITCRUSH;
+        cmd.masterBitcrushBits = bits;
+        submitCommand(cmd);
+    }
+
+    uint8_t AudioEngine::getMasterBitcrush() const {
+        return masterBitcrushBits;
     }
 
     void AudioEngine::submitCommand(const AudioCommand& cmd) {

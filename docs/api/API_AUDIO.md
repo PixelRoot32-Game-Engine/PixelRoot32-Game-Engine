@@ -10,7 +10,7 @@ This document covers the audio system, sound effects, and music playback in Pixe
 
 ## Audio Module Overview
 
-The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus a lightweight melody subsystem for background music. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
+The Audio module provides a NES-like audio system with Pulse, Triangle, and Noise channels, plus optional **SINE** and **SAW** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is enabled, a lightweight melody subsystem for background music, an optional **master bitcrush**, **linear frequency sweep** on pulse/triangle one-shots, a **tick-aligned arpeggiator**, and an optional **post-mix mono hook** on the final buffer. Synthesis, mixing, and sequencing are implemented once in **`ApuCore`**; `AudioEngine` and the platform schedulers are thin facades.
 
 ---
 
@@ -55,6 +55,12 @@ The core class managing audio generation and playback.
 - **`float getMasterVolume() const`**
     Gets the current master volume level.
 
+- **`void setMasterBitcrush(uint8_t bits)`**
+    Sets global bit depth reduction on the final mono bus after the non-linear mixer (and HPF where applicable). **`0`** = off (default). **`1`–`15`** = reduce effective bit depth; values are clamped internally.
+
+- **`uint8_t getMasterBitcrush() const`**
+    Returns the current master bitcrush setting (0–15).
+
 ### Typical Usage
 
 ```cpp
@@ -70,6 +76,20 @@ evt.duty = 0.5f;
 audio.playEvent(evt);
 ```
 
+Sweep example (pulse or triangle only; ignored for `NOISE`):
+
+```cpp
+AudioEvent sweep{};
+sweep.type = WaveType::PULSE;
+sweep.frequency = 2000.0f;       // start Hz
+sweep.sweepEndHz = 400.0f;       // end Hz
+sweep.sweepDurationSec = 0.15f;  // active when both this and sweepEndHz > 0
+sweep.duration = 0.25f;
+sweep.volume = 0.7f;
+sweep.duty = 0.5f;
+audio.playEvent(sweep);
+```
+
 ---
 
 ## Data Structures
@@ -79,6 +99,10 @@ audio.playEvent(evt);
 - `PULSE`: Square wave with variable duty cycle.
 - `TRIANGLE`: Triangle wave (fixed volume/duty).
 - `NOISE`: LFSR-based noise (deterministic, NES-style 15-bit polynomial).
+- `SINE`: Band-limited sine via LUT (**only** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero). If the flag is `0`, play events requesting `SINE` do not allocate a channel (silent no-op).
+- `SAW`: Sawtooth from a linear phase ramp (**only** when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero; same no-op behavior when disabled).
+
+Melodic `SINE` / `SAW` share the same melodic voice pool as pulse/triangle (channels 0–1); under contention the implementation may **steal** the voice with the shortest remaining note.
 
 ### AudioEvent (Struct)
 
@@ -91,8 +115,7 @@ Structure defining a sound effect to be played.
 - **`float duty`**: Duty cycle for Pulse waves (0.0 to 1.0, typically 0.125, 0.25, 0.5, 0.75).
 - **`uint8_t noisePeriod`**: For `NOISE`, `0` = derive LFSR step period from `frequency`; `> 0` = fixed period in samples (percussion presets).
 - **`const struct InstrumentPreset* preset`**: Optional pointer to instrument preset for ADSR/LFO/waveform parameters. When nullptr, falls back to legacy behavior (2ms attack, no decay, full sustain, 5ms release). Must point to static/constexpr/global instance.
-
----
+- **`float sweepEndHz`**, **`float sweepDurationSec`**: Optional linear frequency sweep for **`PULSE`** and **`TRIANGLE`** only (also applies to **`SINE`** / **`SAW`** when extra waves are enabled). Active when `sweepDurationSec > 0` and `sweepEndHz > 0`; starts at `frequency`, moves toward `sweepEndHz`, clamped to the note length. **`NOISE`** ignores these fields.
 
 ## Note (Enum)
 
@@ -123,11 +146,13 @@ Represents a sequence of notes to be played as a track.
 - **`const MusicNote* notes`**: Pointer to an array of notes.
 - **`size_t count`**: Number of notes in the array.
 - **`bool loop`**: If true, the track loops when it reaches the end.
-- **`WaveType channelType`**: Which channel type to use (typically `PULSE`).
+- **`WaveType channelType`**: Which channel type to use (typically `PULSE`, or `TRIANGLE` / `SINE` / `SAW` when appropriate; **`SINE`** / **`SAW`** require `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`).
 - **`float duty`**: Duty cycle for Pulse tracks.
 - **`const MusicTrack* secondVoice`** (optional): Second melody voice for layered playback.
 - **`const MusicTrack* thirdVoice`** (optional): Third melody voice.
 - **`const MusicTrack* percussion`** (optional): Drum/percussion track.
+
+Fast repeated-note (“arpeggiated”) figures are authored as **`MusicNote`** sequences—typically on **`secondVoice`** / **`thirdVoice`** with short durations—rather than a separate engine subsystem.
 
 > **Note:** The multi-track pointers default to `nullptr` for backward compatibility. Maximum 4 simultaneous tracks supported.
 
@@ -266,6 +291,7 @@ void MyScene::init() {
 | Flag | Default | Description |
 |------|---------|-------------|
 | `PIXELROOT32_ENABLE_AUDIO` | 1 | Enable/disable entire audio subsystem |
+| `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` | 1 (see `EngineConfig.h`) | When non-zero, enables `WaveType::SINE` and `WaveType::SAW`; when `0`, those events are no-ops (saves flash/CPU on minimal profiles). |
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 
@@ -301,12 +327,20 @@ Configuration struct for the audio system.
 
 - **`AudioBackend* backend`**: Pointer to the platform-specific audio backend (e.g., SDL2, I2S).
 - **`int sampleRate`**: Audio sample rate in Hz (default: 22050).
+- **`PostMixMonoFn postMixMono`**: Optional **`void (*)(int16_t* mono, int length, void* user)`** invoked on the **final** mono `int16_t` buffer **after** master bitcrush. Must be real-time safe (no allocations, locks, or heavy work). `nullptr` = default path (no callback).
+- **`void* postMixUser`**: User pointer passed as the third argument to `postMixMono`.
+
+---
+
+## AudioCommand overview
+
+Low-level control uses **`AudioCommand`** / **`AudioCommandType`** (`include/audio/AudioTypes.h`): `PLAY_EVENT`, `STOP_CHANNEL`, `SET_MASTER_VOLUME`, **`SET_MASTER_BITCRUSH`**, `MUSIC_*`. `AudioEngine::submitCommand` and `playEvent` enqueue into the same SPSC queue consumed by **`ApuCore`**.
 
 ---
 
 ## Implementation pointer (`ApuCore`)
 
-Synthesis (oscillators, LFSR noise), **non-linear mixing**, optional **HPF** (FPU / native path), **fade-in** on new notes, music sequencing, and the **SPSC command queue** live in **`ApuCore`** (`include/audio/ApuCore.h`, `src/audio/ApuCore.cpp`). `DefaultAudioScheduler`, `ESP32AudioScheduler`, and `NativeAudioScheduler` are thin wrappers that decide **when** `ApuCore::generateSamples` runs.
+Synthesis (oscillators, LFSR noise, optional SINE LUT / SAW ramp), **non-linear mixing**, optional **HPF** (FPU / native path), optional **master bitcrush**, optional **post-mix hook**, **fade-in** on new notes, music sequencing, **arpeggiator**, frequency sweep on eligible waves, and the **SPSC command queue** live in **`ApuCore`** (`include/audio/ApuCore.h`, `src/audio/ApuCore.cpp`). `DefaultAudioScheduler`, `ESP32AudioScheduler`, and `NativeAudioScheduler` are thin wrappers that decide **when** `ApuCore::generateSamples` runs.
 
 ---
 

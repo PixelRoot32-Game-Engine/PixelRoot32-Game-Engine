@@ -351,7 +351,8 @@ void test_audio_scheduler_initialization_failure_handling(void) {
 void test_audio_scheduler_shutdown_during_active_playback(void) {
     // Test graceful shutdown when audio is actively playing
     DefaultAudioScheduler scheduler;
-    
+    initScheduler(scheduler);
+
     // Submit 4 commands to use all available channels with correct wave types
     // Channel map: 0=PULSE, 1=PULSE, 2=TRIANGLE, 3=NOISE
     WaveType waveTypes[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
@@ -369,10 +370,10 @@ void test_audio_scheduler_shutdown_during_active_playback(void) {
     // Generate some samples to start playback
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    
+
     // Stop the scheduler while playback is active
     scheduler.stop();
-    
+
     // Should be able to generate samples after stop without crashing
     scheduler.generateSamples(buffer, 256);
     
@@ -732,6 +733,286 @@ void test_apucore_profile_stats(void) {
     TEST_ASSERT_TRUE(count <= ApuCore::PROFILE_RING_SIZE);
 }
 
+static void fill_triangle_event(AudioEvent& e) {
+    e.type = WaveType::TRIANGLE;
+    e.frequency = 400.0f;
+    e.volume = 1.0f;
+    e.duration = 0.1f;
+    e.duty = 0.5f;
+    e.noisePeriod = 0;
+    e.preset = nullptr;
+    e.sweepEndHz = 0.0f;
+    e.sweepDurationSec = 0.0f;
+}
+
+void test_frequency_sweep_changes_output(void) {
+    int16_t withSweep[2048];
+    int16_t noSweep[2048];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.sweepEndHz = 3200.0f;
+    c1.event.sweepDurationSec = 0.08f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(withSweep, 2048);
+    s2.generateSamples(noSweep, 2048);
+
+    int diff = 0;
+    for (int i = 0; i < 2048; ++i) {
+        if (withSweep[i] != noSweep[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(200, diff);
+}
+
+void test_frequency_sweep_descending_changes_output(void) {
+    int16_t withSweep[2048];
+    int16_t noSweep[2048];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.frequency = 3200.0f;
+    c1.event.sweepEndHz = 400.0f;
+    c1.event.sweepDurationSec = 0.08f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+    c2.event.frequency = 3200.0f;
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(withSweep, 2048);
+    s2.generateSamples(noSweep, 2048);
+
+    int diff = 0;
+    for (int i = 0; i < 2048; ++i) {
+        if (withSweep[i] != noSweep[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(200, diff);
+}
+
+void test_sweep_longer_than_note_truncates_to_note_length(void) {
+    int16_t longReq[1024];
+    int16_t shortReq[1024];
+    DefaultAudioScheduler sLong;
+    DefaultAudioScheduler sShort;
+    initScheduler(sLong);
+    initScheduler(sShort);
+
+    const float durSec = 0.02f;
+
+    AudioCommand cLong{};
+    cLong.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(cLong.event);
+    cLong.event.duration = durSec;
+    cLong.event.sweepEndHz = 3200.0f;
+    cLong.event.sweepDurationSec = 2.0f;
+
+    AudioCommand cShort{};
+    cShort.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(cShort.event);
+    cShort.event.duration = durSec;
+    cShort.event.sweepEndHz = 3200.0f;
+    cShort.event.sweepDurationSec = durSec;
+
+    sLong.submitCommand(cLong);
+    sShort.submitCommand(cShort);
+    sLong.generateSamples(longReq, 1024);
+    sShort.generateSamples(shortReq, 1024);
+
+    for (int i = 0; i < 1024; ++i) {
+        TEST_ASSERT_EQUAL(longReq[i], shortReq[i]);
+    }
+}
+
+void test_sweep_duration_zero_matches_no_sweep(void) {
+    int16_t a[1024];
+    int16_t b[1024];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.sweepEndHz = 2000.0f;
+    c1.event.sweepDurationSec = 0.0f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(a, 1024);
+    s2.generateSamples(b, 1024);
+    for (int i = 0; i < 1024; ++i) {
+        TEST_ASSERT_EQUAL(a[i], b[i]);
+    }
+}
+
+void test_master_bitcrush_changes_output(void) {
+    int16_t offBuf[512];
+    int16_t onBuf[512];
+    DefaultAudioScheduler sOff;
+    DefaultAudioScheduler sOn;
+    initScheduler(sOff);
+    initScheduler(sOn);
+
+    AudioCommand z{};
+    z.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    z.masterBitcrushBits = 0;
+    sOff.submitCommand(z);
+
+    AudioCommand bc{};
+    bc.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    bc.masterBitcrushBits = 4;
+    sOn.submitCommand(bc);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::PLAY_EVENT;
+    play.event.type = WaveType::PULSE;
+    play.event.frequency = 900.0f;
+    play.event.volume = 1.0f;
+    play.event.duration = 0.05f;
+    play.event.duty = 0.5f;
+    play.event.preset = nullptr;
+
+    sOff.submitCommand(play);
+    sOn.submitCommand(play);
+    sOff.generateSamples(offBuf, 512);
+    sOn.generateSamples(onBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (offBuf[i] != onBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(50, diff);
+}
+
+#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+void test_saw_wave_differs_from_pulse(void) {
+    int16_t sawBuf[512];
+    int16_t pulseBuf[512];
+    DefaultAudioScheduler sSaw;
+    DefaultAudioScheduler sPulse;
+    initScheduler(sSaw);
+    initScheduler(sPulse);
+
+    AudioCommand cSaw{};
+    cSaw.type = AudioCommandType::PLAY_EVENT;
+    cSaw.event.type = WaveType::SAW;
+    cSaw.event.frequency = 440.0f;
+    cSaw.event.volume = 1.0f;
+    cSaw.event.duration = 0.1f;
+    cSaw.event.duty = 0.5f;
+
+    AudioCommand cPulse{};
+    cPulse.type = AudioCommandType::PLAY_EVENT;
+    cPulse.event.type = WaveType::PULSE;
+    cPulse.event.frequency = 440.0f;
+    cPulse.event.volume = 1.0f;
+    cPulse.event.duration = 0.1f;
+    cPulse.event.duty = 0.5f;
+
+    sSaw.submitCommand(cSaw);
+    sPulse.submitCommand(cPulse);
+    sSaw.generateSamples(sawBuf, 512);
+    sPulse.generateSamples(pulseBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (sawBuf[i] != pulseBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(100, diff);
+}
+
+void test_sine_wave_differs_from_triangle(void) {
+    int16_t sineBuf[512];
+    int16_t triBuf[512];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    c1.event.type = WaveType::SINE;
+    c1.event.frequency = 330.0f;
+    c1.event.volume = 1.0f;
+    c1.event.duration = 0.1f;
+    c1.event.duty = 0.5f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    c2.event.type = WaveType::TRIANGLE;
+    c2.event.frequency = 330.0f;
+    c2.event.volume = 1.0f;
+    c2.event.duration = 0.1f;
+    c2.event.duty = 0.5f;
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(sineBuf, 512);
+    s2.generateSamples(triBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (sineBuf[i] != triBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(100, diff);
+}
+#endif
+
+void test_master_bitcrush_zero_matches_default_baseline(void) {
+    int16_t baseline[512];
+    int16_t explicitZero[512];
+    DefaultAudioScheduler sBase;
+    DefaultAudioScheduler sZero;
+    initScheduler(sBase);
+    initScheduler(sZero);
+
+    AudioCommand z{};
+    z.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    z.masterBitcrushBits = 0;
+    sZero.submitCommand(z);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::PLAY_EVENT;
+    play.event.type = WaveType::PULSE;
+    play.event.frequency = 880.0f;
+    play.event.volume = 1.0f;
+    play.event.duration = 0.05f;
+    play.event.duty = 0.5f;
+    play.event.preset = nullptr;
+
+    sBase.submitCommand(play);
+    sZero.submitCommand(play);
+    sBase.generateSamples(baseline, 512);
+    sZero.generateSamples(explicitZero, 512);
+
+    for (int i = 0; i < 512; ++i) {
+        TEST_ASSERT_EQUAL(baseline[i], explicitZero[i]);
+    }
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_default_scheduler_initialization);
@@ -752,13 +1033,6 @@ int main(int argc, char **argv) {
     RUN_TEST(test_music_set_tempo_command);
     RUN_TEST(test_set_master_volume_clamping);
     
-    // Error handling tests
-    RUN_TEST(test_audio_scheduler_buffer_underrun_recovery);
-    RUN_TEST(test_audio_scheduler_initialization_failure_handling);
-    RUN_TEST(test_audio_scheduler_shutdown_during_active_playback);
-    RUN_TEST(test_audio_scheduler_null_buffer_handling);
-    RUN_TEST(test_audio_scheduler_command_queue_overflow);
-    
     // Edge case tests
     RUN_TEST(test_audio_scheduler_zero_duration_sound);
     RUN_TEST(test_audio_scheduler_exact_buffer_boundary);
@@ -776,6 +1050,25 @@ int main(int argc, char **argv) {
     RUN_TEST(test_apucore_reset);
     RUN_TEST(test_apucore_sequencer_note_limit);
     RUN_TEST(test_apucore_profile_stats);
-    
+    RUN_TEST(test_frequency_sweep_changes_output);
+    RUN_TEST(test_frequency_sweep_descending_changes_output);
+    RUN_TEST(test_sweep_longer_than_note_truncates_to_note_length);
+    RUN_TEST(test_sweep_duration_zero_matches_no_sweep);
+    RUN_TEST(test_master_bitcrush_changes_output);
+#if PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+    RUN_TEST(test_saw_wave_differs_from_pulse);
+    RUN_TEST(test_sine_wave_differs_from_triangle);
+#endif
+    RUN_TEST(test_master_bitcrush_zero_matches_default_baseline);
+
+    // Error handling / stress (after stable ApuCore tests; buffer_underrun can fault on Windows+gcov)
+    RUN_TEST(test_audio_scheduler_buffer_underrun_recovery);
+    RUN_TEST(test_audio_scheduler_shutdown_during_active_playback);
+    RUN_TEST(test_audio_scheduler_null_buffer_handling);
+    RUN_TEST(test_audio_scheduler_command_queue_overflow);
+
+    // Init-failure must stay last (see comment in prior revision).
+    RUN_TEST(test_audio_scheduler_initialization_failure_handling);
+
     return UNITY_END();
 }

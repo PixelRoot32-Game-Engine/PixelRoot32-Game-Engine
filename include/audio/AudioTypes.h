@@ -11,10 +11,14 @@ namespace pixelroot32::audio {
 
     // --- Channel Types ---
 
-    enum class WaveType {
+    enum class WaveType : uint8_t {
         PULSE,
         TRIANGLE,
-        NOISE
+        NOISE,
+        /** Band-limited sine via LUT when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`. */
+        SINE,
+        /** Polyphonic saw from linear phase ramp. */
+        SAW
     };
 
     struct EnvelopeState {
@@ -123,6 +127,14 @@ namespace pixelroot32::audio {
         // Duration control (sample-accurate timing)
         uint64_t remainingSamples = 0;
 
+        // Optional linear frequency sweep (PULSE / TRIANGLE only; see AudioEvent::sweep*)
+        uint32_t sweepSamplesTotal = 0;
+        uint32_t sweepSamplesRemaining = 0;
+        float sweepStartHz = 0.0f;
+        float sweepEndHz = 0.0f;
+        uint32_t sweepStartIncQ32 = 0;
+        uint32_t sweepEndIncQ32 = 0;
+
         void reset() {
             enabled = false;
             phase = 0.0f;
@@ -139,6 +151,12 @@ namespace pixelroot32::audio {
             noiseShortMode = false;
             noisePeriodSamples = 1;
             noiseCountdown = 0;
+            sweepSamplesTotal = 0;
+            sweepSamplesRemaining = 0;
+            sweepStartHz = 0.0f;
+            sweepEndHz = 0.0f;
+            sweepStartIncQ32 = 0;
+            sweepEndIncQ32 = 0;
         }
     };
 
@@ -162,20 +180,31 @@ namespace pixelroot32::audio {
          * If nullptr, falls back to legacy default behavior.
          */
         const struct InstrumentPreset* preset = nullptr;
+
+        /**
+         * Optional linear frequency sweep (PULSE / TRIANGLE only).
+         * Active iff sweepDurationSec > 0 and sweepEndHz > 0.
+         * Starts at `frequency`, ends at `sweepEndHz`, over at most sweepDurationSec
+         * (clamped to note length before release).
+         * API decision: ADR-A1 in docs/architecture/AUDIO_ROADMAP_SHORT_MEDIUM.md §A.7.
+         */
+        float sweepEndHz = 0.0f;
+        float sweepDurationSec = 0.0f;
     };
 
-    // --- Command Types (Phase 1) ---
+    // --- Command Types ---
 
     enum class AudioCommandType : uint8_t {
         PLAY_EVENT,
         STOP_CHANNEL,
         SET_MASTER_VOLUME,
+        SET_MASTER_BITCRUSH,
         MUSIC_PLAY,
         MUSIC_STOP,
         MUSIC_PAUSE,
         MUSIC_RESUME,
         MUSIC_SET_TEMPO,
-        MUSIC_SET_BPM
+        MUSIC_SET_BPM,
     };
 
     // Forward declaration for MusicTrack
@@ -198,11 +227,18 @@ namespace pixelroot32::audio {
 
         // Multi-track support
         static constexpr size_t MAX_SUB_TRACKS = 3;
+        /** Used when type == SET_MASTER_BITCRUSH (clamped 0–15; 0 = off). */
+        uint8_t masterBitcrushBits = 0;
         const MusicTrack* subTracks[MAX_SUB_TRACKS];
         size_t subTrackCount;
 
         // Default constructor to allow use in arrays/buffers
-        AudioCommand() : type(AudioCommandType::STOP_CHANNEL), channelIndex(0), subTracks{nullptr, nullptr, nullptr}, subTrackCount(0) {}
+        AudioCommand()
+            : type(AudioCommandType::STOP_CHANNEL),
+              channelIndex(0),
+              masterBitcrushBits(0),
+              subTracks{nullptr, nullptr, nullptr},
+              subTrackCount(0) {}
     };
 
 }

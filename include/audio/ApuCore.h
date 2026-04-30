@@ -90,6 +90,12 @@ namespace pixelroot32::audio {
         /** Reset all state. Intended for unit tests. */
         void reset();
 
+        /**
+         * Optional post-mix callback (RT-safe): runs on final int16 buffer after bitcrush.
+         * Typically set once from AudioEngine using AudioConfig.
+         */
+        void setPostMixMono(void (*fn)(int16_t* mono, int length, void* user), void* user);
+
         // -- Profiling API (public for Engine access) -------------
         static constexpr int PROFILE_RING_SIZE = 64;
         struct ProfileEntry {
@@ -114,6 +120,8 @@ namespace pixelroot32::audio {
         int sampleRate = 44100;
         float masterVolume = 1.0f;
         int32_t masterVolumeScale = 65536; // Q16 for integer/LUT path
+        /** 0 = off; 1–15 = re-quantize final int16 (post-mixer). */
+        uint8_t masterBitcrushBits_ = 0;
 
         // -- Anti-click + DC removal --------------------------------------
         // Single-pole high-pass filter (R ~ 0.995 @ 22 kHz ≈ 35 Hz cutoff),
@@ -153,6 +161,10 @@ namespace pixelroot32::audio {
         // natural end-of-track without polling private state.
         std::atomic<bool> musicPlayingFlag{false};
         std::atomic<bool> musicPausedFlag{false};
+
+        // -- Post-mix hook -------------------------------------------------
+        void (*postMixMono_)(int16_t* mono, int length, void* user) = nullptr;
+        void* postMixUser_ = nullptr;
     };
 
 } // namespace pixelroot32::audio

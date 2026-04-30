@@ -7,6 +7,7 @@ When **`PIXELROOT32_ENABLE_UI_SYSTEM`** is on (default in [`PlatformDefaults.h`]
 ## Requirements (build flags)
 
 - **`PIXELROOT32_ENABLE_AUDIO`** — required for audio subsystem and music playback
+- **`PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES`** — enabled in [`lib/platformio.ini`](lib/platformio.ini) so **`SINE` / `SAW`** leads and chord demos run as intended (set to `0` for a smaller “retro” build; melodies fall back to pulse leads)
 - **`PIXELROOT32_ENABLE_UI_SYSTEM`** — required for UI widgets (buttons, labels, layouts)
 - **`PIXELROOT32_ENABLE_TOUCH=1`** — set for **`native`** in `platformio.ini` so touch APIs compile and mouse/touch can drive the demo
 
@@ -28,10 +29,11 @@ See **`platformio.ini`** for **`native`** and **`esp32dev`**.
 ## Features
 
 - **10 instrument presets** — Lead Square, Harmony Square, Bass Triangle, Kick, Snare, Hi-hat, Triangle Lead, Triangle Pad, Pulse Pad, Pulse Bass
-- **3 pre-composed melodies** — including a structured NES-style Overworld theme
+- **4 pre-composed melodies** — multi-voice tracks; **Melodies 1–3** are music only. With extra waves enabled, **Melody 1** uses a **SAW** lead and **Melody 2** a **SINE** lead (see [`src/assets/melodies.h`](src/assets/melodies.h))
+- **Melody 4 + ARP voice** — short E-minor lead loop plus a **`secondVoice`** track of fast **`MusicNote`** steps (**`WaveType::SINE`** when extra waves are on); without extra waves that layer is omitted (lead only)
+- **Audio Lab menu** — **pulse frequency sweep** (Phase A), **SINE / SAW chord** one-shots (Phase B), and **master bitcrush** cycling via `AudioEngine::setMasterBitcrush`
 - **UI-based sound testing** — play individual instrument sounds on demand
-- **Melody playback** — play full melodic sequences with multiple voices
-- **Modular audio architecture** — demonstrates `InstrumentPreset`, melody sequencing, and audio scheduling
+- **Modular audio architecture** — demonstrates `InstrumentPreset`, melody sequencing, `AudioEvent` sweep fields, and audio scheduling
 
 ## Documentation links
 

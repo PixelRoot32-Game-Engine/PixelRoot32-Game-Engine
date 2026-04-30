@@ -87,9 +87,13 @@ struct AudioEvent {
     float volume;   // 0.0 - 1.0
     float duty;     // only for PULSE
     uint8_t noisePeriod = 0;  // for NOISE: 0=calc from frequency, >0=direct LFSR period
+    const InstrumentPreset* preset = nullptr;
+    float sweepEndHz = 0.0f;       // linear sweep target (PULSE/TRIANGLE); 0 = off
+    float sweepDurationSec = 0.0f; // sweep length; 0 = off
 };
 ```
 
+- **Linear sweep** (optional): when `sweepDurationSec > 0` and `sweepEndHz > 0`, and `type` is `PULSE` or `TRIANGLE`, frequency moves linearly from `frequency` toward `sweepEndHz` over `min(ceil(sweepDurationSec * sampleRate), note samples)`; `NOISE` ignores these fields.
 - It is the basic unit used to trigger a sound.
 - It is passed as a parameter to `AudioEngine::playEvent`.
 - **Note**: Only available when `PIXELROOT32_ENABLE_AUDIO=1`
@@ -420,12 +424,23 @@ float current = audio.getMasterVolume(); // Query current setting
 - `setMasterVolume` clamps the value to `[0.0f, 1.0f]`.
 - It scales all channels uniformly on top of each event’s own `volume`.
 
+### 6.2.2 Optional master bitcrush
+
+After the non-linear mixer (and HPF on FPU paths), the bus may be re-quantized for a lo-fi effect:
+
+```cpp
+audio.setMasterBitcrush(6);   // 1–15 effective bits; 0 = off
+uint8_t bits = audio.getMasterBitcrush();
+```
+
+Internally this uses `AudioCommandType::SET_MASTER_BITCRUSH` on the same SPSC queue as other audio commands.
+
 ### 6.3 Designing NES-like effects
 
 Effects are built by combining basic parameters and optional ADSR envelopes:
 
 **Basic Parameters**
-- `frequency`: lower or higher pitch.
+- `frequency`: lower or higher pitch (sweep start when using `sweepEndHz` / `sweepDurationSec`).
 - `duration`: effect length (seconds).
 - `volume`: 0.0–1.0.
 - `duty` (pulse only):
@@ -559,7 +574,7 @@ octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
 
-**📖 Guía detallada:** [MusicPlayer Guide](../MUSIC_PLAYER_GUIDE.md)
+**📖 Detailed guide:** [MusicPlayer Guide](../MUSIC_PLAYER_GUIDE.md)
 
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).
@@ -674,19 +689,26 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **ADSR Envelopes**: Full Attack-Decay-Sustain-Release envelopes implemented via `InstrumentPreset` for expressive note articulation and click-free playback.
 - **LFO Modulation**: Low-frequency oscillators for vibrato (pitch) and tremolo (volume) effects.
 - **Multi-track Music**: Support for up to 4 simultaneous tracks (main + 3 sub-tracks) with independent voices and percussion.
+- **Linear frequency sweep**: optional portamento on `PULSE` / `TRIANGLE` via `AudioEvent::sweepEndHz` and `sweepDurationSec` (sample-accurate linear interpolation; applied before LFO pitch modulation each sample).
+- **Master bitcrush**: optional `AudioEngine::setMasterBitcrush` (0–15) on the final `int16_t` bus.
+- **extra waveforms** (when `PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES` is non-zero): `WaveType::SINE` (256-point LUT in [`AudioOscLUT.h`](include/audio/AudioOscLUT.h)) and `WaveType::SAW` (linear ramp); both use the **melodic pool** (hardware channels 0–1). `executePlayEvent` sets `AudioChannel::type` per note; linear sweep applies to SINE/SAW as well.
+- **— post-mix hook**: optional `AudioConfig::postMixMono` / `postMixUser`, applied in `ApuCore::generateSamples` after bitcrush on the full buffer. **RT-safe contract:** no heap allocation, no mutexes, bounded work. `AudioEngine::init` forwards the pointer to `ApuCore::setPostMixMono`.
 
 ### 8.2 Remaining Limitations
 
 - No exact cycle-accurate emulation of the NES APU.
-- **Pitch sweeps**: hardware-style sweep units / continuous frequency slides are not implemented.
+- **NES hardware-style sweep registers** (automatic decreasing pitch per APU frame, etc.) are not emulated; only **linear** frequency sweeps on `PLAY_EVENT` are supported.
 - **Complex envelopes**: ADSR is implemented; however, advanced features like delayed attack, logarithmic curves, or multiple envelope stages are not available.
-- **Music catch-up**: if `generateSamples` is not called for a long wall-clock gap (host suspended, debugger break), **`updateMusicSequencer`** may advance many ticks in one call — CPU time grows with backlog (no hard cap on processed ticks).
+- **Music catch-up / backlog**: if `generateSamples` is not called for a long wall-clock gap (host suspended, debugger break), `updateMusicSequencer` may need to process many ticks in one call. **`ApuCore`** bounds how many note starts are handled per `generateSamples` invocation via **`setSequencerNoteLimit` / `getSequencerNoteLimit`** (default from `MAX_NOTES_PER_FRAME`, overridable 1–1000; compile-time cap **`AUDIO_SEQUENCER_MAX_NOTES`** in [`ApuCore.h`](include/audio/ApuCore.h)). Excess notes are deferred to the next audio block; **`getDeferredNotes`** reflects how many were deferred last pass (diagnostic). If the host is suspended for a very long time, work still grows with backlog, but each block does not fire an unbounded burst of `executePlayEvent` calls in a single inner loop iteration.
+- **Code references (maintainers)** — approximate line numbers; re-check after refactors:
+  - [`ApuCore.h`](include/audio/ApuCore.h): sequencer limits `MAX_NOTES_PER_FRAME` / `AUDIO_SEQUENCER_MAX_NOTES` (~L44–L52); API `setSequencerNoteLimit`, `getSequencerNoteLimit`, `getDeferredNotes` (~L74–L82).
+  - [`ApuCore.cpp`](src/audio/ApuCore.cpp): `executePlayEvent` — linear sweep clamped to note duration (`sweepLen > noteLen` → truncate, ~L433–L451); `apply_linear_frequency_sweep_float` (~L32–L45); no-FPU path, lerp of `phaseIncQ32` during sweep (~L795–L810).
 - **Command queue**: fixed depth **128**; overflow **drops** the newest command and increments **`ApuCore::droppedCommands`**. Contract: **single producer, single consumer** — do not call `playEvent` / `submitCommand` from multiple threads without external serialization.
 - **`MusicPlayer` vs. drops**: local `playing` / `paused` flags can briefly disagree with `ApuCore` if a command is dropped. For diagnostics, **`ApuCore::getDroppedCommands()`** is public (e.g. tests or a custom scheduler wrapper); stock `AudioEngine` does not expose it—avoid saturating the queue instead.
 
 ### 8.3 Future Extensions
 
-- **Frequency sweeps**: add `frequencyDelta` (or NES-style sweep unit) to `ApuCore`.
+- **NES-style hardware sweep units** (per-frame decrement registers) and exponential / logarithmic glide curves.
 - **High-Level SFX Helpers**: Add methods like `playJumpSfx()`, `playExplosionSfx()` to `AudioEngine` for easier use.
 - **Advanced Music Tooling**: Better support for patterns and multi-track sequencing in the `MusicPlayer`.
 - **SIMD Optimizations**: Investigate SSE/AVX for native platforms and DSP instructions for ESP32-S3 (see research document).

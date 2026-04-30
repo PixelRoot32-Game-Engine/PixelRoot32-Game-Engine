@@ -89,6 +89,11 @@
 #define PIXELROOT32_ENABLE_TOUCH 0
 #endif
 
+// SINE/SAW waveforms + larger LUT in ApuCore; set 0 on flash-constrained profiles.
+#ifndef PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES
+#define PIXELROOT32_ENABLE_AUDIO_EXTRA_WAVES 1
+#endif
+
 // =============================================================================
 // Debug & Profiling
 // =============================================================================
