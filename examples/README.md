@@ -23,6 +23,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
 | [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
 | [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
+| [music_demo](music_demo/) | Interactive audio demo: `MusicPlayer`, `InstrumentPreset`, multi-track music, UI-based sound testing | `native`, `esp32dev` |
 | [space_invaders](space_invaders/) | Classic Space Invaders: alien formation, shooting, bunkers, score system, `AudioEngine` | `native`, `esp32dev` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD) | `native`, `esp32dev`, `esp32cyd` |
 | [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, platformer player | `native`, `esp32dev` |
