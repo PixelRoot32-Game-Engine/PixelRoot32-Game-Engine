@@ -39,7 +39,9 @@ PlatformCapabilities PlatformCapabilities::detect() {
     caps.hasBluetooth = true;
 #endif
 
-    caps.audioPriority = 5; // Default FreeRTOS priority for audio
+    // If single core, we elevate priority so audio isn't starved by U8G2
+    // but keep it at 18 (not 24) to avoid extreme display transfer fragmentation
+    caps.audioPriority = caps.hasDualCore ? 5 : 18;
 
 #elif defined(PLATFORM_NATIVE)
     // For Native (SDL2), we simulate dual-core behavior with threads
