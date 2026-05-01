@@ -98,8 +98,8 @@ bool UITouchSlider::processEvent(const TouchEvent& event) {
     // Check bounds using Entity position/size (synced from widget in update())
     int16_t ex = event.x;
     int16_t ey = event.y;
-    int16_t bx = static_cast<int16_t>(position.x);
-    int16_t by = static_cast<int16_t>(position.y);
+    int16_t bx = static_cast<int16_t>(static_cast<int>(position.x));
+    int16_t by = static_cast<int16_t>(static_cast<int>(position.y));
     uint16_t bw = static_cast<uint16_t>(width);
     uint16_t bh = static_cast<uint16_t>(height);
     
@@ -174,7 +174,7 @@ bool UITouchSlider::handleTouchUp(const TouchEvent& event) {
 
 void UITouchSlider::updateValueFromPosition(int16_t xPos) {
     // Get slider bounds from Entity (synced from widget in update())
-    int16_t sliderLeft = static_cast<int16_t>(position.x) + 4;   // 4 pixel padding
+    int16_t sliderLeft = static_cast<int16_t>(static_cast<int>(position.x)) + 4;   // 4 pixel padding
     int16_t sliderWidth = static_cast<int16_t>(width);
     int16_t sliderRight = sliderLeft + sliderWidth - 4;
     
@@ -208,8 +208,8 @@ void UITouchSlider::draw(pixelroot32::graphics::Renderer& renderer) {
     }
     
     // Get bounds from Entity (synced from widget in update())
-    int16_t x = static_cast<int16_t>(position.x);
-    int16_t y = static_cast<int16_t>(position.y);
+    int16_t x = static_cast<int16_t>(static_cast<int>(position.x));
+    int16_t y = static_cast<int16_t>(static_cast<int>(position.y));
     uint16_t w = static_cast<uint16_t>(width);
     uint16_t h = static_cast<uint16_t>(height);
     

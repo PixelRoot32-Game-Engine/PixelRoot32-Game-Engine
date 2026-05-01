@@ -100,8 +100,8 @@ public:
      */
     void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) override {
         UIElement::setPosition(newX, newY);
-        widgetData_.x = static_cast<int16_t>(newX);
-        widgetData_.y = static_cast<int16_t>(newY);
+        widgetData_.x = static_cast<int16_t>(static_cast<int>(newX));
+        widgetData_.y = static_cast<int16_t>(static_cast<int>(newY));
     }
     
     /**

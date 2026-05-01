@@ -31,8 +31,10 @@ UITouchCheckbox::UITouchCheckbox(
     bool initialChecked,
     UIElementBoolCallback callback,
     int fontSizeVal)
-    : UITouchElement(static_cast<int16_t>(position.x), static_cast<int16_t>(position.y), 
-                     static_cast<uint16_t>(size.x), static_cast<uint16_t>(size.y), UIWidgetType::Checkbox)
+    : UITouchElement(static_cast<int16_t>(static_cast<int>(position.x)),
+                     static_cast<int16_t>(static_cast<int>(position.y)),
+                     static_cast<uint16_t>(static_cast<int>(size.x)),
+                     static_cast<uint16_t>(static_cast<int>(size.y)), UIWidgetType::Checkbox)
     , onChangedCallback(callback)
     , checked(initialChecked)
     , label(label)
@@ -174,8 +176,8 @@ void UITouchCheckbox::draw(Renderer& renderer) {
     }
     
     // Get bounds from Entity (synced from widget in update())
-    int16_t x = static_cast<int16_t>(position.x);
-    int16_t y = static_cast<int16_t>(position.y);
+    int16_t x = static_cast<int16_t>(static_cast<int>(position.x));
+    int16_t y = static_cast<int16_t>(static_cast<int>(position.y));
     uint16_t h = static_cast<uint16_t>(height);
     
     // Calculate checkbox box size (square based on font height)
