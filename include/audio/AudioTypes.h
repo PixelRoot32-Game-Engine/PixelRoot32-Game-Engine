@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cstring>
 
 namespace pixelroot32::audio {
 
@@ -266,13 +267,17 @@ namespace pixelroot32::audio {
         const MusicTrack* subTracks[MAX_SUB_TRACKS];
         size_t subTrackCount;
 
-        // Default constructor to allow use in arrays/buffers
+        // Default constructor to allow use in arrays/buffers.
+        // Only initializing channelIndex(0) leaves the AudioEvent branch mostly
+        // uninitialized; PLAY_EVENT paths must not read a garbage preset pointer.
         AudioCommand()
             : type(AudioCommandType::STOP_CHANNEL),
-              channelIndex(0),
               masterBitcrushBits(0),
               subTracks{nullptr, nullptr, nullptr},
-              subTrackCount(0) {}
+              subTrackCount(0) {
+            std::memset(static_cast<void*>(&event), 0, sizeof(event));
+            channelIndex = 0;
+        }
     };
 
 }
