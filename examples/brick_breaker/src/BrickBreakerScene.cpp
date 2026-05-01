@@ -25,6 +25,7 @@ namespace input = pr32::input;
 
 BrickBreakerScene::BrickBreakerScene() {
     musicPlayer = std::make_unique<prAudio::MusicPlayer>(engine.getAudioEngine());
+    musicPlayer->setMasterVolume(0.6f);
 }
 
 BrickBreakerScene::~BrickBreakerScene() {

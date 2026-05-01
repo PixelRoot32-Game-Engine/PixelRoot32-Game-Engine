@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.4.0
+
+### 🔊 Audio System
+
+- **Single-Core ESP32 Optimization**: Added `isSingleCore` detection for ESP32 audio backends, increasing task priority and reducing buffer size on single-core systems. Replaced delays with `taskYIELD()` for better CPU sharing. Implemented Q15 fixed-point envelope generation (`tickEnvelopeQ15`) for RISC-V cores without FPU, eliminating floating-point operations in the per-sample audio loop.
+- **Dynamic Voice Pooling**: Refactored `ApuCore` from fixed channels to dynamic voice pool supporting up to 8 simultaneous voices with voice stealing logic. Introduced `VoiceType` enumeration for consistent allocation.
+- **Enhanced Waveform Support**: Added SINE and SAW waveforms with optional linear frequency sweep for PULSE and TRIANGLE types. Multi-track layering now supports additional voices in `MusicPlayer`.
+- **Game Audio Overhaul**: Replaced simple Atari-style BGM with layered NES-style tracks (triangle bass, pulse arpeggio, noise drums) in Brick Breaker, Space Invaders, and Tic-Tac-Toe. Added dynamic BGM tempo scaling based on game state, richer SFX with instrument presets and sweeps.
+- **Music Demo Update**: Replaced single melody with four distinct multi-part tracks (Classic Arcade, Adventure, Action, Arpeggio) with dedicated asset files and enhanced documentation.
+- **Audio Profiling Fix**: Guarded audio profiling logs with `PIXELROOT32_ENABLE_AUDIO` macro to prevent compilation errors when audio subsystem is disabled.
+
+### 🎨 UI/Graphics
+
+- **Scalar Casting Fix**: Added explicit cast to `int` before `int16_t` in UI touch elements to prevent precision loss when converting `Scalar` values to integer coordinates.
+
 ## 1.3.0
 
 ### 🔊 Audio System Overhaul

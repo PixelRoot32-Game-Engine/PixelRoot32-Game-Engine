@@ -226,6 +226,7 @@ void MusicDemoScene::playInstrumentSound(const pr32::audio::InstrumentPreset& pr
 
 void MusicDemoScene::playMelody(int idx) {
     auto& player = engine.getMusicPlayer();
+    player.setMasterVolume(0.6f);
 
     previousMelodyIndex = currentMelodyIndex;
     currentMelodyIndex = idx;

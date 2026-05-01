@@ -135,6 +135,7 @@ void SpaceInvadersScene::init() {
 #endif
     gfx::setSpritePalette(gfx::PaletteType::NES);
     background_assets::init();
+    engine.getMusicPlayer().setMasterVolume(0.6f);
     resetGame();
 
     currentMusicTempoFactor = 1.0f;

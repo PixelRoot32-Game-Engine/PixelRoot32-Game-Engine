@@ -269,6 +269,15 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
+## 1.4.0
+
+### 🔊 Audio System
+
+- **Single-Core ESP32 Optimization**: Q15 fixed-point envelope generation for RISC-V cores, dynamic buffer sizing, and `taskYIELD()` scheduling for better CPU sharing.
+- **Dynamic Voice Pooling**: Refactored `ApuCore` to support up to 8 simultaneous voices with voice stealing logic.
+- **Enhanced Waveforms**: Added SINE and SAW waveforms with optional linear frequency sweep for PULSE and TRIANGLE types.
+- **NES-Style Game Audio**: Layered tracks (triangle bass, pulse arpeggio, noise drums) with dynamic tempo scaling in Brick Breaker, Space Invaders, and Tic-Tac-Toe.
+
 ## 1.3.0
 
 ### 🔊 Audio System Overhaul
