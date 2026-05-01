@@ -163,6 +163,7 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 #### Strategy B: Integer + LUT (ESP32-C3, no FPU)
 
 - Inner loop uses **fixed-point phase** and **Q15 volume** so the oscillator does not touch soft-float every sample.
+- **ADSR Envelope** is also implemented completely in integer Q15 fixed-point math (`tickEnvelopeQ15`) to eliminate heavy soft-float emulation during the fast 22kHz inner loop.
 - Per-voice samples are scaled with the same **0.4** intent (`≈ 13107/32768` in Q15) before summation.
 - **`audio_mixer_lut`**: `index = (sum + 131072) >> 8` into 1025 entries; table documented in `AudioMixerLUT.h` to match the FPU curve.
 - **Master volume** via precomputed **Q16** `masterVolumeScale` when ≠ 1.0.
@@ -216,8 +217,8 @@ The `AudioScheduler` interface provides `init`, `submitCommand` (forwards to `Ap
 
 The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` (`pixelroot32::platforms`) structure to detect hardware features at startup:
 
-- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop).
-- **Single-Core ESP32**: Audio task runs on **Core 0** with high priority, allowing the FreeRTOS scheduler to manage time-slicing.
+- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop). Task priority defaults to `5` and internal DMA buffer block size is `512` samples.
+- **Single-Core ESP32**: Audio task runs on **Core 0**, sharing it with the game loop and display drivers. To prevent audio starvation against heavy display transfers (e.g. U8G2), priority is dynamically elevated to `18`. To prevent this high-priority task from aggressively fragmenting display transfers via priority inversion, the internal buffer block size is reduced to `128` samples, and `taskYIELD()` is used cooperatively.
 - **Native (SDL2)**: Uses a standard system thread.
 
 ### 4.2 Platform Configuration and Build Flags
@@ -581,7 +582,7 @@ Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 
 **Responsibilities (thin client):**
 
-- **`play` / `stop` / `pause` / `resume` / `setTempoFactor` / `setBPM`**: build `AudioCommand`s and call `AudioEngine::submitCommand`.
+- **`play` / `stop` / `pause` / `resume` / `setTempoFactor` / `setBPM` / `setMasterVolume`**: build `AudioCommand`s or delegate to `AudioEngine::setMasterVolume`.
 - **`isPlaying()`**: combines **`AudioEngine::isMusicPlaying()`** and **`isMusicPaused()`** (fed by `ApuCore` atomics) with a short grace window after `play()` so the game thread does not observe a false “stopped” before `MUSIC_PLAY` is consumed.
 - **`getActiveTrackCount()`**: derives from the last `play()` request and local flags (1 + non-null sub-tracks).
 

@@ -113,4 +113,12 @@ size_t MusicPlayer::getActiveTrackCount() const {
     return count;
 }
 
+void MusicPlayer::setMasterVolume(float volume) {
+    engine.setMasterVolume(volume);
+}
+
+float MusicPlayer::getMasterVolume() const {
+    return engine.getMasterVolume();
+}
+
 } // namespace pixelroot32::audio

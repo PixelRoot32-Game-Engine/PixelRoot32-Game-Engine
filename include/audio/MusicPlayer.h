@@ -80,6 +80,18 @@ public:
      */
     size_t getActiveTrackCount() const;
 
+    /**
+     * @brief Sets the master volume level.
+     * @param volume Volume level (0.0f = silent, 1.0f = full volume).
+     */
+    void setMasterVolume(float volume);
+
+    /**
+     * @brief Gets the current master volume level.
+     * @return Current volume (0.0f - 1.0f).
+     */
+    float getMasterVolume() const;
+
 private:
     AudioEngine& engine;
     const MusicTrack* currentTrack;

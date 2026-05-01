@@ -261,6 +261,12 @@ High-level API for playing `MusicTrack` instances as background music. It only *
 - **`size_t getActiveTrackCount() const`**
     Returns the number of layered tracks (1–4) based on the last `play()` and local `playing` state; returns **0** if not playing.
 
+- **`void setMasterVolume(float volume)`**
+    Sets the master volume level (0.0 to 1.0). Delegates directly to `AudioEngine::setMasterVolume`.
+
+- **`float getMasterVolume() const`**
+    Gets the current master volume level. Delegates directly to `AudioEngine::getMasterVolume`.
+
 ### Typical Usage
 
 ```cpp

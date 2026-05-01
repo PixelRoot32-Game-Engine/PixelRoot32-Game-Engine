@@ -922,10 +922,6 @@ namespace pixelroot32::audio {
                 }
             }
 
-            if (masterVolumeScale != 65536) {
-                sum = (sum * masterVolumeScale) >> 16;
-            }
-
             int32_t index = (sum + 131072) >> 8;
             if (index < 0) index = 0;
             if (index > 1024) index = 1024;
@@ -933,8 +929,17 @@ namespace pixelroot32::audio {
             // NOTE: HPF intentionally omitted on the no-FPU path — running
             // a float recursive filter per sample on a soft-float core
             // would wipe out the gains of the integer oscillator.
-            int16_t finalSample = audio_mixer_lut[index];
-            stream[i] = apply_master_bitcrush(finalSample, masterBitcrushBits_);
+            int32_t finalSample = audio_mixer_lut[index];
+            
+            // Apply master volume after compression/LUT (matches FPU path)
+            if (masterVolumeScale != 65536) {
+                finalSample = (finalSample * masterVolumeScale) >> 16;
+                // Clamp to 16-bit range
+                if (finalSample > 32767) finalSample = 32767;
+                if (finalSample < -32768) finalSample = -32768;
+            }
+            
+            stream[i] = apply_master_bitcrush((int16_t)finalSample, masterBitcrushBits_);
 
             const int32_t absSample = (stream[i] < 0) ? -(int32_t)stream[i] : (int32_t)stream[i];
             if ((float)absSample > currentPeak) currentPeak = (float)absSample;

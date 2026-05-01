@@ -35,6 +35,13 @@
   - Represent the projectile as a small `physics::Circle` and call `physics::sweepCircleVsRect(startCircle, endCircle, targetRect, tHit)` against potential targets.
   - Use sweep tests only for the few entities that need them; keep everything else on basic AABB to avoid unnecessary CPU cost.
 
+### Single-Core Resource Contention (ESP32-C3)
+
+Single-core architectures (like the ESP32-C3) run the game logic, display transfers, and audio synthesis on a single core.
+- **Priority Inversion**: Heavy display transfers (like full-screen U8G2 refreshes) can block the audio task, causing buffer underruns and audio glitches. The engine dynamically detects single-core platforms and elevates the audio task priority (e.g., to `18`) to protect audio streams.
+- **Context Thrashing**: An audio priority that is *too* high (e.g., `24`) will preempt the display transfer constantly to synthesize audio, fragmenting the hardware SPI transaction and ballooning draw times (up to 4x). The engine mitigates this by balancing priority, reducing audio buffer block sizes to `128` samples, and using `taskYIELD()` for cooperative multitasking.
+- **Float Operations**: Soft-float emulation on the ESP32-C3 is extremely slow. The engine provides integer Q15 implementations for performance-critical inner loops (like `tickEnvelopeQ15` and audio mixer LUTs). Avoid introducing new float-based calculations inside per-sample audio loops or per-pixel drawing loops.
+
 ---
 
 ## 💾 Memory & Resources

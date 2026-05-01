@@ -533,6 +533,29 @@ For raw transport without the MusicPlayer wrapper, call `engine.getAudioEngine()
 
 Besides `setTempoFactor` / `getTempoFactor`, you can drive absolute tempo with **`setBPM`** / **`getBPM`** (default 150 BPM, 4 ticks per beat in the sequencer).
 
+### Master Volume Control
+
+Control the global master volume directly from `MusicPlayer` (delegates to `AudioEngine`):
+
+```cpp
+// Set master volume to 50%
+engine.getMusicPlayer().setMasterVolume(0.5f);
+
+// Get current volume
+float currentVolume = engine.getMusicPlayer().getMasterVolume();
+
+// Fade music out gradually
+for (float v = 1.0f; v >= 0.0f; v -= 0.05f) {
+    engine.getMusicPlayer().setMasterVolume(v);
+    delay(50);
+}
+```
+
+- `setMasterVolume(float volume)`: Sets global volume (0.0 = silent, 1.0 = full)
+- `getMasterVolume() const`: Returns current global volume
+
+This affects both music and sound effects globally (same as calling `AudioEngine::setMasterVolume` directly).
+
 ### Master bitcrush and post-mix hook
 
 For global lo-fi degradation or analysis, use **`AudioEngine::setMasterBitcrush`** / **`getMasterBitcrush`** (0–15; 0 = off). For custom processing on the final mono buffer (after bitcrush), configure **`AudioConfig::postMixMono`** / **`postMixUser`** when constructing the engine—see [API_AUDIO.md](api/API_AUDIO.md).
