@@ -50,6 +50,7 @@ namespace pixelroot32::drivers::esp32 {
         pixelroot32::audio::AudioEngine* engineInstance = nullptr;
         TaskHandle_t audioTaskHandle = nullptr;
         bool i2sInstalled = false;
+        bool isSingleCore = false;
     };
 
 }

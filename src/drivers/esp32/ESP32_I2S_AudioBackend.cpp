@@ -37,6 +37,7 @@ namespace pixelroot32::drivers::esp32 {
 
     void ESP32_I2S_AudioBackend::init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps) {
         this->engineInstance = engine;
+        this->isSingleCore = !caps.hasDualCore;
 
         // I2S Configuration
         i2s_config_t i2s_config = {
@@ -86,21 +87,25 @@ namespace pixelroot32::drivers::esp32 {
     }
 
     void ESP32_I2S_AudioBackend::audioTaskLoop() {
-        const int BUFFER_SAMPLES = 1024; // Increased from 256 to match Native configuration
-        int16_t sampleBuffer[BUFFER_SAMPLES];
+        const int MAX_BUFFER_SAMPLES = 512;
+        int currentBufferSamples = isSingleCore ? 128 : MAX_BUFFER_SAMPLES;
+        int16_t sampleBuffer[MAX_BUFFER_SAMPLES];
         size_t bytesWritten;
 
         while (true) {
             if (engineInstance) {
                 // Generate samples directly into our local buffer
-                engineInstance->generateSamples(sampleBuffer, BUFFER_SAMPLES);
+                engineInstance->generateSamples(sampleBuffer, currentBufferSamples);
                 
                 // Write to I2S (blocking if DMA is full)
                 // Note: sampleBuffer is int16_t, I2S expects bytes
-                i2s_write(I2S_NUM_0, sampleBuffer, BUFFER_SAMPLES * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
+                i2s_write(I2S_NUM_0, sampleBuffer, currentBufferSamples * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
                 
-                // Yield to other tasks on Core 0
-                vTaskDelay(1);
+                // i2s_write with portMAX_DELAY already yields via FreeRTOS
+                // semaphore when DMA buffers are full. No explicit delay needed.
+                if (isSingleCore) {
+                    taskYIELD();
+                }
             } else {
                 // Should not happen, but wait a bit to avoid watchdog
                 vTaskDelay(10 / portTICK_PERIOD_MS);

@@ -48,6 +48,7 @@ namespace pixelroot32::drivers::esp32 {
         int sampleRate;
         pixelroot32::audio::AudioEngine* engineInstance = nullptr;
         TaskHandle_t audioTaskHandle = nullptr;
+        bool isSingleCore = false;
     };
 
 }

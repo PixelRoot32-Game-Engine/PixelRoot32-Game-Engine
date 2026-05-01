@@ -36,7 +36,7 @@ namespace pixelroot32::platforms {
         /**
          * @brief Recommended task priority for audio.
          */
-        int audioPriority = 5;
+        int audioPriority = 24; // Elevated to near-max to prevent starvation on single-core
 
         /**
          * @brief Detects capabilities of the current platform.
