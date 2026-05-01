@@ -69,7 +69,14 @@ namespace pixelroot32::audio {
 
         float attackDelta = 0.0f;    // 1.0 / attackSamples
         float decayDelta = 0.0f;     // (1.0 - sustainLevel) / decaySamples
-        float releaseDelta = 0.0f;   // sustainLevel / releaseSamples`
+        float releaseDelta = 0.0f;   // sustainLevel / releaseSamples
+
+        // --- Fixed-point additions for no-FPU path ---
+        int32_t currentLevelQ15 = 0;
+        int32_t attackDeltaQ15 = 0;    // 32768 / attackSamples
+        int32_t decayDeltaQ15 = 0;     // (32768 - sustainLevelQ15) / decaySamples
+        int32_t sustainLevelQ15 = 32768;
+        int32_t releaseDeltaQ15 = 0;   // sustainLevelQ15 / releaseSamples
 
         void reset() {
             stage = Stage::OFF;
@@ -79,6 +86,11 @@ namespace pixelroot32::audio {
             releaseSamples = 0;
             sampleCounter = 0;
             currentLevel = 0.0f;
+            currentLevelQ15 = 0;
+            attackDeltaQ15 = 0;
+            decayDeltaQ15 = 0;
+            sustainLevelQ15 = 32768;
+            releaseDeltaQ15 = 0;
         }
     };
 

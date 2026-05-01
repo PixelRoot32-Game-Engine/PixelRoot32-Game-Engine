@@ -414,6 +414,15 @@ namespace pixelroot32::audio {
         env.decayDelta   = (env.decaySamples > 0) ? (1.0f - sustainLevel) / (float)env.decaySamples : 0.0f;
         env.releaseDelta = (env.releaseSamples > 0) ? sustainLevel / (float)env.releaseSamples : 0.0f;
 
+#if defined(ESP32) && (!defined(SOC_CPU_HAS_FPU) || !SOC_CPU_HAS_FPU)
+        // Initialize Q15 envelope fields for RISC-V fast path
+        env.currentLevelQ15 = 0;
+        env.sustainLevelQ15 = (int32_t)(sustainLevel * 32768.0f);
+        env.attackDeltaQ15 = (env.attackSamples > 0) ? (32768 / (int32_t)env.attackSamples) : 32768;
+        env.decayDeltaQ15 = (env.decaySamples > 0) ? ((32768 - env.sustainLevelQ15) / (int32_t)env.decaySamples) : 0;
+        env.releaseDeltaQ15 = (env.releaseSamples > 0) ? (env.sustainLevelQ15 / (int32_t)env.releaseSamples) : 0;
+#endif
+
         // LFO initialization
         ch->lfo.enabled = false;
         if (event.preset && event.preset->lfoTarget != LfoTarget::NONE && event.preset->lfoFrequency > 0.0f) {
@@ -567,6 +576,54 @@ namespace pixelroot32::audio {
         }
     }
 
+#if defined(ESP32) && (!defined(SOC_CPU_HAS_FPU) || !SOC_CPU_HAS_FPU)
+    // ------------------------------------------------------------------
+    // ADSR Envelope state machine (fixed-point Q15 for RISC-V)
+    // ------------------------------------------------------------------
+    static inline void tickEnvelopeQ15(AudioChannel& ch) {
+        auto& env = ch.envelope;
+        switch (env.stage) {
+            case EnvelopeState::Stage::ATTACK:
+                env.sampleCounter++;
+                env.currentLevelQ15 += env.attackDeltaQ15;
+                if (env.sampleCounter >= env.attackSamples) {
+                    env.currentLevelQ15 = 32768; // 1.0 in Q15
+                    env.sampleCounter = 0;
+                    if (env.decaySamples > 0) {
+                        env.stage = EnvelopeState::Stage::DECAY;
+                    } else {
+                        env.currentLevelQ15 = env.sustainLevelQ15;
+                        env.stage = EnvelopeState::Stage::SUSTAIN;
+                    }
+                }
+                break;
+            case EnvelopeState::Stage::DECAY:
+                env.sampleCounter++;
+                env.currentLevelQ15 -= env.decayDeltaQ15;
+                if (env.sampleCounter >= env.decaySamples) {
+                    env.currentLevelQ15 = env.sustainLevelQ15;
+                    env.sampleCounter = 0;
+                    env.stage = EnvelopeState::Stage::SUSTAIN;
+                }
+                break;
+            case EnvelopeState::Stage::SUSTAIN:
+                break;
+            case EnvelopeState::Stage::RELEASE:
+                env.sampleCounter++;
+                env.currentLevelQ15 -= env.releaseDeltaQ15;
+                if (env.sampleCounter >= env.releaseSamples || env.currentLevelQ15 <= 0) {
+                    env.currentLevelQ15 = 0;
+                    env.stage = EnvelopeState::Stage::OFF;
+                    ch.enabled = false;
+                }
+                break;
+            case EnvelopeState::Stage::OFF:
+                env.currentLevelQ15 = 0;
+                break;
+        }
+    }
+#endif
+
     // ------------------------------------------------------------------
     // LFO oscillator tick (triangle wave, per-sample)
     // ------------------------------------------------------------------
@@ -687,10 +744,6 @@ namespace pixelroot32::audio {
     void ApuCore::generateSamples(int16_t* stream, int length) {
         if (!stream || length <= 0) return;
 
-// #if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
-//         const uint32_t startTime = micros();
-// #endif
-
         if (!commandQueue.isEmpty()) processCommands();
         updateMusicSequencer();
 
@@ -738,10 +791,9 @@ namespace pixelroot32::audio {
         // block (not per sample) so volume ramps still work but the 22kHz
         // inner loop stays integer-only.
         int32_t volQ15[MAX_VOICES];
-        int32_t envQ15[MAX_VOICES];
+        // envQ15 is now tracked continuously per-channel via tickEnvelopeQ15
         for (int c = 0; c < MAX_VOICES; ++c) {
             volQ15[c] = (int32_t)(voices[c].volume * 32768.0f);
-            envQ15[c] = (int32_t)(voices[c].envelope.currentLevel * 32768.0f);
         }
 
         // Hoisted wave type dispatch - compute sample once before inner loop
@@ -795,7 +847,7 @@ namespace pixelroot32::audio {
 
                 // Apply per-channel Q15 volume × envelope: (s * volQ15 * envQ15) >> 30
                 int32_t sv = (s * volQ15[c]) >> 15;
-                sv = (sv * envQ15[c]) >> 15;
+                sv = (sv * ch.envelope.currentLevelQ15) >> 15;
 
                 // Volume LFO (tremolo) — applied in Q15.
                 if (ch.lfo.enabled && ch.lfo.target == LfoTarget::VOLUME) {
@@ -818,9 +870,8 @@ namespace pixelroot32::audio {
                     }
                 }
 
-                // ADSR envelope tick (uses float internally, once per sample).
-                tickEnvelope(ch);
-                envQ15[c] = (int32_t)(ch.envelope.currentLevel * 32768.0f);
+                // ADSR envelope tick (fixed-point Q15, once per sample).
+                tickEnvelopeQ15(ch);
 
                 // Linear frequency sweep (integer phase inc, no soft-float in lerp).
                 if (ch.sweepSamplesTotal > 0 && ch.type != WaveType::NOISE && ch.sweepSamplesRemaining > 0) {
@@ -943,10 +994,6 @@ namespace pixelroot32::audio {
             currentPeak = 0.0f;
             samplesSinceLog = 0;
         }
-
-// #if defined(ESP32) && defined(PIXELROOT32_ENABLE_PROFILING)
-//         (void)startTime;
-// #endif
     }
 
     void ApuCore::setPostMixMono(void (*fn)(int16_t* mono, int length, void* user), void* user) {
