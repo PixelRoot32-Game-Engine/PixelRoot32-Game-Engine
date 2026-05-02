@@ -7,7 +7,6 @@
 #include <physics/StaticActor.h>
 #include <graphics/particles/ParticleEmitter.h>
 #include <audio/MusicPlayer.h>
-#include <audio/AudioMusicTypes.h>
 #include <array>
 #include <bitset>
 #include <memory>
@@ -51,6 +50,7 @@ private:
     void loadLevel(int level);
     void resetBall();
     void setupMusic();
+    void refreshBgmTempoForLevel();
     
     // Object pool for bricks - eliminates runtime heap allocations
     std::array<std::unique_ptr<BrickActor>, MAX_BRICK_POOL> brickPool;
@@ -58,7 +58,6 @@ private:
     int activeBrickCount = 0;
 
     std::unique_ptr<pixelroot32::audio::MusicPlayer> musicPlayer;
-    pixelroot32::audio::MusicTrack bgmTrack;
 
     std::unique_ptr<pixelroot32::graphics::particles::ParticleEmitter> explosionEffect;
     std::unique_ptr<PaddleActor> paddle;

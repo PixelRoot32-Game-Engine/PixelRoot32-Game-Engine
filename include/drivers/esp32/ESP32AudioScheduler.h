@@ -18,6 +18,8 @@ namespace pixelroot32::audio {
      * @class ESP32AudioScheduler
      * @brief Audio scheduler for ESP32 targets.
      *
+     * Inherits from AudioScheduler.
+     *
      * The I2S/DAC backend creates the FreeRTOS task and calls generateSamples();
      * this class does not spawn its own task. All synthesis is delegated to
      * ApuCore so ESP32-classic / S3 / C3 share the exact same logic.

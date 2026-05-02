@@ -22,10 +22,11 @@ namespace pixelroot32::graphics::ui {
 
 /**
  * @class UITouchCheckbox
- * @brief Touch-optimized checkbox widget
- * 
- * Provides checkbox functionality with touch input support.
- * Inherits from UITouchElement for Entity interface (update/draw).
+ * @brief Touch-optimized checkbox widget.
+ *
+ * Inherits from UITouchElement.
+ *
+ * Provides touch input support and the Entity update/draw interface.
  * Construct with position/size; register with UIManager::addElement for touch routing.
  * States: Idle, Pressed (transient), checked/unchecked
  * Events: OnChanged (when checked state changes)

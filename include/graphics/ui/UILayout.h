@@ -27,6 +27,8 @@ enum class ScrollBehavior {
  * @class UILayout
  * @brief Base class for UI layout containers.
  *
+ * Inherits from UIElement.
+ *
  * Layouts organize UI elements automatically, handling positioning,
  * spacing, and optional scrolling. Layouts are themselves UI elements
  * that can be added to scenes.

@@ -19,12 +19,14 @@ namespace pixelroot32::graphics::ui {
 
 /**
  * @class UITouchElement
- * @brief UIElement with embedded UITouchWidget data for touch interaction
- * 
- * Embeds the widget data directly (x, y, width, height, flags, state)
+ * @brief UIElement with embedded UITouchWidget data for touch interaction.
+ *
+ * Inherits from UIElement.
+ *
+ * Embeds widget data directly (x, y, width, height, flags, state)
  * to avoid memory corruption from overlapping placement new.
- * Inherits from UIElement for integration with UILayout system.
- * 
+ * Integrates with the UILayout system.
+ *
  * Memory: Owns widget data inline - no external allocation needed.
  */
 class UITouchElement : public UIElement {
@@ -100,8 +102,8 @@ public:
      */
     void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY) override {
         UIElement::setPosition(newX, newY);
-        widgetData_.x = static_cast<int16_t>(newX);
-        widgetData_.y = static_cast<int16_t>(newY);
+        widgetData_.x = static_cast<int16_t>(static_cast<int>(newX));
+        widgetData_.y = static_cast<int16_t>(static_cast<int>(newY));
     }
     
     /**

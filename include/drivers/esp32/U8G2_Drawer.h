@@ -18,6 +18,8 @@ namespace pixelroot32::drivers::esp32 {
 /**
  * @class U8G2_Drawer
  * @brief Implementation of DrawSurface using the U8G2 library for monochromatic OLED displays.
+ *
+ * Inherits from BaseDrawSurface.
  */
 class U8G2_Drawer : public pixelroot32::graphics::BaseDrawSurface {
 public:

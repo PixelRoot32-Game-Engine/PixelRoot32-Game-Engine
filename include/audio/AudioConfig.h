@@ -5,8 +5,12 @@
 #pragma once
 
 #include "AudioBackend.h"
+#include <cstdint>
 
 namespace pixelroot32::audio {
+
+    /** Optional RT-safe post-mix processing on the final mono int16 buffer (after bitcrush). */
+    using PostMixMonoFn = void (*)(int16_t* mono, int length, void* user);
 
     /**
      * @struct AudioConfig
@@ -15,6 +19,8 @@ namespace pixelroot32::audio {
     struct AudioConfig {
         AudioBackend* backend = nullptr; ///< Pointer to the platform-specific audio backend.
         int sampleRate = 22050;          ///< Desired sample rate in Hz.
+        PostMixMonoFn postMixMono = nullptr;
+        void* postMixUser = nullptr;
 
         /**
          * @brief Default constructor.

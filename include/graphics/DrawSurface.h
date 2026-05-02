@@ -43,12 +43,71 @@ public:
     virtual void sendBuffer() = 0;
 
     // Drawing Primitives
+    /**
+     * @brief Draws a filled circle.
+     * @param x Center X coordinate.
+     * @param y Center Y coordinate.
+     * @param radius Radius of the circle.
+     * @param color The fill color.
+     */
     virtual void drawFilledCircle(int x, int y, int radius, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a circle outline.
+     * @param x Center X coordinate.
+     * @param y Center Y coordinate.
+     * @param radius Radius of the circle.
+     * @param color The outline color.
+     */
     virtual void drawCircle(int x, int y, int radius, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a rectangle outline.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param width Width of the rectangle.
+     * @param height Height of the rectangle.
+     * @param color The outline color.
+     */
     virtual void drawRectangle(int x, int y, int width, int height, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a filled rectangle.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param width Width of the rectangle.
+     * @param height Height of the rectangle.
+     * @param color The fill color.
+     */
     virtual void drawFilledRectangle(int x, int y, int width, int height, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a line between two points.
+     * @param x1 Start X coordinate.
+     * @param y1 Start Y coordinate.
+     * @param x2 End X coordinate.
+     * @param y2 End Y coordinate.
+     * @param color The line color.
+     */
     virtual void drawLine(int x1, int y1, int x2, int y2, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a bitmap.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param width Width of the bitmap.
+     * @param height Height of the bitmap.
+     * @param bitmap Pointer to the bitmap data.
+     * @param color The color to draw.
+     */
     virtual void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color) = 0;
+
+    /**
+     * @brief Draws a single pixel.
+     * @param x The X coordinate.
+     * @param y The Y coordinate.
+     * @param color The pixel color.
+     */
     virtual void drawPixel(int x, int y, uint16_t color) = 0;
 
     /**
@@ -86,8 +145,23 @@ public:
     virtual void setContrast(uint8_t level) = 0;
 
     // Text State Management
+    /**
+     * @brief Sets the text color.
+     * @param color The text color.
+     */
     virtual void setTextColor(uint16_t color) = 0;
+
+    /**
+     * @brief Sets the text size.
+     * @param size The text size multiplier.
+     */
     virtual void setTextSize(uint8_t size) = 0;
+
+    /**
+     * @brief Sets the cursor position for text drawing.
+     * @param x The X coordinate.
+     * @param y The Y coordinate.
+     */
     virtual void setCursor(int16_t x, int16_t y) = 0;
     // virtual int16_t textWidth(const char* text) = 0;
 

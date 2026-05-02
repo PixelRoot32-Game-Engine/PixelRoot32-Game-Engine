@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.4.0
+
+### 🔊 Audio System
+
+- **Single-Core ESP32 Optimization**: Added `isSingleCore` detection for ESP32 audio backends, increasing task priority and reducing buffer size on single-core systems. Replaced delays with `taskYIELD()` for better CPU sharing. Implemented Q15 fixed-point envelope generation (`tickEnvelopeQ15`) for RISC-V cores without FPU, eliminating floating-point operations in the per-sample audio loop.
+- **Dynamic Voice Pooling**: Refactored `ApuCore` from fixed channels to dynamic voice pool supporting up to 8 simultaneous voices with voice stealing logic. Introduced `VoiceType` enumeration for consistent allocation.
+- **Enhanced Waveform Support**: Added SINE and SAW waveforms with optional linear frequency sweep for PULSE and TRIANGLE types. Multi-track layering now supports additional voices in `MusicPlayer`.
+- **Game Audio Overhaul**: Replaced simple Atari-style BGM with layered NES-style tracks (triangle bass, pulse arpeggio, noise drums) in Brick Breaker, Space Invaders, and Tic-Tac-Toe. Added dynamic BGM tempo scaling based on game state, richer SFX with instrument presets and sweeps.
+- **Music Demo Update**: Replaced single melody with four distinct multi-part tracks (Classic Arcade, Adventure, Action, Arpeggio) with dedicated asset files and enhanced documentation.
+- **Audio Profiling Fix**: Guarded audio profiling logs with `PIXELROOT32_ENABLE_AUDIO` macro to prevent compilation errors when audio subsystem is disabled.
+
+### 🎨 UI/Graphics
+
+- **Scalar Casting Fix**: Added explicit cast to `int` before `int16_t` in UI touch elements to prevent precision loss when converting `Scalar` values to integer coordinates.
+
+### 📚 Documentation
+
+- **Structure Restructuring**: Reorganized docs into modular directories (architecture, api, guide, reference, migration, philosophy)
+- **New Guides**: Added guides for testing, resolution scaling, multi-palette, tilemaps, platform config, and getting started
+- **API Documentation**: Generated auto-generated API docs for core, graphics, audio, input, physics, and driver components
+- **API Reference Refactoring**: Simplified and clarified API reference structure with better navigation
+- **Doxygen Comments**: Added comprehensive Doxygen documentation to key engine headers
+- **Tools Documentation**: Created documentation for sprite compiler and tilemap editor
+- **Architecture & Visualization**: Enhanced architecture docs with diagrams and Mermaid visualizations
+- **Link Updates**: Fixed broken links and updated all docs to reference new structure
+
 ## 1.3.0
 
 ### 🔊 Audio System Overhaul
@@ -107,14 +133,14 @@ All notable changes to this project will be documented in this file.
 
 - **Touch Pipeline & ESP32 CYD Support**: Implement hardware-agnostic touch abstraction (`TouchPoint`, `TouchCalibration`, `XPT2046`/`GT911` adapters) and `TouchManager` polling with fixed-size buffers. Add gesture event system: `TouchStateMachine`, `TouchEventQueue`, `TouchEventDispatcher`, and `TouchEvent` types with consume/propagate semantics (UI-first, then scene). Integrate with `Scene::processTouchEvents` and `onUnconsumedTouchEvent`. Support ESP32-2432S028R (CYD) XPT2046 on GPIO bit-bang SPI (`XPT2046_USE_GPIO_SPI`), optional axis swap/mirror, raw-range mapping, and TFT_eSPI touch bridge path for shared-bus builds. Wire PhysicsDemo and `esp32cyd` platform (calibration before init, debug touch marker under `PIXELROOT32_ENABLE_DEBUG_OVERLAY`).
 
-> [TOUCH_INPUT](docs/architecture/ARCH_TOUCH_INPUT.md)
+> [TOUCH_INPUT](docs/architecture/touch-input.md)
 
 ### 🎨 UI
 
 - **Function Pointer Callbacks**: Change `UIButton` callback from `std::function<void()>` to `ButtonCallback` (function pointer). Add normalized constructor to `UITouchButton` using `Vector2` parameters. Consolidate `UIElementVoidCallback`, `UIElementBoolCallback` type definitions in `UIElement` to avoid duplication. Remove `<functional>` include to reduce binary size and heap allocations.
 - **Touch UI Components**: Add `UITouchButton` with `autoSize` method for dynamic width adjustment, `UITouchCheckbox` for touch-optimized checkbox functionality, and `UITouchSlider` with drag support and value callbacks. Update `UIManager` to manage non-owning pointers for touch widgets.
 
-> **Migration guide v1.1.0 → v1.2.0**: [MIGRATION_v1.2.0](docs/MIGRATION_v1.2.0.md)
+> **Migration guide v1.1.0 → v1.2.0**: [MIGRATION_v1.2.0](docs/migration/migration-v1-2-0.md)
 
 ## 1.1.0
 
@@ -138,9 +164,9 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
-- **Touch input**: Added [TOUCH_INPUT.md](docs/TOUCH_INPUT.md) (pipeline, calibration, scene integration). Extended [API_REFERENCE.md](docs/API_REFERENCE.md) Input module and Scene touch hooks; [ARCHITECTURE.md](docs/ARCHITECTURE.md) documents touch as parallel to `InputManager`.
+- **Touch input**: Added [touch-input.md](docs/architecture/touch-input.md) (pipeline, calibration, scene integration). Extended [API Reference](docs/api/index.md) Input module and Scene touch hooks; [Architecture Overview](docs/architecture/overview.md) documents touch as parallel to `InputManager`.
 
-> **Migration guide v1.0.0 → v1.1.0**: [MIGRATION_v1.1.0](docs/MIGRATION_v1.1.0.md)
+> **Migration guide v1.0.0 → v1.1.0**: [MIGRATION_v1.1.0](docs/migration/migration-v1-1-0.md)
 
 ## 1.0.0
 
@@ -170,7 +196,7 @@ First stable release. Complete performance overhaul and API stabilization.
 - **Memory**: Explicit `MALLOC_CAP_DMA` support in drivers; broadphase buffer reuse across frames.
 - **C++17**: Migrated from C++11.
 
-> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/MIGRATION_v1.0.0.md)
+> **Migration guide v0.8.1-dev → v1.0.0**: [MIGRATION_v1.0.0](docs/migration/migration-v1-0-0.md)
 
 ## 0.8.1-dev
 
@@ -236,7 +262,7 @@ First stable release. Complete performance overhaul and API stabilization.
   - Optimized scaling using LUTs and IRAM-cached functions for ESP32.
   - Updated SDL2 and TFT_eSPI drivers to support scaling.
   - Updated Scene, UI, and Physics systems to operate on logical resolution.
-  - Comprehensive documentation added in `README.md` and `docs/RESOLUTION_SCALING.md`.
+  - Comprehensive documentation added in `README.md` and `docs/architecture/resolution-scaling.md`.
 - **Comprehensive Debug Overlay**: Replaced the basic FPS overlay with a new debug display showing FPS, RAM usage, and estimated CPU load.
   - Metrics update every 16 frames to minimize performance impact.
   - Enabled via the new `PIXELROOT32_ENABLE_DEBUG_OVERLAY` flag (supersedes `PIXELROOT32_ENABLE_FPS_DISPLAY`).
@@ -262,9 +288,9 @@ First stable release. Complete performance overhaul and API stabilization.
   - Added viewport culling for entities and tilemaps to skip off-screen elements.
   - Implemented palette caching in tilemap rendering to avoid repeated color resolution.
   - Optimized sprite bit access patterns and added internal sprite drawing methods to reduce code duplication.
-- **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) so they execute from internal RAM on ESP32, bypassing slower flash access for improved performance. Documentation updated to reflect these optimizations.
+- **ESP32 Optimizations**: Applied `IRAM_ATTR` to critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) so they execute from internal RAM on ESP32, bypassing slower flash access for improved performance. Documentation in [architecture/overview.md](docs/architecture/overview.md) and [guide/performance/esp32-performance.md](docs/guide/performance/esp32-performance.md) updated to reflect these optimizations.
 - **Optional FPS Overlay**: Introduced build flag `PIXELROOT32_ENABLE_FPS_DISPLAY` to enable an on-screen FPS counter in the top-right corner. FPS is calculated by averaging frame times over a defined interval and updates every 8 frames to reduce CPU load. Refined FPS calculation and initialization for more stable readings.
-- **Documentation**: Documented how to override `MAX_LAYERS` and `MAX_ENTITIES` defaults via compiler flags in README.md and docs/API_REFERENCE.md. `Scene.h` now provides default definitions only when not already defined, and `Scene.cpp` uses the `MAX_LAYERS` constant so user overrides are respected.
+- **Documentation**: Documented how to override `MAX_LAYERS` and `MAX_ENTITIES` defaults via compiler flags in README.md and [API Reference](docs/api/index.md). `Scene.h` now provides default definitions only when not already defined, and `Scene.cpp` uses the `MAX_LAYERS` constant so user overrides are respected.
 
 ## v0.4.1-dev
 

@@ -29,6 +29,8 @@ namespace  pixelroot32::drivers::esp32 {
  * @class TFT_eSPI_Drawer
  * @brief Concrete implementation of DrawSurface for ESP32 using the TFT_eSPI library.
  *
+ * Inherits from BaseDrawSurface.
+ *
  * This class handles low-level interaction with the display hardware via SPI.
  * It uses a sprite (framebuffer) to minimize flickering and tearing.
  */

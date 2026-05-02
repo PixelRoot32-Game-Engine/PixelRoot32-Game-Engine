@@ -33,10 +33,10 @@ The engine version or Git branch is set in **`lib_deps`** in `platformio.ini`.
 
 ## Documentation links
 
-- [Graphics — Camera2D](../../docs/api/API_GRAPHICS.md#camera2d)
-- [Core — Scene / entities](../../docs/api/API_CORE.md)
-- [Physics — kinematic & static actors](../../docs/api/API_PHYSICS.md)
-- [Architecture](../../docs/ARCHITECTURE.md)
+- [Graphics — Camera2D](../../docs/api/graphics.md#camera2d)
+- [Core — Scene / entities](../../docs/api/core.md)
+- [Physics — kinematic & static actors](../../docs/api/physics.md)
+- [Architecture](../../docs/architecture/architecture-index.md)
 
 ## Build
 

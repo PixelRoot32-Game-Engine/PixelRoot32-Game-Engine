@@ -44,6 +44,7 @@ namespace pixelroot32::drivers::esp32 {
     void ESP32_DAC_AudioBackend::init(pixelroot32::audio::AudioEngine* engine,
                                       const pixelroot32::platforms::PlatformCapabilities& caps) {
         this->engineInstance = engine;
+        this->isSingleCore = !caps.hasDualCore;
 
         if (dacPin != 25 && dacPin != 26) {
             log(LogLevel::Error, "[DAC] Internal DAC requires GPIO 25 or 26 (got %d)", dacPin);
@@ -100,9 +101,10 @@ namespace pixelroot32::drivers::esp32 {
     }
 
     void ESP32_DAC_AudioBackend::audioTaskLoop() {
-        constexpr int BUFFER_SAMPLES = 256;
-        int16_t sampleBuffer[BUFFER_SAMPLES];
-        int16_t dmaBuffer[BUFFER_SAMPLES];
+        const int MAX_BUFFER_SAMPLES = 512;
+        int currentBufferSamples = isSingleCore ? 128 : MAX_BUFFER_SAMPLES;
+        int16_t sampleBuffer[MAX_BUFFER_SAMPLES];
+        int16_t dmaBuffer[MAX_BUFFER_SAMPLES];
         size_t bytesWritten = 0;
 
         while (true) {
@@ -111,13 +113,13 @@ namespace pixelroot32::drivers::esp32 {
                 continue;
             }
 
-            engineInstance->generateSamples(sampleBuffer, BUFFER_SAMPLES);
+            engineInstance->generateSamples(sampleBuffer, currentBufferSamples);
 
             // ESP32 built-in DAC via I2S expects **unsigned 16-bit** samples
             // where only the top 8 bits are used by the DAC. Convert signed
             // int16 -> offset-binary uint16 (apply the old 0.7× PAM8302A
             // attenuation along the way).
-            for (int i = 0; i < BUFFER_SAMPLES; ++i) {
+            for (int i = 0; i < currentBufferSamples; ++i) {
                 int32_t s = (int32_t)(sampleBuffer[i] * 0.7f);
                 if (s > 32767)  s = 32767;
                 if (s < -32768) s = -32768;
@@ -128,7 +130,7 @@ namespace pixelroot32::drivers::esp32 {
             // dacWrite() overhead.
             i2s_write(DAC_I2S_PORT,
                       dmaBuffer,
-                      BUFFER_SAMPLES * sizeof(int16_t),
+                      currentBufferSamples * sizeof(int16_t),
                       &bytesWritten,
                       portMAX_DELAY);
         }

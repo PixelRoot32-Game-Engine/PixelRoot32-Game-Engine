@@ -18,7 +18,9 @@ namespace pixelroot32::drivers::esp32 {
     /**
      * @class ESP32_I2S_AudioBackend
      * @brief Audio backend implementation for ESP32 using I2S.
-     * 
+     *
+     * Inherits from AudioBackend.
+     *
      * Uses a FreeRTOS task to continuously feed the I2S DMA buffer
      * to ensure smooth playback independent of the game loop frame rate.
      */
@@ -48,6 +50,7 @@ namespace pixelroot32::drivers::esp32 {
         int sampleRate;
         pixelroot32::audio::AudioEngine* engineInstance = nullptr;
         TaskHandle_t audioTaskHandle = nullptr;
+        bool isSingleCore = false;
     };
 
 }

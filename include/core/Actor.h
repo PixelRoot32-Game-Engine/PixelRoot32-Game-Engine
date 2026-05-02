@@ -16,8 +16,10 @@ namespace pixelroot32::core {
  * @class Actor
  * @brief An Entity capable of physical interaction and collision.
  *
- * Actors extend Entity with collision layers and masks. They are used for
- * dynamic game objects like players, enemies, and projectiles.
+ * Inherits from Entity.
+ *
+ * Adds collision layers and masks for dynamic game objects like players,
+ * enemies, and projectiles.
  */
 class Actor : public Entity {
 public:

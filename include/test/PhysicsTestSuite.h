@@ -71,7 +71,9 @@ private:
 
 /**
  * @class StressTestScene
- * @brief Scene for stress testing physics performance
+ * @brief Scene for stress testing physics performance.
+ *
+ * Inherits from Scene.
  */
 class StressTestScene : public pixelroot32::core::Scene {
 public:

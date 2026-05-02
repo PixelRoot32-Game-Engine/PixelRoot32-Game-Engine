@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <core/Scene.h>
 #include <graphics/Renderer.h>
 #include <platforms/EngineConfig.h>
@@ -157,11 +159,16 @@ namespace spaceinvaders {
         int activePlayerBulletCount;               ///< Cached count of active player bullets (O(1) vs O(n) scan)
         float currentMusicTempoFactor;              ///< BGM tempo based on alien proximity
 
+        enum class ThreatBgmTier : uint8_t { Slow = 0, Medium = 1, Fast = 2 };
+        ThreatBgmTier bgmThreatTier;
+
         void updateAliens(unsigned long deltaTime);
         void handleCollisions();
         void enemyShoot();
         int getActiveAlienCount() const;
         void updateMusicTempo();
+        /** Restarts layered threat BGM at tier Slow (call after tempo reset during gameplay restart). */
+        void restartThreatBgmSlow();
 
         void updateEnemyExplosions(unsigned long deltaTime);
         void drawEnemyExplosions(pixelroot32::graphics::Renderer& renderer);

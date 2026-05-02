@@ -23,10 +23,11 @@ namespace pixelroot32::graphics::ui {
 
 /**
  * @class UITouchButton
- * @brief Touch-optimized button widget
- * 
- * Provides button functionality with touch input support.
- * Inherits from UITouchElement for Entity interface (update/draw).
+ * @brief Touch-optimized button widget.
+ *
+ * Inherits from UITouchElement.
+ *
+ * Provides touch input support and the Entity update/draw interface.
  * Construct with position/size; register with UIManager::addElement for touch routing.
  * States: Idle, Pressed, Hover
  * Events: OnDown, OnUp, OnClick

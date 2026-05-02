@@ -14,7 +14,9 @@ namespace pixelroot32::audio {
     /**
      * @class MockAudioBackend
      * @brief Mock implementation of AudioBackend for unit testing.
-     * 
+     *
+     * Inherits from AudioBackend.
+     *
      * This mock captures initialization state and provides test hooks
      * for verifying AudioScheduler and AudioEngine interactions.
      */

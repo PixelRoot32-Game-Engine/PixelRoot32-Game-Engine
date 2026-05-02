@@ -33,9 +33,9 @@ The scene uses **`extern pixelroot32::core::Engine engine`** from your platform 
 
 ## Documentation links
 
-- [Core API](../../docs/api/API_CORE.md)
-- [UI API](../../docs/api/API_UI.md)
-- [Graphics / Renderer](../../docs/api/API_GRAPHICS.md)
+- [Core API](../../docs/api/core.md)
+- [UI API](../../docs/api/ui.md)
+- [Graphics / Renderer](../../docs/api/graphics.md)
 
 ## Build
 

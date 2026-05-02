@@ -21,8 +21,9 @@ namespace pixelroot32::graphics::ui {
  * @class UIElement
  * @brief Base class for all user interface elements (buttons, labels, etc.).
  *
- * Inherits from Entity to integrate with the scene graph.
- * Sets the EntityType to UI_ELEMENT.
+ * Inherits from Entity.
+ *
+ * Integrates with the scene graph and sets EntityType to UI_ELEMENT.
  */
 class UIElement : public pixelroot32::core::Entity {
 public:
