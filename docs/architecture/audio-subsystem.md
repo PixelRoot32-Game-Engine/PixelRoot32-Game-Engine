@@ -32,6 +32,35 @@ high-level architecture and the concrete implementation details.
   - **Mixing, voice pool state, music sequencing, and the SPSC command queue** live in **[`ApuCore`](include/audio/ApuCore.h)** (`src/audio/ApuCore.cpp`). The three schedulers only decide **execution context** (same-thread vs FreeRTOS task vs `std::thread` + ring buffer).
   - Backends (SDL2, ESP32 I2S/DAC) pull PCM by calling `AudioEngine::generateSamples`, which reaches `ApuCore::generateSamples`.
 
+### Command path (high level)
+
+```mermaid
+flowchart TB
+    subgraph Game["Game thread (e.g. Core 1 on ESP32)"]
+        A[Game code] -->|playEvent / submitCommand| B[AudioEngine facade]
+        B -->|music commands| C[MusicPlayer]
+        C -->|submitCommand| B
+    end
+
+    subgraph Queue["SPSC command queue"]
+        B -->|single producer| D[AudioCommandQueue 128 slots]
+    end
+
+    subgraph Audio["Audio consumer context"]
+        D -->|dequeue| E[AudioScheduler thin wrapper]
+        E -->|ApuCore::generateSamples| F[Pulse x2 + Triangle + Noise + music]
+        F --> G[Non-linear mixer FPU or LUT + optional HPF]
+    end
+
+    subgraph Output["Hardware"]
+        G -->|PCM| H[Backend: I2S / DAC / SDL2]
+        H --> I[Speaker]
+    end
+```
+
+- **`AudioEngine`** forwards commands and **`generateSamples`** to the active **`AudioScheduler`**, which delegates to **`ApuCore`**: SPSC queue, four channels, music sequencer, mixing, and (on the FPU path) a one-pole output HPF.
+- On **ESP32**, core affinity and task priority are applied when the **backend** creates its FreeRTOS task (`PlatformCapabilities`), not inside `ESP32AudioScheduler` construction arguments (those parameters are reserved for API stability).
+
 Main files:
 
 - Facade: [`audio/AudioEngine.h`](include/audio/AudioEngine.h)
@@ -575,7 +604,7 @@ octaves consistent per instrument.
 
 ### 7.2 MusicPlayer (`MusicPlayer.h`)
 
-**📖 Detailed guide:** [MusicPlayer Guide](../MUSIC_PLAYER_GUIDE.md)
+**📖 Detailed guide:** [Music player guide](../guide/music-player-guide.md)
 
 Defined in [`MusicPlayer.h`](include/audio/MusicPlayer.h) and
 [`MusicPlayer.cpp`](src/audio/MusicPlayer.cpp).

@@ -35,6 +35,30 @@ flowchart LR
     end
 ```
 
+### World space vs screen space (camera)
+
+```mermaid
+flowchart TB
+    subgraph World["World Space"]
+        direction TB
+        W1["Player at (100, 200)"]
+        W2["Enemy at (300, 150)"]
+        W3["Tilemap origin (0, 0)"]
+    end
+
+    subgraph Screen["Screen Space (Camera)"]
+        direction TB
+        C1["Viewport offset (-50, -100)"]
+        S1["Player renders at (50, 100)"]
+        S2["Enemy renders at (250, 50)"]
+    end
+
+    W1 -->|"position - cameraOffset"| S1
+    W2 -->|"position - cameraOffset"| S2
+    C1 --> S1
+    C1 --> S2
+```
+
 ---
 
 ## Core Components

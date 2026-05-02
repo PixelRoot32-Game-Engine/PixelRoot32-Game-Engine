@@ -62,7 +62,7 @@ When `setTouchManager()` is called, Engine automatically:
 3. Processes through `TouchEventDispatcher`
 4. Dispatches to `Scene::processTouchEvents()`
 
-See [Touch Input Architecture](ARCH_TOUCH_INPUT.md) for details.
+See [Touch Input Architecture](touch-input.md) for details.
 
 ---
 
@@ -279,37 +279,154 @@ public:
 
 ---
 
-## Entity Lifecycle
+## Diagrams (scene graph and entities)
 
+### Scene lifecycle
+
+```mermaid
+flowchart TB
+    subgraph SceneLifecycle["Scene Lifecycle"]
+        direction LR
+        A[Created] --> B[Initialized]
+        B --> C[Active]
+        C --> D[Cleanup]
+        D --> E[Destroyed]
+    end
+    
+    subgraph ActiveState["Active State"]
+        direction TB
+        U[update]
+        D2[draw]
+        P[processTouchEvents]
+        
+        U --> D2
+        D2 --> U
+    end
+    
+    C -.-> ActiveState
 ```
-┌─────────────┐
-│   Created   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│  init()     │◀── Scene::init()
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐     ┌─────────────┐
-│   update()  │◀──┐│   draw()    │
-└──────┬──────┘   │└──────┬──────┘
-       │          │       │
-       └──────────┘       │
-              ▲            │
-              └────────────┘
-                    ▲
-                    │ (repeat)
-                    │
-       ┌────────────┐
-       │  Scene End │
-       └─────┬──────┘
-             │
-             ▼
-       ┌─────────────┐
-       │  Destroyed  │
-       └─────────────┘
+
+### SceneManager transitions
+
+```mermaid
+flowchart LR
+    E[Engine] --> SM[SceneManager]
+    SM --> CS[Current Scene]
+    SM --> NS[Next Scene]
+    
+    CS -->|"changeScene()"| NS
+    NS -->|"init()"| CS2[New Current Scene]
+```
+
+### Entity / Actor relationships
+
+```mermaid
+classDiagram
+    class Entity {
+        +Vector2 position
+        +int width, height
+        +EntityType type
+        +bool isVisible
+        +bool isEnabled
+        +unsigned char renderLayer
+        +update(deltaTime)*
+        +draw(Renderer&)*
+        +setRenderLayer(layer)
+    }
+    
+    class Actor {
+        +uint16_t entityId
+        +CollisionLayer layer
+        +CollisionLayer mask
+        +CollisionSystem* collisionSystem
+        +setCollisionLayer(l)
+        +setCollisionMask(m)
+        +onCollision(Actor* other)*
+    }
+    
+    class KinematicActor {
+        +moveAndSlide(velocity, dt)
+        +moveAndCollide(velocity, dt)
+        +isOnFloor()
+        +isOnWall()
+    }
+    
+    class RigidActor {
+        +Vector2 velocity
+        +applyForce(force)
+        +applyImpulse(impulse)
+    }
+    
+    class StaticActor {
+        +StaticActor(x, y, w, h)
+    }
+    
+    class SensorActor {
+        +SensorActor(x, y, w, h)
+    }
+    
+    Entity <|-- Actor
+    Actor <|-- KinematicActor
+    Actor <|-- RigidActor
+    Actor <|-- StaticActor
+    Actor <|-- SensorActor
+```
+
+### Collision layer vs mask
+
+```mermaid
+flowchart LR
+    A[Actor A] -->|"layer: PLAYER"| C{Collides?}
+    B[Actor B] -->|"mask: ENEMY | ITEM"| C
+    
+    C -->|"PLAYER & mask != 0"| D[Yes]
+    C -->|"PLAYER & mask == 0"| E[No]
+```
+
+### Entity lifecycle (ownership)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: new Entity()
+    Created --> Active: addEntity()
+    Active --> Updating: isEnabled = true
+    Active --> Frozen: isEnabled = false
+    Updating --> Visible: isVisible = true
+    Updating --> Hidden: isVisible = false
+    Active --> Removed: removeEntity()
+    Removed --> [*]: destructor
+```
+
+### Scene-based game structure
+
+High-level view of how `SceneManager` binds multiple scenes (from core concepts):
+
+```mermaid
+flowchart TD
+    subgraph Engine["Engine"]
+        SM[SceneManager]
+    end
+
+    subgraph Scene1["Scene: MainMenu"]
+        E1[Entity: Background]
+        E2[Entity: Logo]
+        E3[Entity: ButtonContainer]
+        B1[UIElement: StartButton]
+        B2[UIElement: OptionsButton]
+    end
+
+    subgraph Scene2["Scene: GameLevel"]
+        E4[Entity: Tilemap]
+        E5[Actor: Player]
+        E6[Actor: Enemy]
+        E7[Actor: Coin]
+        E8[Entity: HUD]
+    end
+
+    SM --> Scene1
+    SM --> Scene2
+    E3 --> B1
+    E3 --> B2
 ```
 
 ---
@@ -323,13 +440,13 @@ public:
 | Max Scene Stack | 8 | `MaxScenes` |
 | Physics Contacts | 128 | `PHYSICS_MAX_CONTACTS` |
 
-See [Memory System](ARCH_MEMORY_SYSTEM.md) for optimization strategies.
+See [Memory System](memory-system.md) for optimization strategies.
 
 ---
 
 ## Related Documentation
 
-- [Physics Subsystem](ARCH_PHYSICS_SUBSYSTEM.md) - Actor physics details
-- [Touch Input](ARCH_TOUCH_INPUT.md) - Scene touch handling
-- [Memory System](ARCH_MEMORY_SYSTEM.md) - Entity memory management
+- [Physics Subsystem](physics-subsystem.md) - Actor physics details
+- [Touch Input](touch-input.md) - Scene touch handling
+- [Memory System](memory-system.md) - Entity memory management
 - [API Reference - Core](../api/API_CORE.md) - Class-level API

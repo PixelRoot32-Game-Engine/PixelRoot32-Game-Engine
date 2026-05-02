@@ -6,6 +6,8 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 
 The engine follows a scene-based architecture inspired by Godot Engine, making it intuitive for developers familiar with modern game development workflows.
 
+**[Hub de arquitectura](./overview.md)** — tablas de navegación, diagrama de jerarquía de clases (`Entity` / UI), matriz `PIXELROOT32_ENABLE_*`, y pipeline ESP32 / `StaticTilemapLayerCache`.
+
 > **Note:** For detailed architecture documentation with diagrams and examples, visit the [official documentation](https://docs.pixelroot32.org/manual/engine_architecture/).
 
 ---
@@ -88,14 +90,12 @@ The engine is organized into 5 architectural layers:
 
 | Layer | Name | Description | Document |
 |-------|------|-------------|----------|
-| Layer 0 | Hardware | Physical hardware (ESP32, displays, audio) | [Hardware Layer](ARCH_LAYER_HARDWARE.md) |
-| Layer 1 | Drivers | Platform-specific drivers (TFT_eSPI, U8G2, SDL2) | [Driver Layer](ARCH_LAYER_DRIVERS.md) |
-| Layer 2 | Abstraction | Abstract interfaces (DrawSurface, PlatformMemory) | [Abstraction Layer](ARCH_LAYER_ABSTRACTION.md) |
-| Layer 3 | Systems | High-level subsystems (Renderer, Audio, Physics, UI) | [System Layer](ARCH_LAYER_SYSTEMS.md) |
-| Layer 4 | Scene | Scene and entity management | [Scene Layer](ARCH_LAYER_SCENE.md) |
+| Layer 0 | Hardware | Physical hardware (ESP32, displays, audio) | [Hardware layer](./layer-hardware.md) |
+| Layer 1 | Drivers | Platform-specific drivers (TFT_eSPI, U8G2, SDL2) | [Driver layer](./layer-drivers.md) |
+| Layer 2 | Abstraction | Abstract interfaces (DrawSurface, PlatformMemory) | [Abstraction layer](./layer-abstraction.md) |
+| Layer 3 | Systems | High-level subsystems (Renderer, Audio, Physics, UI) | [Systems layer](./layer-systems.md) |
+| Layer 4 | Scene | Scene and entity management | [Scene layer](./layer-scene.md) |
 | Layer 5 | Game | User game code | (Implemented by user) |
-
-![Architecture Diagram](../../assets/architecture.png)
 
 ---
 
@@ -105,13 +105,13 @@ For detailed documentation on specific subsystems, see:
 
 | Subsystem | Document |
 |-----------|----------|
-| Audio NES | [Audio Subsystem](ARCH_AUDIO_SUBSYSTEM.md) |
-| Physics | [Physics Subsystem](ARCH_PHYSICS_SUBSYSTEM.md) |
-| Memory Management | [Memory System](ARCH_MEMORY_SYSTEM.md) |
-| Resolution Scaling | [Resolution Scaling](ARCH_RESOLUTION_SCALING.md) |
-| Tile Animation | [Tile Animation](ARCH_TILE_ANIMATION.md) |
-| Touch Input | [Touch Input](ARCH_TOUCH_INPUT.md) |
-| Extending | [Extending PixelRoot32](../EXTENDING_PIXELROOT32.md) |
+| Audio NES | [Audio subsystem](./audio-subsystem.md) |
+| Physics | [Physics subsystem](./physics-subsystem.md) |
+| Memory Management | [Memory system](./memory-system.md) |
+| Resolution Scaling | [Resolution scaling](./resolution-scaling.md) |
+| Tile Animation | [Tile animation](./tile-animation.md) |
+| Touch Input | [Touch input](./touch-input.md) |
+| Extending | [Extending PixelRoot32](../guide/extending-pixelroot32.md) |
 
 ---
 
@@ -214,8 +214,3 @@ PixelRoot32 implements a well-defined layered architecture that enables:
 5. **Simplicity**: Intuitive API inspired by Godot Engine
 
 The Scene-Entity architecture provides a familiar programming model for game developers, while the driver abstraction layer enables multi-platform support without sacrificing performance.
-
----
-
-**Document Generated**: March 2026  
-**Engine Version**: v1.1.0

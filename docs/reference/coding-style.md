@@ -201,7 +201,7 @@ private:     // 3. Implementation last
 | [UI_GUIDELINES.md](UI_GUIDELINES.md) | Layouts, panels, navigation |
 | [GRAPHICS_GUIDELINES.md](GRAPHICS_GUIDELINES.md) | Sprites, tilemaps, palettes |
 | [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Hot paths, optimization |
-| [architecture/ARCH_MEMORY_SYSTEM.md](architecture/ARCH_MEMORY_SYSTEM.md) | C++17 memory deep dive |
+| [Memory system](../architecture/memory-system.md) | C++17 memory deep dive |
 
 ---
 

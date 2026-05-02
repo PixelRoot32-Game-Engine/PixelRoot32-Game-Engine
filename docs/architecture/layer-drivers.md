@@ -140,7 +140,7 @@ custom_display = new MyCustomDriver()
 
 ## Creating Custom Drivers
 
-See [Extending PixelRoot32](../EXTENDING_PIXELROOT32.md) for detailed instructions on creating custom display and audio drivers.
+See [Extending PixelRoot32](../guide/extending-pixelroot32.md) for detailed instructions on creating custom display and audio drivers.
 
 Quick overview:
 
@@ -160,7 +160,7 @@ public:
 
 ## Related Documentation
 
-- [Abstraction Layer](ARCH_LAYER_ABSTRACTION.md) - Interfaces these drivers implement
-- [Hardware Layer](ARCH_LAYER_HARDWARE.md) - Physical hardware details
-- [System Layer](ARCH_LAYER_SYSTEMS.md) - High-level systems that use these drivers
-- [Extending PixelRoot32](../EXTENDING_PIXELROOT32.md) - How to create custom drivers
+- [Abstraction Layer](layer-abstraction.md) - Interfaces these drivers implement
+- [Hardware Layer](layer-hardware.md) - Physical hardware details
+- [System Layer](layer-systems.md) - High-level systems that use these drivers
+- [Extending PixelRoot32](../guide/extending-pixelroot32.md) - How to create custom drivers

@@ -194,6 +194,6 @@ namespace pixelroot32::core::logging {
 
 - [API Reference - Math Module](../api/API_MATH.md) - Scalar and math utilities
 - [API Reference - Platform](../api/API_PLATFORM.md) - Platform abstractions
-- [Memory System](ARCH_MEMORY_SYSTEM.md) - Memory management details
-- [Hardware Layer](ARCH_LAYER_HARDWARE.md) - Physical hardware
-- [Driver Layer](ARCH_LAYER_DRIVERS.md) - Concrete implementations
+- [Memory System](memory-system.md) - Memory management details
+- [Hardware Layer](layer-hardware.md) - Physical hardware
+- [Driver Layer](layer-drivers.md) - Concrete implementations

@@ -319,7 +319,7 @@ public:
 |----------|-------|
 | [UI_GUIDELINES.md](UI_GUIDELINES.md) | Layouts, panels, HUDs |
 | [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Hot paths, optimization |
-| [architecture/ARCH_TILE_ANIMATION.md](architecture/ARCH_TILE_ANIMATION.md) | Animation system deep dive |
+| [Tile animation](../architecture/tile-animation.md) | Animation system deep dive |
 | [api/API_GRAPHICS.md](api/API_GRAPHICS.md) | Complete graphics API |
 
 ---

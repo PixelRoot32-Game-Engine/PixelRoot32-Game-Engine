@@ -34,6 +34,32 @@ Hardware (XPT2046, GT911, …)
          → onUnconsumedTouchEvent()
 ```
 
+### Input abstraction (buttons + touch + PC)
+
+```mermaid
+flowchart TB
+    subgraph Hardware["Hardware Layer"]
+        A[GPIO Buttons]
+        B[XPT2046 Touch]
+        C[PC Keyboard]
+        D[PC Mouse]
+    end
+
+    subgraph Abstraction["Input Abstraction"]
+        A --> E[InputManager]
+        B --> F[TouchManager]
+        C --> E
+        D --> F
+    end
+
+    subgraph Game["Game Layer"]
+        E -->|Button State| G[Game Code]
+        F -->|Touch Events| H[Scene]
+        H -->|UI| I[UIManager]
+        H -->|Unconsumed| J[onUnconsumedTouchEvent]
+    end
+```
+
 ### Without Engine Integration (`PIXELROOT32_ENABLE_TOUCH=0`)
 
 ```text

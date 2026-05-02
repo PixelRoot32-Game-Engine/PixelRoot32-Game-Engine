@@ -13,46 +13,153 @@ The System Layer contains the following major subsystems:
 | Subsystem | Responsibility | Detailed Document |
 |-----------|--------------|-------------------|
 | **Renderer** | Graphics rendering, sprites, tilemaps | See API Reference |
-| **InputManager** | Button and touch input handling | [Touch Input](ARCH_TOUCH_INPUT.md) |
-| **AudioEngine** | NES-style 4-channel audio | [Audio Subsystem](ARCH_AUDIO_SUBSYSTEM.md) |
-| **CollisionSystem** | Physics simulation, collisions | [Physics Subsystem](ARCH_PHYSICS_SUBSYSTEM.md) |
+| **InputManager** | Button and touch input handling | [Touch Input](touch-input.md) |
+| **AudioEngine** | NES-style 4-channel audio | [Audio Subsystem](audio-subsystem.md) |
+| **CollisionSystem** | Physics simulation, collisions | [Physics Subsystem](physics-subsystem.md) |
 | **UI System** | User interface and layouts | See API Reference |
 | **Particle System** | Visual effects and particles | See API Reference |
 | **Camera2D** | Viewport transformations | See API Reference |
-| **Tile Animation** | Animated tilemaps | [Tile Animation](ARCH_TILE_ANIMATION.md) |
-| **Resolution Scaling** | Logical vs physical resolution | [Resolution Scaling](ARCH_RESOLUTION_SCALING.md) |
+| **Tile Animation** | Animated tilemaps | [Tile Animation](tile-animation.md) |
+| **Resolution Scaling** | Logical vs physical resolution | [Resolution Scaling](resolution-scaling.md) |
+
+---
+
+## Diagrams (rendering pipeline, palettes, PC input, UI)
+
+### Renderer path (game code → display)
+
+```mermaid
+flowchart TB
+    subgraph Game["Game Code"]
+        A[Actor::draw] -->|"drawSprite()"| B[Renderer]
+    end
+
+    subgraph RendererLayer["Renderer"]
+        B -->|"Clip"| C[Viewport Culling]
+        C -->|"Transform"| D[World to Screen]
+        D -->|"Scale"| E[Logical to Physical]
+    end
+
+    subgraph Surface["DrawSurface"]
+        E --> F[DrawSurface Interface]
+    end
+
+    subgraph Driver["Driver Layer"]
+        F --> G[TFT_eSPI]
+        F --> H[U8G2]
+        F --> I[SDL2]
+    end
+
+    subgraph Display["Display"]
+        G --> J[LCD Panel]
+        H --> K[OLED]
+        I --> L[PC Monitor]
+    end
+```
+
+### Logical vs physical pixel (scaling)
+
+```mermaid
+flowchart LR
+    subgraph Logical["Logical (128x128)"]
+        L1[Pixel at (64, 64)]
+    end
+
+    subgraph Physical["Physical (240x240)"]
+        P1[Pixel at (120, 120)]
+    end
+
+    L1 -->|"Scale 1.875x"| P1
+```
+
+### Indexed color → RGB565
+
+```mermaid
+flowchart LR
+    A[Indexed Color] -->|"Background Palette"| B[RGB565]
+    C[Indexed Color] -->|"Sprite Palette"| B
+```
+
+### PC keyboard / mouse mapping (illustrative)
+
+```mermaid
+flowchart LR
+    subgraph Keyboard["Keyboard"]
+        A[Arrow Keys]
+        B[Z/X/C/V]
+        C[Enter/Space]
+    end
+
+    subgraph Mapping["Engine Mapping"]
+        A -->|maps to| D[UP/DOWN/LEFT/RIGHT]
+        B -->|maps to| E[B/A/X/Y]
+        C -->|maps to| F[START]
+    end
+
+    subgraph Mouse["Mouse"]
+        G[Left Click] -->|maps to| H[Touch PRESS/CLICK]
+        I[Movement] -->|maps to| J[Touch DRAG]
+    end
+```
+
+### UI composition (scene, layouts, touch)
+
+```mermaid
+flowchart TB
+    subgraph Scene["Scene"]
+        E[Entity list addEntity]
+        U[UIManager touch registry]
+    end
+
+    subgraph Layouts["Layout containers"]
+        V[UIVerticalLayout]
+        H[UIHorizontalLayout]
+        G[UIGridLayout]
+        A[UIAnchorLayout]
+        P[UIPanel]
+    end
+
+    subgraph ClassicUI["Classic UI entities"]
+        L[UILabel]
+        B[UIButton]
+        C[UICheckBox]
+    end
+
+    subgraph TouchUI["Touch widgets"]
+        TB[UITouchButton]
+        TC[UITouchCheckbox]
+        TS[UITouchSlider]
+    end
+
+    E --> Layouts
+    Layouts --> ClassicUI
+    E --> TouchUI
+    U --> TouchUI
+```
 
 ---
 
 ## System Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        System Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│   │ Renderer │  │  Input   │  │  Audio   │  │ Physics  │        │
-│   │          │  │ Manager  │  │ Engine   │  │   (Flat  │        │
-│   │          │  │          │  │          │  │  Solver) │        │
-│   └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘        │
-│        │             │             │             │              │
-│        └─────────────┴─────────────┴─────────────┘              │
-│                      │                                          │
-│                      ▼                                          │
-│   ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
-│   │   UI     │  │ Particle │  │ Camera   │  │   Tile   │        │
-│   │  System  │  │  System  │  │   2D     │  │ Animation│        │
-│   └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌──────────────────┐
-                    │   Scene Layer    │
-                    │  (coordinates    │
-                    │   game objects)  │
-                    └──────────────────┘
+```mermaid
+flowchart TB
+    subgraph SystemLayer["System Layer"]
+        R[Renderer]
+        I[Input Manager]
+        A[Audio Engine]
+        P["Physics<br/>(Flat Solver)"]
+        Merge(( ))
+        R --> Merge
+        I --> Merge
+        A --> Merge
+        P --> Merge
+        Merge --> UIS[UI System]
+        Merge --> PS[Particle System]
+        Merge --> C2[Camera 2D]
+        Merge --> TA[Tile Animation]
+    end
+    Scene["Scene Layer<br/>coordinates game objects"]
+    SystemLayer --> Scene
 ```
 
 ---
@@ -119,7 +226,7 @@ Input management from physical buttons or keyboard (PC), plus optional touch eve
 | `isButtonDown()` | Current DOWN state |
 | `isButtonClicked()` | Complete click detected |
 
-**Touch input** is covered in detail in [Touch Input Architecture](ARCH_TOUCH_INPUT.md).
+**Touch input** is covered in detail in [Touch Input Architecture](touch-input.md).
 
 ---
 
@@ -127,7 +234,7 @@ Input management from physical buttons or keyboard (PC), plus optional touch eve
 
 **Files**: `include/audio/AudioEngine.h`, `src/audio/AudioEngine.cpp`
 
-NES-style 4-channel audio system. See [Audio Subsystem Reference](ARCH_AUDIO_SUBSYSTEM.md) for complete details.
+NES-style 4-channel audio system. See [Audio Subsystem Reference](audio-subsystem.md) for complete details.
 
 **Quick Overview**:
 - 2 PULSE channels (square wave)
@@ -153,7 +260,7 @@ High-performance physics solver optimized for ESP32 microcontrollers.
 5. Trigger Callbacks    → onCollision notifications
 ```
 
-See [Physics System Reference](ARCH_PHYSICS_SUBSYSTEM.md) for complete details.
+See [Physics System Reference](physics-subsystem.md) for complete details.
 
 ---
 
@@ -231,7 +338,7 @@ Modular compilation: `PIXELROOT32_ENABLE_PARTICLES`
 
 For largely static **4bpp** layers when **`DrawSurface::getSpriteBuffer()`** is available, use **`StaticTilemapLayerCache`** and the compile flag **`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`** (see Graphics API and [Architecture](ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)).
 
-See [Tile Animation](ARCH_TILE_ANIMATION.md) for the animation system.
+See [Tile Animation](tile-animation.md) for the animation system.
 
 ---
 
@@ -253,24 +360,15 @@ See [Tile Animation](ARCH_TILE_ANIMATION.md) for the animation system.
 
 ### Game Loop Flow
 
-```
-┌──────────┐     ┌──────────────┐     ┌──────────────┐
-│   Init   │────▶│  Game Loop   │────▶│    Exit      │
-└──────────┘     └──────────────┘     └──────────────┘
-                        │
-         ┌──────────────┼──────────────┐
-         ▼              ▼              ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │  Input   │   │  Update  │   │   Draw   │
-   │  Poll    │   │  Logic   │   │  Render  │
-   └──────────┘   └──────────┘   └──────────┘
-                        │
-         ┌──────────────┼──────────────┐
-         ▼              ▼              ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │  Audio   │   │ Physics  │   │   UI     │
-   │ Generate │   │  Update  │   │  Draw    │
-   └──────────┘   └──────────┘   └──────────┘
+```mermaid
+flowchart TB
+    Init[Init] --> GameLoop[Game Loop] --> Exit[Exit]
+    GameLoop --> InputPoll["Input<br/>Poll"]
+    GameLoop --> UpdateLogic["Update<br/>Logic"]
+    GameLoop --> DrawRender["Draw<br/>Render"]
+    UpdateLogic --> AudioGen["Audio<br/>Generate"]
+    UpdateLogic --> PhysicsUpd["Physics<br/>Update"]
+    UpdateLogic --> UIDraw["UI<br/>Draw"]
 ```
 
 ### Audio Flow
@@ -305,11 +403,11 @@ AudioBackend
 
 | Subsystem | Document |
 |-----------|----------|
-| Audio | [Audio Subsystem](ARCH_AUDIO_SUBSYSTEM.md) |
-| Physics | [Physics Subsystem](ARCH_PHYSICS_SUBSYSTEM.md) |
-| Touch Input | [Touch Input](ARCH_TOUCH_INPUT.md) |
-| Tile Animation | [Tile Animation](ARCH_TILE_ANIMATION.md) |
-| Resolution Scaling | [Resolution Scaling](ARCH_RESOLUTION_SCALING.md) |
-| Memory | [Memory System](ARCH_MEMORY_SYSTEM.md) |
+| Audio | [Audio Subsystem](audio-subsystem.md) |
+| Physics | [Physics Subsystem](physics-subsystem.md) |
+| Touch Input | [Touch Input](touch-input.md) |
+| Tile Animation | [Tile Animation](tile-animation.md) |
+| Resolution Scaling | [Resolution Scaling](resolution-scaling.md) |
+| Memory | [Memory System](memory-system.md) |
 
 **API Reference**: See `docs/api/API_*.md` for class-level documentation.

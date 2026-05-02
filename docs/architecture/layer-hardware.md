@@ -92,7 +92,7 @@ struct PlatformCapabilities {
 
 ## Related Documentation
 
-- [Driver Layer](ARCH_LAYER_DRIVERS.md) - Hardware abstraction drivers
-- [Abstraction Layer](ARCH_LAYER_ABSTRACTION.md) - PlatformMemory and cross-platform abstractions
-- [Memory System](ARCH_MEMORY_SYSTEM.md) - Memory management strategies
+- [Driver Layer](layer-drivers.md) - Hardware abstraction drivers
+- [Abstraction Layer](layer-abstraction.md) - PlatformMemory and cross-platform abstractions
+- [Memory System](memory-system.md) - Memory management strategies
 - [Platform Compatibility](../PLATFORM_COMPATIBILITY.md) - Supported hardware matrix

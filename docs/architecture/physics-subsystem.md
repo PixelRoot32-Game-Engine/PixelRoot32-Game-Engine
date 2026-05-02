@@ -39,6 +39,86 @@ This order is critical:
 - **Position integration happens before penetration correction** (allows proper separation)
 - **Callbacks happen last** (gameplay can inspect final state)
 
+### 1.3 Diagrams (broadphase, grid, layers, solver)
+
+```mermaid
+flowchart TB
+    subgraph Broadphase["Broadphase: Spatial Grid"]
+        A[Actor Insertion] --> B[Grid Cell Assignment]
+        B --> C[Query Optimization]
+    end
+
+    subgraph Narrowphase["Narrowphase: AABB"]
+        D[Potential Pairs] --> E[AABB Intersection]
+        E --> F[Contact Generation]
+    end
+
+    subgraph Solver["Flat Solver"]
+        F --> G[Position Correction]
+        G --> H[Velocity Updates]
+        H --> I[Collision Callbacks]
+    end
+
+    subgraph Actors["Actor Types"]
+        J[StaticActor]
+        K[KinematicActor]
+        L[RigidActor]
+        M[SensorActor]
+    end
+
+    Actors --> Broadphase
+```
+
+```mermaid
+flowchart TB
+    subgraph Grid["32px Grid Cells"]
+        A[Cell 0,0]
+        B[Cell 1,0]
+        C[Cell 0,1]
+        D[Cell 1,1]
+    end
+
+    P1[Player] -->|"Spans cells"| A
+    P1 -->|"Spans cells"| B
+    P1 -->|"Spans cells"| C
+    P1 -->|"Spans cells"| D
+
+    E1[Enemy] -->|"In cell"| B
+```
+
+```mermaid
+flowchart LR
+    subgraph Player["Player"]
+        PL[layer: PLAYER]
+        PM["mask: ENVIRONMENT | ITEM"]
+    end
+
+    subgraph Wall["Wall"]
+        WL[layer: ENVIRONMENT]
+        WM["mask: PLAYER | ENEMY | PROJECTILE"]
+    end
+
+    subgraph Coin["Coin"]
+        CL[layer: ITEM]
+        CM[mask: PLAYER]
+    end
+
+    Player -->|"PLAYER intersects Wall mask"| Wall
+    Player -->|"ITEM intersects Coin mask"| Coin
+    Wall -->|"ENVIRONMENT vs Coin: no response"| Coin
+```
+
+```mermaid
+flowchart TB
+    A[Find all collisions] --> B[Sort by penetration depth]
+    B --> C[Resolve highest priority]
+    C --> D[Update positions]
+    D --> E{"Iterations < Max?"}
+    E -->|Yes| F[Re-check collisions]
+    E -->|No| G[Final velocity update]
+    F --> B
+```
+
 ---
 
 ## 2. Key Constants
@@ -492,7 +572,7 @@ Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build f
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
 
-**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](ARCH_MEMORY_SYSTEM.md#esp32-dram-and-build-configuration).
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
 
 Solver tuning (in code):
 

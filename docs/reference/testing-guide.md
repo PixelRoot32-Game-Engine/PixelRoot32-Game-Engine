@@ -1,5 +1,7 @@
 # Testing Guide - PixelRoot32 Game Engine
 
+**Canonical doc:** this file is the single source for testing on PixelRoot32. The [Guide → Testing](../guide/testing.md) page is a short entry with quick commands.
+
 ## Overview
 
 This comprehensive guide covers testing practices for the PixelRoot32 Game Engine. It includes unit testing, integration testing, platform-specific testing, and continuous integration setup. The test suite uses the **Unity** framework and runs on the **native** platform by default (`native_test`).
