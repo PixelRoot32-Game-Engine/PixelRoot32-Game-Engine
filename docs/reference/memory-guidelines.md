@@ -2,7 +2,7 @@
 
 Practical memory management patterns for embedded game development.
 
-**For complete C++17 memory guide:** [ARCH_MEMORY_SYSTEM.md](architecture/ARCH_MEMORY_SYSTEM.md)
+**For complete C++17 memory guide:** [memory-system.md](../architecture/memory-system.md)
 
 ---
 
@@ -195,9 +195,9 @@ void checkMemory() {
 
 | Document | Topic |
 |----------|-------|
-| [architecture/ARCH_MEMORY_SYSTEM.md](architecture/ARCH_MEMORY_SYSTEM.md) | Complete C++17 memory guide |
-| [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Hot paths, optimization |
-| [GAMEPLAY_GUIDELINES.md](GAMEPLAY_GUIDELINES.md) | Pool patterns, anti-patterns |
+| [architecture/memory-system.md](../architecture/memory-system.md) | Complete C++17 memory guide |
+| [performance/esp32-performance.md](./performance/esp32-performance.md) | Hot paths, optimization |
+| [gameplay-guidelines.md](../guide/gameplay-guidelines.md) | Pool patterns, anti-patterns |
 
 ---
 

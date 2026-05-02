@@ -558,11 +558,11 @@ This affects both music and sound effects globally (same as calling `AudioEngine
 
 ### Master bitcrush and post-mix hook
 
-For global lo-fi degradation or analysis, use **`AudioEngine::setMasterBitcrush`** / **`getMasterBitcrush`** (0–15; 0 = off). For custom processing on the final mono buffer (after bitcrush), configure **`AudioConfig::postMixMono`** / **`postMixUser`** when constructing the engine—see [API_AUDIO.md](api/API_AUDIO.md).
+For global lo-fi degradation or analysis, use **`AudioEngine::setMasterBitcrush`** / **`getMasterBitcrush`** (0–15; 0 = off). For custom processing on the final mono buffer (after bitcrush), configure **`AudioConfig::postMixMono`** / **`postMixUser`** when constructing the engine—see [audio.md](../api/audio.md).
 
 ### Related API (sweeps and extra waves)
 
-One-shot **frequency sweeps** on `AudioEvent` (`sweepEndHz`, `sweepDurationSec`) apply to **`PULSE`** and **`TRIANGLE`** (and to **`SINE`** / **`SAW`** when extra waves are enabled). **`NOISE`** ignores sweep fields. Full detail: [API_AUDIO.md](api/API_AUDIO.md).
+One-shot **frequency sweeps** on `AudioEvent` (`sweepEndHz`, `sweepDurationSec`) apply to **`PULSE`** and **`TRIANGLE`** (and to **`SINE`** / **`SAW`** when extra waves are enabled). **`NOISE`** ignores sweep fields. Full detail: [audio.md](../api/audio.md).
 
 ---
 

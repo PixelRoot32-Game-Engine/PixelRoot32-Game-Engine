@@ -60,7 +60,7 @@ At its core, the engine is built around a few simple ideas:
 - Performance as a core constraint  
 - Retro-inspired design with modern practices  
 
-👉 Learn more: [Engine Philosophy](docs/ENGINE_PHILOSOPHY.md)
+👉 Learn more: [Engine Philosophy](docs/philosophy/engine-philosophy.md)
 
 ---
 
@@ -221,7 +221,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 4. **Platform Memory**: Use `PIXELROOT32_FLASH_ATTR` and `PIXELROOT32_READ_*_P` macros for cross-platform Flash/RAM access.
 5. **Centralized Logging**: Use `log()` from `core/Log.h` instead of `Serial.print` or `printf`.
 
-> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/STYLE_GUIDE.md)** for detailed rules on memory management, performance optimization, and coding style.
+> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/reference/style-guide.md)** for detailed rules on memory management, performance optimization, and coding style.
 
 ---
 
@@ -235,11 +235,11 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
-- **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
-- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
-- **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
-- **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
-- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
+- **[API Reference](docs/api/index.md)**: Class reference and usage.
+- **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
+- **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
+- **[Audio Subsystem](docs/architecture/audio-subsystem.md)**: Sound engine details.
+- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/reference/style-guide.md)**
 
 ---
 

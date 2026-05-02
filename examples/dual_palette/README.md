@@ -27,8 +27,8 @@ See **`platformio.ini`** for **`native`** and **`esp32dev`**. Dual palette itsel
 
 ## Documentation links
 
-- [Graphics API](../../docs/api/API_GRAPHICS.md)
-- [Architecture](../../docs/ARCHITECTURE.md)
+- [Graphics API](../../docs/api/graphics.md)
+- [Architecture](../../docs/architecture/overview.md)
 
 ## Build
 

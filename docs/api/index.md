@@ -12,15 +12,15 @@ The API documentation has been split into modular files for easier maintenance. 
 
 | Topic | Description |
 |-------|-------------|
-| [Configuration](api/API_CONFIG.md) | Build flags, modular compilation, constants |
-| [Math Module](api/API_MATH.md) | Scalar, Vector2, MathUtil, PRNG |
-| [Core Module](api/API_CORE.md) | Engine, Entity, Actor, Scene, SceneManager |
-| [Physics Module](api/API_PHYSICS.md) | CollisionSystem, PhysicsActor, RigidActor, collision helpers |
-| [Graphics Module](api/API_GRAPHICS.md) | Renderer, sprites, tilemaps, particles, Camera2D |
-| [UI Module](api/API_UI.md) | UI system, touch widgets, layouts |
-| [Audio Module](api/API_AUDIO.md) | AudioEngine, MusicPlayer, music tracks |
-| [Input Module](api/API_INPUT.md) | InputManager, TouchManager, touch calibration |
-| [Platform Abstractions](api/API_PLATFORM.md) | Logging, PlatformMemory, hardware capabilities |
+| [Configuration](config.md) | Build flags, modular compilation, constants |
+| [Math Module](math.md) | Scalar, Vector2, MathUtil, PRNG |
+| [Core Module](core.md) | Engine, Entity, Actor, Scene, SceneManager |
+| [Physics Module](physics.md) | CollisionSystem, PhysicsActor, RigidActor, collision helpers |
+| [Graphics Module](graphics.md) | Renderer, sprites, tilemaps, particles, Camera2D |
+| [UI Module](ui.md) | UI system, touch widgets, layouts |
+| [Audio Module](audio.md) | AudioEngine, MusicPlayer, music tracks |
+| [Input Module](input.md) | InputManager, TouchManager, touch calibration |
+| [Platform Abstractions](platform.md) | Logging, PlatformMemory, hardware capabilities |
 
 ---
 
@@ -98,9 +98,9 @@ Some modules are optional and can be disabled to save memory:
 
 ## Related Documentation
 
-- [Architecture](ARCHITECTURE.md) (includes [ESP32 rendering and tilemap caching](ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching))
-- [Platform Compatibility Guide](PLATFORM_COMPATIBILITY.md)
-- [Getting Started Guide](GETTING_STARTED.md)
-- [Extending PixelRoot32](EXTENDING_PIXELROOT32.md)
-- [Touch Input Architecture](architecture/ARCH_TOUCH_INPUT.md)
-- [Migration Guides](docs/MIGRATION_*.md)
+- [Architecture](../architecture/overview.md) (includes [ESP32 rendering and tilemap caching](../architecture/overview.md#esp32-rendering-pipeline-and-tilemap-caching))
+- [Platform Compatibility Guide](../reference/PLATFORM_COMPATIBILITY.md)
+- [Getting Started Guide](../guide/GETTING_STARTED.md)
+- [Extending PixelRoot32](../guide/EXTENDING_PIXELROOT32.md)
+- [Touch Input Architecture](../architecture/ARCH_TOUCH_INPUT.md)
+- [Migration Guides](../migration/MIGRATION_*.md)

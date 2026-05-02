@@ -43,9 +43,9 @@ La escena implementa **`Scene::shouldRedrawFramebuffer()`**: combina **`TileAnim
 
 ## Documentation links
 
-- API detail: [Graphics module — `StaticTilemapLayerCache`](../../docs/api/API_GRAPHICS.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache)
-- Pipeline / layering: [Architecture — ESP32 rendering and tilemap caching](../../docs/ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)
-- Static cache concept: [Architecture — Static tilemap layer cache](../../docs/ARCHITECTURE.md#static-tilemap-layer-cache-engine--scenes)
+- API detail: [Graphics module — `StaticTilemapLayerCache`](../../docs/api/graphics.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache)
+- Pipeline / layering: [Architecture — ESP32 rendering and tilemap caching](../../docs/architecture/overview.md#esp32-rendering-pipeline-and-tilemap-caching)
+- Static cache concept: [Architecture — Static tilemap layer cache](../../docs/architecture/overview.md#static-tilemap-layer-cache-engine--scenes)
 
 ## Features
 

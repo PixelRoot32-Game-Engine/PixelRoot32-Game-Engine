@@ -1,7 +1,7 @@
 # Coding Style Guide - PixelRoot32
 
 **Scope:** C++ coding conventions and style rules.  
-**For other topics:** See [Memory Guidelines](MEMORY_GUIDELINES.md), [Gameplay Guidelines](GAMEPLAY_GUIDELINES.md), [UI Guidelines](UI_GUIDELINES.md), [Graphics Guidelines](GRAPHICS_GUIDELINES.md), [ESP32 Performance](performance/ESP32_PERFORMANCE.md).
+**For other topics:** See [Memory Guidelines](./MEMORY_GUIDELINES.md), [Gameplay Guidelines](../guide/GAMEPLAY_GUIDELINES.md), [UI Guidelines](./UI_GUIDELINES.md), [Graphics Guidelines](./GRAPHICS_GUIDELINES.md), [ESP32 Performance](./performance/ESP32_PERFORMANCE.md).
 
 ---
 

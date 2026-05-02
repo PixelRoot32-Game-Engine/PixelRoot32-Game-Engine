@@ -46,7 +46,7 @@ Single-core architectures (like the ESP32-C3) run the game logic, display transf
 
 ## 💾 Memory & Resources
 
-**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](../architecture/ARCH_MEMORY_SYSTEM.md)**
+**📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](../../architecture/memory-system.md)**
 
 ### Smart Pointers (C++17)
 
@@ -149,6 +149,6 @@ build_flags =
 
 | Document | Description |
 |----------|-------------|
-| [Memory Management Guide](../architecture/ARCH_MEMORY_SYSTEM.md) | Complete C++17 memory guide with smart pointers |
-| [Platform Compatibility](../PLATFORM_COMPATIBILITY.md) | Hardware matrix and feature support |
-| [Architecture Overview](../ARCHITECTURE.md) | Layer architecture and subsystem navigation |
+| [Memory Management Guide](../../architecture/memory-system.md) | Complete C++17 memory guide with smart pointers |
+| [Platform Compatibility](../platform-compatibility.md) | Hardware matrix and feature support |
+| [Architecture Overview](../../architecture/overview.md) | Layer architecture and subsystem navigation |

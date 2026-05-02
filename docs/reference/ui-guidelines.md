@@ -1,6 +1,6 @@
 # UI Guidelines - PixelRoot32
 
-Patterns and best practices for building user interfaces with the UI system. Authoritative signatures live in `include/graphics/ui/` and [api/API_UI.md](api/API_UI.md).
+Patterns and best practices for building user interfaces with the UI system. Authoritative signatures live in `include/graphics/ui/` and [api/API_UI.md](../api/API_UI.md).
 
 ---
 
@@ -235,7 +235,7 @@ void MyActor::draw(Renderer& r) {
 - **`UITouchButton` / `UITouchCheckbox` / `UITouchSlider`**: register with `UIManager::addElement` and implement `Scene::processTouchEvents`. Also `addEntity` so widgets draw.
 - **`UIButton` / `UICheckBox`**: use **`handleInput`** and focus/selection; they do not use the touch event dispatcher for hit testing.
 
-See [architecture/ARCH_TOUCH_INPUT.md](architecture/ARCH_TOUCH_INPUT.md).
+See [architecture/touch-input.md](../architecture/touch-input.md).
 
 ---
 
@@ -243,10 +243,10 @@ See [architecture/ARCH_TOUCH_INPUT.md](architecture/ARCH_TOUCH_INPUT.md).
 
 | Document | Topic |
 |----------|-------|
-| [GRAPHICS_GUIDELINES.md](GRAPHICS_GUIDELINES.md) | Sprites, tilemaps, palettes |
-| [CODING_STYLE.md](CODING_STYLE.md) | C++ conventions |
-| [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Optimization |
-| [api/API_UI.md](api/API_UI.md) | UI API reference |
+| [graphics-guidelines.md](./graphics-guidelines.md) | Sprites, tilemaps, palettes |
+| [coding-style.md](./coding-style.md) | C++ conventions |
+| [performance/esp32-performance.md](./performance/esp32-performance.md) | Optimization |
+| [api/ui.md](../api/ui.md) | UI API reference |
 
 ---
 

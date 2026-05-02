@@ -60,11 +60,11 @@ Each full arrangement uses **`MusicTrack`** layering: **main** + optional **`sec
 
 ## Documentation links
 
-- [Audio API](../../docs/api/API_AUDIO.md)
-- [Music player guide](../../docs/MUSIC_PLAYER_GUIDE.md)
-- [Input API](../../docs/api/API_INPUT.md)
-- [UI API](../../docs/api/API_UI.md)
-- [Core — Scene](../../docs/api/API_CORE.md)
+- [Audio API](../../docs/api/audio.md)
+- [Music player guide](../../docs/guide/music-player-guide.md)
+- [Input API](../../docs/api/input.md)
+- [UI API](../../docs/api/ui.md)
+- [Core — Scene](../../docs/api/core.md)
 
 ## Build
 
