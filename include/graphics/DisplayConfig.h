@@ -29,6 +29,10 @@
 
 namespace pixelroot32::graphics {
 
+/**
+ * @enum DisplayType
+ * @brief Identifies the type of display driver to use.
+ */
 enum DisplayType {
     ST7789, // TFT
     ST7735, // TFT
@@ -113,6 +117,20 @@ public:
 
     /**
      * @brief Constructor with pin configuration (for OLED/U8G2).
+     * @param type Display type.
+     * @param rot Rotation.
+     * @param clk Clock pin.
+     * @param data Data pin.
+     * @param cs CS pin.
+     * @param dc DC pin.
+     * @param rst Reset pin.
+     * @param physW Physical width.
+     * @param physH Physical height.
+     * @param logW Logical width.
+     * @param logH Logical height.
+     * @param xOff X offset.
+     * @param yOff Y offset.
+     * @param hwI2C True to use hardware I2C.
      */
     DisplayConfig(
         DisplayType type,
@@ -153,6 +171,10 @@ public:
         return DisplayConfig(DisplayType::CUSTOM, rot, w, h, w, h, 0, 0, surface);
     }
 
+    /**
+     * @brief Copy constructor.
+     * @param other The DisplayConfig to copy from.
+     */
     DisplayConfig(const DisplayConfig& other)
         : type(other.type), rotation(other.rotation),
           physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
@@ -164,6 +186,10 @@ public:
           drawSurface(nullptr) // Cannot copy the unique_ptr
     {}
 
+    /**
+     * @brief Move constructor.
+     * @param other The DisplayConfig to move from.
+     */
     DisplayConfig(DisplayConfig&& other) noexcept
         : type(other.type), rotation(other.rotation),
           physicalWidth(other.physicalWidth), physicalHeight(other.physicalHeight),
@@ -175,6 +201,11 @@ public:
           drawSurface(std::move(other.drawSurface))
     {}
 
+    /**
+     * @brief Move assignment operator.
+     * @param other The DisplayConfig to move from.
+     * @return Reference to this DisplayConfig.
+     */
     DisplayConfig& operator=(DisplayConfig&& other) noexcept {
         if (this != &other) {
             type = other.type;
@@ -228,14 +259,27 @@ public:
     // Backward Compatibility Aliases (deprecated)
     // =========================================================================
     
-    /// @deprecated Use logicalWidth instead.
+    /**
+     * @brief Deprecated, gets logical width.
+     * @return The logical width.
+     */
     uint16_t width() const { return logicalWidth; }
     
-    /// @deprecated Use logicalHeight instead.
+    /**
+     * @brief Deprecated, gets logical height.
+     * @return The logical height.
+     */
     uint16_t height() const { return logicalHeight; }
 
+    /**
+     * @brief Gets the underlying DrawSurface implementation.
+     * @return Reference to the DrawSurface.
+     */
     DrawSurface& getDrawSurface() const { return *drawSurface; }
 
+    /**
+     * @brief Initializes the underlying draw surface.
+     */
     void initDrawSurface();
 
     /**
