@@ -21,10 +21,11 @@ namespace pixelroot32::graphics::ui {
 
 /**
  * @class UITouchSlider
- * @brief Touch-optimized slider widget
- * 
- * Provides slider functionality with touch input support.
- * Inherits from UITouchElement for Entity interface (update/draw).
+ * @brief Touch-optimized slider widget.
+ *
+ * Inherits from UITouchElement.
+ *
+ * Provides touch input support and the Entity update/draw interface.
  * Construct with position/size; register with UIManager::addElement for touch routing.
  * Value range: 0-100
  * States: Idle, Dragging

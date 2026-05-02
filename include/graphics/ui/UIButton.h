@@ -19,6 +19,8 @@ namespace pixelroot32::graphics::ui {
     * @class UIButton
     * @brief A clickable button UI element.
     *
+    * Inherits from UIElement.
+    *
     * Supports both physical (keyboard/gamepad) and touch input.
     * Can trigger a callback function when pressed.
     */

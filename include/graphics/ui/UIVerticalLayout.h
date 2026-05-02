@@ -17,6 +17,8 @@ namespace pixelroot32::graphics::ui {
  * @class UIVerticalLayout
  * @brief Vertical layout container with scroll support.
  *
+ * Inherits from UILayout.
+ *
  * Organizes UI elements vertically, one below another. Supports scrolling
  * when content exceeds the visible viewport. Handles keyboard/D-pad
  * navigation automatically.

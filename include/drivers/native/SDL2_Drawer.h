@@ -23,6 +23,12 @@ namespace pixelroot32::input {
 
 namespace pixelroot32::drivers::native {
 
+/**
+ * @class SDL2_Drawer
+ * @brief SDL2-backed draw surface for native desktop builds.
+ *
+ * Inherits from BaseDrawSurface.
+ */
 class SDL2_Drawer : public pixelroot32::graphics::BaseDrawSurface {
 public:
     SDL2_Drawer();

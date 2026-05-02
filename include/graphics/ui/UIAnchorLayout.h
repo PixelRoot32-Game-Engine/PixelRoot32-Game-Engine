@@ -37,6 +37,8 @@ enum class Anchor {
  * @class UIAnchorLayout
  * @brief Layout that positions elements at fixed anchor points on the screen.
  *
+ * Inherits from UILayout.
+ *
  * This layout positions UI elements at fixed anchor points (corners, center, etc.)
  * without reflow. Very efficient for HUDs, debug UI, and fixed-position elements.
  * Positions are calculated once or when screen size changes.

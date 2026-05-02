@@ -110,6 +110,41 @@ PixelRoot32 is a lightweight, modular 2D game engine written in C++17, designed 
 
 ---
 
+## Core Class Hierarchy
+
+The diagram below complements **Layer 4** (`Entity` → actors and UI) from the stack above. The `DrawSurface` → `BaseDrawSurface` branch sits in the **abstraction / graphics** side of the stack (concrete drawers live in the driver layer). For narrative detail on scenes and entities, see [Scene Layer](./layer-scene.md).
+
+The following diagram shows the inheritance relationships between the main engine types:
+
+```mermaid
+flowchart TD
+  Entity --> Actor
+  Actor --> PhysicsActor
+  PhysicsActor --> StaticActor
+  PhysicsActor --> KinematicActor
+  PhysicsActor --> RigidActor
+  StaticActor --> SensorActor
+  Entity --> UIElement
+  UIElement --> UILayout
+  UILayout --> UIAnchorLayout
+  UILayout --> UIGridLayout
+  UILayout --> UIHorizontalLayout
+  UILayout --> UIVerticalLayout
+  UIElement --> UIButton
+  UIElement --> UILabel
+  UIElement --> UICheckBox
+  UIElement --> UIPanel
+  UIElement --> UIPaddingContainer
+  UIElement --> UITouchElement
+  UITouchElement --> UITouchButton
+  UITouchElement --> UITouchCheckbox
+  UITouchElement --> UITouchSlider
+  Entity --> ParticleEmitter
+  DrawSurface --> BaseDrawSurface
+```
+
+---
+
 ## Subsystem Modular Compilation
 
 | Subsystem | Enable Flag | Default |

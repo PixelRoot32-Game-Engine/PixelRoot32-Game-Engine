@@ -12,7 +12,9 @@ namespace pixelroot32::graphics {
 /**
  * @class BaseDrawSurface
  * @brief Optional base class for DrawSurface implementations that provides default primitive rendering.
- * 
+ *
+ * Inherits from DrawSurface.
+ *
  * Users can inherit from this class to avoid implementing every single primitive.
  * At minimum, a subclass should implement:
  * - init()

@@ -11,7 +11,9 @@ namespace pixelroot32::physics {
 /**
  * @class KinematicActor
  * @brief A physics body moved via script/manual velocity with collision detection.
- * 
+ *
+ * Inherits from PhysicsActor.
+ *
  * Kinematic actors are not affected by world gravity or forces but can detect
  * and react to collisions during movement. They provide methods like 
  * moveAndSlide for complex character movement.

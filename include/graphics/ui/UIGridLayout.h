@@ -17,6 +17,8 @@ namespace pixelroot32::graphics::ui {
  * @class UIGridLayout
  * @brief Grid layout container for organizing elements in a matrix.
  *
+ * Inherits from UILayout.
+ *
  * Organizes UI elements in a fixed grid of rows and columns. Supports
  * navigation in 4 directions (UP/DOWN/LEFT/RIGHT) and automatic
  * positioning based on grid coordinates.
