@@ -1,12 +1,15 @@
 # API Reference
 
-This document provides a complete reference for the PixelRoot32 Game Engine public API.
+This document provides a high-level conceptual reference for the PixelRoot32 Game Engine public API.
+
+> **Source of Truth:** 
+> The Markdown files in this directory are **high-level conceptual guides**. For detailed, method-level documentation (signatures, parameter descriptions, return values), the **C++ header files (`include/**/*.h`)** serve as the single source of truth.
 
 > **Note:** For the most up-to-date and comprehensive API documentation with examples and cross-references, visit the [official documentation](https://docs.pixelroot32.org/api_reference/).
 
 ## Table of Contents
 
-The API documentation has been split into modular files for easier maintenance. Click on a topic to jump to the detailed documentation.
+The API documentation has been split into modular conceptual guides for easier maintenance. Click on a topic to jump to the detailed documentation.
 
 ### Core Reference
 
@@ -14,7 +17,7 @@ The API documentation has been split into modular files for easier maintenance. 
 |-------|-------------|
 | [Configuration](config.md) | Build flags, modular compilation, constants |
 | [Math Module](math.md) | Scalar, Vector2, MathUtil, PRNG |
-| [Core Module](core.md) | Engine, Entity, Actor, Scene, SceneManager |
+| [Core Module](core.md) | Engine, Entity, Scene, SceneManager |
 | [Physics Module](physics.md) | CollisionSystem, PhysicsActor, RigidActor, collision helpers |
 | [Graphics Module](graphics.md) | Renderer, sprites, tilemaps, particles, Camera2D |
 | [UI Module](ui.md) | UI system, touch widgets, layouts |
@@ -34,15 +37,15 @@ The API documentation has been split into modular files for easier maintenance. 
 
 int main() {
     // Configure display
-    DisplayConfig config;
-    config.type = DisplayType::ST7789;
+    pixelroot32::graphics::DisplayConfig config;
+    config.type = pixelroot32::graphics::DisplayType::ST7789;
     config.physicalWidth = 240;
     config.physicalHeight = 240;
     config.logicalWidth = 240;
     config.logicalHeight = 240;
 
     // Create engine
-    Engine engine(std::move(config));
+    pixelroot32::core::Engine engine(std::move(config));
     engine.init();
 
     // Run game loop
@@ -67,7 +70,7 @@ public:
         // Update game logic
     }
 
-    void draw(Renderer& renderer) override {
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
         renderer.beginFrame();
         // Draw everything
         renderer.endFrame();
@@ -99,8 +102,7 @@ Some modules are optional and can be disabled to save memory:
 ## Related Documentation
 
 - [Architecture](../architecture/overview.md) (includes [ESP32 rendering and tilemap caching](../architecture/overview.md#esp32-rendering-pipeline-and-tilemap-caching))
-- [Platform Compatibility Guide](../reference/PLATFORM_COMPATIBILITY.md)
-- [Getting Started Guide](../guide/GETTING_STARTED.md)
-- [Extending PixelRoot32](../guide/EXTENDING_PIXELROOT32.md)
-- [Touch Input Architecture](../architecture/ARCH_TOUCH_INPUT.md)
-- [Migration Guides](../migration/MIGRATION_*.md)
+- [Platform Compatibility Guide](../reference/platform-compatibility.md)
+- [Getting Started Guide](../../README.md)
+- [Extending PixelRoot32](../guide/extending-pixelroot32.md)
+- [Touch Input Architecture](../architecture/touch-input.md)

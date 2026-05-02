@@ -1,141 +1,85 @@
 # API Reference: Platform Abstractions
 
-This document covers platform-specific abstractions including logging, memory management, and hardware capabilities in PixelRoot32.
+> **Source of truth:**
+> - `include/core/Log.h`
+> - `include/platforms/PlatformMemory.h`
+> - `include/platforms/PlatformCapabilities.h`
 
-> **Note:** This is part of the [API Reference](../API_REFERENCE.md). See the main index for complete documentation.
+## Overview
 
----
+The Platform module provides a hardware abstraction layer (HAL) for the engine. It ensures that platform-specific features (like memory allocation on the ESP32) can be used optimally, while falling back to standard implementations on other platforms (like Windows/Linux via SDL2).
 
-## Platform Abstractions Overview
+## Key Concepts
 
-Version 1.1.0 introduces unified abstractions for cross-platform operations, eliminating the need for manual `#ifdef` blocks in user code.
+### Logging System
 
----
+A unified logging system that outputs to the Serial console on ESP32 or standard output on PC. It is enabled by defining `PIXELROOT32_DEBUG_MODE=1` in your build flags. If debug mode is disabled, all log macros are stripped by the preprocessor, resulting in zero overhead.
 
-## Logging System
+**Log Levels:**
+- `PR32_LOG_ERROR(fmt, ...)`: Critical errors.
+- `PR32_LOG_WARN(fmt, ...)`: Warnings.
+- `PR32_LOG_INFO(fmt, ...)`: General information.
+- `PR32_LOG_DEBUG(fmt, ...)`: Verbose debug info.
 
-**Namespace:** `pixelroot32::core::logging`
+**Usage Example:**
+```cpp
+#include "core/Log.h"
 
-The unified logging system provides platform-agnostic logging with different log levels, automatically routing to the appropriate output (Serial for ESP32, stdout for native). Enable with `-DPIXELROOT32_DEBUG_MODE` in build flags.
-
-### Log Levels
-
-| LogLevel Enum | Output Prefix | Use Case |
-|--------------|---------------|----------|
-| `LogLevel::Info` | `[INFO]` | General information, debug messages |
-| `LogLevel::Profiling` | `[PROF]` | Performance timing markers |
-| `LogLevel::Warning` | `[WARN]` | Warnings, non-critical issues |
-| `LogLevel::Error` | `[ERROR]` | Errors, critical failures |
-
-### Functions
-
-- **`void log(LogLevel level, const char* format, ...)`**
-    Logs a message with the specified level and printf-style formatting.
-
-- **`void log(const char* format, ...)`**
-    Logs a message with Info level (shorthand).
+void init() {
+    PR32_LOG_INFO("Initializing game... Width: %d", 240);
+}
+```
 
 ### Conditional Compilation
 
-When `PIXELROOT32_DEBUG_MODE` is **not defined**, all `log()` calls become no-ops at compile time. The engine uses a double-layer conditional:
+The engine uses macros to detect the current platform. You can use these in your own game code if you need platform-specific behavior.
 
-1. **`#ifdef PIXELROOT32_DEBUG_MODE`** in the header makes `log()` calls emit formatting code
-2. **`if constexpr (EnableLogging)`** in the implementation skips runtime formatting
+- `PIXELROOT32_PLATFORM_ESP32`: Defined when compiling for any ESP32 variant.
+- `PIXELROOT32_PLATFORM_NATIVE`: Defined when compiling for PC (SDL2).
 
-This means zero runtime cost in production builds (no string formatting, no branching).
-
-### Usage Example
-
+**Usage Example:**
 ```cpp
-// Enable in platformio.ini:
-// build_flags = -D PIXELROOT32_DEBUG_MODE
-
-#include "core/Log.h"
-
-using namespace pixelroot32::core::logging;
-
-// Log with explicit level
-log(LogLevel::Info, "Player position: %d", playerX);
-
-// Log warning
-log(LogLevel::Warning, "Low memory: %d bytes free", freeRAM);
-
-// Log error
-log(LogLevel::Error, "Failed to load sprite: %s", filename);
-
-// Log with default Info level
-log("Player position: %d", playerX);
+#ifdef PIXELROOT32_PLATFORM_ESP32
+    // Setup ESP32-specific hardware pins
+    pinMode(2, OUTPUT);
+#else
+    // Setup PC equivalent or mock
+    PR32_LOG_INFO("Running on PC emulator");
+#endif
 ```
 
----
+### Platform Memory Allocation
 
-## Platform Memory Abstraction
+On the ESP32, standard `malloc` and `new` allocate from the default internal RAM. However, the ESP32 also has external PSRAM and faster internal IRAM. The `PlatformMemory` macros abstract these platform-specific allocations. On PC, these macros safely fall back to standard `malloc`/`free`.
 
-**Include:** `platforms/PlatformMemory.h`
+| Macro | Description |
+|-------|-------------|
+| `PR32_MALLOC(size)` | Standard allocation (internal RAM). |
+| `PR32_MALLOC_PSRAM(size)` | Allocates in external PSRAM (if available). Great for large tilemaps or audio buffers. |
+| `PR32_MALLOC_DMA(size)` | Allocates DMA-capable memory. Required for SPI display buffers. |
+| `PR32_FREE(ptr)` | Safely frees memory allocated by any of the above macros. |
 
-Provides a unified API for memory operations that differ between ESP32 (Flash/PROGMEM) and Native (RAM) platforms.
-
-### Macros
-
-- **`PIXELROOT32_FLASH_ATTR`**
-    Attribute for data stored in Flash memory.
-
-- **`PIXELROOT32_STRCMP_P(dest, src)`**
-    Compare a RAM string with a Flash string.
-
-- **`PIXELROOT32_MEMCPY_P(dest, src, size)`**
-    Copy data from Flash to RAM.
-
-- **`PIXELROOT32_READ_BYTE_P(addr)`**
-    Read an 8-bit value from Flash.
-
-- **`PIXELROOT32_READ_WORD_P(addr)`**
-    Read a 16-bit value from Flash.
-
-- **`PIXELROOT32_READ_DWORD_P(addr)`**
-    Read a 32-bit value from Flash.
-
-- **`PIXELROOT32_READ_FLOAT_P(addr)`**
-    Read a float value from Flash.
-
-- **`PIXELROOT32_READ_PTR_P(addr)`**
-    Read a pointer from Flash.
-
-### Usage Example
-
+**Usage Example:**
 ```cpp
 #include "platforms/PlatformMemory.h"
 
-const char MY_STRING[] PIXELROOT32_FLASH_ATTR = "Hello";
-char buffer[10];
-PIXELROOT32_STRCMP_P(buffer, MY_STRING);
-uint8_t val = PIXELROOT32_READ_BYTE_P(&my_array[i]);
+// Allocate a large buffer in PSRAM to save precious internal RAM
+uint8_t* largeBuffer = (uint8_t*)PR32_MALLOC_PSRAM(1024 * 1024);
+
+if (largeBuffer != nullptr) {
+    // Use buffer...
+    PR32_FREE(largeBuffer);
+}
 ```
 
----
+### Platform Capabilities
 
-## PlatformCapabilities
+Detected hardware capabilities, such as the number of CPU cores and recommended audio task pinning. 
 
-**Namespace:** `pixelroot32::platforms`
-
-A structure that holds detected hardware capabilities, used to optimize task pinning and threading.
-
-### Properties
-
-- **`bool hasDualCore`**: True if the hardware has more than one CPU core.
-- **`int coreCount`**: Total number of CPU cores detected.
-- **`int audioCoreId`**: Recommended CPU core for audio tasks.
-- **`int mainCoreId`**: Recommended CPU core for the main game loop.
-- **`int audioPriority`**: Recommended priority for audio tasks.
-
-### Static Methods
-
-- **`static PlatformCapabilities detect()`**: Automatically detects hardware capabilities based on the platform and configuration. It respects the defaults defined in `platforms/PlatformDefaults.h` and any compile-time overrides.
-
----
+> **Note**: For detailed information on the `PlatformCapabilities` struct, refer to the [Core Module](core.md#platformcapabilities).
 
 ## Related Documentation
 
-- [API Reference](../API_REFERENCE.md) - Main index
-- [API Config](API_CONFIG.md) - Build flags and configuration
-- [Platform Compatibility Guide](../PLATFORM_COMPATIBILITY.md)
+- [API Reference](index.md) - Main index
+- [Core Module](core.md) - PlatformCapabilities
+- [Configuration](config.md) - Build flags
