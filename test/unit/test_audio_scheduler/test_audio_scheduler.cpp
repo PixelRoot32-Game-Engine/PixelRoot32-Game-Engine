@@ -335,6 +335,45 @@ void test_music_set_tempo_command(void) {
     TEST_ASSERT_FALSE(scheduler.isMusicPaused());
 }
 
+/** Regression: MUSIC_PLAY must not backlog-catch-up ticks from before the track started. */
+void test_music_play_no_burst_after_long_idle(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+
+    static const MusicNote kBurstTestNotes[] = {
+        {Note::C, 4, 1.0f, 0.5f, nullptr},
+        {Note::D, 4, 1.0f, 0.5f, nullptr},
+        {Note::E, 4, 1.0f, 0.5f, nullptr},
+        {Note::F, 4, 1.0f, 0.5f, nullptr},
+        {Note::G, 4, 1.0f, 0.5f, nullptr},
+        {Note::A, 4, 1.0f, 0.5f, nullptr},
+        {Note::B, 4, 1.0f, 0.5f, nullptr},
+        {Note::C, 5, 1.0f, 0.5f, nullptr},
+    };
+    static const MusicTrack kBurstTestTrack{kBurstTestNotes,
+                                            sizeof(kBurstTestNotes) / sizeof(kBurstTestNotes[0]),
+                                            false,
+                                            WaveType::PULSE,
+                                            0.5f};
+
+    // ~10 s of sample time with no music → large audioTimeSamples / tickDurationSamples
+    generateDiscard(scheduler, 44100 * 10);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kBurstTestTrack;
+    scheduler.submitCommand(play);
+
+    int16_t buf[256];
+    scheduler.generateSamples(buf, 256);
+
+    TEST_ASSERT_TRUE(scheduler.isMusicPlaying());
+    TEST_ASSERT_TRUE(scheduler.core().countEnabledVoicesForTesting() <= 1u);
+    TEST_ASSERT_EQUAL_UINT32(1u,
+                             (unsigned)scheduler.core().getSequencerMainNoteIndexForTesting());
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
+}
+
 void test_set_master_volume_clamping(void) {
     DefaultAudioScheduler scheduler;
     initScheduler(scheduler);
@@ -1114,6 +1153,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_music_stop_command);
     RUN_TEST(test_music_pause_resume_command);
     RUN_TEST(test_music_set_tempo_command);
+    RUN_TEST(test_music_play_no_burst_after_long_idle);
     RUN_TEST(test_set_master_volume_clamping);
     
     // Edge case tests

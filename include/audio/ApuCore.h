@@ -107,6 +107,13 @@ namespace pixelroot32::audio {
         };
         void getAndResetProfileStats(ProfileEntry* out, uint8_t& count);
 
+#if defined(UNIT_TEST)
+        /** Diagnostic: count voices with enabled==true (native_test regression). */
+        size_t countEnabledVoicesForTesting() const;
+        /** Main music track note index after sequencer run (native_test regression). */
+        size_t getSequencerMainNoteIndexForTesting() const;
+#endif
+
     private:
         void processCommands();
         void updateMusicSequencer();
@@ -163,6 +170,9 @@ namespace pixelroot32::audio {
         // natural end-of-track without polling private state.
         std::atomic<bool> musicPlayingFlag{false};
         std::atomic<bool> musicPausedFlag{false};
+
+        /** After MUSIC_PLAY, allow one sequencer pass even when currentTick == startTick. */
+        bool firstSequencerCallAfterPlay_ = false;
 
         // -- Post-mix hook -------------------------------------------------
         void (*postMixMono_)(int16_t* mono, int length, void* user) = nullptr;

@@ -42,7 +42,7 @@
 
 The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
 
-## 🧠 Engine Philosophy 
+## 🧠 Engine Philosophy
 
 PixelRoot32 is not the product of a traditional electronics expert or a large engineering team.
 
@@ -60,7 +60,7 @@ At its core, the engine is built around a few simple ideas:
 - Performance as a core constraint  
 - Retro-inspired design with modern practices  
 
-👉 Learn more: [Engine Philosophy](docs/ENGINE_PHILOSOPHY.md)
+👉 Learn more: [Engine Philosophy](docs/philosophy/engine-philosophy.md)
 
 ---
 
@@ -207,7 +207,7 @@ PlatformIO will automatically download and install the library and its dependenc
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
 
-> 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/guide/getting-started).
+> 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/).
 
 ---
 
@@ -221,7 +221,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 4. **Platform Memory**: Use `PIXELROOT32_FLASH_ATTR` and `PIXELROOT32_READ_*_P` macros for cross-platform Flash/RAM access.
 5. **Centralized Logging**: Use `log()` from `core/Log.h` instead of `Serial.print` or `printf`.
 
-> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/STYLE_GUIDE.md)** for detailed rules on memory management, performance optimization, and coding style.
+> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/guide/index.md#-standards-&-compatibility)** for detailed rules on memory management, performance optimization, and coding style.
 
 ---
 
@@ -235,11 +235,11 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
-- **[API Reference](docs/API_REFERENCE.md)**: Class reference and usage.
-- **[Architecture](docs/ARCHITECTURE.md)**: System design and layer hierarchy.
-- **[Physics System](docs/architecture/ARCH_PHYSICS_SUBSYSTEM.md)**: Flat Solver documentation.
-- **[Audio Subsystem](docs/architecture/ARCH_AUDIO_SUBSYSTEM.md)**: Sound engine details.
-- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/STYLE_GUIDE.md)**
+- **[API Reference](docs/api/index.md)**: Class reference and usage.
+- **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
+- **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
+- **[Audio Subsystem](docs/architecture/audio-subsystem.md)**: Sound engine details.
+- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/guide/style-guide.md)**
 
 ---
 
@@ -278,19 +278,16 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - **Enhanced Waveforms**: Added SINE and SAW waveforms with optional linear frequency sweep for PULSE and TRIANGLE types.
 - **NES-Style Game Audio**: Layered tracks (triangle bass, pulse arpeggio, noise drums) with dynamic tempo scaling in Brick Breaker, Space Invaders, and Tic-Tac-Toe.
 
-## 1.3.0
+### 🎨 UI/Graphics
 
-### 🔊 Audio System Overhaul
+- **Scalar Casting Fix**: Added explicit cast to prevent precision loss when converting Scalar values to integer coordinates.
 
-- **Multi-Track Music Player**: Support for up to 4 simultaneous tracks with NES-style tick-based synchronization.
-- **ADSR Envelopes & LFO**: Full ADSR state machine with pitch (vibrato) and volume (tremolo) modulation.
-- **ApuCore Architecture**: Centralized audio synthesis and mixing core for consistent cross-platform behavior.
-- **Optimized Presets**: Improved percussion (kick, snare, hi-hat) and melodic instruments for better mix clarity.
+### 📚 Documentation
 
-### ⚡ Performance & Profiling
-
-- **Audio Peak Profiling**: New API to capture audio statistics in a ring buffer for real-time diagnostics.
-- **Multi-Producer Queue**: Enhanced command queue with multi-producer support and improved thread safety.
+- **Structure Restructuring**: Reorganized docs into modular directories (architecture, api, guide, reference, migration, philosophy).
+- **New Guides**: Added guides for testing, resolution scaling, multi-palette, tilemaps, platform config, and getting started.
+- **API Documentation**: Generated auto-generated API docs for all engine components.
+- **Doxygen Comments**: Added comprehensive Doxygen documentation to key engine headers.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

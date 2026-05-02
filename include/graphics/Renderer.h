@@ -45,6 +45,10 @@ struct Sprite {
     uint8_t         height; ///< Sprite height in pixels.
 };
 
+/**
+ * @struct Sprite2bpp
+ * @brief Sprite descriptor for 2bpp (4-color) multi-color sprites.
+ */
 struct Sprite2bpp {
     const uint8_t*  data;
     const Color*    palette;
@@ -53,6 +57,10 @@ struct Sprite2bpp {
     uint8_t         paletteSize;
 };
 
+/**
+ * @struct Sprite4bpp
+ * @brief Sprite descriptor for 4bpp (16-color) multi-color sprites.
+ */
 struct Sprite4bpp {
     const uint8_t*  data;
     const Color*    palette;
@@ -96,6 +104,10 @@ struct MultiSprite {
     uint8_t              layerCount; ///< Number of layers in the array.
 };
 
+/**
+ * @struct TileMapGeneric
+ * @brief Generic tilemap structure supporting 1bpp, 2bpp, or 4bpp tile graphics.
+ */
 template<typename T>
 struct TileMapGeneric {
     uint8_t*        indices;
@@ -663,7 +675,17 @@ public:
      * @param config The display configuration settings.
      */
     Renderer(const DisplayConfig& config);
+
+    /**
+     * @brief Move constructor for the Renderer.
+     * @param config R-value display configuration.
+     */
     Renderer(DisplayConfig&& config);
+
+    /**
+     * @brief Move constructor from another Renderer instance.
+     * @param other The other renderer to move from.
+     */
     Renderer(Renderer&& other) noexcept
         : drawer(std::move(other.drawer)),
           config(std::move(other.config)),
@@ -678,6 +700,11 @@ public:
         other.logicalFrameBuffer8 = nullptr;
     }
 
+    /**
+     * @brief Move assignment operator.
+     * @param other The other renderer to assign from.
+     * @return Reference to this renderer.
+     */
     Renderer& operator=(Renderer&& other) noexcept {
         if (this != &other) {
             config = std::move(other.config);
@@ -869,11 +896,20 @@ public:
 
     /**
      * @brief Sets the font for text rendering.
-     * @param font Pointer to the font data.
+     * @param font Pointer to the font data array.
      */
     void setFont(const uint8_t* font);
 
+    /**
+     * @brief Gets the current global X offset.
+     * @return The X offset.
+     */
     int getXOffset() const { return xOffset; }
+
+    /**
+     * @brief Gets the current global Y offset.
+     * @return The Y offset.
+     */
     int getYOffset() const { return yOffset; }
 
     /**
@@ -947,13 +983,44 @@ public:
      */
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false);
 
+    /**
+     * @brief Draws a 2bpp sprite using a specific palette slot.
+     * @param sprite The 2bpp sprite descriptor.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param paletteSlot The palette slot to use.
+     * @param flipX True to mirror horizontally.
+     */
     void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false);
 
+    /**
+     * @brief Draws a 4bpp sprite using a specific palette slot.
+     * @param sprite The 4bpp sprite descriptor.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param paletteSlot The palette slot to use.
+     * @param flipX True to mirror horizontally.
+     */
     void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false);
 
     // Legacy overloads for backward compatibility (3-parameter calls)
+
+    /**
+     * @brief Draws a 2bpp sprite (legacy).
+     * @param sprite The 2bpp sprite descriptor.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param flipX True to mirror horizontally.
+     */
     void drawSprite(const Sprite2bpp& sprite, int x, int y, bool flipX);
 
+    /**
+     * @brief Draws a 4bpp sprite (legacy).
+     * @param sprite The 4bpp sprite descriptor.
+     * @param x Top-left X coordinate.
+     * @param y Top-left Y coordinate.
+     * @param flipX True to mirror horizontally.
+     */
     void drawSprite(const Sprite4bpp& sprite, int x, int y, bool flipX);
 
     /**
@@ -983,16 +1050,26 @@ public:
 
     /**
      * @brief Draws a tilemap of 1bpp sprites.
+     * @param map The tilemap descriptor.
+     * @param originX X coordinate of the top-left corner.
+     * @param originY Y coordinate of the top-left corner.
+     * @param color The color to tint the tilemap.
      */
     void drawTileMap(const TileMap& map, int originX, int originY, Color color = Color::White);
 
     /**
      * @brief Draws a tilemap of 2bpp sprites.
+     * @param map The tilemap descriptor.
+     * @param originX X coordinate of the top-left corner.
+     * @param originY Y coordinate of the top-left corner.
      */
     void drawTileMap(const TileMap2bpp& map, int originX, int originY);
 
     /**
      * @brief Draws a tilemap of 4bpp sprites.
+     * @param map The tilemap descriptor.
+     * @param originX X coordinate of the top-left corner.
+     * @param originY Y coordinate of the top-left corner.
      */
     void drawTileMap(const TileMap4bpp& map, int originX, int originY);
 

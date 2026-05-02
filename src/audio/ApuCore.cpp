@@ -103,7 +103,24 @@ namespace pixelroot32::audio {
         musicPlayingFlag.store(false, std::memory_order_release);
         musicPausedFlag.store(false, std::memory_order_release);
         droppedCommands.store(0, std::memory_order_release);
+        firstSequencerCallAfterPlay_ = false;
     }
+
+#if defined(UNIT_TEST)
+    size_t ApuCore::countEnabledVoicesForTesting() const {
+        size_t n = 0;
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            if (voices[i].enabled) {
+                ++n;
+            }
+        }
+        return n;
+    }
+
+    size_t ApuCore::getSequencerMainNoteIndexForTesting() const {
+        return currentNoteIndices[0];
+    }
+#endif
 
     void ApuCore::setSequencerNoteLimit(size_t limit) {
         if (limit == 0) {
@@ -168,11 +185,17 @@ namespace pixelroot32::audio {
                     activeTrackCount = 1;
                     tracks[0] = cmd.track;
                     currentNoteIndices[0] = 0;
-                    nextNoteTicks[0] = 0;
 
                     tickDurationSamples =
                         (uint64_t)((float)sampleRate * 60.0f / (tempoBPM * (float)TICKS_PER_BEAT));
-                    globalTickCounter = 0;
+
+                    // Anchor sequencer to audio-thread "now" so we do not treat
+                    // elapsed time since boot as a backlog of ticks (would fire
+                    // MAX_NOTES_PER_FRAME notes in one block and voice-steal).
+                    const uint64_t startTick =
+                        (tickDurationSamples > 0) ? (audioTimeSamples / tickDurationSamples) : 0;
+                    globalTickCounter = startTick;
+                    nextNoteTicks[0] = startTick;
 
                     for (size_t i = 0;
                          i < cmd.subTrackCount && activeTrackCount < MAX_MUSIC_TRACKS;
@@ -180,11 +203,12 @@ namespace pixelroot32::audio {
                         if (cmd.subTracks[i]) {
                             tracks[activeTrackCount] = cmd.subTracks[i];
                             currentNoteIndices[activeTrackCount] = 0;
-                            nextNoteTicks[activeTrackCount] = 0;
+                            nextNoteTicks[activeTrackCount] = startTick;
                             activeTrackCount++;
                         }
                     }
 
+                    firstSequencerCallAfterPlay_ = true;
                     musicPlayingFlag.store(true, std::memory_order_release);
                     musicPausedFlag.store(false, std::memory_order_release);
                     break;
@@ -236,7 +260,11 @@ namespace pixelroot32::audio {
         }
 
         uint64_t currentTick = audioTimeSamples / tickDurationSamples;
-        if (currentTick <= globalTickCounter && globalTickCounter > 0) return;
+        if (currentTick <= globalTickCounter && globalTickCounter > 0
+            && !firstSequencerCallAfterPlay_) {
+            return;
+        }
+        firstSequencerCallAfterPlay_ = false;
         globalTickCounter = currentTick;
 
         const size_t limit = sequencerNoteLimit.load(std::memory_order_acquire);

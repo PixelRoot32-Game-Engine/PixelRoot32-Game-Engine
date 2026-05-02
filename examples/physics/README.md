@@ -34,10 +34,10 @@ See **`platformio.ini`** for **`native`**, **`esp32dev`**, **`esp32cyd`**.
 
 ## Documentation links
 
-- [Physics API](../../docs/api/API_PHYSICS.md)
-- [Input API](../../docs/api/API_INPUT.md)
-- [UI API](../../docs/api/API_UI.md)
-- [Core — Scene](../../docs/api/API_CORE.md)
+- [Physics API](../../docs/api/physics.md)
+- [Input API](../../docs/api/input.md)
+- [UI API](../../docs/api/ui.md)
+- [Core — Scene](../../docs/api/core.md)
 
 ## Build
 

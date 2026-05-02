@@ -19,6 +19,8 @@ namespace pixelroot32::audio {
      * @class NativeAudioScheduler
      * @brief Audio scheduler for native builds.
      *
+     * Inherits from AudioScheduler.
+     *
      * Runs ApuCore in its own std::thread and double-buffers samples through
      * a lock-free ring, mirroring the dual-core ESP32 behaviour. All
      * synthesis / sequencer logic lives in ApuCore; this class owns only

@@ -54,7 +54,7 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::threadLoop() {
-        constexpr int CHUNK_SIZE = 128;
+        constexpr int CHUNK_SIZE = 256;
         int16_t chunk[CHUNK_SIZE];
 
         while (running.load(std::memory_order_acquire)) {
@@ -62,7 +62,7 @@ namespace pixelroot32::audio {
                 apu.generateSamples(chunk, CHUNK_SIZE);
                 rbWrite(chunk, CHUNK_SIZE);
             } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                std::this_thread::sleep_for(std::chrono::microseconds(500));
             }
         }
     }

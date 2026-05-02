@@ -37,9 +37,9 @@ Pin choices for I2S / DAC are in **`src/platforms/esp32_dev.h`** (edit there if 
 
 ## Documentation links
 
-- [Audio API](../../docs/api/API_AUDIO.md)
-- [Core API](../../docs/api/API_CORE.md)
-- [Input API](../../docs/api/API_INPUT.md)
+- [Audio API](../../docs/api/audio.md)
+- [Core API](../../docs/api/core.md)
+- [Input API](../../docs/api/input.md)
 
 ## Build
 

@@ -18,6 +18,8 @@ namespace pixelroot32::graphics::ui {
     * @class UILabel
     * @brief A simple text label UI element.
     *
+    * Inherits from UIElement.
+    *
     * Displays a string of text on the screen. Auto-calculates its bounds based on text length and size.
     */
 class UILabel : public UIElement {

@@ -20,7 +20,9 @@ namespace pixelroot32::graphics::particles {
  * @class ParticleEmitter
  * @brief Manages a pool of particles to create visual effects.
  *
- * Inherits from Entity to participate in the scene's update/draw loop.
+ * Inherits from Entity.
+ *
+ * Participates in the scene update/draw loop.
  * Uses a fixed-size array for particles to avoid dynamic allocation during runtime.
  */
 class ParticleEmitter: public pixelroot32::core::Entity {
