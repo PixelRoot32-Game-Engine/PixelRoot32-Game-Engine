@@ -102,7 +102,7 @@ Some modules are optional and can be disabled to save memory:
 ## Related Documentation
 
 - [Architecture](../architecture/overview.md) (includes [ESP32 rendering and tilemap caching](../architecture/overview.md#esp32-rendering-pipeline-and-tilemap-caching))
-- [Platform Compatibility Guide](../reference/platform-compatibility.md)
+- [Platform Compatibility Guide](../guide/platform-compatibility.md)
 - [Getting Started Guide](../../README.md)
 - [Extending PixelRoot32](../guide/extending-pixelroot32.md)
 - [Touch Input Architecture](../architecture/touch-input.md)

@@ -1,6 +1,8 @@
 # UI Guidelines - PixelRoot32
 
-Patterns and best practices for building user interfaces with the UI system. Authoritative signatures live in `include/graphics/ui/` and [api/API_UI.md](../api/API_UI.md).
+Patterns and best practices for building user interfaces with the UI system.
+
+**Architecture first:** read **[UI system](./ui-system.md)** for `UIManager`, entity vs touch registration, and lifecycle. Authoritative API surface: `include/graphics/ui/` and [UI module](../api/ui.md).
 
 ---
 

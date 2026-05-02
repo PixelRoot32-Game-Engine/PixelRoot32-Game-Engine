@@ -23,7 +23,7 @@ PixelRoot32 follows a **scene-based architecture inspired by Godot Engine**, mak
 - **VS Code** with **PlatformIO IDE**
 - **ESP32** board or PC for `native` builds
 - **USB cable** for flashing (ESP32)
-- For PC: **SDL2** dev libraries (see [Platform compatibility](../reference/platform-compatibility.md))
+- For PC: **SDL2** dev libraries (see [Platform compatibility](./platform-compatibility.md))
 
 ## Installation
 
@@ -125,7 +125,7 @@ See [Game loop](./game-loop.md) for detail.
 3. **Render layers** — background / world / UI ordering.
 4. Use **`log()`** from `core/Log.h` instead of ad-hoc `Serial` spam.
 
-See [Style guide](../reference/style-guide.md) and [Memory system](../architecture/memory-system.md).
+See [Style guide](./style-guide.md) and [Memory system](../architecture/memory-system.md).
 
 ## Next steps
 

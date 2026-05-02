@@ -2,7 +2,7 @@
 
 This page is the **Guide** entry point for **PlatformIO**, **`build_flags`**, and engine **feature toggles**. Detailed hardware matrices, per-chip audio/display constraints, example `[env:…]` blocks, and troubleshooting are kept in a single canonical reference (previously duplicated here):
 
-- **[Platform compatibility & build configuration](../reference/platform-compatibility.md)** — ESP32 variants, FPU vs `Fixed16`, DAC/I2S, native SDL2, memory classes, and copy-paste `platformio.ini` examples.
+- **[Platform compatibility & build configuration](./platform-compatibility.md)** — ESP32 variants, FPU vs `Fixed16`, DAC/I2S, native SDL2, memory classes, and copy-paste `platformio.ini` examples.
 
 ## Feature macros
 
@@ -23,6 +23,6 @@ Disable unused subsystems on RAM-constrained boards; the reference guide explain
 
 ## Related
 
-- [Resolution scaling](./resolution-scaling.md) — logical vs physical display
+- [Resolution scaling](./performance/resolution-scaling.md) — logical vs physical display
 - [Memory](./memory.md) — pools and embedded budgets
 - [Testing](./testing.md) — `native_test` and coverage

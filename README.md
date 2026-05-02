@@ -221,7 +221,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 4. **Platform Memory**: Use `PIXELROOT32_FLASH_ATTR` and `PIXELROOT32_READ_*_P` macros for cross-platform Flash/RAM access.
 5. **Centralized Logging**: Use `log()` from `core/Log.h` instead of `Serial.print` or `printf`.
 
-> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/reference/style-guide.md)** for detailed rules on memory management, performance optimization, and coding style.
+> 📘 **Essential Reading**: Check the **[Style & Best Practices Guide](docs/guide/style-guide.md)** for detailed rules on memory management, performance optimization, and coding style.
 
 ---
 
@@ -239,7 +239,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
 - **[Audio Subsystem](docs/architecture/audio-subsystem.md)**: Sound engine details.
-- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/reference/style-guide.md)**
+- **[Contributing](CONTRIBUTING.md)** | **[Style Guide](docs/guide/style-guide.md)**
 
 ---
 

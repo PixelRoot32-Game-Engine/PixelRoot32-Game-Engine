@@ -30,4 +30,4 @@ System architecture and design documentation for PixelRoot32 Game Engine.
 - [Game loop](../guide/game-loop.md) - Frame phases, timing, Mermaid diagrams
 - [Workflow tools](../tools/index.md) - Sprite compiler and tilemap editor docs
 - [API Reference](../api/) - Complete API documentation
-- [Reference](../reference/) - Coding standards and guidelines
+- [Guide standards](../guide/style-guide.md) — Coding standards (see [Guide index](../guide/) for full list)

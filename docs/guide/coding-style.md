@@ -1,7 +1,7 @@
 # Coding Style Guide - PixelRoot32
 
 **Scope:** C++ coding conventions and style rules.  
-**For other topics:** See [Memory Guidelines](./MEMORY_GUIDELINES.md), [Gameplay Guidelines](../guide/GAMEPLAY_GUIDELINES.md), [UI Guidelines](./UI_GUIDELINES.md), [Graphics Guidelines](./GRAPHICS_GUIDELINES.md), [ESP32 Performance](./performance/ESP32_PERFORMANCE.md).
+**For other topics:** See [Memory](./memory.md), [Gameplay Guidelines](./gameplay-guidelines.md), [UI Guidelines](./ui-guidelines.md), [Graphics Guidelines](./graphics-guidelines.md), [ESP32 Performance](./performance/esp32-performance.md).
 
 ---
 
@@ -196,11 +196,11 @@ private:     // 3. Implementation last
 
 | Document | Topic |
 |----------|-------|
-| [MEMORY_GUIDELINES.md](MEMORY_GUIDELINES.md) | Object pooling, zero allocation |
-| [GAMEPLAY_GUIDELINES.md](GAMEPLAY_GUIDELINES.md) | Game feel, deltaTime, slopes |
-| [UI_GUIDELINES.md](UI_GUIDELINES.md) | Layouts, panels, navigation |
-| [GRAPHICS_GUIDELINES.md](GRAPHICS_GUIDELINES.md) | Sprites, tilemaps, palettes |
-| [performance/ESP32_PERFORMANCE.md](performance/ESP32_PERFORMANCE.md) | Hot paths, optimization |
+| [memory.md](./memory.md) | Object pooling, zero allocation |
+| [gameplay-guidelines.md](./gameplay-guidelines.md) | Game feel, deltaTime, slopes |
+| [ui-guidelines.md](./ui-guidelines.md) | Layouts, panels, navigation |
+| [graphics-guidelines.md](./graphics-guidelines.md) | Sprites, tilemaps, palettes |
+| [performance/esp32-performance.md](./performance/esp32-performance.md) | Hot paths, optimization |
 | [Memory system](../architecture/memory-system.md) | C++17 memory deep dive |
 
 ---

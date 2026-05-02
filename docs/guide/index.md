@@ -25,14 +25,23 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 ## Advanced
 
 - [Memory](./memory.md) — Pools, arenas, embedded constraints
-- [Resolution scaling](./resolution-scaling.md) — Logical vs physical displays
+- [Resolution scaling](./performance/resolution-scaling.md) — Logical vs physical displays
 - [Tilemaps](./tilemaps.md) — Layered maps, animation hooks
 - [Multi-palette](./multi-palette.md) — Indexed color workflows
 - [Platform configuration](./platform-config.md) — `platformio.ini`, feature flags
 
 ## Contributing & tooling
 
-- [Testing](./testing.md) — Unity tests, coverage expectations
+- [Testing](./testing.md) — Unity, `native_test`, coverage, CI
+
+## Standards & compatibility
+
+- [Coding style](./coding-style.md) — C++ conventions, namespaces, naming
+- [Style guide](./style-guide.md) — Quick entry → coding style
+- [Graphics guidelines](./graphics-guidelines.md) — Sprites, tilemaps, palettes (pipeline: [Rendering](./rendering.md))
+- [UI guidelines](./ui-guidelines.md) — Layout patterns (architecture: [UI system](./ui-system.md))
+- [Platform compatibility](./platform-compatibility.md) — Hardware matrix, ESP32 variants
+- [Performance](./performance/) — ESP32 hot paths, build profiles
 
 ## Tools & samples
 
@@ -44,6 +53,5 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 - [Architecture](../architecture/) - System architecture and design
 - [API Reference](../api/) - Complete API documentation
 - [Workflow tools](../tools/index.md) - Sprite compiler and tilemap editor documentation
-- [Reference](../reference/) - Coding standards, guidelines, and compatibility
 - [Migration](../migration/) - Version upgrade guides
 - [Philosophy](../philosophy/) - Engine design philosophy

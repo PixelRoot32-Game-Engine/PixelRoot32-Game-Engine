@@ -1,12 +1,12 @@
 # PixelRoot32 Platform Compatibility Guide
 
-**Canonical doc:** this file is the single source for the platform matrix, `build_flags`, and PlatformIO examples. The [Guide → Platform configuration](../guide/platform-config.md) page is a short entry and links here.
+**Canonical doc:** this file is the single source for the platform matrix, `build_flags`, and PlatformIO examples. The [Platform configuration](./platform-config.md) page is a short entry and links here.
 
 ## Overview
 
 This document provides detailed information about PixelRoot32 Game Engine compatibility across different ESP32 variants and platforms. It helps developers understand which features are available on their target hardware.
 
-For the published site (navigation and anchors), see [Platform compatibility](https://docs.pixelroot32.org/reference/platform-compatibility.html) on the official documentation.
+For the published site (navigation and anchors), see [Platform compatibility](https://docs.pixelroot32.org/guide/platform-compatibility.html) on the official documentation.
 
 ---
 

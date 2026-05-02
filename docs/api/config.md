@@ -126,5 +126,5 @@ build_flags =
 ## Related Documentation
 
 - [API Reference](index.md) - Main index
-- [Platform Compatibility Guide](../reference/platform-compatibility.md)
+- [Platform Compatibility Guide](../guide/platform-compatibility.md)
 - [Extending PixelRoot32](../guide/extending-pixelroot32.md)

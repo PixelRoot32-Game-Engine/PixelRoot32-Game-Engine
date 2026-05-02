@@ -141,8 +141,8 @@ For animation data flow and linking managers to tilemaps, see [Tile Animation](.
 |----------|-------------|
 | [API Reference](../api/index.md) | Complete API documentation index |
 | [Getting Started](../guide/getting-started.md) | First steps with the engine |
-| [Style Guide](../reference/style-guide.md) | Coding conventions |
-| [Platform Compatibility](../reference/platform-compatibility.md) | Supported hardware matrix |
-| [Testing Guide](../reference/testing-guide.md) | Unit and integration testing |
+| [Style Guide](../guide/style-guide.md) | Coding conventions |
+| [Platform Compatibility](../guide/platform-compatibility.md) | Supported hardware matrix |
+| [Testing](../guide/testing.md) | Unit and integration testing |
 | [Migration Guides](../migration/migration-v1-0-0.md) | Version upgrade guides |
 | [MusicPlayer Guide](../guide/music-player-guide.md) | Música de fondo, multi-pista, tempo/BPM |

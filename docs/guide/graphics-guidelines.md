@@ -2,6 +2,8 @@
 
 Patterns and best practices for rendering, sprites, tilemaps, and palette systems.
 
+**Pipeline first:** read **[Rendering](./rendering.md)** for `Renderer`, layers, camera, and draw flow. This page focuses on **asset layout**, bitmap conventions, and tile/palette usage.
+
 ---
 
 ## 🎨 Sprite Guidelines
