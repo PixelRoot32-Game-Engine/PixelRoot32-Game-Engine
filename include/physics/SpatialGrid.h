@@ -27,11 +27,41 @@ public:
     static constexpr int kMaxStaticPerCell = pixelroot32::platforms::config::SpatialGridMaxStaticPerCell;
     static constexpr int kMaxDynamicPerCell = pixelroot32::platforms::config::SpatialGridMaxDynamicPerCell;
 
+    /**
+     * @brief Clears all dynamic entities from the grid.
+     */
     void clearDynamic();
+
+    /**
+     * @brief Clears all entities (static and dynamic) from the grid.
+     */
     void clear();
+
+    /**
+     * @brief Marks the static layer as dirty, requiring a rebuild.
+     */
     void markStaticDirty();
+
+    /**
+     * @brief Rebuilds the static layer if marked dirty.
+     * @param entities Pointer to array of entities.
+     * @param entityCount Total number of entities.
+     */
     void rebuildStaticIfNeeded(pixelroot32::core::Entity* const* entities, uint16_t entityCount);
+
+    /**
+     * @brief Inserts a dynamic actor into the grid.
+     * @param actor The actor to insert.
+     */
     void insertDynamic(pixelroot32::core::Actor* actor);
+
+    /**
+     * @brief Gets potential colliders for a given actor from the grid.
+     * @param actor The actor to query for.
+     * @param outArray Output array to store potential colliders.
+     * @param count Reference to store the number of colliders found.
+     * @param maxCount Maximum number of colliders to return.
+     */
     void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
 
 private:

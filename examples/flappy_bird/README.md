@@ -32,9 +32,9 @@ This example does **not** ship an `esp32dev` TFT environment — only **`native`
 
 ## Documentation links
 
-- [Physics API](../../docs/api/API_PHYSICS.md)
-- [Core API](../../docs/api/API_CORE.md)
-- [Platform / drivers](../../docs/api/API_PLATFORM.md)
+- [Physics API](../../docs/api/physics.md)
+- [Core API](../../docs/api/core.md)
+- [Platform / drivers](../../docs/api/platform.md)
 
 ## Build
 

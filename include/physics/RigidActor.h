@@ -10,7 +10,9 @@ namespace pixelroot32::physics {
 /**
  * @class RigidActor
  * @brief A physics body fully simulated by the engine.
- * 
+ *
+ * Inherits from PhysicsActor.
+ *
  * Rigid actors respond to gravity, forces, and impulses. They are used for
  * dynamic objects that should behave naturally, like falling crates or debris.
  */

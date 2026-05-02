@@ -15,6 +15,8 @@ namespace pixelroot32::graphics::ui {
  * @class UIPaddingContainer
  * @brief Container that wraps a single UI element and applies padding.
  *
+ * Inherits from UIElement.
+ *
  * This container adds padding/margin around a single child element without
  * organizing multiple elements. Useful for adding spacing to individual
  * elements or nesting layouts with custom padding.

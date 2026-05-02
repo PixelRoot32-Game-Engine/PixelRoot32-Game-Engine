@@ -6,6 +6,47 @@
 
 using namespace pixelroot32::audio;
 
+namespace {
+
+bool bufferHasNonZero(const int16_t* p, int n) {
+    for (int i = 0; i < n; ++i) {
+        if (p[i] != 0) return true;
+    }
+    return false;
+}
+
+bool bufferAllSilence(const int16_t* p, int n) {
+    for (int i = 0; i < n; ++i) {
+        if (p[i] != 0) return false;
+    }
+    return true;
+}
+
+int32_t bufferMaxAbs(const int16_t* p, int n) {
+    int32_t m = 0;
+    for (int i = 0; i < n; ++i) {
+        const int32_t v = (int32_t)p[i];
+        const int32_t a = v < 0 ? -v : v;
+        if (a > m) m = a;
+    }
+    return m;
+}
+
+// ApuCore::generateSamples returns immediately when stream is null, so commands
+// would never run; use a scratch buffer to advance the audio graph in tests.
+void generateDiscard(DefaultAudioScheduler& scheduler, int length) {
+    constexpr int kMaxChunk = 512;
+    int16_t sink[kMaxChunk];
+    int remaining = length;
+    while (remaining > 0) {
+        const int chunk = remaining > kMaxChunk ? kMaxChunk : remaining;
+        scheduler.generateSamples(sink, chunk);
+        remaining -= chunk;
+    }
+}
+
+} // namespace
+
 void setUp(void) {}
 void tearDown(void) {}
 
@@ -245,35 +286,42 @@ void test_music_play_command(void) {
     AudioCommand cmd{};
     cmd.type = AudioCommandType::MUSIC_PLAY;
     scheduler.submitCommand(cmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
+    generateDiscard(scheduler, 256);
+    // Null track: sequencer clears "playing" once it finds no active material.
+    TEST_ASSERT_FALSE(scheduler.isMusicPlaying());
+    TEST_ASSERT_FALSE(scheduler.isMusicPaused());
 }
 
 void test_music_stop_command(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand playCmd;
+    AudioCommand playCmd{};
     playCmd.type = AudioCommandType::MUSIC_PLAY;
     scheduler.submitCommand(playCmd);
-    AudioCommand stopCmd;
+    AudioCommand stopCmd{};
     stopCmd.type = AudioCommandType::MUSIC_STOP;
     scheduler.submitCommand(stopCmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
+    generateDiscard(scheduler, 256);
+    TEST_ASSERT_FALSE(scheduler.isMusicPlaying());
+    TEST_ASSERT_FALSE(scheduler.isMusicPaused());
 }
 
 void test_music_pause_resume_command(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand playCmd;
+    AudioCommand playCmd{};
     playCmd.type = AudioCommandType::MUSIC_PLAY;
     scheduler.submitCommand(playCmd);
-    AudioCommand pauseCmd;
+    AudioCommand pauseCmd{};
     pauseCmd.type = AudioCommandType::MUSIC_PAUSE;
     scheduler.submitCommand(pauseCmd);
-    AudioCommand resumeCmd;
+    generateDiscard(scheduler, 128);
+    TEST_ASSERT_TRUE(scheduler.isMusicPlaying());
+    TEST_ASSERT_TRUE(scheduler.isMusicPaused());
+    AudioCommand resumeCmd{};
     resumeCmd.type = AudioCommandType::MUSIC_RESUME;
     scheduler.submitCommand(resumeCmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
+    generateDiscard(scheduler, 128);
+    TEST_ASSERT_FALSE(scheduler.isMusicPaused());
+    TEST_ASSERT_FALSE(scheduler.isMusicPlaying());
 }
 
 void test_music_set_tempo_command(void) {
@@ -282,52 +330,135 @@ void test_music_set_tempo_command(void) {
     cmd.type = AudioCommandType::MUSIC_SET_TEMPO;
     cmd.tempoFactor = 2.0f;
     scheduler.submitCommand(cmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
+    generateDiscard(scheduler, 256);
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
+    TEST_ASSERT_FALSE(scheduler.isMusicPaused());
+}
+
+/** Regression: MUSIC_PLAY must not backlog-catch-up ticks from before the track started. */
+void test_music_play_no_burst_after_long_idle(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+
+    static const MusicNote kBurstTestNotes[] = {
+        {Note::C, 4, 1.0f, 0.5f, nullptr},
+        {Note::D, 4, 1.0f, 0.5f, nullptr},
+        {Note::E, 4, 1.0f, 0.5f, nullptr},
+        {Note::F, 4, 1.0f, 0.5f, nullptr},
+        {Note::G, 4, 1.0f, 0.5f, nullptr},
+        {Note::A, 4, 1.0f, 0.5f, nullptr},
+        {Note::B, 4, 1.0f, 0.5f, nullptr},
+        {Note::C, 5, 1.0f, 0.5f, nullptr},
+    };
+    static const MusicTrack kBurstTestTrack{kBurstTestNotes,
+                                            sizeof(kBurstTestNotes) / sizeof(kBurstTestNotes[0]),
+                                            false,
+                                            WaveType::PULSE,
+                                            0.5f};
+
+    // ~10 s of sample time with no music → large audioTimeSamples / tickDurationSamples
+    generateDiscard(scheduler, 44100 * 10);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kBurstTestTrack;
+    scheduler.submitCommand(play);
+
+    int16_t buf[256];
+    scheduler.generateSamples(buf, 256);
+
+    TEST_ASSERT_TRUE(scheduler.isMusicPlaying());
+    TEST_ASSERT_TRUE(scheduler.core().countEnabledVoicesForTesting() <= 1u);
+    TEST_ASSERT_EQUAL_UINT32(1u,
+                             (unsigned)scheduler.core().getSequencerMainNoteIndexForTesting());
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_set_master_volume_clamping(void) {
     DefaultAudioScheduler scheduler;
-    AudioCommand cmd{};
-    cmd.type = AudioCommandType::SET_MASTER_VOLUME;
-    cmd.volume = 1.5f;
-    scheduler.submitCommand(cmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
-    
-    cmd.volume = -0.5f;
-    scheduler.submitCommand(cmd);
-    scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);
+    initScheduler(scheduler);
+
+    AudioCommand volHi{};
+    volHi.type = AudioCommandType::SET_MASTER_VOLUME;
+    volHi.volume = 1.5f;
+    scheduler.submitCommand(volHi);
+    AudioCommand playA{};
+    playA.type = AudioCommandType::PLAY_EVENT;
+    playA.event.type = WaveType::PULSE;
+    playA.event.frequency = 440.0f;
+    playA.event.volume = 1.0f;
+    playA.event.duration = 0.05f;
+    playA.event.duty = 0.5f;
+    scheduler.submitCommand(playA);
+    int16_t bufA[256];
+    scheduler.generateSamples(bufA, 256);
+    const int32_t peakClampedHigh = bufferMaxAbs(bufA, 256);
+
+    scheduler.core().reset();
+    initScheduler(scheduler);
+
+    AudioCommand volOk{};
+    volOk.type = AudioCommandType::SET_MASTER_VOLUME;
+    volOk.volume = 1.0f;
+    scheduler.submitCommand(volOk);
+    AudioCommand playB{};
+    playB.type = AudioCommandType::PLAY_EVENT;
+    playB.event.type = WaveType::PULSE;
+    playB.event.frequency = 440.0f;
+    playB.event.volume = 1.0f;
+    playB.event.duration = 0.05f;
+    playB.event.duty = 0.5f;
+    scheduler.submitCommand(playB);
+    int16_t bufB[256];
+    scheduler.generateSamples(bufB, 256);
+    const int32_t peakAtOne = bufferMaxAbs(bufB, 256);
+
+    TEST_ASSERT_GREATER_THAN(500, peakClampedHigh);
+    TEST_ASSERT_INT_WITHIN((int32_t)(peakAtOne * 0.15f) + 500, peakAtOne, peakClampedHigh);
+
+    scheduler.core().reset();
+    initScheduler(scheduler);
+    AudioCommand volZero{};
+    volZero.type = AudioCommandType::SET_MASTER_VOLUME;
+    volZero.volume = -0.5f;
+    scheduler.submitCommand(volZero);
+    AudioCommand playC{};
+    playC.type = AudioCommandType::PLAY_EVENT;
+    playC.event.type = WaveType::PULSE;
+    playC.event.frequency = 440.0f;
+    playC.event.volume = 1.0f;
+    playC.event.duration = 0.05f;
+    playC.event.duty = 0.5f;
+    scheduler.submitCommand(playC);
+    int16_t bufC[256];
+    scheduler.generateSamples(bufC, 256);
+    TEST_ASSERT_LESS_OR_EQUAL(100, bufferMaxAbs(bufC, 256));
 }
 
 // AudioScheduler Error Handling Tests
 
 void test_audio_scheduler_buffer_underrun_recovery(void) {
-    // Test that scheduler recovers gracefully from buffer underrun scenarios
     DefaultAudioScheduler scheduler;
-    
-    // Start playing a note
+    initScheduler(scheduler);
+
     AudioCommand cmd{};
     cmd.type = AudioCommandType::PLAY_EVENT;
     cmd.event.type = WaveType::PULSE;
     cmd.event.frequency = 440.0f;
     cmd.event.volume = 1.0f;
     cmd.event.duration = 2.0f;
+    cmd.event.duty = 0.5f;
     scheduler.submitCommand(cmd);
-    
-    // Generate some samples to start playback
-    int16_t buffer[64];
+
+    // Buffer must fit largest generateSamples() length below (256).
+    int16_t buffer[256];
     scheduler.generateSamples(buffer, 64);
-    
-    // Simulate buffer underrun by calling with very small buffer repeatedly
     for (int i = 0; i < 10; i++) {
-        scheduler.generateSamples(buffer, 1);  // Single sample
+        scheduler.generateSamples(buffer, 1);
     }
-    
-    // Should still be able to generate samples without crashing
     scheduler.generateSamples(buffer, 256);
-    TEST_ASSERT_TRUE(true);  // No crash during underrun recovery
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 256));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_initialization_failure_handling(void) {
@@ -340,44 +471,38 @@ void test_audio_scheduler_initialization_failure_handling(void) {
     // Should still be able to generate samples (graceful degradation)
     int16_t buffer[128];
     scheduler.generateSamples(buffer, 128);
-    TEST_ASSERT_TRUE(true);  // No crash with zero sample rate
-    
+    TEST_ASSERT_EQUAL(44100, scheduler.core().getSampleRate());
+
     // Test with very high sample rate
     scheduler.init(nullptr, 192000, pixelroot32::platforms::PlatformCapabilities{});
     scheduler.generateSamples(buffer, 128);
-    TEST_ASSERT_TRUE(true);  // No crash with high sample rate
+    TEST_ASSERT_EQUAL(192000, scheduler.core().getSampleRate());
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_shutdown_during_active_playback(void) {
-    // Test graceful shutdown when audio is actively playing
+    // Graceful shutdown while audio is actively playing (all four voice slots).
     DefaultAudioScheduler scheduler;
-    
-    // Submit 4 commands to use all available channels with correct wave types
-    // Channel map: 0=PULSE, 1=PULSE, 2=TRIANGLE, 3=NOISE
+    initScheduler(scheduler);
+
     WaveType waveTypes[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
     for (int i = 0; i < 4; i++) {
         AudioCommand cmd{};
         cmd.type = AudioCommandType::PLAY_EVENT;
         cmd.event.type = waveTypes[i];
-        cmd.event.frequency = 220.0f + i * 55.0f;  // Vary frequency per channel
+        cmd.event.frequency = 220.0f + i * 55.0f;
         cmd.event.volume = 0.8f;
-        cmd.event.duration = 5.0f;  // Long duration
+        cmd.event.duration = 5.0f;
         cmd.event.duty = 0.5f;
         scheduler.submitCommand(cmd);
     }
-    
-    // Generate some samples to start playback
+
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    
-    // Stop the scheduler while playback is active
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 256));
     scheduler.stop();
-    
-    // Should be able to generate samples after stop without crashing
     scheduler.generateSamples(buffer, 256);
-    
-    // Verify system remains stable after stop (no crash is the main test)
-    TEST_ASSERT_TRUE(true);  // No crash during shutdown with active playback
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_null_buffer_handling(void) {
@@ -392,15 +517,22 @@ void test_audio_scheduler_null_buffer_handling(void) {
     cmd.event.volume = 0.5f;
     cmd.event.duration = 1.0f;
     scheduler.submitCommand(cmd);
-    
-    // Should handle null buffer gracefully
+
+    // Null stream: early-out must not corrupt state; command stays queued until real output.
     scheduler.generateSamples(nullptr, 256);
-    TEST_ASSERT_TRUE(true);  // No crash with null buffer
-    
-    // Should handle zero length gracefully
+
     int16_t buffer[128];
+    for (int i = 0; i < 128; ++i) {
+        buffer[i] = (int16_t)0x2D2D;
+    }
     scheduler.generateSamples(buffer, 0);
-    TEST_ASSERT_TRUE(true);  // No crash with zero length
+    for (int i = 0; i < 128; ++i) {
+        TEST_ASSERT_EQUAL_INT16((int16_t)0x2D2D, buffer[i]);
+    }
+
+    scheduler.generateSamples(buffer, 128);
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 128));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_command_queue_overflow(void) {
@@ -430,7 +562,8 @@ void test_audio_scheduler_command_queue_overflow(void) {
     // Should still be able to generate samples without crash
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    TEST_ASSERT_TRUE(true);  // No crash with many commands
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 256));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 // AudioScheduler Edge Case Tests
@@ -453,9 +586,7 @@ void test_audio_scheduler_zero_duration_sound(void) {
     
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    
-    // Should handle zero duration gracefully (no sound or very short)
-    TEST_ASSERT_TRUE(true);  // No crash with zero duration
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_exact_buffer_boundary(void) {
@@ -483,9 +614,10 @@ void test_audio_scheduler_exact_buffer_boundary(void) {
     scheduler.generateSamples(buffer1, 64);
     scheduler.generateSamples(buffer2, 128);
     scheduler.generateSamples(buffer3, 256);
-    
-    // Should handle all buffer sizes without artifacts
-    TEST_ASSERT_TRUE(true);  // No crash at boundaries
+
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer1, 64) || bufferHasNonZero(buffer2, 128)
+                     || bufferHasNonZero(buffer3, 256));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_rapid_schedules(void) {
@@ -511,39 +643,34 @@ void test_audio_scheduler_rapid_schedules(void) {
     // Generate samples to process all commands
     int16_t buffer[1024];
     scheduler.generateSamples(buffer, 1024);
-    
-    // Should handle rapid scheduling without overflow or crash
-    TEST_ASSERT_TRUE(true);  // No crash with rapid schedules
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 1024));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_pause_resume_functionality(void) {
-    // Test pause and resume functionality thoroughly
     DefaultAudioScheduler scheduler;
     initScheduler(scheduler);
-    
-    // Start music playback
-    AudioCommand playCmd{};  // Zero-initialize all fields
+
+    AudioCommand playCmd{};
     playCmd.type = AudioCommandType::MUSIC_PLAY;
-    playCmd.track = nullptr;  // Will be handled gracefully
+    playCmd.track = nullptr;
     scheduler.submitCommand(playCmd);
-    
-    // Pause the music
-    AudioCommand pauseCmd{};  // Zero-initialize all fields
+
+    AudioCommand pauseCmd{};
     pauseCmd.type = AudioCommandType::MUSIC_PAUSE;
     scheduler.submitCommand(pauseCmd);
-    
+
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    
-    // Resume the music
-    AudioCommand resumeCmd{};  // Zero-initialize all fields
+    TEST_ASSERT_TRUE(scheduler.isMusicPlaying());
+    TEST_ASSERT_TRUE(scheduler.isMusicPaused());
+
+    AudioCommand resumeCmd{};
     resumeCmd.type = AudioCommandType::MUSIC_RESUME;
     scheduler.submitCommand(resumeCmd);
-    
     scheduler.generateSamples(buffer, 256);
-    
-    // Should handle pause/resume sequence without crash
-    TEST_ASSERT_TRUE(true);  // No crash with pause/resume
+    TEST_ASSERT_FALSE(scheduler.isMusicPaused());
+    TEST_ASSERT_FALSE(scheduler.isMusicPlaying());
 }
 
 void test_audio_scheduler_volume_interpolation(void) {
@@ -578,9 +705,8 @@ void test_audio_scheduler_volume_interpolation(void) {
     scheduler.submitCommand(cmd2);
     
     scheduler.generateSamples(buffer, 128);
-    
-    // Should handle volume interpolation smoothly
-    TEST_ASSERT_TRUE(true);  // No crash during interpolation
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 128));
+    TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
 void test_audio_scheduler_adsr_envelope(void) {
@@ -697,14 +823,13 @@ void test_apucore_reset(void) {
     cmd.event.preset = nullptr;
     
     scheduler.submitCommand(cmd);
-    scheduler.generateSamples(nullptr, 128);
-    
+    generateDiscard(scheduler, 128);
+
     scheduler.core().reset();
     
     int16_t buffer[256];
     scheduler.generateSamples(buffer, 256);
-    
-    TEST_ASSERT_TRUE(true);
+    TEST_ASSERT_TRUE(bufferAllSilence(buffer, 256));
 }
 
 void test_apucore_sequencer_note_limit(void) {
@@ -732,6 +857,284 @@ void test_apucore_profile_stats(void) {
     TEST_ASSERT_TRUE(count <= ApuCore::PROFILE_RING_SIZE);
 }
 
+static void fill_triangle_event(AudioEvent& e) {
+    e.type = WaveType::TRIANGLE;
+    e.frequency = 400.0f;
+    e.volume = 1.0f;
+    e.duration = 0.1f;
+    e.duty = 0.5f;
+    e.noisePeriod = 0;
+    e.preset = nullptr;
+    e.sweepEndHz = 0.0f;
+    e.sweepDurationSec = 0.0f;
+}
+
+void test_frequency_sweep_changes_output(void) {
+    int16_t withSweep[2048];
+    int16_t noSweep[2048];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.sweepEndHz = 3200.0f;
+    c1.event.sweepDurationSec = 0.08f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(withSweep, 2048);
+    s2.generateSamples(noSweep, 2048);
+
+    int diff = 0;
+    for (int i = 0; i < 2048; ++i) {
+        if (withSweep[i] != noSweep[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(200, diff);
+}
+
+void test_frequency_sweep_descending_changes_output(void) {
+    int16_t withSweep[2048];
+    int16_t noSweep[2048];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.frequency = 3200.0f;
+    c1.event.sweepEndHz = 400.0f;
+    c1.event.sweepDurationSec = 0.08f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+    c2.event.frequency = 3200.0f;
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(withSweep, 2048);
+    s2.generateSamples(noSweep, 2048);
+
+    int diff = 0;
+    for (int i = 0; i < 2048; ++i) {
+        if (withSweep[i] != noSweep[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(200, diff);
+}
+
+void test_sweep_longer_than_note_truncates_to_note_length(void) {
+    int16_t longReq[1024];
+    int16_t shortReq[1024];
+    DefaultAudioScheduler sLong;
+    DefaultAudioScheduler sShort;
+    initScheduler(sLong);
+    initScheduler(sShort);
+
+    const float durSec = 0.02f;
+
+    AudioCommand cLong{};
+    cLong.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(cLong.event);
+    cLong.event.duration = durSec;
+    cLong.event.sweepEndHz = 3200.0f;
+    cLong.event.sweepDurationSec = 2.0f;
+
+    AudioCommand cShort{};
+    cShort.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(cShort.event);
+    cShort.event.duration = durSec;
+    cShort.event.sweepEndHz = 3200.0f;
+    cShort.event.sweepDurationSec = durSec;
+
+    sLong.submitCommand(cLong);
+    sShort.submitCommand(cShort);
+    sLong.generateSamples(longReq, 1024);
+    sShort.generateSamples(shortReq, 1024);
+
+    for (int i = 0; i < 1024; ++i) {
+        TEST_ASSERT_EQUAL(longReq[i], shortReq[i]);
+    }
+}
+
+void test_sweep_duration_zero_matches_no_sweep(void) {
+    int16_t a[1024];
+    int16_t b[1024];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c1.event);
+    c1.event.sweepEndHz = 2000.0f;
+    c1.event.sweepDurationSec = 0.0f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    fill_triangle_event(c2.event);
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(a, 1024);
+    s2.generateSamples(b, 1024);
+    for (int i = 0; i < 1024; ++i) {
+        TEST_ASSERT_EQUAL(a[i], b[i]);
+    }
+}
+
+void test_master_bitcrush_changes_output(void) {
+    int16_t offBuf[512];
+    int16_t onBuf[512];
+    DefaultAudioScheduler sOff;
+    DefaultAudioScheduler sOn;
+    initScheduler(sOff);
+    initScheduler(sOn);
+
+    AudioCommand z{};
+    z.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    z.masterBitcrushBits = 0;
+    sOff.submitCommand(z);
+
+    AudioCommand bc{};
+    bc.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    bc.masterBitcrushBits = 4;
+    sOn.submitCommand(bc);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::PLAY_EVENT;
+    play.event.type = WaveType::PULSE;
+    play.event.frequency = 900.0f;
+    play.event.volume = 1.0f;
+    play.event.duration = 0.05f;
+    play.event.duty = 0.5f;
+    play.event.preset = nullptr;
+
+    sOff.submitCommand(play);
+    sOn.submitCommand(play);
+    sOff.generateSamples(offBuf, 512);
+    sOn.generateSamples(onBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (offBuf[i] != onBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(50, diff);
+}
+
+void test_saw_wave_differs_from_pulse(void) {
+    int16_t sawBuf[512];
+    int16_t pulseBuf[512];
+    DefaultAudioScheduler sSaw;
+    DefaultAudioScheduler sPulse;
+    initScheduler(sSaw);
+    initScheduler(sPulse);
+
+    AudioCommand cSaw{};
+    cSaw.type = AudioCommandType::PLAY_EVENT;
+    cSaw.event.type = WaveType::SAW;
+    cSaw.event.frequency = 440.0f;
+    cSaw.event.volume = 1.0f;
+    cSaw.event.duration = 0.1f;
+    cSaw.event.duty = 0.5f;
+
+    AudioCommand cPulse{};
+    cPulse.type = AudioCommandType::PLAY_EVENT;
+    cPulse.event.type = WaveType::PULSE;
+    cPulse.event.frequency = 440.0f;
+    cPulse.event.volume = 1.0f;
+    cPulse.event.duration = 0.1f;
+    cPulse.event.duty = 0.5f;
+
+    sSaw.submitCommand(cSaw);
+    sPulse.submitCommand(cPulse);
+    sSaw.generateSamples(sawBuf, 512);
+    sPulse.generateSamples(pulseBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (sawBuf[i] != pulseBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(100, diff);
+}
+
+void test_sine_wave_differs_from_triangle(void) {
+    int16_t sineBuf[512];
+    int16_t triBuf[512];
+    DefaultAudioScheduler s1;
+    DefaultAudioScheduler s2;
+    initScheduler(s1);
+    initScheduler(s2);
+
+    AudioCommand c1{};
+    c1.type = AudioCommandType::PLAY_EVENT;
+    c1.event.type = WaveType::SINE;
+    c1.event.frequency = 330.0f;
+    c1.event.volume = 1.0f;
+    c1.event.duration = 0.1f;
+    c1.event.duty = 0.5f;
+
+    AudioCommand c2{};
+    c2.type = AudioCommandType::PLAY_EVENT;
+    c2.event.type = WaveType::TRIANGLE;
+    c2.event.frequency = 330.0f;
+    c2.event.volume = 1.0f;
+    c2.event.duration = 0.1f;
+    c2.event.duty = 0.5f;
+
+    s1.submitCommand(c1);
+    s2.submitCommand(c2);
+    s1.generateSamples(sineBuf, 512);
+    s2.generateSamples(triBuf, 512);
+
+    int diff = 0;
+    for (int i = 0; i < 512; ++i) {
+        if (sineBuf[i] != triBuf[i]) diff++;
+    }
+    TEST_ASSERT_GREATER_THAN(100, diff);
+}
+
+void test_master_bitcrush_zero_matches_default_baseline(void) {
+    int16_t baseline[512];
+    int16_t explicitZero[512];
+    DefaultAudioScheduler sBase;
+    DefaultAudioScheduler sZero;
+    initScheduler(sBase);
+    initScheduler(sZero);
+
+    AudioCommand z{};
+    z.type = AudioCommandType::SET_MASTER_BITCRUSH;
+    z.masterBitcrushBits = 0;
+    sZero.submitCommand(z);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::PLAY_EVENT;
+    play.event.type = WaveType::PULSE;
+    play.event.frequency = 880.0f;
+    play.event.volume = 1.0f;
+    play.event.duration = 0.05f;
+    play.event.duty = 0.5f;
+    play.event.preset = nullptr;
+
+    sBase.submitCommand(play);
+    sZero.submitCommand(play);
+    sBase.generateSamples(baseline, 512);
+    sZero.generateSamples(explicitZero, 512);
+
+    for (int i = 0; i < 512; ++i) {
+        TEST_ASSERT_EQUAL(baseline[i], explicitZero[i]);
+    }
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     RUN_TEST(test_default_scheduler_initialization);
@@ -750,14 +1153,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_music_stop_command);
     RUN_TEST(test_music_pause_resume_command);
     RUN_TEST(test_music_set_tempo_command);
+    RUN_TEST(test_music_play_no_burst_after_long_idle);
     RUN_TEST(test_set_master_volume_clamping);
-    
-    // Error handling tests
-    RUN_TEST(test_audio_scheduler_buffer_underrun_recovery);
-    RUN_TEST(test_audio_scheduler_initialization_failure_handling);
-    RUN_TEST(test_audio_scheduler_shutdown_during_active_playback);
-    RUN_TEST(test_audio_scheduler_null_buffer_handling);
-    RUN_TEST(test_audio_scheduler_command_queue_overflow);
     
     // Edge case tests
     RUN_TEST(test_audio_scheduler_zero_duration_sound);
@@ -776,6 +1173,23 @@ int main(int argc, char **argv) {
     RUN_TEST(test_apucore_reset);
     RUN_TEST(test_apucore_sequencer_note_limit);
     RUN_TEST(test_apucore_profile_stats);
-    
+    RUN_TEST(test_frequency_sweep_changes_output);
+    RUN_TEST(test_frequency_sweep_descending_changes_output);
+    RUN_TEST(test_sweep_longer_than_note_truncates_to_note_length);
+    RUN_TEST(test_sweep_duration_zero_matches_no_sweep);
+    RUN_TEST(test_master_bitcrush_changes_output);
+    RUN_TEST(test_saw_wave_differs_from_pulse);
+    RUN_TEST(test_sine_wave_differs_from_triangle);
+    RUN_TEST(test_master_bitcrush_zero_matches_default_baseline);
+
+    // Error handling / stress (after stable ApuCore tests)
+    RUN_TEST(test_audio_scheduler_buffer_underrun_recovery);
+    RUN_TEST(test_audio_scheduler_shutdown_during_active_playback);
+    RUN_TEST(test_audio_scheduler_null_buffer_handling);
+    RUN_TEST(test_audio_scheduler_command_queue_overflow);
+
+    // Init-failure must stay last (see comment in prior revision).
+    RUN_TEST(test_audio_scheduler_initialization_failure_handling);
+
     return UNITY_END();
 }

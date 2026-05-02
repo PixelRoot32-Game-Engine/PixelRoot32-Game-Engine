@@ -224,8 +224,8 @@ void UITouchButton::draw(Renderer& renderer) {
     }
     
     // Get bounds from Entity (synced from widget in update())
-    int16_t x = static_cast<int16_t>(position.x);
-    int16_t y = static_cast<int16_t>(position.y);
+    int16_t x = static_cast<int16_t>(static_cast<int>(position.x));
+    int16_t y = static_cast<int16_t>(static_cast<int>(position.y));
     uint16_t w = static_cast<uint16_t>(width);
     uint16_t h = static_cast<uint16_t>(height);
     

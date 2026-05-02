@@ -248,17 +248,19 @@ namespace pixelroot32::core {
                         gProfilerPhysicsIntegrateTime = 0;
                         gProfilerPhysicsIntegrateCount = 0;
                     }
-                    audio::ApuCore::ProfileEntry audioEntries[audio::ApuCore::PROFILE_RING_SIZE];
-                    uint8_t audioCount = 0;
-                    audioEngine.getScheduler()->getApuCore().getAndResetProfileStats(audioEntries, audioCount);
-                    for (uint8_t i = 0; i < audioCount; ++i) {
-                        if (audioEntries[i].clipped) {
-                            log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", audioEntries[i].peak);
-                        } else {
-                            log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)",
-                                audioEntries[i].peak, (audioEntries[i].peak / 32767.0f) * 100.0f);
+                    #if PIXELROOT32_ENABLE_AUDIO
+                        audio::ApuCore::ProfileEntry audioEntries[audio::ApuCore::PROFILE_RING_SIZE];
+                        uint8_t audioCount = 0;
+                        audioEngine.getScheduler()->getApuCore().getAndResetProfileStats(audioEntries, audioCount);
+                        for (uint8_t i = 0; i < audioCount; ++i) {
+                            if (audioEntries[i].clipped) {
+                                log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", audioEntries[i].peak);
+                            } else {
+                                log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)",
+                                    audioEntries[i].peak, (audioEntries[i].peak / 32767.0f) * 100.0f);
+                            }
                         }
-                    }
+                    #endif
                 }
                 lastHeartbeat = millis();
             }

@@ -10,7 +10,9 @@ namespace pixelroot32::physics {
 /**
  * @class StaticActor
  * @brief A physics body that does not move.
- * 
+ *
+ * Inherits from PhysicsActor.
+ *
  * Static actors are used for environment elements like floors, walls, and platforms
  * that should block other actors but are themselves immovable.
  * They are optimized to skip integration and world bound resolution.

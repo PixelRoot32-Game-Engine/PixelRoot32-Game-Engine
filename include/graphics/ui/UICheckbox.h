@@ -18,6 +18,8 @@ namespace pixelroot32::graphics::ui {
  * @class UICheckBox
  * @brief A clickable checkbox UI element.
  *
+ * Inherits from UIElement.
+ *
  * Supports both physical (keyboard/gamepad) and touch input.
  * Can trigger a callback function when its state changes.
  */

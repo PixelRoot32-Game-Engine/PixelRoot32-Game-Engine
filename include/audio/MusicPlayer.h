@@ -6,6 +6,7 @@
 
 #include "AudioEngine.h"
 #include "AudioMusicTypes.h"
+#include "AudioTypes.h"
 #include <cstddef> // Required for size_t
 
 namespace pixelroot32::audio {
@@ -78,6 +79,18 @@ public:
      * @return Number of active tracks (1-4), 0 if not playing.
      */
     size_t getActiveTrackCount() const;
+
+    /**
+     * @brief Sets the master volume level.
+     * @param volume Volume level (0.0f = silent, 1.0f = full volume).
+     */
+    void setMasterVolume(float volume);
+
+    /**
+     * @brief Gets the current master volume level.
+     * @return Current volume (0.0f - 1.0f).
+     */
+    float getMasterVolume() const;
 
 private:
     AudioEngine& engine;

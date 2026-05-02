@@ -38,10 +38,10 @@ Like the animated tilemap sample, drawing goes through **`StaticTilemapLayerCach
 
 ## Documentation links
 
-- [Graphics — tilemaps & `StaticTilemapLayerCache`](../../docs/api/API_GRAPHICS.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache)
-- [Architecture — ESP32 rendering / tilemap caching](../../docs/ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching)
-- [Physics API](../../docs/api/API_PHYSICS.md)
-- [Core API](../../docs/api/API_CORE.md)
+- [Graphics — tilemaps & `StaticTilemapLayerCache`](../../docs/api/graphics.md#multi-layer-4bpp-tilemap-framebuffer-snapshot-statictilemaplayercache)
+- [Architecture — ESP32 rendering / tilemap caching](../../docs/architecture/architecture-index.md#esp32-rendering-pipeline-and-tilemap-caching)
+- [Physics API](../../docs/api/physics.md)
+- [Core API](../../docs/api/core.md)
 
 ## Build
 

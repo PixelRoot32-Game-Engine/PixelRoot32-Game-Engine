@@ -36,7 +36,9 @@ namespace pixelroot32::audio {
      */
     class ApuCore {
     public:
-        static constexpr int NUM_CHANNELS = 4;
+        static constexpr int MAX_VOICES = 8;
+        // Backward-compatible alias used in some tests/diagnostics.
+        static constexpr int NUM_CHANNELS = MAX_VOICES;
         static constexpr size_t MAX_MUSIC_TRACKS = 4;
         static constexpr int TICKS_PER_BEAT = 4;
         static constexpr float DEFAULT_BPM = 150.0f;
@@ -90,6 +92,12 @@ namespace pixelroot32::audio {
         /** Reset all state. Intended for unit tests. */
         void reset();
 
+        /**
+         * Optional post-mix callback (RT-safe): runs on final int16 buffer after bitcrush.
+         * Typically set once from AudioEngine using AudioConfig.
+         */
+        void setPostMixMono(void (*fn)(int16_t* mono, int length, void* user), void* user);
+
         // -- Profiling API (public for Engine access) -------------
         static constexpr int PROFILE_RING_SIZE = 64;
         struct ProfileEntry {
@@ -99,21 +107,30 @@ namespace pixelroot32::audio {
         };
         void getAndResetProfileStats(ProfileEntry* out, uint8_t& count);
 
+#if defined(UNIT_TEST)
+        /** Diagnostic: count voices with enabled==true (native_test regression). */
+        size_t countEnabledVoicesForTesting() const;
+        /** Main music track note index after sequencer run (native_test regression). */
+        size_t getSequencerMainNoteIndexForTesting() const;
+#endif
+
     private:
         void processCommands();
         void updateMusicSequencer();
         void executePlayEvent(const AudioEvent& event);
-        AudioChannel* findFreeChannel(WaveType type);
-        float generateSampleForChannel(AudioChannel& ch);
+        Voice* findVoiceForEvent(WaveType type);
+        float generateSampleForVoice(Voice& voice);
 
         // -- Channels and I/O ---------------------------------------------
-        AudioChannel channels[NUM_CHANNELS];
+        Voice voices[MAX_VOICES];
         AudioCommandQueue commandQueue;
         std::atomic<uint32_t> droppedCommands{0};
 
         int sampleRate = 44100;
         float masterVolume = 1.0f;
         int32_t masterVolumeScale = 65536; // Q16 for integer/LUT path
+        /** 0 = off; 1–15 = re-quantize final int16 (post-mixer). */
+        uint8_t masterBitcrushBits_ = 0;
 
         // -- Anti-click + DC removal --------------------------------------
         // Single-pole high-pass filter (R ~ 0.995 @ 22 kHz ≈ 35 Hz cutoff),
@@ -153,6 +170,13 @@ namespace pixelroot32::audio {
         // natural end-of-track without polling private state.
         std::atomic<bool> musicPlayingFlag{false};
         std::atomic<bool> musicPausedFlag{false};
+
+        /** After MUSIC_PLAY, allow one sequencer pass even when currentTick == startTick. */
+        bool firstSequencerCallAfterPlay_ = false;
+
+        // -- Post-mix hook -------------------------------------------------
+        void (*postMixMono_)(int16_t* mono, int length, void* user) = nullptr;
+        void* postMixUser_ = nullptr;
     };
 
 } // namespace pixelroot32::audio

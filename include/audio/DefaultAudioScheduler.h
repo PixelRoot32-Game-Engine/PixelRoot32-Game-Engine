@@ -14,6 +14,8 @@ namespace pixelroot32::audio {
      * @brief Backend-driven scheduler used on platforms without a dedicated
      *        audio task.
      *
+     * Inherits from AudioScheduler.
+     *
      * Delegates all synthesis to ApuCore; generateSamples() runs in whichever
      * context the backend invokes it (tests, simulators without a thread,
      * etc.).

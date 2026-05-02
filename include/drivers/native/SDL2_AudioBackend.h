@@ -15,6 +15,8 @@ namespace pixelroot32::drivers::native {
     /**
      * @class SDL2_AudioBackend
      * @brief Audio backend implementation for SDL2 (Windows/Linux/Mac).
+     *
+     * Inherits from AudioBackend.
      */
     class SDL2_AudioBackend : public pixelroot32::audio::AudioBackend {
     public:

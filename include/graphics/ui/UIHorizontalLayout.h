@@ -17,6 +17,8 @@ namespace pixelroot32::graphics::ui {
  * @class UIHorizontalLayout
  * @brief Horizontal layout container with scroll support.
  *
+ * Inherits from UILayout.
+ *
  * Organizes UI elements horizontally, one next to another. Supports scrolling
  * when content exceeds the visible viewport. Handles keyboard/D-pad
  * navigation automatically.

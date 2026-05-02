@@ -39,9 +39,9 @@ Touches that the UI does not consume are handled in **`onUnconsumedTouchEvent`**
 
 ## Documentation links
 
-- [UI API](../../docs/api/API_UI.md)
-- [Input API](../../docs/api/API_INPUT.md)
-- [Core API](../../docs/api/API_CORE.md)
+- [UI API](../../docs/api/ui.md)
+- [Input API](../../docs/api/input.md)
+- [Core API](../../docs/api/core.md)
 
 ## Build
 

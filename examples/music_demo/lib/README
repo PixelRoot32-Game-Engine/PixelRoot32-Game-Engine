@@ -25,7 +25,4 @@ Or run the compiled executable from `.pio/build/native/program.exe`.
   - Pulse Chip High
   - Triangle Pad
   
-- **Melodies**: Play 3 different NES-style melodies:
-  - Arpeggio Master: Fast arpeggios
-  - Bass Groove: Classic 8-bit bass line
-  - Chiptune Lead: Happy melody
+- **Melodies**: Play multiple NES-style melodies including **manual arpeggiated layers** via **`secondVoice`** when extra waves are enabled.

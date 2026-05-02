@@ -16,6 +16,8 @@ namespace pixelroot32::graphics::ui {
  * @class UIPanel
  * @brief Visual container that draws a background and border around a child element.
  *
+ * Inherits from UIElement.
+ *
  * This container provides a retro-style window/panel appearance with a background
  * color and border. Typically contains a UILayout or other UI elements. Useful for
  * dialogs, menus, and information panels.

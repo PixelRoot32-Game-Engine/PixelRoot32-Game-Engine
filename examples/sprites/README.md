@@ -26,8 +26,8 @@ See **`platformio.ini`** for **`native`** and **`esp32dev`**.
 
 ## Documentation links
 
-- [Graphics API — sprites](../../docs/api/API_GRAPHICS.md)
-- [Core — Scene / Entity](../../docs/api/API_CORE.md)
+- [Graphics API — sprites](../../docs/api/graphics.md)
+- [Core — Scene / Entity](../../docs/api/core.md)
 
 ## Build
 

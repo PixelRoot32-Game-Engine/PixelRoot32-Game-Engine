@@ -1,7 +1,12 @@
 #include "MusicDemoConstants.h"
 #include "MusicDemoScene.h"
-#include "assets/melodies.h"
+#include "assets/classic_arcade_melody.h"
+#include "assets/adventure_melody.h"
+#include "assets/action_melody.h"
+#include "assets/arpeggio_melody.h"
+
 #include <core/Engine.h>
+#include <cstdio>
 
 namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
@@ -34,6 +39,13 @@ static void onPulseBass() { if (sSceneInstance) sSceneInstance->playInstrumentSo
 static void onMelody1() { if (sSceneInstance) sSceneInstance->playMelody(1); }
 static void onMelody2() { if (sSceneInstance) sSceneInstance->playMelody(2); }
 static void onMelody3() { if (sSceneInstance) sSceneInstance->playMelody(3); }
+static void onMelody4() { if (sSceneInstance) sSceneInstance->playMelody(4); }
+
+static void onAudioLab() { if (sSceneInstance) sSceneInstance->showMenu(MusicDemoState::AUDIO_LAB); }
+static void onSweepDemo() { if (sSceneInstance) sSceneInstance->playSweepDemo(); }
+static void onSineChord() { if (sSceneInstance) sSceneInstance->playSineChordDemo(); }
+static void onSawChord() { if (sSceneInstance) sSceneInstance->playSawChordDemo(); }
+static void onBitcrushCycle() { if (sSceneInstance) sSceneInstance->cycleMasterBitcrush(); }
 
 
 void MusicDemoScene::init() {
@@ -60,6 +72,7 @@ void MusicDemoScene::init() {
     setupMainMenu(); 
     setupInstrumentPresetMenu(); 
     setupMelodiesMenu();
+    setupAudioLabMenu();
 
     lblNavigate = std::make_unique<pr32::graphics::ui::UILabel>("UP/DOWN: Navigate", Vector2(0, sh - static_cast<int>(NAV_INSTR_Y_OFFSET)), Color::Cyan, INSTRUCTION_FONT_SIZE);
     lblNavigate->centerX(sw); 
@@ -104,6 +117,7 @@ void MusicDemoScene::draw(pr32::graphics::Renderer& r) { Scene::draw(r); }
 void MusicDemoScene::setupMainMenu() {
     instrumentPresetButton = std::make_unique<pr32::graphics::ui::UIButton>("INSTRUMENT PRESET", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onInstrumentPreset, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     melodiesButton = std::make_unique<pr32::graphics::ui::UIButton>("MELODIES", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelodies, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    audioLabButton = std::make_unique<pr32::graphics::ui::UIButton>("AUDIO LAB (SWEEP)", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onAudioLab, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::setupInstrumentPresetMenu() {
@@ -123,6 +137,14 @@ void MusicDemoScene::setupMelodiesMenu() {
     melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 1", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 2", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
     melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 3", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody4Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 4 + ARP voice", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody4, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+}
+
+void MusicDemoScene::setupAudioLabMenu() {
+    audioLabSweepButton = std::make_unique<pr32::graphics::ui::UIButton>("PULSE SWEEP (A)", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSweepDemo, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    audioLabSineButton = std::make_unique<pr32::graphics::ui::UIButton>("SINE CHORD (B)", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSineChord, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    audioLabSawButton = std::make_unique<pr32::graphics::ui::UIButton>("SAW CHORD (B)", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onSawChord, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    audioLabBitcrushButton = std::make_unique<pr32::graphics::ui::UIButton>("MASTER BITCRUSH", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onBitcrushCycle, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::showMenu(MusicDemoState st) {
@@ -133,6 +155,7 @@ void MusicDemoScene::showMenu(MusicDemoState st) {
             titleLabel->setText("Music Demo"); 
             buttonLayout->addElement(instrumentPresetButton.get()); 
             buttonLayout->addElement(melodiesButton.get()); 
+            buttonLayout->addElement(audioLabButton.get());
             break;
         case MusicDemoState::INSTRUMENT_PRESET:
             titleLabel->setText("Instruments (10)");
@@ -148,16 +171,35 @@ void MusicDemoScene::showMenu(MusicDemoState st) {
             buttonLayout->addElement(instrHihatButton.get());
             break;
         case MusicDemoState::MELODIES: 
-            titleLabel->setText("Melodies (NES)"); 
+            titleLabel->setText("Melodies (4)");
             buttonLayout->addElement(melody1Button.get());
             buttonLayout->addElement(melody2Button.get());
             buttonLayout->addElement(melody3Button.get());
+            buttonLayout->addElement(melody4Button.get());
+            break;
+        case MusicDemoState::AUDIO_LAB:
+            bitcrushCycleIndex_ = 0;
+            engine.getAudioEngine().setMasterBitcrush(0);
+            titleLabel->setText("Audio Lab (A/B)");
+            buttonLayout->addElement(audioLabSweepButton.get());
+            buttonLayout->addElement(audioLabSineButton.get());
+            buttonLayout->addElement(audioLabSawButton.get());
+            buttonLayout->addElement(audioLabBitcrushButton.get());
             break;
     }
     titleLabel->centerX(sw);
 }
 
-void MusicDemoScene::goBack() { if (currentState != MusicDemoState::MAIN) showMenu(MusicDemoState::MAIN); }
+void MusicDemoScene::goBack() {
+    if (currentState == MusicDemoState::MAIN) {
+        return;
+    }
+    if (currentState == MusicDemoState::AUDIO_LAB) {
+        engine.getAudioEngine().setMasterBitcrush(0);
+        bitcrushCycleIndex_ = 0;
+    }
+    showMenu(MusicDemoState::MAIN);
+}
 
 void MusicDemoScene::playInstrumentSound(const pr32::audio::InstrumentPreset& preset) {
     auto& audio = engine.getAudioEngine();
@@ -184,13 +226,14 @@ void MusicDemoScene::playInstrumentSound(const pr32::audio::InstrumentPreset& pr
 
 void MusicDemoScene::playMelody(int idx) {
     auto& player = engine.getMusicPlayer();
+    player.setMasterVolume(0.6f);
 
     previousMelodyIndex = currentMelodyIndex;
     currentMelodyIndex = idx;
     bool isSameMelody = (previousMelodyIndex == currentMelodyIndex);
 
-    if (isSameMelody && player.isPlaying()) { 
-        player.stop(); 
+    if (isSameMelody && player.isPlaying()) {
+        player.stop();
         return;
     }
 
@@ -210,7 +253,64 @@ void MusicDemoScene::playMelody(int idx) {
             player.play(sActionTrack);
             break;
         }
+        case 4: {
+            player.setBPM(145.0f);
+            player.play(sArpDemoTrack);
+            break;
+        }
     }
+}
+
+void MusicDemoScene::playSweepDemo() {
+    auto& audio = engine.getAudioEngine();
+    AudioEvent ev{};
+    ev.type = WaveType::PULSE;
+    ev.frequency = 1400.0f;
+    ev.sweepEndHz = 220.0f;
+    ev.sweepDurationSec = 0.22f;
+    ev.duration = 0.38f;
+    ev.volume = 0.65f;
+    ev.duty = 0.5f;
+    audio.playEvent(ev);
+}
+
+void MusicDemoScene::playSineChordDemo() {
+    auto& audio = engine.getAudioEngine();
+    const Note chord[] = {Note::C, Note::E, Note::G};
+    for (unsigned i = 0; i < 3; i++) {
+        AudioEvent ev{};
+        ev.type = WaveType::SINE;
+        ev.frequency = pr32::audio::noteToFrequency(chord[i], 4);
+        ev.duration = 0.22f;
+        ev.volume = 0.5f;
+        ev.duty = 0.5f;
+        audio.playEvent(ev);
+    }
+}
+
+void MusicDemoScene::playSawChordDemo() {
+    auto& audio = engine.getAudioEngine();
+    const Note chord[] = {Note::A, Note::Cs, Note::E};
+    for (unsigned i = 0; i < 3; i++) {
+        AudioEvent ev{};
+        ev.type = WaveType::SAW;
+        ev.frequency = pr32::audio::noteToFrequency(chord[i], 4);
+        ev.duration = 0.2f;
+        ev.volume = 0.45f;
+        ev.duty = 0.5f;
+        audio.playEvent(ev);
+    }
+}
+
+
+void MusicDemoScene::cycleMasterBitcrush() {
+    static const uint8_t kLevels[] = {0, 6, 10, 14};
+    bitcrushCycleIndex_ = static_cast<uint8_t>((bitcrushCycleIndex_ + 1) % 4);
+    const uint8_t bits = kLevels[bitcrushCycleIndex_];
+    engine.getAudioEngine().setMasterBitcrush(bits);
+    static char titleBuf[48];
+    std::snprintf(titleBuf, sizeof(titleBuf), "Audio Lab (crush %u)", static_cast<unsigned>(bits));
+    titleLabel->setText(titleBuf);
 }
 
 } // namespace musicdemo

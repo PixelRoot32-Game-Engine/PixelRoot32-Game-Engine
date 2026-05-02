@@ -74,7 +74,9 @@ struct WorldCollisionInfo {
 /**
  * @class PhysicsActor
  * @brief An actor with basic 2D physics properties using adaptable Scalar type.
- * 
+ *
+ * Inherits from Actor.
+ *
  * Handles velocity, acceleration (via integration), and collision with world boundaries.
  * Automatically adapts to use float or Fixed16 based on the platform configuration.
  */
