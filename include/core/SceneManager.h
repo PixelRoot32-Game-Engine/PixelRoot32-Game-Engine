@@ -59,6 +59,11 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer);
 
     /**
+     * @brief Lets stacked scenes advertise framebuffer prep (runs before Renderer::beginFrame).
+     */
+    void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer);
+
+    /**
      * @brief Gets the currently active scene.
      * @return Optional pointer to the top scene on the stack.
      */

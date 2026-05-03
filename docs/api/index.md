@@ -95,6 +95,7 @@ Some modules are optional and can be disabled to save memory:
 | 4bpp Sprites | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
+| Dirty Regions | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Disabled |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
 
 ---

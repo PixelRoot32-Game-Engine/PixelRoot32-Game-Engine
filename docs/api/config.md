@@ -35,6 +35,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |
+| `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Enable dirty-cell selective framebuffer clear (`DirtyGrid`). Requires 64–226 B RAM. | `0` |
+| `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING` | Enable dirty region profiling metrics. | `0` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` | TFT_eSPI DMA line batch size. | `60` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK` | Fallback DMA batch size if memory fails. | `30` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
@@ -52,8 +54,11 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB |
 | `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB |
 | `PIXELROOT32_ENABLE_TOUCH=0` | ~200 bytes | ~2 KB |
+| `PIXELROOT32_ENABLE_DIRTY_REGIONS=0` | -64 to -226 bytes | ~1 KB |
 
 ## Build Profiles (platformio.ini)
+
+> **Note:** `PIXELROOT32_ENABLE_DIRTY_REGIONS` can be added to any profile for selective framebuffer clearing. It is not enabled by default in any profile.
 
 ```ini
 [profile_full]         ; All features enabled
@@ -62,6 +67,7 @@ build_flags =
     -D PIXELROOT32_ENABLE_PHYSICS=1
     -D PIXELROOT32_ENABLE_PARTICLES=1
     -D PIXELROOT32_ENABLE_UI_SYSTEM=1
+    -D PIXELROOT32_ENABLE_DIRTY_REGIONS=1
 
 [profile_arcade]       ; Audio + Physics + Particles, no UI
 build_flags =

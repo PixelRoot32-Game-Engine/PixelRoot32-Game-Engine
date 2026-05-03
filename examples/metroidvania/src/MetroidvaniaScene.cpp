@@ -125,6 +125,28 @@ void MetroidvaniaScene::update(unsigned long deltaTime) {
     pixelroot32::core::Scene::update(deltaTime);
 }
 
+void MetroidvaniaScene::adviseFramebufferBeforeBeginFrame(pr32::graphics::Renderer& renderer) {
+#if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    const int camX = -renderer.getXOffset();
+    const int camY = -renderer.getYOffset();
+    const pr32::graphics::TileMap4bppDrawSpec staticLayers[] = {
+        {&metroidvania::background, 0, 0},
+        {&metroidvania::platforms, 0, 0},
+        {&metroidvania::stairs, 0, 0},
+    };
+    tilemapLayerCache.adviseFramebufferBeforeBeginFrame(
+        renderer,
+        camX,
+        camY,
+        staticLayers,
+        sizeof(staticLayers) / sizeof(staticLayers[0]),
+        nullptr,
+        0);
+#else
+    (void)renderer;
+#endif
+}
+
 void MetroidvaniaScene::draw(pr32::graphics::Renderer& renderer) {
     const int camX = -renderer.getXOffset();
     const int camY = -renderer.getYOffset();

@@ -6,6 +6,7 @@
 > - `include/graphics/Color.h`
 > - `include/graphics/Font.h`, `include/graphics/FontManager.h`
 > - `include/graphics/StaticTilemapLayerCache.h`
+> - `include/graphics/DirtyGrid.h`
 > - `include/graphics/TileAnimation.h`
 > - `include/graphics/DrawSurface.h`, `include/graphics/BaseDrawSurface.h`
 > - `include/graphics/particles/*.h`
@@ -22,11 +23,14 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 - **IRAM Execution**: Critical rendering functions (`drawPixel`, `drawSpriteInternal`, `resolveColor`, `drawTileMap`) run from internal RAM (`IRAM_ATTR`).
 - **Palette Caching**: Tilemaps cache the resolved RGB565 LUT per tile.
 - **Viewport Culling**: All tilemap rendering functions automatically skip tiles outside the screen boundaries.
+- **Dirty Region Tracking**: Selective framebuffer clear via `DirtyGrid` (double-buffer prev/curr with 8×8 cells), reducing memset overhead.
 - **Direct logical framebuffer**: The `TFT_eSPI` driver exposes an 8bpp sprite memory buffer, enabling `Renderer` to write packed 2bpp/4bpp pixels directly without virtual function overhead.
 
 ### Multi-layer 4bpp tilemap framebuffer snapshot (`StaticTilemapLayerCache`)
 
-Avoids redrawing “static” **4bpp** tilemaps every frame. It caches the static group of tiles into an internal buffer and restores it via `memcpy` each frame, so only dynamic elements need redrawing until the camera moves. 
+Avoids redrawing "static" **4bpp** tilemaps every frame. It caches the static group of tiles into an internal buffer and restores it via `memcpy` each frame, so only dynamic elements need redrawing until the camera moves.
+
+> **Dirty Regions Interaction:** When both the static cache and Dirty Regions are enabled, the cache advises `beginFrame()` to skip its selective or full clear if a cache `memcpy` will entirely overwrite the framebuffer anyway.
 
 ## Key Concepts
 
@@ -62,6 +66,24 @@ Generic descriptors for tile-based backgrounds, instantiated as `TileMap` (1bpp)
 Enables frame-based tile animations (water, lava, fire) while maintaining static tilemap data. Pacing uses high-resolution wall time so animations stay correct regardless of frame skipping. 
 - A `TileAnimationManager` computes the `VisualSignature` to inform the scene if a redraw is necessary.
 
+### Dirty Region System
+
+The Dirty Region System provides selective framebuffer clearing to reduce unnecessary `memset` operations when most of the screen stays unchanged.
+
+- **`DirtyGrid`** (requires `PIXELROOT32_ENABLE_DIRTY_REGIONS=1`): Double-buffer design with `prev` and `curr` bit-packed grids of 8×8 pixel cells. Each cell tracks whether it was drawn to in the current frame.
+
+- **`LayerType`** (in `include/graphics/Renderer.h`): Classifies tilemaps to enable selective tracking:
+  - `LayerType::Static`: Background layers that rarely change. The system tracks dirty cells, but the layer itself doesn't mark cells as dirty.
+  - `LayerType::Dynamic`: Sprites, particles, and UI that move every frame. These mark their occupied cells as dirty.
+
+- **`forceFullRedraw()`**: Call this when a full framebuffer clear is required (scene transitions, pause menus, camera jumps). Resets the dirty grid state.
+
+- **Debug overlay** (`setDebugDirtyCellOverlay`): Visualizes dirty cells on screen for debugging. Requires `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1`.
+
+- **Compile flag**: `PIXELROOT32_ENABLE_DIRTY_REGIONS` (default: disabled). RAM cost: 64–226 bytes depending on resolution.
+
+> **Tip:** Use `LayerType::Static` for backgrounds that don't change—avoids unnecessary dirty cell marking.
+
 ### Tile Attribute System
 
 Provides runtime access to custom metadata attached to tiles. Attributes are stored in Flash memory on the ESP32.
@@ -90,6 +112,8 @@ Abstract interfaces for platform-specific drawing operations (e.g., `SDL2_Drawer
 - `Color`, `PaletteType` → `include/graphics/Color.h`
 - `Font`, `FontManager` → `include/graphics/FontManager.h`
 - `Sprite`, `TileMap` → `include/graphics/Renderer.h`
+- `DirtyGrid` → `include/graphics/DirtyGrid.h`
+- `LayerType` → `include/graphics/Renderer.h`
 - `ParticleEmitter`, `ParticleConfig` → `include/graphics/particles/ParticleEmitter.h`
 - `TileAnimationManager` → `include/graphics/TileAnimation.h`
 

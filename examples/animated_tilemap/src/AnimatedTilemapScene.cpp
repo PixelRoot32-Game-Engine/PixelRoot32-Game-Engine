@@ -127,6 +127,30 @@ bool AnimatedTilemapScene::shouldRedrawFramebuffer() const {
     return !omitDrawPresentThisFrame;
 }
 
+void AnimatedTilemapScene::adviseFramebufferBeforeBeginFrame(gfx::Renderer& renderer) {
+#if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    const int camX = -renderer.getXOffset();
+    const int camY = -renderer.getYOffset();
+    const gfx::TileMap4bppDrawSpec staticLayers[] = {
+        {levelData.background, 0, 0},
+    };
+    const gfx::TileMap4bppDrawSpec dynamicLayers[] = {
+        {levelData.ground, 0, 0},
+        {levelData.details, 0, 0},
+    };
+    tilemapLayerCache.adviseFramebufferBeforeBeginFrame(
+        renderer,
+        camX,
+        camY,
+        staticLayers,
+        sizeof(staticLayers) / sizeof(staticLayers[0]),
+        dynamicLayers,
+        sizeof(dynamicLayers) / sizeof(dynamicLayers[0]));
+#else
+    (void)renderer;
+#endif
+}
+
 void AnimatedTilemapScene::invalidateStaticLayerCache() {
     tilemapLayerCache.invalidate();
     // Next frame must redraw (signature alone may not capture static bitmap changes).

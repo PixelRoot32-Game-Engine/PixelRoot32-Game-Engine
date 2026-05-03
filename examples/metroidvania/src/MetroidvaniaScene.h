@@ -28,6 +28,7 @@ public:
     virtual ~MetroidvaniaScene();
     void init() override;
     void update(unsigned long deltaTime) override;
+    void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
 private:

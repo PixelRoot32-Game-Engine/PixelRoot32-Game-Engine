@@ -13,6 +13,7 @@
 #include "platforms/EngineConfig.h"
 #include "platforms/PlatformMemory.h"
 
+#include "DirtyGrid.h"
 #include "DrawSurface.h"
 #include "DisplayConfig.h"
 #include "Color.h"
@@ -25,6 +26,7 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @struct Sprite
  * @brief Compact sprite descriptor for monochrome bitmapped sprites.
  *
  * Sprites are stored as an array of 16-bit rows. Each row packs horizontal
@@ -77,6 +79,7 @@ static constexpr uint8_t kTileCellPaletteMask       = 0x07;  // bits 0-2; bits 3
 static constexpr uint8_t kSpritePaletteMask = 0x07;  // bits 0-2; bits 3-7 reserved
 
 /**
+ * @struct SpriteLayer
  * @brief Single monochrome layer used by layered sprites.
  *
  * Each layer uses the same width/height as its owning MultiSprite but can
@@ -88,6 +91,7 @@ struct SpriteLayer {
 };
 
 /**
+ * @struct MultiSprite
  * @brief Multi-layer, multi-color sprite built from 1bpp layers.
  *
  * A MultiSprite combines several SpriteLayer entries that share the same
@@ -215,6 +219,7 @@ using TileMap2bpp = TileMapGeneric<Sprite2bpp>;
 using TileMap4bpp = TileMapGeneric<Sprite4bpp>;
 
 /**
+ * @struct TileAttribute
  * @brief Single attribute key-value pair for tile metadata.
  *
  * TileAttribute represents a single metadata entry attached to a tile, such as
@@ -250,6 +255,7 @@ struct TileAttribute {
 };
 
 /**
+ * @struct TileAttributeEntry
  * @brief All attributes for a single tile at a specific position.
  *
  * TileAttributeEntry associates a tile position (x, y) with its metadata attributes.
@@ -296,6 +302,7 @@ struct TileAttributeEntry {
 };
 
 /**
+ * @struct LayerAttributes
  * @brief All tiles with attributes in a single tilemap layer.
  *
  * LayerAttributes organizes all tile metadata for a single layer, providing
@@ -589,6 +596,7 @@ inline const TileAttributeEntry* get_tile_entry(
 }
 
 /**
+ * @struct SpriteAnimationFrame
  * @brief Single animation frame that can reference either a Sprite or a MultiSprite.
  *
  * Exactly one of the pointers is expected to be non-null for a valid frame.
@@ -601,6 +609,7 @@ struct SpriteAnimationFrame {
 };
 
 /**
+ * @struct SpriteAnimation
  * @brief Lightweight, step-based sprite animation controller.
  *
  * SpriteAnimation owns no memory. It references a compile-time array of
@@ -622,12 +631,16 @@ struct SpriteAnimation {
     uint8_t                     frameCount;///< Number of frames in the table.
     uint8_t                     current;   ///< Current frame index [0, frameCount).
 
-    /// Reset the animation to the first frame.
+    /**
+     * @brief Reset the animation to the first frame.
+     */
     void reset() {
         current = 0;
     }
 
-    /// Advance to the next frame in a loop (step-based advancement).
+    /**
+     * @brief Advance to the next frame in a loop (step-based advancement).
+     */
     void step() {
         if (!frames || frameCount == 0) {
             return;
@@ -638,12 +651,18 @@ struct SpriteAnimation {
         }
     }
 
-    /// Get the current frame descriptor (may contain either type of sprite).
+    /**
+     * @brief Get the current frame descriptor (may contain either type of sprite).
+     * @return Reference to the current frame descriptor.
+     */
     const SpriteAnimationFrame& getCurrentFrame() const {
         return frames[current];
     }
 
-    /// Convenience helper: returns the current simple Sprite, if any.
+    /**
+     * @brief Convenience helper: returns the current simple Sprite, if any.
+     * @return Pointer to the current simple Sprite, or nullptr if none.
+     */
     const Sprite* getCurrentSprite() const {
         if (!frames || frameCount == 0) {
             return nullptr;
@@ -651,13 +670,34 @@ struct SpriteAnimation {
         return frames[current].sprite;
     }
 
-    /// Convenience helper: returns the current MultiSprite, if any.
+    /**
+     * @brief Convenience helper: returns the current MultiSprite, if any.
+     * @return Pointer to the current MultiSprite, or nullptr if none.
+     */
     const MultiSprite* getCurrentMultiSprite() const {
         if (!frames || frameCount == 0) {
             return nullptr;
         }
         return frames[current].multiSprite;
     }
+};
+
+/**
+ * @enum LayerType
+ * @brief Classifies draw layers for dirty-region marking (static backgrounds vs dynamic content).
+ */
+enum class LayerType : uint8_t {
+    Static,   ///< Full coverage assumed; does not drive per-cell dirty marking.
+    Dynamic,  ///< Marks dirty cells (sprites, scrolling tilemaps, animated tiles, UI).
+};
+
+/**
+ * @enum TilemapSpriteDirtyMode
+ * @brief Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
+ */
+enum class TilemapSpriteDirtyMode : uint8_t {
+    Normal = 0,
+    SuppressPerSpriteBoundsMark = 1,
 };
 
 /**
@@ -695,9 +735,24 @@ public:
           yOffset(other.yOffset),
           offsetBypass(other.offsetBypass),
           currentRenderContext(other.currentRenderContext),
-          logicalFrameBuffer8(nullptr)
+          logicalFrameBuffer8(nullptr),
+          dirtyGrid(std::move(other.dirtyGrid)),
+          tilemapSpriteDirtyMode_(other.tilemapSpriteDirtyMode_),
+          animDynTrackMapKey_(other.animDynTrackMapKey_),
+          animDynTrackOx_(other.animDynTrackOx_),
+          animDynTrackOy_(other.animDynTrackOy_),
+          animDynTrackPrimed_(other.animDynTrackPrimed_),
+          debugDirtyCellOverlay_(other.debugDirtyCellOverlay_),
+          suppressFramebufferClearBeforeStaticMemcpy_(other.suppressFramebufferClearBeforeStaticMemcpy_)
     {
         other.logicalFrameBuffer8 = nullptr;
+        other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+        other.animDynTrackMapKey_ = nullptr;
+        other.animDynTrackOx_ = 0;
+        other.animDynTrackOy_ = 0;
+        other.animDynTrackPrimed_ = false;
+        other.debugDirtyCellOverlay_ = false;
+        other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
     }
 
     /**
@@ -717,6 +772,21 @@ public:
             currentRenderContext = other.currentRenderContext;
             logicalFrameBuffer8 = nullptr;
             other.logicalFrameBuffer8 = nullptr;
+            dirtyGrid = std::move(other.dirtyGrid);
+            tilemapSpriteDirtyMode_ = other.tilemapSpriteDirtyMode_;
+            animDynTrackMapKey_ = other.animDynTrackMapKey_;
+            animDynTrackOx_ = other.animDynTrackOx_;
+            animDynTrackOy_ = other.animDynTrackOy_;
+            animDynTrackPrimed_ = other.animDynTrackPrimed_;
+            debugDirtyCellOverlay_ = other.debugDirtyCellOverlay_;
+            suppressFramebufferClearBeforeStaticMemcpy_ = other.suppressFramebufferClearBeforeStaticMemcpy_;
+            other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+            other.animDynTrackMapKey_ = nullptr;
+            other.animDynTrackOx_ = 0;
+            other.animDynTrackOy_ = 0;
+            other.animDynTrackPrimed_ = false;
+            other.debugDirtyCellOverlay_ = false;
+            other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
         }
         return *this;
     }
@@ -731,6 +801,22 @@ public:
      * @brief Prepares the buffer for a new frame (clears screen).
      */
     void beginFrame();
+
+    /**
+     * @brief Forces a full clear on the next beginFrame when `PIXELROOT32_ENABLE_DIRTY_REGIONS` is on (no-op otherwise).
+     */
+    void forceFullRedraw();
+
+    /**
+     * Clears framebuffer clear-suppression planning for this frame (call once before stacked scenes advise).
+     * No-op when dirty regions are disabled.
+     * @see accumulateFramebufferClearSuppressionAdvice StaticTilemapLayerCache uses this path when a full-screen
+     * memcpy restores the static-layer snapshot immediately after beginFrame().
+     */
+    void resetFramebufferClearSuppressionAdvice();
+
+    /** No-op unless dirty regions are enabled; cumulative OR across stacked scenes advising cache memcpy restores. */
+    void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore);
 
     /**
      * @brief Finalizes the frame and sends the buffer to the display.
@@ -1050,28 +1136,29 @@ public:
 
     /**
      * @brief Draws a tilemap of 1bpp sprites.
-     * @param map The tilemap descriptor.
-     * @param originX X coordinate of the top-left corner.
-     * @param originY Y coordinate of the top-left corner.
-     * @param color The color to tint the tilemap.
+     * @param layerType Static layers assume full coverage (no dirty marks); Dynamic marks dirt (animated maps mark only tiles whose frame changed vs last step snapshot when possible).
      */
-    void drawTileMap(const TileMap& map, int originX, int originY, Color color = Color::White);
+    void drawTileMap(const TileMap& map,
+                     int originX,
+                     int originY,
+                     Color color = Color::White,
+                     LayerType layerType = LayerType::Dynamic);
 
     /**
      * @brief Draws a tilemap of 2bpp sprites.
-     * @param map The tilemap descriptor.
-     * @param originX X coordinate of the top-left corner.
-     * @param originY Y coordinate of the top-left corner.
      */
-    void drawTileMap(const TileMap2bpp& map, int originX, int originY);
+    void drawTileMap(const TileMap2bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType = LayerType::Dynamic);
 
     /**
      * @brief Draws a tilemap of 4bpp sprites.
-     * @param map The tilemap descriptor.
-     * @param originX X coordinate of the top-left corner.
-     * @param originY Y coordinate of the top-left corner.
      */
-    void drawTileMap(const TileMap4bpp& map, int originX, int originY);
+    void drawTileMap(const TileMap4bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType = LayerType::Dynamic);
 
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
@@ -1093,6 +1180,17 @@ public:
         return offsetBypass;
     }
 
+    /**
+     * @brief When PIXELROOT32_DEBUG_MODE is defined and enabled, outlines curr dirty cells before present.
+     */
+    void setDebugDirtyCellOverlay(bool enabled) {
+        debugDirtyCellOverlay_ = enabled;
+    }
+
+    bool isDebugDirtyCellOverlayEnabled() const {
+        return debugDirtyCellOverlay_;
+    }
+
 private:
     std::unique_ptr<DrawSurface> drawer;
     DisplayConfig config;
@@ -1106,12 +1204,32 @@ private:
 
     /// 8bpp logical framebuffer pointer when the DrawSurface exposes it (e.g. TFT_eSPI sprite); nullptr otherwise.
     uint8_t* logicalFrameBuffer8 = nullptr;
-    
+
+    DirtyGrid dirtyGrid;
+
+    TilemapSpriteDirtyMode tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+
+    /// Tracks last dynamic animated tilemap origin for dirty heuristics across frames.
+    const void* animDynTrackMapKey_ = nullptr;
+    int         animDynTrackOx_     = 0;
+    int         animDynTrackOy_     = 0;
+    bool        animDynTrackPrimed_ = false;
+
+    bool debugDirtyCellOverlay_ = false;
+
+    /** When dirty regions enabled: omit selective/full framebuffer clear — StaticTilemapLayerCache overwrites FB. */
+    bool suppressFramebufferClearBeforeStaticMemcpy_ = false;
+
     // Sprite palette slot context for multi-palette sprites
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
     uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive;
 
     void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
     void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+
+    void ensureDirtyGridSized();
+    void markDirtyLogicalRect(int x, int y, int w, int h);
+    void drawDebugDirtyCellOverlay();
+    void clearDirtyCellsFramebuffer8();
 };
 }

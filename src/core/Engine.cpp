@@ -381,6 +381,7 @@ namespace pixelroot32::core {
     }
 
     void Engine::draw() {
+        sceneManager.adviseFramebufferBeforeBeginFrame(renderer);
         renderer.beginFrame();
         sceneManager.draw(renderer);
         if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {

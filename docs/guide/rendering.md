@@ -48,7 +48,7 @@ graphics::Renderer renderer(config);
 renderer.init();
 
 // Frame structure
-renderer.beginFrame();  // Clear framebuffer
+renderer.beginFrame();  // Clear framebuffer (full or selective with dirty regions)
 
 // ... draw game content ...
 
@@ -78,9 +78,9 @@ class Renderer {
     void drawMultiSprite(const MultiSprite& sprite, int x, int y);
     
     // Tilemaps
-    void drawTileMap(const TileMap& map, int x, int y, Color color);
-    void drawTileMap2bpp(const TileMap2bpp& map, int x, int y);
-    void drawTileMap4bpp(const TileMap4bpp& map, int x, int y);
+    void drawTileMap(const TileMap& map, int x, int y, Color color, LayerType layerType = LayerType::Dynamic);
+    void drawTileMap2bpp(const TileMap2bpp& map, int x, int y, LayerType layerType = LayerType::Dynamic);
+    void drawTileMap4bpp(const TileMap4bpp& map, int x, int y, LayerType layerType = LayerType::Dynamic);
 };
 ```
 
@@ -464,6 +464,95 @@ renderer.drawTextCentered("Centered Title", 50, Color::WHITE, 3);
 int width = graphics::FontManager::textWidth("Text", &customFont);
 renderer.drawText("Text", (240 - width) / 2, 100, Color::WHITE, 1);
 ```
+
+## Dirty Region Optimization
+
+The Dirty Region System reduces framebuffer clearing overhead by tracking which 8×8 pixel cells were drawn to in each frame.
+
+### When to Enable
+
+- Games with mostly static backgrounds (platformers, top-down RPGs)
+- Scenes where only a small portion of the screen changes per frame
+- When `dirty_ratio` < 0.5 (most of the screen stays clean)
+
+### Enable in platformio.ini
+
+```ini
+build_flags =
+    -DPIXELROOT32_ENABLE_DIRTY_REGIONS=1
+    -DPIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1
+```
+
+### Using LayerType
+
+Classify tilemaps when drawing to optimize tracking:
+
+```cpp
+// Static background - rarely changes, doesn't mark dirty cells
+renderer.drawTileMap(backgroundMap, 0, 0, Color::WHITE, LayerType::Static);
+
+// Dynamic sprites - move every frame, mark their cells as dirty
+renderer.drawTileMap(playerSprite, x, y, Color::WHITE, LayerType::Dynamic);
+```
+
+### When to Call forceFullRedraw()
+
+Call this to force a full framebuffer clear when needed:
+
+```cpp
+// Scene transitions
+void GameScene::onSceneEnter() {
+    renderer.forceFullRedraw();
+}
+
+// Pause menus
+void pauseGame() {
+    renderer.forceFullRedraw();
+    // Draw pause UI
+}
+
+// Camera jump / teleport
+void teleportPlayer(Vector2 newPos) {
+    camera.setPosition(newPos);
+    renderer.forceFullRedraw();
+}
+```
+
+### Example: Tilemap + Sprites with Layer Types
+
+```cpp
+void GameScene::draw(Renderer& r) {
+    // Background (static - won't mark dirty cells)
+    r.drawTileMap(stageMap, 0, 0, Color::WHITE, LayerType::Static);
+    
+    // Midground objects
+    r.drawTileMap(wallsMap, 0, 0, Color::WHITE, LayerType::Dynamic);
+    
+    // Entities (dynamic sprites)
+    for (auto* enemy : enemies) {
+        enemy->draw(r);  // Automatically marks dirty
+    }
+    
+    // Player
+    player->draw(r);  // Automatically marks dirty
+    
+    // UI (drawn last, on top)
+    r.setOffsetBypass(true);
+    drawUI(r);
+    r.setOffsetBypass(false);
+}
+```
+
+### Debug Overlay
+
+Enable to visualize which cells are dirty:
+
+```cpp
+// In setup
+renderer.setDebugDirtyCellOverlay(true);
+```
+
+This draws a colored overlay showing dirty cells in real-time.
 
 ## Best Practices
 

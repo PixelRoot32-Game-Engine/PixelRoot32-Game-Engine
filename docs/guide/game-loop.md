@@ -127,7 +127,9 @@ sequenceDiagram
 
 ```cpp
 void Renderer::beginFrame() {
-    drawer->clear();  // Clear framebuffer
+    // Clear framebuffer (full or selective with dirty regions if enabled)
+    // drawer->clear();  // Full clear
+    // drawer->selectiveClear();  // Dirty region selective clear
 }
 
 void Scene::draw(Renderer& renderer) {
@@ -160,6 +162,9 @@ flowchart TB
 
 ```cpp
 void Renderer::endFrame() {
+    // Draw dirty cell debug overlay if enabled
+    // drawer->drawDebugOverlay();
+    
     drawer->present();  // Send to display
 }
 ```

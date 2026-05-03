@@ -290,6 +290,19 @@ void test_tile_animation_full_lifecycle(void) {
     TEST_ASSERT_EQUAL_UINT8(16, manager.resolveFrame(16));
 }
 
+void test_tile_animation_appearance_unchanged_after_ctor_before_step_ticks(void) {
+    TileAnimation anims[1] = { createAnimation(12, 2, 1) };
+    TileAnimationManager manager(anims, 1, 24);
+    TEST_ASSERT_FALSE(manager.animatedTileAppearanceChanged(12));
+}
+
+void test_tile_animation_appearance_changed_after_visual_step(void) {
+    TileAnimation anims[1] = { createAnimation(12, 2, 1) };
+    TileAnimationManager manager(anims, 1, 24);
+    manager.step(kOne60HzTickMs);
+    TEST_ASSERT_TRUE(manager.animatedTileAppearanceChanged(12));
+}
+
 // =============================================================================
 // Unity test runner
 // =============================================================================
@@ -325,6 +338,9 @@ int main(void) {
     RUN_TEST(test_tile_animation_reset_clears_global_frame_counter);
     
     RUN_TEST(test_tile_animation_full_lifecycle);
-    
+
+    RUN_TEST(test_tile_animation_appearance_unchanged_after_ctor_before_step_ticks);
+    RUN_TEST(test_tile_animation_appearance_changed_after_visual_step);
+
     return UNITY_END();
 }

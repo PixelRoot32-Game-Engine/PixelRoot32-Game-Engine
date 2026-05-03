@@ -86,6 +86,7 @@ graph TD
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
+| Dirty Regions (selective clear) | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Disabled |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |
 
 ---
@@ -111,6 +112,7 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 - Call **`invalidate()`** when something inside the **static** group changes visually
 - **Dynamic** layers are drawn every frame on the fast path—no invalidation needed
 - **Scroll:** cache rebuilds when the camera sample changes; no extra invalidation solely for scroll
+- **Dirty Regions Interaction:** When both the static cache and Dirty Regions are enabled, the cache advises `beginFrame()` to skip its selective or full clear if a cache `memcpy` will entirely overwrite the framebuffer anyway.
 
 ---
 

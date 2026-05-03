@@ -74,11 +74,30 @@ public:
               const TileMap4bppDrawSpec* dynamicLayers,
               std::size_t dynamicLayerCount);
 
+    /**
+     * Call from Scene::adviseFramebufferBeforeBeginFrame (Engine runs it before Renderer::beginFrame).
+     * When dirty regions are enabled and the next draw() will memcpy the static snapshot over the full framebuffer,
+     * this lets beginFrame skip selective / full clears.
+     */
+    void adviseFramebufferBeforeBeginFrame(Renderer& renderer,
+                                           int cameraSampleX,
+                                           int cameraSampleY,
+                                           const TileMap4bppDrawSpec* staticLayers,
+                                           std::size_t staticLayerCount,
+                                           const TileMap4bppDrawSpec* dynamicLayers,
+                                           std::size_t dynamicLayerCount) const;
+
     void setFramebufferCacheEnabled(bool enabled);
     [[nodiscard]] bool isFramebufferCacheEnabled() const;
 
 private:
 #if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    [[nodiscard]] bool wouldRestoreFramebufferViaCacheMemcpy(Renderer& renderer,
+                                                             int cameraSampleX,
+                                                             int cameraSampleY,
+                                                             const TileMap4bppDrawSpec* staticLayers,
+                                                             std::size_t staticLayerCount) const;
+
     /** std::malloc / std::free — STYLE_GUIDE forbids operator new; avoid game-loop alloc. */
     struct CacheBufferDeleter {
         void operator()(uint8_t* p) const noexcept {

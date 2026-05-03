@@ -12,10 +12,17 @@
 #include "graphics/FontManager.h"
 #include "graphics/TileAnimation.h"
 #include "drivers/esp32/TFT_eSPI_Drawer.h"
+#include "core/Log.h"
 #include <stdarg.h>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <cassert>
+
+#if defined(PIXELROOT32_DEBUG_MODE)
+using pixelroot32::core::logging::LogLevel;
+using pixelroot32::core::logging::log;
+#endif
 
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
@@ -86,14 +93,147 @@ namespace pixelroot32::graphics {
         getDrawSurface().setRotation(config.rotation);
         
         getDrawSurface().init();
+
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            dirtyGrid.init(logicalWidth, logicalHeight);
+        }
+    }
+
+    void Renderer::ensureDirtyGridSized() {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            return;
+        }
+        if (dirtyGrid.getCols() == 0 && logicalWidth > 0 && logicalHeight > 0) {
+            dirtyGrid.init(logicalWidth, logicalHeight);
+        }
+    }
+
+    void Renderer::markDirtyLogicalRect(int x, int y, int w, int h) {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            (void)x;
+            (void)y;
+            (void)w;
+            (void)h;
+            return;
+        }
+        if (tilemapSpriteDirtyMode_ == TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark) {
+            return;
+        }
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        dirtyGrid.markRect(x, y, w, h);
+    }
+
+#if defined(PIXELROOT32_DEBUG_MODE)
+    void Renderer::drawDebugDirtyCellOverlay() {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            return;
+        }
+        if (!debugDirtyCellOverlay_ || dirtyGrid.getCols() == 0) {
+            return;
+        }
+        const uint8_t cols = dirtyGrid.getCols();
+        const uint8_t rows = dirtyGrid.getRows();
+        const uint16_t outlineCol = resolveColor(Color::Magenta, PaletteContext::Sprite);
+        for (uint8_t cy = 0; cy < rows; ++cy) {
+            for (uint8_t cx = 0; cx < cols; ++cx) {
+                if (!dirtyGrid.isCurrMarked(cx, cy)) {
+                    continue;
+                }
+                const int px = static_cast<int>(cx) * static_cast<int>(DirtyGrid::CELL_W);
+                const int py = static_cast<int>(cy) * static_cast<int>(DirtyGrid::CELL_H);
+                getDrawSurface().drawRectangle(px, py, DirtyGrid::CELL_W, DirtyGrid::CELL_H, outlineCol);
+            }
+        }
+    }
+#else
+    void Renderer::drawDebugDirtyCellOverlay() {
+    }
+#endif
+
+    void Renderer::forceFullRedraw() {
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            dirtyGrid.setFullDirty(true);
+        }
+    }
+
+    void Renderer::resetFramebufferClearSuppressionAdvice() {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            return;
+        }
+        suppressFramebufferClearBeforeStaticMemcpy_ = false;
+    }
+
+    void Renderer::accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore) {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            (void)skipClearDueToMemcpyRestore;
+            return;
+        }
+        if (skipClearDueToMemcpyRestore) {
+            suppressFramebufferClearBeforeStaticMemcpy_ = true;
+        }
+    }
+
+    void Renderer::clearDirtyCellsFramebuffer8() {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            return;
+        }
+        if (logicalFrameBuffer8 == nullptr) {
+            return;
+        }
+        constexpr uint8_t kClear8bpp = 0;  // aligns with TFT_BLACK in 8bpp sprite buffer
+        dirtyGrid.clearFramebuffer8FromPrev(logicalFrameBuffer8, logicalWidth, logicalHeight, kClear8bpp);
     }
 
     void Renderer::beginFrame() {
         logicalFrameBuffer8 = getDrawSurface().getSpriteBuffer();
-        getDrawSurface().clearBuffer();
+
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            suppressFramebufferClearBeforeStaticMemcpy_ = false;
+            getDrawSurface().clearBuffer();
+            return;
+        }
+
+        ensureDirtyGridSized();
+        dirtyGrid.swapAndClear();
+#if PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING && defined(PIXELROOT32_DEBUG_MODE)
+        {
+            const uint32_t total = dirtyGrid.totalCellCount();
+            const uint32_t marked = dirtyGrid.countPrevMarkedCells();
+            const float ratio =
+                total > 0 ? static_cast<float>(marked) / static_cast<float>(total) : 0.f;
+            pixelroot32::core::logging::log(
+                pixelroot32::core::logging::LogLevel::Profiling,
+                "dirty_ratio=%.4f (%u/%u)",
+                ratio,
+                static_cast<unsigned>(marked),
+                static_cast<unsigned>(total));
+        }
+#endif
+
+        const bool haveFb8 = (logicalFrameBuffer8 != nullptr);
+        const bool skipClearForMemcpy =
+            haveFb8 && suppressFramebufferClearBeforeStaticMemcpy_ && !dirtyGrid.isFullDirty();
+
+        suppressFramebufferClearBeforeStaticMemcpy_ = false;
+
+        if (skipClearForMemcpy) {
+            // Full framebuffer will be restored from StaticTilemapLayerCache before dynamic draws.
+        } else if (haveFb8 && !dirtyGrid.isFullDirty() && (dirtyGrid.countPrevMarkedCells() > 0)) {
+            clearDirtyCellsFramebuffer8();
+        } else {
+            getDrawSurface().clearBuffer();
+            if (dirtyGrid.isFullDirty()) {
+                dirtyGrid.setFullDirty(false);
+            }
+        }
     }
 
     void Renderer::endFrame() {
+#if defined(PIXELROOT32_DEBUG_MODE)
+        drawDebugDirtyCellOverlay();
+#endif
         getDrawSurface().sendBuffer();
     }
 
@@ -177,6 +317,7 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawFilledCircle(finalX, finalY, radius, resolveColor(color, context));
+        markDirtyLogicalRect(finalX - radius, finalY - radius, 2 * radius + 1, 2 * radius + 1);
     }
 
     void Renderer::drawCircle(int x, int y, int radius, Color color) {
@@ -185,6 +326,7 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawCircle(finalX, finalY, radius, resolveColor(color, context));
+        markDirtyLogicalRect(finalX - radius, finalY - radius, 2 * radius + 1, 2 * radius + 1);
     }
 
     void Renderer::drawRectangle(int x, int y, int width, int height, Color color) {
@@ -193,6 +335,7 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawRectangle(finalX, finalY, width, height, resolveColor(color, context));
+        markDirtyLogicalRect(finalX, finalY, width, height);
     }
 
     void Renderer::drawFilledRectangle(int x, int y, int width, int height, Color color) {
@@ -201,12 +344,14 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawFilledRectangle(finalX, finalY, width, height, resolveColor(color, context));
+        markDirtyLogicalRect(finalX, finalY, width, height);
     }
 
     void Renderer::drawFilledRectangleW(int x, int y, int width, int height, uint16_t color) {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawFilledRectangle(finalX, finalY, width, height, color);
+        markDirtyLogicalRect(finalX, finalY, width, height);
     }
 
     void Renderer::drawLine(int x1, int y1, int x2, int y2, Color color) {
@@ -217,6 +362,11 @@ namespace pixelroot32::graphics {
         int finalX2 = offsetBypass ? x2 : xOffset + x2;
         int finalY2 = offsetBypass ? y2 : yOffset + y2;
         getDrawSurface().drawLine(finalX1, finalY1, finalX2, finalY2, resolveColor(color, context));
+        const int minX = std::min(finalX1, finalX2);
+        const int minY = std::min(finalY1, finalY2);
+        const int maxX = std::max(finalX1, finalX2);
+        const int maxY = std::max(finalY1, finalY2);
+        markDirtyLogicalRect(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
     void Renderer::setFont(const uint8_t* font) {
@@ -231,6 +381,7 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawBitmap(finalX, finalY, width, height, bitmap, resolveColor(color, context));
+        markDirtyLogicalRect(finalX, finalY, width, height);
     }
 
     void Renderer::drawPixel(int x, int y, Color color) {
@@ -239,6 +390,7 @@ namespace pixelroot32::graphics {
         int finalX = offsetBypass ? x : xOffset + x;
         int finalY = offsetBypass ? y : yOffset + y;
         getDrawSurface().drawPixel(finalX, finalY, resolveColor(color, context));
+        markDirtyLogicalRect(finalX, finalY, 1, 1);
     }
 
     void Renderer::drawSprite(const Sprite& sprite, int x, int y, Color color, bool flipX) {
@@ -283,6 +435,7 @@ namespace pixelroot32::graphics {
                 getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
             }
         }
+        markDirtyLogicalRect(startX, startY, sprite.width, sprite.height);
     }
 
     void Renderer::drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot, bool flipX) {
@@ -349,6 +502,7 @@ namespace pixelroot32::graphics {
                     }
                 }
             }
+            markDirtyLogicalRect(startX, startY, sprite.width, sprite.height);
         }
     }
 
@@ -449,6 +603,7 @@ namespace pixelroot32::graphics {
                     }
                 }
             }
+            markDirtyLogicalRect(startX, startY, sprite.width, sprite.height);
         }
     }
 
@@ -525,6 +680,7 @@ namespace pixelroot32::graphics {
                 getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
             }
         }
+        markDirtyLogicalRect(startX, startY, dstWidth, dstHeight);
     }
 
     void Renderer::drawMultiSprite(const MultiSprite& sprite, int x, int y, float scaleX, float scaleY) {
@@ -550,7 +706,11 @@ namespace pixelroot32::graphics {
         }
     }
 
-    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color) {
+    void Renderer::drawTileMap(const TileMap& map,
+                                 int originX,
+                                 int originY,
+                                 Color color,
+                                 LayerType layerType) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -558,7 +718,6 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        // Set background context automatically for tilemaps
         PaletteContext bgContext = PaletteContext::Background;
         PaletteContext* oldContext = currentRenderContext;
         setRenderContext(&bgContext);
@@ -566,41 +725,58 @@ namespace pixelroot32::graphics {
         int viewOriginX = offsetBypass ? originX : xOffset + originX;
         int viewOriginY = offsetBypass ? originY : yOffset + originY;
 
-        // Viewport Culling: Only draw tiles that are within the screen boundaries
-        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
-        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
-                     : map.width;
-        
-        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
-        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
-                     : map.height;
+        const bool selectiveAnimMarks =
+            (layerType == LayerType::Dynamic && map.animManager != nullptr);
 
-        // Clamp to map boundaries
+        const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
+
+        if (layerType == LayerType::Static || selectiveAnimMarks) {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
+        } else {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+        }
+
+        const void* const savedAnimKey   = animDynTrackMapKey_;
+        const int       savedAnimOx     = animDynTrackOx_;
+        const int       savedAnimOy     = animDynTrackOy_;
+        const bool      savedAnimPrimed = animDynTrackPrimed_;
+
+        const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
+            (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
+             animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
+
+        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
+        int endCol   = (viewOriginX + map.width * map.tileWidth > logicalWidth)
+                           ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth)
+                           : map.width;
+
+        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
+        int endRow   = (viewOriginY + map.height * map.tileHeight > logicalHeight)
+                           ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight)
+                           : map.height;
+
         if (startCol < 0) startCol = 0;
         if (endCol > map.width) endCol = map.width;
         if (startRow < 0) startRow = 0;
         if (endRow > map.height) endRow = map.height;
 
         for (int ty = startRow; ty < endRow; ++ty) {
-            int baseY = originY + ty * map.tileHeight;
+            int baseY        = originY + ty * map.tileHeight;
             int rowIndexBase = ty * map.width;
 
             for (int tx = startCol; tx < endCol; ++tx) {
-                int baseX = originX + tx * map.tileWidth;
-                uint8_t index = map.indices[rowIndexBase + tx];
-                
-                // Resolve animation frame
+                int       baseX    = originX + tx * map.tileWidth;
+                uint8_t   rawIndex = map.indices[rowIndexBase + tx];
+                uint8_t   index    = rawIndex;
+
                 if (map.animManager) {
-                    index = map.animManager->resolveFrame(index);
+                    index = map.animManager->resolveFrame(rawIndex);
                 }
-                
+
                 if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
 
-                // Check runtime mask if available - skip inactive tiles
                 if (map.runtimeMask) {
                     int tileIndex = rowIndexBase + tx;
                     if (!(map.runtimeMask[tileIndex >> 3] & (1 << (tileIndex & 7)))) {
@@ -608,15 +784,42 @@ namespace pixelroot32::graphics {
                     }
                 }
 
+                if (layerType == LayerType::Dynamic) {
+                    bool markCell = true;
+                    if (map.animManager != nullptr) {
+                        markCell = mapOrOriginMovedAnim ||
+                                   map.animManager->animatedTileAppearanceChanged(rawIndex);
+                    }
+                    if (markCell) {
+                        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                            const int pixelX = offsetBypass ? baseX : xOffset + baseX;
+                            const int pixelY = offsetBypass ? baseY : yOffset + baseY;
+                            dirtyGrid.markRect(pixelX, pixelY, map.tileWidth, map.tileHeight);
+                        }
+                    }
+                }
+
                 drawSprite(map.tiles[index], baseX, baseY, color, false);
             }
         }
 
-        // Restore context
+        if (selectiveAnimMarks) {
+            animDynTrackPrimed_ = true;
+            animDynTrackMapKey_ = map.indices;
+            animDynTrackOx_     = viewOriginX;
+            animDynTrackOy_     = viewOriginY;
+        } else {
+            animDynTrackMapKey_   = savedAnimKey;
+            animDynTrackOx_       = savedAnimOx;
+            animDynTrackOy_       = savedAnimOy;
+            animDynTrackPrimed_  = savedAnimPrimed;
+        }
+
+        tilemapSpriteDirtyMode_ = savedMode;
         setRenderContext(oldContext);
     }
 
-    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY) {
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
@@ -632,6 +835,26 @@ namespace pixelroot32::graphics {
 
         int viewOriginX = offsetBypass ? originX : xOffset + originX;
         int viewOriginY = offsetBypass ? originY : yOffset + originY;
+
+        const bool selectiveAnimMarks =
+            (layerType == LayerType::Dynamic && map.animManager != nullptr);
+
+        const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
+
+        if (layerType == LayerType::Static || selectiveAnimMarks) {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
+        } else {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+        }
+
+        const void* const savedAnimKey   = animDynTrackMapKey_;
+        const int       savedAnimOx     = animDynTrackOx_;
+        const int       savedAnimOy     = animDynTrackOy_;
+        const bool      savedAnimPrimed = animDynTrackPrimed_;
+
+        const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
+            (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
+             animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
 
         // Viewport Culling
         int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
@@ -660,22 +883,35 @@ namespace pixelroot32::graphics {
             for (int tx = startCol; tx < endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
                 int cellIndex = rowIndexBase + tx;
-                uint8_t index = map.indices[cellIndex];
-                
-                // Resolve animation frame
+                uint8_t rawIndex = map.indices[cellIndex];
+                uint8_t index   = rawIndex;
+
                 if (map.animManager) {
-                    index = map.animManager->resolveFrame(index);
+                    index = map.animManager->resolveFrame(rawIndex);
                 }
-                
-                // Optimized check: skip empty tile (index 0) and out of bounds
+
                 if (index == 0 || index >= map.tileCount) {
                     continue;
                 }
 
-                // Check runtime mask if available - skip inactive tiles
                 if (map.runtimeMask) {
                     if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
                         continue;
+                    }
+                }
+
+                if (layerType == LayerType::Dynamic) {
+                    bool markCell = true;
+                    if (map.animManager != nullptr) {
+                        markCell = mapOrOriginMovedAnim ||
+                                   map.animManager->animatedTileAppearanceChanged(rawIndex);
+                    }
+                    if (markCell) {
+                        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                            const int pixelX = offsetBypass ? baseX : xOffset + baseX;
+                            const int pixelY = offsetBypass ? baseY : yOffset + baseY;
+                            dirtyGrid.markRect(pixelX, pixelY, map.tileWidth, map.tileHeight);
+                        }
                     }
                 }
 
@@ -702,12 +938,25 @@ namespace pixelroot32::graphics {
             }
         }
 
-        // Restore context
+        if (selectiveAnimMarks) {
+            animDynTrackPrimed_ = true;
+            animDynTrackMapKey_ = map.indices;
+            animDynTrackOx_     = viewOriginX;
+            animDynTrackOy_     = viewOriginY;
+        } else {
+            animDynTrackMapKey_  = savedAnimKey;
+            animDynTrackOx_      = savedAnimOx;
+            animDynTrackOy_      = savedAnimOy;
+            animDynTrackPrimed_  = savedAnimPrimed;
+        }
+
+        tilemapSpriteDirtyMode_ = savedMode;
+
         setRenderContext(oldContext);
         }
     }
 
-    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY) {
+    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY, LayerType layerType) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
@@ -723,6 +972,26 @@ namespace pixelroot32::graphics {
 
             int viewOriginX = offsetBypass ? originX : xOffset + originX;
             int viewOriginY = offsetBypass ? originY : yOffset + originY;
+
+            const bool selectiveAnimMarks =
+                (layerType == LayerType::Dynamic && map.animManager != nullptr);
+
+            const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
+
+            if (layerType == LayerType::Static || selectiveAnimMarks) {
+                tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
+            } else {
+                tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+            }
+
+            const void* const savedAnimKey   = animDynTrackMapKey_;
+            const int       savedAnimOx     = animDynTrackOx_;
+            const int       savedAnimOy     = animDynTrackOy_;
+            const bool      savedAnimPrimed = animDynTrackPrimed_;
+
+            const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
+                (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
+                 animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
 
             // Viewport Culling
             int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
@@ -751,22 +1020,35 @@ namespace pixelroot32::graphics {
                 for (int tx = startCol; tx < endCol; ++tx) {
                     int baseX = originX + tx * map.tileWidth;
                     int cellIndex = rowIndexBase + tx;
-                    uint8_t index = map.indices[cellIndex];
-                    
-                    // Resolve animation frame
+                    uint8_t rawIndex = map.indices[cellIndex];
+                    uint8_t index    = rawIndex;
+
                     if (map.animManager) {
-                        index = map.animManager->resolveFrame(index);
+                        index = map.animManager->resolveFrame(rawIndex);
                     }
-                    
-                    // Optimized check: skip empty tile (index 0) and out of bounds
+
                     if (index == 0 || index >= map.tileCount) {
                         continue;
                     }
 
-                    // Check runtime mask if available - skip inactive tiles
                     if (map.runtimeMask) {
                         if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
                             continue;
+                        }
+                    }
+
+                    if (layerType == LayerType::Dynamic) {
+                        bool markCell = true;
+                        if (map.animManager != nullptr) {
+                            markCell = mapOrOriginMovedAnim ||
+                                       map.animManager->animatedTileAppearanceChanged(rawIndex);
+                        }
+                        if (markCell) {
+                            if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                                const int pixelX = offsetBypass ? baseX : xOffset + baseX;
+                                const int pixelY = offsetBypass ? baseY : yOffset + baseY;
+                                dirtyGrid.markRect(pixelX, pixelY, map.tileWidth, map.tileHeight);
+                            }
                         }
                     }
 
@@ -792,7 +1074,20 @@ namespace pixelroot32::graphics {
                 }
             }
 
-            // Restore context
+            if (selectiveAnimMarks) {
+                animDynTrackPrimed_ = true;
+                animDynTrackMapKey_ = map.indices;
+                animDynTrackOx_     = viewOriginX;
+                animDynTrackOy_     = viewOriginY;
+            } else {
+                animDynTrackMapKey_  = savedAnimKey;
+                animDynTrackOx_      = savedAnimOx;
+                animDynTrackOy_      = savedAnimOy;
+                animDynTrackPrimed_  = savedAnimPrimed;
+            }
+
+            tilemapSpriteDirtyMode_ = savedMode;
+
             setRenderContext(oldContext);
         }
     }
