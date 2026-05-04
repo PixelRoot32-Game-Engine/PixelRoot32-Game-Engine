@@ -221,37 +221,113 @@ bool Game2048Logic::moveLeft() {
 
 /**
  * @brief Move all tiles right.
- * Rotate grid 180 (or right twice), move left, rotate back.
+ * For each row: reverse, move left, reverse back.
+ * This ensures correct merge behavior for all tile positions.
  */
 bool Game2048Logic::moveRight() {
-    rotateGridLeft();
-    rotateGridLeft();
-    bool moved = moveLeft();
-    rotateGridLeft();
-    rotateGridLeft();
-    return moved;
+    bool anyMove = false;
+
+    for (int row = 0; row < GRID_SIZE; ++row) {
+        uint16_t* rowPtr = &grid[row * GRID_SIZE];
+        
+        // Reverse the row to process as if moving left
+        // [16, 4, 0, 4] -> [4, 0, 4, 16]
+        std::reverse(rowPtr, rowPtr + GRID_SIZE);
+        
+        // Apply slide and merge (same as moveLeft)
+        bool rowMoved = slideAndMergeRow(rowPtr);
+        
+        // Reverse back to restore original orientation
+        // [8, 16, 0, 0] -> [0, 0, 16, 8]
+        std::reverse(rowPtr, rowPtr + GRID_SIZE);
+        
+        if (rowMoved) {
+            anyMove = true;
+        }
+    }
+
+    return anyMove;
 }
 
 /**
  * @brief Move all tiles up.
- * Rotate -90 (right), move left, rotate back.
+ * Process columns as rows: reverse each column, move left, reverse back.
  */
 bool Game2048Logic::moveUp() {
-    rotateGridRight();  // 90 clockwise
-    bool moved = moveLeft();
-    rotateGridLeft();   // 90 counter-clockwise
-    return moved;
+    bool anyMove = false;
+
+    for (int col = 0; col < GRID_SIZE; ++col) {
+        // Extract column into temp array
+        uint16_t colData[GRID_SIZE];
+        for (int row = 0; row < GRID_SIZE; ++row) {
+            colData[row] = grid[row * GRID_SIZE + col];
+        }
+        
+        // Reverse column to process as if moving left
+        std::reverse(colData, colData + GRID_SIZE);
+        
+        // Apply slide and merge
+        uint16_t temp[GRID_SIZE];
+        for (int i = 0; i < GRID_SIZE; ++i) temp[i] = colData[i];
+        bool rowMoved = slideAndMergeRow(temp);
+        
+        // Reverse back
+        std::reverse(temp, temp + GRID_SIZE);
+        
+        // Write back to column
+        for (int row = 0; row < GRID_SIZE; ++row) {
+            grid[row * GRID_SIZE + col] = temp[row];
+        }
+        
+        if (rowMoved) anyMove = true;
+    }
+
+    return anyMove;
 }
 
 /**
  * @brief Move all tiles down.
- * Rotate 90 (left), move left, rotate back.
+ * Process columns as rows: reverse, move left, reverse, reverse again (for down direction).
  */
 bool Game2048Logic::moveDown() {
-    rotateGridLeft();
-    bool moved = moveLeft();
-    rotateGridRight();
-    return moved;
+    bool anyMove = false;
+
+    for (int col = 0; col < GRID_SIZE; ++col) {
+        // Extract column into temp array
+        uint16_t colData[GRID_SIZE];
+        for (int row = 0; row < GRID_SIZE; ++row) {
+            colData[row] = grid[row * GRID_SIZE + col];
+        }
+        
+        // For down: first reverse (because moveLeft goes to left, we want right)
+        // [a,b,c,d] -> [d,c,b,a], then after compress->merge->compress->reverse again
+        // becomes [d,c,b,a] -> [d,c,b,a], merge, reverse -> [a,b,c,d] moved right
+        
+        // Actually simpler: just reverse twice - once to flip, once to restore after processing
+        // But since moveLeft pushes to LEFT, for DOWN we need to:
+        // 1. Reverse the column
+        // 2. Process as moveLeft (compresses to left)
+        // 3. Reverse again (now rightmost becomes leftmost of original, i.e. moved right)
+        
+        std::reverse(colData, colData + GRID_SIZE);
+        
+        // Apply slide and merge
+        uint16_t temp[GRID_SIZE];
+        for (int i = 0; i < GRID_SIZE; ++i) temp[i] = colData[i];
+        bool rowMoved = slideAndMergeRow(temp);
+        
+        // Reverse back to get proper down direction
+        std::reverse(temp, temp + GRID_SIZE);
+        
+        // Write back to column
+        for (int row = 0; row < GRID_SIZE; ++row) {
+            grid[row * GRID_SIZE + col] = temp[row];
+        }
+        
+        if (rowMoved) anyMove = true;
+    }
+
+    return anyMove;
 }
 
 /**

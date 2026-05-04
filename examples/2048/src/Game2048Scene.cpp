@@ -6,10 +6,10 @@
 #include <ctime>
 
 #if PIXELROOT32_ENABLE_AUDIO
-#include <audio/MusicPlayer.h>
-#include "assets/melody.h"
-namespace audio = pixelroot32::audio;
+#include <audio/AudioEngine.h>
 #endif
+
+#include "assets/sfx.h"
 
 namespace pr32 = pixelroot32;
 
@@ -19,52 +19,6 @@ namespace game2048 {
 
 namespace gfx = pr32::graphics;
 namespace input = pr32::input;
-
-// ============================================================================
-// Audio SFX (NES-style)
-// ============================================================================
-
-#if PIXELROOT32_ENABLE_AUDIO
-static void playMoveSound(audio::AudioEngine& audioEngine) {
-    audio::AudioEvent ev{};
-    ev.type = audio::WaveType::PULSE;
-    ev.frequency = 220.0f;
-    ev.sweepEndHz = 110.0f;
-    ev.sweepDurationSec = 0.06f;
-    ev.duration = 0.065f;
-    ev.volume = 0.45f;
-    ev.duty = 0.25f;
-    audioEngine.playEvent(ev);
-}
-
-static void playGameOverSound(audio::AudioEngine& audioEngine) {
-    audio::AudioEvent ev{};
-    ev.type = audio::WaveType::NOISE;
-    ev.preset = &audio::INSTR_SNARE;
-    ev.frequency = 120.0f;
-    ev.duration = 0.4f;
-    ev.volume = 0.5f;
-    ev.duty = 0.5f;
-    audioEngine.playEvent(ev);
-}
-
-static void playWinSound(audio::AudioEngine& audioEngine) {
-    audio::AudioEvent ev{};
-    ev.type = audio::WaveType::PULSE;
-    ev.frequency = 523.25f;  // C5
-    ev.duration = 0.12f;
-    ev.volume = 0.5f;
-    ev.duty = 0.5f;
-    audioEngine.playEvent(ev);
-    // Quick arpeggio up
-    ev.frequency = 659.25f;  // E5
-    ev.duration = 0.12f;
-    audioEngine.playEvent(ev);
-    ev.frequency = 783.99f;  // G5
-    ev.duration = 0.12f;
-    audioEngine.playEvent(ev);
-}
-#endif
 
 // Default constructor - initialize swipe state
 Game2048Scene::Game2048Scene()
@@ -90,15 +44,6 @@ static void onResetButtonClickStatic() {
 void Game2048Scene::init() {
     // Set custom 2048 palette
     gfx::setPalette(gfx::PaletteType::PR32);
-    
-    // Start background music
-    #if PIXELROOT32_ENABLE_AUDIO
-    {
-        auto& player = engine.getMusicPlayer();
-        player.setBPM(125.0f);  // Tweak BPM 
-        player.play(sAdventureTrack);
-    }
-    #endif
     
     createLabels();
     createResetButton();
@@ -239,13 +184,21 @@ void Game2048Scene::handleInput() {
     bool rightDown = input.isButtonDown(BTN_RIGHT);
 
     if (upDown && !wasUpDown) {
-        doMove(gameLogic.moveUp());
+        int scoreBefore = gameLogic.getScore();
+        bool moved = gameLogic.moveUp();
+        doMove(moved, scoreBefore);
     } else if (downDown && !wasDownDown) {
-        doMove(gameLogic.moveDown());
+        int scoreBefore = gameLogic.getScore();
+        bool moved = gameLogic.moveDown();
+        doMove(moved, scoreBefore);
     } else if (leftDown && !wasLeftDown) {
-        doMove(gameLogic.moveLeft());
+        int scoreBefore = gameLogic.getScore();
+        bool moved = gameLogic.moveLeft();
+        doMove(moved, scoreBefore);
     } else if (rightDown && !wasRightDown) {
-        doMove(gameLogic.moveRight());
+        int scoreBefore = gameLogic.getScore();
+        bool moved = gameLogic.moveRight();
+        doMove(moved, scoreBefore);
     }
 
     wasUpDown = upDown;
@@ -258,8 +211,8 @@ void Game2048Scene::checkGameState() {
     auto& renderer = engine.getRenderer();
     const int sw = renderer.getLogicalWidth();
     
-    // Check for win - use both hasWon() and highestTile >= 2048 as fallback
-    bool hasWonTheGame = gameLogic.hasWon() || (gameLogic.getHighestTile() >= 2048);
+    // Check for win - use hasWon() which is set when a 2048 tile is created
+    bool hasWonTheGame = gameLogic.hasWon();
     
     if (hasWonTheGame && !wasWon && !gameLogic.isGameOver()) {
         // Player just won!
@@ -433,16 +386,20 @@ void Game2048Scene::onUnconsumedTouchEvent(const input::TouchEvent& event) {
         // Determine direction based on major axis
         if (dx > SWIPE_MIN && dx > dy) {
             // Swipe right
-            doMove(gameLogic.moveRight());
+            int scoreBefore = gameLogic.getScore();
+            doMove(gameLogic.moveRight(), scoreBefore);
         } else if (dx < -SWIPE_MIN && dx < dy) {
             // Swipe left
-            doMove(gameLogic.moveLeft());
+            int scoreBefore = gameLogic.getScore();
+            doMove(gameLogic.moveLeft(), scoreBefore);
         } else if (dy > SWIPE_MIN && dy > dx) {
             // Swipe down
-            doMove(gameLogic.moveDown());
+            int scoreBefore = gameLogic.getScore();
+            doMove(gameLogic.moveDown(), scoreBefore);
         } else if (dy < -SWIPE_MIN && dy < dx) {
             // Swipe up
-            doMove(gameLogic.moveUp());
+            int scoreBefore = gameLogic.getScore();
+            doMove(gameLogic.moveUp(), scoreBefore);
         }
         
         // Reset drag state
@@ -458,27 +415,39 @@ void Game2048Scene::onUnconsumedTouchEvent(const input::TouchEvent& event) {
     }
 }
 
-void Game2048Scene::doMove(bool moved) {
+void Game2048Scene::doMove(bool moved, int scoreBefore) {
     if (moved) {
         unsigned long now = millis();
         lastMoveTime = now;
         
 #if PIXELROOT32_ENABLE_AUDIO
         auto& audio = engine.getAudioEngine();
-        playMoveSound(audio);
 #endif
         
         gameLogic.spawnTile();
-        gameLogic.clearMovedFlag();
-        gameLogic.checkGameOver();
         
 #if PIXELROOT32_ENABLE_AUDIO
+        // Play spawn sound when new tile appears
+        playSpawnSound(audio);
+        
+        // Check if merge happened by comparing score (score was already updated by move)
+        int scoreAfter = gameLogic.getScore();
+        if (scoreAfter > scoreBefore) {
+            // Merge occurred - play merge sound
+            playMergeSound(audio);
+        } else {
+            // Just movement without merge - play move sound
+            playMoveSound(audio);
+        }
+        
         // Check win after spawn new tile
-        if (gameLogic.hasWon() || gameLogic.getHighestTile() >= 2048) {
-            auto& audio = engine.getAudioEngine();
+        if (gameLogic.hasWon()) {
             playWinSound(audio);
         }
 #endif
+        
+        gameLogic.clearMovedFlag();
+        gameLogic.checkGameOver();
         
         updateLabels();
     }

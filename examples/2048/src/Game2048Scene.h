@@ -102,8 +102,10 @@ private:
     
     /**
      * @brief Handle a move result (shared by keyboard and touch).
+     * @param moved True if any tile moved or merged
+     * @param scoreBefore Score value before the move (to detect merge)
      */
-    void doMove(bool moved);
+    void doMove(bool moved, int scoreBefore);
 
     /**
      * @brief Check if any move is possible and update game over state.
