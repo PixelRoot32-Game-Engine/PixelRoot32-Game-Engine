@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+// Debug mode: Enable AI debugging - uncomment to use
+// #define GAME2048_DEBUG_SPAWN 1
+
 namespace game2048 {
 
 /**

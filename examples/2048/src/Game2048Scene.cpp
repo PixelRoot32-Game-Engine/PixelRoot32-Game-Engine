@@ -1,6 +1,7 @@
 #include "Game2048Scene.h"
 
 #include <core/Engine.h>
+#include <math/MathUtil.h>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -28,25 +29,19 @@ Game2048Scene::Game2048Scene()
     , dragStartY(0)
     , dragActive(false)
     , wasGameOver(false)
-    , wasWon(false) {
+    , wasWon(false)
+#ifdef GAME2048_AI_MODE
+    , aiController(3)  // Depth 3 for reasonable performance
+#endif
+{
 }
 
 // Static member for callback target
-Game2048Scene* Game2048Scene::sResetButtonTarget = nullptr;
-
-// Callback for reset button click
-static void onResetButtonClickStatic() {
-    if (Game2048Scene::sResetButtonTarget != nullptr) {
-        Game2048Scene::sResetButtonTarget->resetGame();
-    }
-}
-
 void Game2048Scene::init() {
     // Set custom 2048 palette
     gfx::setPalette(gfx::PaletteType::PR32);
-    
+
     createLabels();
-    createResetButton();
     resetGame();
 }
 
@@ -62,54 +57,32 @@ void Game2048Scene::createLabels() {
     scoreLabel->centerX(sw);
     addEntity(scoreLabel.get());
 
-    // Status label (game over / win) - position in center
+    // Status label (game over / win) - position at bottom
     statusLabel = std::make_unique<gfx::ui::UILabel>(
         "",
-        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(DISPLAY_HEIGHT / 2 - 30)),
+        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(DISPLAY_HEIGHT - 50)),
         gfx::Color::Cyan, 2);  // Larger size, cyan color
     statusLabel->centerX(sw);
     addEntity(statusLabel.get());
 
-    // Instruction label (Try again! / Reach 2048) - position below status
+    // Instruction label (Try again! / Reach 2048) - position below status at bottom
     instructionLabel = std::make_unique<gfx::ui::UILabel>(
         "",
-        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(DISPLAY_HEIGHT / 2)),
+        pr32::math::Vector2(pr32::math::toScalar(0), pr32::math::toScalar(DISPLAY_HEIGHT - 32)),
         gfx::Color::LightGray, 1);
     instructionLabel->centerX(sw);
     addEntity(instructionLabel.get());
 }
 
-void Game2048Scene::createResetButton() {
-    auto& renderer = engine.getRenderer();
-    const int sw = renderer.getLogicalWidth();
-    const int sh = renderer.getLogicalHeight();
-
-    constexpr int btnW = 80;
-    constexpr int btnH = 24;
-    const int btnX = (sw - btnW) / 2;
-    const int btnY = (sh - btnH) / 2;
-
-    pr32::math::Vector2 pos(pr32::math::toScalar(btnX), pr32::math::toScalar(btnY));
-    pr32::math::Vector2 sz(pr32::math::toScalar(btnW), pr32::math::toScalar(btnH));
-
-    sResetButtonTarget = this;
-
-#if PIXELROOT32_ENABLE_TOUCH
-    resetTouchButton = std::make_unique<gfx::ui::UITouchButton>("Play Again", pos, sz, onResetButtonClickStatic);
-    resetTouchButton->setColors(gfx::Color::Navy, gfx::Color::LightBlue, gfx::Color::DarkGray);
-    resetTouchButton->autoSize(4);
-    resetTouchButton->setVisible(false);
-    engine.getUIManager().addElement(resetTouchButton.get());
-    addEntity(resetTouchButton.get());
-#else
-    resetButton = std::make_unique<gfx::ui::UIButton>("Play Again", 0, pos, sz, onResetButtonClickStatic);
-    resetButton->setVisible(false);
-    addEntity(resetButton.get());
-#endif
-}
-
 void Game2048Scene::resetGame() {
+    // Reseed RNG for fresh random sequence on each game
+    pixelroot32::math::set_seed(static_cast<uint32_t>(std::time(nullptr)));
+
     gameLogic.reset();
+
+#ifdef GAME2048_AI_MODE
+    aiController.reset();  // Reset AI corner strategy for new game
+#endif
 
     // Calculate grid position (centered)
     int gridSize = GRID_SIZE * CELL_SIZE;
@@ -129,13 +102,6 @@ void Game2048Scene::resetGame() {
     // Clear status/instruction labels
     statusLabel->setText("");
     instructionLabel->setText("");
-    
-    // Reset button visibility
-#if PIXELROOT32_ENABLE_TOUCH
-    if (resetTouchButton) resetTouchButton->setVisible(false);
-#else
-    if (resetButton) resetButton->setVisible(false);
-#endif
 }
 
 void Game2048Scene::update(unsigned long deltaTime) {
@@ -147,11 +113,23 @@ void Game2048Scene::update(unsigned long deltaTime) {
 void Game2048Scene::handleInput() {
     auto& input = engine.getInputManager();
 
-    // Game over state - wait for select button to reset
-    if (gameLogic.isGameOver()) {
+    // Game over or win state - wait for input to reset
+    if (gameLogic.isGameOver() || gameLogic.hasWon()) {
+        // Check for button press
         if (input.isButtonPressed(BTN_SELECT)) {
             resetGame();
+            return;
         }
+
+#if PIXELROOT32_ENABLE_TOUCH
+        // Check for any touch on screen to reset
+        pixelroot32::input::TouchEvent events[5];
+        uint8_t count = input.getTouchEvents(events, 5);
+        if (count > 0) {
+            resetGame();
+            return;
+        }
+#endif
         return;
     }
 
@@ -205,6 +183,50 @@ void Game2048Scene::handleInput() {
     wasDownDown = downDown;
     wasLeftDown = leftDown;
     wasRightDown = rightDown;
+
+#ifdef GAME2048_AI_MODE
+    // AI Auto-play - run every frame but use cooldown
+    static unsigned long aiLastMoveTime = 0;
+    unsigned long currentTime = millis();
+
+    // Don't run AI if game is over or won
+    if (!gameLogic.isGameOver() && !gameLogic.hasWon() && (currentTime - aiLastMoveTime) >= 20) {
+        aiLastMoveTime = currentTime;
+
+        ai::MoveDirection aiMove = aiController.getBestMove(gameLogic);
+
+        // Skip if NONE - no valid move according to AI evaluation
+        // (player can still play manually with buttons)
+        if (aiMove == ai::MoveDirection::NONE) {
+            return;
+        }
+
+        int scoreBefore = gameLogic.getScore();
+        bool moved = false;
+
+        switch (aiMove) {
+            case ai::MoveDirection::UP:
+                moved = gameLogic.moveUp();
+                break;
+            case ai::MoveDirection::DOWN:
+                moved = gameLogic.moveDown();
+                break;
+            case ai::MoveDirection::LEFT:
+                moved = gameLogic.moveLeft();
+                break;
+            case ai::MoveDirection::RIGHT:
+                moved = gameLogic.moveRight();
+                break;
+            default:
+                break;
+        }
+
+        if (moved) {
+            lastMoveTime = currentTime;
+            doMove(moved, scoreBefore);
+        }
+    }
+#endif
 }
 
 void Game2048Scene::checkGameState() {
@@ -229,12 +251,6 @@ void Game2048Scene::checkGameState() {
         statusLabel->centerX(sw);
         instructionLabel->setText("Keep Playing!");
         instructionLabel->centerX(sw);
-        
-#if PIXELROOT32_ENABLE_TOUCH
-        if (resetTouchButton) resetTouchButton->setVisible(true);
-#else
-        if (resetButton) resetButton->setVisible(true);
-#endif
     }
     // Check for game over
     else if (gameLogic.isGameOver() && !wasGameOver) {
@@ -243,27 +259,15 @@ void Game2048Scene::checkGameState() {
         playGameOverSound(audio);
 #endif
         wasGameOver = true;
-        
+
         statusLabel->setText("GAME OVER!");
         statusLabel->centerX(sw);
         instructionLabel->setText("Try Again!");
         instructionLabel->centerX(sw);
-        
-#if PIXELROOT32_ENABLE_TOUCH
-        if (resetTouchButton) resetTouchButton->setVisible(true);
-#else
-        if (resetButton) resetButton->setVisible(true);
-#endif
-    } else {
-        // Clear labels when playing
+    } else if (!wasWon && !wasGameOver) {
+        // Only clear labels when actively playing (not after win or game over)
         statusLabel->setText("");
         instructionLabel->setText("");
-        
-#if PIXELROOT32_ENABLE_TOUCH
-        if (resetTouchButton) resetTouchButton->setVisible(false);
-#else
-        if (resetButton) resetButton->setVisible(false);
-#endif
     }
 }
 

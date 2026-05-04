@@ -1,18 +1,11 @@
 #include "Game2048Logic.h"
-#include <cstdlib>
-#include <ctime>
+#include "math/MathUtil.h"
 #include <algorithm>
 
 namespace game2048 {
 
 Game2048Logic::Game2048Logic() : score(0), highestTile(0), gameOver(false), won(false), movedThisTurn(false) {
-    // Initialize RNG
-    static bool seeded = false;
-    if (!seeded) {
-        std::srand(static_cast<unsigned int>(std::time(nullptr)));
-        seeded = true;
-    }
-
+    // RNG is seeded by the engine (pixelroot32::math)
     // Initialize empty grid
     reset();
 }
@@ -58,12 +51,31 @@ void Game2048Logic::spawnTile() {
     }
 
     // Pick random empty cell
-    int randIndex = std::rand() % emptyCount;
+    int randIndex = pixelroot32::math::rand_int(0, emptyCount - 1);
     int cellIndex = emptyIndices[randIndex];
 
     // Determine tile value (90% 2, 10% 4)
-    float randFloat = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
-    grid[cellIndex] = (randFloat < SPAWN_TILE_2_PROBABILITY) ? TILE_2 : TILE_4;
+#ifdef GAME2048_DEBUG_SPAWN
+    // Debug mode: spawn higher values to help AI test merge paths
+    float r = pixelroot32::math::rand01();
+    if (r < 0.2f) {
+        // 20% chance - spawn a higher value based on max on board
+        int maxOnBoard = 0;
+        for (int i = 0; i < GRID_TOTAL_CELLS; i++) {
+            if (grid[i] > maxOnBoard) maxOnBoard = grid[i];
+        }
+        // Spawn half of max value (to enable merge)
+        if (maxOnBoard >= 8) {
+            grid[cellIndex] = maxOnBoard / 2;
+        } else {
+            grid[cellIndex] = TILE_4;
+        }
+    } else {
+        grid[cellIndex] = TILE_2;
+    }
+#else
+    grid[cellIndex] = (pixelroot32::math::rand01() < SPAWN_TILE_2_PROBABILITY) ? TILE_2 : TILE_4;
+#endif
 
     // Update highest tile (for win detection fallback)
     if (grid[cellIndex] > highestTile) {
@@ -257,28 +269,21 @@ bool Game2048Logic::moveUp() {
     bool anyMove = false;
 
     for (int col = 0; col < GRID_SIZE; ++col) {
-        // Extract column into temp array
+        // Extract column - index 0 is TOP (row 0), index 3 is BOTTOM (row 3)
         uint16_t colData[GRID_SIZE];
         for (int row = 0; row < GRID_SIZE; ++row) {
             colData[row] = grid[row * GRID_SIZE + col];
         }
-        
-        // Reverse column to process as if moving left
-        std::reverse(colData, colData + GRID_SIZE);
-        
-        // Apply slide and merge
-        uint16_t temp[GRID_SIZE];
-        for (int i = 0; i < GRID_SIZE; ++i) temp[i] = colData[i];
-        bool rowMoved = slideAndMergeRow(temp);
-        
-        // Reverse back
-        std::reverse(temp, temp + GRID_SIZE);
-        
-        // Write back to column
+
+        // slideAndMerge pushes to LEFT (index 0), which for a column means TOP
+        // So we process directly - no reversal needed
+        bool rowMoved = slideAndMergeRow(colData);
+
+        // Write back - index 0 (top) goes to row 0
         for (int row = 0; row < GRID_SIZE; ++row) {
-            grid[row * GRID_SIZE + col] = temp[row];
+            grid[row * GRID_SIZE + col] = colData[row];
         }
-        
+
         if (rowMoved) anyMove = true;
     }
 
@@ -293,37 +298,27 @@ bool Game2048Logic::moveDown() {
     bool anyMove = false;
 
     for (int col = 0; col < GRID_SIZE; ++col) {
-        // Extract column into temp array
+        // Extract column - index 0 is TOP (row 0), index 3 is BOTTOM (row 3)
         uint16_t colData[GRID_SIZE];
         for (int row = 0; row < GRID_SIZE; ++row) {
             colData[row] = grid[row * GRID_SIZE + col];
         }
-        
-        // For down: first reverse (because moveLeft goes to left, we want right)
-        // [a,b,c,d] -> [d,c,b,a], then after compress->merge->compress->reverse again
-        // becomes [d,c,b,a] -> [d,c,b,a], merge, reverse -> [a,b,c,d] moved right
-        
-        // Actually simpler: just reverse twice - once to flip, once to restore after processing
-        // But since moveLeft pushes to LEFT, for DOWN we need to:
-        // 1. Reverse the column
-        // 2. Process as moveLeft (compresses to left)
-        // 3. Reverse again (now rightmost becomes leftmost of original, i.e. moved right)
-        
+
+        // For DOWN: reverse so push-to-left (index 0) becomes push-to-right (bottom)
+        // [a,b,c,d] -> [d,c,b,a], then push-to-left puts content at index 0 (bottom)
         std::reverse(colData, colData + GRID_SIZE);
-        
-        // Apply slide and merge
-        uint16_t temp[GRID_SIZE];
-        for (int i = 0; i < GRID_SIZE; ++i) temp[i] = colData[i];
-        bool rowMoved = slideAndMergeRow(temp);
-        
-        // Reverse back to get proper down direction
-        std::reverse(temp, temp + GRID_SIZE);
-        
-        // Write back to column
+
+        // Process - pushes to index 0 (now represents bottom after reversal)
+        bool rowMoved = slideAndMergeRow(colData);
+
+        // Reverse back to restore proper column order
+        std::reverse(colData, colData + GRID_SIZE);
+
+        // Write back
         for (int row = 0; row < GRID_SIZE; ++row) {
-            grid[row * GRID_SIZE + col] = temp[row];
+            grid[row * GRID_SIZE + col] = colData[row];
         }
-        
+
         if (rowMoved) anyMove = true;
     }
 

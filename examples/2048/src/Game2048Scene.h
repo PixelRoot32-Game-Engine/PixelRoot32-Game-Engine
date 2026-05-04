@@ -5,13 +5,13 @@
 #include "Game2048Constants.h"
 #include "Game2048Logic.h"
 
+#ifdef GAME2048_AI_MODE
+#include "assets/ai2048.h"
+#endif
+
 #include <graphics/ui/UILabel.h>
 
-#if PIXELROOT32_ENABLE_TOUCH
-#include <graphics/ui/UITouchButton.h>
-#else
-#include <graphics/ui/UIButton.h>
-#endif
+#include <input/TouchManager.h>
 
 #if PIXELROOT32_ENABLE_AUDIO
 #include <audio/AudioEngine.h>
@@ -49,9 +49,6 @@ public:
      */
     void onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) override;
 
-    /** Reset button target for callback */
-    static Game2048Scene* sResetButtonTarget;
-
 private:
     Game2048Logic gameLogic;
 
@@ -71,6 +68,11 @@ private:
     bool wasGameOver;
     bool wasWon;
 
+#ifdef GAME2048_AI_MODE
+    /** AI auto-play mode (controlled by -D GAME2048_AI_MODE) */
+    ai::AI2048 aiController;
+#endif
+
     /** Grid position on screen */
     pixelroot32::math::Vector2 gridPosition;
 
@@ -79,21 +81,10 @@ private:
     std::unique_ptr<pixelroot32::graphics::ui::UILabel> statusLabel;
     std::unique_ptr<pixelroot32::graphics::ui::UILabel> instructionLabel;
 
-#if PIXELROOT32_ENABLE_TOUCH
-    std::unique_ptr<pixelroot32::graphics::ui::UITouchButton> resetTouchButton;
-#else
-    std::unique_ptr<pixelroot32::graphics::ui::UIButton> resetButton;
-#endif
-
     /**
      * @brief Create UI labels.
      */
     void createLabels();
-
-    /**
-     * @brief Create reset button.
-     */
-    void createResetButton();
 
     /**
      * @brief Handle D-pad input.
