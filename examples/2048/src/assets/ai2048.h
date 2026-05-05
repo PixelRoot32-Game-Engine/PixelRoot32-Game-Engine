@@ -419,5 +419,540 @@ inline int AI2048::getMaxPosition(const uint16_t* grid) const {
     return maxPos;
 }
 
+// ============================================================================
+// MCTS AI for 2048 - Implementation
+// ============================================================================
+
+// Board representation for MCTS (16 cells)
+struct Game2048Board {
+    uint16_t cells[16];
+    
+    static Game2048Board fromGrid(const uint16_t grid[16]) {
+        Game2048Board b;
+        for (int i = 0; i < 16; i++) b.cells[i] = grid[i];
+        return b;
+    }
+    
+    bool operator==(const Game2048Board& other) const {
+        for (int i = 0; i < 16; i++) if (cells[i] != other.cells[i]) return false;
+        return true;
+    }
+    
+    bool operator!=(const Game2048Board& other) const { return !(*this == other); }
+};
+
+// Execute move and return new board
+inline Game2048Board executeMove(const Game2048Board& board, MoveDirection dir) {
+    Game2048Board result = board;
+    bool moved = false;
+    
+    if (dir == MoveDirection::LEFT) {
+        for (int r = 0; r < 4; r++) {
+            int row[4] = {static_cast<int>(result.cells[r*4]), static_cast<int>(result.cells[r*4+1]), 
+                          static_cast<int>(result.cells[r*4+2]), static_cast<int>(result.cells[r*4+3])};
+            int temp[4] = {0,0,0,0};
+            int out = 0;
+            for (int c = 0; c < 4; c++) {
+                if (row[c] != 0) {
+                    if (out > 0 && temp[out-1] == row[c] && (temp[out-1] & 0x8000) == 0) {
+                        temp[out-1] = row[c] * 2;
+                        temp[out-1] |= 0x8000; // merged flag
+                        moved = true;
+                    } else {
+                        temp[out++] = row[c];
+                        if (c != out-1) moved = true;
+                    }
+                }
+            }
+            for (int c = 0; c < 4; c++) result.cells[r*4+c] = temp[c] & 0x7FFF;
+        }
+    } else if (dir == MoveDirection::RIGHT) {
+        for (int r = 0; r < 4; r++) {
+            int row[4] = {static_cast<int>(result.cells[r*4+3]), static_cast<int>(result.cells[r*4+2]), 
+                          static_cast<int>(result.cells[r*4+1]), static_cast<int>(result.cells[r*4])};
+            int temp[4] = {0,0,0,0};
+            int out = 0;
+            for (int c = 0; c < 4; c++) {
+                if (row[c] != 0) {
+                    if (out > 0 && temp[out-1] == row[c] && (temp[out-1] & 0x8000) == 0) {
+                        temp[out-1] = row[c] * 2;
+                        temp[out-1] |= 0x8000;
+                        moved = true;
+                    } else {
+                        temp[out++] = row[c];
+                        if (c != out-1) moved = true;
+                    }
+                }
+            }
+            for (int c = 0; c < 4; c++) result.cells[r*4+(3-c)] = temp[c] & 0x7FFF;
+        }
+    } else if (dir == MoveDirection::UP) {
+        for (int c = 0; c < 4; c++) {
+            int col[4] = {static_cast<int>(result.cells[c]), static_cast<int>(result.cells[4+c]), 
+                          static_cast<int>(result.cells[8+c]), static_cast<int>(result.cells[12+c])};
+            int temp[4] = {0,0,0,0};
+            int out = 0;
+            for (int r = 0; r < 4; r++) {
+                if (col[r] != 0) {
+                    if (out > 0 && temp[out-1] == col[r] && (temp[out-1] & 0x8000) == 0) {
+                        temp[out-1] = col[r] * 2;
+                        temp[out-1] |= 0x8000;
+                        moved = true;
+                    } else {
+                        temp[out++] = col[r];
+                        if (r != out-1) moved = true;
+                    }
+                }
+            }
+            for (int r = 0; r < 4; r++) result.cells[r*4+c] = temp[r] & 0x7FFF;
+        }
+    } else if (dir == MoveDirection::DOWN) {
+        for (int c = 0; c < 4; c++) {
+            int col[4] = {static_cast<int>(result.cells[12+c]), static_cast<int>(result.cells[8+c]), 
+                          static_cast<int>(result.cells[4+c]), static_cast<int>(result.cells[c])};
+            int temp[4] = {0,0,0,0};
+            int out = 0;
+            for (int r = 0; r < 4; r++) {
+                if (col[r] != 0) {
+                    if (out > 0 && temp[out-1] == col[r] && (temp[out-1] & 0x8000) == 0) {
+                        temp[out-1] = col[r] * 2;
+                        temp[out-1] |= 0x8000;
+                        moved = true;
+                    } else {
+                        temp[out++] = col[r];
+                        if (r != out-1) moved = true;
+                    }
+                }
+            }
+            for (int r = 0; r < 4; r++) result.cells[(3-r)*4+c] = temp[r] & 0x7FFF;
+        }
+    }
+    
+    if (!moved) return board;
+    return result;
+}
+
+// Check if move is valid (changes board state)
+inline bool isValidMove(const Game2048Board& board, MoveDirection dir) {
+    Game2048Board result = executeMove(board, dir);
+    return result != board;
+}
+
+// Get empty cell positions
+inline void getEmptyCells(const Game2048Board& board, int* positions, int& count) {
+    count = 0;
+    for (int i = 0; i < 16; i++) {
+        if (board.cells[i] == 0) {
+            positions[count++] = i;
+        }
+    }
+}
+
+// Place tile at position
+inline Game2048Board placeTile(const Game2048Board& board, int pos, uint16_t value) {
+    Game2048Board result = board;
+    result.cells[pos] = value;
+    return result;
+}
+
+// Check if game is over
+inline bool isGameOver(const Game2048Board& board) {
+    for (int i = 0; i < 16; i++) {
+        if (board.cells[i] == 0) return false;
+    }
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 3; c++) {
+            if (board.cells[r*4+c] == board.cells[r*4+c+1]) return false;
+        }
+    }
+    for (int c = 0; c < 4; c++) {
+        for (int r = 0; r < 3; r++) {
+            if (board.cells[r*4+c] == board.cells[(r+1)*4+c]) return false;
+        }
+    }
+    return true;
+}
+
+// ============================================================================
+// Phase 1: MCTS Data Structures
+// ============================================================================
+
+// MCTS Node structure
+struct MCTSNode {
+    uint32_t visits;
+    float winScore;
+    Game2048Board board;
+    uint8_t childCount;
+    int16_t firstChild;
+    int16_t parentIndex;
+    MoveDirection moveDir;
+    
+    MCTSNode() : visits(0), winScore(0.0f), childCount(0), firstChild(-1), parentIndex(-1), moveDir(MoveDirection::NONE) {}
+};
+
+// Fixed-size pool of MCTS nodes (stack-based allocation)
+template<size_t POOL_SIZE>
+class MCTSNodePool {
+public:
+    MCTSNodePool() : nodeCount_(0) {
+        for (size_t i = 0; i < POOL_SIZE; i++) {
+            nodes_[i].visits = 0;
+            nodes_[i].winScore = 0.0f;
+            nodes_[i].childCount = 0;
+            nodes_[i].firstChild = -1;
+            nodes_[i].parentIndex = -1;
+        }
+    }
+    
+    int allocate() {
+        for (size_t i = 0; i < POOL_SIZE; i++) {
+            if (nodes_[i].visits == 0 && nodes_[i].parentIndex == -1) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+    
+    void resetVisits() {
+        for (size_t i = 0; i < POOL_SIZE; i++) {
+            nodes_[i].visits = 0;
+            nodes_[i].winScore = 0.0f;
+        }
+    }
+    
+    MCTSNode& getNode(int index) { return nodes_[index]; }
+    const MCTSNode& getNode(int index) const { return nodes_[index]; }
+    
+private:
+    MCTSNode nodes_[POOL_SIZE];
+    int nodeCount_;
+};
+
+// UCT formula
+inline float calculateUCT(float winScore, uint32_t visits, uint32_t parentVisits) {
+    if (visits == 0) return 1e9f;
+    constexpr float C = 1.41421356237f;
+    float exploitation = winScore / static_cast<float>(visits);
+    float exploration = C * sqrtf(static_cast<float>(logf(static_cast<float>(parentVisits)) / static_cast<float>(visits)));
+    return exploitation + exploration;
+}
+
+// ============================================================================
+// Phase 2: MCTS Core Implementation
+// ============================================================================
+
+template<size_t SIMULATION_BUDGET = 500>
+class MCTSCore {
+public:
+    static constexpr int MAX_SIMULATION_MOVES = 50;
+    static constexpr uint32_t BUDGET = SIMULATION_BUDGET;
+    
+    MCTSCore() : pool_(), rootIndex_(-1), simCounter_(0) {}
+    
+    int16_t search(const Game2048Board& board) {
+        simCounter_++;
+        rootIndex_ = pool_.allocate();
+        if (rootIndex_ < 0) return 0;
+        
+        MCTSNode& root = pool_.getNode(rootIndex_);
+        root.board = board;
+        root.visits = 0;
+        root.winScore = 0.0f;
+        root.childCount = 0;
+        root.firstChild = -1;
+        root.parentIndex = -1;
+        
+        for (uint32_t sim = 0; sim < BUDGET; sim++) {
+            int selectedNode = selectAndExpand(rootIndex_);
+            if (selectedNode < 0) continue;
+            float simResult = simulate(pool_.getNode(selectedNode).board);
+            backpropagate(selectedNode, simResult);
+        }
+        
+        return selectBestChild(rootIndex_);
+    }
+    
+    MoveDirection getBestMove() {
+        if (rootIndex_ < 0) return MoveDirection::UP;
+        MCTSNode& root = pool_.getNode(rootIndex_);
+        if (root.firstChild < 0) return MoveDirection::UP;
+        
+        int bestChild = -1;
+        uint32_t bestVisits = 0;
+        
+        for (int i = root.firstChild; i >= 0; i = pool_.getNode(i).firstChild) {
+            const MCTSNode& child = pool_.getNode(i);
+            if (child.visits > bestVisits) {
+                bestVisits = child.visits;
+                bestChild = i;
+            }
+        }
+        
+        if (bestChild >= 0) return pool_.getNode(bestChild).moveDir;
+        return MoveDirection::UP;
+    }
+    
+    void reset() {
+        pool_.resetVisits();
+        rootIndex_ = -1;
+    }
+
+private:
+    int selectAndExpand(int rootIdx) {
+        int current = rootIdx;
+        int loopCount = 0;
+        
+        while (loopCount < 100 && current >= 0) {
+            loopCount++;
+            MCTSNode& node = pool_.getNode(current);
+            
+            if (isGameOver(node.board)) return current;
+            
+            const MoveDirection dirs[4] = { MoveDirection::UP, MoveDirection::DOWN, MoveDirection::LEFT, MoveDirection::RIGHT };
+            
+            int validMoveCount = 0;
+            for (int d = 0; d < 4; d++) {
+                if (isValidMove(node.board, dirs[d])) validMoveCount++;
+            }
+            
+            if (node.childCount < validMoveCount) {
+                return expand(current);
+            }
+            
+            int bestChild = selectBestUCTChild(current);
+            if (bestChild < 0) return current;
+            current = bestChild;
+        }
+        return rootIdx;
+    }
+    
+    int selectBestUCTChild(int parentIdx) {
+        const MCTSNode& parent = pool_.getNode(parentIdx);
+        if (parent.firstChild < 0) return -1;
+        
+        int bestChild = -1;
+        float bestUCT = -1e9f;
+        
+        bool visited[1024] = {false};
+        int iterations = 0;
+        
+        for (int i = parent.firstChild; i >= 0 && iterations < 1024; i = pool_.getNode(i).firstChild) {
+            if (visited[i]) break;
+            visited[i] = true;
+            iterations++;
+            
+            const MCTSNode& child = pool_.getNode(i);
+            if (child.visits == 0) continue;
+            float uct = calculateUCT(child.winScore, child.visits, parent.visits);
+            if (uct > bestUCT) {
+                bestUCT = uct;
+                bestChild = i;
+            }
+        }
+        return bestChild;
+    }
+    
+    int expand(int parentIdx) {
+        MCTSNode& parent = pool_.getNode(parentIdx);
+        
+        MoveDirection availableDirs[4];
+        int availableCount = 0;
+        
+        const MoveDirection dirs[4] = { MoveDirection::UP, MoveDirection::DOWN, MoveDirection::LEFT, MoveDirection::RIGHT };
+        
+        for (int d = 0; d < 4; d++) {
+            if (isValidMove(parent.board, dirs[d])) {
+                availableDirs[availableCount++] = dirs[d];
+            }
+        }
+        
+        if (availableCount == 0) return -1;
+        
+        bool usedDir[4] = {false, false, false, false};
+        for (int i = parent.firstChild; i >= 0; i = pool_.getNode(i).firstChild) {
+            const MCTSNode& child = pool_.getNode(i);
+            for (int d = 0; d < 4; d++) {
+                if (child.moveDir == availableDirs[d]) usedDir[d] = true;
+            }
+        }
+        
+        int newDirIdx = -1;
+        for (int d = 0; d < availableCount; d++) {
+            if (!usedDir[d]) { newDirIdx = d; break; }
+        }
+        
+        if (newDirIdx < 0) return -1;
+        
+        MoveDirection newDir = availableDirs[newDirIdx];
+        Game2048Board newBoard = executeMove(parent.board, newDir);
+        
+        // Add random tile
+        int emptyPos[16];
+        int emptyCount;
+        getEmptyCells(newBoard, emptyPos, emptyCount);
+        
+        if (emptyCount > 0) {
+            uint32_t seed = static_cast<uint32_t>(simCounter_ * 1103515245 + 12345);
+            int randIdx = seed % emptyCount;
+            int pos = emptyPos[randIdx];
+            uint16_t tileValue = ((seed % 10) < 9) ? 2 : 4;
+            newBoard = placeTile(newBoard, pos, tileValue);
+        }
+        
+        int newNodeIdx = pool_.allocate();
+        if (newNodeIdx < 0) return parentIdx;
+        
+        MCTSNode& newNode = pool_.getNode(newNodeIdx);
+        newNode.board = newBoard;
+        newNode.visits = 0;
+        newNode.winScore = 0.0f;
+        newNode.childCount = 0;
+        newNode.firstChild = -1;
+        newNode.parentIndex = parentIdx;
+        newNode.moveDir = newDir;
+        
+        newNode.firstChild = parent.firstChild;
+        parent.firstChild = newNodeIdx;
+        parent.childCount++;
+        
+        return newNodeIdx;
+    }
+    
+    float simulate(Game2048Board board) {
+        int moves = 0;
+        float score = 0.0f;
+        
+        while (moves < MAX_SIMULATION_MOVES && !isGameOver(board)) {
+            MoveDirection validMoves[4];
+            int validCount = 0;
+            
+            const MoveDirection dirs[4] = { MoveDirection::UP, MoveDirection::DOWN, MoveDirection::LEFT, MoveDirection::RIGHT };
+            
+            for (int d = 0; d < 4; d++) {
+                if (isValidMove(board, dirs[d])) {
+                    validMoves[validCount++] = dirs[d];
+                }
+            }
+            
+            if (validCount == 0) break;
+            
+            // Random move
+            uint32_t seed = static_cast<uint32_t>(simCounter_ * 1103515245 + 12345 + moves);
+            int randIdx = seed % validCount;
+            MoveDirection chosenMove = validMoves[randIdx];
+            
+            board = executeMove(board, chosenMove);
+            moves++;
+            
+            // Add random tile
+            if (!isGameOver(board)) {
+                int emptyPos[16];
+                int emptyCount;
+                getEmptyCells(board, emptyPos, emptyCount);
+                
+                if (emptyCount > 0) {
+                    uint32_t seed2 = static_cast<uint32_t>(simCounter_ * 7 + moves * 13 + 456789);
+                    int randPosIdx = seed2 % emptyCount;
+                    int pos = emptyPos[randPosIdx];
+                    uint16_t tileValue = ((seed2 % 10) < 9) ? 2 : 4;
+                    board = placeTile(board, pos, tileValue);
+                }
+            }
+        }
+        
+        // Calculate final score: prefer higher max tile
+        uint16_t maxTile = 0;
+        for (int i = 0; i < 16; i++) {
+            if (board.cells[i] > maxTile) maxTile = board.cells[i];
+        }
+        
+        // Score based on max tile achieved
+        if (maxTile >= 2048) score = 1000.0f;
+        else if (maxTile >= 1024) score = 500.0f;
+        else if (maxTile >= 512) score = 200.0f;
+        else if (maxTile >= 256) score = 100.0f;
+        else score = static_cast<float>(maxTile);
+        
+        return score;
+    }
+    
+    void backpropagate(int nodeIdx, float score) {
+        int current = nodeIdx;
+        while (current >= 0) {
+            MCTSNode& node = pool_.getNode(current);
+            node.visits++;
+            node.winScore += score;
+            current = node.parentIndex;
+        }
+    }
+    
+    int selectBestChild(int parentIdx) {
+        const MCTSNode& parent = pool_.getNode(parentIdx);
+        if (parent.firstChild < 0) return 0;
+        
+        int bestChild = parent.firstChild;
+        uint32_t maxVisits = pool_.getNode(bestChild).visits;
+        
+        for (int i = parent.firstChild; i >= 0; i = pool_.getNode(i).firstChild) {
+            if (pool_.getNode(i).visits > maxVisits) {
+                maxVisits = pool_.getNode(i).visits;
+                bestChild = i;
+            }
+        }
+        return bestChild;
+    }
+    
+    MCTSNodePool<1024> pool_;
+    int rootIndex_;
+    uint32_t simCounter_;
+};
+
+// ============================================================================
+// Phase 3: MCTSAI Class
+// ============================================================================
+
+template<uint32_t SIM_BUDGET = 500>
+class MCTSAI {
+public:
+    MCTSAI() : core_() {}
+    
+    MoveDirection getBestMove(const Game2048Logic& logic) {
+        const auto& grid = logic.getGrid();
+        Game2048Board board = Game2048Board::fromGrid(grid);
+        
+        if (logic.isGameOver() || isGameOver(board)) {
+            return MoveDirection::NONE;
+        }
+        
+        core_.search(board);
+        MoveDirection bestDir = core_.getBestMove();
+        
+        // Validate move
+        if (!isValidMove(board, bestDir)) {
+            const MoveDirection dirs[4] = { MoveDirection::UP, MoveDirection::DOWN, MoveDirection::LEFT, MoveDirection::RIGHT };
+            for (int i = 0; i < 4; i++) {
+                if (isValidMove(board, dirs[i])) return dirs[i];
+            }
+            return MoveDirection::NONE;
+        }
+        return bestDir;
+    }
+    
+    void reset() { core_.reset(); }
+    
+private:
+    MCTSCore<SIM_BUDGET> core_;
+};
+
+// ============================================================================
+// Phase 4: Replace DefaultAI with MCTSAI
+// ============================================================================
+
+#ifdef GAME2048_AI_MODE
+using DefaultAI = MCTSAI<500>;
+#else
+using DefaultAI = AI2048;
+#endif
+
 } // namespace ai
 } // namespace game2048
