@@ -70,7 +70,7 @@ private:
 
 #ifdef GAME2048_AI_MODE
     /** AI auto-play mode (controlled by -D GAME2048_AI_MODE) */
-    ai::AI2048 aiController;
+    ai::DefaultAI aiController;
 #endif
 
     /** Grid position on screen */

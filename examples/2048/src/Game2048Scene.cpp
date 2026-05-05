@@ -31,7 +31,7 @@ Game2048Scene::Game2048Scene()
     , wasGameOver(false)
     , wasWon(false)
 #ifdef GAME2048_AI_MODE
-    , aiController(3)  // Depth 3 for reasonable performance
+    , aiController()  // MCTSAI<500>
 #endif
 {
 }
