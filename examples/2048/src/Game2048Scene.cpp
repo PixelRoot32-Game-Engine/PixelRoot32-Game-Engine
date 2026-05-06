@@ -113,23 +113,13 @@ void Game2048Scene::update(unsigned long deltaTime) {
 void Game2048Scene::handleInput() {
     auto& input = engine.getInputManager();
 
-    // Game over or win state - wait for input to reset
-    if (gameLogic.isGameOver() || gameLogic.hasWon()) {
+    // Game over state - wait for input to reset
+    if (gameLogic.isGameOver()) {
         // Check for button press
         if (input.isButtonPressed(BTN_SELECT)) {
             resetGame();
             return;
         }
-
-#if PIXELROOT32_ENABLE_TOUCH
-        // Check for any touch on screen to reset
-        pixelroot32::input::TouchEvent events[5];
-        uint8_t count = input.getTouchEvents(events, 5);
-        if (count > 0) {
-            resetGame();
-            return;
-        }
-#endif
         return;
     }
 
@@ -374,8 +364,11 @@ void Game2048Scene::onUnconsumedTouchEvent(const input::TouchEvent& event) {
     using T = input::TouchEventType;
     auto ty = event.getType();
     
-    // Ignore if game over
+    // On game over, ANY touch event resets the game
     if (gameLogic.isGameOver()) {
+        if (ty == T::TouchDown || ty == T::DragStart || ty == T::DragEnd) {
+            resetGame();
+        }
         return;
     }
     
@@ -427,7 +420,6 @@ void Game2048Scene::doMove(bool moved, int scoreBefore) {
 #if PIXELROOT32_ENABLE_AUDIO
         auto& audio = engine.getAudioEngine();
 #endif
-        
         gameLogic.spawnTile();
         
 #if PIXELROOT32_ENABLE_AUDIO

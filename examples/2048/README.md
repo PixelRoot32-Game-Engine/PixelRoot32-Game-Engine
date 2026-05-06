@@ -100,6 +100,8 @@ To disable AI, remove `-D GAME2048_AI_MODE=1` from build_flags in platformio.ini
 
 ## Documentation links
 
+- [Game Logic](game_logic.md)
+- [Game Rules](game_rules.md)
 - [UI API](../../docs/api/ui.md)
 - [Input API](../../docs/api/input.md)
 - [Core API](../../docs/api/core.md)
