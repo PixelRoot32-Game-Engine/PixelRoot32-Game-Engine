@@ -20,7 +20,7 @@
 
 | Subsystem | Document | Description |
 |-----------|----------|-------------|
-| **Audio NES** | [Audio Subsystem](./audio-subsystem.md) | 4-channel NES-style: shared `ApuCore`, `AudioScheduler`, backends |
+| **Audio NES** | [Audio Subsystem](./audio-subsystem.md) | 8-voices NES-style: shared `ApuCore`, `AudioScheduler`, backends |
 | **Physics** | [Physics Subsystem](./physics-subsystem.md) | Flat Solver, collisions, CCD |
 | **Memory** | [Memory System](./memory-system.md) | Smart pointers, RAII, ESP32 DRAM |
 | **Resolution Scaling** | [Resolution Scaling](./resolution-scaling.md) | Logical vs physical resolution |
