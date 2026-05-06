@@ -464,6 +464,9 @@ namespace pixelroot32::audio {
             ch->lfo.currentValue = 0.0f;
             ch->lfo.delaySamples = (uint16_t)(event.preset->lfoDelay * (float)sampleRate);
             ch->lfo.delayCounter = 0;
+            // Convert float depth to Q15 for no-FPU path
+            ch->lfo.depthQ15 = (int32_t)(ch->lfo.depth * 32768.0f);
+            ch->lfo.currentValueQ15 = 0;
         }
 
         ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
@@ -674,6 +677,33 @@ namespace pixelroot32::audio {
     }
 
     // ------------------------------------------------------------------
+    // LFO oscillator tick (Q15 integer-only, triangle wave)
+    // ------------------------------------------------------------------
+    static inline void tickLfoQ15(LfoState& lfo) {
+        if (!lfo.enabled || lfo.periodSamples == 0) return;
+
+        if (lfo.delayCounter < lfo.delaySamples) {
+            lfo.delayCounter++;
+            return;
+        }
+
+        lfo.sampleCounter++;
+        if (lfo.sampleCounter >= lfo.periodSamples) lfo.sampleCounter = 0;
+
+        // Integer triangle wave in Q15
+        // tQ15 = (sampleCounter * 32768) / periodSamples (range: 0 to 32768)
+        int32_t tQ15 = (int32_t)((uint64_t)lfo.sampleCounter * 32768u / lfo.periodSamples);
+
+        // Triangle: if t < 0.5: 4*t - 1, else: 3 - 4*t
+        // In Q15: if tQ15 < 16384: 4*tQ15 - 32768, else: 98304 - 4*tQ15
+        if (tQ15 < 16384) {
+            lfo.currentValueQ15 = (tQ15 << 2) - 32768;  // 4*tQ15 - 32768
+        } else {
+            lfo.currentValueQ15 = 98304 - (tQ15 << 2);  // 98304 - 4*tQ15
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Per-channel sample generation
     // ------------------------------------------------------------------
     float ApuCore::generateSampleForVoice(Voice& ch) {
@@ -878,11 +908,12 @@ namespace pixelroot32::audio {
                 int32_t sv = (s * volQ15[c]) >> 15;
                 sv = (sv * ch.envelope.currentLevelQ15) >> 15;
 
-                // Volume LFO (tremolo) — applied in Q15.
+                // Volume LFO (tremolo) — Q15 only, no float conversion.
                 if (ch.lfo.enabled && ch.lfo.target == LfoTarget::VOLUME) {
-                    const int32_t lfoQ15 = (int32_t)((
-                        1.0f - ch.lfo.depth * 0.5f * (1.0f - ch.lfo.currentValue)) * 32768.0f);
-                    sv = (sv * lfoQ15) >> 15;
+                    // Tremolo: vol = 1.0 - depth * 0.5 * (1.0 - lfo)
+                    // In Q15: volQ15 = 32768 - ((depthQ15 * (32768 - currentValueQ15)) >> 16)
+                    int32_t volModQ15 = 32768 - ((ch.lfo.depthQ15 * (32768 - ch.lfo.currentValueQ15)) >> 16);
+                    sv = (sv * volModQ15) >> 15;
                 }
 
                 // MIXER_SCALE = 0.4 per channel. 0.4 ≈ 13107/32768 so we
@@ -918,18 +949,12 @@ namespace pixelroot32::audio {
                     }
                 }
 
-                // LFO tick + pitch modulation (update Q32 phase increment).
-                tickLfo(ch);
+                // LFO tick + pitch modulation (Q15-only, no float).
+                tickLfoQ15(ch.lfo);
                 if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH) {
-                    // const double inc = (double)ch.frequency
-                    //     * (1.0 + (double)ch.lfo.currentValue * (double)ch.lfo.depth)
-                    //     * 4294967296.0 / (double)sampleRate;
-                    // ch.phaseIncQ32 = (inc < 0.0) ? 0u
-                    //               : (inc >= 4294967295.0) ? 0xFFFFFFFFu
-                    //               : (uint32_t)inc;
-
-                    // depth in Q15, lfo.currentValue already float → one float mul + shift
-                    int32_t modQ15 = (int32_t)(ch.lfo.currentValue * ch.lfo.depth * 32768.0f);
+                    // Vibrato: inc = base * (1 + lfo * depth)
+                    // modQ15 = currentValueQ15 * depthQ15 >> 15
+                    int32_t modQ15 = (int32_t)((int64_t)ch.lfo.currentValueQ15 * ch.lfo.depthQ15 >> 15);
                     int64_t inc = (int64_t)ch.basePhaseIncQ32 + ((int64_t)ch.basePhaseIncQ32 * modQ15 >> 15);
                     ch.phaseIncQ32 = (inc < 0) ? 0u : (uint32_t)inc;
                 }
