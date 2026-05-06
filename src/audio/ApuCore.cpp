@@ -87,6 +87,7 @@ namespace pixelroot32::audio {
         masterVolumeScale = 65536;
         masterBitcrushBits_ = 0;
         hpfPrevIn = hpfPrevOut = 0.0f;
+        hpfPrevInQ15 = hpfPrevOutQ15 = 0;  // Q15 state for no-FPU path
         currentPeak = 0.0f;
         samplesSinceLog = 0;
         audioTimeSamples = 0;
@@ -954,12 +955,33 @@ namespace pixelroot32::audio {
             if (index < 0) index = 0;
             if (index > 1024) index = 1024;
 
-            // NOTE: HPF intentionally omitted on the no-FPU path — running
-            // a float recursive filter per sample on a soft-float core
-            // would wipe out the gains of the integer oscillator.
-            int32_t finalSample = audio_mixer_lut[index];
-            
-            // Apply master volume after compression/LUT (matches FPU path)
+            // Q15 HPF coefficient: R = 0.995, Q15 = 0.995 * 32768 = 32604
+            // Yields ~35 Hz -3dB cutoff at 22050 Hz sample rate
+            static constexpr int32_t HPF_R_Q15 = 32604;
+
+            // Q15 HPF: y[n] = x[n] - x[n-1] + (R * y[n-1])
+            // Uses Q15 fixed-point to avoid soft-float on RISC-V cores
+            int32_t inputQ15 = audio_mixer_lut[index];
+
+            // Compute R * y[n-1] in Q30, then shift to Q15
+            int64_t feedback = (int64_t)HPF_R_Q15 * (int64_t)hpfPrevOutQ15;
+            int32_t feedbackQ15 = (int32_t)(feedback >> 15);
+
+            // HPF difference equation
+            int32_t hpfOutQ15 = inputQ15 - hpfPrevInQ15 + feedbackQ15;
+
+            // Saturating clamp to prevent overflow artifacts
+            if (hpfOutQ15 > 32767) hpfOutQ15 = 32767;
+            if (hpfOutQ15 < -32768) hpfOutQ15 = -32768;
+
+            // Update state for next sample
+            hpfPrevInQ15 = inputQ15;
+            hpfPrevOutQ15 = hpfOutQ15;
+
+            // Convert to Q14 for master volume (matches FPU path scaling)
+            int32_t finalSample = hpfOutQ15 >> 1;
+
+            // Apply master volume after HPF (matches FPU path order)
             if (masterVolumeScale != 65536) {
                 finalSample = (finalSample * masterVolumeScale) >> 16;
                 // Clamp to 16-bit range
