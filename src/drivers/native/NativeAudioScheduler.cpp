@@ -21,8 +21,9 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate,
-                                    const pixelroot32::platforms::PlatformCapabilities& /*caps*/) {
+                                    const pixelroot32::platforms::PlatformCapabilities& /*caps*/, int blkSize) {
         apu.init(sampleRate);
+        blockSize = blkSize;
     }
 
     void NativeAudioScheduler::submitCommand(const AudioCommand& cmd) {
@@ -54,13 +55,13 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::threadLoop() {
-        constexpr int CHUNK_SIZE = 256;
-        int16_t chunk[CHUNK_SIZE];
+        // Max block size is 256 (with FPU), use static buffer to avoid VLA issues
+        int16_t chunk[256];
 
         while (running.load(std::memory_order_acquire)) {
-            if (rbAvailableToWrite() >= (size_t)CHUNK_SIZE) {
-                apu.generateSamples(chunk, CHUNK_SIZE);
-                rbWrite(chunk, CHUNK_SIZE);
+            if (rbAvailableToWrite() >= (size_t)blockSize) {
+                apu.generateSamples(chunk, blockSize);
+                rbWrite(chunk, blockSize);
             } else {
                 std::this_thread::sleep_for(std::chrono::microseconds(500));
             }

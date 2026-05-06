@@ -26,10 +26,11 @@ public:
 
     MockAudioScheduler() : apu() {}
 
-    void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override {
+    void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override {
         this->backend = backend;
         this->sampleRate = sampleRate;
         this->initialized = true;
+        (void)blockSize; // Unused in mock
     }
 
     ApuCore& getApuCore() override {

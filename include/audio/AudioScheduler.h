@@ -28,8 +28,9 @@ namespace pixelroot32::audio {
          * @param backend The audio backend to use.
          * @param sampleRate The output sample rate.
          * @param caps Platform capabilities to guide core pinning or threading.
+         * @param blockSize Audio block size (samples) for I2S DMA and ring buffer operations.
          */
-        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities()) = 0;
+        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 256) = 0;
 
         /**
          * @brief Submits a command to the scheduler.
