@@ -29,7 +29,7 @@ namespace pixelroot32::audio {
 
     void AudioEngine::init() {
         if (scheduler) {
-            scheduler->init(config.backend, config.sampleRate, capabilities);
+            scheduler->init(config.backend, config.sampleRate, capabilities, config.blockSize);
             scheduler->getApuCore().setPostMixMono(config.postMixMono, config.postMixUser);
             scheduler->start();
         }
@@ -94,7 +94,7 @@ namespace pixelroot32::audio {
 
     void AudioEngine::setScheduler(std::unique_ptr<AudioScheduler> newScheduler) {
         if (newScheduler) {
-            newScheduler->init(config.backend, config.sampleRate, capabilities);
+            newScheduler->init(config.backend, config.sampleRate, capabilities, config.blockSize);
             newScheduler->start();
             scheduler = std::move(newScheduler);
         }

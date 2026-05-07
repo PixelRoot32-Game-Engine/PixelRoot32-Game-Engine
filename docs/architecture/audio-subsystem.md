@@ -172,7 +172,7 @@ After the per-voice sample (float path):
 - Phase advances for non-noise waves; noise uses only the countdown/LFSR.
 - **ADSR envelope** is applied via per-sample state machine (ATTACK→DECAY→SUSTAIN→RELEASE→OFF) replacing the simple volume ramp.
 - **LFO modulation** is applied when enabled: pitch modulation alters `phaseIncrement` (frequency), volume modulation alters envelope output amplitude.
-- **Per-channel `MIXER_SCALE` (0.4)**, **master volume**, and the **non-linear compressor** are applied in `ApuCore::generateSamples` (see §3.4). On FPU/native builds a **single-pole HPF** runs on the mixed float signal before scaling to `int16_t` to tame DC and retrigger clicks. The no-FPU LUT path omits that float HPF for CPU reasons; the LUT output is already centred.
+- **Per-channel `MIXER_SCALE` (0.4)**, **master volume**, and the **non-linear compressor** are applied in `ApuCore::generateSamples` (see §3.4). On FPU/native builds a **single-pole HPF** runs on the mixed float signal before scaling to `int16_t` to tame DC and retrigger clicks. On no-FPU platforms (ESP32-C3), a **fixed-point HPF** runs on the integer mix output before scaling to `int16_t`.
 
 ### 3.4 Mixing all voices (Non-Linear Mixer)
 
@@ -193,6 +193,7 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 
 - Inner loop uses **fixed-point phase** and **Q15 volume** so the oscillator does not touch soft-float every sample.
 - **ADSR Envelope** is also implemented completely in integer Q15 fixed-point math (`tickEnvelopeQ15`) to eliminate heavy soft-float emulation during the fast 22kHz inner loop.
+- **LFO modulation**: Both pitch and volume LFO are supported on no-FPU builds via integer-only Q16/Q15 phase accumulation (`tickLfoPhase`, `tickLfoDepthQ15`) — same modulation logic as the FPU path, implemented in fixed-point to avoid soft-float.
 - Per-voice samples are scaled with the same **0.4** intent (`≈ 13107/32768` in Q15) before summation.
 - **`audio_mixer_lut`**: `index = (sum + 131072) >> 8` into 1025 entries; table documented in `AudioMixerLUT.h` to match the FPU curve.
 - **Master volume** via precomputed **Q16** `masterVolumeScale` when ≠ 1.0.

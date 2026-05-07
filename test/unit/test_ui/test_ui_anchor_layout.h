@@ -201,7 +201,10 @@ void test_anchor_layout_empty() {
     
     TEST_ASSERT_EQUAL(0, static_cast<int>(layout.getElementCount()));
     layout.updateLayout();
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify layout dimensions unchanged after empty update
+    TEST_ASSERT_EQUAL(100, layout.width);
+    TEST_ASSERT_EQUAL(100, layout.height);
 }
 
 void test_anchor_layout_clear_elements() {
@@ -223,7 +226,8 @@ void test_anchor_with_label() {
     
     layout.addElement(&label, Anchor::CENTER);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify element was added
+    TEST_ASSERT_EQUAL(1, static_cast<int>(layout.getElementCount()));
 }
 
 void test_anchor_all_nine_positions() {

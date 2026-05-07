@@ -81,6 +81,26 @@ public:
     void setPhysicalSize(int w, int h) override { (void)w; (void)h; }
     void setOffset(int x, int y) override { (void)x; (void)y; }
 
+    // Sprite buffer support for testing
+    uint8_t* spriteBuffer = nullptr;
+    bool spriteBufferEnabled = false;
+    
+    uint8_t* getSpriteBuffer() override {
+        return spriteBufferEnabled ? spriteBuffer : nullptr;
+    }
+    
+    void setSpriteBuffer(uint8_t* buffer, size_t size) {
+        spriteBuffer = buffer;
+        spriteBufferSize = size;
+        spriteBufferEnabled = true;
+    }
+    
+    void enableSpriteBuffer(bool enable) {
+        spriteBufferEnabled = enable;
+    }
+    
+    size_t spriteBufferSize = 0;
+
     // Helper to find if a specific call was made
     bool hasCall(const std::string& type) const {
         for (const auto& call : calls) {

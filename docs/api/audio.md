@@ -91,8 +91,8 @@ void MyScene::init() {
 ## Architecture Notes
 
 - **ApuCore**: Synthesis, non-linear mixing, HPF, master bitcrush, post-mix hooks, sequencing, and the SPSC command queue live here. `DefaultAudioScheduler` and platform variants decide when `generateSamples` runs.
-- **ESP32 buffer notes**: I2S backends typically aggregate 1024 samples per DMA transaction. Internal DAC output uses I2S in `I2S_MODE_DAC_BUILT_IN`.
-- On **no-FPU** ESP32, `ApuCore` uses an integer oscillator mirror and a precomputed mixer LUT so the inner loop avoids soft-float.
+- **ESP32 buffer notes**: I2S backends use configurable block size (default 512 samples on dual-core, 128 on single-core). Internal DAC output uses I2S in `I2S_MODE_DAC_BUILT_IN`.
+- On **no-FPU** ESP32 (e.g. ESP32-C3), `ApuCore` uses an integer oscillator mirror, fixed-point HPF, and integer LFO to avoid soft-float in the inner loop.
 - **Noise / LFSR**: Deterministic everywhere (no `rand()`).
 
 ## Configuration
@@ -104,6 +104,7 @@ void MyScene::init() {
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 | `ApuCore::MAX_VOICES` | `8` | Synthesis voice pool size |
 | `AudioCommandQueue::CAPACITY` | `128` | SPSC ring capacity |
+| `ESP32_I2S_AudioBackend::blockSize` | `512` / `128` (single-core) | DMA buffer block size in samples |
 
 ## Related Types
 

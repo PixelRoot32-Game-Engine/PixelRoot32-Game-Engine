@@ -61,10 +61,6 @@ public:
 
     bool isVisible = true; ///< If false, the entity's draw method will not be called.
     
-protected:
-    unsigned char renderLayer = 1;
-
-public:
     /**
      * @brief Sets the visibility of the entity.
      * @param v true to show, false to hide.
@@ -79,6 +75,10 @@ public:
      */
     virtual void setEnabled(bool e) { isEnabled = e; }
 
+protected:
+    unsigned char renderLayer = 1;
+
+public:
     /**
      * @brief Gets the current render layer.
      * @return The layer index (0-255).

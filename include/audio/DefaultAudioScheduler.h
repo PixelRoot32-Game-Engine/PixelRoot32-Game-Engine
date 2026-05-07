@@ -29,7 +29,7 @@ namespace pixelroot32::audio {
         }
 
         void init(AudioBackend* backend, int sampleRate,
-                  const pixelroot32::platforms::PlatformCapabilities& caps) override;
+                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;

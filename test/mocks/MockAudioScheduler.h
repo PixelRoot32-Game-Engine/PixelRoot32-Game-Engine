@@ -23,13 +23,27 @@ public:
     AudioBackend* backend = nullptr;
     int sampleRate = 0;
     ApuCore apu;
+    bool musicPlaying = false;
+    bool musicPaused = false;
 
     MockAudioScheduler() : apu() {}
 
-    void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps) override {
+    void setMusicPlaying(bool playing) { musicPlaying = playing; }
+    void setMusicPaused(bool paused) { musicPaused = paused; }
+
+    bool isMusicPlaying() const override {
+        return musicPlaying;
+    }
+
+    bool isMusicPaused() const override {
+        return musicPaused;
+    }
+
+    void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override {
         this->backend = backend;
         this->sampleRate = sampleRate;
         this->initialized = true;
+        (void)blockSize; // Unused in mock
     }
 
     ApuCore& getApuCore() override {

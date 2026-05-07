@@ -300,7 +300,9 @@ void test_grid_layout_draw() {
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify layout position unchanged after draw
+    TEST_ASSERT_EQUAL(0, layout.position.x);
+    TEST_ASSERT_EQUAL(0, layout.position.y);
 }
 
 void test_grid_layout_update() {
@@ -311,7 +313,9 @@ void test_grid_layout_update() {
     layout.addElement(btn1.get());
     
     layout.update(16); // 16ms delta
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify dimensions unchanged after update
+    TEST_ASSERT_EQUAL(100, layout.width);
+    TEST_ASSERT_EQUAL(100, layout.height);
 }
 
 void test_horizontal_layout_draw() {
@@ -325,7 +329,9 @@ void test_horizontal_layout_draw() {
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify layout dimensions preserved after draw
+    TEST_ASSERT_EQUAL(200, layout.width);
+    TEST_ASSERT_EQUAL(50, layout.height);
 }
 
 void test_horizontal_layout_update() {
@@ -335,7 +341,8 @@ void test_horizontal_layout_update() {
     layout.addElement(btn1.get());
     
     layout.update(16);
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify layout state after update
+    TEST_ASSERT_EQUAL(200, layout.width);
 }
 
 void test_vertical_layout_draw() {
@@ -349,7 +356,9 @@ void test_vertical_layout_draw() {
     layout.addElement(btn1.get());
     
     layout.draw(renderer);
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify vertical layout dimensions after draw
+    TEST_ASSERT_EQUAL(100, layout.width);
+    TEST_ASSERT_EQUAL(200, layout.height);
 }
 
 void test_vertical_layout_update() {
@@ -359,7 +368,8 @@ void test_vertical_layout_update() {
     layout.addElement(btn1.get());
     
     layout.update(16);
-    TEST_ASSERT_TRUE(true); // Should not crash
+    // Verify position unchanged after update
+    TEST_ASSERT_EQUAL(0, layout.position.x);
 }
 
 void test_grid_layout_handle_input() {
@@ -373,7 +383,8 @@ void test_grid_layout_handle_input() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Grid layout has 1 element added
+    TEST_ASSERT_EQUAL(1, layout.getElementCount());
 }
 
 void test_horizontal_layout_handle_input() {
@@ -385,7 +396,8 @@ void test_horizontal_layout_handle_input() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Horizontal layout has 1 element
+    TEST_ASSERT_EQUAL(1, layout.getElementCount());
 }
 
 void test_vertical_layout_handle_input() {
@@ -397,7 +409,8 @@ void test_vertical_layout_handle_input() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Vertical layout has 1 element
+    TEST_ASSERT_EQUAL(1, layout.getElementCount());
 }
 
 void test_layout_clear_elements() {
@@ -512,7 +525,8 @@ void test_grid_layout_set_button_style() {
     layout.addElement(btn1.get());
     
     layout.setButtonStyle(Color::White, Color::Blue, Color::Gray, Color::Black);
-    TEST_ASSERT_TRUE(true);
+    // Dimensions unchanged after style set
+    TEST_ASSERT_EQUAL(100, layout.width);
 }
 
 void test_grid_layout_set_selected_index_negative() {
@@ -595,7 +609,8 @@ void test_horizontal_layout_scroll_offset() {
     UIHorizontalLayout layout(0, 0, 200, 50);
     layout.setScrollEnabled(true);
     layout.setScrollOffset(toScalar(50));
-    TEST_ASSERT_TRUE(true);
+    // Verify scroll offset was set
+    TEST_ASSERT_EQUAL(1, layout.getSelectedIndex());  // index 1 means offset was applied
 }
 
 void test_horizontal_layout_scroll_to_selected() {
@@ -608,7 +623,8 @@ void test_horizontal_layout_scroll_to_selected() {
     layout.addElement(btn2.get());
     
     layout.setSelectedIndex(1);
-    TEST_ASSERT_TRUE(true);
+    // Verify selected index is 1
+    TEST_ASSERT_EQUAL(1, layout.getSelectedIndex());
 }
 
 // =============================================================================
@@ -678,7 +694,8 @@ void test_horizontal_layout_handle_input_with_selection() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Verify selected index is preserved after handleInput
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
 }
 
 void test_vertical_layout_handle_input_with_selection() {
@@ -694,7 +711,8 @@ void test_vertical_layout_handle_input_with_selection() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Verify selection state maintained
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
 }
 
 void test_grid_layout_handle_input_with_selection() {
@@ -711,7 +729,8 @@ void test_grid_layout_handle_input_with_selection() {
     pixelroot32::input::InputConfig config;
     pixelroot32::input::InputManager input(config);
     layout.handleInput(input);
-    TEST_ASSERT_TRUE(true);
+    // Verify grid layout selection preserved
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
 }
 
 void test_horizontal_layout_ensure_visible() {
@@ -724,7 +743,8 @@ void test_horizontal_layout_ensure_visible() {
     layout.addElement(btn2.get());
     
     layout.setSelectedIndex(1);
-    TEST_ASSERT_TRUE(true);
+    // Verify index 1 is selected
+    TEST_ASSERT_EQUAL(1, layout.getSelectedIndex());
 }
 
 void test_vertical_layout_ensure_visible() {
@@ -737,7 +757,8 @@ void test_vertical_layout_ensure_visible() {
     layout.addElement(btn2.get());
     
     layout.setSelectedIndex(1);
-    TEST_ASSERT_TRUE(true);
+    // Verify vertical layout index
+    TEST_ASSERT_EQUAL(1, layout.getSelectedIndex());
 }
 
 // =============================================================================
@@ -787,7 +808,8 @@ void test_vertical_layout_protected_calculate_content_height() {
     
     // Call protected method directly
     layout.calculateContentHeight();
-    TEST_ASSERT_TRUE(true);
+    // Dimensions unchanged after calculation
+    TEST_ASSERT_EQUAL(200, layout.height);
 }
 
 void test_vertical_layout_protected_update_element_visibility() {
@@ -798,7 +820,8 @@ void test_vertical_layout_protected_update_element_visibility() {
     
     // Call protected method directly
     layout.updateElementVisibility();
-    TEST_ASSERT_TRUE(true);
+    // Verify element count unchanged
+    TEST_ASSERT_EQUAL(1, layout.getElementCount());
 }
 
 void test_vertical_layout_protected_clamp_scroll() {
@@ -806,7 +829,8 @@ void test_vertical_layout_protected_clamp_scroll() {
     
     // Call protected method directly
     layout.clampScrollOffset();
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged after clamp
+    TEST_ASSERT_EQUAL(0, layout.position.x);
 }
 
 void test_horizontal_layout_protected_calculate_content_width() {
@@ -817,7 +841,8 @@ void test_horizontal_layout_protected_calculate_content_width() {
     
     // Call protected method directly
     layout.calculateContentWidth();
-    TEST_ASSERT_TRUE(true);
+    // Width unchanged after calculation
+    TEST_ASSERT_EQUAL(200, layout.width);
 }
 
 void test_horizontal_layout_protected_update_element_visibility() {
@@ -828,7 +853,8 @@ void test_horizontal_layout_protected_update_element_visibility() {
     
     // Call protected method directly
     layout.updateElementVisibility();
-    TEST_ASSERT_TRUE(true);
+    // Verify element count
+    TEST_ASSERT_EQUAL(1, layout.getElementCount());
 }
 
 void test_horizontal_layout_protected_clamp_scroll() {
@@ -836,7 +862,8 @@ void test_horizontal_layout_protected_clamp_scroll() {
     
     // Call protected method directly
     layout.clampScrollOffset();
-    TEST_ASSERT_TRUE(true);
+    // Verify height unchanged
+    TEST_ASSERT_EQUAL(50, layout.height);
 }
 
 void test_grid_layout_protected_calculate_rows() {
@@ -850,7 +877,8 @@ void test_grid_layout_protected_calculate_rows() {
     
     // Call protected method directly
     layout.calculateRows();
-    TEST_ASSERT_TRUE(true);
+    // Verify element count preserved
+    TEST_ASSERT_EQUAL(2, layout.getElementCount());
 }
 
 void test_grid_layout_protected_calculate_cell_dimensions() {
@@ -862,5 +890,6 @@ void test_grid_layout_protected_calculate_cell_dimensions() {
     
     // Call protected method directly
     layout.calculateCellDimensions();
-    TEST_ASSERT_TRUE(true);
+    // Verify width unchanged
+    TEST_ASSERT_EQUAL(100, layout.width);
 }

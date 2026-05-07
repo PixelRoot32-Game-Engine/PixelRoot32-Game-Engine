@@ -88,8 +88,9 @@ void test_particle_emitter_constructor_basic(void) {
     // Should not crash
     ParticleEmitter emitter(pos, cfg);
     
-    // Basic verification through existence
-    TEST_ASSERT_TRUE(true);
+    // Verify position was set correctly
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_constructor_at_origin(void) {
@@ -99,7 +100,9 @@ void test_particle_emitter_constructor_at_origin(void) {
     // Should not crash
     ParticleEmitter emitter(pos, cfg);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify origin position
+    TEST_ASSERT_EQUAL(0, emitter.position.x);
+    TEST_ASSERT_EQUAL(0, emitter.position.y);
 }
 
 void test_particle_emitter_constructor_different_positions(void) {
@@ -110,11 +113,14 @@ void test_particle_emitter_constructor_different_positions(void) {
     ParticleEmitter emitter2(Vector2(100, 50), cfg);
     ParticleEmitter emitter3(Vector2(-50, -100), cfg);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify each emitter has correct position
+    TEST_ASSERT_EQUAL(0, emitter1.position.x);
+    TEST_ASSERT_EQUAL(100, emitter2.position.x);
+    TEST_ASSERT_EQUAL(-50, emitter3.position.x);
 }
 
 // =============================================================================
-// Burst tests - only verify no crash, cannot verify internal state
+// Burst tests - verify emitter state after burst
 // =============================================================================
 
 void test_particle_emitter_burst_basic(void) {
@@ -125,7 +131,9 @@ void test_particle_emitter_burst_basic(void) {
     // Should not crash - burst particles
     emitter.burst(pos, 5);
     
-    TEST_ASSERT_TRUE(true);
+    // Emitter position unchanged after burst
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_burst_zero_count(void) {
@@ -136,7 +144,8 @@ void test_particle_emitter_burst_zero_count(void) {
     // Edge case: burst with 0 particles should not crash
     emitter.burst(pos, 0);
     
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
 }
 
 void test_particle_emitter_burst_larger_count(void) {
@@ -147,19 +156,23 @@ void test_particle_emitter_burst_larger_count(void) {
     // Burst more than MAX_PARTICLES - should just cap at max
     emitter.burst(pos, 100);
     
-    TEST_ASSERT_TRUE(true);
+    // Position still unchanged
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_burst_at_different_positions(void) {
     ParticleConfig cfg = createBasicConfig();
     ParticleEmitter emitter(Vector2(0, 0), cfg);
     
-    // Burst at different positions
+    // Burst at different positions - emitter position stays at origin
     emitter.burst(Vector2(10, 20), 3);
+    TEST_ASSERT_EQUAL(0, emitter.position.x);
     emitter.burst(Vector2(50, 60), 2);
+    TEST_ASSERT_EQUAL(0, emitter.position.y);
     emitter.burst(Vector2(-10, -5), 1);
-    
-    TEST_ASSERT_TRUE(true);
+    // Still at origin
+    TEST_ASSERT_EQUAL(0, emitter.position.x);
 }
 
 void test_particle_emitter_multiple_bursts(void) {
@@ -172,11 +185,13 @@ void test_particle_emitter_multiple_bursts(void) {
     emitter.burst(pos, 5);
     emitter.burst(pos, 5);
     
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged after multiple bursts
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 // =============================================================================
-// Update tests - requires engine setup for screen dimensions
+// Update tests - verify position stability
 // =============================================================================
 
 void test_particle_emitter_update_basic(void) {
@@ -190,7 +205,9 @@ void test_particle_emitter_update_basic(void) {
     unsigned long deltaTime = 16;
     emitter.update(deltaTime);
     
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged after update
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_update_zero_delta(void) {
@@ -203,7 +220,8 @@ void test_particle_emitter_update_zero_delta(void) {
     // Edge case: zero delta time
     emitter.update(0);
     
-    TEST_ASSERT_TRUE(true);
+    // Position stable with zero delta
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
 }
 
 void test_particle_emitter_update_large_delta(void) {
@@ -216,7 +234,9 @@ void test_particle_emitter_update_large_delta(void) {
     // Edge case: very large delta time
     emitter.update(1000);
     
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged even with large delta
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_update_no_burst(void) {
@@ -227,7 +247,8 @@ void test_particle_emitter_update_no_burst(void) {
     // Update without any particles - should not crash
     emitter.update(16);
     
-    TEST_ASSERT_TRUE(true);
+    // Position unchanged
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
 }
 
 // =============================================================================
@@ -264,7 +285,9 @@ void test_particle_emitter_draw_basic(void) {
     // Draw should not crash
     emitter.draw(renderer);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify dimensions unchanged after draw
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_draw_no_burst(void) {
@@ -279,7 +302,9 @@ void test_particle_emitter_draw_no_burst(void) {
     // Draw without any particles - should still work
     emitter.draw(renderer);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify dimensions unchanged after draw (no state modification)
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_draw_with_fade_color(void) {
@@ -297,7 +322,9 @@ void test_particle_emitter_draw_with_fade_color(void) {
     // Draw with color fading
     emitter.draw(renderer);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify dimensions unchanged after draw
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 // =============================================================================
@@ -318,7 +345,9 @@ void test_particle_emitter_update_then_draw(void) {
     emitter.update(16);
     emitter.draw(renderer);
     
-    TEST_ASSERT_TRUE(true);
+    // Verify dimensions unchanged after full cycle
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_multiple_updates(void) {
@@ -328,12 +357,14 @@ void test_particle_emitter_multiple_updates(void) {
     
     emitter.burst(pos, 3);
     
-    // Multiple updates
+    // Multiple updates - verify position unchanged
     for (int i = 0; i < 10; i++) {
         emitter.update(16);
     }
     
-    TEST_ASSERT_TRUE(true);
+    // Verify position unchanged after multiple updates
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 void test_particle_emitter_full_lifecycle(void) {
@@ -354,7 +385,9 @@ void test_particle_emitter_full_lifecycle(void) {
         emitter.draw(renderer);
     }
     
-    TEST_ASSERT_TRUE(true);
+    // Verify dimensions unchanged after full lifecycle
+    TEST_ASSERT_EQUAL(100, emitter.position.x);
+    TEST_ASSERT_EQUAL(100, emitter.position.y);
 }
 
 // =============================================================================
