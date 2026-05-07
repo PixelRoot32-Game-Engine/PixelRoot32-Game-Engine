@@ -20,9 +20,10 @@ namespace pixelroot32::audio {
     }
 
     void ESP32AudioScheduler::init(AudioBackend* be, int sampleRate,
-                                   const platforms::PlatformCapabilities& /*caps*/) {
+                                   const platforms::PlatformCapabilities& /*caps*/, int blkSize) {
         backend = be;
         apu.init(sampleRate);
+        blockSize = blkSize;
     }
 
     void ESP32AudioScheduler::submitCommand(const AudioCommand& cmd) {

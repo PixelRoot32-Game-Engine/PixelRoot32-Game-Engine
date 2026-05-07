@@ -32,7 +32,7 @@ namespace pixelroot32::audio {
         ~ESP32AudioScheduler() override;
 
         void init(AudioBackend* backend, int sampleRate,
-                  const pixelroot32::platforms::PlatformCapabilities& caps) override;
+                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
@@ -50,6 +50,7 @@ namespace pixelroot32::audio {
         AudioBackend* backend = nullptr;
         TaskHandle_t taskHandle = nullptr;
         volatile bool running = false;
+        int blockSize = 256;
     };
 
 } // namespace pixelroot32::audio

@@ -156,8 +156,8 @@ See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architec
 
 | Platform | Mixer | Noise (typical) | Audio execution |
 |----------|--------|-----------------|-----------------|
-| **ESP32 (FPU)** | Float + soft clip | Clocked LFSR | Backend task; core from `PlatformCapabilities` |
-| **ESP32-C3 (no FPU)** | LUT | Clocked LFSR | Same; integer LUT mix |
+| **ESP32 (FPU)** | Float + soft clip + HPF | Clocked LFSR | Backend task; core from `PlatformCapabilities` |
+| **ESP32-C3 (no FPU)** | LUT + Fixed-Point HPF | Clocked LFSR + Integer LFO | Same; integer path with LFO and HPF |
 | **PC (native)** | Float + soft clip + HPF | Same LFSR as firmware | `std::thread` + ring buffer → SDL2 callback |
 
 ## Best practices

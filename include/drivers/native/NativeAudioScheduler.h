@@ -32,7 +32,7 @@ namespace pixelroot32::audio {
         ~NativeAudioScheduler() override;
 
         void init(AudioBackend* backend, int sampleRate,
-                  const pixelroot32::platforms::PlatformCapabilities& caps) override;
+                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
@@ -55,6 +55,7 @@ namespace pixelroot32::audio {
         std::atomic<size_t> rbReadPos{0};
         std::atomic<size_t> rbWritePos{0};
         size_t rbCapacity;
+        int blockSize = 256;
 
         void threadLoop();
 

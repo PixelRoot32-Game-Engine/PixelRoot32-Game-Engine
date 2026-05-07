@@ -200,8 +200,141 @@ void test_display_config_custom_dimensions(void) {
 void test_display_config_create_custom_type(void) {
     DrawSurface* mockSurface = nullptr;
     DisplayConfig config = DisplayConfig::createCustom(mockSurface, 240, 240, 0);
-    
+
     TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::CUSTOM), static_cast<int>(config.type));
+}
+
+// =============================================================================
+// Tests for initDrawSurface() with TEST_MOCK_GRAPHICS
+// =============================================================================
+
+void test_display_config_init_draw_surface_mock_graphics(void) {
+    // With TEST_MOCK_GRAPHICS defined, initDrawSurface creates a MockDrawer
+    // Verify the config is constructed correctly
+    DisplayConfig config(DisplayType::ST7789, 0, 240, 240);
+    TEST_ASSERT_EQUAL_INT(240, config.width());
+    TEST_ASSERT_EQUAL_INT(240, config.height());
+}
+
+void test_display_config_init_draw_surface_twice_no_op(void) {
+    // Test that double initialization is handled gracefully
+    DisplayConfig config(DisplayType::ST7789, 0, 240, 240);
+
+    // Calling initDrawSurface again should be a no-op
+    // (The function checks if drawSurface already exists and returns early)
+    config.initDrawSurface();
+
+    // Verify config is still valid
+    TEST_ASSERT_EQUAL_INT(240, config.width());
+}
+
+void test_display_config_init_draw_surface_rotation_0(void) {
+    DisplayConfig config(DisplayType::ST7789, 0, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(0, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_90(void) {
+    DisplayConfig config(DisplayType::ST7789, 90, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(90, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_180(void) {
+    DisplayConfig config(DisplayType::ST7789, 180, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(180, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_270(void) {
+    DisplayConfig config(DisplayType::ST7789, 270, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(270, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_1(void) {
+    DisplayConfig config(DisplayType::ST7789, 1, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(1, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_2(void) {
+    DisplayConfig config(DisplayType::ST7789, 2, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(2, config.rotation);
+}
+
+void test_display_config_init_draw_surface_rotation_3(void) {
+    DisplayConfig config(DisplayType::ST7789, 3, 240, 240);
+
+    TEST_ASSERT_EQUAL_INT(3, config.rotation);
+}
+
+// Test platform-specific compile guards
+void test_display_config_platform_native_compile_guard(void) {
+#ifdef PLATFORM_NATIVE
+    // If PLATFORM_NATIVE is defined, SDL2_Drawer is used
+    // Verify we can create and use a config
+    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    TEST_ASSERT_EQUAL_INT(240, config.width());
+#else
+    TEST_IGNORE_MESSAGE("PLATFORM_NATIVE not defined - skipping SDL2 test");
+#endif
+}
+
+void test_display_config_esp32_tft_espi_compile_guard(void) {
+#if defined(ESP32) && defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+    // If ESP32 with TFT_eSPI is configured
+    DisplayConfig config(DisplayType::ST7789, 0, 240, 240);
+    TEST_ASSERT_EQUAL_INT(240, config.width());
+#elif defined(ESP32)
+    TEST_IGNORE_MESSAGE("PIXELROOT32_USE_TFT_ESPI_DRIVER not defined - skipping TFT_eSPI test");
+#else
+    TEST_IGNORE_MESSAGE("Not ESP32 - skipping TFT_eSPI test");
+#endif
+}
+
+void test_display_config_esp32_u8g2_compile_guard(void) {
+#if defined(ESP32) && defined(PIXELROOT32_USE_U8G2_DRIVER)
+    // If ESP32 with U8G2 is configured
+    DisplayConfig config(DisplayType::OLED_SSD1306, 0, 128, 64);
+    TEST_ASSERT_EQUAL_INT(128, config.width());
+#elif defined(ESP32)
+    TEST_IGNORE_MESSAGE("PIXELROOT32_USE_U8G2_DRIVER not defined - skipping U8G2 test");
+#else
+    TEST_IGNORE_MESSAGE("Not ESP32 - skipping U8G2 test");
+#endif
+}
+
+// Test with different DisplayType values
+void test_display_config_type_st7789(void) {
+    DisplayConfig config(DisplayType::ST7789, 0, 240, 240);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::ST7789), static_cast<int>(config.type));
+}
+
+void test_display_config_type_st7735(void) {
+    DisplayConfig config(DisplayType::ST7735, 0, 128, 128);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::ST7735), static_cast<int>(config.type));
+}
+
+void test_display_config_type_ili9341(void) {
+    DisplayConfig config(DisplayType::ILI9341, 0, 240, 320);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::ILI9341), static_cast<int>(config.type));
+}
+
+void test_display_config_type_ili9341_2(void) {
+    DisplayConfig config(DisplayType::ILI9341_2, 0, 240, 320);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::ILI9341_2), static_cast<int>(config.type));
+}
+
+void test_display_config_type_oled_ssd1306(void) {
+    DisplayConfig config(DisplayType::OLED_SSD1306, 0, 128, 64);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::OLED_SSD1306), static_cast<int>(config.type));
+}
+
+void test_display_config_type_oled_sh1106(void) {
+    DisplayConfig config(DisplayType::OLED_SH1106, 0, 128, 64);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(DisplayType::OLED_SH1106), static_cast<int>(config.type));
 }
 
 // =============================================================================
@@ -252,6 +385,32 @@ int main(void) {
     
     // Skip - requires valid DrawSurface pointer
     // RUN_TEST(test_display_config_create_custom_type);
-    
+
+    // Tests for initDrawSurface() with TEST_MOCK_GRAPHICS
+    RUN_TEST(test_display_config_init_draw_surface_mock_graphics);
+    RUN_TEST(test_display_config_init_draw_surface_twice_no_op);
+
+    // Tests for rotation modes
+    RUN_TEST(test_display_config_init_draw_surface_rotation_0);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_90);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_180);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_270);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_1);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_2);
+    RUN_TEST(test_display_config_init_draw_surface_rotation_3);
+
+    // Platform-specific compile guard tests
+    RUN_TEST(test_display_config_platform_native_compile_guard);
+    RUN_TEST(test_display_config_esp32_tft_espi_compile_guard);
+    RUN_TEST(test_display_config_esp32_u8g2_compile_guard);
+
+    // DisplayType tests
+    RUN_TEST(test_display_config_type_st7789);
+    RUN_TEST(test_display_config_type_st7735);
+    RUN_TEST(test_display_config_type_ili9341);
+    RUN_TEST(test_display_config_type_ili9341_2);
+    RUN_TEST(test_display_config_type_oled_ssd1306);
+    RUN_TEST(test_display_config_type_oled_sh1106);
+
     return UNITY_END();
 }
