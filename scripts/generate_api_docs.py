@@ -649,11 +649,6 @@ def generate_index_markdown(modules: Dict[str, List[ClassDoc]], output_dir: str)
     lines.append("")
     lines.append("Auto-generated API documentation from C++ header files.")
     lines.append("")
-    lines.append("::: warning Generated Content")
-    lines.append("These files are automatically generated from header comments.")
-    lines.append("Do not edit manually. Run `python scripts/generate_api_docs.py` to regenerate.")
-    lines.append(":::")
-    lines.append("")
     
     # Table of contents by module
     for module in sorted(modules.keys()):

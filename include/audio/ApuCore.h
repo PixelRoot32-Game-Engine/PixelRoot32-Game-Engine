@@ -139,6 +139,10 @@ namespace pixelroot32::audio {
         float hpfPrevIn = 0.0f;
         float hpfPrevOut = 0.0f;
 
+        // Q15 HPF state for no-FPU path (ESP32-C3, RISC-V cores)
+        int32_t hpfPrevInQ15 = 0;
+        int32_t hpfPrevOutQ15 = 0;
+
         // -- Profiling ring buffer (thread-safe offload) --------------------
         ProfileEntry profileRing[PROFILE_RING_SIZE];
         uint8_t profileHead = 0;

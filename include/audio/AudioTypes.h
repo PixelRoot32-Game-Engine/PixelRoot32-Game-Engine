@@ -107,6 +107,10 @@ namespace pixelroot32::audio {
         uint32_t sampleCounter = 0;
         float currentValue = 0.0f;
 
+        // Q15 fixed-point fields for no-FPU path
+        int32_t depthQ15 = 0;           // 0-32768 maps to 0.0-1.0
+        int32_t currentValueQ15 = 0;     // -32768 to +32768 maps to -1.0 to +1.0
+
         uint16_t delaySamples = 0;
         uint16_t delayCounter = 0;
         
@@ -117,6 +121,9 @@ namespace pixelroot32::audio {
             periodSamples = 0;
             sampleCounter = 0;
             currentValue = 0.0f;
+            // Reset Q15 fields for no-FPU path
+            depthQ15 = 0;
+            currentValueQ15 = 0;
             delaySamples = 0;
             delayCounter = 0;
         }

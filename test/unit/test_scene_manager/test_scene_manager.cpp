@@ -28,6 +28,7 @@ public:
     bool updateCalled = false;
     bool drawCalled = false;
     unsigned long lastDeltaTime = 0;
+    bool shouldRedraw = true;  // Default to true for aggregateShouldRedrawFramebuffer tests
     
     virtual ~MockScene() {}
     virtual void init() override { initCalled = true; }
@@ -38,6 +39,9 @@ public:
     virtual void draw(Renderer& renderer) override { 
         (void)renderer;
         drawCalled = true; 
+    }
+    virtual bool shouldRedrawFramebuffer() const override {
+        return shouldRedraw;
     }
     void reset() {
         initCalled = false;
@@ -205,6 +209,113 @@ void test_scene_manager_draw(void) {
     TEST_ASSERT_TRUE(scene2.drawCalled);
 }
 
+// =============================================================================
+// FASE 2 coverage expansion tests
+// =============================================================================
+
+void test_scene_manager_aggregate_should_redraw_framebuffer_empty_stack(void) {
+    // Test empty stack - should return true (needs redraw)
+    SceneManager manager;
+    TEST_ASSERT_TRUE(manager.aggregateShouldRedrawFramebuffer());
+}
+
+void test_scene_manager_aggregate_should_redraw_framebuffer_with_scene(void) {
+    // Test stack with scene that needs redraw
+    SceneManager manager;
+    MockScene scene;
+    scene.shouldRedraw = true;
+    manager.pushScene(&scene);
+    
+    TEST_ASSERT_TRUE(manager.aggregateShouldRedrawFramebuffer());
+}
+
+void test_scene_manager_aggregate_should_redraw_framebuffer_no_redraw_needed(void) {
+    // Test stack where no scene needs redraw
+    SceneManager manager;
+    MockScene scene;
+    scene.shouldRedraw = false;
+    manager.pushScene(&scene);
+    
+    TEST_ASSERT_FALSE(manager.aggregateShouldRedrawFramebuffer());
+}
+
+void test_scene_manager_aggregate_should_redraw_multiple_scenes(void) {
+    // Test with multiple scenes - one needs redraw
+    SceneManager manager;
+    MockScene scene1;
+    MockScene scene2;
+    scene1.shouldRedraw = false;
+    scene2.shouldRedraw = true;
+    manager.pushScene(&scene1);
+    manager.pushScene(&scene2);
+    
+    // Should return true if any scene needs redraw
+    TEST_ASSERT_TRUE(manager.aggregateShouldRedrawFramebuffer());
+}
+
+void test_scene_manager_aggregate_no_redraw_when_none_need_it(void) {
+    // Test with multiple scenes - none need redraw
+    SceneManager manager;
+    MockScene scene1;
+    MockScene scene2;
+    scene1.shouldRedraw = false;
+    scene2.shouldRedraw = false;
+    manager.pushScene(&scene1);
+    manager.pushScene(&scene2);
+    
+    TEST_ASSERT_FALSE(manager.aggregateShouldRedrawFramebuffer());
+}
+
+void test_scene_manager_draw_empty_stack(void) {
+    // Test drawing with empty stack - should not crash
+    SceneManager manager;
+    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    Renderer renderer(config);
+    
+    manager.draw(renderer);
+    // Verify manager is still functional - scene count should be 0
+    TEST_ASSERT_EQUAL_INT(0, manager.getSceneCount());
+}
+
+void test_scene_manager_push_scene_at_max_boundary(void) {
+    // Test push at MaxScenes boundary - last valid push
+    SceneManager manager;
+    MockScene scenes[pixelroot32::platforms::config::MaxScenes];
+    
+    // Push exactly MaxScenes scenes
+    for (int i = 0; i < pixelroot32::platforms::config::MaxScenes; i++) {
+        manager.pushScene(&scenes[i]);
+    }
+    
+    TEST_ASSERT_EQUAL_INT(pixelroot32::platforms::config::MaxScenes, manager.getSceneCount());
+    
+    // Push one more - should be ignored
+    MockScene extraScene;
+    manager.pushScene(&extraScene);
+    
+    // Count should remain at MaxScenes
+    TEST_ASSERT_EQUAL_INT(pixelroot32::platforms::config::MaxScenes, manager.getSceneCount());
+}
+
+void test_scene_manager_set_current_scene_clears_existing_stack(void) {
+    // Test that setCurrentScene clears the existing stack
+    SceneManager manager;
+    MockScene scene1;
+    MockScene scene2;
+    MockScene scene3;
+    
+    // Push multiple scenes
+    manager.pushScene(&scene1);
+    manager.pushScene(&scene2);
+    TEST_ASSERT_EQUAL_INT(2, manager.getSceneCount());
+    
+    // Replace with new scene - should clear stack
+    manager.setCurrentScene(&scene3);
+    
+    TEST_ASSERT_EQUAL_INT(1, manager.getSceneCount());
+    TEST_ASSERT_EQUAL(&scene3, manager.getCurrentScene().value());
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
@@ -219,6 +330,16 @@ int main(int argc, char **argv) {
     RUN_TEST(test_scene_manager_pop_empty_stack);
     RUN_TEST(test_scene_manager_update);
     RUN_TEST(test_scene_manager_draw);
+    
+    // FASE 2 coverage expansion tests
+    RUN_TEST(test_scene_manager_aggregate_should_redraw_framebuffer_empty_stack);
+    RUN_TEST(test_scene_manager_aggregate_should_redraw_framebuffer_with_scene);
+    RUN_TEST(test_scene_manager_aggregate_should_redraw_framebuffer_no_redraw_needed);
+    RUN_TEST(test_scene_manager_aggregate_should_redraw_multiple_scenes);
+    RUN_TEST(test_scene_manager_aggregate_no_redraw_when_none_need_it);
+    RUN_TEST(test_scene_manager_draw_empty_stack);
+    RUN_TEST(test_scene_manager_push_scene_at_max_boundary);
+    RUN_TEST(test_scene_manager_set_current_scene_clears_existing_stack);
     
     return UNITY_END();
 }

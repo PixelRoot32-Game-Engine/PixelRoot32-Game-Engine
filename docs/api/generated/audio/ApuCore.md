@@ -54,3 +54,7 @@ On cores without an FPU (ESP32-C3) the integer-optimised path uses
 ### `void setPostMixMono(void (*fn)(int16_t* mono, int length, void* user), void* user)`
 
 ### `void getAndResetProfileStats(ProfileEntry* out, uint8_t& count)`
+
+### `size_t countEnabledVoicesForTesting() const`
+
+### `size_t getSequencerMainNoteIndexForTesting() const`

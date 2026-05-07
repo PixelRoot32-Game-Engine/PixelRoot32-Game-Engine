@@ -14,3 +14,4 @@ Configuration for the Audio subsystem.
 |------|------|-------------|
 | `backend` | `AudioBackend*` | Pointer to the platform-specific audio backend. |
 | `sampleRate` | `int` | Desired sample rate in Hz. |
+| `blockSize` | `int` | Audio block size (samples). Must be multiple of 128. |

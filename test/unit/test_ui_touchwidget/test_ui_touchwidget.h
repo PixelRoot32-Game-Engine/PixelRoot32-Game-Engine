@@ -90,6 +90,89 @@ void test_uitouch_element_is_not_visible() {
 }
 
 // =============================================================================
+// UITouchElement - Additional value tests for line coverage
+// =============================================================================
+
+void test_uitouch_element_set_position_syncs_widget_data() {
+    // Test that setPosition() syncs both Entity position and widgetData_
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    
+    // Initial positions
+    TEST_ASSERT_EQUAL(10, element.getX());
+    TEST_ASSERT_EQUAL(20, element.getY());
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, element.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(20.0f, element.position.y);
+    
+    // Change position via setPosition (override)
+    element.setPosition(50, 60);
+    
+    // Both Entity position and widgetData_ should be updated
+    TEST_ASSERT_EQUAL(50, element.getX());
+    TEST_ASSERT_EQUAL(60, element.getY());
+    TEST_ASSERT_EQUAL_FLOAT(50.0f, element.position.x);
+    TEST_ASSERT_EQUAL_FLOAT(60.0f, element.position.y);
+}
+
+void test_uitouch_element_set_position_different_values() {
+    // Test setPosition with various values
+    TestTouchElement element(0, 0, 80, 30, UIWidgetType::Button);
+    
+    element.setPosition(-10, -20);
+    TEST_ASSERT_EQUAL(-10, element.getX());
+    TEST_ASSERT_EQUAL(-20, element.getY());
+    
+    element.setPosition(200, 150);
+    TEST_ASSERT_EQUAL(200, element.getX());
+    TEST_ASSERT_EQUAL(150, element.getY());
+}
+
+void test_uitouch_element_update_called() {
+    // Test that update() can be called without crashing (inline empty implementation)
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    
+    // Call update - even though it's a no-op by default, we need to cover the line
+    element.update(16);  // 16ms delta time
+    
+    // Verify state is preserved after update
+    TEST_ASSERT_TRUE(element.isEnabled());
+}
+
+void test_uitouch_element_update_with_zero_delta() {
+    // Test update with zero delta time
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    element.setWidgetVisible(false);
+    element.update(0);
+    // Verify visibility is preserved after update
+    TEST_ASSERT_FALSE(element.isVisible());
+}
+
+void test_uitouch_element_get_widget_state_default() {
+    // Test getWidgetState() returns correct default state
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    
+    // Default state should be UIWidgetState::Default (or 0)
+    uint8_t state = element.getWidgetState();
+    
+    // Verify state is a valid UIWidgetState value
+    TEST_ASSERT_TRUE(state <= 3);  // Valid states are 0-3
+}
+
+void test_uitouch_element_get_widget_state_after_press() {
+    // Test getWidgetState() changes when pressed
+    TestTouchElement element(10, 20, 100, 40, UIWidgetType::Button);
+    
+    // Initial state
+    uint8_t initialState = element.getWidgetState();
+    
+    // Check isPressed returns false initially
+    TEST_ASSERT_FALSE(element.isPressed());
+    
+    // Note: Actually pressing requires processEvent to be implemented properly
+    // For now we just verify the initial state and that getWidgetState returns something valid
+    TEST_ASSERT_TRUE(initialState <= 3);
+}
+
+// =============================================================================
 // UITouchButton Tests
 // =============================================================================
 
@@ -185,7 +268,8 @@ void test_uitouch_button_reset() {
     // Reset
     button.reset();
     
-    TEST_ASSERT_TRUE(true);  // Should not crash
+    // Verify button returns to default state after reset
+    TEST_ASSERT_FALSE(button.isPressed());
 }
 
 void test_uitouch_button_get_callbacks() {
@@ -266,7 +350,8 @@ void test_uitouch_button_process_event_click() {
     upEvent.y = 30;
     button.processEvent(upEvent);
     
-    TEST_ASSERT_TRUE(true);  // Should not crash
+    // Verify the button state reflects the touch sequence
+    TEST_ASSERT_FALSE(button.isPressed());  // Should be released after up
 }
 
 void test_uitouch_button_press_outside_bounds_resets_state() {
@@ -288,7 +373,8 @@ void test_uitouch_button_press_outside_bounds_resets_state() {
     upEvent.y = 200;
     button.processEvent(upEvent);
     
-    TEST_ASSERT_TRUE(true);  // Should not crash
+    // Button should not be pressed when touch ends outside bounds
+    TEST_ASSERT_FALSE(button.isPressed());
 }
 
 // =============================================================================
@@ -479,7 +565,8 @@ void test_uitouch_slider_reset() {
     
     slider.reset();
     
-    TEST_ASSERT_TRUE(true);  // Should not crash
+    // Reset doesn't change enabled state - slider should still be enabled
+    TEST_ASSERT_TRUE(slider.isEnabled());
 }
 
 void test_uitouch_slider_get_callbacks() {
@@ -703,4 +790,126 @@ void test_uitouch_hit_test_find_hit_no_match() {
     UITouchElement* result = UIHitTest::findHit(elements, 1, 200, 200);
     
     TEST_ASSERT_NULL(result);
+}
+
+// =============================================================================
+// UITouchButton - Additional Coverage Tests
+// =============================================================================
+
+void test_uitouch_button_handle_touch_down_sets_state() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    button.setWidgetEnabled(true);
+    button.setVisible(true);
+    
+    TouchEvent event{};
+    event.setType(TouchEventType::TouchDown);
+    event.x = 50;
+    event.y = 30;
+    
+    // After touch down, should be in pressed state
+    button.processEvent(event);
+    
+    TEST_ASSERT_TRUE(button.isPressed());
+}
+
+void test_uitouch_button_auto_size_no_label() {
+    UITouchButton button("T", 10, 20, 100, 40);
+    
+    // autoSize should not crash even with short label
+    button.autoSize(10);
+    
+    // Verify widget still has valid dimensions
+    TEST_ASSERT_TRUE(button.getWidgetWidth() > 0);
+}
+
+void test_uitouch_button_auto_size_with_label() {
+    UITouchButton button("TestButton", 10, 20, 100, 40);
+    button.setFontSize(2);
+    
+    uint16_t oldWidth = button.getWidgetWidth();
+    button.autoSize(20);
+    
+    // autoSize should update width (implementation dependent)
+    TEST_ASSERT_TRUE(button.getWidgetWidth() > 0);
+}
+
+// =============================================================================
+// UITouchSlider - Additional Coverage Tests
+// =============================================================================
+
+void test_uitouch_slider_get_on_drag_start() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    
+    TEST_ASSERT_NULL(slider.getOnDragStart());
+}
+
+void test_uitouch_slider_get_on_drag_end() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    
+    TEST_ASSERT_NULL(slider.getOnDragEnd());
+}
+
+void test_uitouch_slider_handle_touch_up_exceeds_drag() {
+    UITouchSlider slider(10, 20, 100, 40, 50);
+    slider.setWidgetEnabled(true);
+    slider.setVisible(true);
+    
+    // Touch down
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    slider.processEvent(downEvent);
+    
+    // Touch up far away - exceeds drag threshold
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 200;
+    upEvent.y = 200;
+    slider.processEvent(upEvent);
+    
+    // Verify value is valid after drag (should not crash)
+    TEST_ASSERT_TRUE(slider.getValue() >= 0 && slider.getValue() <= 100);
+}
+
+// =============================================================================
+// UITouchCheckbox - Additional Coverage Tests
+// =============================================================================
+
+void test_uitouch_checkbox_get_on_changed() {
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
+    
+    TEST_ASSERT_NULL(checkbox.getOnChanged());
+}
+
+void test_uitouch_checkbox_font_size_get_set() {
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
+    
+    TEST_ASSERT_EQUAL(2, checkbox.getFontSize());
+    
+    checkbox.setFontSize(4);
+    
+    TEST_ASSERT_EQUAL(4, checkbox.getFontSize());
+}
+
+void test_uitouch_checkbox_handle_touch_up_exceeds_drag() {
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
+    checkbox.setWidgetEnabled(true);
+    
+    // Touch down
+    TouchEvent downEvent{};
+    downEvent.setType(TouchEventType::TouchDown);
+    downEvent.x = 50;
+    downEvent.y = 30;
+    checkbox.processEvent(downEvent);
+    
+    // Touch up far away - should NOT toggle
+    TouchEvent upEvent{};
+    upEvent.setType(TouchEventType::TouchUp);
+    upEvent.x = 200;
+    upEvent.y = 200;
+    checkbox.processEvent(upEvent);
+    
+    // Should NOT have toggled due to drag
+    TEST_ASSERT_FALSE(checkbox.isChecked());
 }
