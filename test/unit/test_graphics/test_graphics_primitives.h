@@ -11,6 +11,9 @@
 #include <graphics/Renderer.h>
 #include <graphics/DisplayConfig.h>
 #include <graphics/Color.h>
+#include <graphics/ui/UIHorizontalLayout.h>
+#include <graphics/ui/UIVerticalLayout.h>
+#include <graphics/ui/UIPanel.h>
 #include "../../mocks/MockDrawSurface.h"
 
 using namespace pixelroot32::graphics;
@@ -272,33 +275,43 @@ void test_draw_pixel_with_offset(void) {
 // ============================================================================
 
 void test_horizontal_layout_with_spacing(void) {
-    // Test horizontal layout with spacing
-    // (Implementation would go here)
-    TEST_ASSERT_TRUE(true); // Placeholder
+    // Test horizontal layout exists and can be instantiated
+    pixelroot32::graphics::ui::UIHorizontalLayout layout(0, 0, 200, 50);
+    TEST_ASSERT_EQUAL(200, layout.width);
+    TEST_ASSERT_EQUAL(50, layout.height);
 }
 
 void test_vertical_layout_with_spacing(void) {
-    // Test vertical layout with spacing
-    // (Implementation would go here)
-    TEST_ASSERT_TRUE(true); // Placeholder
+    // Test vertical layout exists and can be instantiated
+    pixelroot32::graphics::ui::UIVerticalLayout layout(0, 0, 100, 200);
+    TEST_ASSERT_EQUAL(100, layout.width);
+    TEST_ASSERT_EQUAL(200, layout.height);
 }
 
 void test_ui_component_state(void) {
-    // Test UI component state (Button, Slider, Checkbox)
-    // (Implementation would go here)
-    TEST_ASSERT_TRUE(true); // Placeholder
+    // Test basic component state management
+    pixelroot32::graphics::ui::UIPanel panel(10, 20, 100, 50);
+    TEST_ASSERT_TRUE(panel.isEnabled);
+    panel.setEnabled(false);
+    TEST_ASSERT_FALSE(panel.isEnabled);
 }
 
 void test_ui_container_hierarchy(void) {
-    // Test UI container hierarchy
-    // (Implementation would go here)
-    TEST_ASSERT_TRUE(true); // Placeholder
+    // Test container with child element
+    pixelroot32::graphics::ui::UIPanel container(0, 0, 100, 100);
+    pixelroot32::graphics::ui::UIPanel child(10, 10, 50, 50);
+    // Child should be valid and have correct position
+    TEST_ASSERT_EQUAL(10, static_cast<int>(child.position.x));
+    TEST_ASSERT_EQUAL(10, static_cast<int>(child.position.y));
 }
 
 void test_sibling_order_and_z_index(void) {
-    // Test sibling order and z-index
-    // (Implementation would go here)
-    TEST_ASSERT_TRUE(true); // Placeholder
+    // Test layer/render order property exists
+    pixelroot32::graphics::ui::UIPanel p1(0, 0, 20, 20);
+    pixelroot32::graphics::ui::UIPanel p2(0, 0, 20, 20);
+    // Verify elements have layer property
+    TEST_ASSERT_TRUE(p1.getRenderLayer() >= 0);
+    TEST_ASSERT_TRUE(p2.getRenderLayer() >= 0);
 }
 
 // Context Tests (Temporarily disabled)

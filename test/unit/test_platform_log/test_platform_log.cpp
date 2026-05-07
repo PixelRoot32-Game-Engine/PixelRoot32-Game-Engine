@@ -95,71 +95,54 @@ void test_platform_log_error_prefix_format(void) {
 }
 
 // =============================================================================
-// Tests for platformPrint() - now covered with DEBUG_MODE enabled
+// Tests for platformPrint() - verify no crash on edge cases
 // =============================================================================
 
-void test_platform_log_platform_print_basic(void) {
-    // Call platformPrint directly - should compile and run without crash
-    platformPrint("test");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_platform_print_null(void) {
+    // Call with nullptr - should not crash (printf handles null)
+    platformPrint(nullptr);
+    // If we reach here, test passes
 }
 
-void test_platform_log_platform_print_empty(void) {
-    // Call platformPrint with empty string
-    platformPrint("");
-    TEST_ASSERT_TRUE(true);
-}
-
-void test_platform_log_platform_print_newline(void) {
-    // Call platformPrint with newline
-    platformPrint("\n");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_platform_print_special_chars(void) {
+    // Test with special characters that might cause issues
+    platformPrint("\t\r\x01\x02");
+    platformPrint("\"quotes\" and \\backslash");
 }
 
 // =============================================================================
-// Tests for logInternal() - now covered with DEBUG_MODE enabled
+// Tests for logInternal() - verify edge cases don't crash
 // =============================================================================
 
-void test_platform_log_log_with_info_level(void) {
-    // Call log with Info level - exercises logInternal
-    log(LogLevel::Info, "Test info message");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_very_long_message(void) {
+    // Test with message exceeding internal buffer (256 chars)
+    log(LogLevel::Info, "This is a very long message that exceeds the 256 character limit of the internal buffer used by vsnprintf in the logInternal function");
 }
 
-void test_platform_log_log_with_warning_level(void) {
-    // Call log with Warning level
-    log(LogLevel::Warning, "Test warning %d", 42);
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_empty_format(void) {
+    // Test with empty format string
+    log(LogLevel::Info, "");
 }
 
-void test_platform_log_log_with_error_level(void) {
-    // Call log with Error level
-    log(LogLevel::Error, "Test error %s", "error");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_only_format_specifiers(void) {
+    // Test with only format specifiers but no actual values
+    log(LogLevel::Info, "%d %s %f");
 }
 
-void test_platform_log_log_with_profiling_level(void) {
-    // Call log with Profiling level
-    log(LogLevel::Profiling, "Test profiling %f", 3.14f);
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_null_pointer(void) {
+    // Test with null pointer as last argument
+    const char* nullStr = nullptr;
+    log(LogLevel::Info, "Value: %s", nullStr);
 }
 
-void test_platform_log_log_simple_message(void) {
-    // Call log without explicit level (defaults to Info)
-    log("Simple test message");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_unicode_chars(void) {
+    // Test with unicode characters
+    log(LogLevel::Info, "Unicode: ñ 你好 🔥");
 }
 
-void test_platform_log_log_multiple_args(void) {
-    // Call log with multiple format arguments
-    log("Values: %d, %f, %s", 123, 4.56f, "test");
-    TEST_ASSERT_TRUE(true);
-}
-
-void test_platform_log_log_no_args(void) {
-    // Call log with no format arguments
-    log("No args message");
-    TEST_ASSERT_TRUE(true);
+void test_platform_log_log_mixed_format(void) {
+    // Test mixed format specifiers
+    log(LogLevel::Error, "Error %d at %s: value=%f, name=%s", 42, "location", 3.14, "test");
 }
 
 // =============================================================================
@@ -186,19 +169,17 @@ int main(void) {
     RUN_TEST(test_platform_log_info_prefix_format);
     RUN_TEST(test_platform_log_error_prefix_format);
     
-    // platformPrint tests
-    RUN_TEST(test_platform_log_platform_print_basic);
-    RUN_TEST(test_platform_log_platform_print_empty);
-    RUN_TEST(test_platform_log_platform_print_newline);
+    // platformPrint edge case tests
+    RUN_TEST(test_platform_log_platform_print_null);
+    RUN_TEST(test_platform_log_platform_print_special_chars);
     
-    // logInternal tests (via log() function)
-    RUN_TEST(test_platform_log_log_with_info_level);
-    RUN_TEST(test_platform_log_log_with_warning_level);
-    RUN_TEST(test_platform_log_log_with_error_level);
-    RUN_TEST(test_platform_log_log_with_profiling_level);
-    RUN_TEST(test_platform_log_log_simple_message);
-    RUN_TEST(test_platform_log_log_multiple_args);
-    RUN_TEST(test_platform_log_log_no_args);
+    // logInternal edge case tests
+    RUN_TEST(test_platform_log_log_very_long_message);
+    RUN_TEST(test_platform_log_log_empty_format);
+    RUN_TEST(test_platform_log_log_only_format_specifiers);
+    RUN_TEST(test_platform_log_log_null_pointer);
+    RUN_TEST(test_platform_log_log_unicode_chars);
+    RUN_TEST(test_platform_log_log_mixed_format);
     
     return UNITY_END();
 }

@@ -41,6 +41,7 @@ void test_engine_creation_with_display() {
     
     Engine engine(config);
     
+    // If we reach here, creation succeeded
     TEST_ASSERT_TRUE(true);
 }
 
@@ -51,6 +52,7 @@ void test_engine_creation_with_display_and_input() {
     
     Engine engine(config, inputConfig);
     
+    // If we reach here, creation succeeded
     TEST_ASSERT_TRUE(true);
 }
 
@@ -61,6 +63,7 @@ void test_engine_init() {
     
     engine.init();
     
+    // If we reach here, init succeeded
     TEST_ASSERT_TRUE(true);
 }
 

@@ -124,7 +124,10 @@ void test_renderer_draw_text() {
     Renderer renderer(config);
     
     renderer.drawText("Test", 10, 10, Color::White, 1);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify offset unchanged after draw (method doesn't modify renderer state)
+    TEST_ASSERT_EQUAL(0, renderer.getXOffset());
+    TEST_ASSERT_EQUAL(0, renderer.getYOffset());
 }
 
 void test_renderer_draw_text_centered() {
@@ -133,7 +136,9 @@ void test_renderer_draw_text_centered() {
     Renderer renderer(config);
     
     renderer.drawTextCentered("Center", 50, Color::White, 1);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify bypass flag unchanged after draw
+    TEST_ASSERT_FALSE(renderer.isOffsetBypassEnabled());
 }
 
 void test_renderer_begin_end_frame() {
@@ -143,7 +148,9 @@ void test_renderer_begin_end_frame() {
     
     renderer.beginFrame();
     renderer.endFrame();
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify offset unchanged after frame cycle
+    TEST_ASSERT_EQUAL(0, renderer.getXOffset());
 }
 
 void test_renderer_set_contrast() {
@@ -152,7 +159,9 @@ void test_renderer_set_contrast() {
     Renderer renderer(config);
     
     renderer.setContrast(128);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify renderer still functional - offset should remain unchanged
+    TEST_ASSERT_EQUAL(0, renderer.getXOffset());
 }
 
 void test_renderer_draw_bitmap() {
@@ -173,7 +182,10 @@ void test_renderer_draw_filled_rectangle_w() {
     Renderer renderer(config);
     
     renderer.drawFilledRectangleW(10, 10, 50, 30, 0xF800);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify offset unchanged after draw (method doesn't modify state)
+    TEST_ASSERT_EQUAL(0, renderer.getXOffset());
+    TEST_ASSERT_EQUAL(0, renderer.getYOffset());
 }
 
 void test_renderer_draw_filled_rectangle_w();

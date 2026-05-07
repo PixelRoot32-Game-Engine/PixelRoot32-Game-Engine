@@ -1383,7 +1383,9 @@ void test_spatial_grid_negative_coordinates_clipping(void) {
     
     // Should handle negative coordinates without crash
     system.update();
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify entities still in system after update
+    TEST_ASSERT_EQUAL(2, system.getEntityCount());
 }
 
 void test_spatial_grid_far_outside_coordinates_clipping(void) {

@@ -155,22 +155,31 @@ void test_padding_container_child_null_after_clear() {
 
 void test_padding_container_update_with_child() {
     UIPaddingContainer container(0, 0, 100, 50);
+    container.setPadding(toScalar(5));
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     
     container.setChild(&label);
     container.update(16); // 16ms delta
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify padding unchanged after update
+    TEST_ASSERT_EQUAL(5, static_cast<int>(container.getPaddingTop()));
+    TEST_ASSERT_EQUAL(5, static_cast<int>(container.getPaddingBottom()));
+    TEST_ASSERT_EQUAL(5, static_cast<int>(container.getPaddingLeft()));
+    TEST_ASSERT_EQUAL(5, static_cast<int>(container.getPaddingRight()));
 }
 
 void test_padding_container_update_disabled() {
     UIPaddingContainer container(0, 0, 100, 50);
     container.setEnabled(false);
+    container.setPadding(toScalar(10));
     
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     container.setChild(&label);
     
     container.update(16);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify padding unchanged when disabled
+    TEST_ASSERT_EQUAL(10, static_cast<int>(container.getPaddingTop()));
 }
 
 void test_padding_container_draw_with_child() {
@@ -183,7 +192,9 @@ void test_padding_container_draw_with_child() {
     container.setChild(&label);
     
     container.draw(renderer);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify child still attached after draw
+    TEST_ASSERT_EQUAL(&label, container.getChild());
 }
 
 void test_padding_container_draw_not_visible() {
@@ -198,5 +209,7 @@ void test_padding_container_draw_not_visible() {
     container.setChild(&label);
     
     container.draw(renderer);
-    TEST_ASSERT_TRUE(true);
+    
+    // Verify child still attached when not visible
+    TEST_ASSERT_EQUAL(&label, container.getChild());
 }
