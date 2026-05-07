@@ -74,6 +74,56 @@ RUN_TEST(test_checkbox_long_label);
     RUN_TEST(test_uielement_is_focusable_default_returns_false);
     RUN_TEST(test_uielement_get_preferred_size_returns_dimensions);
     RUN_TEST(test_uielement_get_preferred_size_different_dimensions);
-    
+
+    // UIPaddingContainer Tests (18 tests)
+    RUN_TEST(test_padding_container_initialization);
+    RUN_TEST(test_padding_container_vector2_constructor);
+    RUN_TEST(test_padding_container_set_child);
+    RUN_TEST(test_padding_container_no_child);
+    RUN_TEST(test_padding_container_uniform_padding);
+    RUN_TEST(test_padding_container_asymmetric_padding);
+    RUN_TEST(test_padding_container_zero_padding);
+    RUN_TEST(test_padding_container_change_padding);
+    RUN_TEST(test_padding_container_with_panel_child);
+    RUN_TEST(test_padding_container_position_update);
+    RUN_TEST(test_padding_container_different_padding_values);
+    RUN_TEST(test_padding_container_large_padding);
+    RUN_TEST(test_padding_container_replace_child);
+    RUN_TEST(test_padding_container_child_null_after_clear);
+    RUN_TEST(test_padding_container_update_with_child);
+    RUN_TEST(test_padding_container_update_disabled);
+    RUN_TEST(test_padding_container_draw_with_child);
+    RUN_TEST(test_padding_container_draw_not_visible);
+
+    // UILayout Tests (28 tests - Basic)
+    RUN_TEST(test_vertical_layout_spacing);
+    RUN_TEST(test_horizontal_layout_spacing);
+    RUN_TEST(test_grid_layout_columns);
+    RUN_TEST(test_vertical_layout_elements);
+    RUN_TEST(test_vertical_layout_padding);
+    RUN_TEST(test_horizontal_layout_navigation);
+    RUN_TEST(test_horizontal_layout_scroll);
+    RUN_TEST(test_grid_layout_selection);
+    RUN_TEST(test_grid_layout_navigation_buttons);
+    RUN_TEST(test_grid_layout_rows);
+    RUN_TEST(test_grid_layout_button_style);
+    RUN_TEST(test_grid_layout_change_columns);
+    RUN_TEST(test_grid_layout_three_columns);
+    RUN_TEST(test_grid_layout_constructor_vector2);
+    RUN_TEST(test_grid_layout_remove_element);
+    RUN_TEST(test_grid_layout_zero_columns);
+    RUN_TEST(test_grid_layout_calculate_rows_zero_columns);
+    RUN_TEST(test_grid_layout_clear_elements);
+    RUN_TEST(test_grid_layout_get_element);
+    RUN_TEST(test_horizontal_layout_constructor_scalars);
+    RUN_TEST(test_horizontal_layout_add_remove_elements);
+    RUN_TEST(test_horizontal_layout_clear);
+    RUN_TEST(test_horizontal_layout_get_element);
+    RUN_TEST(test_horizontal_layout_set_scroll_disabled);
+    RUN_TEST(test_vertical_layout_constructor_scalars);
+    RUN_TEST(test_vertical_layout_add_remove_elements);
+    RUN_TEST(test_vertical_layout_clear);
+    RUN_TEST(test_vertical_layout_get_element);
+
     return UNITY_END();
 }

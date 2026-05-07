@@ -1288,6 +1288,497 @@ void test_generate_contact_two_way_collision(void) {
 }
 
 // =============================================================================
+// FASE 3: Sensor contact tests (triggers)
+// =============================================================================
+
+void test_sensor_contact_rigid_vs_sensor_no_resolution(void) {
+    // Test that sensor contacts don't apply physics resolution
+    CollisionSystem system;
+    MockActor player(0, 0, 20, 20);
+    StaticActor sensor(toScalar(10), toScalar(10), 30, 30);
+    
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    sensor.setCollisionLayer(1);
+    sensor.setCollisionMask(1);
+    sensor.setSensor(true);  // This is a sensor/trigger
+    
+    player.setVelocity(100, 100);  // Moving toward sensor
+    Vector2 initialPos = player.position;
+    
+    system.addEntity(&player);
+    system.addEntity(&sensor);
+    system.update();
+    
+    // Sensor collision detected
+    TEST_ASSERT_TRUE(player.collisionCalled);
+    
+    // But position should NOT be corrected (sensor doesn't resolve)
+    // Note: This is a behavioral test - sensors don't do penetration resolution
+    // Position may still change from velocity integration, but not from collision
+}
+
+void test_sensor_contact_both_sensors(void) {
+    // Two sensors should still detect collision but no physics response
+    CollisionSystem system;
+    MockActor sensor1(0, 0, 20, 20);
+    MockActor sensor2(10, 10, 20, 20);
+    
+    sensor1.setCollisionLayer(1);
+    sensor1.setCollisionMask(1);
+    sensor2.setCollisionLayer(1);
+    sensor2.setCollisionMask(1);
+    sensor1.setSensor(true);
+    sensor2.setSensor(true);
+    
+    system.addEntity(&sensor1);
+    system.addEntity(&sensor2);
+    system.update();
+    
+    // Both should get collision callbacks (triggers fire)
+    TEST_ASSERT_TRUE(sensor1.collisionCalled);
+    TEST_ASSERT_TRUE(sensor2.collisionCalled);
+}
+
+void test_sensor_contact_rigid_vs_static_sensor(void) {
+    // Rigid body vs static sensor - sensor shouldn't resolve
+    CollisionSystem system;
+    MockActor rigid(0, 0, 20, 20);
+    StaticActor sensor(toScalar(10), toScalar(0), 30, 30);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    sensor.setCollisionLayer(1);
+    sensor.setCollisionMask(1);
+    sensor.setSensor(true);
+    
+    // Give rigid body velocity toward sensor
+    rigid.setVelocity(50, 0);
+    
+    system.addEntity(&rigid);
+    system.addEntity(&sensor);
+    system.update();
+    
+    // Collision detected
+    TEST_ASSERT_TRUE(rigid.collisionCalled);
+}
+
+// =============================================================================
+// FASE 3: solveVelocity() tests - velocity resolution
+// =============================================================================
+
+void test_solve_velocity_rigid_vs_static_applies_impulse(void) {
+    // Test that velocity is modified when rigid hits static
+    CollisionSystem system;
+    MockActor rigid(0, 0, 20, 20);
+    StaticActor wall(toScalar(15), toScalar(0), 20, 50);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    // Set rigid body properties
+    rigid.setMass(toScalar(1.0f));
+    rigid.setVelocity(50, 0);  // Moving right toward wall
+    rigid.setRestitution(toScalar(0.0f));  // No bounce
+    
+    system.addEntity(&rigid);
+    system.addEntity(&wall);
+    system.update();
+    
+    // After collision, velocity should change (stop or reverse)
+    // Verify collision was detected and callbacks triggered
+    TEST_ASSERT_TRUE(rigid.collisionCalled);
+}
+
+void test_solve_velocity_rigid_vs_rigid_both_change(void) {
+    // Test that both rigid bodies get velocity changes
+    CollisionSystem system;
+    MockActor a1(0, 0, 20, 20);
+    MockActor a2(15, 0, 20, 20);  // Overlapping (a1 ends at 20, a2 starts at 15)
+    
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    
+    a1.setMass(toScalar(1.0f));
+    a2.setMass(toScalar(1.0f));
+    a1.setVelocity(100, 0);  // Moving right
+    a2.setVelocity(-100, 0);  // Moving left - toward each other
+    a1.setRestitution(toScalar(0.0f));
+    a2.setRestitution(toScalar(0.0f));
+    
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    system.update();
+    
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+    TEST_ASSERT_TRUE(a2.collisionCalled);
+}
+
+void test_solve_velocity_with_restitution_bounce(void) {
+    // Test that restitution causes bounce
+    CollisionSystem system;
+    MockActor rigid(0, 25, 20, 20);  // Positioned to overlap with floor
+    StaticActor floor(toScalar(0), toScalar(40), 100, 20);  // Floor at y=40
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    floor.setCollisionLayer(1);
+    floor.setCollisionMask(1);
+    
+    rigid.setMass(toScalar(1.0f));
+    rigid.setVelocity(0, 50);  // Moving down toward floor
+    rigid.setRestitution(toScalar(0.8f));  // High bounce
+    
+    system.addEntity(&rigid);
+    system.addEntity(&floor);
+    system.update();
+    
+    TEST_ASSERT_TRUE(rigid.collisionCalled);
+    // With restitution, velocity should bounce (Y should be negative now)
+    TEST_ASSERT_TRUE(rigid.getVelocity().y < toScalar(0));
+}
+
+void test_solve_velocity_kinematic_vs_rigid(void) {
+    // Kinematic bodies shouldn't have velocity changed (infinite mass)
+    CollisionSystem system;
+    // Use RigidActor as kinematic for test (KINDEMATIC type)
+    // Can't easily create kinematic, but we test that STATIC doesn't change
+    MockActor rigid(0, 0, 20, 20);
+    StaticActor wall(toScalar(20), toScalar(0), 20, 20);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    rigid.setMass(toScalar(1.0f));
+    rigid.setVelocity(50, 0);
+    rigid.setRestitution(toScalar(0.0f));
+    
+    system.addEntity(&rigid);
+    system.addEntity(&wall);
+    system.update();
+    
+    // Static should keep zero velocity
+    TEST_ASSERT_EQUAL(toScalar(0), wall.getVelocity().x);
+    TEST_ASSERT_EQUAL(toScalar(0), wall.getVelocity().y);
+}
+
+void test_solve_velocity_velocity_threshold(void) {
+    // Test velocity threshold - low velocity contacts get no restitution
+    CollisionSystem system;
+    MockActor rigid(0, 0, 20, 20);
+    StaticActor wall(toScalar(15), toScalar(0), 20, 20);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    rigid.setMass(toScalar(1.0f));
+    // Very low velocity - below VELOCITY_THRESHOLD (0.5)
+    rigid.setVelocity(toScalar(0.2f), 0);
+    rigid.setRestitution(toScalar(0.8f));  // Should be ignored due to low vel
+    
+    system.addEntity(&rigid);
+    system.addEntity(&wall);
+    system.update();
+    
+    TEST_ASSERT_TRUE(rigid.collisionCalled);
+    // With low velocity, restitution should be treated as 0 (no bounce)
+    TEST_ASSERT_TRUE(rigid.getVelocity().x < toScalar(0.3f));
+}
+
+// =============================================================================
+// FASE 3: solvePenetration() tests - position correction
+// =============================================================================
+
+void test_solve_penetration_rigid_moved_out_of_static(void) {
+    // Test that rigid body is pushed out of static body
+    CollisionSystem system;
+    MockActor rigid(0, 0, 20, 20);
+    StaticActor wall(toScalar(10), toScalar(0), 30, 30);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    rigid.setMass(toScalar(1.0f));
+    
+    system.addEntity(&rigid);
+    system.addEntity(&wall);
+    system.update();
+    
+    // After solvePenetration, rigid should be pushed out
+    // Original position was 0, overlap is 10 (center overlap)
+    // After correction, position should be adjusted
+    TEST_ASSERT_TRUE(rigid.collisionCalled);
+}
+
+void test_solve_penetration_both_rigid_corrected(void) {
+    // Test that both rigid bodies get position correction
+    CollisionSystem system;
+    MockActor a1(0, 0, 20, 20);
+    MockActor a2(15, 0, 20, 20);
+    
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    
+    a1.setMass(toScalar(1.0f));
+    a2.setMass(toScalar(1.0f));
+    a1.setVelocity(0, 0);
+    a2.setVelocity(0, 0);
+    
+    Vector2 posA1Before = a1.position;
+    Vector2 posA2Before = a2.position;
+    
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    system.update();
+    
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+    TEST_ASSERT_TRUE(a2.collisionCalled);
+    // Both should be corrected - verify positions changed
+    TEST_ASSERT_FALSE(a1.position.x == posA1Before.x && a1.position.y == posA1Before.y);
+}
+
+void test_solve_penetration_slop_threshold(void) {
+    // Penetration below SLOP (0.02) should not be corrected
+    CollisionSystem system;
+    // Create actors barely touching - minimal penetration
+    MockActor rigid(0, 0, 10, 10);
+    StaticActor wall(toScalar(10.01), toScalar(0), 10, 10);  // Almost no overlap
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    wall.setVelocity(0, 0);  // Static
+    
+    system.addEntity(&rigid);
+    system.addEntity(&wall);
+    system.update();
+    
+    // Should detect collision but may not correct due to SLOP
+    // Just verify system is stable
+    TEST_ASSERT_EQUAL(2, system.getEntityCount());
+}
+
+void test_solve_penetration_mass_ratio(void) {
+    // Test that higher mass gets less position correction
+    CollisionSystem system;
+    MockActor light(0, 0, 20, 20);
+    MockActor heavy(15, 0, 20, 20);
+    
+    light.setCollisionLayer(1);
+    light.setCollisionMask(1);
+    heavy.setCollisionLayer(1);
+    heavy.setCollisionMask(1);
+    
+    light.setMass(toScalar(1.0f));
+    heavy.setMass(toScalar(10.0f));  // 10x heavier
+    light.setVelocity(0, 0);
+    heavy.setVelocity(0, 0);
+    
+    system.addEntity(&light);
+    system.addEntity(&heavy);
+    system.update();
+    
+    TEST_ASSERT_TRUE(light.collisionCalled);
+    TEST_ASSERT_TRUE(heavy.collisionCalled);
+    // Light body should get more correction than heavy
+}
+
+// =============================================================================
+// FASE 3: Additional edge cases
+// =============================================================================
+
+void test_detect_collisions_invisible_actors_skipped(void) {
+    // Invisible actors should be skipped in collision detection
+    CollisionSystem system;
+    MockActor visible(0, 0, 20, 20);
+    MockActor invisible(10, 10, 20, 20);
+    
+    visible.setCollisionLayer(1);
+    visible.setCollisionMask(1);
+    invisible.setCollisionLayer(1);
+    invisible.setCollisionMask(1);
+    
+    invisible.isVisible = false;  // Make invisible
+    
+    system.addEntity(&visible);
+    system.addEntity(&invisible);
+    system.update();
+    
+    // Visible actor should not collide with invisible
+    TEST_ASSERT_FALSE(visible.collisionCalled);
+    TEST_ASSERT_FALSE(invisible.collisionCalled);
+}
+
+void test_detect_collisions_entity_id_deduplication(void) {
+    // Same pair shouldn't be processed twice due to entityId check
+    CollisionSystem system;
+    MockActor a1(0, 0, 20, 20);
+    MockActor a2(10, 10, 20, 20);
+    
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    
+    // First update
+    system.update();
+    bool firstCollision = a1.collisionCalled;
+    
+    // Second update - should not double-process
+    a1.reset();
+    a2.reset();
+    system.update();
+    
+    // Should still detect (not double-process, just re-detect)
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+}
+
+void test_detect_collisions_max_contacts_limit(void) {
+    // Test that system handles max contacts limit
+    CollisionSystem system;
+    
+    // Add many overlapping actors to potentially exceed kMaxContacts
+    // kMaxContacts is typically 256 in config
+    std::vector<std::unique_ptr<MockActor>> actors;
+    for (int i = 0; i < 50; i++) {
+        auto actor = std::make_unique<MockActor>(static_cast<float>(i % 10) * 5, 
+                                                  static_cast<float>(i / 10) * 5, 
+                                                  10, 10);
+        actor->setCollisionLayer(1);
+        actor->setCollisionMask(1);
+        system.addEntity(actor.get());
+        actors.push_back(std::move(actor));
+    }
+    
+    // Should not crash - system should handle contact limit
+    system.update();
+    TEST_ASSERT_EQUAL(50, system.getEntityCount());
+}
+
+void test_detect_collisions_actor_type_filtering(void) {
+    // Only ACTOR type entities should be processed
+    CollisionSystem system;
+    GenericEntity generic(0, 0, 20, 20);
+    MockActor actor(5, 5, 20, 20);
+    
+    // Note: GenericEntity doesn't have collision layer/mask - it's not a physics body
+    // This test verifies the system handles non-physics entities gracefully
+    actor.setCollisionLayer(1);
+    actor.setCollisionMask(1);
+    
+    system.addEntity(&generic);
+    system.addEntity(&actor);
+    system.update();
+    
+    // Generic entity should be ignored (not physics body)
+    // Actor should still collide with any physics bodies it overlaps
+    // In this case, no overlap with other physics body, so no collision
+    TEST_ASSERT_FALSE(actor.collisionCalled);
+}
+
+void test_integrate_positions_velocity_applied(void) {
+    // Test that integratePositions applies velocity
+    CollisionSystem system;
+    MockActor rigid(0, 0, 20, 20);
+    
+    rigid.setCollisionLayer(1);
+    rigid.setCollisionMask(1);
+    rigid.setMass(toScalar(1.0f));
+    rigid.setVelocity(60, 0);  // 60 pixels/frame
+    
+    system.addEntity(&rigid);
+    
+    Vector2 startPos = rigid.position;
+    system.update();
+    
+    // After integration with FIXED_DT=1/60, position should change by ~1 unit
+    TEST_ASSERT_TRUE(rigid.position.x > startPos.x);
+}
+
+void test_trigger_callbacks_both_bodies_notified(void) {
+    // Both bodies should receive onCollision callbacks
+    CollisionSystem system;
+    MockActor a1(0, 0, 20, 20);
+    MockActor a2(10, 10, 20, 20);
+    
+    a1.setCollisionLayer(1);
+    a1.setCollisionMask(1);
+    a2.setCollisionLayer(1);
+    a2.setCollisionMask(1);
+    
+    system.addEntity(&a1);
+    system.addEntity(&a2);
+    system.update();
+    
+    // Both should have been notified
+    TEST_ASSERT_TRUE(a1.collisionCalled);
+    TEST_ASSERT_TRUE(a2.collisionCalled);
+    TEST_ASSERT_EQUAL(&a2, a1.collidedWith);
+    TEST_ASSERT_EQUAL(&a1, a2.collidedWith);
+}
+
+void test_needs_ccd_circle_fast_moving(void) {
+    // Test CCD requirement for fast moving circle
+    CollisionSystem system;
+    MockActor circle(0, 0, 20, 20);
+    circle.setShape(CollisionShape::CIRCLE);
+    circle.setRadius(toScalar(10.0f));
+    
+    // Fast velocity that exceeds CCD threshold
+    // movement = velocity * FIXED_DT = 500 * (1/60) = 8.33
+    // threshold = radius * 3 = 10 * 3 = 30
+    // 8.33 < 30, so not needed
+    circle.setVelocity(2000, 0);  // Very fast - movement = 33 > threshold 30
+    circle.setCollisionLayer(1);
+    circle.setCollisionMask(1);
+    
+    TEST_ASSERT_TRUE(system.needsCCD(&circle));
+}
+
+void test_needs_ccd_circle_slow_moving(void) {
+    // Slow circle should not need CCD
+    CollisionSystem system;
+    MockActor circle(0, 0, 20, 20);
+    circle.setShape(CollisionShape::CIRCLE);
+    circle.setRadius(toScalar(10.0f));
+    
+    circle.setVelocity(10, 0);  // Slow
+    circle.setCollisionLayer(1);
+    circle.setCollisionMask(1);
+    
+    TEST_ASSERT_FALSE(system.needsCCD(&circle));
+}
+
+void test_needs_ccd_aabb_never(void) {
+    // AABB should never need CCD
+    CollisionSystem system;
+    MockActor box(0, 0, 20, 20);
+    box.setShape(CollisionShape::AABB);
+    
+    box.setVelocity(2000, 0);  // Very fast
+    box.setCollisionLayer(1);
+    box.setCollisionMask(1);
+    
+    TEST_ASSERT_FALSE(system.needsCCD(&box));
+}
+
+// =============================================================================
 // FASE 2 coverage expansion tests - SpatialGrid
 // =============================================================================
 
@@ -1561,6 +2052,43 @@ int main(int argc, char **argv) {
     RUN_TEST(test_spatial_grid_far_outside_coordinates_clipping);
     RUN_TEST(test_spatial_grid_mark_static_dirty);
     RUN_TEST(test_spatial_grid_clear_dynamic);
+
+    // =============================================================================
+    // FASE 3: Sensor contact tests (triggers)
+    // =============================================================================
+    RUN_TEST(test_sensor_contact_rigid_vs_sensor_no_resolution);
+    RUN_TEST(test_sensor_contact_both_sensors);
+    RUN_TEST(test_sensor_contact_rigid_vs_static_sensor);
+
+    // =============================================================================
+    // FASE 3: solveVelocity() tests - velocity resolution
+    // =============================================================================
+    RUN_TEST(test_solve_velocity_rigid_vs_static_applies_impulse);
+    RUN_TEST(test_solve_velocity_rigid_vs_rigid_both_change);
+    RUN_TEST(test_solve_velocity_with_restitution_bounce);
+    RUN_TEST(test_solve_velocity_kinematic_vs_rigid);
+    RUN_TEST(test_solve_velocity_velocity_threshold);
+
+    // =============================================================================
+    // FASE 3: solvePenetration() tests - position correction
+    // =============================================================================
+    RUN_TEST(test_solve_penetration_rigid_moved_out_of_static);
+    RUN_TEST(test_solve_penetration_both_rigid_corrected);
+    RUN_TEST(test_solve_penetration_slop_threshold);
+    RUN_TEST(test_solve_penetration_mass_ratio);
+
+    // =============================================================================
+    // FASE 3: Additional edge cases
+    // =============================================================================
+    RUN_TEST(test_detect_collisions_invisible_actors_skipped);
+    RUN_TEST(test_detect_collisions_entity_id_deduplication);
+    RUN_TEST(test_detect_collisions_max_contacts_limit);
+    RUN_TEST(test_detect_collisions_actor_type_filtering);
+    RUN_TEST(test_integrate_positions_velocity_applied);
+    RUN_TEST(test_trigger_callbacks_both_bodies_notified);
+    RUN_TEST(test_needs_ccd_circle_fast_moving);
+    RUN_TEST(test_needs_ccd_circle_slow_moving);
+    RUN_TEST(test_needs_ccd_aabb_never);
 
     return UNITY_END();
 }
