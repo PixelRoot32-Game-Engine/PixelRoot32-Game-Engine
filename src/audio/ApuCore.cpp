@@ -20,6 +20,43 @@
 
 namespace pixelroot32::audio {
 
+    // ========================================================================================================
+    // Wave generator lambdas (moved to file scope for branch-free dispatch)
+    // ========================================================================================================
+    static auto generatePulseSampleQ15 = [](AudioChannel& ch) -> int32_t {
+        return (ch.phaseQ32 < ch.dutyCycleQ32) ? 32767 : -32767;
+    };
+    static auto generateTriangleSampleQ15 = [](AudioChannel& ch) -> int32_t {
+        const uint32_t p16 = ch.phaseQ32 >> 16;
+        return (p16 < 32768u) ? ((int32_t)(p16 * 2) - 32768) : (32768 - (int32_t)((p16 - 32768u) * 2));
+    };
+    static auto generateSawSampleQ15 = [](AudioChannel& ch) -> int32_t {
+        const int64_t v = ((int64_t)ch.phaseQ32 << 1) - (1LL << 32);
+        return (int32_t)(v >> 17);
+    };
+    static auto generateNoiseSampleQ15 = [](AudioChannel& ch) -> int32_t {
+        return (ch.lfsrState & 1u) ? 32767 : -32767;
+    };
+
+    // Function pointer array for branch-free dispatch
+    typedef int32_t (*WaveGeneratorQ15)(AudioChannel&);
+    static constexpr WaveGeneratorQ15 WAVE_GENERATORS_Q15[] = {
+        generatePulseSampleQ15,    // WaveType::PULSE = 0
+        generateTriangleSampleQ15, // WaveType::TRIANGLE = 1
+        nullptr,                    // WaveType::NOISE = 2 (special case - requires state update)
+        nullptr,                    // WaveType::SINE = 3 (uses LUT)
+        generateSawSampleQ15       // WaveType::SAW = 4
+    };
+
+    static_assert(
+        sizeof(WAVE_GENERATORS_Q15) / sizeof(WAVE_GENERATORS_Q15[0]) == 5,
+        "WAVE_GENERATORS_Q15 must have 5 entries for WaveType enum"
+    );
+
+    // ============================================================================
+    // Internal helper functions
+    // ============================================================================
+
     static inline uint32_t frequency_hz_to_phase_inc_q32(float hz, int sr) {
         if (sr <= 0) return 0u;
         if (hz < 0.0f) hz = 0.0f;
@@ -879,21 +916,9 @@ namespace pixelroot32::audio {
 
                 int32_t s = 0; // Q15 sample in [-32767, +32767]
 
-                // Hoisted wave generation - branch-free type dispatch
-                // Using if-else chain once per frame (compile-time constant channel types)
-                // instead of switch per sample (branch misprediction)
-                if (ch.type == WaveType::PULSE) {
-                    s = generatePulseSampleQ15(ch);
-                } else if (ch.type == WaveType::TRIANGLE) {
-                    s = generateTriangleSampleQ15(ch);
-                } else if (ch.type == WaveType::SINE) {
-                    const unsigned idx = (unsigned)(ch.phaseQ32 >> 24);
-                    s = (int32_t)SINE_LUT_Q15[idx & 255u];
-                } else if (ch.type == WaveType::SAW) {
-                    const int64_t v = ((int64_t)ch.phaseQ32 << 1) - (1LL << 32);
-                    s = (int32_t)(v >> 17);
-                } else if (ch.type == WaveType::NOISE) {
-                    // Noise requires state update - do it inline
+                // Branch-free type dispatch using function pointer lookup
+                if (ch.type == WaveType::NOISE) {
+                    // NOISE: inline state update (required for LFSR mutation)
                     if (ch.noiseCountdown > 0u) ch.noiseCountdown--;
                     if (ch.noiseCountdown == 0u) {
                         const uint16_t bitToXor = ch.noiseShortMode ? ((ch.lfsrState >> 6) & 1u) : ((ch.lfsrState >> 1) & 1u);
@@ -902,6 +927,15 @@ namespace pixelroot32::audio {
                         ch.noiseCountdown = ch.noisePeriodSamples;
                     }
                     s = generateNoiseSampleQ15(ch);
+                } else if (ch.type == WaveType::SINE) {
+                    // SINE: direct LUT lookup
+                    s = (int32_t)SINE_LUT_Q15[(ch.phaseQ32 >> 24) & 255u];
+                } else if (auto gen = WAVE_GENERATORS_Q15[static_cast<int>(ch.type)]) {
+                    // PULSE, TRIANGLE, SAW: function pointer lookup
+                    s = gen(ch);
+                } else {
+                    // Fallback (should never reach)
+                    s = 0;
                 }
 
                 // Apply per-channel Q15 volume × envelope: (s * volQ15 * envQ15) >> 30
