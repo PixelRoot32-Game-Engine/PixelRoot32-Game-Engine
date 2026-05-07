@@ -2,11 +2,6 @@
 
 Auto-generated API documentation from C++ header files.
 
-::: warning Generated Content
-These files are automatically generated from header comments.
-Do not edit manually. Run `python scripts/generate_api_docs.py` to regenerate.
-:::
-
 ## Audio
 
 - [ApuCore](./audio/ApuCore.md) — Shared NES-style APU core used by every AudioScheduler.
