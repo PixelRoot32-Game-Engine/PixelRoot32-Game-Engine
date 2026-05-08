@@ -34,8 +34,9 @@ public:
      * @brief Initializes the dirty grid dimensions based on screen size.
      * @param screenW Width of the screen in pixels.
      * @param screenH Height of the screen in pixels.
+     * @return true if initialization succeeded, false on allocation failure.
      */
-    void init(int screenW, int screenH);
+    [[nodiscard]] bool init(int screenW, int screenH);
 
     /**
      * @brief Marks a specific cell as dirty in the current frame.

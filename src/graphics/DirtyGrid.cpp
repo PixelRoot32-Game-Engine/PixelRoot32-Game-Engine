@@ -74,21 +74,27 @@ void DirtyGrid::freeBuffers() {
     byteCount = 0;
 }
 
-void DirtyGrid::init(int screenW, int screenH) {
+bool DirtyGrid::init(int screenW, int screenH) {
     assert(screenW > 0 && screenH > 0);
     freeBuffers();
-    cols = static_cast<uint8_t>((screenW + static_cast<int>(CELL_W) - 1) / static_cast<int>(CELL_W));
-    rows = static_cast<uint8_t>((screenH + static_cast<int>(CELL_H) - 1) / static_cast<int>(CELL_H));
+    const int c = (screenW + static_cast<int>(CELL_W) - 1) / static_cast<int>(CELL_W);
+    const int r = (screenH + static_cast<int>(CELL_H) - 1) / static_cast<int>(CELL_H);
+    if (c > 255 || r > 255) {
+        return false;
+    }
+    cols = static_cast<uint8_t>(c);
+    rows = static_cast<uint8_t>(r);
     byteCount       = bytesForGrid(cols, rows);
     prev            = new (std::nothrow) uint8_t[byteCount];
     curr            = new (std::nothrow) uint8_t[byteCount];
     if (!prev || !curr) {
         freeBuffers();
-        return;
+        return false;
     }
     std::memset(prev, 0, byteCount);
     std::memset(curr, 0, byteCount);
     fullDirty = false;
+    return true;
 }
 
 void DirtyGrid::markCell(uint8_t cx, uint8_t cy) {
@@ -139,6 +145,9 @@ void DirtyGrid::swapAndClear() {
 
 void DirtyGrid::markAll() {
     fullDirty = true;
+    if (curr && byteCount > 0) {
+        std::memset(curr, 0xFF, byteCount);
+    }
 }
 
 void DirtyGrid::setBit(uint8_t* buf, uint8_t cx, uint8_t cy) {

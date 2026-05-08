@@ -95,7 +95,11 @@ namespace pixelroot32::graphics {
         getDrawSurface().init();
 
         if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
-            dirtyGrid.init(logicalWidth, logicalHeight);
+            if (!dirtyGrid.init(logicalWidth, logicalHeight)) {
+#if defined(PIXELROOT32_DEBUG_MODE)
+                log(LogLevel::Error, "DirtyGrid::init allocation failed (%dx%d)", logicalWidth, logicalHeight);
+#endif
+            }
         }
     }
 
@@ -104,7 +108,7 @@ namespace pixelroot32::graphics {
             return;
         }
         if (dirtyGrid.getCols() == 0 && logicalWidth > 0 && logicalHeight > 0) {
-            dirtyGrid.init(logicalWidth, logicalHeight);
+            (void)dirtyGrid.init(logicalWidth, logicalHeight);
         }
     }
 
