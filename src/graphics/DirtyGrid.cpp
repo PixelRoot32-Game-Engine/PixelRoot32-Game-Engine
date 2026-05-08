@@ -283,8 +283,7 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                     while (pos < static_cast<int>(cols) && (bits & (1u << (pos & 7))) != 0) {
                         ++pos;
                     }
-                    int runEnd = pos - 1;
-                    int spanCells = runEnd - runStart + 1;
+                    int spanCells = pos - runStart;
 
                     if (runStartPx < framebufferWidth) {
                         int wpixels = spanCells * static_cast<int>(CELL_W);

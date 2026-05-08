@@ -20,7 +20,7 @@ void tearDown(void) {
 
 void test_dirty_grid_init_grid_size_128(void) {
     DirtyGrid g;
-    g.init(128, 128);
+    (void)g.init(128, 128);
     TEST_ASSERT_EQUAL_UINT8(16, g.getCols());
     TEST_ASSERT_EQUAL_UINT8(16, g.getRows());
     TEST_ASSERT_FALSE(g.isFullDirty());
@@ -28,14 +28,14 @@ void test_dirty_grid_init_grid_size_128(void) {
 
 void test_dirty_grid_init_grid_size_240(void) {
     DirtyGrid g;
-    g.init(240, 240);
+    (void)g.init(240, 240);
     TEST_ASSERT_EQUAL_UINT8(30, g.getCols());
     TEST_ASSERT_EQUAL_UINT8(30, g.getRows());
 }
 
 void test_dirty_grid_mark_cell_swap_prev(void) {
     DirtyGrid g;
-    g.init(64, 64);
+    (void)g.init(64, 64);
     g.markCell(3, 2);
     TEST_ASSERT_FALSE(g.isPrevDirty(3, 2));
     g.swapAndClear();
@@ -44,7 +44,7 @@ void test_dirty_grid_mark_cell_swap_prev(void) {
 
 void test_dirty_grid_mark_rect_covers_cells(void) {
     DirtyGrid g;
-    g.init(32, 32);
+    (void)g.init(32, 32);
     g.markRect(0, 0, 17, 8);
     TEST_ASSERT_FALSE(g.isPrevDirty(0, 0));
     TEST_ASSERT_FALSE(g.isPrevDirty(2, 0));
@@ -57,7 +57,7 @@ void test_dirty_grid_mark_rect_covers_cells(void) {
 
 void test_dirty_grid_mark_rect_clipped(void) {
     DirtyGrid g;
-    g.init(16, 16);
+    (void)g.init(16, 16);
     g.markRect(-50, -50, 100, 100);
     g.swapAndClear();
     TEST_ASSERT_TRUE(g.isPrevDirty(0, 0));
@@ -66,7 +66,7 @@ void test_dirty_grid_mark_rect_clipped(void) {
 
 void test_dirty_grid_swap_clears_curr_next_frame_pattern(void) {
     DirtyGrid g;
-    g.init(24, 24);
+    (void)g.init(24, 24);
     g.markCell(0, 0);
     g.swapAndClear();
     TEST_ASSERT_TRUE(g.isPrevDirty(0, 0));
@@ -79,7 +79,7 @@ void test_dirty_grid_swap_clears_curr_next_frame_pattern(void) {
 
 void test_dirty_grid_mark_all(void) {
     DirtyGrid g;
-    g.init(8, 8);
+    (void)g.init(8, 8);
     TEST_ASSERT_FALSE(g.isFullDirty());
     g.markAll();
     TEST_ASSERT_TRUE(g.isFullDirty());
@@ -87,7 +87,7 @@ void test_dirty_grid_mark_all(void) {
 
 void test_dirty_grid_out_of_bounds_mark_ignored(void) {
     DirtyGrid g;
-    g.init(16, 16);
+    (void)g.init(16, 16);
     g.markCell(255, 255);
     g.swapAndClear();
     TEST_ASSERT_FALSE(g.isPrevDirty(255, 255));
@@ -95,7 +95,7 @@ void test_dirty_grid_out_of_bounds_mark_ignored(void) {
 
 void test_dirty_grid_mark_rect_invalid_size(void) {
     DirtyGrid g;
-    g.init(16, 16);
+    (void)g.init(16, 16);
     g.markRect(0, 0, 0, 8);
     g.markRect(0, 0, 8, 0);
     g.swapAndClear();
@@ -104,7 +104,7 @@ void test_dirty_grid_mark_rect_invalid_size(void) {
 
 void test_dirty_grid_popcount_prev_curr(void) {
     DirtyGrid g;
-    g.init(16, 16);
+    (void)g.init(16, 16);
     g.markCell(1, 0);
     TEST_ASSERT_EQUAL_UINT32(1u, g.countCurrMarkedCells());
     TEST_ASSERT_EQUAL_UINT32(0u, g.countPrevMarkedCells());
@@ -115,7 +115,7 @@ void test_dirty_grid_popcount_prev_curr(void) {
 
 void test_dirty_grid_clear_framebuffer8_from_prev_one_cell(void) {
     DirtyGrid g;
-    g.init(16, 16);
+    (void)g.init(16, 16);
     uint8_t buf[256];
     std::memset(buf, 0x7Fu, sizeof(buf));
     g.markRect(0, 0, 8, 8);
@@ -131,7 +131,7 @@ void test_dirty_grid_clear_framebuffer8_row_run_merges_adjacent_cells(void) {
     DirtyGrid g;
     constexpr int kW = 24;
     constexpr int kH = 16;
-    g.init(kW, kH);
+    (void)g.init(kW, kH);
     uint8_t buf[kW * kH];
     std::memset(buf, 0xCDu, sizeof(buf));
     g.markCell(0, 0);
