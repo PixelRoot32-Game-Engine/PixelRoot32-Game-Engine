@@ -68,8 +68,8 @@ DirtyGrid& DirtyGrid::operator=(DirtyGrid&& other) noexcept {
 }
 
 size_t DirtyGrid::bytesForGrid(uint8_t c, uint8_t r) {
-    const uint32_t cells = static_cast<uint32_t>(c) * static_cast<uint32_t>(r);
-    return static_cast<size_t>((cells + 7u) / 8u);
+    const uint32_t bytesPerRow = (static_cast<uint32_t>(c) + 7u) >> 3u;
+    return static_cast<size_t>(bytesPerRow * r);
 }
 
 void DirtyGrid::freeBuffers() {
@@ -167,9 +167,9 @@ void DirtyGrid::markAll() {
 }
 
 void DirtyGrid::setBit(uint8_t* buf, uint8_t cx, uint8_t cy) {
-    const uint32_t idx  = static_cast<uint32_t>(cy) * static_cast<uint32_t>(cols) + static_cast<uint32_t>(cx);
-    const size_t   b    = idx >> 3;
-    const uint8_t  mask = static_cast<uint8_t>(1u << (idx & 7u));
+    const uint32_t bytesPerRow = (static_cast<uint32_t>(cols) + 7u) >> 3u;
+    const size_t   b           = static_cast<size_t>(cy) * bytesPerRow + (cx >> 3);
+    const uint8_t  mask        = static_cast<uint8_t>(1u << (cx & 7u));
     if (buf == curr && !(buf[b] & mask)) {
         ++currMarkedCount_;
     }
@@ -177,9 +177,9 @@ void DirtyGrid::setBit(uint8_t* buf, uint8_t cx, uint8_t cy) {
 }
 
 bool DirtyGrid::getBit(const uint8_t* buf, uint8_t cx, uint8_t cy) const {
-    const uint32_t idx  = static_cast<uint32_t>(cy) * static_cast<uint32_t>(cols) + static_cast<uint32_t>(cx);
-    const size_t   b    = idx >> 3;
-    const uint8_t  mask = static_cast<uint8_t>(1u << (idx & 7u));
+    const uint32_t bytesPerRow = (static_cast<uint32_t>(cols) + 7u) >> 3u;
+    const size_t   b           = static_cast<size_t>(cy) * bytesPerRow + (cx >> 3);
+    const uint8_t  mask        = static_cast<uint8_t>(1u << (cx & 7u));
     return (buf[b] & mask) != 0;
 }
 
@@ -255,6 +255,7 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                     ++nextByteIdx;
                 }
                 runEnd += 7;
+                int actualRunEnd = std::min(runEnd, static_cast<int>(cols) - 1);
                 cx = static_cast<uint8_t>(std::min(runEnd + 1, static_cast<int>(cols)));
                 byteIdx = nextByteIdx;
 
@@ -262,7 +263,7 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                 if (px >= framebufferWidth) {
                     continue;
                 }
-                int spanCells = runEnd - runStart + 1;
+                int spanCells = actualRunEnd - runStart + 1;
                 int wpixels = spanCells * static_cast<int>(CELL_W);
                 if (px + wpixels > framebufferWidth) {
                     wpixels = framebufferWidth - px;
@@ -275,16 +276,17 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                 }
             } else {
                 int pos = localCx;
-                while (pos < static_cast<int>(cols)) {
-                    while (pos < static_cast<int>(cols) && (bits & (1u << (pos & 7))) == 0) {
+                const int maxPos = std::min(localCx + 8, static_cast<int>(cols));
+                while (pos < maxPos) {
+                    while (pos < maxPos && (bits & (1u << (pos & 7))) == 0) {
                         ++pos;
                     }
-                    if (pos >= static_cast<int>(cols)) {
+                    if (pos >= maxPos) {
                         break;
                     }
                     int runStart = pos;
                     int runStartPx = runStart * static_cast<int>(CELL_W);
-                    while (pos < static_cast<int>(cols) && (bits & (1u << (pos & 7))) != 0) {
+                    while (pos < maxPos && (bits & (1u << (pos & 7))) != 0) {
                         ++pos;
                     }
                     int spanCells = pos - runStart;
