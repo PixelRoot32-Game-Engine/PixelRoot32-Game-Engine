@@ -31,30 +31,38 @@ DirtyGrid::DirtyGrid(DirtyGrid&& other) noexcept
       prev(other.prev),
       curr(other.curr),
       fullDirty(other.fullDirty),
-      byteCount(other.byteCount) {
-    other.cols       = 0;
-    other.rows       = 0;
-    other.prev       = nullptr;
-    other.curr       = nullptr;
-    other.fullDirty  = false;
-    other.byteCount  = 0;
+      byteCount(other.byteCount),
+      currMarkedCount_(other.currMarkedCount_),
+      prevMarkedCount_(other.prevMarkedCount_) {
+    other.cols             = 0;
+    other.rows             = 0;
+    other.prev             = nullptr;
+    other.curr             = nullptr;
+    other.fullDirty        = false;
+    other.byteCount        = 0;
+    other.currMarkedCount_ = 0;
+    other.prevMarkedCount_ = 0;
 }
 
 DirtyGrid& DirtyGrid::operator=(DirtyGrid&& other) noexcept {
     if (this != &other) {
         freeBuffers();
-        cols       = other.cols;
-        rows       = other.rows;
-        prev       = other.prev;
-        curr       = other.curr;
-        fullDirty  = other.fullDirty;
-        byteCount  = other.byteCount;
-        other.cols       = 0;
-        other.rows       = 0;
-        other.prev       = nullptr;
-        other.curr       = nullptr;
-        other.fullDirty  = false;
-        other.byteCount  = 0;
+        cols             = other.cols;
+        rows             = other.rows;
+        prev             = other.prev;
+        curr             = other.curr;
+        fullDirty        = other.fullDirty;
+        byteCount        = other.byteCount;
+        currMarkedCount_ = other.currMarkedCount_;
+        prevMarkedCount_ = other.prevMarkedCount_;
+        other.cols             = 0;
+        other.rows             = 0;
+        other.prev             = nullptr;
+        other.curr             = nullptr;
+        other.fullDirty        = false;
+        other.byteCount        = 0;
+        other.currMarkedCount_ = 0;
+        other.prevMarkedCount_ = 0;
     }
     return *this;
 }
@@ -67,11 +75,13 @@ size_t DirtyGrid::bytesForGrid(uint8_t c, uint8_t r) {
 void DirtyGrid::freeBuffers() {
     delete[] prev;
     delete[] curr;
-    prev      = nullptr;
-    curr      = nullptr;
-    cols      = 0;
-    rows      = 0;
-    byteCount = 0;
+    prev             = nullptr;
+    curr             = nullptr;
+    cols             = 0;
+    rows             = 0;
+    byteCount        = 0;
+    currMarkedCount_ = 0;
+    prevMarkedCount_ = 0;
 }
 
 bool DirtyGrid::init(int screenW, int screenH) {
@@ -93,7 +103,9 @@ bool DirtyGrid::init(int screenW, int screenH) {
     }
     std::memset(prev, 0, byteCount);
     std::memset(curr, 0, byteCount);
-    fullDirty = false;
+    fullDirty        = false;
+    currMarkedCount_ = 0;
+    prevMarkedCount_ = 0;
     return true;
 }
 
@@ -140,13 +152,16 @@ void DirtyGrid::swapAndClear() {
         return;
     }
     std::swap(prev, curr);
+    prevMarkedCount_ = currMarkedCount_;
     std::memset(curr, 0, byteCount);
+    currMarkedCount_ = 0;
 }
 
 void DirtyGrid::markAll() {
     fullDirty = true;
     if (curr && byteCount > 0) {
         std::memset(curr, 0xFF, byteCount);
+        currMarkedCount_ = totalCellCount();
     }
 }
 
@@ -154,6 +169,9 @@ void DirtyGrid::setBit(uint8_t* buf, uint8_t cx, uint8_t cy) {
     const uint32_t idx  = static_cast<uint32_t>(cy) * static_cast<uint32_t>(cols) + static_cast<uint32_t>(cx);
     const size_t   b    = idx >> 3;
     const uint8_t  mask = static_cast<uint8_t>(1u << (idx & 7u));
+    if (buf == curr && !(buf[b] & mask)) {
+        ++currMarkedCount_;
+    }
     buf[b] |= mask;
 }
 
@@ -166,28 +184,20 @@ bool DirtyGrid::getBit(const uint8_t* buf, uint8_t cx, uint8_t cy) const {
 
 uint32_t DirtyGrid::popcountBuffer(const uint8_t* buf, size_t nbytes) {
     uint32_t n = 0;
-    for (size_t i = 0; i < nbytes; ++i) {
-        uint8_t b = buf[i];
-        while (b != 0) {
-            ++n;
-            b = static_cast<uint8_t>(b & static_cast<uint8_t>(b - 1));
-        }
+    const uint8_t* end = buf + nbytes;
+    while (buf < end) {
+        n += __builtin_popcount(*buf);
+        ++buf;
     }
     return n;
 }
 
 uint32_t DirtyGrid::countPrevMarkedCells() const {
-    if (!prev) {
-        return 0;
-    }
-    return popcountBuffer(prev, byteCount);
+    return prevMarkedCount_;
 }
 
 uint32_t DirtyGrid::countCurrMarkedCells() const {
-    if (!curr) {
-        return 0;
-    }
-    return popcountBuffer(curr, byteCount);
+    return currMarkedCount_;
 }
 
 uint32_t DirtyGrid::totalCellCount() const {
@@ -208,6 +218,9 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
     if (!fb || !prev || cols == 0 || rows == 0) {
         return;
     }
+
+    const size_t bytesPerRow = (cols + 7u) >> 3u;
+
     for (uint8_t cy = 0; cy < rows; ++cy) {
         const int py = static_cast<int>(cy) * static_cast<int>(CELL_H);
         if (py >= framebufferHeight) {
@@ -215,37 +228,91 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
         }
         const int rowH = std::min(static_cast<int>(CELL_H), framebufferHeight - py);
 
+        size_t byteIdx = static_cast<size_t>(cy) * bytesPerRow;
         uint8_t cx = 0;
+
         while (cx < cols) {
-            while (cx < cols && !isPrevDirty(cx, cy)) {
-                ++cx;
+            // Skip clean bytes
+            while (byteIdx < static_cast<size_t>(cy + 1) * bytesPerRow && prev[byteIdx] == 0) {
+                cx += 8;
+                ++byteIdx;
             }
             if (cx >= cols) {
                 break;
             }
-            const uint8_t runStart = cx;
-            while (cx < cols && isPrevDirty(cx, cy)) {
-                ++cx;
-            }
-            const uint8_t runEnd = static_cast<uint8_t>(cx - 1u);
 
-            const int px = static_cast<int>(runStart) * static_cast<int>(CELL_W);
-            if (px >= framebufferWidth) {
-                continue;
-            }
+            // Process the current byte
+            const uint8_t bits = prev[byteIdx];
 
-            const int spanCells = static_cast<int>(runEnd) - static_cast<int>(runStart) + 1;
-            int         wpixels = spanCells * static_cast<int>(CELL_W);
-            if (px + wpixels > framebufferWidth) {
-                wpixels = framebufferWidth - px;
-            }
-            if (wpixels <= 0) {
-                continue;
-            }
+            if (bits == 0xFF) {
+                // All 8 cells in this byte are dirty
+                const uint8_t runStart = cx;
+                uint8_t runEnd = cx;
+                
+                // Check following bytes for full 0xFF runs
+                size_t nextByteIdx = byteIdx + 1;
+                while (nextByteIdx < static_cast<size_t>(cy + 1) * bytesPerRow && prev[nextByteIdx] == 0xFF) {
+                    runEnd += 8;
+                    cx += 8;
+                    ++nextByteIdx;
+                }
+                cx += 8;
+                byteIdx = nextByteIdx;
 
-            uint8_t* rowPtr = fb + py * framebufferWidth + px;
-            for (int r = 0; r < rowH; ++r) {
-                std::memset(rowPtr + r * framebufferWidth, fillByte, static_cast<size_t>(wpixels));
+                const int px = static_cast<int>(runStart) * static_cast<int>(CELL_W);
+                if (px >= framebufferWidth) {
+                    continue;
+                }
+                const int spanCells = static_cast<int>(runEnd - runStart + 1);
+                int wpixels = spanCells * static_cast<int>(CELL_W);
+                if (px + wpixels > framebufferWidth) {
+                    wpixels = framebufferWidth - px;
+                }
+                if (wpixels <= 0) {
+                    continue;
+                }
+                uint8_t* rowPtr = fb + py * framebufferWidth + px;
+                for (int r = 0; r < rowH; ++r) {
+                    std::memset(rowPtr + r * framebufferWidth, fillByte, static_cast<size_t>(wpixels));
+                }
+            } else {
+                // Partial byte - find transitions within the byte
+                const uint8_t runStart = cx;
+                while (cx < cols && (bits & (1u << (cx - runStart))) == 0) {
+                    ++cx;
+                }
+                if (cx >= cols) {
+                    ++byteIdx;
+                    continue;
+                }
+                const uint8_t runEnd = cx;
+                while (cx < cols && (bits & (1u << (cx - runStart))) != 0) {
+                    ++cx;
+                }
+                // Handle remaining bits in this byte
+                while (cx < cols && (bits & (1u << (cx - runStart))) != 0) {
+                    ++cx;
+                }
+
+                const int px = static_cast<int>(runStart) * static_cast<int>(CELL_W);
+                if (px >= framebufferWidth) {
+                    ++byteIdx;
+                    continue;
+                }
+                const int spanCells = static_cast<int>(runEnd) - static_cast<int>(runStart) + 1;
+                int wpixels = spanCells * static_cast<int>(CELL_W);
+                if (px + wpixels > framebufferWidth) {
+                    wpixels = framebufferWidth - px;
+                }
+                if (wpixels <= 0) {
+                    ++byteIdx;
+                    continue;
+                }
+                uint8_t* rowPtr = fb + py * framebufferWidth + px;
+                for (int r = 0; r < rowH; ++r) {
+                    std::memset(rowPtr + r * framebufferWidth, fillByte, static_cast<size_t>(wpixels));
+                }
+                ++byteIdx;
             }
         }
     }

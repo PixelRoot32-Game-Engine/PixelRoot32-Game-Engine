@@ -480,7 +480,8 @@ The Dirty Region System reduces framebuffer clearing overhead by tracking which 
 ```ini
 build_flags =
     -DPIXELROOT32_ENABLE_DIRTY_REGIONS=1
-    -DPIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1
+    -DPIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1   ; Optional: runtime profiling
+    -DPIXELROOT32_DEBUG_MODE=1                       ; Required for debug overlay
 ```
 
 ### Using LayerType
@@ -548,11 +549,29 @@ void GameScene::draw(Renderer& r) {
 Enable to visualize which cells are dirty:
 
 ```cpp
-// In setup
+// In setup (requires PIXELROOT32_DEBUG_MODE=1)
 renderer.setDebugDirtyCellOverlay(true);
 ```
 
-This draws a colored overlay showing dirty cells in real-time.
+This draws a colored overlay showing dirty cells in real-time. When `forceFullRedraw()` has been called, all cells are highlighted.
+
+### Scene Stacking Contract
+
+When using `StaticTilemapLayerCache` with stacked scenes:
+
+> **Important:** At least one scene must NOT use the static cache (i.e., must not advise suppression), or all stacked scenes must collectively cover the entire framebuffer. Failure to meet this contract may result in stale pixels in uncovered regions.
+
+```cpp
+// Scene A: uses static cache (advises suppression)
+void SceneA::beginFrame() {
+    renderer.accumulateFramebufferClearSuppressionAdvice(true);
+}
+
+// Scene B: does NOT use cache (does NOT advise)
+void SceneB::beginFrame() {
+    renderer.accumulateFramebufferClearSuppressionAdvice(false);  // Required!
+}
+```
 
 ## Best Practices
 

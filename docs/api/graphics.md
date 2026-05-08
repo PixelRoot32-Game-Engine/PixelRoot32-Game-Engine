@@ -76,11 +76,13 @@ The Dirty Region System provides selective framebuffer clearing to reduce unnece
   - `LayerType::Static`: Background layers that rarely change. The system tracks dirty cells, but the layer itself doesn't mark cells as dirty.
   - `LayerType::Dynamic`: Sprites, particles, and UI that move every frame. These mark their occupied cells as dirty.
 
-- **`forceFullRedraw()`**: Call this when a full framebuffer clear is required (scene transitions, pause menus, camera jumps). Resets the dirty grid state.
+- **`forceFullRedraw()`**: Call this when a full framebuffer clear is required (scene transitions, pause menus, camera jumps). Resets the dirty grid state and synchronizes the internal bit buffer.
 
-- **Debug overlay** (`setDebugDirtyCellOverlay`): Visualizes dirty cells on screen for debugging. Requires `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1`.
+- **`TilemapSpriteDirtyMode`**: Controls per-sprite dirty marking behavior. Use `SuppressPerSpriteBoundsMark` for static or selectively-animated tilemaps to avoid marking cells as dirty unnecessarily.
 
-- **Compile flag**: `PIXELROOT32_ENABLE_DIRTY_REGIONS` (default: disabled). RAM cost: 64–226 bytes depending on resolution.
+- **Debug overlay** (`setDebugDirtyCellOverlay`): Visualizes dirty cells on screen for debugging. Requires `PIXELROOT32_DEBUG_MODE=1`.
+
+- **Compile flag**: `PIXELROOT32_ENABLE_DIRTY_REGIONS` (default: disabled). RAM cost: `2 × ceil(cols × rows / 8)` bytes — 60 bytes for 120×120, 226 bytes for 240×240.
 
 > **Tip:** Use `LayerType::Static` for backgrounds that don't change—avoids unnecessary dirty cell marking.
 

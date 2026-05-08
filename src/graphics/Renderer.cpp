@@ -129,6 +129,27 @@ namespace pixelroot32::graphics {
         dirtyGrid.markRect(x, y, w, h);
     }
 
+    Renderer::AnimDynTrackEntry* Renderer::findOrAllocAnimSlot(const void* mapKey) {
+        // First pass: find existing slot for this map
+        for (uint8_t i = 0; i < kMaxAnimDynTrackSlots; ++i) {
+            if (animDynTrackSlots_[i].mapKey == mapKey) {
+                return &animDynTrackSlots_[i];
+            }
+        }
+        // Second pass: find empty slot
+        for (uint8_t i = 0; i < kMaxAnimDynTrackSlots; ++i) {
+            if (animDynTrackSlots_[i].mapKey == nullptr) {
+                return &animDynTrackSlots_[i];
+            }
+        }
+        // All slots full: evict oldest (slot 0), shift down, return last
+        for (uint8_t i = 1; i < kMaxAnimDynTrackSlots; ++i) {
+            animDynTrackSlots_[i - 1] = animDynTrackSlots_[i];
+        }
+        animDynTrackSlots_[kMaxAnimDynTrackSlots - 1] = {};
+        return &animDynTrackSlots_[kMaxAnimDynTrackSlots - 1];
+    }
+
 #if defined(PIXELROOT32_DEBUG_MODE)
     void Renderer::drawDebugDirtyCellOverlay() {
         if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
@@ -140,6 +161,20 @@ namespace pixelroot32::graphics {
         const uint8_t cols = dirtyGrid.getCols();
         const uint8_t rows = dirtyGrid.getRows();
         const uint16_t outlineCol = resolveColor(Color::Magenta, PaletteContext::Sprite);
+
+        // If fullDirty is set, highlight all cells
+        if (dirtyGrid.isFullDirty()) {
+            for (uint8_t cy = 0; cy < rows; ++cy) {
+                for (uint8_t cx = 0; cx < cols; ++cx) {
+                    const int px = static_cast<int>(cx) * static_cast<int>(DirtyGrid::CELL_W);
+                    const int py = static_cast<int>(cy) * static_cast<int>(DirtyGrid::CELL_H);
+                    getDrawSurface().drawRectangle(px, py, DirtyGrid::CELL_W, DirtyGrid::CELL_H, outlineCol);
+                }
+            }
+            return;
+        }
+
+        // Otherwise, highlight only marked cells
         for (uint8_t cy = 0; cy < rows; ++cy) {
             for (uint8_t cx = 0; cx < cols; ++cx) {
                 if (!dirtyGrid.isCurrMarked(cx, cy)) {
@@ -199,6 +234,15 @@ namespace pixelroot32::graphics {
             return;
         }
 
+        // Skip dirty grid operations entirely for non-8bpp drivers (e.g., SDL2/native).
+        // Dirty regions provide no selective clear benefit without an 8bpp framebuffer.
+        const bool haveFb8 = (logicalFrameBuffer8 != nullptr);
+        if (!haveFb8) {
+            suppressFramebufferClearBeforeStaticMemcpy_ = false;
+            getDrawSurface().clearBuffer();
+            return;
+        }
+
         ensureDirtyGridSized();
         dirtyGrid.swapAndClear();
 #if PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING && defined(PIXELROOT32_DEBUG_MODE)
@@ -216,15 +260,14 @@ namespace pixelroot32::graphics {
         }
 #endif
 
-        const bool haveFb8 = (logicalFrameBuffer8 != nullptr);
         const bool skipClearForMemcpy =
-            haveFb8 && suppressFramebufferClearBeforeStaticMemcpy_ && !dirtyGrid.isFullDirty();
+            suppressFramebufferClearBeforeStaticMemcpy_ && !dirtyGrid.isFullDirty();
 
         suppressFramebufferClearBeforeStaticMemcpy_ = false;
 
         if (skipClearForMemcpy) {
             // Full framebuffer will be restored from StaticTilemapLayerCache before dynamic draws.
-        } else if (haveFb8 && !dirtyGrid.isFullDirty() && (dirtyGrid.countPrevMarkedCells() > 0)) {
+        } else if (!dirtyGrid.isFullDirty() && (dirtyGrid.countPrevMarkedCells() > 0)) {
             clearDirtyCellsFramebuffer8();
         } else {
             getDrawSurface().clearBuffer();
@@ -710,6 +753,84 @@ namespace pixelroot32::graphics {
         }
     }
 
+    template <typename TMap>
+    bool Renderer::beginTilemapDirty(const TMap& map, int originX, int originY,
+                                     LayerType layerType, TilemapDirtyContext& ctx) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return false;
+        }
+
+        ctx.bgContext = PaletteContext::Background;
+        ctx.oldRenderContext = currentRenderContext;
+        setRenderContext(&ctx.bgContext);
+
+        ctx.viewOriginX = offsetBypass ? originX : xOffset + originX;
+        ctx.viewOriginY = offsetBypass ? originY : yOffset + originY;
+
+        const bool selectiveAnimMarks =
+            (layerType == LayerType::Dynamic && map.animManager != nullptr);
+
+        ctx.savedMode = tilemapSpriteDirtyMode_;
+        if (layerType == LayerType::Static || selectiveAnimMarks) {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
+        } else {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+        }
+
+        ctx.animSlot = selectiveAnimMarks
+            ? findOrAllocAnimSlot(static_cast<const void*>(map.indices))
+            : nullptr;
+
+        ctx.mapOrOriginMovedAnim = ctx.animSlot != nullptr &&
+            (!ctx.animSlot->primed || ctx.animSlot->mapKey != static_cast<const void*>(map.indices) ||
+             ctx.animSlot->ox != ctx.viewOriginX || ctx.animSlot->oy != ctx.viewOriginY);
+
+        // Viewport culling
+        ctx.startCol = (ctx.viewOriginX < 0) ? (-ctx.viewOriginX / map.tileWidth) : 0;
+        ctx.endCol   = (ctx.viewOriginX + map.width * map.tileWidth > logicalWidth)
+                       ? ((logicalWidth - ctx.viewOriginX + map.tileWidth - 1) / map.tileWidth)
+                       : map.width;
+        ctx.startRow = (ctx.viewOriginY < 0) ? (-ctx.viewOriginY / map.tileHeight) : 0;
+        ctx.endRow   = (ctx.viewOriginY + map.height * map.tileHeight > logicalHeight)
+                       ? ((logicalHeight - ctx.viewOriginY + map.tileHeight - 1) / map.tileHeight)
+                       : map.height;
+
+        if (ctx.startCol < 0) ctx.startCol = 0;
+        if (ctx.endCol > map.width) ctx.endCol = map.width;
+        if (ctx.startRow < 0) ctx.startRow = 0;
+        if (ctx.endRow > map.height) ctx.endRow = map.height;
+
+        return true;
+    }
+
+    void Renderer::endTilemapDirty(const void* mapIndices, TilemapDirtyContext& ctx) {
+        if (ctx.animSlot) {
+            ctx.animSlot->primed = true;
+            ctx.animSlot->mapKey = mapIndices;
+            ctx.animSlot->ox     = ctx.viewOriginX;
+            ctx.animSlot->oy     = ctx.viewOriginY;
+        }
+        tilemapSpriteDirtyMode_ = ctx.savedMode;
+        setRenderContext(ctx.oldRenderContext);
+    }
+
+    bool Renderer::shouldMarkDirtyCell(const TilemapDirtyContext& ctx,
+                                       LayerType layerType,
+                                       TileAnimationManager* animMgr,
+                                       uint8_t rawIndex) const {
+        if (layerType != LayerType::Dynamic) {
+            return false;
+        }
+        if (animMgr != nullptr) {
+            return ctx.mapOrOriginMovedAnim ||
+                   animMgr->animatedTileAppearanceChanged(rawIndex);
+        }
+        return true;
+    }
+
     void Renderer::drawTileMap(const TileMap& map,
                                  int originX,
                                  int originY,
@@ -722,53 +843,13 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        PaletteContext bgContext = PaletteContext::Background;
-        PaletteContext* oldContext = currentRenderContext;
-        setRenderContext(&bgContext);
+        auto h = computeTilemapDirtyTracking(map, originX, originY, layerType);
 
-        int viewOriginX = offsetBypass ? originX : xOffset + originX;
-        int viewOriginY = offsetBypass ? originY : yOffset + originY;
-
-        const bool selectiveAnimMarks =
-            (layerType == LayerType::Dynamic && map.animManager != nullptr);
-
-        const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
-
-        if (layerType == LayerType::Static || selectiveAnimMarks) {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
-        } else {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-        }
-
-        const void* const savedAnimKey   = animDynTrackMapKey_;
-        const int       savedAnimOx     = animDynTrackOx_;
-        const int       savedAnimOy     = animDynTrackOy_;
-        const bool      savedAnimPrimed = animDynTrackPrimed_;
-
-        const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
-            (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
-             animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
-
-        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
-        int endCol   = (viewOriginX + map.width * map.tileWidth > logicalWidth)
-                           ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth)
-                           : map.width;
-
-        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
-        int endRow   = (viewOriginY + map.height * map.tileHeight > logicalHeight)
-                           ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight)
-                           : map.height;
-
-        if (startCol < 0) startCol = 0;
-        if (endCol > map.width) endCol = map.width;
-        if (startRow < 0) startRow = 0;
-        if (endRow > map.height) endRow = map.height;
-
-        for (int ty = startRow; ty < endRow; ++ty) {
+        for (int ty = h.startRow; ty < h.endRow; ++ty) {
             int baseY        = originY + ty * map.tileHeight;
             int rowIndexBase = ty * map.width;
 
-            for (int tx = startCol; tx < endCol; ++tx) {
+            for (int tx = h.startCol; tx < h.endCol; ++tx) {
                 int       baseX    = originX + tx * map.tileWidth;
                 uint8_t   rawIndex = map.indices[rowIndexBase + tx];
                 uint8_t   index    = rawIndex;
@@ -791,7 +872,7 @@ namespace pixelroot32::graphics {
                 if (layerType == LayerType::Dynamic) {
                     bool markCell = true;
                     if (map.animManager != nullptr) {
-                        markCell = mapOrOriginMovedAnim ||
+                        markCell = h.mapOrOriginMovedAnim ||
                                    map.animManager->animatedTileAppearanceChanged(rawIndex);
                     }
                     if (markCell) {
@@ -807,20 +888,15 @@ namespace pixelroot32::graphics {
             }
         }
 
-        if (selectiveAnimMarks) {
-            animDynTrackPrimed_ = true;
-            animDynTrackMapKey_ = map.indices;
-            animDynTrackOx_     = viewOriginX;
-            animDynTrackOy_     = viewOriginY;
-        } else {
-            animDynTrackMapKey_   = savedAnimKey;
-            animDynTrackOx_       = savedAnimOx;
-            animDynTrackOy_       = savedAnimOy;
-            animDynTrackPrimed_  = savedAnimPrimed;
+        if (h.animSlot) {
+            h.animSlot->primed = true;
+            h.animSlot->mapKey = map.indices;
+            h.animSlot->ox     = h.viewOriginX;
+            h.animSlot->oy     = h.viewOriginY;
         }
 
-        tilemapSpriteDirtyMode_ = savedMode;
-        setRenderContext(oldContext);
+        tilemapSpriteDirtyMode_ = h.savedMode;
+        setRenderContext(h.oldContext);
     }
 
     void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType) {
@@ -832,59 +908,18 @@ namespace pixelroot32::graphics {
             return;
         }
 
-        // Set background context automatically for tilemaps
-        PaletteContext bgContext = PaletteContext::Background;
-        PaletteContext* oldContext = currentRenderContext;
-        setRenderContext(&bgContext);
-
-        int viewOriginX = offsetBypass ? originX : xOffset + originX;
-        int viewOriginY = offsetBypass ? originY : yOffset + originY;
-
-        const bool selectiveAnimMarks =
-            (layerType == LayerType::Dynamic && map.animManager != nullptr);
-
-        const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
-
-        if (layerType == LayerType::Static || selectiveAnimMarks) {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
-        } else {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-        }
-
-        const void* const savedAnimKey   = animDynTrackMapKey_;
-        const int       savedAnimOx     = animDynTrackOx_;
-        const int       savedAnimOy     = animDynTrackOy_;
-        const bool      savedAnimPrimed = animDynTrackPrimed_;
-
-        const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
-            (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
-             animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
-
-        // Viewport Culling
-        int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
-        int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
-                     ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
-                     : map.width;
-        int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
-        int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
-                     ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
-                     : map.height;
-
-        if (startCol < 0) startCol = 0;
-        if (endCol > map.width) endCol = map.width;
-        if (startRow < 0) startRow = 0;
-        if (endRow > map.height) endRow = map.height;
+        auto h = computeTilemapDirtyTracking(map, originX, originY, layerType);
 
         // Palette Caching (tile palette + background palette slot)
         uint16_t cachedLUT[4];
         const Color* lastTilePalettePtr = nullptr;
         const uint16_t* lastBackgroundPalettePtr = nullptr;
 
-        for (int ty = startRow; ty < endRow; ++ty) {
+        for (int ty = h.startRow; ty < h.endRow; ++ty) {
             int baseY = originY + ty * map.tileHeight;
             int rowIndexBase = ty * map.width;
 
-            for (int tx = startCol; tx < endCol; ++tx) {
+            for (int tx = h.startCol; tx < h.endCol; ++tx) {
                 int baseX = originX + tx * map.tileWidth;
                 int cellIndex = rowIndexBase + tx;
                 uint8_t rawIndex = map.indices[cellIndex];
@@ -907,7 +942,7 @@ namespace pixelroot32::graphics {
                 if (layerType == LayerType::Dynamic) {
                     bool markCell = true;
                     if (map.animManager != nullptr) {
-                        markCell = mapOrOriginMovedAnim ||
+                        markCell = h.mapOrOriginMovedAnim ||
                                    map.animManager->animatedTileAppearanceChanged(rawIndex);
                     }
                     if (markCell) {
@@ -942,21 +977,16 @@ namespace pixelroot32::graphics {
             }
         }
 
-        if (selectiveAnimMarks) {
-            animDynTrackPrimed_ = true;
-            animDynTrackMapKey_ = map.indices;
-            animDynTrackOx_     = viewOriginX;
-            animDynTrackOy_     = viewOriginY;
-        } else {
-            animDynTrackMapKey_  = savedAnimKey;
-            animDynTrackOx_      = savedAnimOx;
-            animDynTrackOy_      = savedAnimOy;
-            animDynTrackPrimed_  = savedAnimPrimed;
+        if (h.animSlot) {
+            h.animSlot->primed = true;
+            h.animSlot->mapKey = map.indices;
+            h.animSlot->ox     = h.viewOriginX;
+            h.animSlot->oy     = h.viewOriginY;
         }
 
-        tilemapSpriteDirtyMode_ = savedMode;
+        tilemapSpriteDirtyMode_ = h.savedMode;
 
-        setRenderContext(oldContext);
+        setRenderContext(h.oldContext);
         }
     }
 
@@ -969,59 +999,18 @@ namespace pixelroot32::graphics {
             return;
             }
 
-            // Set background context automatically for tilemaps
-            PaletteContext bgContext = PaletteContext::Background;
-            PaletteContext* oldContext = currentRenderContext;
-            setRenderContext(&bgContext);
-
-            int viewOriginX = offsetBypass ? originX : xOffset + originX;
-            int viewOriginY = offsetBypass ? originY : yOffset + originY;
-
-            const bool selectiveAnimMarks =
-                (layerType == LayerType::Dynamic && map.animManager != nullptr);
-
-            const TilemapSpriteDirtyMode savedMode = tilemapSpriteDirtyMode_;
-
-            if (layerType == LayerType::Static || selectiveAnimMarks) {
-                tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
-            } else {
-                tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-            }
-
-            const void* const savedAnimKey   = animDynTrackMapKey_;
-            const int       savedAnimOx     = animDynTrackOx_;
-            const int       savedAnimOy     = animDynTrackOy_;
-            const bool      savedAnimPrimed = animDynTrackPrimed_;
-
-            const bool mapOrOriginMovedAnim = selectiveAnimMarks &&
-                (!animDynTrackPrimed_ || animDynTrackMapKey_ != static_cast<const void*>(map.indices) ||
-                 animDynTrackOx_ != viewOriginX || animDynTrackOy_ != viewOriginY);
-
-            // Viewport Culling
-            int startCol = (viewOriginX < 0) ? (-viewOriginX / map.tileWidth) : 0;
-            int endCol = (viewOriginX + map.width * map.tileWidth > logicalWidth) 
-                         ? ((logicalWidth - viewOriginX + map.tileWidth - 1) / map.tileWidth) 
-                         : map.width;
-            int startRow = (viewOriginY < 0) ? (-viewOriginY / map.tileHeight) : 0;
-            int endRow = (viewOriginY + map.height * map.tileHeight > logicalHeight) 
-                         ? ((logicalHeight - viewOriginY + map.tileHeight - 1) / map.tileHeight) 
-                         : map.height;
-
-            if (startCol < 0) startCol = 0;
-            if (endCol > map.width) endCol = map.width;
-            if (startRow < 0) startRow = 0;
-            if (endRow > map.height) endRow = map.height;
+            auto h = computeTilemapDirtyTracking(map, originX, originY, layerType);
 
             // Palette Caching (tile palette + background palette slot)
             uint16_t cachedLUT[16];
             const Color* lastTilePalettePtr = nullptr;
             const uint16_t* lastBackgroundPalettePtr = nullptr;
 
-            for (int ty = startRow; ty < endRow; ++ty) {
+            for (int ty = h.startRow; ty < h.endRow; ++ty) {
                 int baseY = originY + ty * map.tileHeight;
                 int rowIndexBase = ty * map.width;
 
-                for (int tx = startCol; tx < endCol; ++tx) {
+                for (int tx = h.startCol; tx < h.endCol; ++tx) {
                     int baseX = originX + tx * map.tileWidth;
                     int cellIndex = rowIndexBase + tx;
                     uint8_t rawIndex = map.indices[cellIndex];
@@ -1044,7 +1033,7 @@ namespace pixelroot32::graphics {
                     if (layerType == LayerType::Dynamic) {
                         bool markCell = true;
                         if (map.animManager != nullptr) {
-                            markCell = mapOrOriginMovedAnim ||
+                            markCell = h.mapOrOriginMovedAnim ||
                                        map.animManager->animatedTileAppearanceChanged(rawIndex);
                         }
                         if (markCell) {
@@ -1078,21 +1067,16 @@ namespace pixelroot32::graphics {
                 }
             }
 
-            if (selectiveAnimMarks) {
-                animDynTrackPrimed_ = true;
-                animDynTrackMapKey_ = map.indices;
-                animDynTrackOx_     = viewOriginX;
-                animDynTrackOy_     = viewOriginY;
-            } else {
-                animDynTrackMapKey_  = savedAnimKey;
-                animDynTrackOx_      = savedAnimOx;
-                animDynTrackOy_      = savedAnimOy;
-                animDynTrackPrimed_  = savedAnimPrimed;
+            if (h.animSlot) {
+                h.animSlot->primed = true;
+                h.animSlot->mapKey = map.indices;
+                h.animSlot->ox     = h.viewOriginX;
+                h.animSlot->oy     = h.viewOriginY;
             }
 
-            tilemapSpriteDirtyMode_ = savedMode;
+            tilemapSpriteDirtyMode_ = h.savedMode;
 
-            setRenderContext(oldContext);
+            setRenderContext(h.oldContext);
         }
     }
 

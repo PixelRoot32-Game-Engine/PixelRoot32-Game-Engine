@@ -738,19 +738,15 @@ public:
           logicalFrameBuffer8(nullptr),
           dirtyGrid(std::move(other.dirtyGrid)),
           tilemapSpriteDirtyMode_(other.tilemapSpriteDirtyMode_),
-          animDynTrackMapKey_(other.animDynTrackMapKey_),
-          animDynTrackOx_(other.animDynTrackOx_),
-          animDynTrackOy_(other.animDynTrackOy_),
-          animDynTrackPrimed_(other.animDynTrackPrimed_),
           debugDirtyCellOverlay_(other.debugDirtyCellOverlay_),
           suppressFramebufferClearBeforeStaticMemcpy_(other.suppressFramebufferClearBeforeStaticMemcpy_)
     {
+        for (uint8_t i = 0; i < kMaxAnimDynTrackSlots; ++i) {
+            animDynTrackSlots_[i] = other.animDynTrackSlots_[i];
+            other.animDynTrackSlots_[i] = {};
+        }
         other.logicalFrameBuffer8 = nullptr;
         other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-        other.animDynTrackMapKey_ = nullptr;
-        other.animDynTrackOx_ = 0;
-        other.animDynTrackOy_ = 0;
-        other.animDynTrackPrimed_ = false;
         other.debugDirtyCellOverlay_ = false;
         other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
     }
@@ -774,17 +770,13 @@ public:
             other.logicalFrameBuffer8 = nullptr;
             dirtyGrid = std::move(other.dirtyGrid);
             tilemapSpriteDirtyMode_ = other.tilemapSpriteDirtyMode_;
-            animDynTrackMapKey_ = other.animDynTrackMapKey_;
-            animDynTrackOx_ = other.animDynTrackOx_;
-            animDynTrackOy_ = other.animDynTrackOy_;
-            animDynTrackPrimed_ = other.animDynTrackPrimed_;
+            for (uint8_t i = 0; i < kMaxAnimDynTrackSlots; ++i) {
+                animDynTrackSlots_[i] = other.animDynTrackSlots_[i];
+                other.animDynTrackSlots_[i] = {};
+            }
             debugDirtyCellOverlay_ = other.debugDirtyCellOverlay_;
             suppressFramebufferClearBeforeStaticMemcpy_ = other.suppressFramebufferClearBeforeStaticMemcpy_;
             other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-            other.animDynTrackMapKey_ = nullptr;
-            other.animDynTrackOx_ = 0;
-            other.animDynTrackOy_ = 0;
-            other.animDynTrackPrimed_ = false;
             other.debugDirtyCellOverlay_ = false;
             other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
         }
@@ -815,7 +807,19 @@ public:
      */
     void resetFramebufferClearSuppressionAdvice();
 
-    /** No-op unless dirty regions are enabled; cumulative OR across stacked scenes advising cache memcpy restores. */
+    /**
+     * @brief Accumulate framebuffer clear suppression advice from a scene.
+     * 
+     * No-op unless dirty regions are enabled. Uses cumulative OR — once any scene advises
+     * suppression, it stays suppressed for the remainder of the frame.
+     * 
+     * <b>Scene Stacking Contract:</b> When stacking multiple scenes, at least one scene must
+     * NOT advise suppression (i.e., must not use StaticTilemapLayerCache with a valid full-screen
+     * snapshot), or all stacked scenes must collectively cover the entire framebuffer. Failure
+     * to meet this contract may result in stale pixels in uncovered regions.
+     * 
+     * @param skipClearDueToMemcpyRestore True if the scene will restore framebuffer via memcpy
+     */
     void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore);
 
     /**
@@ -954,6 +958,11 @@ public:
     void setDisplaySize(int w, int h) {
         logicalWidth = w;
         logicalHeight = h;
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            if (dirtyGrid.init(w, h)) {
+                dirtyGrid.setFullDirty(true);
+            }
+        }
     }
 
     /// @brief Gets the logical rendering width.
@@ -1209,11 +1218,18 @@ private:
 
     TilemapSpriteDirtyMode tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
 
-    /// Tracks last dynamic animated tilemap origin for dirty heuristics across frames.
-    const void* animDynTrackMapKey_ = nullptr;
-    int         animDynTrackOx_     = 0;
-    int         animDynTrackOy_     = 0;
-    bool        animDynTrackPrimed_ = false;
+    /// Per-map tracking entry for dynamic animated tilemap dirty heuristics across frames.
+    struct AnimDynTrackEntry {
+        const void* mapKey  = nullptr;
+        int         ox      = 0;
+        int         oy      = 0;
+        bool        primed  = false;
+    };
+    static constexpr uint8_t kMaxAnimDynTrackSlots = 4;
+    AnimDynTrackEntry animDynTrackSlots_[kMaxAnimDynTrackSlots] = {};
+
+    /// Find or allocate a tracking slot for the given map key; returns nullptr if full.
+    AnimDynTrackEntry* findOrAllocAnimSlot(const void* mapKey);
 
     bool debugDirtyCellOverlay_ = false;
 
@@ -1231,5 +1247,120 @@ private:
     void markDirtyLogicalRect(int x, int y, int w, int h);
     void drawDebugDirtyCellOverlay();
     void clearDirtyCellsFramebuffer8();
+
+    /// Shared state for tilemap dirty-tracking preamble/postamble (F6 dedup).
+    struct TilemapDirtyContext {
+        PaletteContext              bgContext;
+        PaletteContext*             oldRenderContext;
+        TilemapSpriteDirtyMode      savedMode;
+        AnimDynTrackEntry*          animSlot;
+        bool                        mapOrOriginMovedAnim;
+        int                         viewOriginX;
+        int                         viewOriginY;
+        int                         startCol;
+        int                         endCol;
+        int                         startRow;
+        int                         endRow;
+    };
+
+    /// Common preamble for all drawTileMap overloads. Returns false if the map is degenerate.
+    template <typename TMap>
+    bool beginTilemapDirty(const TMap& map, int originX, int originY,
+                           LayerType layerType, TilemapDirtyContext& ctx);
+
+    /// Common postamble for all drawTileMap overloads.
+    void endTilemapDirty(const void* mapIndices, TilemapDirtyContext& ctx);
+
+    /// Per-tile dirty cell marking decision (shared by all overloads).
+    bool shouldMarkDirtyCell(const TilemapDirtyContext& ctx,
+                             LayerType layerType,
+TileAnimationManager* animMgr,
+                              uint8_t rawIndex) const;
+
+    /// Helper struct to deduplicate dirty-tracking preamble/postamble across
+    /// drawTileMap overloads. Computes common state: viewport origin, animation
+    /// tracking, dirty mode, and viewport culling bounds.
+    struct TilemapDirtyTrackingHelper {
+        int         viewOriginX = 0;
+        int         viewOriginY = 0;
+        int         startCol    = 0;
+        int         endCol      = 0;
+        int         startRow    = 0;
+        int         endRow      = 0;
+        AnimDynTrackEntry* animSlot = nullptr;
+        bool        mapOrOriginMovedAnim = false;
+        TilemapSpriteDirtyMode savedMode = TilemapSpriteDirtyMode::Normal;
+        PaletteContext* oldContext = nullptr;
+    };
+
+    /// Compute common dirty-tracking state for any tilemap type.
+    /// @tparam T Map type (TileMap, TileMap2bpp, TileMap4bpp)
+    /// @param map The tilemap
+    /// @param originX Raw origin X
+    /// @param originY Raw origin Y
+    /// @param layerType Static or Dynamic
+    /// @return Helper containing all precomputed state
+    template<typename T>
+    TilemapDirtyTrackingHelper computeTilemapDirtyTracking(T& map,
+                                                            int originX,
+                                                            int originY,
+                                                            LayerType layerType) {
+        TilemapDirtyTrackingHelper h;
+
+        PaletteContext bgContext = PaletteContext::Background;
+        h.oldContext = currentRenderContext;
+        setRenderContext(&bgContext);
+
+        h.viewOriginX = offsetBypass ? originX : xOffset + originX;
+        h.viewOriginY = offsetBypass ? originY : yOffset + originY;
+
+        const bool selectiveAnimMarks =
+            (layerType == LayerType::Dynamic && map.animManager != nullptr);
+
+        h.savedMode = tilemapSpriteDirtyMode_;
+
+        if (layerType == LayerType::Static || selectiveAnimMarks) {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
+        } else {
+            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
+        }
+
+        h.animSlot = selectiveAnimMarks
+            ? findOrAllocAnimSlot(static_cast<const void*>(map.indices))
+            : nullptr;
+
+        h.mapOrOriginMovedAnim = h.animSlot != nullptr &&
+            (!h.animSlot->primed || h.animSlot->mapKey != static_cast<const void*>(map.indices) ||
+             h.animSlot->ox != h.viewOriginX || h.animSlot->oy != h.viewOriginY);
+
+        // Viewport culling
+        h.startCol = (h.viewOriginX < 0) ? (-h.viewOriginX / map.tileWidth) : 0;
+        h.endCol   = (h.viewOriginX + map.width * map.tileWidth > logicalWidth)
+                         ? ((logicalWidth - h.viewOriginX + map.tileWidth - 1) / map.tileWidth)
+                         : map.width;
+        h.startRow = (h.viewOriginY < 0) ? (-h.viewOriginY / map.tileHeight) : 0;
+        h.endRow   = (h.viewOriginY + map.height * map.tileHeight > logicalHeight)
+                         ? ((logicalHeight - h.viewOriginY + map.tileHeight - 1) / map.tileHeight)
+                         : map.height;
+
+        if (h.startCol < 0) h.startCol = 0;
+        if (h.endCol > map.width) h.endCol = map.width;
+        if (h.startRow < 0) h.startRow = 0;
+        if (h.endRow > map.height) h.endRow = map.height;
+
+        return h;
+    }
+
+    /// Restore dirty-tracking state after tilemap rendering.
+    void restoreTilemapDirtyTracking(TilemapDirtyTrackingHelper& h) {
+        if (h.animSlot) {
+            h.animSlot->primed = true;
+            h.animSlot->mapKey = nullptr;  // Will be set by caller with correct pointer
+            h.animSlot->ox     = h.viewOriginX;
+            h.animSlot->oy     = h.viewOriginY;
+        }
+        tilemapSpriteDirtyMode_ = h.savedMode;
+        setRenderContext(h.oldContext);
+    }
 };
 }

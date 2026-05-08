@@ -136,6 +136,8 @@ private:
     uint8_t* curr = nullptr;
     bool     fullDirty = false;
     size_t   byteCount = 0;
+    uint32_t currMarkedCount_ = 0;  ///< Running count of bits set in curr.
+    uint32_t prevMarkedCount_ = 0;  ///< Running count of bits set in prev.
 
     static size_t bytesForGrid(uint8_t c, uint8_t r);
     void            freeBuffers();
