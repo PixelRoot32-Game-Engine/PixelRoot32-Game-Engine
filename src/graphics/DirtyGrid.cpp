@@ -231,7 +231,7 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
         size_t byteIdx = static_cast<size_t>(cy) * bytesPerRow;
         uint8_t cx = 0;
 
-        while (byteIdx < static_cast<size_t>(cy + 1) * bytesPerRow && cx < cols) {
+        while (byteIdx <= static_cast<size_t>(cy + 1) * bytesPerRow - 1 && cx < cols) {
             if (prev[byteIdx] == 0) {
                 cx += 8;
                 ++byteIdx;
