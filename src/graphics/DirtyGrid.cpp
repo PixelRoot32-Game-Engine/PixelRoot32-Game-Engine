@@ -299,7 +299,10 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                     }
                 }
                 ++byteIdx;
-                cx += 8;
+                cx = static_cast<uint8_t>(std::min(static_cast<int>(cx) + 8, static_cast<int>(cols)));
+            }
+            if (byteIdx >= static_cast<size_t>(cy + 1) * bytesPerRow) {
+                break;
             }
         }
     }
