@@ -26,7 +26,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "TFT_eSPI": "^2.5.43",
+    "TFT_eSPI": "https://github.com/Gperez88/TFT_eSPI.git#master",
     "U8g2": "^2.36.18",
     "OneButton": "^2.6.2"
   },
