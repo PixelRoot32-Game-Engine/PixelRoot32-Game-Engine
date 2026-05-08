@@ -87,8 +87,9 @@ void DirtyGrid::freeBuffers() {
 bool DirtyGrid::init(int screenW, int screenH) {
     assert(screenW > 0 && screenH > 0);
     freeBuffers();
-    const int c = (screenW + static_cast<int>(CELL_W) - 1) / static_cast<int>(CELL_W);
-    const int r = (screenH + static_cast<int>(CELL_H) - 1) / static_cast<int>(CELL_H);
+    // Divide pixels by cell size to get number of cells (not ceildiv)
+    const int c = screenW / static_cast<int>(CELL_W);
+    const int r = screenH / static_cast<int>(CELL_H);
     if (c > 255 || r > 255) {
         return false;
     }
