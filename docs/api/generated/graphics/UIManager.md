@@ -64,6 +64,10 @@ Register an element for touch hit-testing and processEvents.
 
 ### `void clear()`
 
+### `uint8_t processEvents(pixelroot32::input::TouchEvent* events, uint8_t count)`
+
+### `bool processEvent(pixelroot32::input::TouchEvent& event)`
+
 ### `UITouchWidget* getActiveWidget() const`
 
 ### `UITouchWidget* getHoverWidget() const`
@@ -82,4 +86,4 @@ Register an element for touch hit-testing and processEvents.
 
 ### `void update(unsigned long deltaTime)`
 
-### `int8_t findFreeSlot() const`
+### `void draw(pixelroot32::graphics::Renderer& renderer)`

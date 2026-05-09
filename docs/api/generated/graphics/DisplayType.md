@@ -76,3 +76,11 @@ Gets the underlying DrawSurface implementation.
 **Description:**
 
 Initializes the underlying draw surface.
+
+### `std::unique_ptr<DrawSurface> releaseDrawSurface()`
+
+**Description:**
+
+Transfers ownership of the DrawSurface to the caller.
+
+**Returns:** A unique_ptr containing the DrawSurface.

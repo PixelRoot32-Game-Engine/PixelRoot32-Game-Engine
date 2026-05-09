@@ -8,15 +8,18 @@ PixelRoot32 follows a **scene-based architecture inspired by Godot Engine**, mak
 
 **Key features**
 
-- **Cross-platform** — Develop on PC (Windows/Linux/macOS) and deploy on ESP32
-- **Scene–entity system** — Scenes, entities, and actors
-- **High performance** — DMA transfers and IRAM-friendly paths on ESP32
-- **Sprites** — 1bpp/2bpp/4bpp, palettes, animation
-- **Tilemaps** — Viewport culling, multi-palette, tile animations
-- **NES-style audio** — 4-channel subsystem
-- **AABB physics** — Kinematic / rigid / static / sensor actors
-- **UI** — Labels, buttons, layouts; optional touch widgets
-- **Modular builds** — `PIXELROOT32_ENABLE_*` compile-time flags
+- **Cross-Platform**: Develop on PC (Windows/Linux/macOS) and deploy on ESP32.
+- **Scene-Entity System**: Intuitive management of Scenes, Entities, and Actors.
+- **High Performance**: Optimized for ESP32 with DMA transfers, IRAM-cached rendering, and a Dirty Regions pipeline.
+- **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with multi-palette selection, flipping, rotation, and animation.
+- **Tilemap Support**: Optimized rendering with viewport culling, static layer caching, multi-palette, and tile animations.
+- **Tile Animation System**: Frame-based animations (water, lava) with O(1) frame resolution and zero-allocation policy.
+- **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
+- **NES-Style Audio**: Built-in dynamic 8-voice audio subsystem with fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
+- **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
+- **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, sensors, and one-way platforms.
+- **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
+- **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 ## Prerequisites
 

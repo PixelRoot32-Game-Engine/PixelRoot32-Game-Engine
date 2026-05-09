@@ -6,4 +6,4 @@
 
 ## Description
 
-Supported touch controller types
+Supported touch controller types.

@@ -23,4 +23,6 @@ Target: ESP32 (original), ESP32-S2. The DAC does not exist on S3/C3.
 
 ## Methods
 
+### `int getSampleRate() const`
+
 ### `void audioTaskLoop()`

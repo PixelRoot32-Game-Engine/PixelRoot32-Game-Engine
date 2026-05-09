@@ -50,3 +50,41 @@ Gets the number of entities created by this builder.
 **Description:**
 
 Resets the entity counter.
+
+### `pixelroot32::core::PhysicsActor* createTileBody(uint16_t x, uint16_t y, TileFlags flags)`
+
+**Description:**
+
+Creates a single tile physics body.
+
+**Parameters:**
+
+- `x`: Tile X coordinate
+- `y`: Tile Y coordinate
+- `flags`: TileFlags for this tile
+
+**Returns:** Pointer to created actor, or nullptr if entity limit reached
+
+### `void configureTileBody(pixelroot32::core::PhysicsActor* body, TileFlags flags)`
+
+**Description:**
+
+Configures a tile body based on its flags.
+
+**Parameters:**
+
+- `body`: The physics actor to configure
+- `flags`: TileFlags for configuration
+
+### `pixelroot32::math::Vector2 tileToWorldPosition(uint16_t x, uint16_t y) const`
+
+**Description:**
+
+Converts tile coordinates to world position.
+
+**Parameters:**
+
+- `x`: Tile X coordinate
+- `y`: Tile Y coordinate
+
+**Returns:** World position vector

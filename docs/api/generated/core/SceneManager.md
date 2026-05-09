@@ -49,6 +49,30 @@ Updates the currently active scene.
 
 - `dt`: Delta time in ms.
 
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws the currently active scene.
+
+**Parameters:**
+
+- `renderer`: The renderer to use.
+
+### `void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Lets stacked scenes advertise framebuffer prep (runs before Renderer::beginFrame).
+
+### `std::optional<Scene*> getCurrentScene() const`
+
+**Description:**
+
+Gets the currently active scene.
+
+**Returns:** Optional pointer to the top scene on the stack.
+
 ### `bool aggregateShouldRedrawFramebuffer() const`
 
 **Description:**

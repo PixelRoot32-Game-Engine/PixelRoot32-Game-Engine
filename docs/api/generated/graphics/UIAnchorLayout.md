@@ -41,3 +41,32 @@ Sets the screen size for anchor calculations.
 
 - `screenWidth`: Screen width in pixels.
 - `screenHeight`: Screen height in pixels.
+
+### `pixelroot32::math::Scalar getScreenWidth() const`
+
+**Description:**
+
+Gets the screen width.
+
+**Returns:** Screen width in pixels.
+
+### `pixelroot32::math::Scalar getScreenHeight() const`
+
+**Description:**
+
+Gets the screen height.
+
+**Returns:** Screen height in pixels.
+
+### `void calculateAnchorPosition(UIElement* element, Anchor anchor, pixelroot32::math::Scalar& outX, pixelroot32::math::Scalar& outY) const`
+
+**Description:**
+
+Calculates position for an element based on its anchor.
+
+**Parameters:**
+
+- `element`: The element to position.
+- `anchor`: The anchor point.
+- `outX`: Output parameter for calculated X position.
+- `outY`: Output parameter for calculated Y position.

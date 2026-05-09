@@ -30,7 +30,7 @@ pr32::graphics::DisplayConfig config(
     Y_OFF_SET
 );
 
-pr32::input::InputConfig inputConfig(1, BTN_PIN_UP); // 1 button: Up
+pr32::input::InputConfig inputConfig(BTN_PIN_UP); // 1 button: Up
 
 pr32::core::Engine engine(config, inputConfig);
 

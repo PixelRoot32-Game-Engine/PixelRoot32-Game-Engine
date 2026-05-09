@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.5.0
+
+### 🚀 Rendering Performance & Graphics
+
+- **Dirty Regions Pipeline**: Introduced `DirtyGrid` optimization featuring a double dirty grid system to eliminate mandatory full-frame redraws. Uses selective row-run 8bpp clearing and `__builtin_popcount` optimizations to drastically reduce memory bandwidth and CPU overhead on ESP32.
+- **Static Tilemap Integration**: Integrated Dirty Regions with `StaticTilemapLayerCache` for fast-path `memcpy` background restores. Added `LayerType` (Static vs. Dynamic) for intelligent dirty marking and optimized animated tile tracking.
+- **Robustness & Refactoring**: Improved error handling for `DirtyGrid` memory allocations and simplified framebuffer clearing loop conditions for better maintainability.
+
+### 🔊 Audio System
+
+- **No-FPU Optimizations**: Added Q15 fixed-point implementations for LFO (triangle waves, tremolo, vibrato) and High-Pass Filter (HPF) to enable high-performance audio synthesis on platforms without a floating-point unit (like ESP32-C3), completely avoiding slow soft-float operations.
+- **Audio Hot Path Optimization**: Replaced conditional branching in wave generation with a static function pointer array dispatch, significantly reducing branch mispredictions during audio rendering.
+- **Configurable Block Size**: Added an optional `blockSize` parameter to `AudioScheduler::init()` for platform-specific tuning (e.g., 128 samples for ESP32-C3 vs 256 for FPU platforms).
+
+### 🎮 Examples
+
+- **2048 Puzzle Game**: Added a complete 2048 clone showcasing grid mechanics, UI layout elements, NES-style sound effects, and dual-platform support (Native SDL2 with keyboard / ESP32-CYD with touch).
+
+### 🧪 Testing & QA
+
+- **Collision System Tests**: Added comprehensive unit tests verifying sensor contacts, velocity integration, penetration correction, and boundary scenarios.
+- **Expanded Coverage**: Expanded test coverage across multiple systems including `AudioScheduler`, `DrawSurface`, `SceneManager`, `InputManager`, `TileAnimationManager`, `DisplayConfig`, and `TouchStateMachine`.
+- **Meaningful Assertions**: Replaced placeholder assertions with exact value verification and expanded edge case handling across the testing suite.
+
+### ⚡ Memory Optimization
+
+- **`InputConfig` Fixed-Size Arrays**: Replaced `std::vector` with `std::array<T,N>{}` in `InputConfig` to eliminate heap allocation, prevent memory fragmentation, and ensure deterministic O(1) access times on ESP32. Added `static_assert` compile-time validation and template variadic constructor that auto-deduces input count, removing the need for explicit `count` parameter.
+
+> **Migration guide**: [MIGRATION_v1.5.0](docs/migration/migration-v1-5-0.md)
+
 ## 1.4.0
 
 ### 🔊 Audio System

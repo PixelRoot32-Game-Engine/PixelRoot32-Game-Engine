@@ -38,6 +38,42 @@ Gets the child element.
 
 **Returns:** Pointer to the child element, or nullptr if none set.
 
+### `void setBackgroundColor(pixelroot32::graphics::Color color)`
+
+**Description:**
+
+Sets the background color.
+
+**Parameters:**
+
+- `color`: Background color.
+
+### `pixelroot32::graphics::Color getBackgroundColor() const`
+
+**Description:**
+
+Gets the background color.
+
+**Returns:** Background color.
+
+### `void setBorderColor(pixelroot32::graphics::Color color)`
+
+**Description:**
+
+Sets the border color.
+
+**Parameters:**
+
+- `color`: Border color.
+
+### `pixelroot32::graphics::Color getBorderColor() const`
+
+**Description:**
+
+Gets the border color.
+
+**Returns:** Border color.
+
 ### `void setBorderWidth(uint8_t width)`
 
 **Description:**

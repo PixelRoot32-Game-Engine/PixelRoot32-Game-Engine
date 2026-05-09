@@ -37,9 +37,9 @@
 
 ### Dirty Region Selective Clear
 
-Reduces framebuffer clearing overhead by tracking which 8×8 pixel cells were actually drawn to in the previous frame:
+Reduces framebuffer clearing overhead by tracking which 8×8 pixel cells were actually drawn to in the previous frame, utilizing a **double dirty grid** pipeline.
 
-- **Benefit**: Replaces full-screen `memset` with targeted clears for only touched cells.
+- **Benefit**: Replaces full-screen `memset` with targeted **selective row-run 8bpp clearing**. It skips untouched rows entirely and uses `__builtin_popcount` optimizations to quickly identify blocks of dirty cells.
 - **RAM cost**: 64–226 bytes (depends on resolution and cell size).
 - **When it pays off**: Games with mostly static backgrounds and small moving sprites.
 - **Profiling flag**: `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1`
@@ -60,7 +60,7 @@ Single-core architectures (like the ESP32-C3) run the game logic, display transf
 
 - **Priority Inversion**: Heavy display transfers (like full-screen U8G2 refreshes) can block the audio task, causing buffer underruns and audio glitches. The engine dynamically detects single-core platforms and elevates the audio task priority (e.g., to `18`) to protect audio streams.
 - **Context Thrashing**: An audio priority that is *too* high (e.g., `24`) will preempt the display transfer constantly to synthesize audio, fragmenting the hardware SPI transaction and ballooning draw times (up to 4x). The engine mitigates this by balancing priority, reducing audio buffer block sizes to `128` samples, and using `taskYIELD()` for cooperative multitasking.
-- **Float Operations**: Soft-float emulation on the ESP32-C3 is extremely slow. The engine provides integer Q15 implementations for performance-critical inner loops (like `tickEnvelopeQ15` and audio mixer LUTs). Avoid introducing new float-based calculations inside per-sample audio loops or per-pixel drawing loops.
+- **Float Operations**: Soft-float emulation on the ESP32-C3 is extremely slow. The engine provides fixed-point Q15 implementations for performance-critical inner loops (like `tickEnvelopeQ15`, LFO generation for vibrato/tremolo, HPF filtering, and audio mixer LUTs). Avoid introducing new float-based calculations inside per-sample audio loops or per-pixel drawing loops.
 
 ---
 

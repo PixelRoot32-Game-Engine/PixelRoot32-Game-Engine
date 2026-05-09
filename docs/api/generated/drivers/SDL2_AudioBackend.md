@@ -16,4 +16,6 @@ Audio backend implementation for SDL2 (Windows/Linux/Mac).
 
 ## Methods
 
+### `int getSampleRate() const`
+
 ### `void audioCallback(uint8_t* stream, int len)`

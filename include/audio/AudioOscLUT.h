@@ -8,8 +8,19 @@
 
 namespace pixelroot32::audio {
 
-    /** One period of sin(2*pi*i/256) in Q15-like int16 (max ≈ 32767). */
-    inline constexpr int16_t SINE_LUT_Q15[256] = {
+/**
+ * @file AudioOscLUT.h
+ * @brief Precomputed sine wave look-up table for band-limited oscillator synthesis.
+ * 
+ * Contains one full period of sin(2*pi*i/256) quantized to int16 in Q15 format.
+ * Used by the SINE wave type in AudioChannel to avoid runtime sine computation.
+ * The 256-entry table provides good quality with minimal memory footprint (~512 bytes).
+ * 
+ * The values range from -32767 to +32767, representing sin(0) to sin(2*pi) at 256 steps.
+ */
+
+/** @brief One period of sin(2*pi*i/256) in Q15 int16 (max ≈ 32767). */
+inline constexpr int16_t SINE_LUT_Q15[256] = {
         0,     804,   1608,  2410,  3212,  4011,  4808,  5602,  6393,  7179,  7962,  8739,  9512,  10278, 11039, 11793,
         12539, 13279, 14010, 14732, 15446, 16151, 16846, 17530, 18204, 18868, 19519, 20159, 20787, 21403, 22005, 22594,
         23170, 23731, 24279, 24811, 25329, 25832, 26319, 26790, 27245, 27683, 28105, 28510, 28898, 29268, 29621, 29956,

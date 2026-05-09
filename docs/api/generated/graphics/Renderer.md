@@ -36,6 +36,14 @@ Forces a full clear on the next beginFrame when `PIXELROOT32_ENABLE_DIRTY_REGION
 
 ### `void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore)`
 
+**Description:**
+
+Accumulate framebuffer clear suppression advice from a scene.
+
+**Parameters:**
+
+- `skipClearDueToMemcpyRestore`: True if the scene will restore framebuffer via memcpy
+
 ### `void endFrame()`
 
 **Description:**
@@ -49,6 +57,62 @@ Finalizes the frame and sends the buffer to the display.
 Gets the underlying DrawSurface implementation.
 
 **Returns:** Reference to the DrawSurface.
+
+### `void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size)`
+
+**Description:**
+
+Draws a string of text using the default font.
+
+**Parameters:**
+
+- `text`: The text to draw.
+- `x`: X coordinate.
+- `y`: Y coordinate.
+- `color`: Text color.
+- `size`: Text size multiplier.
+
+### `void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* font)`
+
+**Description:**
+
+Draws a string of text using a specific font.
+
+**Parameters:**
+
+- `text`: The text to draw.
+- `x`: X coordinate.
+- `y`: Y coordinate.
+- `color`: Text color.
+- `size`: Text size multiplier.
+- `font`: Pointer to the font to use. If nullptr, uses the default font.
+
+### `void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size)`
+
+**Description:**
+
+Draws text centered horizontally at a given Y coordinate using the default font.
+
+**Parameters:**
+
+- `text`: The text to draw.
+- `y`: Y coordinate.
+- `color`: Text color.
+- `size`: Text size.
+
+### `void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size, const Font* font)`
+
+**Description:**
+
+Draws text centered horizontally at a given Y coordinate using a specific font.
+
+**Parameters:**
+
+- `text`: The text to draw.
+- `y`: Y coordinate.
+- `color`: Text color.
+- `size`: Text size.
+- `font`: Pointer to the font to use. If nullptr, uses the default font.
 
 ### `void drawFilledCircle(int x, int y, int radius, Color color)`
 
@@ -169,6 +233,8 @@ Sets the logical display size (rendering resolution).
 
 - `w`: Logical width.
 - `h`: Logical height.
+
+### `if constexpr(pixelroot32::platforms::config::EnableDirtyRegions)`
 
 ### `int getLogicalWidth() const`
 

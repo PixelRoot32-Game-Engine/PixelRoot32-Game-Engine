@@ -333,14 +333,34 @@ constexpr InstrumentPreset INSTR_HIHAT{
     0.0f      // dutySweep
 };
 
+/**
+ * @brief Constructs a MusicNote using the preset's default octave.
+ * @param preset The instrument preset defining default volume and octave.
+ * @param note The musical note to play.
+ * @param duration Note duration in seconds.
+ * @return A MusicNote with the preset's base volume and default octave.
+ */
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration) {
     return MusicNote{note, preset.defaultOctave, duration, preset.baseVolume, &preset};
 }
 
+/**
+ * @brief Constructs a MusicNote with a specific octave override.
+ * @param preset The instrument preset defining default volume and other parameters.
+ * @param note The musical note to play.
+ * @param octave The octave for this note (overrides preset default).
+ * @param duration Note duration in seconds.
+ * @return A MusicNote with the preset's base volume and specified octave.
+ */
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration) {
     return MusicNote{note, octave, duration, preset.baseVolume, &preset};
 }
 
+/**
+ * @brief Constructs a rest (silence) note.
+ * @param duration Duration of the rest in seconds.
+ * @return A MusicNote representing silence.
+ */
 inline MusicNote makeRest(float duration) {
     return MusicNote{Note::Rest, 0, duration, 0.0f, nullptr};
 }

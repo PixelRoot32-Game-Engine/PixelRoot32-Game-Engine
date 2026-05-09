@@ -6,16 +6,17 @@
 
 ## Description
 
-Configuration for touch controller
+Configuration for a touch controller (XPT2046 or GT911).
 
-Add to DisplayConfig or use standalone.
-Define one of TOUCH_DRIVER_XPT2046 or TOUCH_DRIVER_GT911 in build flags.
+Set controller, communication parameters, and calibration transform.
+Coordinate mapping: screenX = rawX * scaleX + offsetX (and same for Y).
+Raw coordinates outside display bounds are clamped before mapping.
 
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| `controller` | `TouchController` | Active controller |
+| `controller` | `TouchController` | Active controller type. |
 
 ## Methods
 
@@ -23,10 +24,23 @@ Define one of TOUCH_DRIVER_XPT2046 or TOUCH_DRIVER_GT911 in build flags.
 
 **Description:**
 
-Constructor for XPT2046
+Factory: XPT2046 SPI configuration.
+
+**Parameters:**
+
+- `cs`: SPI chip-select pin.
+- `irq`: Interrupt pin (255 = unused).
+
+**Returns:** Configured TouchConfig.
 
 ### `static TouchConfig createGT911(uint8_t irq = 4)`
 
 **Description:**
 
-Constructor for GT911
+Factory: GT911 I2C configuration.
+
+**Parameters:**
+
+- `irq`: Interrupt pin (default 4).
+
+**Returns:** Configured TouchConfig.

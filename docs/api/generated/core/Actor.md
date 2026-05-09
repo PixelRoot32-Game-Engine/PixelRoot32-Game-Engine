@@ -29,6 +29,24 @@ enemies, and projectiles.
 
 ## Methods
 
+### `: Entity(x, y, w, h, EntityType::ACTOR)`
+
+**Description:**
+
+Constructor using Scalar coordinates.
+
+### `: Entity(pos, w, h, EntityType::ACTOR)`
+
+**Description:**
+
+Constructor using Vector2 position.
+
+### `void setCollisionLayer(pixelroot32::physics::CollisionLayer l)`
+
+### `void setCollisionMask(pixelroot32::physics::CollisionLayer m)`
+
+### `void update(unsigned long deltaTime)`
+
 ### `bool isInLayer(uint16_t targetLayer) const`
 
 ### `virtual Rect getHitBox()`

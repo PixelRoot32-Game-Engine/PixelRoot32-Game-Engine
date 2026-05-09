@@ -7,6 +7,35 @@
 
 namespace pixelroot32::graphics {
 
+/**
+ * @file PaletteDefs.h
+ * @brief Predefined 16-color RGB565 palettes (NES, GameBoy, PICO-8, PR32).
+ *
+ * All palettes are constexpr arrays of 16 RGB565 values (indices 0–15).
+ * The engine resolves Color enum values against these tables at render time.
+ *
+ * Palette Layout (all 16 entries):
+ * Index | Color Role
+ * ------|------------------------------
+ *  0    | Black
+ *  1    | White
+ *  2    | Navy
+ *  3    | Blue
+ *  4    | Cyan
+ *  5    | DarkGreen
+ *  6    | Green
+ *  7    | LightGreen
+ *  8    | Yellow
+ *  9    | Orange
+ * 10    | LightRed
+ * 11    | Red
+ * 12    | DarkRed
+ * 13    | Purple
+ * 14    | Magenta
+ * 15    | Gray
+ */
+
+/** 16-color NES-style palette (PICO-8 compatible). */
 static constexpr uint16_t PALETTE_NES[] = {
     0x0000, // #000000 (Black)
     0xFF9C, // #FFF1E8 (White)

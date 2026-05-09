@@ -63,6 +63,40 @@ Sets the render layer.
 
 - `layer`: The layer index (0 to MaxLayers-1). Clamped if exceeded.
 
+### `: position(pos), width(w), height(h), type(t)`
+
+**Description:**
+
+Constructor.
+
+**Parameters:**
+
+- `position`: Initial position.
+- `w`: Width.
+- `h`: Height.
+- `t`: EntityType.
+
+### `: position(x, y), width(w), height(h), type(t)`
+
+**Description:**
+
+Constructor.
+
+**Parameters:**
+
+- `x`: Initial X position.
+- `y`: Initial Y position.
+- `w`: Width.
+- `h`: Height.
+- `t`: EntityType.
+
+### `: position(pixelroot32::math::toScalar(x), pixelroot32::math::toScalar(y)), width(w), height(h), type(t)`
+
+**Description:**
+
+Constructor with float coordinates for convenience.
+Only enabled if Scalar is NOT float to avoid ambiguity.
+
 ### `virtual void update(unsigned long deltaTime)`
 
 **Description:**
@@ -72,3 +106,13 @@ Updates the entity's logic.
 **Parameters:**
 
 - `deltaTime`: Time elapsed since the last frame in milliseconds.
+
+### `virtual void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Renders the entity.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer to use for drawing.

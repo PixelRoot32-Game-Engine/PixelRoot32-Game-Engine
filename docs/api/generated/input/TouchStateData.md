@@ -23,6 +23,8 @@ Per-touch-ID state tracking
 
 ## Methods
 
+### `: state(TouchState::Idle)`
+
 ### `, pressTime(0)`
 
 ### `, pressX(0)`

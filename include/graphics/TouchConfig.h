@@ -13,51 +13,77 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @file TouchConfig.h
+ * @brief Touch controller configuration for XPT2046 (SPI) and GT911 (I2C).
+ *
+ * Defines TouchConfig as a simple struct with calibration, SPI/I2C settings,
+ * and coordinate transformation (scale + offset). Add to DisplayConfig
+ * or use standalone.
+ *
+ * Compile-time activation:
+ *   -DTOUCH_DRIVER_XPT2046  → XPT2046 SPI at 2.5 MHz default
+ *   -DTOUCH_DRIVER_GT911    → GT911 I2C at 400 kHz default
+ */
+
+/**
  * @enum TouchController
- * @brief Supported touch controller types
+ * @brief Supported touch controller types.
  */
 enum class TouchController {
-    None = 0,     ///< No touch controller
-    XPT2046 = 1,  ///< SPI touch controller (common on dev boards)
-    GT911 = 2     ///< I2C touch controller (Goodix)
+    None = 0,    ///< No touch hardware.
+    XPT2046 = 1, ///< SPI resistive controller (common on ESP32 dev boards).
+    GT911 = 2    ///< I2C capacitive controller (Goodix, up to 5-point touch).
 };
 
 /**
  * @struct TouchConfig
- * @brief Configuration for touch controller
+ * @brief Configuration for a touch controller (XPT2046 or GT911).
  *
- * Add to DisplayConfig or use standalone.
- * Define one of TOUCH_DRIVER_XPT2046 or TOUCH_DRIVER_GT911 in build flags.
+ * Set controller, communication parameters, and calibration transform.
+ * Coordinate mapping: screenX = rawX * scaleX + offsetX (and same for Y).
+ * Raw coordinates outside display bounds are clamped before mapping.
  */
 struct TouchConfig {
-    TouchController controller = TouchController::None;  ///< Active controller
-    
-    // SPI settings (for XPT2046)
-    uint32_t spiClockHz = 2500000;    // 2.5 MHz
-    uint8_t csPin = 5;               // SPI CS pin
-    uint8_t irqPin = 4;              // Interrupt pin (optional)
-    
-    // I2C settings (for GT911)
-    uint32_t i2cClockHz = 400000;     // 400 kHz
-    uint8_t i2cAddress = 0x5D;        // GT911 I2C address
-    
-    // Calibration defaults
+    TouchController controller = TouchController::None;  ///< Active controller type.
+
+    // SPI settings (XPT2046)
+    /** SPI clock frequency in Hz (default 2.5 MHz). */
+    uint32_t spiClockHz = 2500000;
+    /** SPI chip-select pin. */
+    uint8_t csPin = 5;
+    /** Touch interrupt pin (255 = unused). */
+    uint8_t irqPin = 4;
+
+    // I2C settings (GT911)
+    /** I2C clock frequency in Hz (default 400 kHz). */
+    uint32_t i2cClockHz = 400000;
+    /** GT911 I2C address (default 0x5D; alternate 0x14). */
+    uint8_t i2cAddress = 0x5D;
+
+    // Calibration transform
+    /** Horizontal scale (raw → display coordinate multiplier). */
     float scaleX = 1.0f;
+    /** Vertical scale (raw → display coordinate multiplier). */
     float scaleY = 1.0f;
+    /** Horizontal offset in display pixels after scaling. */
     int16_t offsetX = 0;
+    /** Vertical offset in display pixels after scaling. */
     int16_t offsetY = 0;
-    
+
     // Display bounds for coordinate clamping
+    /** Physical display width in pixels. */
     uint16_t displayWidth = 320;
+    /** Physical display height in pixels. */
     uint16_t displayHeight = 240;
 
-    /**
-     * @brief Default constructor - no touch
-     */
+    /** Default constructor — no controller, defaults for all fields. */
     TouchConfig() = default;
 
     /**
-     * @brief Constructor for XPT2046
+     * @brief Factory: XPT2046 SPI configuration.
+     * @param cs SPI chip-select pin.
+     * @param irq Interrupt pin (255 = unused).
+     * @return Configured TouchConfig.
      */
     static TouchConfig createXPT2046(uint8_t cs, uint8_t irq = 255) {
         TouchConfig config;
@@ -68,7 +94,9 @@ struct TouchConfig {
     }
 
     /**
-     * @brief Constructor for GT911
+     * @brief Factory: GT911 I2C configuration.
+     * @param irq Interrupt pin (default 4).
+     * @return Configured TouchConfig.
      */
     static TouchConfig createGT911(uint8_t irq = 4) {
         TouchConfig config;

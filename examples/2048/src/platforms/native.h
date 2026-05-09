@@ -25,7 +25,7 @@ pr32::graphics::DisplayConfig config(
     Y_OFF_SET
 );
 
-pr32::input::InputConfig inputConfig(6, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE, SDL_SCANCODE_RETURN); // 6 buttons: Up, Down, Left, Right, Space(A), Enter (B)
+pr32::input::InputConfig inputConfig(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_SPACE, SDL_SCANCODE_RETURN); // 6 buttons: Up, Down, Left, Right, Space(A), Enter (B)
 
 pr32::audio::AudioConfig audioConfig(&audioBackend, 22050);
 

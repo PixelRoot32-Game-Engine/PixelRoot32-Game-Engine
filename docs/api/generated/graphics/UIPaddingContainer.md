@@ -38,6 +38,61 @@ Gets the child element.
 
 **Returns:** Pointer to the child element, or nullptr if none set.
 
+### `void setPadding(pixelroot32::math::Scalar p)`
+
+**Description:**
+
+Sets uniform padding on all sides.
+
+**Parameters:**
+
+- `p`: Padding value in pixels.
+
+### `void setPadding(pixelroot32::math::Scalar left, pixelroot32::math::Scalar right, pixelroot32::math::Scalar top, pixelroot32::math::Scalar bottom)`
+
+**Description:**
+
+Sets asymmetric padding.
+
+**Parameters:**
+
+- `left`: Left padding in pixels.
+- `right`: Right padding in pixels.
+- `top`: Top padding in pixels.
+- `bottom`: Bottom padding in pixels.
+
+### `pixelroot32::math::Scalar getPaddingLeft() const`
+
+**Description:**
+
+Gets the left padding.
+
+**Returns:** Left padding in pixels.
+
+### `pixelroot32::math::Scalar getPaddingRight() const`
+
+**Description:**
+
+Gets the right padding.
+
+**Returns:** Right padding in pixels.
+
+### `pixelroot32::math::Scalar getPaddingTop() const`
+
+**Description:**
+
+Gets the top padding.
+
+**Returns:** Top padding in pixels.
+
+### `pixelroot32::math::Scalar getPaddingBottom() const`
+
+**Description:**
+
+Gets the bottom padding.
+
+**Returns:** Bottom padding in pixels.
+
 ### `void updateChildPosition()`
 
 **Description:**
