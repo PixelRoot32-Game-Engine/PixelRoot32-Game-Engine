@@ -29,7 +29,8 @@ flowchart TB
     end
 
     subgraph RendererLayer["Renderer"]
-        B -->|"Clip"| C[Viewport Culling]
+        B -->|"Track"| DB[Dirty Grid]
+        DB -->|"Clip"| C[Viewport Culling]
         C -->|"Transform"| D[World to Screen]
         D -->|"Scale"| E[Logical to Physical]
     end
@@ -210,6 +211,7 @@ AudioBackend
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap framebuffer cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled |
+| Dirty Regions (selective clear) | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Disabled |
 
 ---
 

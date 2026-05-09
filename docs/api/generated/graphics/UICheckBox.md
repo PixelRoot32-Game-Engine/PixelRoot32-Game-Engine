@@ -19,6 +19,19 @@ Can trigger a callback function when its state changes.
 
 ## Methods
 
+### `bool isPointInside(int px, int py) const`
+
+**Description:**
+
+Checks if a point is inside the checkbox's bounds.
+
+**Parameters:**
+
+- `px`: Point X coordinate.
+- `py`: Point Y coordinate.
+
+**Returns:** true if point is inside.
+
 ### `void setStyle(Color textCol, Color bgCol, bool drawBg = false)`
 
 **Description:**
@@ -72,16 +85,3 @@ Checks if the checkbox is currently selected.
 **Description:**
 
 Toggles the checkbox state.
-
-### `bool isPointInside(int px, int py) const`
-
-**Description:**
-
-Internal helper to check if a point is inside the checkbox's bounds.
-
-**Parameters:**
-
-- `px`: Point X coordinate.
-- `py`: Point Y coordinate.
-
-**Returns:** true if point is inside.

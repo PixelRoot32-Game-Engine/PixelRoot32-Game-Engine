@@ -35,6 +35,25 @@
   - Represent the projectile as a small `physics::Circle` and call `physics::sweepCircleVsRect(startCircle, endCircle, targetRect, tHit)` against potential targets.
   - Use sweep tests only for the few entities that need them; keep everything else on basic AABB to avoid unnecessary CPU cost.
 
+### Dirty Region Selective Clear
+
+Reduces framebuffer clearing overhead by tracking which 8×8 pixel cells were actually drawn to in the previous frame:
+
+- **Benefit**: Replaces full-screen `memset` with targeted clears for only touched cells.
+- **RAM cost**: 64–226 bytes (depends on resolution and cell size).
+- **When it pays off**: Games with mostly static backgrounds and small moving sprites.
+- **Profiling flag**: `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1`
+- **Metric**: `dirty_ratio` — fraction of cells marked dirty. Good values are <0.5; >0.8 suggests full clear is cheaper.
+
+```ini
+; Enable in platformio.ini
+build_flags =
+    -DPIXELROOT32_ENABLE_DIRTY_REGIONS=1
+    -DPIXELROOT32_ENABLE_DIRTY_REGION_PROFILING=1
+```
+
+> **Tip:** If `dirty_ratio` > 0.8, disable dirty regions and use full clear—it avoids the tracking overhead.
+
 ### Single-Core Resource Contention (ESP32-C3)
 
 Single-core architectures (like the ESP32-C3) run the game logic, display transfers, and audio synthesis on a single core.

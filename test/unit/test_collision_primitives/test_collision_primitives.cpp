@@ -102,6 +102,52 @@ void test_collision_sweep_start_inside_rect(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, tHit);
 }
 
+void test_collision_sweep_dx_zero_parallel(void) {
+    Circle start = { 5, -20, 5 };
+    Circle end = { 5, 20, 5 };
+    Rect r = { {0, 0}, 10, 10 };
+    float tHit = 0;
+    TEST_ASSERT_TRUE(sweepCircleVsRect(start, end, r, tHit));
+}
+
+void test_collision_sweep_dy_zero_parallel(void) {
+    Circle start = { -20, 5, 5 };
+    Circle end = { 20, 5, 5 };
+    Rect r = { {0, 0}, 10, 10 };
+    float tHit = 0;
+    TEST_ASSERT_TRUE(sweepCircleVsRect(start, end, r, tHit));
+}
+
+void test_collision_segment_horizontal_intersects(void) {
+    Segment s = { 0, 5, 10, 5 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_TRUE(intersects(s, r));
+}
+
+void test_collision_segment_horizontal_outside(void) {
+    Segment s = { 0, 15, 10, 15 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_FALSE(intersects(s, r));
+}
+
+void test_collision_segment_dy_zero_within(void) {
+    Segment s = { 5, 5, 5, 15 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_TRUE(intersects(s, r));
+}
+
+void test_collision_segment_dy_zero_outside(void) {
+    Segment s = { 5, 15, 5, 20 };
+    Rect r = { {0, 0}, 10, 10 };
+    TEST_ASSERT_FALSE(intersects(s, r));
+}
+
+void test_collision_segment_tmin_tmax_edge(void) {
+    Segment s = { 0, 0, 5, 5 };
+    Rect r = { {5, 5}, 5, 5 };
+    TEST_ASSERT_TRUE(intersects(s, r));
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
@@ -114,6 +160,13 @@ int main(int argc, char **argv) {
     RUN_TEST(test_collision_segment_dx_zero_inside);
     RUN_TEST(test_collision_segment_dx_zero_outside);
     RUN_TEST(test_collision_sweep_start_inside_rect);
+    RUN_TEST(test_collision_sweep_dx_zero_parallel);
+    RUN_TEST(test_collision_sweep_dy_zero_parallel);
+    RUN_TEST(test_collision_segment_horizontal_intersects);
+    RUN_TEST(test_collision_segment_horizontal_outside);
+    RUN_TEST(test_collision_segment_dy_zero_within);
+    RUN_TEST(test_collision_segment_dy_zero_outside);
+    RUN_TEST(test_collision_segment_tmin_tmax_edge);
     
     return UNITY_END();
 }

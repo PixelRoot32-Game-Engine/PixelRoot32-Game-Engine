@@ -7,11 +7,13 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "platforms/EngineConfig.h"
+
 namespace pixelroot32::graphics {
 
 namespace {
 
-void drawSpecs(Renderer& renderer, const TileMap4bppDrawSpec* layers, std::size_t count) {
+void drawSpecs(Renderer& renderer, const TileMap4bppDrawSpec* layers, std::size_t count, LayerType layerType) {
     if (!layers || count == 0) {
         return;
     }
@@ -20,7 +22,7 @@ void drawSpecs(Renderer& renderer, const TileMap4bppDrawSpec* layers, std::size_
         if (!m) {
             continue;
         }
-        renderer.drawTileMap(*m, layers[i].originX, layers[i].originY);
+        renderer.drawTileMap(*m, layers[i].originX, layers[i].originY, layerType);
     }
 }
 
@@ -29,9 +31,23 @@ void drawAllLayers(Renderer& renderer,
                    std::size_t staticLayerCount,
                    const TileMap4bppDrawSpec* dynamicLayers,
                    std::size_t dynamicLayerCount) {
-    drawSpecs(renderer, staticLayers, staticLayerCount);
-    drawSpecs(renderer, dynamicLayers, dynamicLayerCount);
+    drawSpecs(renderer, staticLayers, staticLayerCount, LayerType::Static);
+    drawSpecs(renderer, dynamicLayers, dynamicLayerCount, LayerType::Dynamic);
 }
+
+#if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+bool hasAnyStaticMap(const TileMap4bppDrawSpec* staticLayers, std::size_t staticLayerCount) {
+    if (!staticLayers || staticLayerCount == 0) {
+        return false;
+    }
+    for (std::size_t i = 0; i < staticLayerCount; ++i) {
+        if (staticLayers[i].map) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
 
 } // namespace
 
@@ -105,6 +121,66 @@ bool StaticTilemapLayerCache::isFramebufferCacheEnabled() const {
 #endif
 }
 
+#if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+bool StaticTilemapLayerCache::wouldRestoreFramebufferViaCacheMemcpy(Renderer& renderer,
+                                                                    int cameraSampleX,
+                                                                    int cameraSampleY,
+                                                                    const TileMap4bppDrawSpec* staticLayers,
+                                                                    std::size_t staticLayerCount) const {
+    if (!framebufferCacheEnabled) {
+        return false;
+    }
+    if (!hasAnyStaticMap(staticLayers, staticLayerCount)) {
+        return false;
+    }
+    uint8_t* fb = renderer.getDrawSurface().getSpriteBuffer();
+    const int w = renderer.getLogicalWidth();
+    const int h = renderer.getLogicalHeight();
+    const std::size_t bufBytes = static_cast<std::size_t>(w) * static_cast<std::size_t>(h);
+    if (!fb || !cacheBytes || cacheByteCount != bufBytes) {
+        return false;
+    }
+    const bool camMoved = (cameraSampleX != lastCameraX || cameraSampleY != lastCameraY);
+    const bool needRebuild = !cacheValid || camMoved || userInvalidated;
+    return !needRebuild;
+}
+#endif
+
+void StaticTilemapLayerCache::adviseFramebufferBeforeBeginFrame(
+    Renderer& renderer,
+    int cameraSampleX,
+    int cameraSampleY,
+    const TileMap4bppDrawSpec* staticLayers,
+    std::size_t staticLayerCount,
+    const TileMap4bppDrawSpec* dynamicLayers,
+    std::size_t dynamicLayerCount) const {
+#if !PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
+    (void)renderer;
+    (void)cameraSampleX;
+    (void)cameraSampleY;
+    (void)staticLayers;
+    (void)staticLayerCount;
+    (void)dynamicLayers;
+    (void)dynamicLayerCount;
+#else
+    if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+        (void)renderer;
+        (void)cameraSampleX;
+        (void)cameraSampleY;
+        (void)staticLayers;
+        (void)staticLayerCount;
+        (void)dynamicLayers;
+        (void)dynamicLayerCount;
+    } else {
+        (void)dynamicLayers;
+        (void)dynamicLayerCount;
+        const bool suppress = wouldRestoreFramebufferViaCacheMemcpy(
+            renderer, cameraSampleX, cameraSampleY, staticLayers, staticLayerCount);
+        renderer.accumulateFramebufferClearSuppressionAdvice(suppress);
+    }
+#endif
+}
+
 void StaticTilemapLayerCache::draw(Renderer& renderer,
                                    int cameraSampleX,
                                    int cameraSampleY,
@@ -121,18 +197,8 @@ void StaticTilemapLayerCache::draw(Renderer& renderer,
         return;
     }
 
-    bool hasStatic = false;
-    if (staticLayers) {
-        for (std::size_t i = 0; i < staticLayerCount; ++i) {
-            if (staticLayers[i].map) {
-                hasStatic = true;
-                break;
-            }
-        }
-    }
-
-    if (!hasStatic) {
-        drawSpecs(renderer, dynamicLayers, dynamicLayerCount);
+    if (!hasAnyStaticMap(staticLayers, staticLayerCount)) {
+        drawSpecs(renderer, dynamicLayers, dynamicLayerCount, LayerType::Dynamic);
         return;
     }
 
@@ -150,16 +216,16 @@ void StaticTilemapLayerCache::draw(Renderer& renderer,
     const bool needRebuild = !cacheValid || camMoved || userInvalidated;
 
     if (needRebuild) {
-        drawSpecs(renderer, staticLayers, staticLayerCount);
+        drawSpecs(renderer, staticLayers, staticLayerCount, LayerType::Static);
         std::memcpy(cacheBytes.get(), fb, bufBytes);
-        drawSpecs(renderer, dynamicLayers, dynamicLayerCount);
+        drawSpecs(renderer, dynamicLayers, dynamicLayerCount, LayerType::Dynamic);
         lastCameraX = cameraSampleX;
         lastCameraY = cameraSampleY;
         cacheValid = true;
         userInvalidated = false;
     } else {
         std::memcpy(fb, cacheBytes.get(), bufBytes);
-        drawSpecs(renderer, dynamicLayers, dynamicLayerCount);
+        drawSpecs(renderer, dynamicLayers, dynamicLayerCount, LayerType::Dynamic);
     }
 #endif
 }

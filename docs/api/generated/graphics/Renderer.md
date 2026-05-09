@@ -26,6 +26,16 @@ Initializes the renderer and the underlying draw surface.
 
 Prepares the buffer for a new frame (clears screen).
 
+### `void forceFullRedraw()`
+
+**Description:**
+
+Forces a full clear on the next beginFrame when `PIXELROOT32_ENABLE_DIRTY_REGIONS` is on (no-op otherwise).
+
+### `void resetFramebufferClearSuppressionAdvice()`
+
+### `void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore)`
+
 ### `void endFrame()`
 
 **Description:**
@@ -360,30 +370,6 @@ Draws a scaled multi-layer sprite.
 - `scaleX`: Horizontal scaling factor.
 - `scaleY`: Vertical scaling factor.
 
-### `void drawTileMap(const TileMap2bpp& map, int originX, int originY)`
-
-**Description:**
-
-Draws a tilemap of 2bpp sprites.
-
-**Parameters:**
-
-- `map`: The tilemap descriptor.
-- `originX`: X coordinate of the top-left corner.
-- `originY`: Y coordinate of the top-left corner.
-
-### `void drawTileMap(const TileMap4bpp& map, int originX, int originY)`
-
-**Description:**
-
-Draws a tilemap of 4bpp sprites.
-
-**Parameters:**
-
-- `map`: The tilemap descriptor.
-- `originX`: X coordinate of the top-left corner.
-- `originY`: Y coordinate of the top-left corner.
-
 ### `void setOffsetBypass(bool bypass)`
 
 **Description:**
@@ -401,3 +387,11 @@ Enables or disables ignoring global offsets for subsequent draw calls.
 Checks if offset bypass is currently enabled.
 
 **Returns:** True if offsets are being ignored.
+
+### `void setDebugDirtyCellOverlay(bool enabled)`
+
+**Description:**
+
+When PIXELROOT32_DEBUG_MODE is defined and enabled, outlines curr dirty cells before present.
+
+### `bool isDebugDirtyCellOverlayEnabled() const`

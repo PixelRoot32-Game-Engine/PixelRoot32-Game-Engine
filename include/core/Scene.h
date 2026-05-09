@@ -123,6 +123,18 @@ public:
     virtual void draw(pixelroot32::graphics::Renderer& renderer);
 
     /**
+     * @brief Advises the scene that the framebuffer is about to be drawn.
+     * @param renderer The renderer to use.
+     * 
+     * Optional hook: run immediately before Renderer::beginFrame().
+     * Scenes using StaticTilemapLayerCache should call adviseFramebufferBeforeBeginFrame with the same
+     * layers/camera sampling as StaticTilemapLayerCache::draw so dirty-region clears align with framebuffer memcpy restores.
+     */
+    virtual void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) {
+        (void)renderer;
+    }
+
+    /**
      * @brief When false, Engine may skip `draw()` and `present()` for this iteration (after `update()`).
      *
      * Default `true` preserves legacy behavior. Override to return false only when the logical

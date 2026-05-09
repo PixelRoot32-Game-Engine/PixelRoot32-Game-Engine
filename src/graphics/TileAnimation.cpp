@@ -8,6 +8,8 @@
 #include "platforms/EngineConfig.h"
 #include "core/Log.h"
 
+#include <cstring>
+
 #if defined(PLATFORM_NATIVE)
 #include "platforms/mock/MockArduino.h"
 #else
@@ -55,6 +57,8 @@ TileAnimationManager::TileAnimationManager(
         rebuildLookupTable();
     }
 
+    std::memcpy(prevLookupSnapshot, lookupTable, sizeof(prevLookupSnapshot));
+
     lastStepMicros = micros();
 
     if constexpr (pixelroot32::platforms::config::EnableLogging) {
@@ -92,6 +96,12 @@ void TileAnimationManager::reset() {
     if (animCount > 0) {
         rebuildLookupTable();
     }
+
+    std::memcpy(prevLookupSnapshot, lookupTable, sizeof(prevLookupSnapshot));
+}
+
+void TileAnimationManager::snapshotLookupForDirtyCompare() {
+    std::memcpy(prevLookupSnapshot, lookupTable, sizeof(prevLookupSnapshot));
 }
 
 void TileAnimationManager::rebuildLookupTable() {
@@ -117,6 +127,8 @@ void TileAnimationManager::step(unsigned long deltaTimeMs) {
     if (animCount == 0) {
         return;
     }
+
+    snapshotLookupForDirtyCompare();
 
     constexpr uint32_t kMicrosPerAnimTick = 1000000u / 60u;
     constexpr uint32_t kMaxWallUs = 50000u;
@@ -161,6 +173,13 @@ void TileAnimationManager::step(unsigned long deltaTimeMs) {
 uint8_t IRAM_ATTR TileAnimationManager::resolveFrame(uint8_t tileIndex) {
     if (tileIndex >= tileCount) return tileIndex;
     return lookupTable[tileIndex];
+}
+
+bool TileAnimationManager::animatedTileAppearanceChanged(uint8_t storedTileIndex) const {
+    if (storedTileIndex >= tileCount || storedTileIndex >= MAX_TILESET_SIZE) {
+        return true;
+    }
+    return lookupTable[storedTileIndex] != prevLookupSnapshot[storedTileIndex];
 }
 
 uint32_t TileAnimationManager::getVisualSignature() const {
