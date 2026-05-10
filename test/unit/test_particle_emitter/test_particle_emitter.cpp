@@ -12,6 +12,8 @@
  */
 
 #include <unity.h>
+#include <vector>
+#include <tuple>
 #include "../../test_config.h"
 
 #ifdef PIXELROOT32_ENABLE_PARTICLES
