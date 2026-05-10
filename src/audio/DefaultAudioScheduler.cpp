@@ -9,7 +9,7 @@ namespace pixelroot32::audio {
     namespace platforms = pixelroot32::platforms;
 
     void DefaultAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate,
-                                     const platforms::PlatformCapabilities& /*caps*/) {
+                                     const platforms::PlatformCapabilities& /*caps*/, int /*blockSize*/) {
         apu.init(sampleRate);
     }
 

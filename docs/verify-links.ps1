@@ -1,5 +1,14 @@
 # Link verification script
-$docsRoot = "C:\Users\gperez88\Documents\Proyects\Games\pixelroot32 workspace\PixelRoot32-Game-Samples\lib\PixelRoot32-Game-Engine\docs"
+# Optional: PIXELROOT32_DOCS_ROOT = absolute path to the docs folder. If unset, uses this script's directory.
+$docsRoot = $env:PIXELROOT32_DOCS_ROOT
+if ([string]::IsNullOrWhiteSpace($docsRoot)) {
+    $docsRoot = $PSScriptRoot
+}
+if (-not (Test-Path -LiteralPath $docsRoot)) {
+    Write-Host "Documentation folder does not exist. Set PIXELROOT32_DOCS_ROOT or run this script from docs/." -ForegroundColor Red
+    Write-Host "Current value: $docsRoot" -ForegroundColor Gray
+    exit 1
+}
 
 $mdFiles = Get-ChildItem -Path $docsRoot -Recurse -Filter "*.md"
 $brokenLinks = @()

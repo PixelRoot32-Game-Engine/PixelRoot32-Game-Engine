@@ -49,6 +49,25 @@ Checks if the button is currently selected.
 
 **Returns:** true if selected.
 
+### `bool isFocusable() const`
+
+**Description:**
+
+Checks if the element is focusable.
+
+**Returns:** true (Buttons are always focusable).
+
+### `void handleInput(const pixelroot32::input::InputManager& input)`
+
+**Description:**
+
+Handles input events.
+Checks for touch events within bounds or confirmation buttons if selected.
+
+**Parameters:**
+
+- `input`: The input manager instance.
+
 ### `void press()`
 
 **Description:**

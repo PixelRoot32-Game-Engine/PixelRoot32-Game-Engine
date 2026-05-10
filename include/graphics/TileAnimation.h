@@ -10,6 +10,7 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @struct TileAnimation
  * @brief Single tile animation definition (compile-time constant).
  * 
  * Defines a sequence of tile indices that form an animation loop.
@@ -36,6 +37,7 @@ struct TileAnimation {
 };
 
 /**
+ * @class TileAnimationManager
  * @brief Manages tile animations for a tilemap.
  * 
  * Provides O(1) frame resolution via lookup table. All animation
@@ -71,6 +73,7 @@ public:
      * the clock does not advance between calls (e.g. unit tests without real time).
      *
      * Complexity: O(animations × frameCount) when at least one tick elapses; else O(1)
+     * @param deltaTimeMs Fallback elapsed time in milliseconds.
      */
     void step(unsigned long deltaTimeMs);
     
@@ -79,17 +82,29 @@ public:
      */
     void reset();
 
+
     /**
      * @brief Fingerprint of the current resolved animation state (O(animCount)).
+     * @return The visual signature of the current resolved animation state.
      *
      * Stable across `step(deltaTimeMs)` calls until a visible frame advances (same contract as
      * `resolveFrame` / lookup table). Used by scenes to skip draw+present when output
      * would be identical (e.g. ESP32 SPI budget).
      */
     uint32_t getVisualSignature() const;
-    
+
+    /**
+     * @brief Checks if the resolved graphic for storedTileIndex changed since the snapshot taken at the
+     * start of last step(); invalid indices return true so callers repaint conservatively.
+     * @param storedTileIndex The tile index to check.
+     * @return True if the resolved graphic for storedTileIndex changed since the snapshot taken at the
+     * start of last step(); invalid indices return true so callers repaint conservatively.
+     */
+    bool animatedTileAppearanceChanged(uint8_t storedTileIndex) const;
+
 private:
     void rebuildLookupTable();
+    void snapshotLookupForDirtyCompare();
 
     const TileAnimation* animations;  ///< PROGMEM animation definitions
     uint8_t animCount;               ///< Number of animations
@@ -98,6 +113,7 @@ private:
     uint32_t tickAccumUs;             ///< Fraction of 1/60 s wall time in microseconds
     uint32_t lastStepMicros;          ///< Previous micros() sample for pacing
     uint8_t lookupTable[MAX_TILESET_SIZE];  ///< tileIndex → currentFrame
+    uint8_t prevLookupSnapshot[MAX_TILESET_SIZE]; ///< copy at step() entry for dirty diff
 };
 
 } // namespace pixelroot32::graphics

@@ -199,43 +199,30 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
         # Assignment statement like "int x = 5;" but not "operator="
         return None
     
+    # Strip inline body first so override/final are always at end for regex
+    stripped = original_line
+    sig_part = stripped
+    if '{' in stripped:
+        sig_part = stripped.split('{')[0].strip()
+
     # Check for virtual
-    is_virtual = 'virtual ' in line
-    line = line.replace('virtual ', '')
-    
+    is_virtual = 'virtual ' in sig_part
+    sig_part = sig_part.replace('virtual ', '')
+
     # Check for static
-    is_static = line.strip().startswith('static ')
-    line = line.replace('static ', '')
-    
+    is_static = sig_part.strip().startswith('static ')
+    sig_part = sig_part.replace('static ', '')
+
     # Check for explicit override/final and pure virtual
-    line = re.sub(r'\s+override\s*$', '', line)
-    line = re.sub(r'\s+final\s*$', '', line)
-    line = re.sub(r'\s*=\s*0\s*;', ';', line)  # Pure virtual
+    sig_part = re.sub(r'\s+override\s*$', '', sig_part)
+    sig_part = re.sub(r'\s+final\s*$', '', sig_part)
+    sig_part = re.sub(r'\s*=\s*0\s*;', ';', sig_part)
+
+    # For matching, use sig_part as-is
+    sig_line = sig_part
     
-    # Skip if line contains function body indicators
-    if '{' in line and ';' not in line.split('{')[0]:
-        # Likely a function definition with body, not just declaration
-        pass  # Still check if it ends with semicolon after body
-    
+    # Use sig_part (already stripped of inline body, override, final)
     # Match method signature: return_type name(params) [const];
-    # Handle templates, pointers, references, etc.
-    # Can end with semicolon OR have inline body { ... }
-    stripped = line.strip()
-    
-    # Check if this looks like an inline implementation (ends with })
-    # but has proper signature pattern before the body
-    has_inline_body = stripped.endswith('}') and '{' in stripped
-    
-    # For inline methods, we need to extract just the signature part before { or :
-    # First, try to match the signature part only (before { or :)
-    sig_line = stripped
-    if ':' in stripped and ('{' not in stripped or stripped.find(':') < stripped.find('{')):
-        # Constructor with initializer list - cut before :
-        sig_line = stripped.split(':')[0].strip()
-    elif '{' in stripped:
-        # Inline function body - cut before {
-        sig_line = stripped.split('{')[0].strip()
-    
     method_pattern = r'^(?:template\s*<[^>]+>\s*)?'  # Optional template
     method_pattern += r'([\w:<>,\s&*~]+?)'  # Return type (non-greedy), allow ~ for destructor
     method_pattern += r'\s+([\w~]+)\s*'  # Method name (allow ~ for destructor)
@@ -244,7 +231,7 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
     method_pattern += r'(?:\s*=\s*0)?'  # Optional pure virtual = 0
     method_pattern += r'(?:\s*;)?$'  # Optional semicolon at end
     
-    match = re.match(method_pattern, sig_line)
+    match = re.match(method_pattern, sig_part)
     if not match:
         return None
     
@@ -648,11 +635,6 @@ def generate_index_markdown(modules: Dict[str, List[ClassDoc]], output_dir: str)
     lines.append("# API Reference (Generated)")
     lines.append("")
     lines.append("Auto-generated API documentation from C++ header files.")
-    lines.append("")
-    lines.append("::: warning Generated Content")
-    lines.append("These files are automatically generated from header comments.")
-    lines.append("Do not edit manually. Run `python scripts/generate_api_docs.py` to regenerate.")
-    lines.append(":::")
     lines.append("")
     
     # Table of contents by module

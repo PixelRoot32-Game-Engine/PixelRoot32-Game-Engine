@@ -37,11 +37,13 @@ Invariants:
 
 ## Methods
 
-### `, x(0)`
+### `: timestamp(0)`
 
 **Description:**
 
 Default constructor - creates empty event
+
+### `, x(0)`
 
 ### `, y(0)`
 
@@ -53,7 +55,7 @@ Default constructor - creates empty event
 
 ### `, _padding(0)`
 
-### `, x(xPos)`
+### `: timestamp(ts)`
 
 **Description:**
 
@@ -67,6 +69,8 @@ Construct touch event with all fields
 - `yPos`: Y coordinate
 - `ts`: Timestamp in ms
 - `eventFlags`: Event flags
+
+### `, x(xPos)`
 
 ### `, y(yPos)`
 

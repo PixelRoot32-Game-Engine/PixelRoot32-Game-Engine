@@ -40,6 +40,42 @@ Enables or disables scrolling (alias for setScrollEnabled).
 
 - `enable`: True to enable scrolling.
 
+### `void setViewportHeight(pixelroot32::math::Scalar h)`
+
+**Description:**
+
+Sets the viewport height (visible area).
+
+**Parameters:**
+
+- `h`: Viewport height in pixels.
+
+### `pixelroot32::math::Scalar getScrollOffset() const`
+
+**Description:**
+
+Gets the current scroll offset.
+
+**Returns:** Scroll offset in pixels.
+
+### `void setScrollOffset(pixelroot32::math::Scalar offset)`
+
+**Description:**
+
+Sets the scroll offset directly.
+
+**Parameters:**
+
+- `offset`: Scroll offset in pixels.
+
+### `pixelroot32::math::Scalar getContentHeight() const`
+
+**Description:**
+
+Gets the total content height.
+
+**Returns:** Content height in pixels.
+
 ### `int getSelectedIndex() const`
 
 **Description:**
@@ -65,6 +101,16 @@ Sets the selected element index.
 Gets the selected element.
 
 **Returns:** Pointer to selected element, or nullptr if none selected.
+
+### `void setScrollSpeed(pixelroot32::math::Scalar speed)`
+
+**Description:**
+
+Sets the scroll speed for smooth scrolling.
+
+**Parameters:**
+
+- `speed`: Pixels per millisecond.
 
 ### `void setNavigationButtons(uint8_t upButton, uint8_t downButton)`
 

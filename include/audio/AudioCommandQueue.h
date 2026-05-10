@@ -13,24 +13,34 @@ namespace pixelroot32::audio {
 
     /**
      * @class AudioCommandQueue
-     * @brief Multi-Producer Single-Consumer lock-free ring buffer for AudioCommands.
+     * @brief Multi-Producer Single-Consumer (MPSC) lock-free ring buffer for AudioCommands.
      * 
-     * Fixed size, no allocation. Supports multiple concurrent producer threads.
-     * If the queue is full, the newest command is dropped and droppedCommands is incremented.
-     * Uses compare-and-swap (CAS) for atomic ring index advancement.
+     * Fixed-size, zero-allocation queue designed for real-time audio thread communication.
+     * Supports multiple concurrent producer threads (e.g., game logic, music sequencer)
+     * and a single consumer thread (the audio thread).
+     * 
+     * Drop policy: When the queue is full, the newest command is silently dropped and
+     * the droppedCommands counter is incremented. Callers can monitor this via
+     * getDroppedCommands() for diagnostics.
+     * 
+     * Thread-safety: Uses compare-and-swap (CAS) for atomic ring index advancement.
+     * The producer path is wait-free; the consumer path is lock-free.
      */
     class AudioCommandQueue {
     public:
         // Configurable capacity: 128-1024. Default 128 for memory efficiency.
         // Can be increased for high-throughput use cases at compile time.
         #ifndef AUDIO_COMMAND_QUEUE_CAPACITY
+        /** @brief Default queue capacity in commands. */
         static constexpr size_t CAPACITY = 128;
         #else
         static_assert(AUDIO_COMMAND_QUEUE_CAPACITY >= 128 && AUDIO_COMMAND_QUEUE_CAPACITY <= 1024,
             "AUDIO_COMMAND_QUEUE_CAPACITY must be between 128 and 1024");
+        /** @brief User-configured queue capacity in commands. */
         static constexpr size_t CAPACITY = AUDIO_COMMAND_QUEUE_CAPACITY;
         #endif
 
+        /** @brief Default constructor. Initializes head, tail, and dropped counters to zero. */
         AudioCommandQueue() : head(0), tail(0), droppedCommands(0) {}
 
         /**

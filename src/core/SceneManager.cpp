@@ -54,6 +54,13 @@ namespace pixelroot32::core {
         }
     }
 
+    void SceneManager::adviseFramebufferBeforeBeginFrame(Renderer& renderer) {
+        renderer.resetFramebufferClearSuppressionAdvice();
+        for (int i = 0; i < sceneCount; ++i) {
+            sceneStack[i]->adviseFramebufferBeforeBeginFrame(renderer);
+        }
+    }
+
     std::optional<Scene*> SceneManager::getCurrentScene() const {
         if (sceneCount > 0) {
             return sceneStack[sceneCount - 1];

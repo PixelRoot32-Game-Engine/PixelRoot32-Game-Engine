@@ -81,6 +81,8 @@ test/
 │   ├── test_rect/                   # Rect type
 │   ├── test_scene/                  # Scene
 │   ├── test_scene_manager/           # Scene manager
+│   ├── test_tile_animation_manager/ # Tile animations
+│   ├── test_touch_state_machine/    # Touch gesture state machine
 │   ├── test_ui/                     # UI elements and layouts
 │   └── ...
 ├── test_engine_integration/         # Engine integration tests
@@ -195,6 +197,31 @@ void test_audio_engine_play_event(void) {
     // Assert
     TEST_ASSERT_EQUAL(1, backend.getEventCount());
     TEST_ASSERT_EQUAL_FLOAT(440.0f, backend.getLastEvent().frequency);
+}
+```
+
+### Testing Collision Systems
+
+The engine includes comprehensive unit tests for the collision system, ensuring physical interactions behave accurately. These tests cover:
+
+- **Velocity Integration**: Verifying actors move correctly based on velocity and `deltaTime`.
+- **Penetration Correction**: Ensuring intersecting actors are pushed apart cleanly without overshooting.
+- **Sensor Contacts**: Checking that `isSensor` actors trigger `onCollision` callbacks but do not block physical movement.
+- **Boundary Scenarios**: Verifying behavior at the edges of the simulation or with one-way platforms.
+
+```cpp
+void test_physics_actor_penetration_correction(void) {
+    // Arrange: two overlapping actors
+    PhysicsActor p1(0, 0, 10, 10);
+    PhysicsActor p2(5, 0, 10, 10);
+    p1.setBodyType(PhysicsActor::BodyType::KINEMATIC);
+    p2.setBodyType(PhysicsActor::BodyType::STATIC);
+    
+    // Act
+    // (Internal resolution logic invoked during step)
+    
+    // Assert: p1 should be pushed left
+    TEST_ASSERT_FLOAT_EQUAL(-5.0f, toFloat(p1.position.x));
 }
 ```
 

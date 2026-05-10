@@ -1,6 +1,6 @@
 # Audio System
 
-PixelRoot32 provides a **NES-like** audio subsystem: **four fixed channels** (two pulse, one triangle, one noise), **mono** 16-bit output, **event-driven** playback (`AudioEvent`), and **sample-accurate** timing decoupled from the game frame rate. There is **no DMC/sample channel** in the current engine.
+PixelRoot32 provides a **NES-like** audio subsystem: a **dynamic 8-voice pooling system** (supporting Pulse, Triangle, Noise, Sine, and Saw waveforms), **mono** 16-bit output, **event-driven** playback (`AudioEvent`), and **sample-accurate** timing decoupled from the game frame rate. There is **no DMC/sample channel** in the current engine.
 
 For implementation details, see [Audio subsystem](../architecture/audio-subsystem.md) (authoritative).
 
@@ -20,7 +20,7 @@ flowchart TB
 
     subgraph Audio["Audio consumer context"]
         D -->|dequeue| E[AudioScheduler thin wrapper]
-        E -->|ApuCore::generateSamples| F[Pulse x2 + Triangle + Noise + music]
+        E -->|ApuCore::generateSamples| F[Dynamic 8-Voice Pool + music]
         F --> G[Non-linear mixer FPU or LUT + optional HPF]
     end
 
@@ -30,14 +30,14 @@ flowchart TB
     end
 ```
 
-- **`AudioEngine`** forwards commands and **`generateSamples`** to the active **`AudioScheduler`**, which delegates to **`ApuCore`**: SPSC queue, four channels, music sequencer, mixing, and (on the FPU path) a one-pole output HPF. Synthesis is not duplicated across three scheduler copies.
+- **`AudioEngine`** forwards commands and **`generateSamples`** to the active **`AudioScheduler`**, which delegates to **`ApuCore`**: SPSC queue, dynamic 8-voice pool, music sequencer, mixing, and (on the FPU path) a one-pole output HPF. Synthesis is not duplicated across three scheduler copies.
 - On **ESP32**, core affinity and task priority are applied when the **backend** creates its FreeRTOS task (`PlatformCapabilities`), not inside `ESP32AudioScheduler` construction arguments (those parameters are reserved for API stability).
 
 ## Key Features
 
 | Feature | Description |
 |--------|-------------|
-| **4 channels** | 2× pulse (duty configurable), 1× triangle, 1× noise |
+| **8 voices** | Dynamic voice pooling with stealing logic. Supports Pulse, Triangle, Noise, Sine, and Saw. |
 | **Sample-accurate** | Channel lifetime in samples; independent of FPS |
 | **Schedulers** | `NativeAudioScheduler` (PC), `ESP32AudioScheduler` (firmware), `DefaultAudioScheduler` (tests / callback-driven) |
 | **Command path** | Lock-free **SPSC** ring buffer, **128** entries; one producer / one consumer |
@@ -146,6 +146,7 @@ pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
 pr32::audio::AudioConfig audioConfig;
 audioConfig.backend = &audioBackend;
 audioConfig.sampleRate = 22050;
+audioConfig.blockSize = 128; // Optional: tune for platform latency (e.g., 128 for ESP32-C3, 256 for FPU)
 
 pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
 ```
@@ -156,8 +157,8 @@ See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architec
 
 | Platform | Mixer | Noise (typical) | Audio execution |
 |----------|--------|-----------------|-----------------|
-| **ESP32 (FPU)** | Float + soft clip | Clocked LFSR | Backend task; core from `PlatformCapabilities` |
-| **ESP32-C3 (no FPU)** | LUT | Clocked LFSR | Same; integer LUT mix |
+| **ESP32 (FPU)** | Float + soft clip + HPF | Clocked LFSR | Backend task; core from `PlatformCapabilities` |
+| **ESP32-C3 (no FPU)** | LUT + Q15 Fixed-Point HPF | Clocked LFSR + Q15 LFO | Same; integer path with Q15 LFO and HPF, static function pointer dispatch for wave generation |
 | **PC (native)** | Float + soft clip + HPF | Same LFSR as firmware | `std::thread` + ring buffer → SDL2 callback |
 
 ## Best practices

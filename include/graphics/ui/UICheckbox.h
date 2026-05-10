@@ -15,14 +15,14 @@
 namespace pixelroot32::graphics::ui {
 
 /**
- * @class UICheckBox
- * @brief A clickable checkbox UI element.
- *
- * Inherits from UIElement.
- *
- * Supports both physical (keyboard/gamepad) and touch input.
- * Can trigger a callback function when its state changes.
- */
+     * @class UICheckBox
+     * @brief A clickable checkbox UI element.
+     *
+     * Inherits from UIElement.
+     *
+     * Supports both physical (keyboard/gamepad) and touch input.
+     * Can trigger a callback function when its state changes.
+     */
 class UICheckBox : public UIElement {
 private:
     std::string_view label;
@@ -35,15 +35,15 @@ private:
     uint8_t index;
     UIElementBoolCallback onCheckChanged;
 
+public:
     /**
-     * @brief Internal helper to check if a point is inside the checkbox's bounds.
+     * @brief Checks if a point is inside the checkbox's bounds.
      * @param px Point X coordinate.
      * @param py Point Y coordinate.
      * @return true if point is inside.
      */
     bool isPointInside(int px, int py) const;
 
-public:
     /**
      * @brief Constructs a new UICheckBox.
      * @param label Checkbox label text.

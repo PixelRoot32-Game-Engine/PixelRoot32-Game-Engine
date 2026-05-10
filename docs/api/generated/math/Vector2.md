@@ -12,13 +12,13 @@ Automatically adapts to the architecture's FPU availability.
 
 ## Methods
 
-### `constexpr Vector2()`
+### `constexpr Vector2() : x(toScalar(0)), y(toScalar(0))`
 
 **Description:**
 
 Default constructor, initializes to (0, 0).
 
-### `constexpr Vector2(Scalar _x, Scalar _y)`
+### `constexpr Vector2(Scalar _x, Scalar _y) : x(_x), y(_y)`
 
 **Description:**
 
@@ -29,7 +29,7 @@ Constructor with given x and y components.
 - `_x`: X component.
 - `_y`: Y component.
 
-### `constexpr Vector2(const Vector2& other)`
+### `constexpr Vector2(const Vector2& other) : x(other.x), y(other.y)`
 
 **Description:**
 
@@ -39,7 +39,7 @@ Copy constructor.
 
 - `other`: The other vector to copy from.
 
-### `constexpr Vector2(int _x, int _y)`
+### `constexpr Vector2(int _x, int _y) : x(toScalar(_x)), y(toScalar(_y))`
 
 **Description:**
 

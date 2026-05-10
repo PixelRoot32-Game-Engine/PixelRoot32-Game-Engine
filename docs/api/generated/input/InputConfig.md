@@ -8,15 +8,21 @@
 
 Configuration structure for the InputManager.
 
-Defines the mapping between logical inputs and physical pins (ESP32) 
-or keyboard keys (Native/SDL2).
+Maps logical inputs to physical GPIO pins (ESP32) or keyboard scancodes (Native/SDL2).
+Uses fixed-size std::array instead of std::vector for zero-allocation and
+deterministic memory usage on ESP32.
 
-Uses variadic arguments to allow flexible configuration of input count.
+Usage:
+// ESP32
+pr32::input::InputConfig config(BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT);
 
-## Properties
+// Native (SDL2)
+pr32::input::InputConfig config(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
 
-| Name | Type | Description |
-|------|------|-------------|
-| `buttonNames` | `std::vector<uint8_t>` | Array of button mappings (scancodes) for Native. |
-| `inputPins` | `std::vector<int>` | Array of GPIO pin numbers for ESP32. |
-| `count` | `int` | Total number of configured inputs. |
+// Empty
+pr32::input::InputConfig config{};
+InputManager
+
+## Methods
+
+### `if constexpr(sizeof...(args) > 0)`

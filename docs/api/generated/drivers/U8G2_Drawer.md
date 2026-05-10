@@ -18,6 +18,10 @@ Implementation of DrawSurface using the U8G2 library for monochromatic OLED disp
 
 ### `U8G2* getU8g2() const`
 
+### `void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data)`
+
+### `uint8_t* getSpriteBuffer()`
+
 ### `bool needsScaling() const`
 
 **Description:**

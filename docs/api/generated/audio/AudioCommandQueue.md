@@ -6,11 +6,18 @@
 
 ## Description
 
-Multi-Producer Single-Consumer lock-free ring buffer for AudioCommands.
+Multi-Producer Single-Consumer (MPSC) lock-free ring buffer for AudioCommands.
 
-Fixed size, no allocation. Supports multiple concurrent producer threads.
-If the queue is full, the newest command is dropped and droppedCommands is incremented.
-Uses compare-and-swap (CAS) for atomic ring index advancement.
+Fixed-size, zero-allocation queue designed for real-time audio thread communication.
+Supports multiple concurrent producer threads (e.g., game logic, music sequencer)
+and a single consumer thread (the audio thread).
+
+Drop policy: When the queue is full, the newest command is silently dropped and
+the droppedCommands counter is incremented. Callers can monitor this via
+getDroppedCommands() for diagnostics.
+
+Thread-safety: Uses compare-and-swap (CAS) for atomic ring index advancement.
+The producer path is wait-free; the consumer path is lock-free.
 
 ## Methods
 

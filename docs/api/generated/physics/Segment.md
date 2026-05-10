@@ -31,3 +31,29 @@ Checks intersection between two circles.
 - `b`: Second circle.
 
 **Returns:** True if circles intersect.
+
+### `bool intersects(const Circle& c, const pixelroot32::core::Rect& r)`
+
+**Description:**
+
+Checks intersection between a circle and a rectangle.
+
+**Parameters:**
+
+- `c`: The circle.
+- `r`: The rectangle.
+
+**Returns:** True if they intersect.
+
+### `bool intersects(const Segment& s, const pixelroot32::core::Rect& r)`
+
+**Description:**
+
+Checks intersection between a line segment and a rectangle.
+
+**Parameters:**
+
+- `s`: The line segment.
+- `r`: The rectangle.
+
+**Returns:** True if they intersect.

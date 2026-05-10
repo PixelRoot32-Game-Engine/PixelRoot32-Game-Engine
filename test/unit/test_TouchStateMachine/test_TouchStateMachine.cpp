@@ -369,6 +369,100 @@ void test_click_too_long_no_click(void) {
 }
 
 // ============================================================================
+// FASE 2 coverage expansion tests
+// ============================================================================
+
+void test_get_press_duration_invalid_id(void) {
+    // Test getPressDuration with invalid touch ID
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    // Press at t=0
+    sm.update(0, true, 100, 200, 0, queue);
+    
+    // Check duration for invalid ID - should return 0
+    uint32_t duration = sm.getPressDuration(99, 500);
+    TEST_ASSERT_EQUAL(0, duration);
+}
+
+void test_get_press_duration_idle_state(void) {
+    // Test getPressDuration when touch is Idle - should return 0
+    TouchStateMachine sm;
+    
+    uint32_t duration = sm.getPressDuration(0, 500);
+    TEST_ASSERT_EQUAL(0, duration);
+}
+
+void test_get_press_duration_during_press(void) {
+    // Test getPressDuration during press
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    sm.update(0, true, 100, 200, 100, queue);
+    
+    uint32_t duration = sm.getPressDuration(0, 300);
+    TEST_ASSERT_EQUAL(200, duration);
+}
+
+void test_get_press_duration_during_long_press(void) {
+    // Test getPressDuration during long press
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    sm.update(0, true, 100, 200, 0, queue);
+    sm.update(0, true, 100, 200, 800, queue);  // Long press detected
+    
+    uint32_t duration = sm.getPressDuration(0, 1000);
+    TEST_ASSERT_EQUAL(1000, duration);
+}
+
+// Note: distance() is private - tested indirectly through drag threshold
+void test_drag_threshold_manhattan_distance(void) {
+    // Test that distance calculation works through actual drag detection
+    // Manhattan distance: |104-100| + |204-200| = 4 + 4 = 8 (below threshold of 10)
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    // Press
+    sm.update(0, true, 100, 200, 0, queue);
+    queue.clear();
+    
+    // Move below threshold (8 pixels) - should stay Pressed
+    sm.update(0, true, 104, 204, 50, queue);
+    TEST_ASSERT_EQUAL(TouchState::Pressed, sm.getState(0));
+    
+    // Clear events from this update
+    queue.clear();
+    
+    // Move beyond threshold (20 pixels) - should start drag
+    sm.update(0, true, 120, 220, 100, queue);
+    TEST_ASSERT_EQUAL(TouchState::Dragging, sm.getState(0));
+}
+
+void test_update_invalid_touch_id(void) {
+    // Test update with invalid touch ID - should be ignored
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    // Invalid ID (>= MAX_TOUCH_IDS)
+    sm.update(10, true, 100, 200, 0, queue);
+    
+    // No events should be generated
+    TEST_ASSERT_EQUAL(0, queue.getCount());
+}
+
+void test_update_respects_max_touch_ids_boundary(void) {
+    // Test update at MAX_TOUCH_IDS boundary (should be ignored)
+    TouchStateMachine sm;
+    TouchEventQueue queue;
+    
+    // MAX_TOUCH_IDS = 5, so ID 5 is out of bounds
+    sm.update(5, true, 100, 200, 0, queue);
+    
+    TEST_ASSERT_EQUAL(0, queue.getCount());
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 int main(int argc, char **argv) {
@@ -387,5 +481,15 @@ int main(int argc, char **argv) {
     RUN_TEST(test_get_press_duration);
     RUN_TEST(test_dragmove_events);
     RUN_TEST(test_click_too_long_no_click);
+    
+    // FASE 2 coverage expansion tests
+    RUN_TEST(test_get_press_duration_invalid_id);
+    RUN_TEST(test_get_press_duration_idle_state);
+    RUN_TEST(test_get_press_duration_during_press);
+    RUN_TEST(test_get_press_duration_during_long_press);
+    RUN_TEST(test_drag_threshold_manhattan_distance);
+    RUN_TEST(test_update_invalid_touch_id);
+    RUN_TEST(test_update_respects_max_touch_ids_boundary);
+    
     return UNITY_END();
 }

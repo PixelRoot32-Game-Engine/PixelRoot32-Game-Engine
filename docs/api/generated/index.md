@@ -8,16 +8,17 @@ Auto-generated API documentation from C++ header files.
 - [AudioBackend](./audio/AudioBackend.md) — Abstract interface for platform-specific audio drivers.
 - [AudioChannel](./audio/AudioChannel.md) — Represents the internal state of a single audio channel.
 - [AudioCommand](./audio/AudioCommand.md) — Internal command to communicate between game and audio threads.
-- [AudioCommandQueue](./audio/AudioCommandQueue.md) — Multi-Producer Single-Consumer lock-free ring buffer for AudioCommands.
+- [AudioCommandQueue](./audio/AudioCommandQueue.md) — Multi-Producer Single-Consumer (MPSC) lock-free ring buffer for AudioCommands.
 - [AudioConfig](./audio/AudioConfig.md) — Configuration for the Audio subsystem.
-- [AudioEngine](./audio/AudioEngine.md) — Core class for the NES-like audio subsystem.
+- [AudioEngine](./audio/AudioEngine.md) — Facade class for the NES-style audio subsystem.
 - [AudioEvent](./audio/AudioEvent.md) — A fire-and-forget sound event triggered by the game.
 - [AudioScheduler](./audio/AudioScheduler.md) — Abstract interface for the audio execution context.
-- [DefaultAudioScheduler](./audio/DefaultAudioScheduler.md) — Backend-driven scheduler used on platforms without a dedicated
-       audio task.
+- [DefaultAudioScheduler](./audio/DefaultAudioScheduler.md) — Backend-driven scheduler used on platforms without a dedicated audio task.
+- [EnvelopeState](./audio/EnvelopeState.md) — Holds ADSR envelope state for a single voice.
 - [InstrumentPreset](./audio/InstrumentPreset.md) — Defines instrument characteristics for playback.
+- [LfoState](./audio/LfoState.md) — Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
 - [MusicNote](./audio/MusicNote.md) — Represents a single note in a melody.
-- [MusicPlayer](./audio/MusicPlayer.md) — Simple sequencer to play MusicTracks.
+- [MusicPlayer](./audio/MusicPlayer.md) — Simple sequencer to play MusicTracks using the AudioEngine.
 
 ## Core
 
@@ -49,22 +50,37 @@ Auto-generated API documentation from C++ header files.
 ## Graphics
 
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
-- [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations that provides default primitive rendering.
-- [Camera2D](./graphics/Camera2D.md) — 2D camera system for managing viewports and scrolling.
+- [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
+- [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
+- [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
 - [DrawSurface](./graphics/DrawSurface.md) — Abstract interface for platform-specific drawing operations.
 - [Font](./graphics/Font.md) — Descriptor for a bitmap font using 1bpp sprites.
 - [FontManager](./graphics/FontManager.md) — Static utility class for managing bitmap fonts.
+- [LayerAttributes](./graphics/LayerAttributes.md) — All tiles with attributes in a single tilemap layer.
+- [LayerType](./graphics/LayerType.md) — Classifies draw layers for dirty-region marking (static backgrounds vs dynamic content).
+- [MultiSprite](./graphics/MultiSprite.md) — Multi-layer, multi-color sprite built from 1bpp layers.
 - [Particle](./graphics/Particle.md) — Represents a single particle in the particle system.
 - [ParticleConfig](./graphics/ParticleConfig.md) — Configuration parameters for a particle emitter.
 - [ParticleEmitter](./graphics/ParticleEmitter.md) — Manages a pool of particles to create visual effects.
 - [Renderer](./graphics/Renderer.md) — High-level graphics rendering system.
+- [ResolutionPreset](./graphics/ResolutionPreset.md) — Logical resolution choices for memory-constrained targets.
+- [ResolutionPresets](./graphics/ResolutionPresets.md) — Factory for creating DisplayConfig from resolution presets.
 - [ScrollBehavior](./graphics/ScrollBehavior.md) — Defines how scrolling behaves in layouts.
+- [Sprite](./graphics/Sprite.md) — Compact sprite descriptor for monochrome bitmapped sprites.
 - [Sprite2bpp](./graphics/Sprite2bpp.md) — Sprite descriptor for 2bpp (4-color) multi-color sprites.
 - [Sprite4bpp](./graphics/Sprite4bpp.md) — Sprite descriptor for 4bpp (16-color) multi-color sprites.
+- [SpriteAnimation](./graphics/SpriteAnimation.md) — Lightweight, step-based sprite animation controller.
+- [SpriteAnimationFrame](./graphics/SpriteAnimationFrame.md) — Single animation frame that can reference either a Sprite or a MultiSprite.
+- [SpriteLayer](./graphics/SpriteLayer.md) — Single monochrome layer used by layered sprites.
+- [TileAnimation](./graphics/TileAnimation.md) — Single tile animation definition (compile-time constant).
+- [TileAnimationManager](./graphics/TileAnimationManager.md) — Manages tile animations for a tilemap.
+- [TileAttribute](./graphics/TileAttribute.md) — Single attribute key-value pair for tile metadata.
+- [TileAttributeEntry](./graphics/TileAttributeEntry.md) — All attributes for a single tile at a specific position.
 - [TileMapGeneric](./graphics/TileMapGeneric.md) — Generic tilemap structure supporting 1bpp, 2bpp, or 4bpp tile graphics.
-- [TouchConfig](./graphics/TouchConfig.md) — Configuration for touch controller
-- [TouchController](./graphics/TouchController.md) — Supported touch controller types
+- [TilemapSpriteDirtyMode](./graphics/TilemapSpriteDirtyMode.md) — Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
+- [TouchConfig](./graphics/TouchConfig.md) — Configuration for a touch controller (XPT2046 or GT911).
+- [TouchController](./graphics/TouchController.md) — Supported touch controller types.
 - [UIAnchorLayout](./graphics/UIAnchorLayout.md) — Layout that positions elements at fixed anchor points on the screen.
 - [UIButton](./graphics/UIButton.md) — A clickable button UI element.
 - [UICheckBox](./graphics/UICheckBox.md) — A clickable checkbox UI element.

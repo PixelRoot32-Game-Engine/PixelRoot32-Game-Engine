@@ -31,3 +31,37 @@ Clears all entities (static and dynamic) from the grid.
 **Description:**
 
 Marks the static layer as dirty, requiring a rebuild.
+
+### `void rebuildStaticIfNeeded(pixelroot32::core::Entity* const* entities, uint16_t entityCount)`
+
+**Description:**
+
+Rebuilds the static layer if marked dirty.
+
+**Parameters:**
+
+- `entities`: Pointer to array of entities.
+- `entityCount`: Total number of entities.
+
+### `void insertDynamic(pixelroot32::core::Actor* actor)`
+
+**Description:**
+
+Inserts a dynamic actor into the grid.
+
+**Parameters:**
+
+- `actor`: The actor to insert.
+
+### `void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount)`
+
+**Description:**
+
+Gets potential colliders for a given actor from the grid.
+
+**Parameters:**
+
+- `actor`: The actor to query for.
+- `outArray`: Output array to store potential colliders.
+- `count`: Reference to store the number of colliders found.
+- `maxCount`: Maximum number of colliders to return.

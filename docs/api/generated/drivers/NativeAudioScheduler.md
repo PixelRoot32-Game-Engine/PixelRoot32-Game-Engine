@@ -23,6 +23,14 @@ threading and the ring buffer.
 
 ### `explicit NativeAudioScheduler(size_t ringBufferSize = 4096)`
 
+### `bool isIndependent() const`
+
+### `bool isMusicPlaying() const`
+
+### `bool isMusicPaused() const`
+
+### `ApuCore& getApuCore()`
+
 ### `const ApuCore& core() const`
 
 ### `ApuCore& core()`

@@ -26,10 +26,12 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [music_demo](music_demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
 | [space_invaders](space_invaders/) | Classic Space Invaders: alien formation, shooting, bunkers, score system, `AudioEngine` | `native`, `esp32dev` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD) | `native`, `esp32dev`, `esp32cyd` |
-| [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, platformer player | `native`, `esp32dev` |
+| [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
 | [tic_tac_toe](tic_tac_toe/) | UI, GPIO vs touch, minimax AI, vector-drawn board, **`MusicPlayer`** / melody data | `native`, `esp32dev`, `esp32cyd` |
+| [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
+
 
 
 ## Suggested learning order
@@ -38,7 +40,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 2. **sprites** or **dual_palette** — graphics and color models.  
 3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
 4. **physics** — bodies, sensors, touch.  
-5. **snake** / **tic_tac_toe** / **brick_breaker** / **music_demo** / **space_invaders** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.
+5. **snake** / **tic_tac_toe** / **2048** / **brick_breaker** / **music_demo** / **space_invaders** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.
 
 ## Engine documentation
 
