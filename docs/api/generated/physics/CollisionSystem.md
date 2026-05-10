@@ -10,6 +10,26 @@ Manages physics simulation and collision detection for all actors.
 
 ## Methods
 
+### `void addEntity(pixelroot32::core::Entity* e)`
+
+**Description:**
+
+Adds an entity to the collision system.
+
+**Parameters:**
+
+- `e`: Pointer to the entity to add.
+
+### `void removeEntity(pixelroot32::core::Entity* e)`
+
+**Description:**
+
+Removes an entity from the collision system.
+
+**Parameters:**
+
+- `e`: Pointer to the entity to remove.
+
 ### `void update()`
 
 **Description:**
@@ -59,3 +79,15 @@ Gets the total number of registered entities.
 **Description:**
 
 Clears the collision system state.
+
+### `bool needsCCD(pixelroot32::core::PhysicsActor* body) const`
+
+**Description:**
+
+Checks if a body requires continuous collision detection (CCD).
+
+**Parameters:**
+
+- `body`: The physics actor to check.
+
+**Returns:** True if CCD is required.

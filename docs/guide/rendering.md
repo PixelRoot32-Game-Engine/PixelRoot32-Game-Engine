@@ -484,7 +484,12 @@ build_flags =
     -DPIXELROOT32_DEBUG_MODE=1                       ; Required for debug overlay
 ```
 
-### Using LayerType
+### Using LayerType (Static vs. Dynamic)
+
+When using the Dirty Region pipeline, you must classify elements via the `LayerType` enum when drawing to optimize tracking:
+
+- **`LayerType::Static`**: For backgrounds or static HUD elements. They are drawn to the framebuffer but do **not** mark their corresponding cells as dirty, minimizing tracking overhead.
+- **`LayerType::Dynamic`**: For moving sprites or animations. Their bounding boxes automatically mark intersecting 8x8 cells as dirty, ensuring they are redrawn next frame.
 
 Classify tilemaps when drawing to optimize tracking:
 
@@ -555,7 +560,11 @@ renderer.setDebugDirtyCellOverlay(true);
 
 This draws a colored overlay showing dirty cells in real-time. When `forceFullRedraw()` has been called, all cells are highlighted.
 
-### Scene Stacking Contract
+### StaticTilemapLayerCache Integration
+
+The Dirty Region system integrates tightly with `StaticTilemapLayerCache` to provide an ultra-fast rendering path on ESP32. Instead of redrawing the background tilemap pixel-by-pixel, the cache takes a snapshot of the logical framebuffer containing only `LayerType::Static` elements. On subsequent frames, `renderer.beginFrame()` uses a fast `memcpy` to restore the background, and only the cells marked by `LayerType::Dynamic` elements are selectively cleared and redrawn.
+
+#### Scene Stacking Contract
 
 When using `StaticTilemapLayerCache` with stacked scenes:
 

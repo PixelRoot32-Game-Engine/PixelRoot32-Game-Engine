@@ -52,3 +52,26 @@ Sets whether the element is in a fixed position (HUD/Overlay).
 Checks if the element is in a fixed position.
 
 **Returns:** True if fixed position is enabled.
+
+### `virtual void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY)`
+
+**Description:**
+
+Sets the position of the element.
+
+**Parameters:**
+
+- `newX`: New X coordinate.
+- `newY`: New Y coordinate.
+
+### `virtual void getPreferredSize(pixelroot32::math::Scalar& preferredWidth, pixelroot32::math::Scalar& preferredHeight) const`
+
+**Description:**
+
+Gets the preferred size of the element.
+Used by layouts to determine how much space the element needs.
+
+**Parameters:**
+
+- `preferredWidth`: Output parameter for preferred width (or -1 if flexible).
+- `preferredHeight`: Output parameter for preferred height (or -1 if flexible).

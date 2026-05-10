@@ -74,21 +74,24 @@ You choose the meaning of each index in your game (jump, fire, menu, …). Keep 
 
 ### Configuration
 
-`InputConfig` stores parallel arrays of pins (ESP32) or scancodes (native). Use the variadic constructor: first argument is **count**, then one value per button.
+`InputConfig` stores parallel arrays of pins (ESP32) or scancodes (native). The number of inputs is automatically deduced from the template variadic arguments—no explicit `count` parameter needed.
 
 ```cpp
 #include <input/InputConfig.h>
 
 #if defined(PLATFORM_NATIVE)
 // Example: 4 keyboard keys (SDL scancodes)
-input::InputConfig inputConfig(4, 80, 79, 81, 82); // arbitrary example keys
+// Count is auto-deduced: 4 buttons = indices 0, 1, 2, 3
+input::InputConfig inputConfig(80, 79, 81, 82); // arbitrary example keys
 #else
-// ESP32: count + GPIO pin numbers
-input::InputConfig inputConfig(4, 0, 32, 33, 25);
+// ESP32: GPIO pin numbers - count inferred automatically
+input::InputConfig inputConfig(0, 32, 33, 25);
 #endif
 
 core::Engine engine(std::move(displayConfig), inputConfig);
 ```
+
+> **Note:** The `count` parameter was removed in v1.5.0. The number of buttons is now deduced from the number of arguments passed.
 
 ### Button state patterns
 
@@ -229,7 +232,7 @@ flowchart LR
 
 ### Default PC mappings (illustrative)
 
-Your `InputConfig` on native builds lists **SDL scancodes** in the order of logical indices `0…n-1`. A typical layout might map arrow keys to indices `2–5` and action keys to `0–1`, but the exact table is entirely project-specific—mirror the order you passed into `InputConfig(count, …)`.
+Your `InputConfig` on native builds lists **SDL scancodes** in the order of logical indices `0…n-1`. A typical layout might map arrow keys to indices `2–5` and action keys to `0–1`, but the exact table is entirely project-specific—mirror the order you passed into `InputConfig(...)` (the count is now automatic since v1.5.0).
 
 ## Input patterns
 
@@ -288,9 +291,11 @@ Store recent **logical indices** (`uint8_t`) in a ring buffer if you need fighti
 void setup() {
     pixelroot32::graphics::DisplayConfig display(240, 240);
 #if defined(PLATFORM_NATIVE)
-    pixelroot32::input::InputConfig input(4, /* scancodes */ 0, 0, 0, 0);
+    // Count is auto-deduced - no explicit count needed
+    pixelroot32::input::InputConfig input(0, 0, 0, 0); // 4 scancodes
 #else
-    pixelroot32::input::InputConfig input(4, 0, 32, 33, 25);
+    // ESP32: 4 GPIO pins - count inferred from arguments
+    pixelroot32::input::InputConfig input(0, 32, 33, 25);
 #endif
     pixelroot32::core::Engine engine(std::move(display), input);
     // GameScene scene(engine); engine.setScene(&scene);

@@ -165,6 +165,30 @@ Check if value changed since last frame
 
 Reset slider state
 
+### `bool handleTouchDown(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch down event
+
+**Returns:** true if handled
+
+### `bool handleDragMove(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle drag move event
+
+**Returns:** true if handled
+
+### `bool handleTouchUp(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch up event
+
+**Returns:** true if handled
+
 ### `void updateValueFromPosition(int16_t xPos)`
 
 **Description:**

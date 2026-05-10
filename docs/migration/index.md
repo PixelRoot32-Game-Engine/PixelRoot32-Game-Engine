@@ -6,7 +6,8 @@ Version upgrade guides for PixelRoot32 Game Engine.
 
 - [v1.0.0 Migration](./migration-v1-0-0.md) - Initial stable release migration
 - [v1.1.0 Migration](./migration-v1-1-0.md) - Point release updates
-- [v1.2.0 Migration](./migration-v1-2-0.md) - Latest feature additions
+- [v1.2.0 Migration](./migration-v1-2-0.md) - Physics actor flags, UI callbacks refactor
+- [v1.5.0 Migration](./migration-v1-5-0.md) - InputConfig API simplification (std::vector to std::array)
 
 ## Migration Policy
 

@@ -18,6 +18,17 @@ Displays a string of text on the screen. Auto-calculates its bounds based on tex
 
 ## Methods
 
+### `void setText(std::string_view t)`
+
+**Description:**
+
+Updates the label's text.
+Recalculates dimensions if text changes.
+
+**Parameters:**
+
+- `t`: New text.
+
 ### `void setVisible(bool v)`
 
 **Description:**

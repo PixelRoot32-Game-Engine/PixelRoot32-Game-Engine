@@ -19,4 +19,6 @@ to ensure smooth playback independent of the game loop frame rate.
 
 ## Methods
 
+### `int getSampleRate() const`
+
 ### `void audioTaskLoop()`

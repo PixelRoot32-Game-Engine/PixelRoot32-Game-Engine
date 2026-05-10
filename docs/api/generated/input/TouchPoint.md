@@ -29,6 +29,26 @@ Invariants:
 
 ## Methods
 
+### `: x(0), y(0), pressed(false), id(0), ts(0)`
+
+**Description:**
+
+Default constructor - creates empty/invalid touch point
+
+### `: x(xPos), y(yPos), pressed(isPressed), id(touchId), ts(timestamp)`
+
+**Description:**
+
+Construct a touch point with all fields
+
+**Parameters:**
+
+- `xPos`: X coordinate
+- `yPos`: Y coordinate
+- `isPressed`: Touch state
+- `touchId`: Touch identifier
+- `timestamp`: Timestamp in ms
+
 ### `bool isValid(int16_t maxX, int16_t maxY) const`
 
 **Description:**

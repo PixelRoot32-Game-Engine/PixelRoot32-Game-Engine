@@ -39,6 +39,24 @@ Get current font size
 
 **Returns:** Font size multiplier
 
+### `void setLabel(std::string_view label)`
+
+**Description:**
+
+Set the checkbox label
+
+**Parameters:**
+
+- `label`: String view to the label (no allocation)
+
+### `std::string_view getLabel() const`
+
+**Description:**
+
+Get the current label
+
+**Returns:** String view to the label (no allocation)
+
 ### `void setChecked(bool checked)`
 
 **Description:**
@@ -138,6 +156,18 @@ Get the OnChanged callback
 **Description:**
 
 Reset checkbox state
+
+### `void handleTouchDown(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch down event
+
+### `void handleTouchUp(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch up event (triggers toggle if within bounds)
 
 ### `void setActive()`
 

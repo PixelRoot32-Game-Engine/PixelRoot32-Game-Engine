@@ -72,7 +72,7 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(DisplayConfig&& displayConfig) 
-        : renderer(std::move(displayConfig)), inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect())
+        : renderer(std::move(displayConfig)), inputManager(InputConfig{}), capabilities(PlatformCapabilities::detect())
         #if PIXELROOT32_ENABLE_TOUCH
         , touchManager(nullptr), wasTouchActive(false), lastTouchX(0), lastTouchY(0)
         #endif
@@ -113,8 +113,8 @@ namespace pixelroot32::core {
     }
 
     Engine::Engine(const DisplayConfig& displayConfig) 
-        : renderer(const_cast<DisplayConfig&>(displayConfig)), 
-          inputManager(InputConfig(0)), capabilities(PlatformCapabilities::detect())
+        : renderer(const_cast<DisplayConfig&>(displayConfig)),
+          inputManager(InputConfig{}), capabilities(PlatformCapabilities::detect())
 #if PIXELROOT32_ENABLE_AUDIO
           , audioEngine(AudioConfig(), capabilities), musicPlayer(audioEngine)
 #endif

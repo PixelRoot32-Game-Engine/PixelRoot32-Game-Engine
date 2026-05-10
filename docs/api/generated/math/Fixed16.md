@@ -13,13 +13,13 @@ Designed for platforms without FPU (ESP32-C3, C2, C6).
 
 ## Methods
 
-### `constexpr Fixed16()`
+### `constexpr Fixed16() : raw(0)`
 
 **Description:**
 
 Default constructor (initializes to 0).
 
-### `constexpr explicit Fixed16(int32_t rawValue, bool /*isRaw*/)`
+### `constexpr explicit Fixed16(int32_t rawValue, bool /*isRaw*/) : raw(rawValue)`
 
 **Description:**
 
@@ -30,7 +30,7 @@ Raw value constructor.
 - `rawValue`: The raw 32-bit representation.
 - `isRaw`: Dummy parameter to distinguish from integer constructor.
 
-### `constexpr Fixed16(int v)`
+### `constexpr Fixed16(int v) : raw(v << FRACTIONAL_BITS)`
 
 **Description:**
 
@@ -40,7 +40,7 @@ Construct from integer.
 
 - `v`: The integer value.
 
-### `constexpr Fixed16(float v)`
+### `constexpr Fixed16(float v) : raw(static_cast<int32_t>(v * ONE + (v >= 0 ? 0.5f : -0.5f)))`
 
 **Description:**
 
@@ -50,7 +50,7 @@ Construct from float.
 
 - `v`: The float value.
 
-### `constexpr Fixed16(double v)`
+### `constexpr Fixed16(double v) : raw(static_cast<int32_t>(v * ONE + (v >= 0 ? 0.5 : -0.5)))`
 
 **Description:**
 

@@ -29,7 +29,7 @@ namespace pixelroot32::input {
 
         // Initialize button pins - arrays are pre-initialized to zero/false
         // Set all pins as INPUT_PULLUP
-        for (int i = 0; i < config.count; i++) {
+        for (size_t i = 0; i < config.count; i++) {
             #ifdef PLATFORM_NATIVE
                 buttonPins[i] = config.buttonNames[i];
             #else
@@ -42,7 +42,7 @@ namespace pixelroot32::input {
     void InputManager::update(unsigned long dt, const uint8_t* keyboardState) {
         if (config.count <= 0) return;
 
-        for (int i = 0; i < config.count; i++) {
+        for (size_t i = 0; i < config.count; i++) {
             // Reset stateChanged at the start of each update for every button
             stateChanged[i] = false;
 
@@ -69,7 +69,7 @@ namespace pixelroot32::input {
     void InputManager::update(unsigned long dt) {
         if (config.count <= 0) return;
 
-        for (int i = 0; i < config.count; i++) {
+        for (size_t i = 0; i < config.count; i++) {
             // Reset stateChanged at the start of each update for every button
             stateChanged[i] = false;
 

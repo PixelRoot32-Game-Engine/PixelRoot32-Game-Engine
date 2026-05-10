@@ -21,6 +21,14 @@ Constructor arguments are reserved for API stability.
 
 ## Methods
 
+### `bool isIndependent() const`
+
+### `bool isMusicPlaying() const`
+
+### `bool isMusicPaused() const`
+
+### `ApuCore& getApuCore()`
+
 ### `const ApuCore& core() const`
 
 ### `ApuCore& core()`

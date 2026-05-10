@@ -23,17 +23,17 @@ void setUp(void) {
 void tearDown(void) {}
 
 void test_input_manager_initialization(void) {
-    InputConfig config(2, 10, 20);
+    InputConfig config(10, 20);
     InputManager manager(config);
     manager.init();
-    
+
     // Initial states should be false
     TEST_ASSERT_FALSE(manager.isButtonDown(0));
     TEST_ASSERT_FALSE(manager.isButtonDown(1));
 }
 
 void test_input_manager_button_press(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -47,7 +47,7 @@ void test_input_manager_button_press(void) {
 }
 
 void test_input_manager_button_release(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -65,7 +65,7 @@ void test_input_manager_button_release(void) {
 }
 
 void test_input_manager_debouncing(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -89,7 +89,7 @@ void test_input_manager_debouncing(void) {
 }
 
 void test_input_manager_click(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -107,7 +107,7 @@ void test_input_manager_click(void) {
 }
 
 void test_input_manager_out_of_bounds(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -118,7 +118,7 @@ void test_input_manager_out_of_bounds(void) {
 }
 
 void test_input_manager_multiple_buttons(void) {
-    InputConfig config(3, 10, 11, 12);
+    InputConfig config(10, 11, 12);
     InputManager manager(config);
     manager.init();
     
@@ -132,7 +132,7 @@ void test_input_manager_multiple_buttons(void) {
 }
 
 void test_input_manager_button_state_persistence(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -149,7 +149,7 @@ void test_input_manager_button_state_persistence(void) {
 }
 
 void test_input_manager_is_button_pressed_clears_after_frame(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -162,7 +162,7 @@ void test_input_manager_is_button_pressed_clears_after_frame(void) {
 }
 
 void test_input_manager_is_button_released_clears_after_frame(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -178,7 +178,7 @@ void test_input_manager_is_button_released_clears_after_frame(void) {
 }
 
 void test_input_manager_touch_events_empty(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -190,7 +190,7 @@ void test_input_manager_touch_events_empty(void) {
 }
 
 void test_input_manager_get_touch_state_idle(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -199,7 +199,7 @@ void test_input_manager_get_touch_state_idle(void) {
 }
 
 void test_input_manager_invalid_button_index_all_methods(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -210,16 +210,16 @@ void test_input_manager_invalid_button_index_all_methods(void) {
 }
 
 void test_input_manager_zero_button_count(void) {
-    InputConfig config(0);
+    InputConfig config;
     InputManager manager(config);
     manager.init();
-    
+
     TEST_ASSERT_FALSE(manager.isButtonDown(0));
     TEST_ASSERT_FALSE(manager.isButtonPressed(0));
 }
 
 void test_input_manager_config_max_buttons(void) {
-    InputConfig config(16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+    InputConfig config(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
     InputManager manager(config);
     manager.init();
     
@@ -237,7 +237,7 @@ void test_input_manager_config_max_buttons(void) {
 // =============================================================================
 
 void test_input_manager_touch_event_press_release(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -260,7 +260,7 @@ void test_input_manager_touch_event_press_release(void) {
 }
 
 void test_input_manager_touch_event_move(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -275,7 +275,7 @@ void test_input_manager_touch_event_move(void) {
 }
 
 void test_input_manager_touch_event_multiple_touches(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -295,7 +295,7 @@ void test_input_manager_touch_event_multiple_touches(void) {
 }
 
 void test_input_manager_touch_event_queue_full(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -314,7 +314,7 @@ void test_input_manager_touch_event_queue_full(void) {
 }
 
 void test_input_manager_has_touch_events_after_inject(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -328,7 +328,7 @@ void test_input_manager_has_touch_events_after_inject(void) {
 }
 
 void test_input_manager_get_touch_state_pressed(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -341,7 +341,7 @@ void test_input_manager_get_touch_state_pressed(void) {
 }
 
 void test_input_manager_invalid_touch_id(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -353,7 +353,7 @@ void test_input_manager_invalid_touch_id(void) {
 // Platform-native specific tests (SDL event processing)
 #ifdef PLATFORM_NATIVE
 void test_input_manager_process_sdl_event_mouse_button_down(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -372,7 +372,7 @@ void test_input_manager_process_sdl_event_mouse_button_down(void) {
 }
 
 void test_input_manager_process_sdl_event_mouse_button_up(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -399,7 +399,7 @@ void test_input_manager_process_sdl_event_mouse_button_up(void) {
 }
 
 void test_input_manager_process_sdl_event_mouse_motion_drag(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -435,7 +435,7 @@ void test_input_manager_process_sdl_event_mouse_motion_drag(void) {
 }
 
 void test_input_manager_process_sdl_event_mouse_motion_no_drag(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -453,7 +453,7 @@ void test_input_manager_process_sdl_event_mouse_motion_no_drag(void) {
 }
 
 void test_input_manager_process_sdl_event_non_mouse_ignored(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -470,7 +470,7 @@ void test_input_manager_process_sdl_event_non_mouse_ignored(void) {
 }
 
 void test_input_manager_process_sdl_event_right_button_ignored(void) {
-    InputConfig config(1, 10);
+    InputConfig config(10);
     InputManager manager(config);
     manager.init();
     
@@ -489,25 +489,25 @@ void test_input_manager_process_sdl_event_right_button_ignored(void) {
 #endif // PLATFORM_NATIVE
 
 void test_input_manager_init_invalid_count(void) {
-    // Test initialization with invalid count (0)
-    InputConfig config(0);
+    // Test initialization with invalid count (0) - empty config
+    InputConfig config;
     InputManager manager(config);
     manager.init();
-    
+
     // Verify manager is still functional - should not crash
     // Invalid touch ID should return Idle
     TouchState state = manager.getTouchState(0);
     TEST_ASSERT_EQUAL(static_cast<uint8_t>(TouchState::Idle), static_cast<uint8_t>(state));
 }
 
-void test_input_manager_init_count_above_max(void) {
-    // Test initialization with count above MAX_BUTTONS
-    InputConfig config(20);  // Above MAX_BUTTONS (16)
+void test_input_manager_init_count_at_max(void) {
+    // Test initialization with count at MAX_BUTTONS (16)
+    // static_assert now catches overflow at compile time for >16 args
+    InputConfig config(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
     InputManager manager(config);
     manager.init();
-    
-    // Verify manager is still functional
-    // Invalid touch ID should return Idle
+
+    // Verify manager is functional with max buttons
     TouchState state = manager.getTouchState(0);
     TEST_ASSERT_EQUAL(static_cast<uint8_t>(TouchState::Idle), static_cast<uint8_t>(state));
 }
@@ -549,7 +549,7 @@ int main(int argc, char **argv) {
     #endif
     
     RUN_TEST(test_input_manager_init_invalid_count);
-    RUN_TEST(test_input_manager_init_count_above_max);
+    RUN_TEST(test_input_manager_init_count_at_max);
     
     return UNITY_END();
 }

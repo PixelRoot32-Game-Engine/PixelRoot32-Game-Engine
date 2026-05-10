@@ -22,6 +22,14 @@ Memory: Owns widget data inline - no external allocation needed.
 
 ## Methods
 
+### `virtual bool processEvent(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Process a touch event (polymorphic dispatch from UIManager).
+
+**Returns:** true if this element handled the event for UI consumption semantics
+
 ### `virtual uint8_t getWidgetState() const`
 
 **Description:**
@@ -73,6 +81,17 @@ Set widget enabled state
 **Parameters:**
 
 - `enabled`: True to enable
+
+### `void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY)`
+
+**Description:**
+
+Override setPosition to sync widgetData_ with Entity position
+
+**Parameters:**
+
+- `newX`: New X coordinate
+- `newY`: New Y coordinate
 
 ### `int16_t getX() const`
 

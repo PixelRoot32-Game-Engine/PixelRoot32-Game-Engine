@@ -19,8 +19,14 @@ for verifying AudioScheduler and AudioEngine interactions.
 
 ## Methods
 
+### `void init(AudioEngine* engine, const platforms::PlatformCapabilities& caps)`
+
+### `int getSampleRate() const`
+
 ### `bool wasInitCalled() const`
 
 ### `AudioEngine* getEngine() const`
+
+### `const platforms::PlatformCapabilities& getCaps() const`
 
 ### `void reset()`

@@ -25,36 +25,39 @@ namespace pixelroot32::audio {
 
         /**
          * @brief Initializes the scheduler.
-         * @param backend The audio backend to use.
-         * @param sampleRate The output sample rate.
-         * @param caps Platform capabilities to guide core pinning or threading.
-         * @param blockSize Audio block size (samples) for I2S DMA and ring buffer operations.
+         * @param backend The audio backend to use for output.
+         * @param sampleRate The output sample rate in Hz.
+         * @param caps Platform capabilities to guide core pinning or threading decisions.
+         * @param blockSize Audio block size in samples for I2S DMA and ring buffer operations.
+         *        Must be a multiple of 128.
          */
         virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 256) = 0;
 
         /**
-         * @brief Submits a command to the scheduler.
-         * @param cmd The command to execute.
+         * @brief Submits a command to the scheduler for execution.
+         * @param cmd The command to enqueue (PLAY_EVENT, STOP_CHANNEL, etc.).
          */
         virtual void submitCommand(const AudioCommand& cmd) = 0;
 
-        /**
-         * @brief Starts the scheduler execution.
-         */
+        /** @brief Starts the scheduler execution. Enables audio generation. */
         virtual void start() = 0;
 
-        /**
-         * @brief Stops the scheduler execution.
-         */
+        /** @brief Stops the scheduler execution. Silences all voices. */
         virtual void stop() = 0;
 
         /**
          * @brief Checks if the scheduler runs in an independent thread.
+         * @return true if the scheduler owns a dedicated audio thread, false if it
+         *        runs synchronously with the backend's callback.
          */
         virtual bool isIndependent() const = 0;
 
         /**
-         * @brief Generates samples. Should be called by the backend or scheduler thread.
+         * @brief Generates samples into the provided buffer.
+         * @param stream Pointer to the output buffer (mono, int16 samples).
+         * @param length Number of samples to generate (must match blockSize).
+         * 
+         * Called by the backend (or scheduler thread) to fill the audio buffer.
          */
         virtual void generateSamples(int16_t* stream, int length) = 0;
 

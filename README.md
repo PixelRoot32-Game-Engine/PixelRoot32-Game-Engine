@@ -76,91 +76,18 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 - **Cross-Platform**: Develop on PC (Windows/Linux/macOS) and deploy on ESP32.
 - **Scene-Entity System**: Intuitive management of Scenes, Entities, and Actors.
-- **High Performance**: Optimized for ESP32 with DMA transfers and IRAM-cached rendering.
+- **High Performance**: Optimized for ESP32 with DMA transfers, IRAM-cached rendering, and a Dirty Regions pipeline.
 - **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with multi-palette selection, flipping, rotation, and animation.
-- **Tilemap Support**: Optimized rendering with viewport culling, multi-palette, and tile animations.
+- **Tilemap Support**: Optimized rendering with viewport culling, static layer caching, multi-palette, and tile animations.
 - **Tile Animation System**: Frame-based animations (water, lava) with O(1) frame resolution and zero-allocation policy.
 - **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
-- **NES-Style Audio**: Built-in 4-channel audio subsystem (Pulse, Triangle, Noise).
+- **NES-Style Audio**: Built-in dynamic 8-voice audio subsystem with fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, sensors, and one-way platforms.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/#getting-started).
-
----
-
-## ⚠️ Known Issues
-
-### DMA + ESP32-S3 + Arduino Core > 2.0.14
-
-**Problem**: When using ESP32-S3 with Arduino Core versions newer than 2.0.14, DMA-based transfers may freeze after the first frame. This is a known issue affecting the ESP32-S3 GDMA subsystem in ESP-IDF 4.4.7+ (used by Arduino Core 2.0.15+).
-
-**Symptoms**:
-
-- Display freezes after rendering the first frame
-- DMA transfer not completing
-- Random crashes during display initialization
-
-**Workaround**: Use Arduino Core 2.0.14 (the last stable version before the GDMA changes).
-
-In PlatformIO, this is configured via the `platform_packages` directive:
-
-```ini
-[env:esp32s3]
-platform_packages =
-    framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32#2.0.14
-```
-
-> **Note**: This workaround is already configured in the `hello_world` example's `platformio.ini` for ESP32-S3. If you create new projects, ensure this is set when targeting ESP32-S3.
-
-> **💡 Ongoing Solution**: Work is underway for a definitive fix by migrating from `TFT_eSPI` to `LovyanGFX`. This change will provide better alignment with modern drivers and significantly improved stability on ESP32-S3.
-
-**Related Issues**:
-
-- [espressif/arduino-esp32 #9618](https://github.com/espressif/arduino-esp32/issues/9618) - Original report: ESP32-S3 DMA issues with Core > 2.0.14
-- [TFT_eSPI #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)
-- [TFT_eSPI #3367](https://github.com/Bodmer/TFT_eSPI/issues/3367)
-- [ESP32-HUB75-MatrixPanel-DMA #775](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/775)
-
----
-
-### Framework Cache Corruption (pins_arduino.h missing)
-
-**Problem**: When Arduino Core packages become corrupted (especially after changing versions like the DMA workaround), you may encounter:
-
-```bash
-fatal error: pins_arduino.h: No such file or directory
-```
-
-**Symptoms**:
-
-- Build fails with `pins_arduino.h` not found
-- Previously working projects suddenly stop compiling
-- Happens after changing Arduino Core versions (e.g., applying the DMA workaround)
-
-**Solution**:
-
-1. Clean the build cache:
-
-   ```bash
-   pio run --target clean
-   ```
-
-2. Remove the corrupted framework package:
-
-   ```bash
-   rmdir /s /q %USERPROFILE%\.platformio\packages\framework-arduinoespressif32
-   ```
-
-3. Rebuild - PlatformIO will reinstall the framework:
-
-   ```bash
-   pio run
-   ```
-
-**Prevention**: After changing `platform_packages` for Arduino Core versions, always run a clean build to ensure the framework is properly reinstalled.
 
 ---
 
@@ -188,7 +115,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.3.0
+    gperez88/PixelRoot32-Game-Engine@^1.5.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -269,25 +196,32 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.4.0
+## 1.5.0
+
+### 🚀 Rendering Performance & Graphics
+
+- **Dirty Regions Pipeline**: Implemented `DirtyGrid` optimization with a double dirty grid to eliminate mandatory full-frame redraws, drastically reducing memory bandwidth on ESP32.
+- **Static Tilemap Integration**: Integrated Dirty Regions with `StaticTilemapLayerCache` using fast-path `memcpy` background restores and intelligent dynamic-only dirty marking.
 
 ### 🔊 Audio System
 
-- **Single-Core ESP32 Optimization**: Q15 fixed-point envelope generation for RISC-V cores, dynamic buffer sizing, and `taskYIELD()` scheduling for better CPU sharing.
-- **Dynamic Voice Pooling**: Refactored `ApuCore` to support up to 8 simultaneous voices with voice stealing logic.
-- **Enhanced Waveforms**: Added SINE and SAW waveforms with optional linear frequency sweep for PULSE and TRIANGLE types.
-- **NES-Style Game Audio**: Layered tracks (triangle bass, pulse arpeggio, noise drums) with dynamic tempo scaling in Brick Breaker, Space Invaders, and Tic-Tac-Toe.
+- **No-FPU Optimizations**: Added Q15 fixed-point LFO (triangle waves, tremolo, vibrato) and High-Pass Filter (HPF) to eliminate slow soft-float operations on platforms like ESP32-C3.
+- **Performance**: Replaced conditional branching with a static function pointer array dispatch in wave generation to reduce branch mispredictions.
+- **Configurable Block Size**: Added `blockSize` parameter to `AudioScheduler` for platform-specific tuning.
 
-### 🎨 UI/Graphics
+### 🎮 Examples
 
-- **Scalar Casting Fix**: Added explicit cast to prevent precision loss when converting Scalar values to integer coordinates.
+- **2048 Puzzle Game**: Added a complete 2048 clone showcasing UI layouts, grid mechanics, NES-style audio, and dual-platform support (Native/ESP32-CYD).
 
-### 📚 Documentation
+### 🧪 Testing & QA
 
-- **Structure Restructuring**: Reorganized docs into modular directories (architecture, api, guide, reference, migration, philosophy).
-- **New Guides**: Added guides for testing, resolution scaling, multi-palette, tilemaps, platform config, and getting started.
-- **API Documentation**: Generated auto-generated API docs for all engine components.
-- **Doxygen Comments**: Added comprehensive Doxygen documentation to key engine headers.
+- **Collision System Tests**: Added comprehensive physics unit tests for sensor contacts, velocity integration, and penetration correction.
+- **Expanded Coverage**: Improved assertions and expanded test coverage across audio, scene, input, graphics, and UI modules.
+
+### ⚡ Memory Optimization
+
+- **`InputConfig` API Change**: The `count` parameter is no longer required. Use `InputConfig(PIN1, PIN2, ...)` instead of `InputConfig(count, PIN1, PIN2, ...)`. See [migration guide](../docs/migration/migration-v1-5-0.md).
+
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

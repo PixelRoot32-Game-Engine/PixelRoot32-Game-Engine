@@ -6,7 +6,11 @@
 
 ## Description
 
-Simple sequencer to play MusicTracks.
+Simple sequencer to play MusicTracks using the AudioEngine.
+
+Provides a high-level interface for music playback with tempo control,
+pause/resume, and master volume management. Wraps audio commands to the
+engine's scheduler.
 
 ## Methods
 
@@ -18,25 +22,25 @@ Starts playing a track.
 
 **Parameters:**
 
-- `track`: The track to play.
+- `track`: The MusicTrack to play. Must remain in scope for duration.
 
 ### `void stop()`
 
 **Description:**
 
-Stops playback and silences the channel.
+Stops playback and silences all voices.
 
 ### `void pause()`
 
 **Description:**
 
-Pauses playback.
+Pauses playback at the current position.
 
 ### `void resume()`
 
 **Description:**
 
-Resumes playback.
+Resumes playback from the paused position.
 
 ### `bool isPlaying() const`
 
@@ -54,7 +58,7 @@ Sets the global tempo scaling factor.
 
 **Parameters:**
 
-- `factor`: 1.0f is normal speed, 2.0f is double speed.
+- `factor`: 1.0f is normal speed, 2.0f is double speed, 0.5f is half speed.
 
 ### `float getTempoFactor() const`
 
@@ -72,7 +76,7 @@ Sets the tempo in BPM (beats per minute).
 
 **Parameters:**
 
-- `bpm`: Beats per minute (default 150).
+- `bpm`: Beats per minute (affects note timing resolution).
 
 ### `float getBPM() const`
 
@@ -94,11 +98,11 @@ Gets the number of currently active tracks.
 
 **Description:**
 
-Sets the master volume level.
+Sets the master volume level for music playback.
 
 **Parameters:**
 
-- `volume`: Volume level (0.0f = silent, 1.0f = full volume).
+- `volume`: Volume level [0.0f = silent, 1.0f = full volume].
 
 ### `float getMasterVolume() const`
 
@@ -106,4 +110,4 @@ Sets the master volume level.
 
 Gets the current master volume level.
 
-**Returns:** Current volume (0.0f - 1.0f).
+**Returns:** Current volume [0.0f - 1.0f].

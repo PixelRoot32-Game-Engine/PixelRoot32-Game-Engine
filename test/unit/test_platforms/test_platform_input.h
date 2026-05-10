@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unity.h>
+#include <array>
 #include "input/InputConfig.h"
 
 using namespace pixelroot32::input;
@@ -15,9 +16,10 @@ void test_input_config_default_constructor(void) {
 }
 
 void test_input_config_single_input(void) {
-    InputConfig config(1, 10);
+    // New API: InputConfig(pin1, pin2, ...) - count auto-deduced
+    InputConfig config(10);
     TEST_ASSERT_EQUAL(1, config.count);
-    
+
     #ifdef PLATFORM_NATIVE
     TEST_ASSERT_EQUAL(10, config.buttonNames[0]);
     #else
@@ -26,9 +28,10 @@ void test_input_config_single_input(void) {
 }
 
 void test_input_config_multiple_inputs(void) {
-    InputConfig config(3, 10, 20, 30);
+    // New API: 3 inputs = 3 arguments
+    InputConfig config(10, 20, 30);
     TEST_ASSERT_EQUAL(3, config.count);
-    
+
     #ifdef PLATFORM_NATIVE
     TEST_ASSERT_EQUAL(10, config.buttonNames[0]);
     TEST_ASSERT_EQUAL(20, config.buttonNames[1]);
@@ -41,14 +44,16 @@ void test_input_config_multiple_inputs(void) {
 }
 
 void test_input_config_zero_count(void) {
-    InputConfig config(0);
+    // Empty constructor
+    InputConfig config;
     TEST_ASSERT_EQUAL(0, config.count);
 }
 
 void test_input_config_negative_count(void) {
-    // Negative count should be treated as 0
+    // New API: negative values are treated as regular input values (GPIO pins can be negative in some contexts)
+    // This test verifies that negative values are stored as-is
     InputConfig config(-5, 10, 20);
-    TEST_ASSERT_EQUAL(0, config.count);
+    TEST_ASSERT_EQUAL(3, config.count);  // -5, 10, 20 = 3 inputs
 }
 
 // ============================================================================
@@ -56,18 +61,22 @@ void test_input_config_negative_count(void) {
 // ============================================================================
 
 void test_input_config_array_size_matches_count(void) {
-    InputConfig config(4, 1, 2, 3, 4);
-    
+    // New API: 4 inputs = 4 arguments
+    InputConfig config(1, 2, 3, 4);
+
+    // std::array always has MAX_INPUT_COUNT capacity, count holds the actual used count
+    TEST_ASSERT_EQUAL(4, config.count);
     #ifdef PLATFORM_NATIVE
-    TEST_ASSERT_EQUAL(4, config.buttonNames.size());
+    TEST_ASSERT_EQUAL(InputConfig::MAX_INPUT_COUNT, config.buttonNames.size());
     #else
-    TEST_ASSERT_EQUAL(4, config.inputPins.size());
+    TEST_ASSERT_EQUAL(InputConfig::MAX_INPUT_COUNT, config.inputPins.size());
     #endif
 }
 
 void test_input_config_array_values_correct(void) {
-    InputConfig config(2, 65, 66); // A and B keys
-    
+    // New API: 2 inputs = 2 arguments
+    InputConfig config(65, 66); // A and B keys
+
     #ifdef PLATFORM_NATIVE
     TEST_ASSERT_EQUAL_UINT8(65, config.buttonNames[0]);
     TEST_ASSERT_EQUAL_UINT8(66, config.buttonNames[1]);
@@ -83,17 +92,19 @@ void test_input_config_array_values_correct(void) {
 
 #ifdef PLATFORM_NATIVE
 void test_input_config_native_button_names_type(void) {
-    InputConfig config(2, 10, 20);
+    // New API: 2 inputs = 2 arguments
+    InputConfig config(10, 20);
     // Verify buttonNames is the correct type for native platform
-    static_assert(std::is_same<decltype(config.buttonNames), std::vector<uint8_t>>::value, 
-                  "buttonNames should be vector<uint8_t> on native");
+    static_assert(std::is_same<decltype(config.buttonNames), std::array<uint8_t, InputConfig::MAX_INPUT_COUNT>>::value,
+                  "buttonNames should be array<uint8_t, MAX_INPUT_COUNT> on native");
 }
 #else
 void test_input_config_esp32_pins_type(void) {
-    InputConfig config(2, 10, 20);
+    // New API: 2 inputs = 2 arguments
+    InputConfig config(10, 20);
     // Verify inputPins is the correct type for ESP32
-    static_assert(std::is_same<decltype(config.inputPins), std::vector<int>>::value, 
-                  "inputPins should be vector<int> on ESP32");
+    static_assert(std::is_same<decltype(config.inputPins), std::array<int, InputConfig::MAX_INPUT_COUNT>>::value,
+                  "inputPins should be array<int, MAX_INPUT_COUNT> on ESP32");
 }
 #endif
 
@@ -102,16 +113,16 @@ void test_input_config_esp32_pins_type(void) {
 // ============================================================================
 
 void test_input_config_large_count(void) {
-    // Test with many inputs
-    InputConfig config(10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+    // Test with many inputs - new API uses 10 arguments
+    InputConfig config(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
     TEST_ASSERT_EQUAL(10, config.count);
 }
 
 void test_input_config_duplicate_values(void) {
-    // Duplicate mappings should be allowed
-    InputConfig config(3, 10, 10, 10);
+    // Duplicate mappings should be allowed - new API uses 3 arguments
+    InputConfig config(10, 10, 10);
     TEST_ASSERT_EQUAL(3, config.count);
-    
+
     #ifdef PLATFORM_NATIVE
     TEST_ASSERT_EQUAL(10, config.buttonNames[0]);
     TEST_ASSERT_EQUAL(10, config.buttonNames[1]);

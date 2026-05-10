@@ -13,17 +13,6 @@ Bit-packed storage: one bit per cell. `curr` accumulates marks for the current f
 
 ## Methods
 
-### `void init(int screenW, int screenH)`
-
-**Description:**
-
-Initializes the dirty grid dimensions based on screen size.
-
-**Parameters:**
-
-- `screenW`: Width of the screen in pixels.
-- `screenH`: Height of the screen in pixels.
-
 ### `void markCell(uint8_t cx, uint8_t cy)`
 
 **Description:**

@@ -21,6 +21,24 @@ Events: OnDown, OnUp, OnClick
 
 ## Methods
 
+### `void setLabel(std::string_view label)`
+
+**Description:**
+
+Set the button label
+
+**Parameters:**
+
+- `label`: String view to the label (no allocation)
+
+### `std::string_view getLabel() const`
+
+**Description:**
+
+Get the current label
+
+**Returns:** String view to the label (no allocation)
+
 ### `void setColors(Color normal, Color pressed, Color disabled)`
 
 **Description:**
@@ -178,6 +196,24 @@ Auto-size button width to fit the current label
 **Parameters:**
 
 - `padding`: Extra pixels to add around text (default: 4)
+
+### `void handleTouchDown(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch down event
+
+### `void handleTouchUp(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle touch up event
+
+### `void handleClick(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Handle click event
 
 ### `void setActive()`
 

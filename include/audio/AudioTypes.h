@@ -53,31 +53,44 @@ namespace pixelroot32::audio {
         }
     }
 
+    /**
+     * @struct EnvelopeState
+     * @brief Holds ADSR envelope state for a single voice.
+     * 
+     * Tracks the attack/decay/sustain/release stages and provides both
+     * floating-point and Q15 fixed-point variants to support platforms
+     * without an FPU (e.g., ESP32-C3 RISC-V).
+     */
     struct EnvelopeState {
+        /** ADSR stage: ATTACK, DECAY, SUSTAIN, RELEASE, or OFF. */
         enum class Stage : uint8_t { ATTACK, DECAY, SUSTAIN, RELEASE, OFF };
+        /** Current ADSR stage. */
         Stage stage = Stage::OFF;
         
         // Timing (in samples, pre-calculated from seconds * sampleRate)
-        uint32_t attackSamples = 0;
-        uint32_t decaySamples = 0;
-        float    sustainLevel = 1.0f;
-        uint32_t releaseSamples = 0;
+        uint32_t attackSamples = 0;   ///< Samples for attack phase (0 = instantaneous).
+        uint32_t decaySamples = 0;    ///< Samples for decay phase.
+        float    sustainLevel = 1.0f; ///< Target volume at sustain phase [0.0 - 1.0].
+        uint32_t releaseSamples = 0;  ///< Samples for release phase.
         
         // Runtime state
-        uint32_t sampleCounter = 0;
-        float    currentLevel = 0.0f;
+        uint32_t sampleCounter = 0;    ///< Counter within current stage.
+        float    currentLevel = 0.0f;  ///< Current envelope amplitude [0.0 - 1.0].
 
-        float attackDelta = 0.0f;    // 1.0 / attackSamples
-        float decayDelta = 0.0f;     // (1.0 - sustainLevel) / decaySamples
-        float releaseDelta = 0.0f;   // sustainLevel / releaseSamples
+        float attackDelta = 0.0f;    ///< Volume increment per sample during attack: 1.0 / attackSamples.
+        float decayDelta = 0.0f;     ///< Volume decrement per sample during decay: (1.0 - sustainLevel) / decaySamples.
+        float releaseDelta = 0.0f;   ///< Volume decrement per sample during release: sustainLevel / releaseSamples.
 
         // --- Fixed-point additions for no-FPU path ---
-        int32_t currentLevelQ15 = 0;
-        int32_t attackDeltaQ15 = 0;    // 32768 / attackSamples
-        int32_t decayDeltaQ15 = 0;     // (32768 - sustainLevelQ15) / decaySamples
-        int32_t sustainLevelQ15 = 32768;
-        int32_t releaseDeltaQ15 = 0;   // sustainLevelQ15 / releaseSamples
+        int32_t currentLevelQ15 = 0;    ///< Q15 mirror of currentLevel (-32768 to +32768).
+        int32_t attackDeltaQ15 = 0;     ///< Q15 attack delta: 32768 / attackSamples.
+        int32_t decayDeltaQ15 = 0;      ///< Q15 decay delta: (32768 - sustainLevelQ15) / decaySamples.
+        int32_t sustainLevelQ15 = 32768;///< Q15 sustain level.
+        int32_t releaseDeltaQ15 = 0;    ///< Q15 release delta: sustainLevelQ15 / releaseSamples.
 
+        /**
+         * @brief Resets all envelope state to OFF.
+         */
         void reset() {
             stage = Stage::OFF;
             attackSamples = 0;
@@ -97,23 +110,34 @@ namespace pixelroot32::audio {
     // --- LFO Types ---
     enum class LfoTarget : uint8_t { NONE, PITCH, VOLUME };
 
+    /**
+     * @struct LfoState
+     * @brief Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
+     * 
+     * Supports both floating-point and Q15 fixed-point variants for no-FPU platforms.
+     * The LFO produces a sine-like waveform that can modulate pitch (vibrato) or
+     * volume (tremolo) of a voice.
+     */
     struct LfoState {
-        bool enabled = false;
-        LfoTarget target = LfoTarget::NONE;
+        bool enabled = false;            ///< Whether the LFO is active.
+        LfoTarget target = LfoTarget::NONE;///< What the LFO modulates: PITCH or VOLUME.
         
-        float depth = 0.0f;
-        uint32_t periodSamples = 0;
+        float depth = 0.0f;             ///< Modulation depth (pitch: ratio e.g. 0.05; volume: 0.0-1.0).
+        uint32_t periodSamples = 0;     ///< LFO period in samples (derived from lfoFrequency).
         
-        uint32_t sampleCounter = 0;
-        float currentValue = 0.0f;
+        uint32_t sampleCounter = 0;      ///< Current sample position within the period.
+        float currentValue = 0.0f;       ///< Current LFO output value [-1.0 to +1.0].
 
         // Q15 fixed-point fields for no-FPU path
-        int32_t depthQ15 = 0;           // 0-32768 maps to 0.0-1.0
-        int32_t currentValueQ15 = 0;     // -32768 to +32768 maps to -1.0 to +1.0
+        int32_t depthQ15 = 0;            ///< Q15 depth: 0-32768 maps to 0.0-1.0.
+        int32_t currentValueQ15 = 0;      ///< Q15 output: -32768 to +32768 maps to -1.0 to +1.0.
 
-        uint16_t delaySamples = 0;
-        uint16_t delayCounter = 0;
+        uint16_t delaySamples = 0;      ///< Samples to wait before LFO starts (in seconds * sampleRate).
+        uint16_t delayCounter = 0;       ///< Countdown for delay phase.
         
+        /**
+         * @brief Resets all LFO state to disabled.
+         */
         void reset() {
             enabled = false;
             target = LfoTarget::NONE;
@@ -179,13 +203,16 @@ namespace pixelroot32::audio {
         uint64_t remainingSamples = 0;
 
         // Optional linear frequency sweep (PULSE / TRIANGLE only; see AudioEvent::sweep*)
-        uint32_t sweepSamplesTotal = 0;
-        uint32_t sweepSamplesRemaining = 0;
-        float sweepStartHz = 0.0f;
-        float sweepEndHz = 0.0f;
-        uint32_t sweepStartIncQ32 = 0;
-        uint32_t sweepEndIncQ32 = 0;
+        uint32_t sweepSamplesTotal = 0;   ///< Total samples for the sweep.
+        uint32_t sweepSamplesRemaining = 0;///< Samples remaining in the sweep.
+        float sweepStartHz = 0.0f;        ///< Starting frequency in Hz.
+        float sweepEndHz = 0.0f;          ///< Ending frequency in Hz.
+        uint32_t sweepStartIncQ32 = 0;    ///< Q32 phase increment at sweep start.
+        uint32_t sweepEndIncQ32 = 0;      ///< Q32 phase increment at sweep end.
 
+        /**
+         * @brief Resets the channel to a clean disabled state.
+         */
         void reset() {
             enabled = false;
             type = WaveType::PULSE;

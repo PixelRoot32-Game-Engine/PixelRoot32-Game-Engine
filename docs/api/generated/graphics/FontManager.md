@@ -51,6 +51,20 @@ Calculates the width in pixels of a text string when rendered.
 
 **Returns:** Width in pixels, or 0 if font is invalid or text is empty.
 
+### `static int16_t textWidth(const Font* font, std::string_view text, uint8_t size = 1)`
+
+**Description:**
+
+Calculates the width in pixels of a text string when rendered.
+
+**Parameters:**
+
+- `font`: Pointer to the font to use. If nullptr, uses the default font.
+- `text`: The text string to measure.
+- `size`: Text size multiplier (1 = normal, 2 = double size, etc.).
+
+**Returns:** Width in pixels, or 0 if font is invalid or text is empty.
+
 ### `static uint8_t getGlyphIndex(char c, const Font* font = nullptr)`
 
 **Description:**

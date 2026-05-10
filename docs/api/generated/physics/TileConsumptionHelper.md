@@ -21,6 +21,33 @@ bool consumed = helper.consumeTile(tileActor, tileX, tileY);
 
 ## Methods
 
+### `bool consumeTile(pixelroot32::core::Actor* tileActor, uint16_t tileX, uint16_t tileY)`
+
+**Description:**
+
+Consumes a tile by removing its physics body and updating visuals.
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor to consume
+- `tileX`: Tile X coordinate (from unpacked userData)
+- `tileY`: Tile Y coordinate (from unpacked userData)
+
+**Returns:** true if tile was successfully consumed, false if already consumed or invalid
+
+### `bool consumeTileFromUserData(pixelroot32::core::Actor* tileActor, uintptr_t packedUserData)`
+
+**Description:**
+
+Consumes a tile using packed userData from collision callback.
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor
+- `packedUserData`: Packed userData from tileActor->getUserData()
+
+**Returns:** true if tile was successfully consumed, false otherwise
+
 ### `bool isTileConsumed(uint16_t tileX, uint16_t tileY) const`
 
 **Description:**
