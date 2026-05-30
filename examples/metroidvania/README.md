@@ -10,6 +10,7 @@ A compact **platformer** sample with **4bpp tilemap layers**, **`StaticTilemapLa
 - **`PIXELROOT32_ENABLE_2BPP_SPRITES`** (enabled alongside 4bpp in this example's `platformio.ini`)
 - **`PIXELROOT32_ENABLE_SCENE_ARENA`**
 - **`PIXELROOT32_ENABLE_DIRTY_REGIONS`**
+- **`PIXELROOT32_ENABLE_CAMERA_EFFECTS`** — camera shake when player falls into void
 
 See **`platformio.ini`** for **`native`** and **`esp32dev`** presets (no `esp32cyd` environment in this project).
 
@@ -39,6 +40,8 @@ The **`PlayerActor`** extends **`KinematicActor`** and implements:
 
 Drawing goes through **`StaticTilemapLayerCache`**: allocate for the renderer when layers are ready, draw static groups with camera offsets, and **`invalidate()`** when static tile data or relevant animators change. See [Animated Tilemap README](../animated_tilemap/README.md) for the detailed invalidation table and [Architecture — static tilemap cache](../../docs/architecture/architecture-index.md#static-tilemap-layer-cache-engine--scenes).
 
+**Note**: During camera shake, the `StaticTilemapLayerCache` auto-invalidates each frame because the renderer offset changes. This ensures tilemaps shake along with entities. After the shake ends, the cache resumes its fast memcpy path.
+
 ## Dirty Regions
 
 This example enables **`PIXELROOT32_ENABLE_DIRTY_REGIONS`** for targeted clearing on ESP32. The rendering pipeline uses a dirty-grid approach to selectively clear only the regions that changed between frames, reducing SPI transfer overhead on the display.
@@ -52,6 +55,7 @@ This example enables **`PIXELROOT32_ENABLE_DIRTY_REGIONS`** for targeted clearin
 - **Stairs mask cache** — bitmask RAM cache built once from tile indices for fast overlap checks
 - **State-driven sprite animation** — `IDLE`, `RUN`, `JUMP`, `CLIMBING` states
 - **Scene arena** + owned layer entities
+- **Camera shake on void fall** — when the player falls below the world boundary, the entire screen (tilemaps + entities) shakes for 200ms before respawning
 
 ## Documentation links
 
