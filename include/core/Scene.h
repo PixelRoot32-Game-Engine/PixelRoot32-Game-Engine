@@ -15,6 +15,7 @@
 #include "Entity.h"
 #include "platforms/EngineConfig.h"
 #include "input/TouchEvent.h"
+#include "graphics/CameraEffects.h"
 
 #ifdef PIXELROOT32_ENABLE_UI_SYSTEM
 #include "graphics/ui/UIManager.h"
@@ -144,6 +145,18 @@ public:
     virtual bool shouldRedrawFramebuffer() const { return true; }
 
     /**
+     * @brief Get the current summed offset from CameraEffectsSystem.
+     * @return math::Vector2 offset (ZERO when no effects active or feature disabled).
+     */
+    inline pixelroot32::math::Vector2 getCameraEffectOffset() const {
+#if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+        return cameraEffects.getOffset();
+#else
+        return pixelroot32::math::Vector2::ZERO();
+#endif
+    }
+
+    /**
      * @brief Adds an entity to the scene.
      * @param entity Pointer to the Entity to add.
      */
@@ -177,6 +190,11 @@ protected:
     // UI System
     #if PIXELROOT32_ENABLE_UI_SYSTEM
         pixelroot32::graphics::ui::UIManager uiManager; ///< Touch UI manager for the scene.
+    #endif
+
+    // Camera Effects
+    #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+        pixelroot32::graphics::CameraEffectsSystem cameraEffects; ///< Camera shake/punch/offset effects.
     #endif
 
     SceneArena arena;

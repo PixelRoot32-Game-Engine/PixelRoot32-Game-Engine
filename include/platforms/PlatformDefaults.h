@@ -47,6 +47,14 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// Camera Effects Feature Defaults
+// -----------------------------------------------------------------------------
+// By default, the camera effects system is enabled.
+#if !defined(PIXELROOT32_ENABLE_CAMERA_EFFECTS)
+#define PIXELROOT32_ENABLE_CAMERA_EFFECTS 1
+#endif
+
+// -----------------------------------------------------------------------------
 // Static tilemap framebuffer cache (4bpp direct sprite buffer path)
 // -----------------------------------------------------------------------------
 // When enabled, StaticTilemapLayerCache can snapshot the logical 8bpp framebuffer

@@ -100,6 +100,13 @@ void Camera2D::apply(Renderer& renderer) const {
     );
 }
 
+void Camera2D::apply(Renderer& renderer, const Vector2& effectOffset) const {
+    renderer.setDisplayOffset(
+        -roundToInt(position.x + effectOffset.x),
+        -roundToInt(position.y + effectOffset.y)
+    );
+}
+
 void Camera2D::setViewportSize(int width, int height) {
     viewportWidth = width;
     viewportHeight = height;

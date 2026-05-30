@@ -41,6 +41,15 @@ public:
     pixelroot32::math::Vector2 getPosition() const;
     /** @brief Pushes the camera transform into the renderer (sets display offset). */
     void apply(Renderer& renderer) const;
+
+    /**
+     * @brief Pushes camera transform + effect offset into the renderer.
+     * @param renderer The renderer to push the transform into.
+     * @param effectOffset Additional offset from CameraEffectsSystem
+     *        (added to camera position before negation).
+     */
+    void apply(Renderer& renderer, const pixelroot32::math::Vector2& effectOffset) const;
+
     void setViewportSize(int width, int height);
 
 private:

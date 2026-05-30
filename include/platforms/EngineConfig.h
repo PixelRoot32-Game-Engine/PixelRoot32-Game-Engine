@@ -423,6 +423,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableStaticTilemapFbCache = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+
+    /** @brief Type-safe access to EnableCameraEffects configuration. */
+    inline constexpr bool EnableCameraEffects = true;
+    #else
+
+    /** @brief Type-safe access to EnableCameraEffects configuration. */
+    inline constexpr bool EnableCameraEffects = false;
+    #endif
+
     #if PIXELROOT32_ENABLE_DIRTY_REGIONS
 
     /** @brief Type-safe access to EnableDirtyRegions configuration. */
