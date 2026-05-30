@@ -137,6 +137,16 @@ void EffectDemoScene::update(unsigned long dt) {
     auto& input = engine.getInputManager();
 
     if (currentState == EffectDemoState::EFFECT_ACTIVE) {
+        // Allow BACK button to cancel effect early
+        static bool wasBackActive = false;
+        bool isBackPressed = input.isButtonPressed(BTN_BACK);
+        if (isBackPressed && !wasBackActive) {
+            cancelAll();
+            wasBackActive = isBackPressed;
+            return;
+        }
+        wasBackActive = isBackPressed;
+
         effectElapsed += dt;
         if (effectElapsed >= AUTO_CANCEL_MS) {
             cancelAll();
