@@ -183,6 +183,9 @@ void test_panel_draw_with_background() {
     
     UIPanel panel(0, 0, 100, 100);
     panel.setBackgroundColor(Color::Blue);
+    // Cover inline getter: getBackgroundColor()
+    Color bg = panel.getBackgroundColor();
+    TEST_ASSERT_TRUE_MESSAGE(bg == Color::Blue, "Background color should be Blue");
     panel.draw(renderer);
     // Verify position unchanged after draw
     TEST_ASSERT_EQUAL(0, panel.position.x);
@@ -195,6 +198,12 @@ void test_panel_draw_with_border() {
     
     UIPanel panel(0, 0, 100, 100);
     panel.setBorderColor(Color::White);
+    panel.setBorderWidth(2);
+    // Cover inline getters: getBorderColor(), getBorderWidth()
+    Color bc = panel.getBorderColor();
+    TEST_ASSERT_TRUE_MESSAGE(bc == Color::White, "Border color should be White");
+    uint8_t bw = panel.getBorderWidth();
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, bw, "Border width should be 2");
     panel.draw(renderer);
     // Verify dimensions preserved after draw
     TEST_ASSERT_EQUAL(100, panel.height);

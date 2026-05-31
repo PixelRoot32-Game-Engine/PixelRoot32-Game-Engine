@@ -214,19 +214,19 @@ void test_cache_clear_then_invalidate(void) {
 // =============================================================================
 
 // =============================================================================
-// Tests for draw() method - these crash due to sprite buffer access
-// TODO: Fix sprite buffer mock support for draw() tests
+// Tests for draw() method - now fixed with sprite buffer setup
+// The key fix: allocate a sprite buffer before calling draw()
 // =============================================================================
 
-// Commented out due to crashes - draw() requires valid sprite buffer
-/*
 void test_cache_draw_null_static_layers(void) {
     StaticTilemapLayerCache cache;
     (void)cache.allocateForLogicalSize(240, 240);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // Should not crash with null static layers
@@ -240,9 +240,11 @@ void test_cache_draw_empty_dynamic_layers(void) {
     StaticTilemapLayerCache cache;
     (void)cache.allocateForLogicalSize(240, 240);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // Create static layer spec with null map
@@ -258,9 +260,11 @@ void test_cache_draw_all_null_layers(void) {
     StaticTilemapLayerCache cache;
     (void)cache.allocateForLogicalSize(240, 240);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // All null layers should not crash
@@ -274,9 +278,11 @@ void test_cache_draw_with_disabled_cache(void) {
     (void)cache.allocateForLogicalSize(240, 240);
     cache.setFramebufferCacheEnabled(false);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // With cache disabled, should just draw directly
@@ -289,9 +295,11 @@ void test_cache_draw_multiple_camera_positions(void) {
     StaticTilemapLayerCache cache;
     (void)cache.allocateForLogicalSize(240, 240);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // Different camera positions should not crash
@@ -307,9 +315,11 @@ void test_cache_draw_after_invalidate(void) {
     StaticTilemapLayerCache cache;
     (void)cache.allocateForLogicalSize(240, 240);
     
-    MockDrawSurface surface;
-    surface.setDisplaySize(240, 240);
-    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(&surface, 240, 240);
+    auto surface = std::make_unique<MockDrawSurface>();
+    surface->setDisplaySize(240, 240);
+    uint8_t fb[240 * 240];
+    surface->setSpriteBuffer(fb, sizeof(fb));
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(surface.release(), 240, 240);
     MockRenderer renderer(config);
     
     // Draw once
@@ -323,7 +333,6 @@ void test_cache_draw_after_invalidate(void) {
     
     TEST_ASSERT_TRUE(cache.isFramebufferCacheEnabled());
 }
-*/
 
 int main(void) {
     UNITY_BEGIN();
@@ -347,12 +356,13 @@ int main(void) {
     RUN_TEST(test_cache_enable_disable_preserves_allocation);
     RUN_TEST(test_cache_clear_then_invalidate);
     
-    // Note: draw() method requires sprite buffer support from Renderer
-    // which has complex mocking requirements. Current tests achieve 
-    // maximum coverage possible with available mocks.
-    
-    // FASE 3: draw() method tests commented out - require sprite buffer fix
-    // See comments above for tests that need MockDrawSurface sprite buffer support
+    // Phase 4: uncommented draw() tests with sprite buffer fix
+    RUN_TEST(test_cache_draw_null_static_layers);
+    RUN_TEST(test_cache_draw_empty_dynamic_layers);
+    RUN_TEST(test_cache_draw_all_null_layers);
+    RUN_TEST(test_cache_draw_with_disabled_cache);
+    RUN_TEST(test_cache_draw_multiple_camera_positions);
+    RUN_TEST(test_cache_draw_after_invalidate);
     
     return UNITY_END();
 }
