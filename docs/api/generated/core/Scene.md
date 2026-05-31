@@ -102,6 +102,14 @@ layers/camera sampling as StaticTilemapLayerCache::draw so dirty-region clears a
 
 When false, Engine may skip `draw()` and `present()` for this iteration (after `update()`).
 
+### `inline pixelroot32::math::Vector2 getCameraEffectOffset() const`
+
+**Description:**
+
+Get the current summed offset from CameraEffectsSystem.
+
+**Returns:** math::Vector2 offset (ZERO when no effects active or feature disabled).
+
 ### `void addEntity(Entity* entity)`
 
 **Description:**
