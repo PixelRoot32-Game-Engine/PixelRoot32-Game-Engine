@@ -542,7 +542,9 @@ void test_label_draw_with_fixed_position() {
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     label.setFixedPosition(true);
     label.draw(renderer);
-    TEST_ASSERT_TRUE(true);
+    // Verify fixed position is preserved after draw
+    TEST_ASSERT_EQUAL(0, label.position.x);
+    TEST_ASSERT_EQUAL(0, label.position.y);
 }
 
 // =============================================================================
@@ -704,9 +706,8 @@ void test_uielement_is_focusable_default_returns_false() {
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     
     // Call isFocusable - this exercises the virtual method
-    // Either true or false is valid - we just need line coverage
-    (void)label.isFocusable();
-    TEST_ASSERT_TRUE(true);  // Just verify the method can be called
+    // UILabel is not interactive by default, so isFocusable returns false
+    TEST_ASSERT_FALSE(label.isFocusable());
 }
 
 void test_uielement_get_preferred_size_returns_dimensions() {
@@ -858,8 +859,6 @@ void test_button_style_no_background_selected_draw() {
     
     // Draw with no background + selected — exercises the !hasBackground + isSelected branch
     btn.draw(renderer);
-    // When !hasBackground and isSelected, renderer.drawText(">", ...) is called
-    // No filled rectangle should be drawn (hasBackground=false)
-    // rectCalls may be empty or have text calls — no crash is sufficient assertion
-    TEST_ASSERT_TRUE(true);
+    // With hasBackground=false, no filled rectangle should be drawn
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
 }
