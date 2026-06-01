@@ -52,9 +52,11 @@ Auto-generated API documentation from C++ header files.
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
 - [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
+- [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
 - [DrawSurface](./graphics/DrawSurface.md) — Abstract interface for platform-specific drawing operations.
+- [EffectSlot](./graphics/EffectSlot.md) — Per-slot state for a single camera effect (20 bytes).
 - [Font](./graphics/Font.md) — Descriptor for a bitmap font using 1bpp sprites.
 - [FontManager](./graphics/FontManager.md) — Static utility class for managing bitmap fonts.
 - [LayerAttributes](./graphics/LayerAttributes.md) — All tiles with attributes in a single tilemap layer.

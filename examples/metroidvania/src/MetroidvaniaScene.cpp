@@ -123,6 +123,11 @@ void MetroidvaniaScene::update(unsigned long deltaTime) {
 
     // Update all entities in the scene.
     pixelroot32::core::Scene::update(deltaTime);
+
+    // Check if player just fell into the void — trigger camera shake.
+    if (player && player->consumeRespawnFlag()) {
+        cameraEffects.triggerShake(pixelroot32::math::toScalar(4.0f), 200);
+    }
 }
 
 void MetroidvaniaScene::adviseFramebufferBeforeBeginFrame(pr32::graphics::Renderer& renderer) {
@@ -148,6 +153,13 @@ void MetroidvaniaScene::adviseFramebufferBeforeBeginFrame(pr32::graphics::Render
 }
 
 void MetroidvaniaScene::draw(pr32::graphics::Renderer& renderer) {
+    // Apply camera effect offset (shake/punch) BEFORE tilemaps so everything shakes.
+    // The tilemap cache auto-invalidates because camX/Y change each shake frame.
+    auto effectOffset = getCameraEffectOffset();
+    renderer.setDisplayOffset(
+        static_cast<int>(effectOffset.x),
+        static_cast<int>(effectOffset.y));
+
     const int camX = -renderer.getXOffset();
     const int camY = -renderer.getYOffset();
 
@@ -161,7 +173,11 @@ void MetroidvaniaScene::draw(pr32::graphics::Renderer& renderer) {
         staticLayers, sizeof(staticLayers) / sizeof(staticLayers[0]),
         nullptr, 0);
 
+    // Entities drawn with shake offset already set
     pixelroot32::core::Scene::draw(renderer);
+
+    // Reset offset
+    renderer.setDisplayOffset(0, 0);
 }
 
 } // namespace metroidvania

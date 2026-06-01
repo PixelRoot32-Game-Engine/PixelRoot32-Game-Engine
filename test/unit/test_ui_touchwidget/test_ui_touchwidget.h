@@ -17,7 +17,14 @@
 #include "graphics/ui/UITouchSlider.h"
 #include "graphics/ui/UITouchCheckbox.h"
 #include "graphics/ui/UIHitTest.h"
+#include "graphics/Renderer.h"
+#include "graphics/DisplayConfig.h"
+#include "graphics/BaseDrawSurface.h"
+#include "graphics/Color.h"
 #include "input/TouchEvent.h"
+#include <memory>
+#include <vector>
+#include <tuple>
 
 using namespace pixelroot32::graphics::ui;
 using namespace pixelroot32::input;
@@ -47,6 +54,25 @@ struct TestSlider {
     
     TestSlider() : slider(10, 20, 100, 40, 50) {}
 };
+
+// Minimal mock draw surface for touch widget draw() tests
+namespace {
+class TouchMockDrawSurface : public pixelroot32::graphics::BaseDrawSurface {
+public:
+    std::vector<std::tuple<int, int, int, int, uint16_t>> rectCalls;
+    
+    void init() override {}
+    void clearBuffer() override { rectCalls.clear(); }
+    void sendBuffer() override {}
+    void drawRectangle(int x, int y, int w, int h, uint16_t c) override {
+        rectCalls.push_back({x, y, w, h, c});
+    }
+    void drawFilledRectangle(int x, int y, int w, int h, uint16_t c) override {
+        rectCalls.push_back({x, y, w, h, c});
+    }
+    void drawPixel(int, int, uint16_t) override {}
+};
+}
 
 // =============================================================================
 // UITouchElement Tests
@@ -912,4 +938,130 @@ void test_uitouch_checkbox_handle_touch_up_exceeds_drag() {
     
     // Should NOT have toggled due to drag
     TEST_ASSERT_FALSE(checkbox.isChecked());
+}
+
+// =============================================================================
+// Phase 3.3: UITouchButton::draw() 3-state tests (WD-05)
+// =============================================================================
+
+void test_uitouch_button_draw_normal() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchButton button("Test", Vector2(10, 20), Vector2(100, 40));
+    button.setWidgetEnabled(true);
+    button.setWidgetVisible(true);
+    
+    // Draw normal state (not pressed, enabled)
+    button.draw(renderer);
+    
+    // Should have drawn background (filled rect) + border (rect) = 2 calls
+    // + possibly text draw through renderer (not tracked by our mock)
+    TEST_ASSERT_EQUAL(2, static_cast<int>(mockRaw->rectCalls.size()));
+}
+
+void test_uitouch_button_draw_disabled() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchButton button("Test", Vector2(10, 20), Vector2(100, 40));
+    button.setWidgetEnabled(false);
+    button.setWidgetVisible(true);
+    
+    // Draw disabled state
+    button.draw(renderer);
+    
+    // Should still draw background + border (2 calls)
+    TEST_ASSERT_EQUAL(2, static_cast<int>(mockRaw->rectCalls.size()));
+}
+
+void test_uitouch_button_draw_invisible() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchButton button("Test", Vector2(10, 20), Vector2(100, 40));
+    button.setWidgetEnabled(true);
+    button.setWidgetVisible(false);
+    
+    // Draw invisible — should early return, no draw calls
+    button.draw(renderer);
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
+}
+
+// =============================================================================
+// Phase 3.4: UITouchCheckbox::draw() state tests (WD-06)
+// =============================================================================
+
+void test_uitouch_checkbox_draw_checked() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), true);
+    checkbox.setWidgetEnabled(true);
+    checkbox.setWidgetVisible(true);
+    
+    // Draw checked state
+    checkbox.draw(renderer);
+    
+    // When checked: border rect + filled rect inside = 2 rectangle calls
+    // + text label if present (not tracked by our mock)
+    TEST_ASSERT_EQUAL(2, static_cast<int>(mockRaw->rectCalls.size()));
+}
+
+void test_uitouch_checkbox_draw_unchecked() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), false);
+    checkbox.setWidgetEnabled(true);
+    checkbox.setWidgetVisible(true);
+    
+    // Draw unchecked state
+    checkbox.draw(renderer);
+    
+    // When unchecked: border rect only (no filled rect) = 1 rectangle call
+    // + text label if present (not tracked by our mock)
+    TEST_ASSERT_EQUAL(1, static_cast<int>(mockRaw->rectCalls.size()));
+}
+
+void test_uitouch_checkbox_draw_disabled() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), true);
+    checkbox.setWidgetEnabled(false);
+    checkbox.setWidgetVisible(true);
+    
+    // Draw disabled state with checked=true
+    checkbox.draw(renderer);
+    
+    // Disabled state: border rect + filled checked rect = 2 calls
+    TEST_ASSERT_EQUAL(2, static_cast<int>(mockRaw->rectCalls.size()));
+}
+
+void test_uitouch_checkbox_draw_invisible() {
+    auto mockDrawer = std::make_unique<TouchMockDrawSurface>();
+    TouchMockDrawSurface* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UITouchCheckbox checkbox("Test", Vector2(10, 20), Vector2(100, 40), true);
+    checkbox.setWidgetEnabled(true);
+    checkbox.setWidgetVisible(false);
+    
+    // Draw invisible — should early return
+    checkbox.draw(renderer);
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
 }

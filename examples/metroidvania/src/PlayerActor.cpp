@@ -268,6 +268,7 @@ void PlayerActor::update(unsigned long deltaTime) {
             velocity.x = pixelroot32::math::toScalar(0);
             velocity.y = pixelroot32::math::toScalar(0);
             changeState(PlayerState::IDLE);
+            justRespawned = true;
         }
     }
 

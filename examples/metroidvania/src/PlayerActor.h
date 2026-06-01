@@ -55,6 +55,16 @@ public:
     /** @brief Builds RAM cache of stairs mask. Call once after setStairs. */
     void buildStairsCache();
 
+    /**
+     * @brief Returns true if the player just respawned from a void fall, and clears the flag.
+     * @return true if a respawn just occurred this frame, false otherwise.
+     */
+    bool consumeRespawnFlag() {
+        bool val = justRespawned;
+        justRespawned = false;
+        return val;
+    }
+
 private:
     unsigned long timeAccumulator = 0;
     uint8_t currentFrame = 0;
@@ -65,6 +75,7 @@ private:
     bool wantsJump = false;     ///< Jump intent flag
     bool onGround = false;      ///< Ground contact flag
     bool facingLeft = false;    ///< Sprite orientation
+    bool justRespawned = false; ///< Set on void-fall respawn, consumed by scene in same frame
 
     pixelroot32::math::Vector2 velocity;
 

@@ -49,4 +49,16 @@ Camera2D does not own a Renderer. Call apply(renderer) to push the
 
 Pushes the camera transform into the renderer (sets display offset).
 
+### `void apply(Renderer& renderer, const pixelroot32::math::Vector2& effectOffset) const`
+
+**Description:**
+
+Pushes camera transform + effect offset into the renderer.
+
+**Parameters:**
+
+- `renderer`: The renderer to push the transform into.
+- `effectOffset`: Additional offset from CameraEffectsSystem
+       (added to camera position before negation).
+
 ### `void setViewportSize(int width, int height)`

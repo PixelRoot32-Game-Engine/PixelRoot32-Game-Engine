@@ -98,6 +98,17 @@ int main() {
     RUN_TEST(test_uitouch_checkbox_font_size_get_set);
     RUN_TEST(test_uitouch_checkbox_handle_touch_up_exceeds_drag);
     
+    // Phase 3.3: UITouchButton::draw() tests (WD-05 - 3 tests)
+    RUN_TEST(test_uitouch_button_draw_normal);
+    RUN_TEST(test_uitouch_button_draw_disabled);
+    RUN_TEST(test_uitouch_button_draw_invisible);
+    
+    // Phase 3.4: UITouchCheckbox::draw() tests (WD-06 - 4 tests)
+    RUN_TEST(test_uitouch_checkbox_draw_checked);
+    RUN_TEST(test_uitouch_checkbox_draw_unchecked);
+    RUN_TEST(test_uitouch_checkbox_draw_disabled);
+    RUN_TEST(test_uitouch_checkbox_draw_invisible);
+    
     // UIHitTest tests (6 tests)
     RUN_TEST(test_uitouch_element_hit_test_enabled_visible);
     RUN_TEST(test_uitouch_element_hit_test_disabled);
