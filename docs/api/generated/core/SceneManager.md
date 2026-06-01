@@ -94,3 +94,32 @@ Gets the number of scenes in the stack.
 Checks if the scene stack is empty.
 
 **Returns:** True if there are no scenes.
+
+### `bool isTransitioning() const`
+
+**Description:**
+
+Whether a scene transition is currently active.
+
+**Returns:** true when TransitionState != Idle.
+
+### `TransitionState getTransitionState() const`
+
+**Description:**
+
+Get the current transition state.
+
+**Returns:** The active TransitionState.
+
+### `void setTransitionEffect(pixelroot32::graphics::TransitionEffect* effect)`
+
+**Description:**
+
+Provide a pointer to the Engine-owned TransitionEffect instance.
+
+**Parameters:**
+
+- `effect`: Non-owning pointer to the TransitionEffect.
+
+Called by Engine::init(). The Engine owns the TransitionEffect;
+SceneManager only drives it (init, update) during transitions.

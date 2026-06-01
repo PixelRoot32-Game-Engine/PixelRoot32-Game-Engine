@@ -330,22 +330,74 @@ public:
 };
 ```
 
-### Level Transitions
+### Level Transitions (Built-in)
+
+The engine provides a built-in scene transition system with Fade and Iris effects. Transitions are triggered via the `Engine::triggerTransition()` API and are feature-gated via `PIXELROOT32_ENABLE_SCENE_TRANSITIONS`.
 
 ```cpp
-class TransitionScene : public Scene {
+#include <Engine.h>
+#include <TransitionEffect.h>
+
+using namespace pixelroot32;
+
+// Fade transition (smooth black dimming)
+void GameLevel::completeLevel() {
+    // Trigger fade-out → scene swap → fade-in (500ms each phase)
+    engine->triggerTransition(
+        graphics::TransitionType::Fade,
+        500,  // duration in ms per phase
+        graphics::TransitionDirection::Out  // fade out first
+    );
+    
+    // Scene is swapped automatically after fade-out completes
+    engine->setScene(new NextLevel());
+}
+
+// Iris transition (circular wipe)
+void GameLevel::enterBossRoom() {
+    engine->triggerTransition(
+        graphics::TransitionType::Iris,
+        400,
+        graphics::TransitionDirection::Out
+    );
+    
+    engine->setScene(new BossScene());
+}
+
+// Iris with custom center (offset iris)
+void GameLevel::teleportPlayer() {
+    graphics::TransitionEffect effect;
+    effect.setIrisCenter(128, 64);  // Right side of screen
+    
+    engine->triggerTransition(
+        graphics::TransitionType::Iris,
+        300,
+        graphics::TransitionDirection::Out
+    );
+    
+    engine->setScene(new TeleportScene());
+}
+```
+
+::: tip Feature Gate
+Scene transitions require `PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1` in your build flags. When disabled, `triggerTransition()` becomes a no-op with zero overhead.
+:::
+
+::: warning Transition State
+During a transition, input is blocked and scenes cannot be changed. Wait for the transition to complete before triggering another one. Check `isTransitioning()` if needed.
+:::
+
+### Manual Transitions (Legacy)
+
+For custom transition effects not covered by the built-in system, you can implement manual transitions:
+
+```cpp
+class CustomTransitionScene : public Scene {
     Scene* nextScene;
     unsigned long elapsed = 0;
     
 public:
-    TransitionScene(Scene* next) : nextScene(next) {}
-    
-    void draw(Renderer& r) override {
-        // Fade effect based on elapsed time
-        int alpha = (elapsed * 255) / 1000;
-        r.drawFilledRectangleW(0, 0, 240, 240, 
-            (alpha << 8) | alpha);  // Fade to black
-    }
+    CustomTransitionScene(Scene* next) : nextScene(next) {}
     
     void update(unsigned long deltaTime) override {
         elapsed += deltaTime;
@@ -354,11 +406,15 @@ public:
             engine->setScene(nextScene);
         }
     }
+    
+    void draw(Renderer& r) override {
+        // Custom effect here
+    }
 };
 
 // Usage
-void GameLevel::completeLevel() {
-    engine->setScene(new TransitionScene(new NextLevel()));
+void GameLevel::customTransition() {
+    engine->setScene(new CustomTransitionScene(new NextLevel()));
 }
 ```
 

@@ -34,6 +34,7 @@ Auto-generated API documentation from C++ header files.
 - [Rect](./core/Rect.md) — Represents a 2D rectangle, typically used for hitboxes or bounds.
 - [Scene](./core/Scene.md) — Represents a game level or screen containing entities.
 - [SceneManager](./core/SceneManager.md) — Manages the stack of active scenes.
+- [TransitionState](./core/TransitionState.md) — State machine for scene transitions.
 - [WorldCollisionInfo](./core/WorldCollisionInfo.md) — Stores flags indicating which world boundaries were hit in the current frame.
 
 ## Drivers
@@ -83,6 +84,9 @@ Auto-generated API documentation from C++ header files.
 - [TilemapSpriteDirtyMode](./graphics/TilemapSpriteDirtyMode.md) — Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
 - [TouchConfig](./graphics/TouchConfig.md) — Configuration for a touch controller (XPT2046 or GT911).
 - [TouchController](./graphics/TouchController.md) — Supported touch controller types.
+- [TransitionDirection](./graphics/TransitionDirection.md) — Direction of the transition effect.
+- [TransitionEffect](./graphics/TransitionEffect.md) — Manages a single scene transition with zero runtime allocation.
+- [TransitionType](./graphics/TransitionType.md) — Types of scene transitions.
 - [UIAnchorLayout](./graphics/UIAnchorLayout.md) — Layout that positions elements at fixed anchor points on the screen.
 - [UIButton](./graphics/UIButton.md) — A clickable button UI element.
 - [UICheckBox](./graphics/UICheckBox.md) — A clickable checkbox UI element.
