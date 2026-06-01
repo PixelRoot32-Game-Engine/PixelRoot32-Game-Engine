@@ -22,6 +22,12 @@ SDL2-backed draw surface for native desktop builds.
 
 Get pointer to sprite buffer (not supported in SDL2).
 
+### `uint16_t* getPixelBuffer()`
+
+**Description:**
+
+Get pointer to the RGB565 pixel buffer for transition effects.
+
 ### `void setTouchDispatcher(pixelroot32::input::TouchEventDispatcher* touchDispatcher)`
 
 **Description:**

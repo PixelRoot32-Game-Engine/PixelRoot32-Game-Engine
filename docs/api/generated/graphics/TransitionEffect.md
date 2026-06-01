@@ -62,6 +62,23 @@ Iris: zeroes pixels whose (x-cx)²+(y-cy)² exceeds current radius² (no sqrt).
 
 Safe to call when not active — returns immediately with no side effects.
 
+### `void applyRGB565(uint16_t* buffer, int width, int height)`
+
+**Description:**
+
+Apply the transition effect to an RGB565 framebuffer.
+
+**Parameters:**
+
+- `buffer`: Pointer to RGB565 pixel data (can be nullptr — safe no-op).
+- `width`: Buffer width in pixels.
+- `height`: Buffer height in pixels.
+
+Used on native/SDL2 path where no 8bpp sprite buffer exists.
+Iris zeroes pixels outside the circle. Fade darkens/brightens via channel scaling.
+
+Safe to call when not active — returns immediately with no side effects.
+
 ### `bool isActive() const`
 
 **Description:**
@@ -82,13 +99,45 @@ Get normalised progress of the transition.
 
 **Description:**
 
-Override the iris center for non-centered circle wipes.
+Override the iris center for both Out and In phases (backward compat).
 
 **Parameters:**
 
 - `cx`: X-coordinate of the iris center.
 - `cy`: Y-coordinate of the iris center.
 
+Sets both Out and In phases to the same center. Equivalent to calling
+both setIrisOutCenter() and setIrisInCenter().
+Only relevant for Iris transitions. Default is buffer center.
+Call after init() and before apply().
+
+### `void setIrisOutCenter(int cx, int cy)`
+
+**Description:**
+
+Override the iris center for the Out (closing) phase.
+
+**Parameters:**
+
+- `cx`: X-coordinate of the iris center.
+- `cy`: Y-coordinate of the iris center.
+
+Sets the center used when the iris closes (Out direction).
+Only relevant for Iris transitions. Default is buffer center.
+Call after init() and before apply().
+
+### `void setIrisInCenter(int cx, int cy)`
+
+**Description:**
+
+Override the iris center for the In (opening) phase.
+
+**Parameters:**
+
+- `cx`: X-coordinate of the iris center.
+- `cy`: Y-coordinate of the iris center.
+
+Sets the center used when the iris opens (In direction).
 Only relevant for Iris transitions. Default is buffer center.
 Call after init() and before apply().
 
@@ -109,13 +158,25 @@ In:  lut[i] = i * p     / 256 — brightens from black.
 
 **Description:**
 
-Apply the fade LUT to the entire buffer.
+Apply the fade LUT to the entire 8bpp buffer.
 
 ### `void applyIris(uint8_t* buffer, int width, int height)`
 
 **Description:**
 
-Apply the iris wipe to the entire buffer.
+Apply the iris wipe to the entire 8bpp buffer.
+
+### `void applyIrisRGB565(uint16_t* buffer, int width, int height)`
+
+**Description:**
+
+Apply the iris wipe to an RGB565 buffer.
+
+### `void applyFadeRGB565(uint16_t* buffer, int width, int height)`
+
+**Description:**
+
+Apply the fade to an RGB565 buffer via channel scaling.
 
 ### `void init(TransitionType /*type*/, TransitionDirection /*direction*/, unsigned long /*durationMs*/)`
 
