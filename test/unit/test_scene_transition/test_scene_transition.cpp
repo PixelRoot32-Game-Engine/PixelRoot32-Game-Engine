@@ -69,6 +69,31 @@ static void runUpdates(SceneManager* mgr, int count, unsigned long dt) {
     }
 }
 
+// TestEngine subclass to access protected members for Engine integration tests.
+class TestTransitionEngine : public Engine {
+public:
+    TestTransitionEngine(const DisplayConfig& dc) : Engine(dc) {}
+
+    void testUpdate(unsigned long dt) {
+        deltaTime = dt;
+        // Use nullptr instead of SDL_GetKeyboardState to avoid SDL dependency in unit tests.
+#ifdef PLATFORM_NATIVE
+        inputManager.update(deltaTime, nullptr);
+#else
+        inputManager.update(deltaTime);
+#endif
+        sceneManager.update(deltaTime);
+    }
+
+    void testDraw() {
+        draw();
+    }
+
+    SceneManager& testSceneManager() {
+        return sceneManager;
+    }
+};
+
 // =============================================================================
 // setUp / tearDown
 // =============================================================================
@@ -374,23 +399,33 @@ void test_transition_iris_full_cycle(void) {
 void test_engine_trigger_transition_delegates(void) {
     auto mock = std::make_unique<MockDrawSurface>();
     DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
-    Engine engine(config);
+    TestTransitionEngine engine(config);
     engine.init();
 
     TransitionMockScene currentScene;
     TransitionMockScene targetScene;
     engine.setScene(&currentScene);
 
-    // Trigger transition via Engine API.
+    // Before trigger: not transitioning
+    TEST_ASSERT_FALSE(engine.testSceneManager().isTransitioning());
+
+    // Trigger transition via Engine public API.
     engine.triggerTransition(&targetScene, TransitionType::Fade, 200);
 
-    // The engine's sceneManager should now be transitioning.
-    // Since sceneManager is protected, we verify indirectly: the effect
-    // should be active after triggerTransition.
-    // We can verify that the transition completes by running some cycles.
-    // This is a minimal smoke test.
+    // After trigger: delegation confirmed — sceneManager is transitioning.
+    TEST_ASSERT_TRUE(engine.testSceneManager().isTransitioning());
 
-    TEST_ASSERT_TRUE(true);  // No crash = success
+    // Run enough updates to complete the full transition cycle.
+    // 200ms FadingOut + 1 tick SceneSwap + 200ms FadingIn.
+    // At 8ms per internal step with 16ms test updates: well within 100 iterations.
+    for (int i = 0; i < 100; ++i) {
+        engine.testUpdate(16);
+    }
+
+    // Verify transition completed and scene was swapped.
+    TEST_ASSERT_TRUE(engine.getCurrentScene().has_value());
+    TEST_ASSERT_EQUAL_PTR(&targetScene, engine.getCurrentScene().value());
+    TEST_ASSERT_FALSE(engine.testSceneManager().isTransitioning());
 }
 
 // =============================================================================
@@ -405,23 +440,32 @@ void test_engine_draw_hook_smoke(void) {
     mock->setSpriteBuffer(frameBuffer, sizeof(frameBuffer));
 
     DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
-    Engine engine(config);
+    TestTransitionEngine engine(config);
     engine.init();
 
     TransitionMockScene currentScene;
     TransitionMockScene targetScene;
     engine.setScene(&currentScene);
 
-    // Trigger a transition.
+    // Trigger a transition via Engine API.
     engine.triggerTransition(&targetScene, TransitionType::Fade, 100);
 
-    // Draw should apply the transition effect to the buffer.
-    // No crash means the hook works.
-    // Access protected draw via subclass pattern.
-    // (We can't easily subclass here since Engine has many constructor variants.)
-    // Smoke test: just ensure no crash during normal operation.
+    // Draw hook should be active: after trigger, transition is in progress.
+    TEST_ASSERT_TRUE(engine.testSceneManager().isTransitioning());
 
-    TEST_ASSERT_TRUE(true);
+    // Calling draw() during transition exercises the draw hook code path
+    // (transitionEffect_.apply on the sprite buffer). No crash = hook works.
+    engine.testDraw();
+
+    // Run enough updates to complete the full transition cycle.
+    for (int i = 0; i < 100; ++i) {
+        engine.testUpdate(16);
+    }
+
+    // Verify transition completed and scene was swapped.
+    TEST_ASSERT_TRUE(engine.getCurrentScene().has_value());
+    TEST_ASSERT_EQUAL_PTR(&targetScene, engine.getCurrentScene().value());
+    TEST_ASSERT_FALSE(engine.testSceneManager().isTransitioning());
 }
 
 // =============================================================================
