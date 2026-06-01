@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "core/SceneManager.h"
+#include "graphics/TransitionEffect.h"
 #include <optional>
 #include "graphics/Renderer.h"
 #include "input/InputConfig.h"
@@ -111,6 +112,19 @@ public:
      * @param newScene Pointer to the new Scene to become active.
      */
     void setScene(Scene* newScene);
+
+    /**
+     * @brief Start a visual scene transition (Fade or Iris).
+     * @param newScene The target scene to transition to.
+     * @param type TransitionType::Fade or TransitionType::Iris.
+     * @param durationMs Duration of each phase (Out and In) in ms.
+     *
+     * Delegates to SceneManager::transitionToScene(). Ignored if a
+     * transition is already in progress.
+     */
+    void triggerTransition(Scene* newScene,
+                           pixelroot32::graphics::TransitionType type,
+                           unsigned long durationMs);
 
     /**
      * @brief Retrieves the currently active scene.
@@ -237,6 +251,9 @@ protected:
         pixelroot32::audio::AudioEngine audioEngine;   ///< Manages audio playback.
         pixelroot32::audio::MusicPlayer musicPlayer;   ///< Manages music sequencing.
     #endif
+
+    // Transition effect subsystem (always declared; stub when feature disabled)
+    pixelroot32::graphics::TransitionEffect transitionEffect_; ///< Scene transition effect (Fade/Iris).
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.

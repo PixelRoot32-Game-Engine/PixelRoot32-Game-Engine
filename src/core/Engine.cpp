@@ -143,6 +143,9 @@ namespace pixelroot32::core {
             audioEngine.init();
         #endif
         
+        // Wire the transition effect so SceneManager can drive it.
+        sceneManager.setTransitionEffect(&transitionEffect_);
+        
         // Set default font (5x7 bitmap font)
         FontManager::setDefaultFont(&FONT_5X7);
         
@@ -384,9 +387,28 @@ namespace pixelroot32::core {
         sceneManager.adviseFramebufferBeforeBeginFrame(renderer);
         renderer.beginFrame();
         sceneManager.draw(renderer);
+
+        // Apply scene transition effect to the framebuffer after scene draw,
+        // but before debug overlay / present.
+        if (sceneManager.isTransitioning()) {
+            auto& drawSurface = renderer.getDrawSurface();
+            uint8_t* buffer = drawSurface.getSpriteBuffer();
+            if (buffer != nullptr) {
+                transitionEffect_.apply(buffer,
+                                        renderer.getLogicalWidth(),
+                                        renderer.getLogicalHeight());
+            }
+        }
+
         if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
             drawDebugOverlay(renderer);
         }
+    }
+
+    void Engine::triggerTransition(Scene* newScene,
+                                    pixelroot32::graphics::TransitionType type,
+                                    unsigned long durationMs) {
+        sceneManager.transitionToScene(newScene, type, durationMs);
     }
 
     void Engine::drawDebugOverlay(pixelroot32::graphics::Renderer& r) {
