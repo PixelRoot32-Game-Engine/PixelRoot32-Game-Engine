@@ -133,17 +133,17 @@ namespace pixelroot32::core {
                                           unsigned long durationMs,
                                           int irisOutCx, int irisOutCy,
                                           int irisInCx, int irisInCy) {
-        // Store the directional iris centers before the effect is initialised
-        // (effect.init() will reset the effect's own centers to -1).
+        // Call the original overload to start the transition (init effect for Out).
+        // This will reset stored iris centers to -1, so we must store AFTER.
+        transitionToScene(newScene, type, durationMs);
+
+        // Store the directional iris centers AFTER the 3-param overload reset.
         irisOutX_ = irisOutCx;
         irisOutY_ = irisOutCy;
         irisInX_ = irisInCx;
         irisInY_ = irisInCy;
 
-        // Call the original overload to start the transition (init effect for Out).
-        transitionToScene(newScene, type, durationMs);
-
-        // Apply stored centers to the effect, overriding what init() reset to -1.
+        // Apply centers to the effect for the Out phase.
         if (transitionEffect_ != nullptr) {
             transitionEffect_->setIrisOutCenter(irisOutCx, irisOutCy);
             transitionEffect_->setIrisInCenter(irisInCx, irisInCy);

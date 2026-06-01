@@ -392,11 +392,19 @@ namespace pixelroot32::core {
         // but before debug overlay / present.
         if (sceneManager.isTransitioning()) {
             auto& drawSurface = renderer.getDrawSurface();
-            uint8_t* buffer = drawSurface.getSpriteBuffer();
-            if (buffer != nullptr) {
-                transitionEffect_.apply(buffer,
+            // Try 8bpp sprite buffer first (ESP32 path), then fall back to RGB565 (native/SDL2).
+            uint8_t* buffer8 = drawSurface.getSpriteBuffer();
+            if (buffer8 != nullptr) {
+                transitionEffect_.apply(buffer8,
                                         renderer.getLogicalWidth(),
                                         renderer.getLogicalHeight());
+            } else {
+                uint16_t* bufferRGB565 = drawSurface.getPixelBuffer();
+                if (bufferRGB565 != nullptr) {
+                    transitionEffect_.applyRGB565(bufferRGB565,
+                                                  renderer.getLogicalWidth(),
+                                                  renderer.getLogicalHeight());
+                }
             }
         }
 

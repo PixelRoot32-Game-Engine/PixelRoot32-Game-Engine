@@ -190,6 +190,116 @@ void TransitionEffect::applyIris(uint8_t* buffer, int width, int height) {
     }
 }
 
+// =============================================================================
+// applyRGB565() — dispatch to RGB565-specific effects (native/SDL2 path)
+// =============================================================================
+
+void TransitionEffect::applyRGB565(uint16_t* buffer, int width, int height) {
+    if (buffer == nullptr) return;
+    if (durationMs_ == 0) return;
+
+    switch (type_) {
+        case TransitionType::Fade:
+            applyFadeRGB565(buffer, width, height);
+            break;
+
+        case TransitionType::Iris:
+            applyIrisRGB565(buffer, width, height);
+            break;
+    }
+}
+
+// =============================================================================
+// applyIrisRGB565() — circular wipe on RGB565 buffer
+// =============================================================================
+
+void TransitionEffect::applyIrisRGB565(uint16_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    int cx, cy;
+    if (direction_ == TransitionDirection::Out) {
+        cx = (irisOutCx_ >= 0) ? irisOutCx_ : (width / 2);
+        cy = (irisOutCy_ >= 0) ? irisOutCy_ : (height / 2);
+    } else {
+        cx = (irisInCx_ >= 0) ? irisInCx_ : (width / 2);
+        cy = (irisInCy_ >= 0) ? irisInCy_ : (height / 2);
+    }
+
+    int dxMax = (cx >= width - 1 - cx) ? cx : (width - 1 - cx);
+    int dyMax = (cy >= height - 1 - cy) ? cy : (height - 1 - cy);
+    int maxRadius2 = dxMax * dxMax + dyMax * dyMax;
+
+    int r2;
+    if (direction_ == TransitionDirection::Out) {
+        r2 = static_cast<int>((maxRadius2 * (256 - scaledProgress)) >> 8);
+    } else {
+        r2 = static_cast<int>((maxRadius2 * scaledProgress) >> 8);
+    }
+
+    if (r2 == 0 && direction_ == TransitionDirection::Out) {
+        int totalPixels = width * height;
+        for (int i = 0; i < totalPixels; ++i) {
+            buffer[i] = 0;
+        }
+        return;
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int dx = x - cx;
+            int dy = y - cy;
+            int dist2 = dx * dx + dy * dy;
+            if (dist2 > r2) {
+                buffer[y * width + x] = 0;
+            }
+        }
+    }
+}
+
+// =============================================================================
+// applyFadeRGB565() — fade darkening/brightening on RGB565 buffer
+// =============================================================================
+
+void TransitionEffect::applyFadeRGB565(uint16_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    int totalPixels = width * height;
+    for (int i = 0; i < totalPixels; ++i) {
+        uint16_t pixel = buffer[i];
+        // Extract RGB565 channels.
+        uint8_t r = (pixel >> 11) & 0x1F;
+        uint8_t g = (pixel >> 5) & 0x3F;
+        uint8_t b = pixel & 0x1F;
+
+        if (direction_ == TransitionDirection::Out) {
+            // Darken: scale down by (256 - progress) / 256
+            uint16_t factor = 256 - scaledProgress;
+            r = static_cast<uint8_t>((r * factor) >> 8);
+            g = static_cast<uint8_t>((g * factor) >> 8);
+            b = static_cast<uint8_t>((b * factor) >> 8);
+        } else {
+            // Brighten: scale up by progress / 256
+            r = static_cast<uint8_t>((r * scaledProgress) >> 8);
+            g = static_cast<uint8_t>((g * scaledProgress) >> 8);
+            b = static_cast<uint8_t>((b * scaledProgress) >> 8);
+        }
+
+        buffer[i] = static_cast<uint16_t>((r << 11) | (g << 5) | b);
+    }
+}
+
 #endif // PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
 } // namespace pixelroot32::graphics

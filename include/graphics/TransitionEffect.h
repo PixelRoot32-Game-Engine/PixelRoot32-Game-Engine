@@ -97,6 +97,19 @@ public:
     void apply(uint8_t* buffer, int width, int height);
 
     /**
+     * @brief Apply the transition effect to an RGB565 framebuffer.
+     * @param buffer Pointer to RGB565 pixel data (can be nullptr — safe no-op).
+     * @param width Buffer width in pixels.
+     * @param height Buffer height in pixels.
+     *
+     * Used on native/SDL2 path where no 8bpp sprite buffer exists.
+     * Iris zeroes pixels outside the circle. Fade darkens/brightens via channel scaling.
+     *
+     * Safe to call when not active — returns immediately with no side effects.
+     */
+    void applyRGB565(uint16_t* buffer, int width, int height);
+
+    /**
      * @brief Check whether the transition is still running.
      * @return true while elapsed < duration.
      */
@@ -172,14 +185,24 @@ private:
     void computeFadeLut(uint8_t* lut, uint16_t scaledProgress) const;
 
     /**
-     * @brief Apply the fade LUT to the entire buffer.
+     * @brief Apply the fade LUT to the entire 8bpp buffer.
      */
     void applyFade(uint8_t* buffer, int width, int height);
 
     /**
-     * @brief Apply the iris wipe to the entire buffer.
+     * @brief Apply the iris wipe to the entire 8bpp buffer.
      */
     void applyIris(uint8_t* buffer, int width, int height);
+
+    /**
+     * @brief Apply the iris wipe to an RGB565 buffer.
+     */
+    void applyIrisRGB565(uint16_t* buffer, int width, int height);
+
+    /**
+     * @brief Apply the fade to an RGB565 buffer via channel scaling.
+     */
+    void applyFadeRGB565(uint16_t* buffer, int width, int height);
 };
 
 #else
@@ -195,6 +218,7 @@ public:
     void init(TransitionType /*type*/, TransitionDirection /*direction*/, unsigned long /*durationMs*/) {}
     void update(unsigned long /*deltaTimeMs*/) {}
     void apply(uint8_t* /*buffer*/, int /*width*/, int /*height*/) {}
+    void applyRGB565(uint16_t* /*buffer*/, int /*width*/, int /*height*/) {}
     bool isActive() const { return false; }
     float getProgress() const { return 1.0f; }
     void setIrisCenter(int /*cx*/, int /*cy*/) {}
