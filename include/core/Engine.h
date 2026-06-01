@@ -127,6 +127,25 @@ public:
                            unsigned long durationMs);
 
     /**
+     * @brief Start a visual scene transition with direction-specific iris centers.
+     * @param newScene The target scene to transition to.
+     * @param type TransitionType::Fade or TransitionType::Iris.
+     * @param durationMs Duration of each phase (Out and In) in ms.
+     * @param irisOutCx Iris center X for Out (closing) phase.
+     * @param irisOutCy Iris center Y for Out (closing) phase.
+     * @param irisInCx Iris center X for In (opening) phase.
+     * @param irisInCy Iris center Y for In (opening) phase.
+     *
+     * Delegates to SceneManager::transitionToScene() with centers.
+     * Only meaningful for Iris transitions — Fade ignores centers.
+     */
+    void triggerTransition(Scene* newScene,
+                           pixelroot32::graphics::TransitionType type,
+                           unsigned long durationMs,
+                           int irisOutCx, int irisOutCy,
+                           int irisInCx, int irisInCy);
+
+    /**
      * @brief Retrieves the currently active scene.
      * @return Optional pointer to the current Scene, or nullopt if none is set.
      */

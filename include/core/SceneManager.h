@@ -124,6 +124,25 @@ public:
                            unsigned long durationMs);
 
     /**
+     * @brief Start a transition with direction-specific iris centers.
+     * @param newScene The target scene to transition to.
+     * @param type Fade or Iris transition effect.
+     * @param durationMs Duration of each phase (Out and In) in ms.
+     * @param irisOutCx Iris center X for Out (closing) phase.
+     * @param irisOutCy Iris center Y for Out (closing) phase.
+     * @param irisInCx Iris center X for In (opening) phase.
+     * @param irisInCy Iris center Y for In (opening) phase.
+     *
+     * Stores the centers and re-applies them after each effect.init()
+     * (which resets centers to -1). Only meaningful for Iris transitions.
+     */
+    void transitionToScene(Scene* newScene,
+                           pixelroot32::graphics::TransitionType type,
+                           unsigned long durationMs,
+                           int irisOutCx, int irisOutCy,
+                           int irisInCx, int irisInCy);
+
+    /**
      * @brief Whether a scene transition is currently active.
      * @return true when TransitionState != Idle.
      */
@@ -158,6 +177,12 @@ private:
     pixelroot32::graphics::TransitionEffect* transitionEffect_ = nullptr; ///< Engine-owned effect (non-owning ptr).
     pixelroot32::graphics::TransitionType transitionType_ = pixelroot32::graphics::TransitionType::Fade; ///< Cached effect type.
     unsigned long transitionDuration_ = 0;                       ///< Cached effect duration per phase.
+
+    // Direction-specific iris centers (stored for re-apply after effect.init resets to -1)
+    int irisOutX_ = -1;   ///< Stored Out iris center X (-1 = not set).
+    int irisOutY_ = -1;   ///< Stored Out iris center Y (-1 = not set).
+    int irisInX_ = -1;    ///< Stored In iris center X (-1 = not set).
+    int irisInY_ = -1;    ///< Stored In iris center Y (-1 = not set).
 };
 
 }

@@ -29,8 +29,10 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
     direction_ = direction;
     durationMs_ = durationMs;
     elapsedMs_ = 0;
-    irisCx_ = -1;   // Reset custom iris center to default.
-    irisCy_ = -1;
+    irisOutCx_ = -1;  // Reset custom iris centers to default.
+    irisOutCy_ = -1;
+    irisInCx_ = -1;
+    irisInCy_ = -1;
 }
 
 // =============================================================================
@@ -137,9 +139,15 @@ void TransitionEffect::applyIris(uint8_t* buffer, int width, int height) {
         if (scaledProgress > 256) scaledProgress = 256;
     }
 
-    // Determine iris center.
-    int cx = (irisCx_ >= 0) ? irisCx_ : (width / 2);
-    int cy = (irisCy_ >= 0) ? irisCy_ : (height / 2);
+    // Determine iris center based on direction.
+    int cx, cy;
+    if (direction_ == TransitionDirection::Out) {
+        cx = (irisOutCx_ >= 0) ? irisOutCx_ : (width / 2);
+        cy = (irisOutCy_ >= 0) ? irisOutCy_ : (height / 2);
+    } else {
+        cx = (irisInCx_ >= 0) ? irisInCx_ : (width / 2);
+        cy = (irisInCy_ >= 0) ? irisInCy_ : (height / 2);
+    }
 
     // Compute maximum radius² (distance from center to farthest corner).
     int dxMax = (cx >= width - 1 - cx) ? cx : (width - 1 - cx);

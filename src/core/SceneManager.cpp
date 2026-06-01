@@ -74,10 +74,15 @@ namespace pixelroot32::core {
                     transitionTargetScene_ = nullptr;
                 }
                 // Re-initialise the effect for the fade-in phase.
+                // After init(), the effect's centers are reset to -1, so we
+                // must re-apply any stored directional iris centers.
                 if (transitionEffect_ != nullptr) {
                     transitionEffect_->init(transitionType_,
                                             pixelroot32::graphics::TransitionDirection::In,
                                             transitionDuration_);
+                    // Re-apply stored iris centers (no-op if all -1).
+                    transitionEffect_->setIrisOutCenter(irisOutX_, irisOutY_);
+                    transitionEffect_->setIrisInCenter(irisInX_, irisInY_);
                 }
                 transitionState_ = TransitionState::FadingIn;
                 // NOTE: scene.update(dt) is NOT called during SceneSwap.
@@ -107,6 +112,9 @@ namespace pixelroot32::core {
         // Ignored if a transition is already running.
         if (transitionState_ != TransitionState::Idle) return;
 
+        // Reset stored iris centers (no centers specified → use defaults).
+        irisOutX_ = irisOutY_ = irisInX_ = irisInY_ = -1;
+
         transitionTargetScene_ = newScene;
         transitionType_ = type;
         transitionDuration_ = durationMs;
@@ -117,6 +125,28 @@ namespace pixelroot32::core {
             transitionEffect_->init(type,
                                     pixelroot32::graphics::TransitionDirection::Out,
                                     durationMs);
+        }
+    }
+
+    void SceneManager::transitionToScene(Scene* newScene,
+                                          pixelroot32::graphics::TransitionType type,
+                                          unsigned long durationMs,
+                                          int irisOutCx, int irisOutCy,
+                                          int irisInCx, int irisInCy) {
+        // Store the directional iris centers before the effect is initialised
+        // (effect.init() will reset the effect's own centers to -1).
+        irisOutX_ = irisOutCx;
+        irisOutY_ = irisOutCy;
+        irisInX_ = irisInCx;
+        irisInY_ = irisInCy;
+
+        // Call the original overload to start the transition (init effect for Out).
+        transitionToScene(newScene, type, durationMs);
+
+        // Apply stored centers to the effect, overriding what init() reset to -1.
+        if (transitionEffect_ != nullptr) {
+            transitionEffect_->setIrisOutCenter(irisOutCx, irisOutCy);
+            transitionEffect_->setIrisInCenter(irisInCx, irisInCy);
         }
     }
 

@@ -109,16 +109,46 @@ public:
     float getProgress() const;
 
     /**
-     * @brief Override the iris center for non-centered circle wipes.
+     * @brief Override the iris center for both Out and In phases (backward compat).
      * @param cx X-coordinate of the iris center.
      * @param cy Y-coordinate of the iris center.
      *
+     * Sets both Out and In phases to the same center. Equivalent to calling
+     * both setIrisOutCenter() and setIrisInCenter().
      * Only relevant for Iris transitions. Default is buffer center.
      * Call after init() and before apply().
      */
     void setIrisCenter(int cx, int cy) {
-        irisCx_ = cx;
-        irisCy_ = cy;
+        setIrisOutCenter(cx, cy);
+        setIrisInCenter(cx, cy);
+    }
+
+    /**
+     * @brief Override the iris center for the Out (closing) phase.
+     * @param cx X-coordinate of the iris center.
+     * @param cy Y-coordinate of the iris center.
+     *
+     * Sets the center used when the iris closes (Out direction).
+     * Only relevant for Iris transitions. Default is buffer center.
+     * Call after init() and before apply().
+     */
+    void setIrisOutCenter(int cx, int cy) {
+        irisOutCx_ = cx;
+        irisOutCy_ = cy;
+    }
+
+    /**
+     * @brief Override the iris center for the In (opening) phase.
+     * @param cx X-coordinate of the iris center.
+     * @param cy Y-coordinate of the iris center.
+     *
+     * Sets the center used when the iris opens (In direction).
+     * Only relevant for Iris transitions. Default is buffer center.
+     * Call after init() and before apply().
+     */
+    void setIrisInCenter(int cx, int cy) {
+        irisInCx_ = cx;
+        irisInCy_ = cy;
     }
 
 private:
@@ -126,8 +156,10 @@ private:
     TransitionDirection direction_ = TransitionDirection::Out;
     unsigned long durationMs_ = 0;
     unsigned long elapsedMs_ = 0;
-    int irisCx_ = -1;   ///< Custom iris center X (-1 = use buffer center).
-    int irisCy_ = -1;   ///< Custom iris center Y (-1 = use buffer center).
+    int irisOutCx_ = -1;  ///< Custom iris center X for Out phase (-1 = use buffer center).
+    int irisOutCy_ = -1;  ///< Custom iris center Y for Out phase (-1 = use buffer center).
+    int irisInCx_ = -1;   ///< Custom iris center X for In phase (-1 = use buffer center).
+    int irisInCy_ = -1;   ///< Custom iris center Y for In phase (-1 = use buffer center).
 
     /**
      * @brief Fill a 256-byte LUT for the current fade direction and progress.
@@ -166,6 +198,8 @@ public:
     bool isActive() const { return false; }
     float getProgress() const { return 1.0f; }
     void setIrisCenter(int /*cx*/, int /*cy*/) {}
+    void setIrisOutCenter(int /*cx*/, int /*cy*/) {}
+    void setIrisInCenter(int /*cx*/, int /*cy*/) {}
 };
 
 #endif // PIXELROOT32_ENABLE_SCENE_TRANSITIONS
