@@ -1,5 +1,5 @@
-#include "CameraDemoScene.h"
 #include "CameraDemoScene2.h"
+#include "CameraDemoScene.h"
 #include "core/Engine.h"
 #include "platforms/EngineConfig.h"
 #include "input/InputManager.h"
@@ -27,7 +27,7 @@ using math::Scalar;
 using math::toScalar;
 using physics::StaticActor;
 
-static const uint16_t TILE_EMPTY_BITS[] = {
+static const uint16_t TILE_S2_EMPTY_BITS[] = {
     0x0000,
     0x0000,
     0x0000,
@@ -38,7 +38,7 @@ static const uint16_t TILE_EMPTY_BITS[] = {
     0x0000
 };
 
-static const uint16_t TILE_GROUND_BITS[] = {
+static const uint16_t TILE_S2_GROUND_BITS[] = {
     0xFFFF,
     0xFFFF,
     0xFFFF,
@@ -49,7 +49,7 @@ static const uint16_t TILE_GROUND_BITS[] = {
     0xFFFF
 };
 
-static const uint16_t TILE_PLATFORM_BITS[] = {
+static const uint16_t TILE_S2_PLATFORM_BITS[] = {
     0x0000,
     0x0000,
     0xFFFF,
@@ -60,7 +60,7 @@ static const uint16_t TILE_PLATFORM_BITS[] = {
     0x0000
 };
 
-static const uint16_t TILE_SOLID_PLATFORM_BITS[] = {
+static const uint16_t TILE_S2_SOLID_PLATFORM_BITS[] = {
     0xAAAA,
     0x5555,
     0xAAAA,
@@ -71,27 +71,26 @@ static const uint16_t TILE_SOLID_PLATFORM_BITS[] = {
     0x5555
 };
 
-static const Sprite PLATFORMER_TILES[] = {
-    { TILE_EMPTY_BITS,          TILE_SIZE, TILE_SIZE },
-    { TILE_GROUND_BITS,         TILE_SIZE, TILE_SIZE },
-    { TILE_PLATFORM_BITS,       TILE_SIZE, TILE_SIZE },
-    { TILE_SOLID_PLATFORM_BITS, TILE_SIZE, TILE_SIZE }
+static const Sprite PLATFORMER_TILES_S2[] = {
+    { TILE_S2_EMPTY_BITS,          TILE_SIZE, TILE_SIZE },
+    { TILE_S2_GROUND_BITS,         TILE_SIZE, TILE_SIZE },
+    { TILE_S2_PLATFORM_BITS,       TILE_SIZE, TILE_SIZE },
+    { TILE_S2_SOLID_PLATFORM_BITS, TILE_SIZE, TILE_SIZE }
 };
 
-static uint8_t PLATFORMER_INDICES[TILEMAP_WIDTH * TILEMAP_HEIGHT];
+static uint8_t PLATFORMER_INDICES_S2[TILEMAP_WIDTH * TILEMAP_HEIGHT];
 
-static TileMap PLATFORMER_MAP = {
-    PLATFORMER_INDICES,
+static TileMap PLATFORMER_MAP_S2 = {
+    PLATFORMER_INDICES_S2,
     static_cast<uint8_t>(TILEMAP_WIDTH),
     static_cast<uint8_t>(TILEMAP_HEIGHT),
-    PLATFORMER_TILES,
+    PLATFORMER_TILES_S2,
     TILE_SIZE,
     TILE_SIZE,
-    static_cast<uint16_t>(sizeof(PLATFORMER_TILES) / sizeof(Sprite))
+    static_cast<uint16_t>(sizeof(PLATFORMER_TILES_S2) / sizeof(Sprite))
 };
 
-// Build the scrolling platformer tilemap
-static void initPlatformerTilemap() {
+static void initPlatformerTilemapS2() {
     static bool initialized = false;
     if (initialized) {
         return;
@@ -100,54 +99,52 @@ static void initPlatformerTilemap() {
 
     int total = TILEMAP_WIDTH * TILEMAP_HEIGHT;
     for (int i = 0; i < total; ++i) {
-        PLATFORMER_INDICES[i] = 0;
+        PLATFORMER_INDICES_S2[i] = 0;
     }
 
     int groundRow1 = TILEMAP_HEIGHT - 2;
     int groundRow2 = TILEMAP_HEIGHT - 1;
 
     for (int x = 0; x < TILEMAP_WIDTH; ++x) {
-        PLATFORMER_INDICES[groundRow1 * TILEMAP_WIDTH + x] = 1;
-        PLATFORMER_INDICES[groundRow2 * TILEMAP_WIDTH + x] = 1;
+        PLATFORMER_INDICES_S2[groundRow1 * TILEMAP_WIDTH + x] = 1;
+        PLATFORMER_INDICES_S2[groundRow2 * TILEMAP_WIDTH + x] = 1;
     }
 
     int p1Start = 10;
     int p1End = 18;
     int p1Row = groundRow1 - 3;
     for (int x = p1Start; x < p1End; ++x) {
-        PLATFORMER_INDICES[p1Row * TILEMAP_WIDTH + x] = 3;
+        PLATFORMER_INDICES_S2[p1Row * TILEMAP_WIDTH + x] = 3;
     }
 
-    // Platform 2
     int p2Start = 28;
     int p2End = 36;
     int p2Row = groundRow1 - 5;
     for (int x = p2Start; x < p2End; ++x) {
-        PLATFORMER_INDICES[p2Row * TILEMAP_WIDTH + x] = 2;
+        PLATFORMER_INDICES_S2[p2Row * TILEMAP_WIDTH + x] = 2;
     }
 
-    // Platform 3
     int p3Start = 50;
     int p3End = 58;
     int p3Row = groundRow1 - 4;
     for (int x = p3Start; x < p3End; ++x) {
-        PLATFORMER_INDICES[p3Row * TILEMAP_WIDTH + x] = 2;
+        PLATFORMER_INDICES_S2[p3Row * TILEMAP_WIDTH + x] = 2;
     }
 }
 
-CameraDemoScene::CameraDemoScene()
+CameraDemoScene2::CameraDemoScene2()
     : camera(DISPLAY_WIDTH, DISPLAY_HEIGHT)
     , player(nullptr)
     , levelWidth(static_cast<float>(TILEMAP_WIDTH * TILE_SIZE))
-    , scene2Ref_(nullptr)
-    , endReached_(false) {
+    , scene1Ref_(nullptr)
+    , backReached_(false) {
 }
 
-CameraDemoScene::~CameraDemoScene() {}
+CameraDemoScene2::~CameraDemoScene2() {}
 
-void CameraDemoScene::init() {
+void CameraDemoScene2::init() {
     gfx::setPalette(gfx::PaletteType::PR32);
-    initPlatformerTilemap();
+    initPlatformerTilemapS2();
     jumpInputReady = false;
 
     int groundRow1 = TILEMAP_HEIGHT - 2;
@@ -170,23 +167,23 @@ void CameraDemoScene::init() {
         int endX;
         int rowY;
     };
-    
+
     PlatDef defs[] = {
         {10, 18, groundRow1 - 3},
         {28, 36, groundRow1 - 5},
         {50, 58, groundRow1 - 4}
     };
-    
+
     for (size_t i = 0; i < sizeof(defs)/sizeof(PlatDef); ++i) {
         const auto& def = defs[i];
         int w = (def.endX - def.startX) * TILE_SIZE;
         int h = TILE_SIZE;
         float x = static_cast<float>(def.startX * TILE_SIZE);
         float y = static_cast<float>(def.rowY * TILE_SIZE + PLATFORM_VISUAL_OFFSET);
-        
+
         auto platform = std::make_unique<StaticActor>(toScalar(x), toScalar(y), w, h);
         platform->setShape(pr32::core::CollisionShape::AABB);
-        
+
         if (i == 0) {
             platform->setCollisionLayer(Layers::GROUND);
             platform->setCollisionMask(Layers::PLAYER);
@@ -218,11 +215,11 @@ void CameraDemoScene::init() {
         maxCameraX = 0.0f;
     }
     camera.setBounds(toScalar(0.0f), toScalar(maxCameraX));
-    camera.setVerticalBounds(toScalar(0.0f), toScalar(0.0f)); // Lock vertical movement
+    camera.setVerticalBounds(toScalar(0.0f), toScalar(0.0f));
     camera.setPosition(math::Vector2::ZERO());
 }
 
-void CameraDemoScene::update(unsigned long deltaTime) {
+void CameraDemoScene2::update(unsigned long deltaTime) {
     auto& input = engine.getInputManager();
 
     float moveDir = 0.0f;
@@ -250,20 +247,16 @@ void CameraDemoScene::update(unsigned long deltaTime) {
         player->setInput(moveDir, jumpPressed);
     }
 
-    // End-of-level detection: player reaches the rightmost edge of the level
-    if (!endReached_ && player && scene2Ref_) {
-        float playerRightEdge = static_cast<float>(player->position.x) + PLAYER_WIDTH;
-        if (playerRightEdge >= levelWidth) {
-            endReached_ = true;
-            // Trigger directional iris transition:
-            //   Out closes from RIGHT edge of the screen
-            //   In opens from LEFT edge of the screen
+    // Back-transition: player reaches left edge → Iris back to Scene1
+    if (!backReached_ && player && scene1Ref_) {
+        if (player->position.x <= 0.0f) {
+            backReached_ = true;
             engine.triggerTransition(
-                static_cast<pr32::core::Scene*>(scene2Ref_),
+                static_cast<pr32::core::Scene*>(scene1Ref_),
                 gfx::TransitionType::Iris,
                 500,
-                DISPLAY_WIDTH, DISPLAY_HEIGHT / 2,  // Out center: RIGHT
-                0, DISPLAY_HEIGHT / 2                // In center: LEFT
+                0, DISPLAY_HEIGHT / 2,            // Out center: LEFT
+                DISPLAY_WIDTH, DISPLAY_HEIGHT / 2  // In center: RIGHT
             );
         }
     }
@@ -277,7 +270,7 @@ void CameraDemoScene::update(unsigned long deltaTime) {
     }
 }
 
-void CameraDemoScene::draw(gfx::Renderer& renderer) {
+void CameraDemoScene2::draw(gfx::Renderer& renderer) {
     Scalar camX = camera.getX();
     Scalar farFactor = toScalar(0.4f);
     int farOffset = static_cast<int>(-camX * farFactor);
@@ -286,19 +279,19 @@ void CameraDemoScene::draw(gfx::Renderer& renderer) {
     int horizonY = DISPLAY_HEIGHT / 3;
     int hillHeight = DISPLAY_HEIGHT / 4;
 
-    renderer.drawFilledRectangle(-40, horizonY, DISPLAY_WIDTH + 80, hillHeight, Color::DarkBlue);
+    renderer.drawFilledRectangle(-40, horizonY, DISPLAY_WIDTH + 80, hillHeight, Color::Teal);
     renderer.drawFilledRectangle(DISPLAY_WIDTH / 2, horizonY + 10, DISPLAY_WIDTH, hillHeight + 10, Color::DarkGray);
 
     int midOffset = static_cast<int>(-camX * toScalar(0.7f));
     renderer.setDisplayOffset(midOffset, 0);
 
     int midY = (DISPLAY_HEIGHT * 2) / 3;
-    renderer.drawFilledRectangle(-20, midY, DISPLAY_WIDTH + 40, 10, Color::DarkGreen);
+    renderer.drawFilledRectangle(-20, midY, DISPLAY_WIDTH + 40, 10, Color::Orange);
 
     int mainOffset = static_cast<int>(-camX);
     renderer.setDisplayOffset(mainOffset, 0);
 
-    renderer.drawTileMap(PLATFORMER_MAP, 0, 0, Color::Brown);
+    renderer.drawTileMap(PLATFORMER_MAP_S2, 0, 0, Color::Gold);
 
     if (player) {
         player->draw(renderer);

@@ -5,6 +5,7 @@
 > - `include/core/Entity.h`
 > - `include/core/Scene.h`
 > - `include/core/SceneManager.h`
+> - `include/graphics/TransitionEffect.h`
 > - `include/platforms/PlatformCapabilities.h`
 > - `include/graphics/DisplayConfig.h`
 
@@ -16,7 +17,13 @@ This document covers the core engine classes, entity system, and scene managemen
 
 ### Engine
 
-The main engine class that manages the game loop and core subsystems. Each iteration calls **`update()`**; **`draw()`** and **`present()`** run only when **`SceneManager::aggregateShouldRedrawFramebuffer()`** is `true` (any stacked scene may request a pass). 
+The main engine class that manages the game loop and core subsystems. Each iteration calls **`update()`**; **`draw()`** and **`present()`** run only when **`SceneManager::aggregateShouldRedrawFramebuffer()`** is `true` (any stacked scene may request a pass).
+
+**Scene Transitions** (`PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`):
+- `triggerTransition(type, durationMs, dir)`: Initiate Fade or Iris transition
+- `isTransitioning()`: Check if transition is active
+- Transition effects are managed by `TransitionEffect` class (see Graphics Module)
+- Input is blocked during transitions to prevent ghost inputs
 
 ### Entity
 
@@ -49,6 +56,14 @@ build_flags =
 ### SceneManager
 
 Manages the stack of active scenes. Allows for scene transitions (replacing) and stacking (push/pop), useful for pausing or menus. `aggregateShouldRedrawFramebuffer()` ensures that menus don't suppress background scenes that still need drawing.
+
+**Transition Support** (`PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`):
+- `transitionToScene(scene, type, durationMs, dir)`: Begin transition to new scene
+- `isTransitioning()`: Check if transition is active
+- `updateTransitions(deltaTime)`: Update transition state machine
+- `drawTransitionOverlay(renderer)`: Render transition effect overlay
+- State machine: `Idle → FadingOut → SceneSwap → FadingIn → Idle`
+- Input blocked during `FadingOut` and `FadingIn` states
 
 ### SceneArena (Memory Management)
 
@@ -100,6 +115,7 @@ The metrics are drawn in the top-right area of the screen, fixed and independent
 - `Scene` → `include/core/Scene.h`
 - `SceneManager` → `include/core/SceneManager.h`
 - `SceneArena` → `include/core/Scene.h`
+- `TransitionEffect` → `include/graphics/TransitionEffect.h`
 - `PlatformCapabilities` → `include/platforms/PlatformCapabilities.h`
 - `DisplayConfig` → `include/graphics/DisplayConfig.h`
 

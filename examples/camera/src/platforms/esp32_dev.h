@@ -6,6 +6,7 @@
 #include <platforms/EngineConfig.h>
 
 #include "CameraDemoScene.h"
+#include "CameraDemoScene2.h"
 
 namespace pr32 = pixelroot32;
 
@@ -34,9 +35,12 @@ pr32::input::InputConfig inputConfig(BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BTN_
 pr32::core::Engine engine(config, inputConfig);
 
 camerademo::CameraDemoScene cameraScene;
+camerademo::CameraDemoScene2 cameraScene2;
 
 void setup() {
     engine.init();
+    cameraScene.setScene2(&cameraScene2);
+    cameraScene2.setScene1(&cameraScene);
     engine.setScene(&cameraScene);
 }
 

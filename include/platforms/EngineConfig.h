@@ -443,6 +443,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableDirtyRegions = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
+
+    /** @brief Type-safe access to EnableSceneTransitions configuration. */
+    inline constexpr bool EnableSceneTransitions = true;
+    #else
+
+    /** @brief Type-safe access to EnableSceneTransitions configuration. */
+    inline constexpr bool EnableSceneTransitions = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }

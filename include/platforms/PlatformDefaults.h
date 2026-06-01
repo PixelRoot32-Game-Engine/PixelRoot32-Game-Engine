@@ -55,6 +55,14 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// Scene Transition Effects Feature Defaults
+// -----------------------------------------------------------------------------
+// By default, scene transition effects (fade, iris) are enabled.
+#if !defined(PIXELROOT32_ENABLE_SCENE_TRANSITIONS)
+#define PIXELROOT32_ENABLE_SCENE_TRANSITIONS 1
+#endif
+
+// -----------------------------------------------------------------------------
 // Static tilemap framebuffer cache (4bpp direct sprite buffer path)
 // -----------------------------------------------------------------------------
 // When enabled, StaticTilemapLayerCache can snapshot the logical 8bpp framebuffer

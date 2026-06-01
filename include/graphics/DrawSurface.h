@@ -139,6 +139,18 @@ public:
     }
 
     /**
+     * @brief Get pointer to the native pixel buffer (RGB565 on SDL2).
+     *
+     * Used by transition effects when no 8bpp sprite buffer is available.
+     * Default implementation returns nullptr.
+     *
+     * @return Pointer to RGB565 pixel array, or nullptr if not supported.
+     */
+    virtual uint16_t* getPixelBuffer() {
+        return nullptr;
+    }
+
+    /**
      * @brief Sets the display contrast/brightness.
      * @param level Contrast level (0-255).
      */
