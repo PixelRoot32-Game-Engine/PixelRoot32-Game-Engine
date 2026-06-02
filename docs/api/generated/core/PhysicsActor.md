@@ -294,6 +294,51 @@ Get user data pointer.
 
 **Returns:** Pointer set via setUserData, or nullptr if never set.
 
+### `void setHitboxOffset(pixelroot32::math::Vector2 offset)`
+
+**Description:**
+
+Sets the hitbox offset relative to position.
+
+**Parameters:**
+
+- `offset`: Offset vector (e.g., {4, 8} shifts hitbox right and down).
+
+### `pixelroot32::math::Vector2 getHitboxOffset() const`
+
+**Description:**
+
+Gets the current hitbox offset.
+
+**Returns:** Offset vector.
+
+### `void setHitboxDimensions(pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)`
+
+**Description:**
+
+Sets custom hitbox dimensions separate from entity dimensions.
+
+**Parameters:**
+
+- `w`: Custom hitbox width (0 = use entity width).
+- `h`: Custom hitbox height (0 = use entity height).
+
+### `pixelroot32::math::Scalar getHitboxWidth() const`
+
+**Description:**
+
+Gets the custom hitbox width.
+
+**Returns:** Custom hitbox width as Scalar (0 means entity width is used).
+
+### `pixelroot32::math::Scalar getHitboxHeight() const`
+
+**Description:**
+
+Gets the custom hitbox height.
+
+**Returns:** Custom hitbox height as Scalar (0 means entity height is used).
+
 ### `void setSensor(bool s)`
 
 **Description:**
