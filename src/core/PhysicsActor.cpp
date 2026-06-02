@@ -120,6 +120,6 @@ WorldCollisionInfo PhysicsActor::getWorldCollisionInfo() const {
 }
 
 pixelroot32::core::Rect PhysicsActor::getHitBox() {
-    return {position, width, height};
+    return {position + hitboxOffset, width, height};
 }
 }

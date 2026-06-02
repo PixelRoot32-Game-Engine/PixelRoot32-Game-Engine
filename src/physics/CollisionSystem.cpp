@@ -583,8 +583,13 @@ namespace pixelroot32::physics {
         Rect platformBox = platform->getHitBox();
         Scalar platformTop = platformBox.position.y;
         
-        Scalar previousBottom = actor->getPreviousPosition().y + toScalar(actor->height);
-        Scalar currentBottom = actor->position.y + toScalar(actor->height);
+        // Use hitbox to determine crossing from above (offset-aware)
+        Rect actorHitBox = actor->getHitBox();
+        Scalar currentBottom = actorHitBox.position.y + toScalar(actorHitBox.height);
+        
+        // Previous hitbox bottom: approximate using previous position + offset
+        Vector2 offset = actor->getHitboxOffset();
+        Scalar previousBottom = actor->getPreviousPosition().y + offset.y + toScalar(actor->height);
         
         // Must have been above surface and now at/below surface
         bool crossedFromAbove = (previousBottom <= platformTop) && 

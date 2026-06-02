@@ -115,6 +115,9 @@ protected:
      */
     void* userData = nullptr;
 
+    /** Offset of the hitbox relative to position (default: {0,0}). */
+    pixelroot32::math::Vector2 hitboxOffset;
+
     /** Packed physics flags: bit0=sensor, bit1=oneWay, bit2=bounce (default: bounce=true) */
     uint8_t physicsFlags = 0x04;
 
@@ -354,6 +357,18 @@ public:
      * @return Pointer set via setUserData, or nullptr if never set.
      */
     void* getUserData() const { return userData; }
+
+    /**
+     * @brief Sets the hitbox offset relative to position.
+     * @param offset Offset vector (e.g., {4, 8} shifts hitbox right and down).
+     */
+    void setHitboxOffset(pixelroot32::math::Vector2 offset) { hitboxOffset = offset; }
+
+    /**
+     * @brief Gets the current hitbox offset.
+     * @return Offset vector.
+     */
+    pixelroot32::math::Vector2 getHitboxOffset() const { return hitboxOffset; }
 
     /**
      * @brief Sets whether this body is a sensor (trigger).
