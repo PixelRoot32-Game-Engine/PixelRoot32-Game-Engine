@@ -14,10 +14,10 @@ This document covers global configuration options, build flags, and compile-time
 |-------|-------------|-----------------|
 | `PR32_DEFAULT_AUDIO_CORE` | CPU core assigned to audio tasks. | `0` |
 | `PR32_DEFAULT_MAIN_CORE` | CPU core assigned to the main game loop. | `1` |
-| `PIXELROOT32_NO_DAC_AUDIO` | Disable Internal DAC support on classic ESP32. | Enabled |
-| `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Enabled |
+| `PIXELROOT32_NO_DAC_AUDIO` | Disable Internal DAC support on classic ESP32. | Not defined (opt-in) |
+| `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Not defined (opt-in) |
 | `PIXELROOT32_USE_U8G2_DRIVER` | Enable U8G2 display driver support for monochromatic OLEDs. | Disabled |
-| `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Enabled |
+| `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Not defined (opt-in) |
 
 ## Modular Compilation Flags
 
@@ -27,8 +27,10 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PHYSICS` | Enable physics system. | `1` |
 | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enable UI system. | `1` |
 | `PIXELROOT32_ENABLE_PARTICLES` | Enable particle system. | `1` |
+| `PIXELROOT32_ENABLE_CAMERA_EFFECTS` | Enable camera effects (shake, punch, offset). | `1` |
+| `PIXELROOT32_ENABLE_SCENE_TRANSITIONS` | Enable scene transition effects (fade, iris). | `1` |
 | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Enable FPS/RAM/CPU debug overlay. | Disabled |
-| `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enable tile animation system. | `1` |
+| `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enable tile animation system. | `0` |
 | `PIXELROOT32_ENABLE_2BPP_SPRITES` | Enable 2bpp sprite support. | Disabled |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enable 4bpp sprite support. | Disabled |
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
@@ -40,10 +42,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` | TFT_eSPI DMA line batch size. | `60` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK` | Fallback DMA batch size if memory fails. | `30` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
-| `PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP` | Enable PhysicsScheduler for consistent physics. | `1` |
 | `PIXELROOT32_VELOCITY_DAMPING` | Per-frame velocity damping factor (0.0-1.0). | `0.999` |
 | `PIXELROOT32_MAX_VELOCITY` | Maximum velocity cap in units/s. | `500` |
-| `PIXELROOT32_HAS_FAST_RSQRT` | Enable fast reciprocal square root. | `1` |
 
 ## Memory Savings by Subsystem
 
@@ -104,20 +104,35 @@ build_flags =
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `DISPLAY_WIDTH` | `240` | The logical width of the display in pixels. |
-| `DISPLAY_HEIGHT` | `240` | The logical height of the display in pixels. |
-| `xOffset` / `yOffset` | `0` | Coordinate offsets for hardware alignment. |
+| `DISPLAY_WIDTH` | `LOGICAL_WIDTH` | Deprecated alias for `LOGICAL_WIDTH`. |
+| `DISPLAY_HEIGHT` | `LOGICAL_HEIGHT` | Deprecated alias for `LOGICAL_HEIGHT`. |
+| `PHYSICAL_DISPLAY_WIDTH` | `240` | Actual hardware display width in pixels. |
+| `PHYSICAL_DISPLAY_HEIGHT` | `240` | Actual hardware display height in pixels. |
+| `LOGICAL_WIDTH` | `PHYSICAL_DISPLAY_WIDTH` | Internal rendering width. Engine scales to physical. |
+| `LOGICAL_HEIGHT` | `PHYSICAL_DISPLAY_HEIGHT` | Internal rendering height. Engine scales to physical. |
+| `DISPLAY_ROTATION` | `0` | Display rotation (0, 90, 180, 270). |
+| `X_OFF_SET` | `0` | Horizontal coordinate offset for hardware alignment. |
+| `Y_OFF_SET` | `0` | Vertical coordinate offset for hardware alignment. |
+| `MAX_SCENES` | `8` | Maximum number of scenes in the scene stack. |
+| `MAX_LAYERS` | `4` | Maximum number of layers per scene. |
+| `MAX_ENTITIES` | `64` | Maximum entities per scene. |
+| `MAX_TILESET_SIZE` | `256` | Maximum number of tiles in a tileset. |
+| `MAX_BACKGROUND_PALETTE_SLOTS` | `8` | Background palette slots for multi-palette tilemaps (2bpp/4bpp). |
+| `MAX_SPRITE_PALETTE_SLOTS` | `8` | Sprite palette slots for multi-palette sprites (2bpp/4bpp). |
+| `PHYSICS_MAX_ENTITIES` | `64` | Maximum entities in the physics system. |
 | `PHYSICS_MAX_PAIRS` | `128` | Maximum collision pairs considered in broadphase. |
 | `PHYSICS_MAX_CONTACTS` | `128` | Maximum simultaneous contacts in the physics solver. |
-| `VELOCITY_ITERATIONS` | `2` | Number of impulse solver passes per frame. |
+| `PIXELROOT32_VELOCITY_ITERATIONS` | `2` | Number of impulse solver passes per frame. |
 | `SPATIAL_GRID_CELL_SIZE` | `32` | Size of each cell in the broadphase grid (pixels). |
 | `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | `24` | (Legacy) max entities per cell. |
 | `SPATIAL_GRID_MAX_STATIC_PER_CELL` | `12` | Max static actors per grid cell. |
 | `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | `12` | Max dynamic actors per grid cell. |
+| `PR32_HAS_FPU_MACRO` | Auto-detected | Set to `1` if target has hardware FPU (ESP32, ESP32-S3, ESP32-P4, native). Undefined for C-series. |
+| `PR32_FORCE_FIXED` | Undefined | User override: undefines `PR32_HAS_FPU_MACRO` to force Fixed16 math. |
 
 ## Custom Scene Limits
 
-The engine defines default limits in `platforms/EngineConfig.h`: `MAX_LAYERS` (default 3) and `MAX_ENTITIES` (default 32). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
+The engine defines default limits in `platforms/EngineConfig.h`: `MAX_LAYERS` (default 4) and `MAX_ENTITIES` (default 64). These are guarded with `#ifndef`, so you can override them from your project without modifying the engine.
 
 **Compiler flags (recommended)**
 
