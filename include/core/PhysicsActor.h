@@ -118,6 +118,12 @@ protected:
     /** Offset of the hitbox relative to position (default: {0,0}). */
     pixelroot32::math::Vector2 hitboxOffset;
 
+    /** Custom hitbox width (0 = use entity width). */
+    pixelroot32::math::Scalar hitboxWidth{0};
+
+    /** Custom hitbox height (0 = use entity height). */
+    pixelroot32::math::Scalar hitboxHeight{0};
+
     /** Packed physics flags: bit0=sensor, bit1=oneWay, bit2=bounce (default: bounce=true) */
     uint8_t physicsFlags = 0x04;
 
@@ -369,6 +375,32 @@ public:
      * @return Offset vector.
      */
     pixelroot32::math::Vector2 getHitboxOffset() const { return hitboxOffset; }
+
+    /**
+     * @brief Sets custom hitbox dimensions separate from entity dimensions.
+     * 
+     * Set to 0 for width or height to use the entity's original dimension in that axis.
+     * Useful when a sprite is larger than the desired collision area
+     * (e.g. 16x16 sprite with 8x8 centered hitbox).
+     * @param w Custom hitbox width (0 = use entity width).
+     * @param h Custom hitbox height (0 = use entity height).
+     */
+    void setHitboxDimensions(pixelroot32::math::Scalar w, pixelroot32::math::Scalar h) {
+        hitboxWidth = w;
+        hitboxHeight = h;
+    }
+
+    /**
+     * @brief Gets the custom hitbox width.
+     * @return Custom hitbox width as Scalar (0 means entity width is used).
+     */
+    pixelroot32::math::Scalar getHitboxWidth() const { return hitboxWidth; }
+
+    /**
+     * @brief Gets the custom hitbox height.
+     * @return Custom hitbox height as Scalar (0 means entity height is used).
+     */
+    pixelroot32::math::Scalar getHitboxHeight() const { return hitboxHeight; }
 
     /**
      * @brief Sets whether this body is a sensor (trigger).

@@ -2037,6 +2037,89 @@ void test_aabb_collision_offset_prevents_collision(void) {
     TEST_ASSERT_FALSE(player.collisionCalled);
 }
 
+// =============================================================================
+// Hitbox Custom Dimensions Tests
+// =============================================================================
+
+void test_get_hit_box_custom_dimensions(void) {
+    // Custom dimensions smaller than entity — e.g. 16x16 sprite with 8x8 hitbox
+    MockActor actor(10, 20, 16, 16);
+    actor.setHitboxDimensions(toScalar(8), toScalar(8));
+    actor.setHitboxOffset(Vector2(toScalar(4), toScalar(4)));  // Center the smaller hitbox
+    Rect hitBox = actor.getHitBox();
+    
+    // Position = entity pos + offset = (10+4, 20+4) = (14, 24)
+    TEST_ASSERT_EQUAL(toScalar(14), hitBox.position.x);
+    TEST_ASSERT_EQUAL(toScalar(24), hitBox.position.y);
+    // Width/Height = custom 8x8, not entity 16x16
+    TEST_ASSERT_EQUAL(8, hitBox.width);
+    TEST_ASSERT_EQUAL(8, hitBox.height);
+}
+
+void test_get_hit_box_custom_dimensions_partial(void) {
+    // Custom width only — height falls back to entity height
+    MockActor actor(10, 20, 16, 16);
+    actor.setHitboxDimensions(toScalar(8), toScalar(0));  // 0 height = use entity
+    actor.setHitboxOffset(Vector2(toScalar(4), toScalar(0)));
+    Rect hitBox = actor.getHitBox();
+    
+    TEST_ASSERT_EQUAL(toScalar(14), hitBox.position.x);
+    TEST_ASSERT_EQUAL(toScalar(20), hitBox.position.y);
+    TEST_ASSERT_EQUAL(8, hitBox.width);   // Custom
+    TEST_ASSERT_EQUAL(16, hitBox.height);  // Falls back to entity
+}
+
+void test_get_hit_box_custom_dimensions_backward_compatible(void) {
+    // Default 0,0 means use entity dimensions — identical to no custom dims
+    MockActor actor(10, 20, 30, 40);
+    // Do NOT call setHitboxDimensions — defaults are 0,0
+    Rect hitBox = actor.getHitBox();
+    
+    TEST_ASSERT_EQUAL(toScalar(10), hitBox.position.x);
+    TEST_ASSERT_EQUAL(toScalar(20), hitBox.position.y);
+    TEST_ASSERT_EQUAL(30, hitBox.width);
+    TEST_ASSERT_EQUAL(40, hitBox.height);
+}
+
+void test_get_hit_box_custom_dimensions_larger(void) {
+    // Custom dimensions larger than entity — e.g. extended hurtbox
+    MockActor actor(10, 20, 8, 8);
+    actor.setHitboxDimensions(toScalar(16), toScalar(16));
+    actor.setHitboxOffset(Vector2(toScalar(-4), toScalar(-4)));  // Expand in all directions
+    Rect hitBox = actor.getHitBox();
+    
+    TEST_ASSERT_EQUAL(toScalar(6), hitBox.position.x);   // 10 - 4
+    TEST_ASSERT_EQUAL(toScalar(16), hitBox.position.y);  // 20 - 4
+    TEST_ASSERT_EQUAL(16, hitBox.width);
+    TEST_ASSERT_EQUAL(16, hitBox.height);
+}
+
+void test_collision_custom_hitbox_dimensions_smaller(void) {
+    // Custom hitbox dimensions affect actual collision detection
+    CollisionSystem system;
+    // 16x16 entity, but only 8x8 hitbox centered
+    MockActor player(0, 0, 16, 16);
+    player.setHitboxDimensions(toScalar(8), toScalar(8));
+    player.setHitboxOffset(Vector2(toScalar(4), toScalar(4)));
+    
+    // This wall would overlap the 16x16 entity area but NOT the 8x8 hitbox
+    StaticActor wall(toScalar(12), toScalar(0), 8, 8);
+    
+    player.setCollisionLayer(1);
+    player.setCollisionMask(1);
+    wall.setCollisionLayer(1);
+    wall.setCollisionMask(1);
+    
+    system.addEntity(&player);
+    system.addEntity(&wall);
+    system.update();
+    
+    // Player hitbox: position=(4,4), w=8, h=8 → right edge at 12
+    // Wall: position=(12,0), w=8, h=8 → left edge at 12
+    // They touch at x=12 → collision (edge touching counts)
+    TEST_ASSERT_TRUE(player.collisionCalled);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -2187,6 +2270,15 @@ int main(int argc, char **argv) {
     RUN_TEST(test_one_way_platform_with_offset_on_surface);
     RUN_TEST(test_aabb_collision_offset_enables_collision);
     RUN_TEST(test_aabb_collision_offset_prevents_collision);
+
+    // =============================================================================
+    // Hitbox Custom Dimensions Tests
+    // =============================================================================
+    RUN_TEST(test_get_hit_box_custom_dimensions);
+    RUN_TEST(test_get_hit_box_custom_dimensions_partial);
+    RUN_TEST(test_get_hit_box_custom_dimensions_backward_compatible);
+    RUN_TEST(test_get_hit_box_custom_dimensions_larger);
+    RUN_TEST(test_collision_custom_hitbox_dimensions_smaller);
 
     return UNITY_END();
 }
