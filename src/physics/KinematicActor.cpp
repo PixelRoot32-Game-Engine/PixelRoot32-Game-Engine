@@ -187,7 +187,7 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     return true;
 }
 
-void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor** outFloorBody) {
+void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor** outFloorBody, pixelroot32::math::Scalar dt) {
     namespace math = pixelroot32::math;
     using math::Vector2;
     using math::Scalar;
@@ -198,6 +198,60 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
     onCeiling = false;
     onWall = false;
 
+    // --- Pre-slide depenetration: resolve overlaps against solid static/kinematic bodies first ---
+    static pixelroot32::core::Actor* startCollisions[16];
+    int startCollisionCount = 0;
+    if (collisionSystem && collisionSystem->checkCollision(this, startCollisions, startCollisionCount, 16)) {
+        for (int i = 0; i < startCollisionCount; ++i) {
+            auto* other = startCollisions[i];
+            if (other->isPhysicsBody()) {
+                auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
+                if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID || physOther->isSensor()) {
+                    continue;
+                }
+                
+                // One-way platform filter: only depenetrate if we are coming from above
+                if (physOther->isOneWay()) {
+                    pixelroot32::core::Rect otherBox = physOther->getHitBox();
+                    Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
+                    Scalar platformTop = otherBox.position.y;
+                    if (previousBottom > platformTop + CollisionSystem::SLOP) {
+                        continue;
+                    }
+                }
+
+                pixelroot32::core::Rect myBox = getHitBox();
+                pixelroot32::core::Rect otherBox = physOther->getHitBox();
+                if (myBox.intersects(otherBox)) {
+                    Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
+                                                otherBox.position.x + toScalar(otherBox.width)) -
+                                      math::max(myBox.position.x, otherBox.position.x);
+                    Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
+                                                otherBox.position.y + toScalar(otherBox.height)) -
+                                      math::max(myBox.position.y, otherBox.position.y);
+                    
+                    Scalar depenClamp = toScalar(4.0f);
+                    
+                    if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
+                        Scalar correction = math::min(overlapX, depenClamp);
+                        if (position.x + getHitboxOffset().x + toScalar(myBox.width)/2.0f < otherBox.position.x + toScalar(otherBox.width)/2.0f) {
+                            position.x -= correction;
+                        } else {
+                            position.x += correction;
+                        }
+                    } else if (overlapY > CollisionSystem::SLOP) {
+                        Scalar correction = math::min(overlapY, depenClamp);
+                        if (position.y + getHitboxOffset().y + toScalar(myBox.height)/2.0f < otherBox.position.y + toScalar(otherBox.height)/2.0f) {
+                            position.y -= correction;
+                        } else {
+                            position.y += correction;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Vector2 currentMotion = velocity;
     // Threshold for 45 degrees
     Scalar floorThreshold = toScalar(0.70710678f);
@@ -206,7 +260,7 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
     // Apply only if we had a floor body recently (within tolerance window)
     // Full velocity is inherited; the slide loop resolves any collision issues
     if (floorBody && floorLostCounter < MAX_FLOOR_LOST_FRAMES) {
-        currentMotion += floorVelocity * CollisionSystem::FIXED_DT;
+        currentMotion += floorVelocity * dt;
     }
 
     // Local floor body tracker for current frame (member floorBody is for persistence)

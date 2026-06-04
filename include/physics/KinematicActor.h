@@ -55,8 +55,9 @@ public:
      * @param velocity The velocity vector.
      * @param upDirection The up vector used to differentiate floor/ceiling (optional).
      * @param outFloorBody Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
+     * @param dt Delta time used to calculate the movement (default: FIXED_DT).
      */
-    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr);
+    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
 
     /**
      * @brief Returns true if the body collided with the ceiling.
