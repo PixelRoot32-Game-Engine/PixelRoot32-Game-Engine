@@ -54,8 +54,9 @@ public:
      * @brief Moves the body while sliding along surfaces.
      * @param velocity The velocity vector.
      * @param upDirection The up vector used to differentiate floor/ceiling (optional).
+     * @param outFloorBody Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
      */
-    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1});
+    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr);
 
     /**
      * @brief Returns true if the body collided with the ceiling.

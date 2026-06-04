@@ -166,7 +166,7 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     return true;
 }
 
-void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection) {
+void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor** outFloorBody) {
     namespace math = pixelroot32::math;
     using math::Vector2;
     using math::Scalar;
@@ -180,6 +180,8 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
     Vector2 currentMotion = velocity;
     // Threshold for 45 degrees
     Scalar floorThreshold = toScalar(0.70710678f);
+
+    pixelroot32::core::PhysicsActor* floorBody = nullptr;
     
     for(int i=0; i<maxSlides; ++i) {
         KinematicCollision col;
@@ -201,6 +203,13 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
             
             if (dot > floorThreshold) {
                 onFloor = true;
+                // Track the floor body if it is KINEMATIC (for velocity inheritance)
+                if (col.collider && col.collider->isPhysicsBody()) {
+                    auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
+                    if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                        floorBody = phys;
+                    }
+                }
             } else if (dot < -floorThreshold) {
                 onCeiling = true;
             } else {
@@ -213,6 +222,16 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
         } else {
             break;
         }
+    }
+
+    // Apply KINEMATIC floor velocity inheritance after all slides resolve
+    if (floorBody) {
+        position += floorBody->getVelocity() * pixelroot32::math::toScalar(1.0f / 60.0f);
+    }
+
+    // Write the floor body pointer if caller requested it
+    if (outFloorBody) {
+        *outFloorBody = floorBody;
     }
 }
 
