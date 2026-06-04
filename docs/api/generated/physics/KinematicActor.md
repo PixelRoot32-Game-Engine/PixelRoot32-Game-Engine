@@ -32,8 +32,33 @@ Returns true if the body collided with the ceiling.
 
 Returns true if the body collided with the floor.
 
+### `const pixelroot32::math::Vector2& getFloorVelocity() const`
+
+**Description:**
+
+Gets the persisted floor velocity from the last KINEMATIC floor contact.
+
+**Returns:** Reference to the floor velocity vector.
+
+### `void clearFloorVelocity()`
+
+**Description:**
+
+Clears floor velocity and state.
+
 ### `inline bool is_on_wall() const`
 
 **Description:**
 
 Returns true if the body collided with a wall.
+
+### `void updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult)`
+
+**Description:**
+
+Updates floor persistence state.
+
+**Parameters:**
+
+- `onFloorThisFrame`: Whether floor contact was detected this frame.
+- `floorBodyResult`: The floor body if on floor, nullptr otherwise.
