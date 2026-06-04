@@ -53,19 +53,45 @@ public:
 
     pixelroot32::physics::CollisionSystem* collisionSystem = nullptr; ///< Reference to the collision system.
 
+    /**
+     * @brief Sets the collision layer this actor belongs to.
+     * @param l The collision layer.
+     */
     void setCollisionLayer(pixelroot32::physics::CollisionLayer l) { layer = l; }
+
+    /**
+     * @brief Sets the collision mask defining which layers this actor interacts with.
+     * @param m The collision mask.
+     */
     void setCollisionMask(pixelroot32::physics::CollisionLayer m)  { mask = m; }
 
+    /**
+     * @brief Updates the actor's state.
+     * @param deltaTime Time elapsed since last update in milliseconds.
+     */
     void update(unsigned long deltaTime) override {
         (void)deltaTime;
     }
 
+    /**
+     * @brief Checks if the actor belongs to a specific collision layer.
+     * @param targetLayer The layer bitmask to check.
+     * @return true if the actor is in the specified layer.
+     */
     bool isInLayer(uint16_t targetLayer) const {
         return (layer & targetLayer) != 0;
     }
 
+    /**
+     * @brief Gets the axis-aligned bounding box (hitbox) for this actor.
+     * @return The Rect representing the hitbox.
+     */
     virtual Rect getHitBox() = 0;
 
+    /**
+     * @brief Checks if this actor is a physics-driven body (e.g., RigidActor).
+     * @return true if it is a physics body, false otherwise.
+     */
     virtual bool isPhysicsBody() const { return false; }
 
     /**

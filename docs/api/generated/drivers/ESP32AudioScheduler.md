@@ -21,7 +21,17 @@ Constructor arguments are reserved for API stability.
 
 ## Methods
 
+### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256)`
+
+### `void submitCommand(const AudioCommand& cmd)`
+
+### `void start()`
+
+### `void stop()`
+
 ### `bool isIndependent() const`
+
+### `void generateSamples(int16_t* stream, int length)`
 
 ### `bool isMusicPlaying() const`
 

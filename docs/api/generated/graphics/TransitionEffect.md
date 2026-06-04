@@ -177,9 +177,3 @@ Apply the iris wipe to an RGB565 buffer.
 **Description:**
 
 Apply the fade to an RGB565 buffer via channel scaling.
-
-### `void init(TransitionType /*type*/, TransitionDirection /*direction*/, unsigned long /*durationMs*/)`
-
-**Description:**
-
-Stub TransitionEffect — all methods are no-ops when feature is disabled.

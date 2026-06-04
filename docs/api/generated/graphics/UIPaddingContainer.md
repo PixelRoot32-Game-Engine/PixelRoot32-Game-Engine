@@ -93,6 +93,38 @@ Gets the bottom padding.
 
 **Returns:** Bottom padding in pixels.
 
+### `void setPosition(pixelroot32::math::Scalar newX, pixelroot32::math::Scalar newY)`
+
+**Description:**
+
+Sets the position of the container.
+Also updates the child element's position.
+
+**Parameters:**
+
+- `newX`: New X coordinate.
+- `newY`: New Y coordinate.
+
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the container and child element.
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since last frame in milliseconds.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws the child element.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer.
+
 ### `void updateChildPosition()`
 
 **Description:**

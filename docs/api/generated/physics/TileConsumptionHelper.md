@@ -98,7 +98,7 @@ Template method to check tilemap runtimeMask state.
 
 Validate tile coordinates against tilemap dimensions.
 
-### `TileConsumptionHelper helper(scene, tilemap, config)`
+### `inline bool consumeTileFromCollision(pixelroot32::core::Actor* tileActor, uintptr_t packedUserData, pixelroot32::core::Scene& scene, void* tilemap, const TileConsumptionConfig& config = TileConsumptionConfig())`
 
 **Description:**
 
@@ -113,3 +113,19 @@ Convenience function for consuming tiles from collision callbacks.
 - `config`: Optional consumption configuration
 
 **Returns:** true if tile was consumed, false otherwise
+
+### `inline int consumeTilesBatch(pixelroot32::core::Scene& scene, void* tilemap, const uint16_t tiles[][2], int count, const TileConsumptionConfig& config = TileConsumptionConfig())`
+
+**Description:**
+
+Batch consumption helper for multiple tiles.
+
+**Parameters:**
+
+- `scene`: Reference to the scene
+- `tilemap`: Pointer to the tilemap
+- `tiles`: Array of tile coordinates to consume
+- `count`: Number of tiles in the array
+- `config`: Optional consumption configuration
+
+**Returns:** Number of tiles successfully consumed

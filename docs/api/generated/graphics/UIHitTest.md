@@ -103,3 +103,19 @@ Find the top-most element that contains the point (const UITouchElement version)
 - `py`: Y coordinate
 
 **Returns:** Pointer to hit element, or nullptr if no hit
+
+### `static bool intersects(const UITouchWidget& widget, int16_t rx, int16_t ry, uint16_t rw, uint16_t rh)`
+
+**Description:**
+
+Check if a rectangle intersects with a widget (AABB)
+
+**Parameters:**
+
+- `widget`: The widget to test
+- `rx`: Rectangle X (top-left)
+- `ry`: Rectangle Y (top-left)
+- `rw`: Rectangle width
+- `rh`: Rectangle height
+
+**Returns:** true if rectangles intersect

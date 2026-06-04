@@ -22,6 +22,26 @@ Memory: Owns widget data inline - no external allocation needed.
 
 ## Methods
 
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Update widget logic
+
+**Parameters:**
+
+- `deltaTime`: Time since last frame in ms
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Render the widget
+
+**Parameters:**
+
+- `renderer`: Reference to renderer
+
 ### `virtual bool processEvent(const pixelroot32::input::TouchEvent& event)`
 
 **Description:**

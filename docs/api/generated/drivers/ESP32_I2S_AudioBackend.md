@@ -19,6 +19,8 @@ to ensure smooth playback independent of the game loop frame rate.
 
 ## Methods
 
+### `void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps)`
+
 ### `int getSampleRate() const`
 
 ### `void audioTaskLoop()`

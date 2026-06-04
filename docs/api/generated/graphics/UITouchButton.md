@@ -181,6 +181,28 @@ Get the OnClick callback
 
 **Returns:** The current OnClick callback
 
+### `bool processEvent(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Process a touch event
+
+**Parameters:**
+
+- `event`: The touch event to process
+
+**Returns:** true if event was consumed by this button
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Render the button
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer
+
 ### `void reset()`
 
 **Description:**

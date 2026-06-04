@@ -30,8 +30,6 @@ Resolve tile index to current animated frame.
 
 PERFORMANCE: O(1) array lookup, IRAM-friendly, no branches in hot path
 
-### `* Complexity: O(animations × frameCount) when at least one tick elapses; else O(1)`
-
 ### `void step(unsigned long deltaTimeMs)`
 
 **Description:**

@@ -16,6 +16,42 @@ SDL2-backed draw surface for native desktop builds.
 
 ## Methods
 
+### `void init()`
+
+### `void setRotation(uint16_t rotation)`
+
+**Description:**
+
+Sets the screen rotation.
+
+**Parameters:**
+
+- `rotation`: 0-3 corresponding to 0, 90, 180, 270 degrees.
+
+### `void clearBuffer()`
+
+### `void sendBuffer()`
+
+### `void drawFilledCircle(int x, int y, int radius, uint16_t color)`
+
+### `void drawCircle(int x, int y, int radius, uint16_t color)`
+
+### `void drawRectangle(int x, int y, int width, int height, uint16_t color)`
+
+### `void drawFilledRectangle(int x, int y, int width, int height, uint16_t color)`
+
+### `void drawLine(int x1, int y1, int x2, int y2, uint16_t color)`
+
+### `void drawBitmap(int x, int y, int width, int height, const uint8_t *bitmap, uint16_t color)`
+
+### `void drawPixel(int x, int y, uint16_t color)`
+
+### `void drawTileDirect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint8_t* data)`
+
+**Description:**
+
+Direct tile write (not optimized for SDL2 - uses fallback).
+
 ### `uint8_t* getSpriteBuffer()`
 
 **Description:**
@@ -27,6 +63,8 @@ Get pointer to sprite buffer (not supported in SDL2).
 **Description:**
 
 Get pointer to the RGB565 pixel buffer for transition effects.
+
+### `bool processEvents()`
 
 ### `void setTouchDispatcher(pixelroot32::input::TouchEventDispatcher* touchDispatcher)`
 

@@ -25,10 +25,6 @@ Base touch widget structure
 
 ### `: type(UIWidgetType::Generic)`
 
-**Description:**
-
-Default constructor - creates empty widget
-
 ### `, state(UIWidgetState::Idle)`
 
 ### `, flags(UIWidgetFlags::None)`
@@ -45,9 +41,7 @@ Default constructor - creates empty widget
 
 ### `: type(widgetType)`
 
-**Description:**
-
-Construct touch widget with all fields
+### `, flags(static_cast<UIWidgetFlags>(static_cast<uint8_t>(UIWidgetFlags::Enabled) | static_cast<uint8_t>(UIWidgetFlags::Visible)))`
 
 ### `, id(widgetId)`
 

@@ -65,6 +65,40 @@ Sets the current active scene.
 
 - `newScene`: Pointer to the new Scene to become active.
 
+### `void triggerTransition(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs)`
+
+**Description:**
+
+Start a visual scene transition (Fade or Iris).
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: TransitionType::Fade or TransitionType::Iris.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+
+Delegates to SceneManager::transitionToScene(). Ignored if a
+transition is already in progress.
+
+### `void triggerTransition(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs, int irisOutCx, int irisOutCy, int irisInCx, int irisInCy)`
+
+**Description:**
+
+Start a visual scene transition with direction-specific iris centers.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: TransitionType::Fade or TransitionType::Iris.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+- `irisOutCx`: Iris center X for Out (closing) phase.
+- `irisOutCy`: Iris center Y for Out (closing) phase.
+- `irisInCx`: Iris center X for In (opening) phase.
+- `irisInCy`: Iris center Y for In (opening) phase.
+
+Delegates to SceneManager::transitionToScene() with centers.
+Only meaningful for Iris transitions — Fade ignores centers.
+
 ### `std::optional<Scene*> getCurrentScene() const`
 
 **Description:**

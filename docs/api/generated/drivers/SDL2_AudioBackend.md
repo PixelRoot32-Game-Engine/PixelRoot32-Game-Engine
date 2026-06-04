@@ -16,6 +16,8 @@ Audio backend implementation for SDL2 (Windows/Linux/Mac).
 
 ## Methods
 
+### `void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps)`
+
 ### `int getSampleRate() const`
 
 ### `void audioCallback(uint8_t* stream, int len)`

@@ -151,6 +151,28 @@ Get the OnChanged callback
 
 **Returns:** The current OnChanged callback
 
+### `bool processEvent(const pixelroot32::input::TouchEvent& event)`
+
+**Description:**
+
+Process a touch event
+
+**Parameters:**
+
+- `event`: The touch event to process
+
+**Returns:** true if event was consumed by this checkbox
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Render the checkbox
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer
+
 ### `void reset()`
 
 **Description:**
