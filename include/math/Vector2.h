@@ -119,7 +119,7 @@ struct Vector2 {
      * @return The squared length.
      */
     constexpr Scalar lengthSquared() const {
-        return dot(*this);
+        return x * x + y * y;
     }
 
     /**
@@ -128,8 +128,7 @@ struct Vector2 {
     void normalize() {
         Scalar len = length();
         if (len > toScalar(0)) {
-            x /= len;
-            y /= len;
+            *this /= len;
         }
     }
 
@@ -148,7 +147,7 @@ struct Vector2 {
      * @return The length.
      */
     Scalar length() const {
-        return sqrtScalar(lengthSquared());
+        return sqrt(lengthSquared());
     }
 
     /**
