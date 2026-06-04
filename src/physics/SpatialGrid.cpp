@@ -82,8 +82,12 @@ namespace pixelroot32::physics {
             int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
             int rows = pixelroot32::platforms::config::LogicalHeight / kCellSize + 1;
             if (minCol < 0) minCol = 0;
+            if (minCol >= cols) minCol = cols - 1;
+            if (maxCol < 0) maxCol = 0;
             if (maxCol >= cols) maxCol = cols - 1;
             if (minRow < 0) minRow = 0;
+            if (minRow >= rows) minRow = rows - 1;
+            if (maxRow < 0) maxRow = 0;
             if (maxRow >= rows) maxRow = rows - 1;
 
             for (int r = minRow; r <= maxRow; ++r) {
@@ -107,8 +111,12 @@ namespace pixelroot32::physics {
         int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
         int rows = pixelroot32::platforms::config::LogicalHeight / kCellSize + 1;
         if (minCol < 0) minCol = 0;
+        if (minCol >= cols) minCol = cols - 1;
+        if (maxCol < 0) maxCol = 0;
         if (maxCol >= cols) maxCol = cols - 1;
         if (minRow < 0) minRow = 0;
+        if (minRow >= rows) minRow = rows - 1;
+        if (maxRow < 0) maxRow = 0;
         if (maxRow >= rows) maxRow = rows - 1;
 
         for (int r = minRow; r <= maxRow; ++r) {
@@ -130,8 +138,12 @@ namespace pixelroot32::physics {
         int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
         int rows = pixelroot32::platforms::config::LogicalHeight / kCellSize + 1;
         if (minCol < 0) minCol = 0;
+        if (minCol >= cols) minCol = cols - 1;
+        if (maxCol < 0) maxCol = 0;
         if (maxCol >= cols) maxCol = cols - 1;
         if (minRow < 0) minRow = 0;
+        if (minRow >= rows) minRow = rows - 1;
+        if (maxRow < 0) maxRow = 0;
         if (maxRow >= rows) maxRow = rows - 1;
 
         count = 0;

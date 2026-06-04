@@ -154,10 +154,8 @@ void Scene::update(unsigned long deltaTime) {
 
 ```ini
 # platformio.ini
--D PIXELROOT32_ENABLE_PHYSICS_FIXED_TIMESTEP=1  ; Enable scheduler (profile_full/arcade)
 -D PIXELROOT32_VELOCITY_DAMPING=0.999           ; Per-frame damping (default)
 -D PIXELROOT32_MAX_VELOCITY=500                  ; Max velocity (units/s, default)
--D PIXELROOT32_HAS_FAST_RSQRT=1                   ; Enable fast reciprocal sqrt
 ```
 
 ---
