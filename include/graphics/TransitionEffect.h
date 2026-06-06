@@ -60,6 +60,19 @@ enum class TransitionDirection : uint8_t {
 #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
 /**
+ * @brief Q8.8 smoothstep easing function for transition progress.
+ * @param t Q8.8 input in [0, 256] (0.0 to 1.0 in fixed point).
+ * @return Q8.8 eased value in [0, 256].
+ *
+ * Implements smoothstep(t) = t^2 * (3 - 2t) using fixed-point Q8.8 math:
+ * result = (t^2 * (768 - 2t)) / 65536, clamped to [0, 256].
+ *
+ * Provides smoother acceleration/deceleration than linear interpolation,
+ * used by DiagonalWipe to avoid harsh pixel boundaries during the wipe.
+ */
+uint16_t smoothstepQ8(uint16_t t);
+
+/**
  * @class TransitionEffect
  * @brief Manages a single scene transition with zero runtime allocation.
  *

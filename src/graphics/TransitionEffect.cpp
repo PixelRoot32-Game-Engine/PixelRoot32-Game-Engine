@@ -20,6 +20,28 @@ namespace pixelroot32::graphics {
 #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
 // =============================================================================
+// smoothstepQ8() — Q8.8 smoothstep easing
+// =============================================================================
+
+uint16_t smoothstepQ8(uint16_t t) {
+    // Edge cases: no easing needed at exact endpoints.
+    if (t == 0) return 0;
+    if (t >= 256) return 256;
+
+    uint32_t t32 = t;
+    // t^2 in Q8.8: multiply then shift right by 8 bits.
+    uint32_t t2 = (t32 * t32) >> 8;
+    // (3 - 2t) in Q8.8: 3.0 = 768 in fixed point.
+    int32_t threeMinus2t = 768 - 2 * (int32_t)t;
+    // result = t^2 * (3 - 2t) / 65536 (two shifts of 8 bits each).
+    uint32_t result = (t2 * (uint32_t)threeMinus2t) >> 8;
+
+    // Safety clamp — should never exceed 256 for valid t in [0, 256].
+    if (result > 256) result = 256;
+    return (uint16_t)result;
+}
+
+// =============================================================================
 // init() — configure effect parameters
 // =============================================================================
 

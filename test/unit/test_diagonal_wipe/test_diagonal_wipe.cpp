@@ -19,15 +19,6 @@
 
 using namespace pixelroot32::graphics;
 
-// Stub implementation: smoothstepQ8 will be provided by TransitionEffect in PR 2.
-// For the RED test step, we keep a TU-local stub that lets the file link.
-// The stub returns 0 so the assertions in test_diagonal_wipe_smoothstep_q8 fail
-// (RED) until the real implementation lands. Once PR 2 adds the production
-// implementation, this stub can be removed (the production symbol resolves it).
-static uint16_t smoothstepQ8(uint16_t /*t*/) {
-    return 0; // STUB — intentionally wrong to drive RED in TDD
-}
-
 void setUp(void) {
     test_setup();
 }
