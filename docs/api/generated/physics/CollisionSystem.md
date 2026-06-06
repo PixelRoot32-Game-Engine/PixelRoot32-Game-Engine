@@ -80,6 +80,21 @@ Gets the total number of registered entities.
 
 Clears the collision system state.
 
+### `bool checkCollision(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount)`
+
+**Description:**
+
+Checks for collisions with a specific actor.
+
+**Parameters:**
+
+- `actor`: The actor to check.
+- `outArray`: Array to store colliding actors.
+- `count`: Reference to store the number of collisions found.
+- `maxCount`: Maximum number of collisions to return.
+
+**Returns:** True if any collisions were found.
+
 ### `bool needsCCD(pixelroot32::core::PhysicsActor* body) const`
 
 **Description:**
@@ -91,3 +106,32 @@ Checks if a body requires continuous collision detection (CCD).
 - `body`: The physics actor to check.
 
 **Returns:** True if CCD is required.
+
+### `bool sweptCircleVsAABB(pixelroot32::core::PhysicsActor* circle, pixelroot32::core::PhysicsActor* box, pixelroot32::math::Scalar& outTime, pixelroot32::math::Vector2& outNormal)`
+
+**Description:**
+
+Performs a swept collision test between a circle and an AABB.
+
+**Parameters:**
+
+- `circle`: The moving circle.
+- `box`: The static AABB.
+- `outTime`: Reference to store the time of impact [0, 1].
+- `outNormal`: Reference to store the collision normal.
+
+**Returns:** True if a collision occurs.
+
+### `bool validateOneWayPlatform( pixelroot32::core::PhysicsActor* actor, pixelroot32::core::PhysicsActor* platform, const pixelroot32::math::Vector2& collisionNormal )`
+
+**Description:**
+
+Validates if a collision with a one-way platform should occur.
+
+**Parameters:**
+
+- `actor`: The moving actor.
+- `platform`: The one-way platform.
+- `collisionNormal`: The contact normal.
+
+**Returns:** True if the collision is valid and should be resolved.

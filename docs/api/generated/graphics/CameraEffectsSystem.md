@@ -114,9 +114,3 @@ Compute offset with linear decay (Punch) or constant (Offset).
 **Description:**
 
 Find the next available slot index (round-robin).
-
-### `void update(unsigned long /*deltaTimeMs*/)`
-
-**Description:**
-
-Stub CameraEffectsSystem — always returns zero offset.

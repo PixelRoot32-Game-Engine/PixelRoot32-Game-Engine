@@ -408,8 +408,6 @@ Draws a 4bpp sprite (legacy).
 - `y`: Top-left Y coordinate.
 - `flipX`: True to mirror horizontally.
 
-### `* Each layer is rendered in array order using the existing drawSprite()`
-
 ### `void drawMultiSprite(const MultiSprite& sprite, int x, int y)`
 
 **Description:**
@@ -435,6 +433,28 @@ Draws a scaled multi-layer sprite.
 - `y`: Top-left Y coordinate.
 - `scaleX`: Horizontal scaling factor.
 - `scaleY`: Vertical scaling factor.
+
+### `void drawTileMap(const TileMap& map, int originX, int originY, Color color = Color::White, LayerType layerType = LayerType::Dynamic)`
+
+**Description:**
+
+Draws a tilemap of 1bpp sprites.
+
+**Parameters:**
+
+- `layerType`: Static layers assume full coverage (no dirty marks); Dynamic marks dirt (animated maps mark only tiles whose frame changed vs last step snapshot when possible).
+
+### `void drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType = LayerType::Dynamic)`
+
+**Description:**
+
+Draws a tilemap of 2bpp sprites.
+
+### `void drawTileMap(const TileMap4bpp& map, int originX, int originY, LayerType layerType = LayerType::Dynamic)`
+
+**Description:**
+
+Draws a tilemap of 4bpp sprites.
 
 ### `void setOffsetBypass(bool bypass)`
 

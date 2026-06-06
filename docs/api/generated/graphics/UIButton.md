@@ -68,6 +68,10 @@ Checks for touch events within bounds or confirmation buttons if selected.
 
 - `input`: The input manager instance.
 
+### `void update(unsigned long deltaTime)`
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
 ### `void press()`
 
 **Description:**

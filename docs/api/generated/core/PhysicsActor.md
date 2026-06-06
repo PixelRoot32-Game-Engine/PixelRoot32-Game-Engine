@@ -19,6 +19,16 @@ Automatically adapts to use float or Fixed16 based on the platform configuration
 
 ## Methods
 
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the actor state.
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since the last frame in milliseconds.
+
 ### `void setLimits(const LimitRect& limitRect)`
 
 **Description:**
@@ -156,16 +166,15 @@ Integrates velocity to update position.
 
 Resolves collisions with the defined world or custom bounds.
 
-### `void setVelocity(T x, T y)`
+### `pixelroot32::core::Rect getHitBox()`
 
 **Description:**
 
-Sets the linear velocity of the actor using floats.
+Gets the axis-aligned bounding box (AABB) hitbox of the actor.
 
-**Parameters:**
+**Returns:** Rect representing the hitbox.
 
-- `x`: Horizontal velocity.
-- `y`: Vertical velocity.
+### `void setVelocity(T x, T y)`
 
 ### `void setVelocity(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y)`
 
@@ -410,6 +419,16 @@ Sets the position and syncs previous position.
 **Parameters:**
 
 - `pos`: The new position.
+
+### `void onCollision(Actor* other)`
+
+**Description:**
+
+Callback triggered when this actor collides with another actor.
+
+**Parameters:**
+
+- `other`: Pointer to the actor involved in the collision.
 
 ### `virtual void onWorldCollision()`
 

@@ -95,6 +95,40 @@ Checks if the scene stack is empty.
 
 **Returns:** True if there are no scenes.
 
+### `void transitionToScene(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs)`
+
+**Description:**
+
+Start a transition from the current scene to a new one.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: Fade or Iris transition effect.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+
+Ignored if a transition is already running (state != Idle).
+The full cycle is: FadingOut (durationMs) → SceneSwap → FadingIn (durationMs) → Idle.
+
+### `void transitionToScene(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs, int irisOutCx, int irisOutCy, int irisInCx, int irisInCy)`
+
+**Description:**
+
+Start a transition with direction-specific iris centers.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: Fade or Iris transition effect.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+- `irisOutCx`: Iris center X for Out (closing) phase.
+- `irisOutCy`: Iris center Y for Out (closing) phase.
+- `irisInCx`: Iris center X for In (opening) phase.
+- `irisInCy`: Iris center Y for In (opening) phase.
+
+Stores the centers and re-applies them after each effect.init()
+(which resets centers to -1). Only meaningful for Iris transitions.
+
 ### `bool isTransitioning() const`
 
 **Description:**

@@ -49,6 +49,10 @@ Centers the label horizontally on the screen.
 
 - `screenWidth`: Width of the screen/container.
 
+### `void update(unsigned long deltaTime)`
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
 ### `void recalcSize()`
 
 **Description:**

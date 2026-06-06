@@ -57,3 +57,18 @@ Checks intersection between a line segment and a rectangle.
 - `r`: The rectangle.
 
 **Returns:** True if they intersect.
+
+### `bool sweepCircleVsRect(const Circle& start, const Circle& end, const pixelroot32::core::Rect& rect, pixelroot32::math::Scalar& tHit)`
+
+**Description:**
+
+Sweeps a circle against a rectangle to find time of impact.
+
+**Parameters:**
+
+- `start`: Circle start position.
+- `end`: Circle end position.
+- `rect`: The static rectangle.
+- `tHit`: Reference to store the time of impact.
+
+**Returns:** True if a hit occurs along the sweep path.

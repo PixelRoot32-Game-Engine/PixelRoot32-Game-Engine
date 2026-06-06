@@ -22,28 +22,7 @@ that can be added to scenes.
 
 ### `: UIElement(x, y, w, h, UIElementType::LAYOUT)`
 
-**Description:**
-
-Constructs a new UILayout.
-
-**Parameters:**
-
-- `x`: X position of the layout container.
-- `y`: Y position of the layout container.
-- `w`: Width of the layout container.
-- `h`: Height of the layout container.
-
 ### `: UIElement(position, w, h, UIElementType::LAYOUT)`
-
-**Description:**
-
-Constructs a new UILayout.
-
-**Parameters:**
-
-- `position`: Position of the layout container.
-- `w`: Width of the layout container.
-- `h`: Height of the layout container.
 
 ### `virtual void addElement(UIElement* element)`
 

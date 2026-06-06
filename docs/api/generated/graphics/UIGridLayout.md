@@ -20,6 +20,62 @@ positioning based on grid coordinates.
 
 ## Methods
 
+### `void addElement(UIElement* element)`
+
+**Description:**
+
+Adds a UI element to the layout.
+
+**Parameters:**
+
+- `element`: Pointer to the element to add.
+
+### `void removeElement(UIElement* element)`
+
+**Description:**
+
+Removes a UI element from the layout.
+
+**Parameters:**
+
+- `element`: Pointer to the element to remove.
+
+### `void updateLayout()`
+
+**Description:**
+
+Recalculates positions of all elements.
+
+### `void handleInput(const pixelroot32::input::InputManager& input)`
+
+**Description:**
+
+Handles input for navigation and selection.
+
+**Parameters:**
+
+- `input`: Reference to the InputManager.
+
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the layout (for child elements).
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since last frame in milliseconds.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws the layout and its visible elements.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer.
+
 ### `void setColumns(uint8_t cols)`
 
 **Description:**
@@ -71,6 +127,32 @@ Sets the selected element index.
 Gets the selected element.
 
 **Returns:** Pointer to selected element, or nullptr if none selected.
+
+### `void setNavigationButtons(uint8_t upButton, uint8_t downButton, uint8_t leftButton, uint8_t rightButton)`
+
+**Description:**
+
+Sets the navigation button indices.
+
+**Parameters:**
+
+- `upButton`: Button index for UP navigation.
+- `downButton`: Button index for DOWN navigation.
+- `leftButton`: Button index for LEFT navigation.
+- `rightButton`: Button index for RIGHT navigation.
+
+### `void setButtonStyle(pixelroot32::graphics::Color selectedTextCol, pixelroot32::graphics::Color selectedBgCol, pixelroot32::graphics::Color unselectedTextCol, pixelroot32::graphics::Color unselectedBgCol)`
+
+**Description:**
+
+Sets the style colors for selected and unselected buttons.
+
+**Parameters:**
+
+- `selectedTextCol`: Text color when selected.
+- `selectedBgCol`: Background color when selected.
+- `unselectedTextCol`: Text color when not selected.
+- `unselectedBgCol`: Background color when not selected.
 
 ### `void calculateRows()`
 

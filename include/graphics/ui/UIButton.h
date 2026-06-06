@@ -37,11 +37,11 @@ private:
     UIElementVoidCallback onClick = nullptr;
 
     /**
-        * @brief Internal helper to check if a point is inside the button's bounds.
-        * @param px Point X coordinate.
-        * @param py Point Y coordinate.
-        * @return true if point is inside.
-        */
+     * @brief Internal helper to check if a point is inside the button's bounds.
+     * @param px Point X coordinate.
+     * @param py Point Y coordinate.
+     * @return true if point is inside.
+     */
     bool isPointInside(int px, int py) const;
 
 public:

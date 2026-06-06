@@ -27,6 +27,34 @@ if (dispatcher.hasEvents()) {
 
 ## Methods
 
+### `void processTouch(uint8_t touchId, bool pressed, int16_t x, int16_t y, uint32_t timestamp)`
+
+**Description:**
+
+Process raw touch input
+
+**Parameters:**
+
+- `touchId`: Touch identifier (0-4)
+- `pressed`: True if touch is pressed
+- `x`: X position
+- `y`: Y position
+- `timestamp`: Current timestamp in ms
+
+Call this every frame with the current touch state.
+
+### `void processTouchPoints(const TouchPoint* points, uint8_t count, uint32_t timestamp)`
+
+**Description:**
+
+Process multiple touch points
+
+**Parameters:**
+
+- `points`: Array of touch points
+- `count`: Number of touch points
+- `timestamp`: Current timestamp in ms
+
 ### `uint8_t getEvents(TouchEvent* events, uint8_t maxCount)`
 
 **Description:**

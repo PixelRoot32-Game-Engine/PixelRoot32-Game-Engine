@@ -54,8 +54,10 @@ public:
      * @brief Moves the body while sliding along surfaces.
      * @param velocity The velocity vector.
      * @param upDirection The up vector used to differentiate floor/ceiling (optional).
+     * @param outFloorBody Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
+     * @param dt Delta time used to calculate the movement (default: FIXED_DT).
      */
-    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1});
+    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
 
     /**
      * @brief Returns true if the body collided with the ceiling.
@@ -64,8 +66,29 @@ public:
 
     /**
      * @brief Returns true if the body collided with the floor.
+     * 
+     * Includes persistence: returns true for up to MAX_FLOOR_LOST_FRAMES
+     * frames after losing floor contact (walk-off tolerance).
      */
-    inline bool is_on_floor() const { return onFloor; }
+    inline bool is_on_floor() const { return onFloor || (wasOnFloor && floorLostCounter < MAX_FLOOR_LOST_FRAMES); }
+
+    /**
+     * @brief Gets the persisted floor velocity from the last KINEMATIC floor contact.
+     * @return Reference to the floor velocity vector.
+     */
+    const pixelroot32::math::Vector2& getFloorVelocity() const { return floorVelocity; }
+
+    /**
+     * @brief Clears floor velocity and state.
+     * 
+     * Call this on jump to prevent platform velocity inheritance when airborne.
+     */
+    void clearFloorVelocity() {
+        floorVelocity = pixelroot32::math::Vector2::ZERO();
+        floorBody = nullptr;
+        wasOnFloor = false;
+        floorLostCounter = 0;
+    }
 
     /**
      * @brief Returns true if the body collided with a wall.
@@ -83,6 +106,21 @@ private:
     bool onFloor = false;
     bool onCeiling = false;
     bool onWall = false;
+
+    // Floor state persistence (Godot-inspired moving platform riding)
+    pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
+    pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
+    bool wasOnFloor = false;                                   ///< Floor state persistence flag.
+    int floorLostCounter = 0;                                  ///< Frames without floor contact.
+    pixelroot32::math::Vector2 lastFloorNormal;                ///< Last floor collision normal.
+    static constexpr int MAX_FLOOR_LOST_FRAMES = 2;            ///< Tolerance before losing floor.
+
+    /**
+     * @brief Updates floor persistence state.
+     * @param onFloorThisFrame Whether floor contact was detected this frame.
+     * @param floorBodyResult The floor body if on floor, nullptr otherwise.
+     */
+    void updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult);
 };
 
 } // namespace pixelroot32::physics

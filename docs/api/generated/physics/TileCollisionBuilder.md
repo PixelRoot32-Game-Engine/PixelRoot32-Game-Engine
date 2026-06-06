@@ -88,3 +88,19 @@ Converts tile coordinates to world position.
 - `y`: Tile Y coordinate
 
 **Returns:** World position vector
+
+### `inline int buildTileCollisions( pixelroot32::core::Scene& scene, const TileBehaviorLayer& layer, uint8_t tileWidth = 16, uint8_t tileHeight = 16, uint8_t layerIndex = 0 )`
+
+**Description:**
+
+Convenience function for building collision bodies from behavior layers.
+
+**Parameters:**
+
+- `scene`: Scene to add entities to
+- `layer`: Behavior layer to process
+- `tileWidth`: Width of tiles in world units
+- `tileHeight`: Height of tiles in world units
+- `layerIndex`: Layer index for debugging
+
+**Returns:** Number of entities created, or -1 if entity limit exceeded

@@ -98,47 +98,47 @@ Returns vector (1, 0). @return (1, 0) vector.
 
 **Returns:** (1, 0) vector.
 
+### `constexpr Scalar dot(const Vector2& other) const`
+
+**Description:**
+
+Computes the dot product of two vectors.
+
+**Parameters:**
+
+- `other`: The other vector.
+
+**Returns:** The dot product.
+
 ### `constexpr Scalar lengthSquared() const`
 
 **Description:**
 
-Computes squared length. @return Squared length of the vector.
+Computes the squared length of the vector.
 
-**Returns:** Squared length of the vector.
+**Returns:** The squared length.
 
-### `inline Scalar length() const`
-
-**Description:**
-
-Computes length (magnitude). @return Length of the vector.
-
-**Returns:** Length of the vector.
-
-### `inline void normalize()`
+### `void normalize()`
 
 **Description:**
 
-Normalizes the vector in place.
+Normalizes the vector in-place.
 
-### `inline Vector2 normalized() const`
+### `Vector2 normalized() const`
 
 **Description:**
 
-Returns a normalized copy. @return Normalized vector.
+Returns a normalized copy of the vector.
 
 **Returns:** Normalized vector.
 
-### `inline Scalar dot(const Vector2& other) const`
+### `Scalar length() const`
 
 **Description:**
 
-Dot product with another vector. @param other Vector to compute dot product with. @return Dot product result.
+Computes the length of the vector.
 
-**Parameters:**
-
-- `other`: Vector to compute dot product with.
-
-**Returns:** Dot product result.
+**Returns:** The length.
 
 ### `inline Scalar cross(const Vector2& other) const`
 

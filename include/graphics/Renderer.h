@@ -52,11 +52,11 @@ struct Sprite {
  * @brief Sprite descriptor for 2bpp (4-color) multi-color sprites.
  */
 struct Sprite2bpp {
-    const uint8_t*  data;
-    const Color*    palette;
-    uint8_t         width;
-    uint8_t         height;
-    uint8_t         paletteSize;
+    const uint8_t*  data;        ///< Pointer to 2bpp bitmap data.
+    const Color*    palette;     ///< Pointer to color palette (max 4 colors).
+    uint8_t         width;       ///< Sprite width in pixels.
+    uint8_t         height;      ///< Sprite height in pixels.
+    uint8_t         paletteSize; ///< Number of colors in the palette.
 };
 
 /**
@@ -64,11 +64,11 @@ struct Sprite2bpp {
  * @brief Sprite descriptor for 4bpp (16-color) multi-color sprites.
  */
 struct Sprite4bpp {
-    const uint8_t*  data;
-    const Color*    palette;
-    uint8_t         width;
-    uint8_t         height;
-    uint8_t         paletteSize;
+    const uint8_t*  data;        ///< Pointer to 4bpp bitmap data.
+    const Color*    palette;     ///< Pointer to color palette (max 16 colors).
+    uint8_t         width;       ///< Sprite width in pixels.
+    uint8_t         height;      ///< Sprite height in pixels.
+    uint8_t         paletteSize; ///< Number of colors in the palette.
 };
 
 // Multi-palette background (2bpp/4bpp tilemaps): per-cell palette index
@@ -111,16 +111,17 @@ struct MultiSprite {
 /**
  * @struct TileMapGeneric
  * @brief Generic tilemap structure supporting 1bpp, 2bpp, or 4bpp tile graphics.
+ * @tparam T The sprite type used for tiles (Sprite, Sprite2bpp, or Sprite4bpp).
  */
 template<typename T>
 struct TileMapGeneric {
-    uint8_t*        indices;
-    uint8_t         width;
-    uint8_t         height;
-    const T*        tiles;
-    uint8_t         tileWidth;
-    uint8_t         tileHeight;
-    uint16_t        tileCount;
+    uint8_t*        indices;      ///< Pointer to tile indices array (size = width * height).
+    uint8_t         width;        ///< Map width in tiles.
+    uint8_t         height;       ///< Map height in tiles.
+    const T*        tiles;        ///< Pointer to tileset array.
+    uint8_t         tileWidth;    ///< Width of each tile in pixels.
+    uint8_t         tileHeight;   ///< Height of each tile in pixels.
+    uint16_t        tileCount;    ///< Number of unique tiles in the tileset.
     uint8_t*        runtimeMask;  ///< Bitmask for runtime tile activation (1 bit per tile, nullptr = all active)
     TileAnimationManager* animManager = nullptr;  ///< Optional animation manager for tile animations
 

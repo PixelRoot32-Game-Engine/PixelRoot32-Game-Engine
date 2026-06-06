@@ -19,6 +19,27 @@ Uses a fixed-size array for particles to avoid dynamic allocation during runtime
 
 ## Methods
 
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates all active particles.
+Applies physics (gravity, friction) and updates lifetime.
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since last frame.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Renders all active particles.
+
+**Parameters:**
+
+- `renderer`: The renderer instance.
+
 ### `void burst(pixelroot32::math::Vector2 position, int count)`
 
 **Description:**

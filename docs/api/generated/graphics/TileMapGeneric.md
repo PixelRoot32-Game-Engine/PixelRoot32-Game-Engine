@@ -8,10 +8,19 @@
 
 Generic tilemap structure supporting 1bpp, 2bpp, or 4bpp tile graphics.
 
+T The sprite type used for tiles (Sprite, Sprite2bpp, or Sprite4bpp).
+
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
+| `indices` | `uint8_t*` | Pointer to tile indices array (size = width * height). |
+| `width` | `uint8_t` | Map width in tiles. |
+| `height` | `uint8_t` | Map height in tiles. |
+| `T` | `const` | Pointer to tileset array. |
+| `tileWidth` | `uint8_t` | Width of each tile in pixels. |
+| `tileHeight` | `uint8_t` | Height of each tile in pixels. |
+| `tileCount` | `uint16_t` | Number of unique tiles in the tileset. |
 | `runtimeMask` | `uint8_t*` | Bitmask for runtime tile activation (1 bit per tile, nullptr = all active) |
 | `animManager` | `TileAnimationManager*` | Optional animation manager for tile animations |
 
