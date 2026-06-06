@@ -264,6 +264,20 @@ private:
      * @brief Apply the fade to an RGB565 buffer via channel scaling.
      */
     void applyFadeRGB565(uint16_t* buffer, int width, int height);
+
+    /**
+     * @brief Apply the diagonal wipe to an 8bpp buffer.
+     *
+     * Computes a diagonal line value for each pixel relative to the
+     * wipe direction (NE→SW by default) and clears pixels that are
+     * on the "wiped" side of the advancing front.
+     */
+    void applyDiagonalWipe(uint8_t* buffer, int width, int height);
+
+    /**
+     * @brief Apply the diagonal wipe to an RGB565 buffer.
+     */
+    void applyDiagonalWipeRGB565(uint16_t* buffer, int width, int height);
 };
 
 #else

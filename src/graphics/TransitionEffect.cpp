@@ -107,7 +107,7 @@ void TransitionEffect::apply(uint8_t* buffer, int width, int height) {
             break;
 
         case TransitionType::DiagonalWipe:
-            // TODO: Implement in PR 2
+            applyDiagonalWipe(buffer, width, height);
             break;
     }
 }
@@ -220,6 +220,36 @@ void TransitionEffect::applyIris(uint8_t* buffer, int width, int height) {
             if (dist2 > r2) {
                 buffer[y * width + x] = 0;
             }
+        }
+    }
+}
+
+// =============================================================================
+// applyDiagonalWipe() — diagonal sweep wipe on 8bpp buffer
+// =============================================================================
+
+void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    // Front position along the diagonal axis, in pixel units.
+    int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    int totalPixels = width * height;
+
+    // NE_SW: wipe starts at top-right, sweeps toward bottom-left.
+    // lineValue = (width-1-x) + y — small values at top-right, large at bottom-left.
+    // Out: clear pixels where lineValue < front (behind the advancing front).
+    for (int i = 0; i < totalPixels; ++i) {
+        int x = i % width;
+        int y = i / width;
+        int lineValue = (width - 1 - x) + y;
+        if (lineValue < front) {
+            buffer[i] = 0;
         }
     }
 }
