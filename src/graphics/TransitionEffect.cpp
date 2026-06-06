@@ -239,6 +239,9 @@ void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height)
 
     // Front position along the diagonal axis, in pixel units.
     int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    // Only feather when the front has actually started moving (progress > 0).
+    // At progress=0, no pixels should change for Out; all pixels clear for In.
+    bool useFeather = (scaledProgress > 0);
     int totalPixels = width * height;
 
     for (int i = 0; i < totalPixels; ++i) {
@@ -268,15 +271,36 @@ void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height)
                 break;
         }
 
-        if (direction_ == TransitionDirection::Out) {
-            // Out: clear pixels behind the advancing front.
-            if (lineValue < front) {
-                buffer[i] = 0;
+        // Feather zone: 1-pixel band at the wipe front boundary.
+        // diff = lineValue - front (signed distance).
+        // diff < 0 → behind front. diff == 0 → at front (feather). diff > 0 → ahead.
+        int diff = lineValue - front;
+
+        if (diff < 0) {
+            // Behind the advancing front.
+            if (direction_ == TransitionDirection::Out) {
+                buffer[i] = 0;  // Out: wiped area is hidden.
             }
+            // In: behind front means revealed → keep unchanged.
+        } else if (diff > 0) {
+            // Ahead of the advancing front.
+            if (direction_ == TransitionDirection::In) {
+                buffer[i] = 0;  // In: ahead is still hidden.
+            }
+            // Out: ahead of front means not yet wiped → keep unchanged.
         } else {
-            // In: clear pixels ahead of the front (still hidden).
-            if (lineValue >= front) {
-                buffer[i] = 0;
+            // diff == 0: exactly at the wipe front boundary.
+            if (useFeather) {
+                // 1-pixel feather band: 50% blend toward black (same for Out
+                // and In — center of a symmetric blend from 0 to pixel).
+                buffer[i] = (uint8_t)((buffer[i] * 128) >> 8);
+            } else {
+                // No feather (progress=0 or progress=1): hard boundary.
+                if (direction_ == TransitionDirection::In) {
+                    // In: at the front is still hidden.
+                    buffer[i] = 0;
+                }
+                // Out: at the front is not yet cleared → keep unchanged.
             }
         }
     }
@@ -319,6 +343,7 @@ void TransitionEffect::applyDiagonalWipeRGB565(uint16_t* buffer, int width, int 
     }
 
     int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    bool useFeather = (scaledProgress > 0);
     int totalPixels = width * height;
 
     for (int i = 0; i < totalPixels; ++i) {
@@ -341,12 +366,21 @@ void TransitionEffect::applyDiagonalWipeRGB565(uint16_t* buffer, int width, int 
                 break;
         }
 
-        if (direction_ == TransitionDirection::Out) {
-            if (lineValue < front) {
+        int diff = lineValue - front;
+
+        if (diff < 0) {
+            if (direction_ == TransitionDirection::Out) {
+                buffer[i] = 0;
+            }
+        } else if (diff > 0) {
+            if (direction_ == TransitionDirection::In) {
                 buffer[i] = 0;
             }
         } else {
-            if (lineValue >= front) {
+            // diff == 0: at the wipe front.
+            if (useFeather) {
+                buffer[i] = (uint16_t)((buffer[i] * 128) >> 8);
+            } else if (direction_ == TransitionDirection::In) {
                 buffer[i] = 0;
             }
         }
