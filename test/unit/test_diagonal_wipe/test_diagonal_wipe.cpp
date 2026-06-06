@@ -319,6 +319,45 @@ void test_diagonal_wipe_rgb565_extremes(void) {
 }
 
 // =============================================================================
+// DW-RGB565-MID: RGB565 midpoint tests for SE_NW and SW_NE directions
+// (coverage gap — these branches were untested)
+// =============================================================================
+
+void test_diagonal_wipe_rgb565_midpoints(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint16_t buffer[32 * 32];
+    const uint16_t FILL = 0xFFFF;
+
+    // --- RGB565 Out SE_NW at progress=0.5 ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::SE_NW);
+    effect.update(250);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+    // Bottom-right (31,31): lineValue=0 < front=32 → cleared.
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, buffer[31 * width + 31],
+        "RGB565 SE_NW Out mid: (31,31) should be cleared");
+    // Top-left (0,0): lineValue=62 >= front=32 → kept.
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(FILL, buffer[0],
+        "RGB565 SE_NW Out mid: (0,0) should remain");
+
+    // --- RGB565 Out SW_NE at progress=0.5 ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::SW_NE);
+    effect.update(250);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+    // Bottom-left (0,31): lineValue=0 < front=32 → cleared.
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, buffer[31 * width + 0],
+        "RGB565 SW_NE Out mid: (0,31) should be cleared");
+    // Top-right (31,0): lineValue=62 >= front=32 → kept.
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(FILL, buffer[0 * width + 31],
+        "RGB565 SW_NE Out mid: (31,0) should remain");
+}
+
+// =============================================================================
 // DW-INTEGRATION: Full lifecycle through public apply() dispatch
 // =============================================================================
 
@@ -537,6 +576,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_feather_out);
     RUN_TEST(test_diagonal_wipe_feather_in);
     RUN_TEST(test_diagonal_wipe_feather_rgb565);
+    RUN_TEST(test_diagonal_wipe_rgb565_midpoints);
     RUN_TEST(test_diagonal_wipe_substep_accumulator);
     return UNITY_END();
 }
