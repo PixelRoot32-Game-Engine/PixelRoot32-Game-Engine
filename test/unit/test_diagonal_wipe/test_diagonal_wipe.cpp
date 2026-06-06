@@ -319,6 +319,72 @@ void test_diagonal_wipe_rgb565_extremes(void) {
 }
 
 // =============================================================================
+// DW-INTEGRATION: Full lifecycle through public apply() dispatch
+// =============================================================================
+
+void test_diagonal_wipe_integration(void) {
+    // --- Phase 1: Out → full wipe over time ---
+    TransitionEffect effect;
+    int width = 64;
+    int height = 64;
+    uint8_t buffer[64 * 64];
+
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NE_SW);
+
+    // Advance to progress=0.5.
+    effect.update(250);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // NE_SW Out at front≈64. Pixels with (63-x)+y < 64 are cleared.
+    // (32,32): (63-32)+32 = 63 < 64 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[32 * width + 32],
+        "Integration: (32,32) should be cleared at progress=0.5");
+    // (0,63): (63-0)+63 = 126 >= 64 → kept.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFF, buffer[63 * width + 0],
+        "Integration: (0,63) should remain at progress=0.5");
+
+    // Advance to completion.
+    effect.update(250);  // Now at progress=1 (elapsed=500)
+    // Consume the hold frame.
+    effect.update(16);
+    TEST_ASSERT_FALSE_MESSAGE(effect.isActive(),
+        "Integration: effect should be inactive after completion + hold");
+
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[i],
+            "Integration: Out complete should clear all pixels");
+    }
+
+    // --- Phase 2: In → reveal from hidden ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+
+    // At progress=0: buffer should be all hidden.
+    memset(buffer, 0xAB, sizeof(buffer));
+    effect.apply(buffer, width, height);
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[i],
+            "Integration: In progress=0 should clear all");
+    }
+
+    // At progress=1: buffer should be fully revealed.
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(500);
+    effect.update(16);  // consume hold
+    memset(buffer, 0xAB, sizeof(buffer));
+    effect.apply(buffer, width, height);
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xAB, buffer[i],
+            "Integration: In progress=1 should keep all pixels");
+    }
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -333,6 +399,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_sw_ne_midpoint);
     RUN_TEST(test_diagonal_wipe_in_direction);
     RUN_TEST(test_diagonal_wipe_rgb565_extremes);
+    RUN_TEST(test_diagonal_wipe_integration);
     return UNITY_END();
 }
 
