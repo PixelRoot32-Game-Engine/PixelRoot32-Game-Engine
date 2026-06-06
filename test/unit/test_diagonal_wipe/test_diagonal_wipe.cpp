@@ -128,6 +128,104 @@ void test_diagonal_wipe_ne_sw_extremes(void) {
 }
 
 // =============================================================================
+// DW-OUT-NWSE: NW→SE wipe at progress=0.5 — top-left cleared, bottom-right kept
+// =============================================================================
+
+void test_diagonal_wipe_nw_se_midpoint(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(250);  // progress=0.5, front ≈ 32
+
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // NW_SE: lineValue = x + y. At front=32, pixels with x+y < 32 are cleared.
+    // Top-left (0,0): value=0 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[0],
+        "NW_SE mid: (0,0) should be cleared (x+y=0 < 32)");
+    // Bottom-right (31,31): value=62 → not cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFF, buffer[31 * width + 31],
+        "NW_SE mid: (31,31) should remain (x+y=62 >= 32)");
+    // Top-right (31,0): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[0 * width + 31],
+        "NW_SE mid: (31,0) should be cleared (x+y=31 < 32)");
+    // Bottom-left (0,31): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 0],
+        "NW_SE mid: (0,31) should be cleared (x+y=31 < 32)");
+}
+
+// =============================================================================
+// DW-OUT-SENW: SE→NW wipe at progress=0.5 — SE corner cleared, NW kept
+// =============================================================================
+
+void test_diagonal_wipe_se_nw_midpoint(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::SE_NW);
+    effect.update(250);  // progress=0.5, front ≈ 32
+
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // SE_NW: lineValue = (W-1-x) + (H-1-y).
+    // At front=32, pixels with value < 32 are cleared.
+    // Bottom-right (31,31): value=0 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 31],
+        "SE_NW mid: (31,31) should be cleared (value=0 < 32)");
+    // Top-left (0,0): value=62 → not cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFF, buffer[0],
+        "SE_NW mid: (0,0) should remain (value=62 >= 32)");
+    // Top-right (31,0): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[0 * width + 31],
+        "SE_NW mid: (31,0) should be cleared (value=31 < 32)");
+    // Bottom-left (0,31): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 0],
+        "SE_NW mid: (0,31) should be cleared (value=31 < 32)");
+}
+
+// =============================================================================
+// DW-OUT-SWNE: SW→NE wipe at progress=0.5 — SW corner cleared, NE kept
+// =============================================================================
+
+void test_diagonal_wipe_sw_ne_midpoint(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::SW_NE);
+    effect.update(250);  // progress=0.5, front ≈ 32
+
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // SW_NE: lineValue = x + (H-1-y).
+    // At front=32, pixels with value < 32 are cleared.
+    // Bottom-left (0,31): value=0 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 0],
+        "SW_NE mid: (0,31) should be cleared (value=0 < 32)");
+    // Top-right (31,0): value=62 → not cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFF, buffer[0 * width + 31],
+        "SW_NE mid: (31,0) should remain (value=62 >= 32)");
+    // Top-left (0,0): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[0],
+        "SW_NE mid: (0,0) should be cleared (value=31 < 32)");
+    // Bottom-right (31,31): value=31 → cleared.
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 31],
+        "SW_NE mid: (31,31) should be cleared (value=31 < 32)");
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -137,6 +235,9 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_holdframe_keeps_active);
     RUN_TEST(test_diagonal_wipe_smoothstep_q8);
     RUN_TEST(test_diagonal_wipe_ne_sw_extremes);
+    RUN_TEST(test_diagonal_wipe_nw_se_midpoint);
+    RUN_TEST(test_diagonal_wipe_se_nw_midpoint);
+    RUN_TEST(test_diagonal_wipe_sw_ne_midpoint);
     return UNITY_END();
 }
 
