@@ -261,6 +261,64 @@ void test_diagonal_wipe_in_direction(void) {
 }
 
 // =============================================================================
+// DW-RGB565: RGB565 diagonal wipe extremes and direction test
+// =============================================================================
+
+void test_diagonal_wipe_rgb565_extremes(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint16_t buffer[32 * 32];
+    const uint16_t FILL = 0xFFFF;
+
+    // --- progress=0 Out: RGB565 wipe should NOT clear any pixels ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NE_SW);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(FILL, buffer[i],
+            "RGB565 Out progress=0 should leave buffer unchanged");
+    }
+
+    // --- progress=1 Out: RGB565 wipe should clear ALL pixels to 0 ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NE_SW);
+    effect.update(500);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, buffer[i],
+            "RGB565 Out progress=1 should clear all pixels to 0");
+    }
+
+    // --- progress=0 In: RGB565 wipe should clear ALL pixels ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(0, buffer[i],
+            "RGB565 In progress=0 should clear all pixels to 0");
+    }
+
+    // --- progress=1 In: RGB565 wipe should keep all pixels ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(500);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(FILL, buffer[i],
+            "RGB565 In progress=1 should keep all pixels unchanged");
+    }
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -274,6 +332,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_se_nw_midpoint);
     RUN_TEST(test_diagonal_wipe_sw_ne_midpoint);
     RUN_TEST(test_diagonal_wipe_in_direction);
+    RUN_TEST(test_diagonal_wipe_rgb565_extremes);
     return UNITY_END();
 }
 
