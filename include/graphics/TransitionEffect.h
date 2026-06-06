@@ -179,6 +179,24 @@ public:
         irisInCy_ = cy;
     }
 
+    /**
+     * @brief Set the wipe direction for DiagonalWipe transitions.
+     * @param dir Corner-to-corner direction (default: NE_SW).
+     *
+     * Only relevant for DiagonalWipe transitions. Call after init().
+     */
+    void setWipeDirection(WipeDirection dir) { wipeDirection_ = dir; }
+
+    /**
+     * @brief Set the number of hold frames after duration expires.
+     * @param frames Number of update ticks the effect stays active
+     *               after reaching the duration boundary (default: 1).
+     *
+     * Provides a safety window for systems that read isActive() before
+     * the final apply() call. Use 0 to disable hold entirely.
+     */
+    void setHoldFrames(uint8_t frames) { holdFrames_ = frames; }
+
 private:
     TransitionType type_ = TransitionType::Fade;
     TransitionDirection direction_ = TransitionDirection::Out;
@@ -188,6 +206,9 @@ private:
     int irisOutCy_ = -1;  ///< Custom iris center Y for Out phase (-1 = use buffer center).
     int irisInCx_ = -1;   ///< Custom iris center X for In phase (-1 = use buffer center).
     int irisInCy_ = -1;   ///< Custom iris center Y for In phase (-1 = use buffer center).
+    WipeDirection wipeDirection_ = WipeDirection::NE_SW;  ///< DiagonalWipe corner direction.
+    uint8_t holdFrames_ = 1;   ///< Number of hold ticks after duration expires.
+    uint8_t holdCounter_ = 0;  ///< Current hold tick count.
 
     /**
      * @brief Fill a 256-byte LUT for the current fade direction and progress.
@@ -239,6 +260,8 @@ public:
     void setIrisCenter(int /*cx*/, int /*cy*/) {}
     void setIrisOutCenter(int /*cx*/, int /*cy*/) {}
     void setIrisInCenter(int /*cx*/, int /*cy*/) {}
+    void setWipeDirection(WipeDirection /*dir*/) {}
+    void setHoldFrames(uint8_t /*frames*/) {}
 };
 
 #endif // PIXELROOT32_ENABLE_SCENE_TRANSITIONS
