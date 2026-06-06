@@ -8,9 +8,9 @@
 
 Manages a single scene transition with zero runtime allocation.
 
-Pre-computes a 256-byte LUT for Fade effects per frame (LUT is computed
-in apply()). Iris uses (x-cx)²+(y-cy)² > r² with no sqrt. All state is
-fixed-size — no heap allocation in update() or apply().
+Supports three transition types: Fade (palette LUT), Iris (circular wipe),
+and DiagonalWipe (corner-to-corner sweep). All state is fixed-size — no
+heap allocation in update() or apply().
 
 Typical lifecycle:
   effect.init(Fade, Out, 500);
@@ -29,7 +29,7 @@ Initialise the effect with type, direction and duration.
 
 **Parameters:**
 
-- `type`: Fade or Iris transition.
+- `type`: Fade, Iris or DiagonalWipe transition.
 - `direction`: Out (visible→hidden) or In (hidden→visible).
 - `durationMs`: Total duration of the transition in milliseconds.
 
@@ -85,7 +85,12 @@ Safe to call when not active — returns immediately with no side effects.
 
 Check whether the transition is still running.
 
-**Returns:** true while elapsed < duration.
+**Returns:** true while elapsed < duration or while hold frames remain.
+
+After elapsed reaches duration, isActive() stays true for
+holdFrames_ additional update ticks. This provides a safety
+window for systems that read isActive() before the final
+apply() call in the same frame.
 
 ### `float getProgress() const`
 
@@ -141,6 +146,52 @@ Sets the center used when the iris opens (In direction).
 Only relevant for Iris transitions. Default is buffer center.
 Call after init() and before apply().
 
+### `void setWipeDirection(WipeDirection dir)`
+
+**Description:**
+
+Set the wipe direction for DiagonalWipe transitions.
+
+**Parameters:**
+
+- `dir`: Corner-to-corner direction (default: NE_SW).
+
+Only relevant for DiagonalWipe transitions. Call after init().
+
+### `void setHoldFrames(uint8_t frames)`
+
+**Description:**
+
+Set the number of hold frames after duration expires.
+
+**Parameters:**
+
+- `frames`: Number of update ticks the effect stays active
+              after reaching the duration boundary (default: 1).
+
+Provides a safety window for systems that read isActive() before
+the final apply() call. Use 0 to disable hold entirely.
+
+### `void setSubStepMs(uint16_t ms)`
+
+**Description:**
+
+Set the sub-step time for DiagonalWipe transitions.
+
+**Parameters:**
+
+- `ms`: Sub-step duration in milliseconds (0 disables, default: 0).
+
+DiagonalWipe can use a sub-step accumulator to quantise elapsed time
+into fixed increments, preventing visual flicker from fractional pixel
+boundary positions. Set to 16 (≈60 fps frame time) for smooth stepping.
+Only affects DiagonalWipe transitions. Fade and Iris are unaffected.
+
+::: tip
+Default is 0 (disabled). Enable explicitly for DiagonalWipe when
+      you observe boundary flicker during the wipe animation.
+:::
+
 ### `void computeFadeLut(uint8_t* lut, uint16_t scaledProgress) const`
 
 **Description:**
@@ -177,3 +228,15 @@ Apply the iris wipe to an RGB565 buffer.
 **Description:**
 
 Apply the fade to an RGB565 buffer via channel scaling.
+
+### `void applyDiagonalWipe(uint8_t* buffer, int width, int height)`
+
+**Description:**
+
+Apply the diagonal wipe to an 8bpp buffer.
+
+### `void applyDiagonalWipeRGB565(uint16_t* buffer, int width, int height)`
+
+**Description:**
+
+Apply the diagonal wipe to an RGB565 buffer.

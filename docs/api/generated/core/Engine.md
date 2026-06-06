@@ -69,12 +69,12 @@ Sets the current active scene.
 
 **Description:**
 
-Start a visual scene transition (Fade or Iris).
+Start a visual scene transition (Fade, Iris, or DiagonalWipe).
 
 **Parameters:**
 
 - `newScene`: The target scene to transition to.
-- `type`: TransitionType::Fade or TransitionType::Iris.
+- `type`: TransitionType::Fade, TransitionType::Iris, or TransitionType::DiagonalWipe.
 - `durationMs`: Duration of each phase (Out and In) in ms.
 
 Delegates to SceneManager::transitionToScene(). Ignored if a
@@ -89,7 +89,7 @@ Start a visual scene transition with direction-specific iris centers.
 **Parameters:**
 
 - `newScene`: The target scene to transition to.
-- `type`: TransitionType::Fade or TransitionType::Iris.
+- `type`: TransitionType::Fade, TransitionType::Iris, or TransitionType::DiagonalWipe.
 - `durationMs`: Duration of each phase (Out and In) in ms.
 - `irisOutCx`: Iris center X for Out (closing) phase.
 - `irisOutCy`: Iris center Y for Out (closing) phase.

@@ -113,7 +113,7 @@ public:
     /**
      * @brief Start a transition from the current scene to a new one.
      * @param newScene The target scene to transition to.
-     * @param type Fade or Iris transition effect.
+     * @param type Fade, Iris, or DiagonalWipe transition effect.
      * @param durationMs Duration of each phase (Out and In) in ms.
      *
      * Ignored if a transition is already running (state != Idle).
@@ -126,7 +126,7 @@ public:
     /**
      * @brief Start a transition with direction-specific iris centers.
      * @param newScene The target scene to transition to.
-     * @param type Fade or Iris transition effect.
+     * @param type Fade, Iris, or DiagonalWipe transition effect.
      * @param durationMs Duration of each phase (Out and In) in ms.
      * @param irisOutCx Iris center X for Out (closing) phase.
      * @param irisOutCy Iris center Y for Out (closing) phase.
