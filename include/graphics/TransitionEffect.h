@@ -3,12 +3,15 @@
  * Licensed under the MIT License
  *
  * @file TransitionEffect.h
- * @brief Scene transition effects — Fade (palette LUT) and Iris (circular wipe).
+ * @brief Scene transition effects — Fade (palette LUT), Iris (circular wipe),
+ *        and DiagonalWipe (corner-to-corner sweep).
  *
  * Provides a standalone TransitionEffect class with zero-allocation implementations
  * for direct 8bpp framebuffer manipulation. Fade uses a pre-computed 256-byte LUT
  * to dim or brighten the palette. Iris uses (x-cx)²+(y-cy)² > r² circle test with
- * no sqrt, defaulting to buffer center.
+ * no sqrt, defaulting to buffer center. DiagonalWipe uses integer line-value
+ * computation for corner-to-corner sweeps with configurable direction and an
+ * optional sub-step accumulator to prevent flicker.
  *
  * Feature-gated by PIXELROOT32_ENABLE_SCENE_TRANSITIONS.
  * When disabled, the header defines a stub that always returns no-ops.
@@ -76,9 +79,9 @@ uint16_t smoothstepQ8(uint16_t t);
  * @class TransitionEffect
  * @brief Manages a single scene transition with zero runtime allocation.
  *
- * Pre-computes a 256-byte LUT for Fade effects per frame (LUT is computed
- * in apply()). Iris uses (x-cx)²+(y-cy)² > r² with no sqrt. All state is
- * fixed-size — no heap allocation in update() or apply().
+ * Supports three transition types: Fade (palette LUT), Iris (circular wipe),
+ * and DiagonalWipe (corner-to-corner sweep). All state is fixed-size — no
+ * heap allocation in update() or apply().
  *
  * Typical lifecycle:
  *   effect.init(Fade, Out, 500);
@@ -97,7 +100,7 @@ public:
 
     /**
      * @brief Initialise the effect with type, direction and duration.
-     * @param type Fade or Iris transition.
+     * @param type Fade, Iris or DiagonalWipe transition.
      * @param direction Out (visible→hidden) or In (hidden→visible).
      * @param durationMs Total duration of the transition in milliseconds.
      */
@@ -224,11 +227,15 @@ public:
 
     /**
      * @brief Set the sub-step time for DiagonalWipe transitions.
-     * @param ms Sub-step duration in milliseconds (default: 16).
+     * @param ms Sub-step duration in milliseconds (0 disables, default: 0).
      *
-     * DiagonalWipe uses a sub-step accumulator to quantise elapsed time
-     * into fixed increments, preventing flicker from fractional pixel
-     * boundary positions. Only affects DiagonalWipe transitions.
+     * DiagonalWipe can use a sub-step accumulator to quantise elapsed time
+     * into fixed increments, preventing visual flicker from fractional pixel
+     * boundary positions. Set to 16 (≈60 fps frame time) for smooth stepping.
+     * Only affects DiagonalWipe transitions. Fade and Iris are unaffected.
+     *
+     * @note Default is 0 (disabled). Enable explicitly for DiagonalWipe when
+     *       you observe boundary flicker during the wipe animation.
      */
     void setSubStepMs(uint16_t ms) { subStepMs_ = ms; }
 
