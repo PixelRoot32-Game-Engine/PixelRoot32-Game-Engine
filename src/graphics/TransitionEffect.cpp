@@ -268,8 +268,16 @@ void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height)
                 break;
         }
 
-        if (lineValue < front) {
-            buffer[i] = 0;
+        if (direction_ == TransitionDirection::Out) {
+            // Out: clear pixels behind the advancing front.
+            if (lineValue < front) {
+                buffer[i] = 0;
+            }
+        } else {
+            // In: clear pixels ahead of the front (still hidden).
+            if (lineValue >= front) {
+                buffer[i] = 0;
+            }
         }
     }
 }
