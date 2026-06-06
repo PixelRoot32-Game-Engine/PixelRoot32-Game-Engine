@@ -75,6 +75,10 @@ void TransitionEffect::apply(uint8_t* buffer, int width, int height) {
         case TransitionType::Iris:
             applyIris(buffer, width, height);
             break;
+
+        case TransitionType::DiagonalWipe:
+            // TODO: Implement in PR 2
+            break;
     }
 }
 
@@ -205,6 +209,10 @@ void TransitionEffect::applyRGB565(uint16_t* buffer, int width, int height) {
 
         case TransitionType::Iris:
             applyIrisRGB565(buffer, width, height);
+            break;
+
+        case TransitionType::DiagonalWipe:
+            // TODO: Implement in PR 2
             break;
     }
 }

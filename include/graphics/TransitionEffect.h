@@ -26,8 +26,23 @@ namespace pixelroot32::graphics {
  * @brief Types of scene transitions.
  */
 enum class TransitionType : uint8_t {
-    Fade = 0,   ///< Palette LUT dimming/brightening.
-    Iris        ///< Circular wipe from/to center.
+    Fade = 0,       ///< Palette LUT dimming/brightening.
+    Iris,           ///< Circular wipe from/to center.
+    DiagonalWipe    ///< Diagonal sweep wipe from one corner to the opposite.
+};
+
+/**
+ * @enum WipeDirection
+ * @brief Corner-to-corner directions for DiagonalWipe transitions.
+ *
+ * Values name the source and target corners: NW_SE starts from top-left
+ * (north-west) and sweeps toward bottom-right (south-east).
+ */
+enum class WipeDirection : uint8_t {
+    NW_SE = 0,  ///< Top-left to bottom-right.
+    NE_SW = 1,  ///< Top-right to bottom-left.
+    SE_NW = 2,  ///< Bottom-right to top-left.
+    SW_NE = 3   ///< Bottom-left to top-right.
 };
 
 /**
