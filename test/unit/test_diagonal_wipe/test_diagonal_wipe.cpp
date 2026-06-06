@@ -226,6 +226,41 @@ void test_diagonal_wipe_sw_ne_midpoint(void) {
 }
 
 // =============================================================================
+// DW-IN: In direction — at progress=0 all hidden, at progress=1 fully revealed
+// =============================================================================
+
+void test_diagonal_wipe_in_direction(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+    const uint8_t FILL = 0xAB;
+
+    // --- progress=0: In mode should clear entire buffer ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    memset(buffer, FILL, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[i],
+            "DiagonalWipe In at progress=0 should clear all pixels to 0");
+    }
+
+    // --- progress=1: In mode should keep all pixels ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(500);
+    memset(buffer, FILL, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(FILL, buffer[i],
+            "DiagonalWipe In at progress=1 should keep all pixels unchanged");
+    }
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -238,6 +273,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_nw_se_midpoint);
     RUN_TEST(test_diagonal_wipe_se_nw_midpoint);
     RUN_TEST(test_diagonal_wipe_sw_ne_midpoint);
+    RUN_TEST(test_diagonal_wipe_in_direction);
     return UNITY_END();
 }
 
