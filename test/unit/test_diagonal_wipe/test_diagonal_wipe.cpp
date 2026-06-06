@@ -484,6 +484,40 @@ void test_diagonal_wipe_feather_rgb565(void) {
 }
 
 // =============================================================================
+// DW-SUBSTEP: Sub-step accumulator — DiagonalWipe only advances elapsed
+// in quantized sub-step increments
+// =============================================================================
+
+void test_diagonal_wipe_substep_accumulator(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+
+    // Init with DiagonalWipe, Out, 500ms, sub-step = 16ms.
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setSubStepMs(16);
+
+    // update(8): less than one sub-step → progress should NOT advance.
+    effect.update(8);
+    TEST_ASSERT_FLOAT_EQUAL(0.0f, effect.getProgress());
+
+    // update(16): exactly one sub-step → advances by 16ms.
+    effect.update(16);
+    // Progress after 16ms: 16 / 500 = 0.032
+    float p1 = effect.getProgress();
+    TEST_ASSERT_TRUE_MESSAGE(p1 > 0.0f && p1 < 0.04f,
+        "update(16) should advance progress (~0.032)");
+
+    // update(50): three full sub-steps (48ms) → should advance by 48ms.
+    effect.update(50);
+    // Progress after 8+16+50 = 74ms input, but only 16+48 = 64ms sub-stepped.
+    // 64 / 500 = 0.128
+    float p2 = effect.getProgress();
+    TEST_ASSERT_FLOAT_EQUAL(0.128f, p2);
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -502,6 +536,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_feather_out);
     RUN_TEST(test_diagonal_wipe_feather_in);
     RUN_TEST(test_diagonal_wipe_feather_rgb565);
+    RUN_TEST(test_diagonal_wipe_substep_accumulator);
     return UNITY_END();
 }
 
