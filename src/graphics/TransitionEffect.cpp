@@ -300,8 +300,56 @@ void TransitionEffect::applyRGB565(uint16_t* buffer, int width, int height) {
             break;
 
         case TransitionType::DiagonalWipe:
-            // TODO: Implement in PR 2
+            applyDiagonalWipeRGB565(buffer, width, height);
             break;
+    }
+}
+
+// =============================================================================
+// applyDiagonalWipeRGB565() — diagonal sweep wipe on RGB565 buffer
+// =============================================================================
+
+void TransitionEffect::applyDiagonalWipeRGB565(uint16_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    int totalPixels = width * height;
+
+    for (int i = 0; i < totalPixels; ++i) {
+        int x = i % width;
+        int y = i / width;
+
+        int lineValue;
+        switch (wipeDirection_) {
+            case WipeDirection::NW_SE:
+                lineValue = x + y;
+                break;
+            case WipeDirection::SE_NW:
+                lineValue = (width - 1 - x) + (height - 1 - y);
+                break;
+            case WipeDirection::SW_NE:
+                lineValue = x + (height - 1 - y);
+                break;
+            default: // WipeDirection::NE_SW
+                lineValue = (width - 1 - x) + y;
+                break;
+        }
+
+        if (direction_ == TransitionDirection::Out) {
+            if (lineValue < front) {
+                buffer[i] = 0;
+            }
+        } else {
+            if (lineValue >= front) {
+                buffer[i] = 0;
+            }
+        }
     }
 }
 
