@@ -105,6 +105,8 @@ void test_transition_fade_complete(void) {
     TEST_ASSERT_TRUE(effect.isActive());
 
     effect.update(500);  // elapsed = duration
+    // Consume the hold frame so isActive() returns false.
+    effect.update(16);
     TEST_ASSERT_FALSE(effect.isActive());
     TEST_ASSERT_FLOAT_EQUAL(1.0f, effect.getProgress());
 }
