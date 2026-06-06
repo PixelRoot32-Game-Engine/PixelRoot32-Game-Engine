@@ -385,6 +385,105 @@ void test_diagonal_wipe_integration(void) {
 }
 
 // =============================================================================
+// DW-FEATHER-OUT: Feather zone — pixels at the wipe boundary are partially
+// blended with 50% alpha in Out direction
+// =============================================================================
+
+void test_diagonal_wipe_feather_out(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+    const uint8_t FILL = 0xFF;
+
+    // Out NE_SW at progress=0.5: front = (W+H) * 128/256 = 32
+    // NE_SW: lineValue = (31-x) + y. At lineValue == 32: y = x + 1
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NE_SW);
+    effect.update(250);  // progress = 0.5
+
+    memset(buffer, FILL, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // (0,1): lineValue = 31+1 = 32 = front → feather zone → 50% blend → 0xFF * 128/256 = 0x7F
+    // Allow some tolerance: could be 0x7E or 0x80 depending on exact rounding
+    uint8_t featherVal = buffer[1 * width + 0];
+    TEST_ASSERT_TRUE_MESSAGE(featherVal > 0x60 && featherVal < 0x90,
+        "NE_SW Out: pixel at (0,1) should be in feather zone (~0x7F)");
+
+    // (0,0): lineValue = 31+0 = 31 < 32 → fully behind front → cleared
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[0],
+        "NE_SW Out: (0,0) should be fully cleared (lineValue < front)");
+
+    // (31,31): lineValue = (31-31)+31 = 31 < 32 → cleared (behind front)
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 31],
+        "NE_SW Out: (31,31) should be fully cleared (lineValue < front)");
+}
+
+// =============================================================================
+// DW-FEATHER-IN: Feather zone — pixels at the wipe boundary are partially
+// blended in In direction
+// =============================================================================
+
+void test_diagonal_wipe_feather_in(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+    const uint8_t FILL = 0xFF;
+
+    // In NW_SE at progress=0.5: front = 32
+    // NW_SE: lineValue = x + y. At lineValue == 32: y = 32 - x
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::In, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(250);  // progress = 0.5
+
+    memset(buffer, FILL, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    // (0,0): lineValue = 0 < 32 → behind front → visible (kept)
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(FILL, buffer[0],
+        "NW_SE In: (0,0) should be visible (behind front)");
+
+    // (31,31): lineValue = 62 >= 32 → ahead → hidden (cleared)
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x00, buffer[31 * width + 31],
+        "NW_SE In: (31,31) should be cleared (ahead of front)");
+}
+
+// =============================================================================
+// DW-FEATHER-RGB565: Feather zone in RGB565 path
+// =============================================================================
+
+void test_diagonal_wipe_feather_rgb565(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint16_t buffer[32 * 32];
+    const uint16_t FILL = 0xFFFF;
+
+    // Out NE_SW at progress=0.5, same setup as 8bpp test
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NE_SW);
+    effect.update(250);
+
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.applyRGB565(buffer, width, height);
+
+    // (0,1) should be partially blended
+    uint16_t featherVal = buffer[1 * width + 0];
+    TEST_ASSERT_TRUE_MESSAGE(featherVal > 0x6000 && featherVal < 0xFF00,
+        "NE_SW Out RGB565: pixel at (0,1) should be in feather zone");
+
+    // (0,0) should be fully cleared
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0x0000, buffer[0],
+        "NE_SW Out RGB565: (0,0) should be fully cleared");
+
+    // Corner should be cleared
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0x0000, buffer[31 * width + 31],
+        "NE_SW Out RGB565: (31,31) should be fully cleared");
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -400,6 +499,9 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_in_direction);
     RUN_TEST(test_diagonal_wipe_rgb565_extremes);
     RUN_TEST(test_diagonal_wipe_integration);
+    RUN_TEST(test_diagonal_wipe_feather_out);
+    RUN_TEST(test_diagonal_wipe_feather_in);
+    RUN_TEST(test_diagonal_wipe_feather_rgb565);
     return UNITY_END();
 }
 
