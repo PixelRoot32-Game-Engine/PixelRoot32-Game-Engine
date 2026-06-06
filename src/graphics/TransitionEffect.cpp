@@ -241,13 +241,33 @@ void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height)
     int front = (width + height) * static_cast<int>(scaledProgress) / 256;
     int totalPixels = width * height;
 
-    // NE_SW: wipe starts at top-right, sweeps toward bottom-left.
-    // lineValue = (width-1-x) + y — small values at top-right, large at bottom-left.
-    // Out: clear pixels where lineValue < front (behind the advancing front).
     for (int i = 0; i < totalPixels; ++i) {
         int x = i % width;
         int y = i / width;
-        int lineValue = (width - 1 - x) + y;
+
+        // Compute the pixel's line value based on wipe direction.
+        // Small values are closest to the starting corner and are cleared first
+        // in Out mode. Large values are closest to the ending corner.
+        int lineValue;
+        switch (wipeDirection_) {
+            case WipeDirection::NW_SE:
+                // Top-left (0,0) = 0 → Bottom-right (W-1,H-1) = W+H-2
+                lineValue = x + y;
+                break;
+            case WipeDirection::SE_NW:
+                // Bottom-right (W-1,H-1) = 0 → Top-left (0,0) = W+H-2
+                lineValue = (width - 1 - x) + (height - 1 - y);
+                break;
+            case WipeDirection::SW_NE:
+                // Bottom-left (0,H-1) = 0 → Top-right (W-1,0) = W+H-2
+                lineValue = x + (height - 1 - y);
+                break;
+            default: // WipeDirection::NE_SW
+                // Top-right (W-1,0) = 0 → Bottom-left (0,H-1) = W+H-2
+                lineValue = (width - 1 - x) + y;
+                break;
+        }
+
         if (lineValue < front) {
             buffer[i] = 0;
         }
