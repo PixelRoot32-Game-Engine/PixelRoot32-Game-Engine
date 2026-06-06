@@ -36,12 +36,41 @@ void test_diagonal_wipe_scaffold(void) {
 }
 
 // =============================================================================
+// DW-HOLDFRAME: isActive() should extend past duration boundary by holdFrames_
+// =============================================================================
+
+void test_diagonal_wipe_holdframe_keeps_active(void) {
+    TransitionEffect effect;
+
+    // Default holdFrames_ = 1, so isActive() should stay true for 1 extra tick
+    // after elapsed reaches duration.
+    effect.init(TransitionType::Fade, TransitionDirection::Out, 500);
+
+    // Advance to exactly the duration boundary.
+    effect.update(500);
+
+    // RED expectation: isActive() should still be true because the hold frame
+    // has not been consumed yet. This will FAIL until hold-frame logic is
+    // implemented in the GREEN step (T-05).
+    TEST_ASSERT_TRUE_MESSAGE(effect.isActive(),
+        "isActive() should remain true at duration boundary (hold frame)");
+
+    // Consume the hold frame.
+    effect.update(16);
+
+    // Now isActive() should be false.
+    TEST_ASSERT_FALSE_MESSAGE(effect.isActive(),
+        "isActive() should be false after consuming hold frame");
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_diagonal_wipe_scaffold);
+    RUN_TEST(test_diagonal_wipe_holdframe_keeps_active);
     return UNITY_END();
 }
 
