@@ -126,9 +126,21 @@ public:
 
     /**
      * @brief Check whether the transition is still running.
-     * @return true while elapsed < duration.
+     * @return true while elapsed < duration or while hold frames remain.
+     *
+     * After elapsed reaches duration, isActive() stays true for
+     * holdFrames_ additional update ticks. This provides a safety
+     * window for systems that read isActive() before the final
+     * apply() call in the same frame.
      */
-    bool isActive() const { return elapsedMs_ < durationMs_; }
+    bool isActive() const {
+        // Uninitialised effect is never active.
+        if (durationMs_ == 0) return false;
+        // Normal phase: advancing toward duration.
+        if (elapsedMs_ < durationMs_) return true;
+        // Hold phase: safety window for the final apply() call.
+        return holdCounter_ < holdFrames_;
+    }
 
     /**
      * @brief Get normalised progress of the transition.

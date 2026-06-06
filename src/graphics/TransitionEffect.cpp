@@ -29,6 +29,7 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
     direction_ = direction;
     durationMs_ = durationMs;
     elapsedMs_ = 0;
+    holdCounter_ = 0;
     irisOutCx_ = -1;  // Reset custom iris centers to default.
     irisOutCy_ = -1;
     irisInCx_ = -1;
@@ -42,9 +43,16 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
 void TransitionEffect::update(unsigned long deltaTimeMs) {
     if (!isActive()) return;
 
-    elapsedMs_ += deltaTimeMs;
-    if (elapsedMs_ > durationMs_) {
-        elapsedMs_ = durationMs_;
+    if (elapsedMs_ < durationMs_) {
+        // Normal phase: advance the timer.
+        elapsedMs_ += deltaTimeMs;
+        if (elapsedMs_ > durationMs_) {
+            elapsedMs_ = durationMs_;
+        }
+    } else {
+        // Hold phase: consume one hold tick per update() call.
+        // isActive() returns holdCounter_ < holdFrames_ during this phase.
+        holdCounter_++;
     }
 }
 
