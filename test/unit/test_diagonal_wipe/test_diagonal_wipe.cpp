@@ -19,6 +19,11 @@
 
 using namespace pixelroot32::graphics;
 
+// Forward declaration: smoothstepQ8 will be implemented in PR 2.
+// Q8.8 smoothstep: t in [0, 256], returns eased value in [0, 256].
+// Compiles but fails to link until implementation exists.
+static uint16_t smoothstepQ8(uint16_t t);
+
 void setUp(void) {
     test_setup();
 }
@@ -64,6 +69,38 @@ void test_diagonal_wipe_holdframe_keeps_active(void) {
 }
 
 // =============================================================================
+// DW-SMOOTHSTEP: Q8.8 smoothstep curve should ease at edges, linear at midpoint
+// =============================================================================
+
+void test_diagonal_wipe_smoothstep_q8(void) {
+    // smoothstepQ8 uses Q8.8 format: t=0 → 0, t=256 → 256, t=128 → 128.
+    // RED step: test will fail to link because smoothstepQ8 does not exist yet.
+    // Expected values (exact) will be derived from the Q8.8 implementation:
+    // smoothstep(t) = t * t * (768 - t) / 262144  (scaled for Q8.8)
+
+    // Edge cases
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(0,   smoothstepQ8(0),
+        "smoothstepQ8(0) should be 0");
+
+    // Quarter points — exact values depend on Q8.8 precision:
+    // smoothstepQ8(64) ≈ 40
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(40,  smoothstepQ8(64),
+        "smoothstepQ8(64) should be ~40 (approx)");
+
+    // Midpoint — guaranteed by symmetry
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(128, smoothstepQ8(128),
+        "smoothstepQ8(128) should be 128 (midpoint)");
+
+    // Three-quarter point
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(216, smoothstepQ8(192),
+        "smoothstepQ8(192) should be ~216 (approx)");
+
+    // Full
+    TEST_ASSERT_EQUAL_UINT16_MESSAGE(256, smoothstepQ8(256),
+        "smoothstepQ8(256) should be 256");
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -71,6 +108,7 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_diagonal_wipe_scaffold);
     RUN_TEST(test_diagonal_wipe_holdframe_keeps_active);
+    RUN_TEST(test_diagonal_wipe_smoothstep_q8);
     return UNITY_END();
 }
 
