@@ -96,6 +96,38 @@ void test_diagonal_wipe_smoothstep_q8(void) {
 }
 
 // =============================================================================
+// DW-OUT-EXTR: NE→SW wipe at progress=0 (unchanged) and progress=1 (all cleared)
+// =============================================================================
+
+void test_diagonal_wipe_ne_sw_extremes(void) {
+    TransitionEffect effect;
+    int width = 32;
+    int height = 32;
+    uint8_t buffer[32 * 32];
+
+    // --- progress=0: wipe should NOT clear any pixels ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFF, buffer[i],
+            "DiagonalWipe Out at progress=0 should leave buffer unchanged");
+    }
+
+    // --- progress=1: wipe should clear ALL pixels to 0 ---
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.update(500);
+    memset(buffer, 0xFF, sizeof(buffer));
+    effect.apply(buffer, width, height);
+
+    for (int i = 0; i < width * height; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[i],
+            "DiagonalWipe Out at progress=1 should clear all pixels to 0");
+    }
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -104,6 +136,7 @@ int main(void) {
     RUN_TEST(test_diagonal_wipe_scaffold);
     RUN_TEST(test_diagonal_wipe_holdframe_keeps_active);
     RUN_TEST(test_diagonal_wipe_smoothstep_q8);
+    RUN_TEST(test_diagonal_wipe_ne_sw_extremes);
     return UNITY_END();
 }
 
