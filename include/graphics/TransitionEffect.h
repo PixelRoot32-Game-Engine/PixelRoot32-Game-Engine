@@ -222,6 +222,16 @@ public:
      */
     void setHoldFrames(uint8_t frames) { holdFrames_ = frames; }
 
+    /**
+     * @brief Set the sub-step time for DiagonalWipe transitions.
+     * @param ms Sub-step duration in milliseconds (default: 16).
+     *
+     * DiagonalWipe uses a sub-step accumulator to quantise elapsed time
+     * into fixed increments, preventing flicker from fractional pixel
+     * boundary positions. Only affects DiagonalWipe transitions.
+     */
+    void setSubStepMs(uint16_t ms) { subStepMs_ = ms; }
+
 private:
     TransitionType type_ = TransitionType::Fade;
     TransitionDirection direction_ = TransitionDirection::Out;
@@ -234,6 +244,8 @@ private:
     WipeDirection wipeDirection_ = WipeDirection::NE_SW;  ///< DiagonalWipe corner direction.
     uint8_t holdFrames_ = 1;   ///< Number of hold ticks after duration expires.
     uint8_t holdCounter_ = 0;  ///< Current hold tick count.
+    uint16_t subStepMs_ = 0;          ///< Sub-step time for DiagonalWipe (0 = disabled).
+    uint32_t subStepAccumulator_ = 0; ///< Sub-step accumulator for DiagonalWipe.
 
     /**
      * @brief Fill a 256-byte LUT for the current fade direction and progress.
@@ -301,6 +313,7 @@ public:
     void setIrisInCenter(int /*cx*/, int /*cy*/) {}
     void setWipeDirection(WipeDirection /*dir*/) {}
     void setHoldFrames(uint8_t /*frames*/) {}
+    void setSubStepMs(uint16_t /*ms*/) {}
 };
 
 #endif // PIXELROOT32_ENABLE_SCENE_TRANSITIONS

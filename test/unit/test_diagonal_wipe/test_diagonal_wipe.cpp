@@ -494,8 +494,9 @@ void test_diagonal_wipe_substep_accumulator(void) {
     int height = 32;
     uint8_t buffer[32 * 32];
 
-    // Init with DiagonalWipe, Out, 500ms, sub-step = 16ms.
+    // Init with DiagonalWipe, Out, 500ms.
     effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    // Enable sub-step = 16ms (default is 0 = disabled).
     effect.setSubStepMs(16);
 
     // update(8): less than one sub-step → progress should NOT advance.

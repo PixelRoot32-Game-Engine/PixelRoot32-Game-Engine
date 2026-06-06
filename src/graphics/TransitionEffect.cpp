@@ -52,6 +52,7 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
     durationMs_ = durationMs;
     elapsedMs_ = 0;
     holdCounter_ = 0;
+    subStepAccumulator_ = 0;
     irisOutCx_ = -1;  // Reset custom iris centers to default.
     irisOutCy_ = -1;
     irisInCx_ = -1;
@@ -67,7 +68,21 @@ void TransitionEffect::update(unsigned long deltaTimeMs) {
 
     if (elapsedMs_ < durationMs_) {
         // Normal phase: advance the timer.
-        elapsedMs_ += deltaTimeMs;
+        unsigned long advance = deltaTimeMs;
+
+        // Sub-step accumulator: only for DiagonalWipe when enabled
+        // (subStepMs_ > 0), to prevent flicker from fractional pixel
+        // boundary positions.
+        if (type_ == TransitionType::DiagonalWipe && subStepMs_ > 0) {
+            subStepAccumulator_ += deltaTimeMs;
+            advance = 0;
+            while (subStepAccumulator_ >= subStepMs_) {
+                subStepAccumulator_ -= subStepMs_;
+                advance += subStepMs_;
+            }
+        }
+
+        elapsedMs_ += advance;
         if (elapsedMs_ > durationMs_) {
             elapsedMs_ = durationMs_;
         }
