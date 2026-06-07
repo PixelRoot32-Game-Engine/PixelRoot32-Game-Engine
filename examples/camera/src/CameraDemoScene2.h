@@ -31,6 +31,9 @@ public:
      */
     void setScene1(CameraDemoScene* scene1) { scene1Ref_ = scene1; }
 
+protected:
+    void resetState() noexcept override;
+
 private:
     static constexpr int OWNED_ENTITY_CAP = 8;
 
