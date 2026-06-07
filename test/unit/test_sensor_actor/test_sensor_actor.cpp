@@ -169,7 +169,7 @@ void test_sensor_actor_detects_overlap(void) {
     sensorTestSystem->addEntity(sensor);
     
     // Move actor into sensor
-    movingActor->moveAndSlide(Vector2(toScalar(10), toScalar(10)));
+    movingActor->moveAndSlide(Vector2(toScalar(10), toScalar(10)) / CollisionSystem::FIXED_DT, CollisionSystem::FIXED_DT);
     
     // The sensor should detect the overlap (though we can't directly test
     // the collision callback without more setup)

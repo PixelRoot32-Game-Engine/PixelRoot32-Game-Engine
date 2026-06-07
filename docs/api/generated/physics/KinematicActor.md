@@ -18,6 +18,12 @@ moveAndSlide for complex character movement.
 
 [PhysicsActor](../core/PhysicsActor.md) → `KinematicActor`
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `constexpr` | `static` | Minimum snap magnitude for SnapPolicy::Step. |
+
 ## Methods
 
 ### `bool moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision = nullptr, bool testOnly = false, pixelroot32::math::Scalar safeMargin = pixelroot32::math::Scalar(0.08f), bool recoveryAsCollision = false)`
@@ -35,49 +41,6 @@ Moves the body along a vector and stops at the first collision.
 - `recoveryAsCollision`: If true, depenetration is reported as collision.
 
 **Returns:** true if a collision occurred.
-
-### `void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT)`
-
-**Description:**
-
-Moves the body while sliding along surfaces.
-
-**Parameters:**
-
-- `velocity`: The velocity vector.
-- `upDirection`: The up vector used to differentiate floor/ceiling (optional).
-- `outFloorBody`: Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
-- `dt`: Delta time used to calculate the movement (default: FIXED_DT).
-
-### `pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1})`
-
-**Description:**
-
-Moves the body while sliding along surfaces, then snaps to floor.
-
-**Parameters:**
-
-- `velocity`: The velocity vector in units/sec (NOT pre-scaled by dt).
-- `snap`: Snap vector toward floor. Pass zero to disable.
-- `dt`: Delta time. REQUIRED — same dt used by the game loop for
-          input scaling consistency. No default.
-- `upDirection`: Up direction for floor detection. Defaults to {0, -1}.
-
-**Returns:** The actual velocity after slide and snap processing.
-        Assign to your velocity variable to replace post-slide zeroing.
-
-Performs standard moveAndSlide along velocity, then pushes the AABB
-along -upDirection by |snap| to attach to the floor. Returns the
-actual velocity after collisions and snap are resolved.
-
-::: tip
-When jumping, caller MUST pass a zero snap vector explicitly.
-      The engine does NOT auto-disable snap on upward velocity.
-:::
-
-::: tip
-Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
-:::
 
 ### `inline bool is_on_ceiling() const`
 

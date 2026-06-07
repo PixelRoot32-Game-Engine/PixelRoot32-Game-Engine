@@ -33,7 +33,7 @@ void PaddleActor::update(unsigned long dt) {
     }
 
     if (motion.x != 0 || motion.y != 0) {
-        moveAndSlide(motion);
+        (void)moveAndSlide(motion / deltaTimeSec, deltaTimeSec);
     }
 
     if (position.x < math::toScalar(0)) {
