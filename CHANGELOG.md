@@ -2,12 +2,6 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
-
-### 🏀 Physics
-
-- **wasSnapFloor symmetry**: `moveAndSlide` now sets `wasSnapFloor = onFloor`, matching `moveAndSlideWithSnap`. No API change.
-
 ## 1.5.0
 
 ### 🚀 Rendering Performance & Graphics
