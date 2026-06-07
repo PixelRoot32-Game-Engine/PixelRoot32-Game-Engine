@@ -21,6 +21,24 @@
 using namespace pixelroot32::core;
 using namespace pixelroot32::graphics;
 
+// Minimal entity mock for integration tests
+class IntegrationEntity : public Entity {
+public:
+    bool updateCalled = false;
+
+    IntegrationEntity(float x, float y, int w, int h)
+        : Entity(x, y, w, h, EntityType::GENERIC) {}
+
+    void update(unsigned long deltaTime) override {
+        (void)deltaTime;
+        updateCalled = true;
+    }
+
+    void draw(Renderer& renderer) override {
+        (void)renderer;
+    }
+};
+
 // Mock Scene implementation
 class MockScene : public Scene {
 public:
@@ -316,6 +334,46 @@ void test_scene_manager_set_current_scene_clears_existing_stack(void) {
     TEST_ASSERT_EQUAL(&scene3, manager.getCurrentScene().value());
 }
 
+// =============================================================================
+// Re-init integration test (Phase 1 — RED)
+// =============================================================================
+
+void test_scene_reinit_integration(void) {
+    class IntegrationScene : public Scene {
+    public:
+        std::unique_ptr<IntegrationEntity> entity;
+        int getCount() const { return entityCount; }
+        bool initCalled = false;
+
+        void init() override {
+            Scene::init();
+            entity = std::make_unique<IntegrationEntity>(0, 0, 10, 10);
+            addEntity(entity.get());
+            initCalled = true;
+        }
+    };
+
+    SceneManager manager;
+    IntegrationScene scene;
+
+    // First set — fresh init
+    manager.setCurrentScene(&scene);
+    TEST_ASSERT_TRUE(scene.initCalled);
+    TEST_ASSERT_EQUAL(1, scene.getCount());
+
+    scene.initCalled = false;
+
+    // Second set with same instance — must re-init cleanly
+    manager.setCurrentScene(&scene);
+    TEST_ASSERT_TRUE(scene.initCalled);
+
+    // After re-init, entityCount must reflect one fresh init (1, not 2+)
+    TEST_ASSERT_EQUAL(1, scene.getCount());
+
+    // update must not crash
+    manager.update(16);
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
     
@@ -340,6 +398,9 @@ int main(int argc, char **argv) {
     RUN_TEST(test_scene_manager_draw_empty_stack);
     RUN_TEST(test_scene_manager_push_scene_at_max_boundary);
     RUN_TEST(test_scene_manager_set_current_scene_clears_existing_stack);
+    
+    // Re-init integration test
+    RUN_TEST(test_scene_reinit_integration);
     
     return UNITY_END();
 }
