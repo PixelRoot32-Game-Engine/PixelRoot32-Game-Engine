@@ -63,9 +63,9 @@ public:
      * @brief Moves the body while sliding along surfaces, then snaps to floor.
      * @param velocity The velocity vector in units/sec (NOT pre-scaled by dt).
      * @param snap Snap vector toward floor. Pass zero to disable.
-     * @param upDirection Up direction for floor detection.
      * @param dt Delta time. REQUIRED — same dt used by the game loop for
      *           input scaling consistency. No default.
+     * @param upDirection Up direction for floor detection. Defaults to {0, -1}.
      * @return The actual velocity after slide and snap processing.
      *         Assign to your velocity variable to replace post-slide zeroing.
      * 
@@ -77,7 +77,7 @@ public:
      *       The engine does NOT auto-disable snap on upward velocity.
      * @note Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
      */
-    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection, pixelroot32::math::Scalar dt);
+    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1});
 
     /**
      * @brief Returns true if the body collided with the ceiling.

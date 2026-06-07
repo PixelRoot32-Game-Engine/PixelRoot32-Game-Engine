@@ -57,8 +57,8 @@ void PlayerCube::update(unsigned long deltaTime) {
     velocity = moveAndSlideWithSnap(
         velocity,
         snap,
-        pixelroot32::math::Vector2(0, -1),
-        pixelroot32::math::toScalar(dt)
+        pixelroot32::math::toScalar(dt),
+        pixelroot32::math::Vector2(0, -1)
     );
 
     if (worldWidth > 0) {

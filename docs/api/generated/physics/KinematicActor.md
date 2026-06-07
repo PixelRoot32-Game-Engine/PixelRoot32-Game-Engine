@@ -49,7 +49,7 @@ Moves the body while sliding along surfaces.
 - `outFloorBody`: Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
 - `dt`: Delta time used to calculate the movement (default: FIXED_DT).
 
-### `pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection, pixelroot32::math::Scalar dt)`
+### `pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1})`
 
 **Description:**
 
@@ -59,9 +59,9 @@ Moves the body while sliding along surfaces, then snaps to floor.
 
 - `velocity`: The velocity vector in units/sec (NOT pre-scaled by dt).
 - `snap`: Snap vector toward floor. Pass zero to disable.
-- `upDirection`: Up direction for floor detection.
 - `dt`: Delta time. REQUIRED — same dt used by the game loop for
           input scaling consistency. No default.
+- `upDirection`: Up direction for floor detection. Defaults to {0, -1}.
 
 **Returns:** The actual velocity after slide and snap processing.
         Assign to your velocity variable to replace post-slide zeroing.

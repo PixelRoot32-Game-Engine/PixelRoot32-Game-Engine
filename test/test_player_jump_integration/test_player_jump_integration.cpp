@@ -94,7 +94,7 @@ static void setupOnFloor(Scalar floorTopY, Scalar dt) {
     Vector2 snap(toScalar(0), toScalar(MIN_SNAP));
     player->moveAndSlideWithSnap(
         Vector2(toScalar(0), toScalar(600)),
-        snap, up, dt
+        snap, dt, up
     );
 
     // Step 2: establish wasSnapFloor via persistent floor contact.
@@ -102,7 +102,7 @@ static void setupOnFloor(Scalar floorTopY, Scalar dt) {
     //         wasSnapFloor=true from step 1 -> snap fires -> onFloor=true.
     player->moveAndSlideWithSnap(
         Vector2(toScalar(0), toScalar(60)),
-        snap, up, dt
+        snap, dt, up
     );
 }
 
@@ -159,7 +159,7 @@ static bool simulatePlayerCubeFrame(Scalar& vy, bool wantsJump, Scalar dt) {
         ? Vector2{}
         : Vector2(toScalar(0), toScalar(MIN_SNAP));
     Vector2 result = player->moveAndSlideWithSnap(
-        Vector2(toScalar(0), vy), snap, up, dt
+        Vector2(toScalar(0), vy), snap, dt, up
     );
     vy = static_cast<float>(result.y);
     return player->is_on_floor();
@@ -185,7 +185,7 @@ static bool simulatePlayerActorFrame(Scalar& vy, bool wantsJump, TestState& stat
         ? Vector2{}
         : Vector2(toScalar(0), toScalar(MIN_SNAP));
     Vector2 result = player->moveAndSlideWithSnap(
-        Vector2(toScalar(0), vy), snap, up, dt
+        Vector2(toScalar(0), vy), snap, dt, up
     );
     vy = static_cast<float>(result.y);
     // State machine transition
@@ -327,7 +327,7 @@ void test_free_fall_trajectory_120fps(void) {
     for (int frame = 1; frame <= totalFrames; frame++) {
         vy += toScalar(GRAVITY) * dt;
         Vector2 result = player->moveAndSlideWithSnap(
-            Vector2(toScalar(0), vy), snap, up, dt
+            Vector2(toScalar(0), vy), snap, dt, up
         );
         vy = result.y;
 
@@ -369,7 +369,7 @@ void test_free_fall_trajectory_60fps(void) {
     for (int frame = 1; frame <= totalFrames; frame++) {
         vy += toScalar(GRAVITY) * dt;
         Vector2 result = player->moveAndSlideWithSnap(
-            Vector2(toScalar(0), vy), snap, up, dt
+            Vector2(toScalar(0), vy), snap, dt, up
         );
         vy = result.y;
 
@@ -399,13 +399,13 @@ void test_landing_wasSnapFloor_transition(void) {
     Scalar vy = toScalar(60);
     Vector2 up(0, -1);
     Vector2 snap(toScalar(0), toScalar(MIN_SNAP));
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, up, dt);
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F1: on floor via snap (wasSnapFloor=true)");
     Scalar floorY = player->position.y;
 
     // F2: Jump with zero snap -> leaves floor
     vy = toScalar(-JUMP_VEL_CUBE);
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), Vector2{}, up, dt);
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), Vector2{}, dt, up);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F2: not on floor after jump");
     TEST_ASSERT_TRUE_MESSAGE(player->position.y < floorY, "F2: above floor after jump");
 
@@ -415,7 +415,7 @@ void test_landing_wasSnapFloor_transition(void) {
     int landFrame = -1;
     for (int frame = 3; frame <= 120; frame++) {
         vy += toScalar(GRAVITY) * dt;
-        player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, up, dt);
+        player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
         if (player->is_on_floor()) {
             // Landed! Verify landing is NOT too early (would indicate
             // wasSnapFloor guard failing and snap re-engaging mid-flight).
@@ -433,7 +433,7 @@ void test_landing_wasSnapFloor_transition(void) {
 
     // F(n+1): After landing, snap can re-engage (wasSnapFloor=true again)
     vy = toScalar(60);
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, up, dt);
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "After landing: on floor via snap re-engage");
 }
 
