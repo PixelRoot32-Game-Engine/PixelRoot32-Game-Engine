@@ -118,8 +118,10 @@ public:
      */
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
-private:
+protected:
     static constexpr pixelroot32::math::Scalar MIN_SNAP = pixelroot32::math::toScalar(4.0f); ///< Minimum snap magnitude for moveAndSlideWithSnap.
+
+private:
     int maxSlides = 4; ///< Maximum number of slide iterations to prevent infinite loops.
     bool onFloor = false;
     bool onCeiling = false;
