@@ -49,6 +49,36 @@ Moves the body while sliding along surfaces.
 - `outFloorBody`: Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
 - `dt`: Delta time used to calculate the movement (default: FIXED_DT).
 
+### `pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection, pixelroot32::math::Scalar dt)`
+
+**Description:**
+
+Moves the body while sliding along surfaces, then snaps to floor.
+
+**Parameters:**
+
+- `velocity`: The velocity vector in units/sec (NOT pre-scaled by dt).
+- `snap`: Snap vector toward floor. Pass zero to disable.
+- `upDirection`: Up direction for floor detection.
+- `dt`: Delta time. REQUIRED — same dt used by the game loop for
+          input scaling consistency. No default.
+
+**Returns:** The actual velocity after slide and snap processing.
+        Assign to your velocity variable to replace post-slide zeroing.
+
+Performs standard moveAndSlide along velocity, then pushes the AABB
+along -upDirection by |snap| to attach to the floor. Returns the
+actual velocity after collisions and snap are resolved.
+
+::: tip
+When jumping, caller MUST pass a zero snap vector explicitly.
+      The engine does NOT auto-disable snap on upward velocity.
+:::
+
+::: tip
+Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
+:::
+
 ### `inline bool is_on_ceiling() const`
 
 **Description:**
@@ -59,7 +89,7 @@ Returns true if the body collided with the ceiling.
 
 **Description:**
 
-Returns true if the body collided with the floor.
+Returns true if the body collided with the floor this frame.
 
 ### `const pixelroot32::math::Vector2& getFloorVelocity() const`
 
@@ -91,13 +121,14 @@ Draws the actor.
 
 - `renderer`: Reference to the renderer.
 
-### `void updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult)`
+### `void slide(pixelroot32::math::Vector2& currentMotion, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor*& localFloorBody)`
 
 **Description:**
 
-Updates floor persistence state.
+Internal slide loop. Iterates moveAndCollide to slide along surfaces.
 
 **Parameters:**
 
-- `onFloorThisFrame`: Whether floor contact was detected this frame.
-- `floorBodyResult`: The floor body if on floor, nullptr otherwise.
+- `currentMotion`: In/out: the motion vector to process (modified by slides).
+- `upDirection`: Up vector for floor/ceiling/wall classification.
+- `localFloorBody`: Out: set if floor collision is on a KINEMATIC body.
