@@ -244,7 +244,7 @@ void PlayerActor::update(unsigned long deltaTime) {
 
     // Execute Move and Slide against the physics system
     // moveAndSlideWithSnap handles floor/ceiling collision in its return value
-    velocity = moveAndSlideWithSnap(velocity * dt, snap, math::Vector2(0, -1));
+    velocity = moveAndSlideWithSnap(velocity, snap, math::Vector2(0, -1), dt);
 
     // Keep wall-stop zeroing — moveAndSlideWithSnap doesn't handle wall velocity
     if (is_on_wall()) {

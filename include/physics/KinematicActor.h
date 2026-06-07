@@ -61,10 +61,11 @@ public:
 
     /**
      * @brief Moves the body while sliding along surfaces, then snaps to floor.
-     * @param velocity The velocity vector (already scaled by dt).
+     * @param velocity The velocity vector in units/sec (NOT pre-scaled by dt).
      * @param snap Snap vector toward floor. Pass zero to disable.
-     * @param upDirection Up direction for floor detection (default: {0,-1}).
-     * @param dt Delta time (default: CollisionSystem::FIXED_DT).
+     * @param upDirection Up direction for floor detection.
+     * @param dt Delta time. REQUIRED — same dt used by the game loop for
+     *           input scaling consistency. No default.
      * @return The actual velocity after slide and snap processing.
      *         Assign to your velocity variable to replace post-slide zeroing.
      * 
@@ -76,7 +77,7 @@ public:
      *       The engine does NOT auto-disable snap on upward velocity.
      * @note Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
      */
-    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection = {0,-1}, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
+    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection, pixelroot32::math::Scalar dt);
 
     /**
      * @brief Returns true if the body collided with the ceiling.
@@ -135,7 +136,7 @@ private:
     ///
     /// @note This is NOT part of the is_on_floor() API contract. is_on_floor() returns only
     ///       raw current-frame contact state. wasSnapFloor is purely internal to the snap step.
-    bool wasSnapFloor = true;
+    bool wasSnapFloor = false;
 
     // Floor state storage (v2 readiness: unused in v1, stores for platform velocity injection)
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.

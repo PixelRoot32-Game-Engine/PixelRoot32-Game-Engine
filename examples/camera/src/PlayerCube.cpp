@@ -55,9 +55,10 @@ void PlayerCube::update(unsigned long deltaTime) {
         ? pixelroot32::math::Vector2{}
         : pixelroot32::math::Vector2(pixelroot32::math::toScalar(0), KinematicActor::MIN_SNAP);
     velocity = moveAndSlideWithSnap(
-        velocity * pixelroot32::math::toScalar(dt),
+        velocity,
         snap,
-        pixelroot32::math::Vector2(0, -1)
+        pixelroot32::math::Vector2(0, -1),
+        pixelroot32::math::toScalar(dt)
     );
 
     if (worldWidth > 0) {

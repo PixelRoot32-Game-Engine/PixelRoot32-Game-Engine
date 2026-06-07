@@ -357,7 +357,7 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
     }
 
     Vector2 startPos = position;
-    Vector2 currentMotion = velocity;
+    Vector2 currentMotion = velocity * dt;
     Scalar floorThreshold = toScalar(0.70710678f);
 
     pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
