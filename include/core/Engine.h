@@ -114,9 +114,9 @@ public:
     void setScene(Scene* newScene);
 
     /**
-     * @brief Start a visual scene transition (Fade or Iris).
+     * @brief Start a visual scene transition (Fade, Iris, or DiagonalWipe).
      * @param newScene The target scene to transition to.
-     * @param type TransitionType::Fade or TransitionType::Iris.
+     * @param type TransitionType::Fade, TransitionType::Iris, or TransitionType::DiagonalWipe.
      * @param durationMs Duration of each phase (Out and In) in ms.
      *
      * Delegates to SceneManager::transitionToScene(). Ignored if a
@@ -129,7 +129,7 @@ public:
     /**
      * @brief Start a visual scene transition with direction-specific iris centers.
      * @param newScene The target scene to transition to.
-     * @param type TransitionType::Fade or TransitionType::Iris.
+     * @param type TransitionType::Fade, TransitionType::Iris, or TransitionType::DiagonalWipe.
      * @param durationMs Duration of each phase (Out and In) in ms.
      * @param irisOutCx Iris center X for Out (closing) phase.
      * @param irisOutCy Iris center Y for Out (closing) phase.

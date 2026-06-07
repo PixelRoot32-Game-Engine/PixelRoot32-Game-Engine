@@ -20,6 +20,28 @@ namespace pixelroot32::graphics {
 #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
 // =============================================================================
+// smoothstepQ8() — Q8.8 smoothstep easing
+// =============================================================================
+
+uint16_t smoothstepQ8(uint16_t t) {
+    // Edge cases: no easing needed at exact endpoints.
+    if (t == 0) return 0;
+    if (t >= 256) return 256;
+
+    uint32_t t32 = t;
+    // t^2 in Q8.8: multiply then shift right by 8 bits.
+    uint32_t t2 = (t32 * t32) >> 8;
+    // (3 - 2t) in Q8.8: 3.0 = 768 in fixed point.
+    int32_t threeMinus2t = 768 - 2 * (int32_t)t;
+    // result = t^2 * (3 - 2t) / 65536 (two shifts of 8 bits each).
+    uint32_t result = (t2 * (uint32_t)threeMinus2t) >> 8;
+
+    // Safety clamp — should never exceed 256 for valid t in [0, 256].
+    if (result > 256) result = 256;
+    return (uint16_t)result;
+}
+
+// =============================================================================
 // init() — configure effect parameters
 // =============================================================================
 
@@ -29,6 +51,8 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
     direction_ = direction;
     durationMs_ = durationMs;
     elapsedMs_ = 0;
+    holdCounter_ = 0;
+    subStepAccumulator_ = 0;
     irisOutCx_ = -1;  // Reset custom iris centers to default.
     irisOutCy_ = -1;
     irisInCx_ = -1;
@@ -42,9 +66,30 @@ void TransitionEffect::init(TransitionType type, TransitionDirection direction,
 void TransitionEffect::update(unsigned long deltaTimeMs) {
     if (!isActive()) return;
 
-    elapsedMs_ += deltaTimeMs;
-    if (elapsedMs_ > durationMs_) {
-        elapsedMs_ = durationMs_;
+    if (elapsedMs_ < durationMs_) {
+        // Normal phase: advance the timer.
+        unsigned long advance = deltaTimeMs;
+
+        // Sub-step accumulator: only for DiagonalWipe when enabled
+        // (subStepMs_ > 0), to prevent flicker from fractional pixel
+        // boundary positions.
+        if (type_ == TransitionType::DiagonalWipe && subStepMs_ > 0) {
+            subStepAccumulator_ += deltaTimeMs;
+            advance = 0;
+            while (subStepAccumulator_ >= subStepMs_) {
+                subStepAccumulator_ -= subStepMs_;
+                advance += subStepMs_;
+            }
+        }
+
+        elapsedMs_ += advance;
+        if (elapsedMs_ > durationMs_) {
+            elapsedMs_ = durationMs_;
+        }
+    } else {
+        // Hold phase: consume one hold tick per update() call.
+        // isActive() returns holdCounter_ < holdFrames_ during this phase.
+        holdCounter_++;
     }
 }
 
@@ -74,6 +119,10 @@ void TransitionEffect::apply(uint8_t* buffer, int width, int height) {
 
         case TransitionType::Iris:
             applyIris(buffer, width, height);
+            break;
+
+        case TransitionType::DiagonalWipe:
+            applyDiagonalWipe(buffer, width, height);
             break;
     }
 }
@@ -191,6 +240,88 @@ void TransitionEffect::applyIris(uint8_t* buffer, int width, int height) {
 }
 
 // =============================================================================
+// applyDiagonalWipe() — diagonal sweep wipe on 8bpp buffer
+// =============================================================================
+
+void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    // Front position along the diagonal axis, in pixel units.
+    int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    // Only feather when the front has actually started moving (progress > 0).
+    // At progress=0, no pixels should change for Out; all pixels clear for In.
+    bool useFeather = (scaledProgress > 0);
+    int totalPixels = width * height;
+
+    for (int i = 0; i < totalPixels; ++i) {
+        int x = i % width;
+        int y = i / width;
+
+        // Compute the pixel's line value based on wipe direction.
+        // Small values are closest to the starting corner and are cleared first
+        // in Out mode. Large values are closest to the ending corner.
+        int lineValue;
+        switch (wipeDirection_) {
+            case WipeDirection::NW_SE:
+                // Top-left (0,0) = 0 → Bottom-right (W-1,H-1) = W+H-2
+                lineValue = x + y;
+                break;
+            case WipeDirection::SE_NW:
+                // Bottom-right (W-1,H-1) = 0 → Top-left (0,0) = W+H-2
+                lineValue = (width - 1 - x) + (height - 1 - y);
+                break;
+            case WipeDirection::SW_NE:
+                // Bottom-left (0,H-1) = 0 → Top-right (W-1,0) = W+H-2
+                lineValue = x + (height - 1 - y);
+                break;
+            default: // WipeDirection::NE_SW
+                // Top-right (W-1,0) = 0 → Bottom-left (0,H-1) = W+H-2
+                lineValue = (width - 1 - x) + y;
+                break;
+        }
+
+        // Feather zone: 1-pixel band at the wipe front boundary.
+        // diff = lineValue - front (signed distance).
+        // diff < 0 → behind front. diff == 0 → at front (feather). diff > 0 → ahead.
+        int diff = lineValue - front;
+
+        if (diff < 0) {
+            // Behind the advancing front.
+            if (direction_ == TransitionDirection::Out) {
+                buffer[i] = 0;  // Out: wiped area is hidden.
+            }
+            // In: behind front means revealed → keep unchanged.
+        } else if (diff > 0) {
+            // Ahead of the advancing front.
+            if (direction_ == TransitionDirection::In) {
+                buffer[i] = 0;  // In: ahead is still hidden.
+            }
+            // Out: ahead of front means not yet wiped → keep unchanged.
+        } else {
+            // diff == 0: exactly at the wipe front boundary.
+            if (useFeather) {
+                // 1-pixel feather band: 50% blend toward black (same for Out
+                // and In — center of a symmetric blend from 0 to pixel).
+                buffer[i] = (uint8_t)((buffer[i] * 128) >> 8);
+            } else {
+                // No feather (progress=0 or progress=1): hard boundary.
+                if (direction_ == TransitionDirection::In) {
+                    // In: at the front is still hidden.
+                    buffer[i] = 0;
+                }
+                // Out: at the front is not yet cleared → keep unchanged.
+            }
+        }
+    }
+}
+
+// =============================================================================
 // applyRGB565() — dispatch to RGB565-specific effects (native/SDL2 path)
 // =============================================================================
 
@@ -206,6 +337,68 @@ void TransitionEffect::applyRGB565(uint16_t* buffer, int width, int height) {
         case TransitionType::Iris:
             applyIrisRGB565(buffer, width, height);
             break;
+
+        case TransitionType::DiagonalWipe:
+            applyDiagonalWipeRGB565(buffer, width, height);
+            break;
+    }
+}
+
+// =============================================================================
+// applyDiagonalWipeRGB565() — diagonal sweep wipe on RGB565 buffer
+// =============================================================================
+
+void TransitionEffect::applyDiagonalWipeRGB565(uint16_t* buffer, int width, int height) {
+    unsigned long elapsed = elapsedMs_;
+    unsigned long duration = durationMs_;
+    uint16_t scaledProgress = 0;
+    if (duration > 0) {
+        scaledProgress = static_cast<uint16_t>((elapsed * 256) / duration);
+        if (scaledProgress > 256) scaledProgress = 256;
+    }
+
+    int front = (width + height) * static_cast<int>(scaledProgress) / 256;
+    bool useFeather = (scaledProgress > 0);
+    int totalPixels = width * height;
+
+    for (int i = 0; i < totalPixels; ++i) {
+        int x = i % width;
+        int y = i / width;
+
+        int lineValue;
+        switch (wipeDirection_) {
+            case WipeDirection::NW_SE:
+                lineValue = x + y;
+                break;
+            case WipeDirection::SE_NW:
+                lineValue = (width - 1 - x) + (height - 1 - y);
+                break;
+            case WipeDirection::SW_NE:
+                lineValue = x + (height - 1 - y);
+                break;
+            default: // WipeDirection::NE_SW
+                lineValue = (width - 1 - x) + y;
+                break;
+        }
+
+        int diff = lineValue - front;
+
+        if (diff < 0) {
+            if (direction_ == TransitionDirection::Out) {
+                buffer[i] = 0;
+            }
+        } else if (diff > 0) {
+            if (direction_ == TransitionDirection::In) {
+                buffer[i] = 0;
+            }
+        } else {
+            // diff == 0: at the wipe front.
+            if (useFeather) {
+                buffer[i] = (uint16_t)((buffer[i] * 128) >> 8);
+            } else if (direction_ == TransitionDirection::In) {
+                buffer[i] = 0;
+            }
+        }
     }
 }
 

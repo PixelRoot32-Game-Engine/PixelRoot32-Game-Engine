@@ -108,6 +108,7 @@ Auto-generated API documentation from C++ header files.
 - [UIWidgetFlags](./graphics/UIWidgetFlags.md) — Flags for widget behavior
 - [UIWidgetState](./graphics/UIWidgetState.md) — Current state of a touch widget
 - [UIWidgetType](./graphics/UIWidgetType.md) — Types of touch UI widgets
+- [WipeDirection](./graphics/WipeDirection.md) — Corner-to-corner directions for DiagonalWipe transitions.
 
 ## Input
 

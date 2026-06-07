@@ -179,6 +179,8 @@ void test_transition_fade_out_completes_to_scene_swap(void) {
 
     // Advance past the full duration.
     mgr.update(500);
+    // Hold frame: consume the extra tick before the state machine advances to SceneSwap.
+    mgr.update(16);
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::SceneSwap),
                             static_cast<uint8_t>(mgr.getTransitionState()));
 }
@@ -201,6 +203,8 @@ void test_transition_scene_swap_atomic(void) {
 
     // Advance past FadingOut to SceneSwap.
     mgr.update(500);
+    // Hold frame: consume the extra tick before the state machine advances to SceneSwap.
+    mgr.update(16);
 
     // Now in SceneSwap state.
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::SceneSwap),
@@ -232,6 +236,8 @@ void test_transition_fading_in_after_swap(void) {
 
     // Advance through FadingOut and SceneSwap.
     mgr.update(500);
+    // Hold frame: consume the extra tick before the state machine advances.
+    mgr.update(16);
     mgr.update(16);
 
     // Should now be in FadingIn.
@@ -267,6 +273,8 @@ void test_transition_full_cycle_completes(void) {
 
     // FadingOut (500ms of updates).
     runUpdates(&mgr, 50, 10);  // 500ms total
+    // Hold frame: consume the extra tick before the state machine advances to SceneSwap.
+    mgr.update(10);
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::SceneSwap),
                             static_cast<uint8_t>(mgr.getTransitionState()));
 
@@ -277,6 +285,8 @@ void test_transition_full_cycle_completes(void) {
 
     // FadingIn (500ms of updates).
     runUpdates(&mgr, 50, 10);  // 500ms total
+    // Hold frame: consume the extra tick before returning to Idle.
+    mgr.update(10);
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::Idle),
                             static_cast<uint8_t>(mgr.getTransitionState()));
 
@@ -305,6 +315,8 @@ void test_transition_double_trigger_rejected(void) {
     // Should still be targeting sceneB (the first trigger).
     // Advance past SceneSwap and check.
     mgr.update(500);  // Complete FadingOut
+    // Hold frame: consume the extra tick before the state machine advances.
+    mgr.update(16);
     mgr.update(16);   // SceneSwap
 
     // sceneC should NOT be the current scene.
@@ -351,10 +363,10 @@ void test_transition_update_resumes_after_complete(void) {
     mgr.pushScene(&currentScene);
     mgr.transitionToScene(&targetScene, TransitionType::Fade, 100);
 
-    // Run through full cycle: 100ms Out + 1 tick SceneSwap + 100ms In.
-    // ceil(100/8)=13 + 1 + ceil(100/8)=13 = 27 updates minimum.
-    // Use exactly 27 updates so we land right at Idle with no extra Idle updates.
-    runUpdates(&mgr, 27, 8);  // 216ms total
+    // Run through full cycle: 100ms Out + 1 hold + 1 tick SceneSwap + 100ms In + 1 hold.
+    // ceil(100/8)=13 + 1 + 1 + ceil(100/8)=13 + 1 = 29 updates minimum.
+    // Use exactly 29 updates so we land right at Idle with no extra Idle updates.
+    runUpdates(&mgr, 29, 8);  // 232ms total
 
     // Should be Idle now — the 27th update triggered FadingIn → Idle.
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::Idle),

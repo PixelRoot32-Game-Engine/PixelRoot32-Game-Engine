@@ -105,6 +105,8 @@ void test_transition_fade_complete(void) {
     TEST_ASSERT_TRUE(effect.isActive());
 
     effect.update(500);  // elapsed = duration
+    // Consume the hold frame so isActive() returns false.
+    effect.update(16);
     TEST_ASSERT_FALSE(effect.isActive());
     TEST_ASSERT_FLOAT_EQUAL(1.0f, effect.getProgress());
 }
@@ -332,6 +334,40 @@ void test_transition_iris_out_complete_clears(void) {
 }
 
 // =============================================================================
+// TE-14B: Fade and Iris should NOT use sub-step accumulator
+// =============================================================================
+
+void test_transition_fade_no_substep(void) {
+    TransitionEffect effect;
+    effect.init(TransitionType::Fade, TransitionDirection::Out, 500);
+
+    // Even if someone calls setSubStepMs, Fade should NOT quantize time.
+    effect.setSubStepMs(16);
+
+    // update(8) — should advance by 8ms (no sub-step for Fade).
+    effect.update(8);
+    TEST_ASSERT_FLOAT_EQUAL(8.0f / 500.0f, effect.getProgress());
+
+    // update(50) — should advance by 50ms (no quantization).
+    effect.update(50);
+    TEST_ASSERT_FLOAT_EQUAL(58.0f / 500.0f, effect.getProgress());
+}
+
+void test_transition_iris_no_substep(void) {
+    TransitionEffect effect;
+    effect.init(TransitionType::Iris, TransitionDirection::Out, 500);
+
+    effect.setSubStepMs(16);
+
+    // update(8) — should advance by 8ms (no sub-step for Iris).
+    effect.update(8);
+    TEST_ASSERT_FLOAT_EQUAL(8.0f / 500.0f, effect.getProgress());
+
+    effect.update(50);
+    TEST_ASSERT_FLOAT_EQUAL(58.0f / 500.0f, effect.getProgress());
+}
+
+// =============================================================================
 // TE-14: Re-init an effect while active — should reset state
 // =============================================================================
 
@@ -388,6 +424,10 @@ int main(void) {
     RUN_TEST(test_transition_fade_out_complete_clears);
     RUN_TEST(test_transition_iris_out_complete_clears);
     RUN_TEST(test_transition_reinit_resets_state);
+
+    // TE-14B — Sub-step isolation
+    RUN_TEST(test_transition_fade_no_substep);
+    RUN_TEST(test_transition_iris_no_substep);
 
     return UNITY_END();
 }

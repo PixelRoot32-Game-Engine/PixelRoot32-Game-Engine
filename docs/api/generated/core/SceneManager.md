@@ -104,7 +104,7 @@ Start a transition from the current scene to a new one.
 **Parameters:**
 
 - `newScene`: The target scene to transition to.
-- `type`: Fade or Iris transition effect.
+- `type`: Fade, Iris, or DiagonalWipe transition effect.
 - `durationMs`: Duration of each phase (Out and In) in ms.
 
 Ignored if a transition is already running (state != Idle).
@@ -119,7 +119,7 @@ Start a transition with direction-specific iris centers.
 **Parameters:**
 
 - `newScene`: The target scene to transition to.
-- `type`: Fade or Iris transition effect.
+- `type`: Fade, Iris, or DiagonalWipe transition effect.
 - `durationMs`: Duration of each phase (Out and In) in ms.
 - `irisOutCx`: Iris center X for Out (closing) phase.
 - `irisOutCy`: Iris center Y for Out (closing) phase.
