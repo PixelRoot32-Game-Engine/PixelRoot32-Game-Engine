@@ -145,7 +145,19 @@ CameraDemoScene::CameraDemoScene()
 
 CameraDemoScene::~CameraDemoScene() {}
 
+void CameraDemoScene::resetState() noexcept {
+    // Release owned resources BEFORE clearing base state
+    player.reset();
+    for (int i = 0; i < entityCount; ++i) {
+        ownedEntities[i].reset();
+    }
+    entityCount = 0;
+    // Delegate to base — clears entities[], arena, and collision system
+    Scene::resetState();
+}
+
 void CameraDemoScene::init() {
+    Scene::init();  // Idempotent: resets prior state before re-initialising
     gfx::setPalette(gfx::PaletteType::PR32);
     initPlatformerTilemap();
     jumpInputReady = false;
