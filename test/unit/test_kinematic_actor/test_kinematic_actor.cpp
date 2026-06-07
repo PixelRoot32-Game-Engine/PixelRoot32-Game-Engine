@@ -719,6 +719,57 @@ void test_snap_plus_velocity_movement(void) {
     TEST_ASSERT_FLOAT_WITHIN(1.0f, 0.0f, static_cast<float>(result.y));
 }
 
+void test_snap_on_valid_slope(void) {
+    // TS-007: Body approaches floor at a diagonal (simulating a 30° slope walk-down).
+    // The collision surface produces a floor-like normal (dot >= floorThreshold).
+    // snap engages and onFloor = true.
+    wall = new StaticActor(toScalar(0), toScalar(12), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Player at (0,0) 10x10. Gap from bottom (y=10) to floor top (y=12) = 2 units.
+    // Diagonal velocity=(5,5): slide would move to (5,5) but floor stops vertical motion.
+    // Binary search finds safe position at ~(3.5, 2.0) where bottom = floor top.
+    // snap=(0,4): from y=2 could push further but body is already on floor → normal=(0,-1).
+    player->moveAndSlideWithSnap(
+        Vector2(toScalar(5), toScalar(5)),
+        Vector2(toScalar(0), toScalar(4)),
+        Vector2(toScalar(0), toScalar(-1))
+    );
+
+    // Player bottom at floor top: y + 10 = 12 → y = 2
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-007: snap engages on valid slope approach");
+    // Floor contact truncated diagonal: y should be ~2 (bottom at floor top)
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 2.0f, static_cast<float>(player->position.y));
+    // X moved right by same ratio as velocity until floor contact
+    TEST_ASSERT_TRUE_MESSAGE(player->position.x > toScalar(2.0f), "TS-007: player moved right during diagonal approach");
+}
+
+void test_snap_rejected_on_steep_slope(void) {
+    // TS-008: Body is adjacent to a vertical wall (simulating a 60°+ steep slope).
+    // snap pushes down but there is no floor below → snap misses entirely.
+    // onFloor stays false (snap rejected because no floor contact established).
+    wall = new StaticActor(toScalar(15), toScalar(0), 10, 30);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Player at (0,0) 10x10, wall at x=15 (5px gap to player right edge).
+    // velocity=(0,0), snap=(0,4). Snap pushes down but no floor within 4px → miss.
+    // onFloor stays false, body position unchanged.
+    player->moveAndSlideWithSnap(
+        Vector2(toScalar(0), toScalar(0)),
+        Vector2(toScalar(0), toScalar(4)),
+        Vector2(toScalar(0), toScalar(-1))
+    );
+
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "TS-008: snap rejected on steep slope (no floor contact)");
+    // Body should not have moved (velocity=0, snap missed)
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, static_cast<float>(player->position.y));
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, static_cast<float>(player->position.x));
+}
+
 void test_snap_jump_recontact(void) {
     // TS-006: Jump re-contact — body jumps off floor, falls back, snap re-engages
     // Floor at y=12, 10 tall
@@ -937,6 +988,10 @@ int main(int argc, char **argv) {
     // Phase 2: Snap + velocity combined and jump re-contact
     RUN_TEST(test_snap_plus_velocity_movement);
     RUN_TEST(test_snap_jump_recontact);
+
+    // Phase 3: Slope snap coverage
+    RUN_TEST(test_snap_on_valid_slope);
+    RUN_TEST(test_snap_rejected_on_steep_slope);
 
     // Phase 4: KINEMATIC floor state tests
     RUN_TEST(test_static_floor_no_inheritance);
