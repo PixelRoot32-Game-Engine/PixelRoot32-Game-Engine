@@ -790,10 +790,10 @@ void test_snap_jump_recontact(void) {
     player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-5)), snap, up);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "TS-006 F2: should NOT be on floor after jump");
 
-    // Frame 3: Fall back down — velocity down 5, snap catches floor
-    // player.y starts at -3, moves down to 2, snap hits floor, re-engages
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(5)), snap, up);
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F3: should re-contact floor via snap");
+    // Frame 3: Fall back down — velocity down 15, slide enters floor overlap,
+    // slide sets onFloor. wasSnapFloor guard skips snap (body was airborne F2).
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(15)), snap, up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F3: should re-contact floor via slide");
 }
 
 void test_static_floor_no_inheritance(void) {
@@ -858,8 +858,64 @@ void test_default_nullptr_parameter_no_crash(void) {
 }
 
 // =============================================================================
-// Phase 4 (V2): Godot-inspired moving platform riding tests
+// WasSnapFloor guard tests (KS-003 enforcement)
 // =============================================================================
+
+void test_was_snap_floor_prevents_snap_on_first_air_frame(void) {
+    // GIVEN: Body starts ON floor via snap (F1).
+    // WHEN: Body moves beyond snap range (F2, airborne).
+    // THEN: wasSnapFloor becomes false → next frame (F3) snap is skipped.
+    // Body should NOT move even though snap magnitude >= MIN_SNAP.
+    // Floor top at y=14 (body at y=0, bottom=10, gap=4).
+    wall = new StaticActor(toScalar(0), toScalar(14), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    Vector2 snap(toScalar(0), toScalar(4));
+    Vector2 up(toScalar(0), toScalar(-1));
+
+    // F1: On floor via snap. Body bottom at floor top: y + 10 = 14 → y ≈ 4.
+    // Snap distance (6) exceeds gap (4) so body penetrates floor and collision is detected.
+    Vector2 snapBig(toScalar(0), toScalar(6));
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snapBig, up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F1: should be on floor via snap");
+
+    // F2: Jump up — moves beyond snap range (12 units up).
+    // wasSnapFloor=true, snap fires but misses (gap > 6). onFloor=false.
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-12)), snapBig, up);
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F2: should be airborne after jump");
+    Scalar afterJumpY = player->position.y;
+
+    // F3: Zero velocity + non-zero snap. wasSnapFloor=false → guard prevents snap.
+    // Body should NOT move (no slide motion, no snap). Position unchanged.
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snapBig, up);
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F3: should NOT snap (wasSnapFloor guard)");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, static_cast<float>(afterJumpY), static_cast<float>(player->position.y),
+        "F3: position must not change — guard prevented snap");
+}
+
+void test_was_snap_floor_allows_snap_on_floor_frame(void) {
+    // GIVEN: Body on floor (wasSnapFloor=true by init).
+    // WHEN: Small downward velocity + snap=(0,6).
+    // THEN: Snap engages, onFloor=true, body snaps to floor surface.
+    // Floor top at y=14 (body at y=0, bottom=10, gap=4).
+    // Snap distance (6) > gap (4) so body penetrates floor and collision is detected.
+    wall = new StaticActor(toScalar(0), toScalar(14), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // snap=(0,6) with wasSnapFloor=true → snap fires, places body on floor
+    player->moveAndSlideWithSnap(
+        Vector2(toScalar(0), toScalar(0)),
+        Vector2(toScalar(0), toScalar(6)),
+        Vector2(toScalar(0), toScalar(-1))
+    );
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "wasSnapFloor=true should allow snap on floor frame");
+    // Body bottom at floor top: y + 10 = 14 → y = 4
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 4.0f, static_cast<float>(player->position.y));
+}
 
 
 
@@ -1003,6 +1059,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_is_on_floor_raw_contact);
     RUN_TEST(test_depenetration_post_slide);
     RUN_TEST(test_safe_margin_expansion);
+    
+    // WasSnapFloor guard tests
+    RUN_TEST(test_was_snap_floor_prevents_snap_on_first_air_frame);
+    RUN_TEST(test_was_snap_floor_allows_snap_on_floor_frame);
     
     return UNITY_END();
 }
