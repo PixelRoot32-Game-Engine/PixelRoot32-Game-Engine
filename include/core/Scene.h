@@ -48,15 +48,26 @@ T* arenaNew(SceneArena& arena, Args&&... args) {
 /**
  * @class Scene
  * @brief Represents a game level or screen containing entities.
+ *
+ * @note init() is idempotent — may be called any number of times, each call
+ *       leaves the state equivalent to a fresh init.
  */
 class Scene {
 public:
     virtual ~Scene() {}
 
     /**
-     * @brief Initializes the scene. Called when entering the scene.
+     * @brief Initialises the scene. Called when entering the scene.
+     *
+     * Idempotent contract: init() MUST leave the scene in a state equivalent
+     * to a single fresh init.  N invocations MUST NOT produce dangling
+     * pointers, duplicate entities, or leaked resources.
+     *
+     * Calls resetState() first to clear any prior state, then re-initialises
+     * the physics scheduler (if enabled).
      */
     virtual void init() {
+        resetState();
         #if PIXELROOT32_ENABLE_PHYSICS
             physicsScheduler.init();
         #endif
@@ -174,6 +185,23 @@ public:
     void clearEntities();
 
 protected:
+    /**
+     * @brief Resets the scene to a clean initial state.
+     *
+     * Called at the start of every init() invocation.  Default implementation
+     * clears all entities, resets the arena, and (if physics is enabled)
+     * clears the collision system.
+     *
+     * Derived scenes that own heap-allocated resources (e.g. unique_ptr
+     * members) MUST override resetState() to release owned resources BEFORE
+     * calling Scene::resetState().  This ensures no dangling raw pointers
+     * remain in the base entity array.
+     *
+     * Overrides MUST call Scene::resetState() as their last operation
+     * (after releasing owned resources).
+     */
+    virtual void resetState() noexcept;
+
     Entity* entities[pixelroot32::platforms::config::MaxEntities]; ///< Array of entities in the scene.
     int entityCount = 0;            ///< Current number of entities.
     bool needsSorting = false;      ///< Flag to trigger sorting by layer.
