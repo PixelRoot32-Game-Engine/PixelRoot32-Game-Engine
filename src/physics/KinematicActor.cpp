@@ -340,9 +340,13 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
     Vector2 startPos = position;
     Vector2 currentMotion = velocity * dt;
 
+    if (wasSnapFloor && floorBody != nullptr &&
+        floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        currentMotion += floorBody->getVelocity() * dt;
+    }
+
     pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
     slide(currentMotion, upDirection, localFloorBody);
-    Vector2 afterSlidePos = position;
 
     if (snapPolicy == SnapPolicy::Step) {
         applySnapStep(snapVector, upDirection, localFloorBody);
@@ -356,6 +360,18 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
 #endif
     }
 
+    if (onFloor && localFloorBody != nullptr &&
+        localFloorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        floorBody = localFloorBody;
+        floorVelocity = localFloorBody->getVelocity();
+    } else if (!onFloor) {
+        floorBody = nullptr;
+        floorVelocity = Vector2::ZERO();
+    } else {
+        floorBody = nullptr;
+        floorVelocity = Vector2::ZERO();
+    }
+
     resolvePostSlideKinematicDepenetration();
 
     if (outFloorBody) {
@@ -367,7 +383,7 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
     if (dt == Scalar(0)) {
         return Vector2::ZERO();
     }
-    Vector2 displacement = afterSlidePos - startPos;
+    Vector2 displacement = position - startPos;
     return displacement / dt;
 }
 

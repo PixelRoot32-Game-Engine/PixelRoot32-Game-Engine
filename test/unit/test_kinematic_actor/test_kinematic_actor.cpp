@@ -861,7 +861,6 @@ void test_kinematic_floor_out_floor_body_static(void) {
 }
 
 void test_kinematic_floor_out_floor_body_kinematic(void) {
-    // v1: outFloorBody always returns nullptr (floorBody storage is dead)
     platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
     platform->setCollisionLayer(1);
     platform->setCollisionMask(1);
@@ -869,10 +868,36 @@ void test_kinematic_floor_out_floor_body_kinematic(void) {
     colSystem->addEntity(platform);
 
     PhysicsActor* floorPtr = nullptr;
-    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1), SnapPolicy::None, {}, &floorPtr);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)), &floorPtr);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
-    TEST_ASSERT_NULL_MESSAGE(floorPtr, "v1: outFloorBody always returns nullptr (floorBody dead in v1)");
+    TEST_ASSERT_NOT_NULL_MESSAGE(floorPtr, "KINEMATIC floor should expose outFloorBody");
+    TEST_ASSERT_EQUAL_PTR_MESSAGE(platform, floorPtr, "outFloorBody should reference kinematic platform");
+}
+
+void test_kinematic_floor_velocity_injection_horizontal(void) {
+    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(60), toScalar(0));
+    colSystem->addEntity(platform);
+
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should land on platform");
+
+    Scalar playerXAfterLand = player->position.x;
+
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should remain on platform");
+    Scalar expectedDelta = toScalar(60) * kFixedDt;
+    Scalar actualDelta = player->position.x - playerXAfterLand;
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, static_cast<float>(expectedDelta),
+        static_cast<float>(actualDelta),
+        "Riding player should inherit horizontal platform displacement");
 }
 
 void test_default_nullptr_parameter_no_crash(void) {
@@ -1253,6 +1278,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_static_floor_no_inheritance);
     RUN_TEST(test_kinematic_floor_out_floor_body_static);
     RUN_TEST(test_kinematic_floor_out_floor_body_kinematic);
+    RUN_TEST(test_kinematic_floor_velocity_injection_horizontal);
     RUN_TEST(test_default_nullptr_parameter_no_crash);
     
     // Phase 4 (V2): Raw contact + platform riding tests
