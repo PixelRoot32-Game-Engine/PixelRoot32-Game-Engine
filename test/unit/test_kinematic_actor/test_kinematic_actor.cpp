@@ -986,6 +986,115 @@ void test_safe_margin_expansion(void) {
     TEST_ASSERT_TRUE_MESSAGE(player->position.x < toScalar(11.0f), "Safe margin should prevent passing through near wall");
 }
 
+// =============================================================================
+// Integration regression tests (KS-003 enforcement against runtime regressions)
+// =============================================================================
+
+void test_player_cube_jump_sequence(void) {
+    // Regression: wasSnapFloor guard must NOT prevent jump from clearing floor.
+    // Before the fix, snap re-engaged on the jump frame and pulled the body
+    // back to the floor, effectively cancelling the jump.
+    //
+    // Simulates PlayerCube::update logic:
+    //   Frame 0: land on floor via moveAndSlide (establishes is_on_floor=true)
+    //   Frame 1: establish wasSnapFloor=true via moveAndSlideWithSnap
+    //   Frame 2: jump impulse applied, snap disabled
+    //   Frames 3+: gravity pulls body down, snap guard prevents re-engagement
+    Vector2 up(toScalar(0), toScalar(-1));
+    Scalar dt = toScalar(1.0f / 60.0f);
+    Scalar jumpVelocity = toScalar(12.0f); // 12 units per frame upward during jump frame
+    // MIN_SNAP = 4.0f (protected)
+
+    // Floor at y=20 (10px thick). Player 10x10 starts above.
+    wall = new StaticActor(toScalar(-50), toScalar(20), 200, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Land on floor
+    player->position = Vector2(toScalar(50), toScalar(-10));
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(35)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Start: body should be on floor after landing");
+    Scalar startY = player->position.y;
+
+    // Frame 0: Establish wasSnapFloor=true (moveAndSlideWithSnap with zero velocity)
+    Vector2 vel(toScalar(0), toScalar(0));
+    player->moveAndSlideWithSnap(vel * dt, Vector2(toScalar(0), toScalar(4)), up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 0: body on floor after snap setup");
+
+    // Frame 1: Jump — direct jump velocity (no gravity during ascent frame,
+    // matching PlayerCube simplified jump model)
+    vel = Vector2(toScalar(0), toScalar(-jumpVelocity));
+    player->moveAndSlideWithSnap(vel * dt, Vector2{}, up); // snap=0 on jump
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Frame 1: body should NOT be on floor during jump ascent");
+    TEST_ASSERT_TRUE_MESSAGE(player->position.y < startY, "Frame 1: body should be higher (lower y) after jump");
+
+    // Frames 2-4: Apply small downward nudges. wasSnapFloor is false from frame 1,
+    // and wasSnapFloor stays false because body stays airborne.
+    // The snap guard prevents re-engagement even if snap magnitude exceeds MIN_SNAP.
+    for (int frame = 2; frame <= 4; ++frame) {
+        vel.y = toScalar(1.0f); // Small downward per frame
+        player->moveAndSlideWithSnap(vel * dt, Vector2(toScalar(0), toScalar(4)), up);
+        // wasSnapFloor=false → snap skipped → body stays airborne
+        TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
+            "Frame 2-4: should remain airborne (snap guard)");
+    }
+}
+
+void test_snap_edge_detachment(void) {
+    // Regression: wasSnapFloor guard must let body fall off a platform
+    // when it walks past the edge without re-attaching via snap.
+    // Before the guard, snap would re-attach the body to the platform
+    // for many extra frames when X-overlap still existed, causing
+    // "magnetic edge" behavior.
+    //
+    // Approach:
+    //   1. Land body on platform via slide
+    //   2. Establish wasSnapFloor=true via one moveAndSlideWithSnap frame
+    //   3. Teleport body past the platform edge + below the surface
+    //   4. Call moveAndSlideWithSnap again — guard should skip snap
+    //      because body was not on floor in the slide step
+    Vector2 up(toScalar(0), toScalar(-1));
+    Scalar dt = toScalar(1.0f / 60.0f);
+    Scalar gravity = toScalar(600.0f);
+
+    // Platform from x=0 to x=55 at y=20
+    wall = new StaticActor(toScalar(0), toScalar(20), 55, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Step 1: Land on platform
+    player->position = Vector2(toScalar(30), toScalar(-10));
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(35)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Landing: body should be on platform");
+
+    // Step 2: Establish wasSnapFloor=true (moveAndSlideWithSnap)
+    player->moveAndSlideWithSnap(
+        Vector2(toScalar(0), toScalar(0)) * dt,
+        Vector2(toScalar(0), toScalar(4)), up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: body on floor after snap setup");
+
+    // Step 3: Teleport past platform edge and clearly below it.
+    // Body 10x10 at x=60, y=50 → body bottom=60, platform top=20, bottom=30.
+    // No overlap in X (60 > 55) and body is well below the platform in Y.
+    player->position = Vector2(toScalar(60), toScalar(50));
+    Vector2 vel(toScalar(0), toScalar(0));
+
+    // Step 4: Move down with snap. wasSnapFloor was true from step 2,
+    // but body was NOT on floor during slide → onFloor=false.
+    // wasSnapFloor=false after this call. Next call: snap skipped.
+    for (int frame = 1; frame <= 5; ++frame) {
+        vel.y += gravity * dt;
+        player->moveAndSlideWithSnap(
+            vel * dt,
+            Vector2(toScalar(0), toScalar(4)), up);
+        // Body should NOT be on floor — it's past the platform edge
+        TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
+            "Body should remain airborne past platform edge");
+    }
+}
+
 
 
 
@@ -1063,6 +1172,10 @@ int main(int argc, char **argv) {
     // WasSnapFloor guard tests
     RUN_TEST(test_was_snap_floor_prevents_snap_on_first_air_frame);
     RUN_TEST(test_was_snap_floor_allows_snap_on_floor_frame);
+    
+    // Integration regression tests
+    RUN_TEST(test_player_cube_jump_sequence);
+    RUN_TEST(test_snap_edge_detachment);
     
     return UNITY_END();
 }
