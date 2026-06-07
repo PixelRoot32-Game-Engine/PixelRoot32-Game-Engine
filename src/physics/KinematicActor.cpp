@@ -289,6 +289,9 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
     if (outFloorBody) {
         *outFloorBody = floorBody;
     }
+
+    // Persist floor state for the next frame's snap guard (mirrors moveAndSlideWithSnap)
+    wasSnapFloor = onFloor;
 }
 
 pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection) {
