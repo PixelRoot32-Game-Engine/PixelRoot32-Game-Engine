@@ -102,15 +102,9 @@ void test_flags_reset() {
     player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
     TEST_ASSERT_TRUE(player->is_on_floor());
 
-    // 2. Move up (away from floor) -- first frame airborne
+    // 2. Move up (away from floor) — immediate floor loss (no persistence)
     player->moveAndSlide(Vector2(toScalar(0), toScalar(-5)));
-    
-    // Floor flag persists for 2 frames after losing contact (walk-off tolerance)
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Floor flag should persist for tolerance frames");
-
-    // 3. Third frame airborne -- tolerance expired
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(-5)));
-    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Floor flag should reset after tolerance expires");
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Floor flag should be lost immediately without persistence");
     TEST_ASSERT_FALSE(player->is_on_ceiling());
     TEST_ASSERT_FALSE(player->is_on_wall());
 }
@@ -695,30 +689,60 @@ void test_no_snap_on_jump_launch(void) {
 // Phase 4: KINEMATIC floor velocity inheritance tests
 // =============================================================================
 
-void test_kinematic_floor_velocity_inheritance(void) {
-    // KINEMATIC floor at y=20, 10 tall → spans y=20 to 30
-    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
-    platform->setCollisionLayer(1);
-    platform->setCollisionMask(1);
-    platform->setVelocity(toScalar(0), toScalar(60)); // moving down 60 units/s
-    colSystem->addEntity(platform);
 
-    // Player at (0,0) 10x10. Frame 1: Move down 15 units → land on platform
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor after landing on KINEMATIC platform");
 
-    // Simulate physics step: update platform position (integrate velocity * dt)
-    platform->position += platform->getVelocity() * CollisionSystem::FIXED_DT;
+void test_snap_plus_velocity_movement(void) {
+    // TS-004: Snap plus velocity — body moves horizontally while snap engages floor
+    // Floor at y=12, 10 tall → spans y=12 to 22. Player at (0,0) 10x10.
+    // Gap from player bottom (y=10) to floor top (y=12) = 2 units.
+    // velocity=(3,0) moves right 3. snap=(0,4) snaps down 4 → hits floor.
+    wall = new StaticActor(toScalar(0), toScalar(12), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
 
-    // Frame 2: Pre-slide inheritance applies floorVelocity as motion
-    // Platform moved down 1 unit (60 * 1/60). Player inherits via pre-slide.
-    Scalar preSlideY = player->position.y;
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)));
-    Scalar inheritanceDelta = toScalar(60.0f) * CollisionSystem::FIXED_DT;
+    Vector2 result = player->moveAndSlideWithSnap(
+        Vector2(toScalar(3), toScalar(0)),
+        Vector2(toScalar(0), toScalar(4)),
+        Vector2(toScalar(0), toScalar(-1))
+    );
 
-    // Player should move down by inheritanceDelta, carried by the platform
-    TEST_ASSERT_TRUE_MESSAGE(player->position.y > preSlideY, "Player should move down with platform");
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should still be on floor after platform move");
+    // Snap engaged floor contact
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-004: snap should engage floor");
+
+    // Player moved right 3 and snapped to y=2 (bottom at y=12 = floor top)
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 3.0f, static_cast<float>(player->position.x));
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 2.0f, static_cast<float>(player->position.y));
+
+    // Return value = slide displacement / dt (slide moved right 3, no vertical change before snap)
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 180.0f, static_cast<float>(result.x)); // 3 * 60 = 180 units/s
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 0.0f, static_cast<float>(result.y));
+}
+
+void test_snap_jump_recontact(void) {
+    // TS-006: Jump re-contact — body jumps off floor, falls back, snap re-engages
+    // Floor at y=12, 10 tall
+    wall = new StaticActor(toScalar(0), toScalar(12), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    Vector2 snap(toScalar(0), toScalar(4));
+    Vector2 up(toScalar(0), toScalar(-1));
+
+    // Frame 1: On floor (snap engages)
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snap, up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F1: should be on floor via snap");
+
+    // Frame 2: Jump up — velocity up 5, snap tries to pull down but misses floor
+    // player.y starts at 2, moves up to -3, snap tries y=1 → no floor → restored to y=-3
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-5)), snap, up);
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "TS-006 F2: should NOT be on floor after jump");
+
+    // Frame 3: Fall back down — velocity down 5, snap catches floor
+    // player.y starts at -3, moves down to 2, snap hits floor, re-engages
+    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(5)), snap, up);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F3: should re-contact floor via snap");
 }
 
 void test_static_floor_no_inheritance(void) {
@@ -752,7 +776,7 @@ void test_kinematic_floor_out_floor_body_static(void) {
 }
 
 void test_kinematic_floor_out_floor_body_kinematic(void) {
-    // KINEMATIC floor → outFloorBody should point to the platform
+    // v1: outFloorBody always returns nullptr (floorBody storage is dead)
     platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
     platform->setCollisionLayer(1);
     platform->setCollisionMask(1);
@@ -763,8 +787,7 @@ void test_kinematic_floor_out_floor_body_kinematic(void) {
     player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(0, -1), &floorPtr);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
-    TEST_ASSERT_NOT_NULL_MESSAGE(floorPtr, "KINEMATIC floor should set outFloorBody to non-null");
-    TEST_ASSERT_EQUAL_PTR_MESSAGE(platform, floorPtr, "outFloorBody should point to the KINEMATIC platform");
+    TEST_ASSERT_NULL_MESSAGE(floorPtr, "v1: outFloorBody always returns nullptr (floorBody dead in v1)");
 }
 
 void test_default_nullptr_parameter_no_crash(void) {
@@ -787,82 +810,27 @@ void test_default_nullptr_parameter_no_crash(void) {
 // Phase 4 (V2): Godot-inspired moving platform riding tests
 // =============================================================================
 
-void test_pre_slide_inheritance_multi_frame(void) {
-    // KINEMATIC platform moving right 60 px/s
-    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
-    platform->setCollisionLayer(1);
-    platform->setCollisionMask(1);
-    platform->setVelocity(toScalar(60), toScalar(0)); // moving right 60 units/s
-    colSystem->addEntity(platform);
 
-    // Frame 1: Land on platform
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
 
-    // Simulate physics step: move platform right
-    platform->position.x += platform->getVelocity().x * CollisionSystem::FIXED_DT;
 
-    // Frame 2: Player inherits platform X velocity via pre-slide
-    Scalar preX = player->position.x;
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)));
 
-    // Player should move right with platform
-    TEST_ASSERT_TRUE_MESSAGE(player->position.x > preX, "Player should move right with platform");
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should stay on floor");
-}
-
-void test_axis_aligned_inheritance_horizontal(void) {
-    // KINEMATIC platform moving in both X and Y but player stands on top
-    // Platform at y=20, moving right (60,0) and down (0,30)
-    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
-    platform->setCollisionLayer(1);
-    platform->setCollisionMask(1);
-    platform->setVelocity(toScalar(60), toScalar(30));
-    colSystem->addEntity(platform);
-
-    // Frame 1: Land on platform (floor normal = (0,-1))
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
-
-    // Simulate physics step: move platform
-    platform->position += platform->getVelocity() * CollisionSystem::FIXED_DT;
-
-    // Frame 2: Player inherits full platform velocity (both X and Y)
-    // Platform moved right 1 unit, down 0.5 units
-    Scalar preX = player->position.x;
-    Scalar preY = player->position.y;
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)));
-
-    // Player should move right with platform
-    TEST_ASSERT_TRUE_MESSAGE(player->position.x > preX, "Player should move right with platform");
-
-    // Player should move down with platform
-    TEST_ASSERT_TRUE_MESSAGE(player->position.y > preY, "Player should move down with platform");
-}
-
-void test_floor_lost_persistence(void) {
-    // Player lands on floor
+void test_is_on_floor_raw_contact(void) {
+    // is_on_floor() returns raw contact state with no persistence
     wall = new StaticActor(toScalar(-50), toScalar(20), 100, 10);
     wall->setCollisionLayer(1);
     wall->setCollisionMask(1);
     colSystem->addEntity(wall);
 
-    // Frame 1: Land
+    // Frame 1: Land on floor
     player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 1: should be on floor");
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 1: should be on floor (direct contact)");
 
     // Frame 2: Walk off floor (move right with no floor below)
     player->position.x = toScalar(60);
     player->moveAndSlide(Vector2(toScalar(0), toScalar(1)));
 
-    // Should still report is_on_floor (1st frame of 2-frame tolerance)
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 2: should still be on floor (tolerance frame 1)");
-
-    // Frame 3: Still airborne — 2nd tolerance frame (floorLostCounter=2, 2 < 2 = false → expires)
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(1)));
-
-    // Tolerance expired: floorLostCounter >= MAX_FLOOR_LOST_FRAMES (2 >= 2)
-    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Frame 3: should NOT be on floor (tolerance expired after 2 frames)");
+    // No persistence: should immediately lose floor
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Frame 2: should NOT be on floor (no persistence)");
 }
 
 void test_depenetration_post_slide(void) {
@@ -911,56 +879,9 @@ void test_safe_margin_expansion(void) {
     TEST_ASSERT_TRUE_MESSAGE(player->position.x < toScalar(11.0f), "Safe margin should prevent passing through near wall");
 }
 
-void test_jump_clears_floor_velocity(void) {
-    // KINEMATIC platform
-    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
-    platform->setCollisionLayer(1);
-    platform->setCollisionMask(1);
-    platform->setVelocity(toScalar(60), toScalar(0));
-    colSystem->addEntity(platform);
 
-    // Frame 1: Land
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should land");
 
-    // Verify floor velocity was stored
-    TEST_ASSERT_TRUE_MESSAGE(player->getFloorVelocity().x > toScalar(0), "Floor velocity should be stored");
 
-    // Frame 2: Jump (clear floor velocity) — as done in PlayerActor on jump
-    player->clearFloorVelocity();
-
-    // After clear, floor velocity should be zero
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, static_cast<float>(player->getFloorVelocity().x));
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, static_cast<float>(player->getFloorVelocity().y));
-
-    // floorBody is private, so we verify behavior indirectly: next frame should NOT inherit
-    // Move platform up into player's path to verify no inheritance
-    // Player moves right 5 units with no inheritance (cleared)
-    player->moveAndSlide(Vector2(toScalar(5), toScalar(0)));
-
-    // Player should have moved exactly 5 units right (no extra inheritance from platform)
-    TEST_ASSERT_FLOAT_WITHIN(0.2f, 5.0f, static_cast<float>(player->position.x));
-}
-
-void test_get_floor_velocity_accessor(void) {
-    // Test that getFloorVelocity() returns the stored platform velocity
-    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
-    platform->setCollisionLayer(1);
-    platform->setCollisionMask(1);
-    platform->setVelocity(toScalar(100), toScalar(50));
-    colSystem->addEntity(platform);
-
-    // Land
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
-
-    // After landing, floorVelocity should match platform velocity
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 100.0f, static_cast<float>(player->getFloorVelocity().x));
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 50.0f, static_cast<float>(player->getFloorVelocity().y));
-
-    // After clearing, should be zero
-    player->clearFloorVelocity();
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 0.0f, static_cast<float>(player->getFloorVelocity().x));
-}
 
 int main(int argc, char **argv) {
     (void)argc;
@@ -1013,21 +934,20 @@ int main(int argc, char **argv) {
     RUN_TEST(test_snap_degraded_below_MIN_SNAP);
     RUN_TEST(test_no_snap_on_jump_launch);
 
-    // Phase 4: KINEMATIC floor velocity inheritance tests
-    RUN_TEST(test_kinematic_floor_velocity_inheritance);
+    // Phase 2: Snap + velocity combined and jump re-contact
+    RUN_TEST(test_snap_plus_velocity_movement);
+    RUN_TEST(test_snap_jump_recontact);
+
+    // Phase 4: KINEMATIC floor state tests
     RUN_TEST(test_static_floor_no_inheritance);
     RUN_TEST(test_kinematic_floor_out_floor_body_static);
     RUN_TEST(test_kinematic_floor_out_floor_body_kinematic);
     RUN_TEST(test_default_nullptr_parameter_no_crash);
     
-    // Phase 4 (V2): Godot-inspired moving platform riding tests
-    RUN_TEST(test_pre_slide_inheritance_multi_frame);
-    RUN_TEST(test_axis_aligned_inheritance_horizontal);
-    RUN_TEST(test_floor_lost_persistence);
+    // Phase 4 (V2): Raw contact + platform riding tests
+    RUN_TEST(test_is_on_floor_raw_contact);
     RUN_TEST(test_depenetration_post_slide);
     RUN_TEST(test_safe_margin_expansion);
-    RUN_TEST(test_jump_clears_floor_velocity);
-    RUN_TEST(test_get_floor_velocity_accessor);
     
     return UNITY_END();
 }

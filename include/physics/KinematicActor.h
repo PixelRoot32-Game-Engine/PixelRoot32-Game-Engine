@@ -84,12 +84,12 @@ public:
     inline bool is_on_ceiling() const { return onCeiling; }
 
     /**
-     * @brief Returns true if the body collided with the floor.
+     * @brief Returns true if the body collided with the floor this frame.
      * 
-     * Includes persistence: returns true for up to MAX_FLOOR_LOST_FRAMES
-     * frames after losing floor contact (walk-off tolerance).
+     * Returns only the current-frame raw contact state, with no
+     * persistence across frames.
      */
-    inline bool is_on_floor() const { return onFloor || (wasOnFloor && floorLostCounter < MAX_FLOOR_LOST_FRAMES); }
+    inline bool is_on_floor() const { return onFloor; }
 
     /**
      * @brief Gets the persisted floor velocity from the last KINEMATIC floor contact.
@@ -102,11 +102,9 @@ public:
      * 
      * Call this on jump to prevent platform velocity inheritance when airborne.
      */
-    void clearFloorVelocity() {
+     void clearFloorVelocity() {
         floorVelocity = pixelroot32::math::Vector2::ZERO();
         floorBody = nullptr;
-        wasOnFloor = false;
-        floorLostCounter = 0;
     }
 
     /**
@@ -127,20 +125,10 @@ private:
     bool onCeiling = false;
     bool onWall = false;
 
-    // Floor state persistence (Godot-inspired moving platform riding)
+    // Floor state storage (v2 readiness: unused in v1, stores for platform velocity injection)
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
     pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
-    bool wasOnFloor = false;                                   ///< Floor state persistence flag.
-    int floorLostCounter = 0;                                  ///< Frames without floor contact.
     pixelroot32::math::Vector2 lastFloorNormal;                ///< Last floor collision normal.
-    static constexpr int MAX_FLOOR_LOST_FRAMES = 2;            ///< Tolerance before losing floor.
-
-    /**
-     * @brief Updates floor persistence state.
-     * @param onFloorThisFrame Whether floor contact was detected this frame.
-     * @param floorBodyResult The floor body if on floor, nullptr otherwise.
-     */
-    void updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult);
 
     /**
      * @brief Internal slide loop. Iterates moveAndCollide to slide along surfaces.

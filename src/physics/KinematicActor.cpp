@@ -254,21 +254,11 @@ void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot
 
     Vector2 currentMotion = velocity;
 
-    // --- Pre-slide: Inherit floor velocity from persistent state ---
-    // Apply only if we had a floor body recently (within tolerance window)
-    // Full velocity is inherited; the slide loop resolves any collision issues
-    if (floorBody && floorLostCounter < MAX_FLOOR_LOST_FRAMES) {
-        currentMotion += floorVelocity * dt;
-    }
-
-    // Local floor body tracker for current frame (member floorBody is for persistence)
+    // Local floor body tracker for current frame
     pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
 
     // Slide along surfaces
     slide(currentMotion, upDirection, localFloorBody);
-
-    // --- Update floor persistence state ---
-    updateFloorState(onFloor, localFloorBody);
 
     // --- Post-slide depenetration: push out from overlapping KINEMATIC bodies ---
     if (floorBody && floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
@@ -372,14 +362,15 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
 
     pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
 
-    // Slide along surfaces
+    // Slide along surfaces (records displacement for return value before snap)
     slide(currentMotion, upDirection, localFloorBody);
+    Vector2 afterSlidePos = position;
 
     // --- Snap post-step: move body toward floor via moveAndCollide ---
     Scalar snapMag = snap.length();
     if (snapMag >= MIN_SNAP) {
-        Scalar snapDot = snap.dot(upDirection);
-        if (snapDot > toScalar(0)) {
+        // Snap must point opposite to upDirection (i.e., toward floor)
+        if (snap.dot(upDirection) < toScalar(0)) {
             Vector2 preSnapPos = position;
             Vector2 snapMotion = -upDirection * snapMag;
             KinematicCollision snapCol;
@@ -406,9 +397,6 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
         }
     }
 
-    // --- Update floor persistence state ---
-    updateFloorState(onFloor, localFloorBody);
-
     // --- Post-slide depenetration: push out from overlapping KINEMATIC bodies ---
     if (floorBody && floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
         pixelroot32::core::Rect myBox = getHitBox();
@@ -434,8 +422,8 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
         }
     }
 
-    // Return actual velocity from displacement
-    Vector2 displacement = position - startPos;
+    // Return velocity from slide displacement only (snap is positional, not velocity-affecting)
+    Vector2 displacement = afterSlidePos - startPos;
     return displacement / dt;
 }
 
@@ -477,23 +465,6 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
     }
 }
 
-void KinematicActor::updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult) {
-    if (onFloorThisFrame) {
-        floorLostCounter = 0;
-        if (floorBodyResult) {
-            floorBody = floorBodyResult;
-            floorVelocity = floorBodyResult->getVelocity();
-        }
-        wasOnFloor = true;
-    } else {
-        floorLostCounter++;
-        if (floorLostCounter >= MAX_FLOOR_LOST_FRAMES) {
-            wasOnFloor = false;
-            floorBody = nullptr;
-            floorVelocity = pixelroot32::math::Vector2::ZERO();
-        }
-    }
-}
 
 void KinematicActor::draw(pixelroot32::graphics::Renderer& renderer) {
     (void)renderer;
