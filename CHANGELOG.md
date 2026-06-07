@@ -30,11 +30,6 @@ All notable changes to this project will be documented in this file.
 
 - **`InputConfig` Fixed-Size Arrays**: Replaced `std::vector` with `std::array<T,N>{}` in `InputConfig` to eliminate heap allocation, prevent memory fragmentation, and ensure deterministic O(1) access times on ESP32. Added `static_assert` compile-time validation and template variadic constructor that auto-deduces input count, removing the need for explicit `count` parameter.
 
-### ⚡ API & Architecture
-
-- **Scene::init() Idempotency**: Added `virtual void resetState() noexcept` hook to `Scene` base class, invoked at the start of every `init()`. Default implementation clears all entities, resets the arena, and (if physics is enabled) clears the collision system. `Scene::init()` is now idempotent — N invocations leave state equivalent to a single fresh init. Derived scenes that own heap-allocated resources (e.g. `unique_ptr<Entity>`) must override `resetState()` to release owned resources before delegating to the base.
-- **CameraDemoScene Migration**: Both `CameraDemoScene` and `CameraDemoScene2` now call `Scene::init()` in their overrides and implement `resetState()` to release owned `unique_ptr` members and zero shadowed `entityCount` before delegating to `Scene::resetState()`. Fixes dangling pointer crashes when scenes are entered more than once.
-
 > **Migration guide**: [MIGRATION_v1.5.0](docs/migration/migration-v1-5-0.md)
 
 ## 1.4.0
