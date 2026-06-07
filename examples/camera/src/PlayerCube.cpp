@@ -48,17 +48,15 @@ void PlayerCube::update(unsigned long deltaTime) {
         setCollisionMask(Layers::GROUND | Layers::PLATFORM);
     }
 
-    // Use moveAndSlideWithSnap: snap engages when not jumping, disabled on jump frames
-    // Return value is the actual post-snap velocity; floor/ceiling collision is
-    // handled inside the method (no need for post-call velocity zeroing)
     pixelroot32::math::Vector2 snap = (jumpThisFrame)
         ? pixelroot32::math::Vector2{}
         : pixelroot32::math::Vector2(pixelroot32::math::toScalar(0), KinematicActor::MIN_SNAP);
-    velocity = moveAndSlideWithSnap(
+    velocity = moveAndSlide(
         velocity,
-        snap,
         pixelroot32::math::toScalar(dt),
-        pixelroot32::math::Vector2(0, -1)
+        pixelroot32::math::Vector2(0, -1),
+        pixelroot32::physics::SnapPolicy::Step,
+        snap
     );
 
     if (worldWidth > 0) {

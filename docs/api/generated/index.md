@@ -151,6 +151,7 @@ Auto-generated API documentation from C++ header files.
 - [RigidActor](./physics/RigidActor.md) — A physics body fully simulated by the engine.
 - [Segment](./physics/Segment.md) — Represents a 2D line segment for collision detection.
 - [SensorActor](./physics/SensorActor.md) — A static body that acts as a trigger: detects overlap but produces no physical response.
+- [SnapPolicy](./physics/SnapPolicy.md) — Controls floor snap behavior after slide resolution.
 - [SpatialGrid](./physics/SpatialGrid.md) — Optimized spatial partitioning with separate static/dynamic layers.
 - [StaticActor](./physics/StaticActor.md) — A physics body that does not move.
 - [TileBehaviorLayer](./physics/TileBehaviorLayer.md) — Runtime representation of exported behavior layer for O(1) flag lookup.

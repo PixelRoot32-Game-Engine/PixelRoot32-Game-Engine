@@ -187,253 +187,186 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     return true;
 }
 
-void KinematicActor::moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor** outFloorBody, pixelroot32::math::Scalar dt) {
+void KinematicActor::resolvePreSlideDepenetration() {
     namespace math = pixelroot32::math;
     using math::Vector2;
     using math::Scalar;
     using math::toScalar;
 
-    // Reset collision flags
+    static pixelroot32::core::Actor* startCollisions[16];
+    int startCollisionCount = 0;
+    if (!collisionSystem || !collisionSystem->checkCollision(this, startCollisions, startCollisionCount, 16)) {
+        return;
+    }
+
+    for (int i = 0; i < startCollisionCount; ++i) {
+        auto* other = startCollisions[i];
+        if (!other->isPhysicsBody()) continue;
+
+        auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
+        if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID || physOther->isSensor()) {
+            continue;
+        }
+
+        if (physOther->isOneWay()) {
+            pixelroot32::core::Rect otherBox = physOther->getHitBox();
+            Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
+            Scalar platformTop = otherBox.position.y;
+            if (previousBottom > platformTop + CollisionSystem::SLOP) {
+                continue;
+            }
+        }
+
+        pixelroot32::core::Rect myBox = getHitBox();
+        pixelroot32::core::Rect otherBox = physOther->getHitBox();
+        if (!myBox.intersects(otherBox)) continue;
+
+        Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
+                                    otherBox.position.x + toScalar(otherBox.width)) -
+                          math::max(myBox.position.x, otherBox.position.x);
+        Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
+                                    otherBox.position.y + toScalar(otherBox.height)) -
+                          math::max(myBox.position.y, otherBox.position.y);
+
+        Scalar depenClamp = toScalar(4.0f);
+
+        if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
+            Scalar correction = math::min(overlapX, depenClamp);
+            if (position.x + getHitboxOffset().x + toScalar(myBox.width)/2.0f < otherBox.position.x + toScalar(otherBox.width)/2.0f) {
+                position.x -= correction;
+            } else {
+                position.x += correction;
+            }
+        } else if (overlapY > CollisionSystem::SLOP) {
+            Scalar correction = math::min(overlapY, depenClamp);
+            if (position.y + getHitboxOffset().y + toScalar(myBox.height)/2.0f < otherBox.position.y + toScalar(otherBox.height)/2.0f) {
+                position.y -= correction;
+            } else {
+                position.y += correction;
+            }
+        }
+    }
+}
+
+void KinematicActor::resolvePostSlideKinematicDepenetration() {
+    namespace math = pixelroot32::math;
+    using math::Scalar;
+    using math::toScalar;
+
+    if (!floorBody || floorBody->getBodyType() != pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        return;
+    }
+
+    pixelroot32::core::Rect myBox = getHitBox();
+    pixelroot32::core::Rect floorBox = floorBody->getHitBox();
+    if (!myBox.intersects(floorBox)) return;
+
+    Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
+                                floorBox.position.x + toScalar(floorBox.width)) -
+                      math::max(myBox.position.x, floorBox.position.x);
+    Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
+                                floorBox.position.y + toScalar(floorBox.height)) -
+                      math::max(myBox.position.y, floorBox.position.y);
+    Scalar depenClamp = toScalar(2.0f);
+
+    if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
+        Scalar correction = math::min(overlapX, depenClamp);
+        if (position.x < floorBody->position.x) position.x -= correction;
+        else position.x += correction;
+    } else if (overlapY > CollisionSystem::SLOP) {
+        Scalar correction = math::min(overlapY, depenClamp);
+        if (position.y < floorBody->position.y) position.y -= correction;
+        else position.y += correction;
+    }
+}
+
+void KinematicActor::applySnapStep(pixelroot32::math::Vector2 snapVector, pixelroot32::math::Vector2 upDirection,
+                                   pixelroot32::core::PhysicsActor*& localFloorBody) {
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+    using math::toScalar;
+
+    if (!wasSnapFloor) return;
+
+    Scalar snapMag = snapVector.length();
+    if (snapMag < MIN_SNAP) return;
+
+    if (snapVector.dot(upDirection) >= toScalar(0)) return;
+
+    Vector2 preSnapPos = position;
+    Vector2 snapMotion = -upDirection * snapMag;
+    KinematicCollision snapCol;
+    bool hit = moveAndCollide(snapMotion, &snapCol);
+    Scalar floorThreshold = toScalar(0.70710678f);
+
+    if (hit) {
+        Scalar dot = snapCol.normal.dot(upDirection);
+        if (dot > floorThreshold) {
+            onFloor = true;
+            if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
+                auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
+                if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                    localFloorBody = phys;
+                    lastFloorNormal = snapCol.normal;
+                }
+            }
+        } else {
+            position = preSnapPos;
+        }
+    } else {
+        position = preSnapPos;
+    }
+}
+
+pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
+    pixelroot32::math::Vector2 velocity,
+    pixelroot32::math::Scalar dt,
+    pixelroot32::math::Vector2 upDirection,
+    SnapPolicy snapPolicy,
+    pixelroot32::math::Vector2 snapVector,
+    pixelroot32::core::PhysicsActor** outFloorBody) {
+
+    namespace math = pixelroot32::math;
+    using math::Vector2;
+    using math::Scalar;
+
     onFloor = false;
     onCeiling = false;
     onWall = false;
 
-    // --- Pre-slide depenetration: resolve overlaps against solid static/kinematic bodies first ---
-    static pixelroot32::core::Actor* startCollisions[16];
-    int startCollisionCount = 0;
-    if (collisionSystem && collisionSystem->checkCollision(this, startCollisions, startCollisionCount, 16)) {
-        for (int i = 0; i < startCollisionCount; ++i) {
-            auto* other = startCollisions[i];
-            if (other->isPhysicsBody()) {
-                auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
-                if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID || physOther->isSensor()) {
-                    continue;
-                }
-                
-                // One-way platform filter: only depenetrate if we are coming from above
-                if (physOther->isOneWay()) {
-                    pixelroot32::core::Rect otherBox = physOther->getHitBox();
-                    Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
-                    Scalar platformTop = otherBox.position.y;
-                    if (previousBottom > platformTop + CollisionSystem::SLOP) {
-                        continue;
-                    }
-                }
+    resolvePreSlideDepenetration();
 
-                pixelroot32::core::Rect myBox = getHitBox();
-                pixelroot32::core::Rect otherBox = physOther->getHitBox();
-                if (myBox.intersects(otherBox)) {
-                    Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
-                                                otherBox.position.x + toScalar(otherBox.width)) -
-                                      math::max(myBox.position.x, otherBox.position.x);
-                    Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
-                                                otherBox.position.y + toScalar(otherBox.height)) -
-                                      math::max(myBox.position.y, otherBox.position.y);
-                    
-                    Scalar depenClamp = toScalar(4.0f);
-                    
-                    if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
-                        Scalar correction = math::min(overlapX, depenClamp);
-                        if (position.x + getHitboxOffset().x + toScalar(myBox.width)/2.0f < otherBox.position.x + toScalar(otherBox.width)/2.0f) {
-                            position.x -= correction;
-                        } else {
-                            position.x += correction;
-                        }
-                    } else if (overlapY > CollisionSystem::SLOP) {
-                        Scalar correction = math::min(overlapY, depenClamp);
-                        if (position.y + getHitboxOffset().y + toScalar(myBox.height)/2.0f < otherBox.position.y + toScalar(otherBox.height)/2.0f) {
-                            position.y -= correction;
-                        } else {
-                            position.y += correction;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    Vector2 startPos = position;
+    Vector2 currentMotion = velocity * dt;
 
-    Vector2 currentMotion = velocity;
-
-    // Local floor body tracker for current frame
     pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
-
-    // Slide along surfaces
     slide(currentMotion, upDirection, localFloorBody);
+    Vector2 afterSlidePos = position;
 
-    // --- Post-slide depenetration: push out from overlapping KINEMATIC bodies ---
-    if (floorBody && floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-        pixelroot32::core::Rect myBox = getHitBox();
-        pixelroot32::core::Rect floorBox = floorBody->getHitBox();
-        if (myBox.intersects(floorBox)) {
-            Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
-                                        floorBox.position.x + toScalar(floorBox.width)) -
-                              math::max(myBox.position.x, floorBox.position.x);
-            Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
-                                        floorBox.position.y + toScalar(floorBox.height)) -
-                              math::max(myBox.position.y, floorBox.position.y);
-            Scalar depenClamp = toScalar(2.0f);
-            // Depenetrate along the axis with smaller overlap
-            if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
-                Scalar correction = math::min(overlapX, depenClamp);
-                if (position.x < floorBody->position.x) position.x -= correction;
-                else position.x += correction;
-            } else if (overlapY > CollisionSystem::SLOP) {
-                Scalar correction = math::min(overlapY, depenClamp);
-                if (position.y < floorBody->position.y) position.y -= correction;
-                else position.y += correction;
-            }
+    if (snapPolicy == SnapPolicy::Step) {
+        applySnapStep(snapVector, upDirection, localFloorBody);
+    } else if (snapPolicy == SnapPolicy::Continuous) {
+#if PIXELROOT32_DEBUG_MODE
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            assert(false && "SnapPolicy::Continuous not implemented");
         }
+#endif
     }
 
-    // Write the floor body pointer if caller requested it
+    resolvePostSlideKinematicDepenetration();
+
     if (outFloorBody) {
         *outFloorBody = floorBody;
     }
 
-    // Persist floor state for the next frame's snap guard (mirrors moveAndSlideWithSnap)
-    wasSnapFloor = onFloor;
-}
-
-pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection) {
-    namespace math = pixelroot32::math;
-    using math::Vector2;
-    using math::Scalar;
-    using math::toScalar;
-
-    // Reset collision flags
-    onFloor = false;
-    onCeiling = false;
-    onWall = false;
-
-    // --- Pre-slide depenetration: resolve overlaps against solid static/kinematic bodies first ---
-    static pixelroot32::core::Actor* startCollisions[16];
-    int startCollisionCount = 0;
-    if (collisionSystem && collisionSystem->checkCollision(this, startCollisions, startCollisionCount, 16)) {
-        for (int i = 0; i < startCollisionCount; ++i) {
-            auto* other = startCollisions[i];
-            if (other->isPhysicsBody()) {
-                auto* physOther = static_cast<pixelroot32::core::PhysicsActor*>(other);
-                if (physOther->getBodyType() == pixelroot32::core::PhysicsBodyType::RIGID || physOther->isSensor()) {
-                    continue;
-                }
-
-                // One-way platform filter: only depenetrate if we are coming from above
-                if (physOther->isOneWay()) {
-                    pixelroot32::core::Rect otherBox = physOther->getHitBox();
-                    Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
-                    Scalar platformTop = otherBox.position.y;
-                    if (previousBottom > platformTop + CollisionSystem::SLOP) {
-                        continue;
-                    }
-                }
-
-                pixelroot32::core::Rect myBox = getHitBox();
-                pixelroot32::core::Rect otherBox = physOther->getHitBox();
-                if (myBox.intersects(otherBox)) {
-                    Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
-                                                otherBox.position.x + toScalar(otherBox.width)) -
-                                      math::max(myBox.position.x, otherBox.position.x);
-                    Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
-                                                otherBox.position.y + toScalar(otherBox.height)) -
-                                      math::max(myBox.position.y, otherBox.position.y);
-
-                    Scalar depenClamp = toScalar(4.0f);
-
-                    if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
-                        Scalar correction = math::min(overlapX, depenClamp);
-                        if (position.x + getHitboxOffset().x + toScalar(myBox.width)/2.0f < otherBox.position.x + toScalar(otherBox.width)/2.0f) {
-                            position.x -= correction;
-                        } else {
-                            position.x += correction;
-                        }
-                    } else if (overlapY > CollisionSystem::SLOP) {
-                        Scalar correction = math::min(overlapY, depenClamp);
-                        if (position.y + getHitboxOffset().y + toScalar(myBox.height)/2.0f < otherBox.position.y + toScalar(otherBox.height)/2.0f) {
-                            position.y -= correction;
-                        } else {
-                            position.y += correction;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Vector2 startPos = position;
-    Vector2 currentMotion = velocity * dt;
-    Scalar floorThreshold = toScalar(0.70710678f);
-
-    pixelroot32::core::PhysicsActor* localFloorBody = nullptr;
-
-    // Slide along surfaces (records displacement for return value before snap)
-    slide(currentMotion, upDirection, localFloorBody);
-    Vector2 afterSlidePos = position;
-
-    // --- Snap post-step: move body toward floor via moveAndCollide ---
-    // Guard: only snap if body was on floor last frame. This prevents snap from
-    // re-engaging when the body has left the floor (e.g., after a jump, or when
-    // walking/falling off a ledge).
-    if (wasSnapFloor) {
-        Scalar snapMag = snap.length();
-        if (snapMag >= MIN_SNAP) {
-            // Snap must point opposite to upDirection (i.e., toward floor)
-            if (snap.dot(upDirection) < toScalar(0)) {
-                Vector2 preSnapPos = position;
-                Vector2 snapMotion = -upDirection * snapMag;
-                KinematicCollision snapCol;
-                bool hit = moveAndCollide(snapMotion, &snapCol);
-                if (hit) {
-                    Scalar dot = snapCol.normal.dot(upDirection);
-                    if (dot > floorThreshold) {
-                        onFloor = true;
-                        if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
-                            auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
-                            if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                                localFloorBody = phys;
-                                lastFloorNormal = snapCol.normal;
-                            }
-                        }
-                    } else {
-                        // Hit something but not a floor — restore pre-snap position
-                        position = preSnapPos;
-                    }
-                } else {
-                    // No hit — snap misses, restore pre-snap position
-                    position = preSnapPos;
-                }
-            }
-        }
-    } // end wasSnapFloor guard
-
-    // --- Post-slide depenetration: push out from overlapping KINEMATIC bodies ---
-    if (floorBody && floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-        pixelroot32::core::Rect myBox = getHitBox();
-        pixelroot32::core::Rect floorBox = floorBody->getHitBox();
-        if (myBox.intersects(floorBox)) {
-            Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
-                                        floorBox.position.x + toScalar(floorBox.width)) -
-                              math::max(myBox.position.x, floorBox.position.x);
-            Scalar overlapY = math::min(myBox.position.y + toScalar(myBox.height),
-                                        floorBox.position.y + toScalar(floorBox.height)) -
-                              math::max(myBox.position.y, floorBox.position.y);
-            Scalar depenClamp = toScalar(2.0f);
-            // Depenetrate along the axis with smaller overlap
-            if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
-                Scalar correction = math::min(overlapX, depenClamp);
-                if (position.x < floorBody->position.x) position.x -= correction;
-                else position.x += correction;
-            } else if (overlapY > CollisionSystem::SLOP) {
-                Scalar correction = math::min(overlapY, depenClamp);
-                if (position.y < floorBody->position.y) position.y -= correction;
-                else position.y += correction;
-            }
-        }
-    }
-
-    // Persist floor state for the next frame's snap guard
     wasSnapFloor = onFloor;
 
-    // Return velocity from slide displacement only (snap is positional, not velocity-affecting)
+    if (dt == Scalar(0)) {
+        return Vector2::ZERO();
+    }
     Vector2 displacement = afterSlidePos - startPos;
     return displacement / dt;
 }
@@ -453,7 +386,6 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
 
             if (dot > floorThreshold) {
                 onFloor = true;
-                // Track the floor body if it is KINEMATIC (for velocity inheritance)
                 if (col.collider && col.collider->isPhysicsBody()) {
                     auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
                     if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {

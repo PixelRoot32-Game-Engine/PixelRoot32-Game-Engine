@@ -242,11 +242,9 @@ void PlayerActor::update(unsigned long deltaTime) {
         ? math::Vector2{}
         : math::Vector2(math::toScalar(0), KinematicActor::MIN_SNAP);
 
-    // Execute Move and Slide against the physics system
-    // moveAndSlideWithSnap handles floor/ceiling collision in its return value
-    velocity = moveAndSlideWithSnap(velocity, snap, dt, math::Vector2(0, -1));
+    velocity = moveAndSlide(velocity, dt, math::Vector2(0, -1), pixelroot32::physics::SnapPolicy::Step, snap);
 
-    // Keep wall-stop zeroing — moveAndSlideWithSnap doesn't handle wall velocity
+    // Keep wall-stop zeroing — moveAndSlide doesn't zero wall velocity in return
     if (is_on_wall()) {
         velocity.x = math::toScalar(0);
     }

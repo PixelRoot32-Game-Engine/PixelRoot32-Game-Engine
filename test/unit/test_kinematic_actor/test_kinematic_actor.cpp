@@ -15,6 +15,12 @@ StaticActor* wall = nullptr;
 SensorActor* sensor = nullptr;
 KinematicActor* platform = nullptr;
 
+static constexpr Scalar kFixedDt = CollisionSystem::FIXED_DT;
+
+static Vector2 dispVel(Scalar dx, Scalar dy) {
+    return Vector2(dx, dy) / kFixedDt;
+}
+
 void setUp(void) {
     test_setup();
     colSystem = new CollisionSystem();
@@ -50,7 +56,7 @@ void test_is_on_floor() {
     // Move down into the floor
     // moveAndSlide handles multiple iterations. 
     // We move 15 units down. Should hit floor at 10 units travel.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_ceiling(), "Player should NOT be on ceiling");
@@ -69,7 +75,7 @@ void test_is_on_ceiling() {
     colSystem->addEntity(wall);
 
     // Move up into the ceiling
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(-15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(-15)), kFixedDt);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_ceiling(), "Player should be on ceiling");
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Player should NOT be on floor");
@@ -84,7 +90,7 @@ void test_is_on_wall() {
     colSystem->addEntity(wall);
 
     // Move right into the wall
-    player->moveAndSlide(Vector2(toScalar(15), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(15), toScalar(0)), kFixedDt);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_wall(), "Player should be on wall");
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Player should NOT be on floor");
@@ -99,11 +105,11 @@ void test_flags_reset() {
     colSystem->addEntity(wall);
 
     // 1. Hit floor
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE(player->is_on_floor());
 
     // 2. Move up (away from floor) — immediate floor loss (no persistence)
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(-5)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(-5)), kFixedDt);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Floor flag should be lost immediately without persistence");
     TEST_ASSERT_FALSE(player->is_on_ceiling());
     TEST_ASSERT_FALSE(player->is_on_wall());
@@ -175,7 +181,7 @@ void test_move_and_slide_45_degree_slope_detection() {
     colSystem->addEntity(slope);
     
     // Move down and right to hit the slope at 45 degrees
-    player->moveAndSlide(Vector2(toScalar(10), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(10), toScalar(15)), kFixedDt);
     
     // Should detect collision - either floor or wall depending on exact angle
     TEST_ASSERT_TRUE(player->is_on_floor() || player->is_on_wall());
@@ -192,7 +198,7 @@ void test_move_and_slide_max_slides_exhausted() {
     }
     
     // Complex motion that will require multiple slide iterations
-    player->moveAndSlide(Vector2(toScalar(30), toScalar(5)));
+    player->moveAndSlide(dispVel(toScalar(30), toScalar(5)), kFixedDt);
     
     // Should complete without crash - motion may be partially completed
     // Verify position is valid (not NaN or infinity) and within reasonable bounds
@@ -208,14 +214,14 @@ void test_move_and_slide_zero_motion() {
     wall->setCollisionMask(1);
     colSystem->addEntity(wall);
     
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE(player->is_on_floor());
     
     // Store floor position
     Scalar floorX = player->position.x;
     
     // Now move with zero motion - flags should be reset
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(0)), kFixedDt);
     
     // Position should remain valid and unchanged
     TEST_ASSERT_TRUE(player->position.x == player->position.x); // NaN check
@@ -326,7 +332,7 @@ void test_kinematic_actor_move_and_slide_max_slides(void) {
     
     // Large velocity that would need multiple slides - maxSlides is 4
     Scalar startX = player->position.x;
-    player->moveAndSlide(Vector2(toScalar(100), toScalar(50)));
+    player->moveAndSlide(dispVel(toScalar(100), toScalar(50)), kFixedDt);
     
     // Cleanup - delete walls AFTER moveAndSlide completes
     for (int i = 0; i < 8; i++) {
@@ -346,7 +352,7 @@ void test_kinematic_actor_move_and_slide_with_remainder(void) {
     colSystem->addEntity(wall);
     
     // Velocity larger than needed to hit wall
-    player->moveAndSlide(Vector2(toScalar(50), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(50), toScalar(0)), kFixedDt);
     
     // Should handle remainder - verify position is valid
     TEST_ASSERT_TRUE(player->position.x == player->position.x); // NaN check
@@ -360,7 +366,7 @@ void test_kinematic_actor_move_and_slide_diagonal_floor(void) {
     colSystem->addEntity(wall);
     
     // Diagonal movement down-right
-    player->moveAndSlide(Vector2(toScalar(10), toScalar(30)));
+    player->moveAndSlide(dispVel(toScalar(10), toScalar(30)), kFixedDt);
     
     // Should detect floor collision
     TEST_ASSERT_TRUE(player->is_on_floor() || player->is_on_wall());
@@ -374,7 +380,7 @@ void test_kinematic_actor_move_and_slide_diagonal_ceiling(void) {
     colSystem->addEntity(wall);
     
     // Diagonal movement up-right
-    player->moveAndSlide(Vector2(toScalar(10), toScalar(-30)));
+    player->moveAndSlide(dispVel(toScalar(10), toScalar(-30)), kFixedDt);
     
     // Should detect ceiling collision
     TEST_ASSERT_TRUE(player->is_on_ceiling() || player->is_on_wall());
@@ -471,7 +477,7 @@ void test_kinematic_actor_move_and_slide_many_iterations(void) {
     }
     
     // Large velocity that will hit multiple walls - maxSlides (default 4) should cap iterations
-    player->moveAndSlide(Vector2(toScalar(100), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(100), toScalar(0)), kFixedDt);
     
     // Should complete without hanging - maxSlides caps the loop
     // Verify position is valid
@@ -497,7 +503,7 @@ void test_kinematic_actor_edge_sliding(void) {
     colSystem->addEntity(floor);
     
     // Move diagonal - test slide path execution
-    player->moveAndSlide(Vector2(toScalar(30), toScalar(30)));
+    player->moveAndSlide(dispVel(toScalar(30), toScalar(30)), kFixedDt);
     
     // Verify position is valid after diagonal slide
     TEST_ASSERT_TRUE(player->position.x == player->position.x); // NaN check
@@ -521,7 +527,7 @@ void test_kinematic_actor_diagonal_both_axes_blocked(void) {
     colSystem->addEntity(topWall);
     
     // Diagonal up-right motion - should hit right wall first (smaller overlap usually)
-    player->moveAndSlide(Vector2(toScalar(25), toScalar(-25)));
+    player->moveAndSlide(dispVel(toScalar(25), toScalar(-25)), kFixedDt);
     
     // Should detect wall collision (from right wall)
     TEST_ASSERT_TRUE(player->is_on_wall() || player->is_on_ceiling());
@@ -556,7 +562,7 @@ void test_kinematic_actor_floor_exact_threshold(void) {
     
     // Pure vertical down - normal is (0, -1), upDirection default is (0, -1)
     // dot = 1.0 > 0.707, should be floor
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     
     TEST_ASSERT_TRUE(player->is_on_floor());
 }
@@ -571,7 +577,7 @@ void test_kinematic_actor_wall_horizontal_normal(void) {
     
     // Pure horizontal right - normal is (1, 0), upDirection is (0, -1)
     // dot = 0, abs(dot) < 0.707, should be wall
-    player->moveAndSlide(Vector2(toScalar(15), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(15), toScalar(0)), kFixedDt);
     
     TEST_ASSERT_TRUE(player->is_on_wall());
 }
@@ -586,7 +592,7 @@ void test_kinematic_actor_ceiling_exact_threshold(void) {
     
     // Pure vertical up - normal is (0, 1), upDirection is (0, -1)
     // dot = -1.0 < -0.707, should be ceiling
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(-15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(-15)), kFixedDt);
     
     TEST_ASSERT_TRUE(player->is_on_ceiling());
 }
@@ -600,7 +606,7 @@ void test_kinematic_actor_slide_vector_calculation(void) {
     colSystem->addEntity(wall);
     
     // Large velocity that gets partially blocked
-    player->moveAndSlide(Vector2(toScalar(100), toScalar(10)));
+    player->moveAndSlide(dispVel(toScalar(100), toScalar(10)), kFixedDt);
     
     // Should complete - verify position is valid (NaN check)
     TEST_ASSERT_TRUE(player->position.x == player->position.x); // NaN check
@@ -625,8 +631,8 @@ void test_snap_api_compile_4arg(void) {
     Vector2 result;
 
     // 4-arg call with explicit params
-    result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(4)),
-                                          CollisionSystem::FIXED_DT, Vector2(0, -1));
+    result = player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                                  SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
 
     // Should return valid values (no NaN, no crash)
     TEST_ASSERT_TRUE_MESSAGE(result.x == result.x, "4-arg return value must be valid (NaN check)");
@@ -642,15 +648,15 @@ void test_snap_engages_3px_above_floor(void) {
     colSystem->addEntity(wall);
 
     // F0: Establish wasSnapFloor=true. Downward movement hits floor via slide.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(0, -1));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1));
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F0: should be on floor after establishing contact");
 
     // Move body 3px above floor to test snap engagement
     player->position.y = toScalar(0);
 
     // F1: Zero velocity + snap. wasSnapFloor=true → snap engages.
-    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(4)),
-                                                   CollisionSystem::FIXED_DT, Vector2(0, -1));
+    Vector2 result = player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                                          SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
 
     // Player bottom should be at floor top: y + 10 = 13 → y = 3
     TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, 3.0f, static_cast<float>(player->position.y),
@@ -667,8 +673,8 @@ void test_snap_degraded_below_MIN_SNAP(void) {
     colSystem->addEntity(wall);
 
     // Player at (0,0). Snap=(0,2) which is below MIN_SNAP=4.0
-    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(2)),
-                                                   CollisionSystem::FIXED_DT, Vector2(0, -1));
+    Vector2 result = player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                                          SnapPolicy::Step, Vector2(toScalar(0), toScalar(2)));
 
     // Snap should NOT engage — player stays at y=0
     TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, 0.0f, static_cast<float>(player->position.y),
@@ -686,8 +692,8 @@ void test_no_snap_on_jump_launch(void) {
 
     // Jump up with zero snap — zero vector disables snap regardless of current state
     // Old pattern: displacement=(0,-10) → new pattern: velocity = -10 / FIXED_DT = -600 units/s
-    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-600)), Vector2(toScalar(0), toScalar(0)),
-                                                   CollisionSystem::FIXED_DT, Vector2(0, -1));
+    Vector2 result = player->moveAndSlide(Vector2(toScalar(0), toScalar(-600)), kFixedDt, Vector2(0, -1),
+                                          SnapPolicy::Step, Vector2(toScalar(0), toScalar(0)));
 
     // Body should move up (away from floor) with zero snap
     TEST_ASSERT_TRUE_MESSAGE(player->position.y < toScalar(0), "Jump should move body upward");
@@ -713,16 +719,17 @@ void test_snap_plus_velocity_movement(void) {
     colSystem->addEntity(wall);
 
     // F0: Establish wasSnapFloor=true. Downward movement hits floor via slide.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(toScalar(0), toScalar(-1)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(toScalar(0), toScalar(-1)));
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F0: should be on floor after establishing contact");
 
     // F1: Horizontal velocity + snap. wasSnapFloor=true → snap fires.
     // Internal: velocity * dt = 180 * 1/60 = 3 → same displacement as old test.
-    Vector2 result = player->moveAndSlideWithSnap(
+    Vector2 result = player->moveAndSlide(
         Vector2(toScalar(180), toScalar(0)),
-        Vector2(toScalar(0), toScalar(4)),
-        CollisionSystem::FIXED_DT,
-        Vector2(toScalar(0), toScalar(-1))
+        kFixedDt,
+        Vector2(toScalar(0), toScalar(-1)),
+        SnapPolicy::Step,
+        Vector2(toScalar(0), toScalar(4))
     );
 
     // Snap engaged floor contact
@@ -751,11 +758,12 @@ void test_snap_on_valid_slope(void) {
     // Binary search finds safe position at ~(3.5, 2.0) where bottom = floor top.
     // snap=(0,4): from y=2 could push further but body is already on floor → normal=(0,-1).
     // Old pattern: displacement=(5,5) → velocity = 5 / FIXED_DT = 300 units/s
-    player->moveAndSlideWithSnap(
+    player->moveAndSlide(
         Vector2(toScalar(300), toScalar(300)),
-        Vector2(toScalar(0), toScalar(4)),
-        CollisionSystem::FIXED_DT,
-        Vector2(toScalar(0), toScalar(-1))
+        kFixedDt,
+        Vector2(toScalar(0), toScalar(-1)),
+        SnapPolicy::Step,
+        Vector2(toScalar(0), toScalar(4))
     );
 
     // Player bottom at floor top: y + 10 = 12 → y = 2
@@ -778,11 +786,12 @@ void test_snap_rejected_on_steep_slope(void) {
     // Player at (0,0) 10x10, wall at x=15 (5px gap to player right edge).
     // velocity=(0,0), snap=(0,4). Snap pushes down but no floor within 4px → miss.
     // onFloor stays false, body position unchanged.
-    player->moveAndSlideWithSnap(
+    player->moveAndSlide(
         Vector2(toScalar(0), toScalar(0)),
-        Vector2(toScalar(0), toScalar(4)),
-        CollisionSystem::FIXED_DT,
-        Vector2(toScalar(0), toScalar(-1))
+        kFixedDt,
+        Vector2(toScalar(0), toScalar(-1)),
+        SnapPolicy::Step,
+        Vector2(toScalar(0), toScalar(4))
     );
 
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "TS-008: snap rejected on steep slope (no floor contact)");
@@ -803,21 +812,21 @@ void test_snap_jump_recontact(void) {
     Vector2 up(toScalar(0), toScalar(-1));
 
     // F0: Establish wasSnapFloor=true via moveAndSlide (now symmetric).
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), up);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     // Reset position to y=0 (wasSnapFloor persists as member variable)
     player->position.y = toScalar(0);
 
     // Frame 1: On floor (snap engages) — wasSnapFloor=true from F0
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snap, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snap);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F1: should be on floor via snap");
 
     // Frame 2: Jump up — old displacement=(0,-5) → velocity=(0,-300)
     // player.y starts at 2, moves up to -3, snap tries y=1 → no floor → restored to y=-3
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-300)), snap, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(-300)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snap);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "TS-006 F2: should NOT be on floor after jump");
 
     // Frame 3: Fall back down — old displacement=(0,15) → velocity=(0,900)
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(900)), snap, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(900)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snap);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "TS-006 F3: should re-contact floor via slide");
 }
 
@@ -830,7 +839,7 @@ void test_static_floor_no_inheritance(void) {
 
     // Player at (0,0) 10x10. Move down 15 → should land on static floor
     // No inheritance expected → player y = 10 (bottom at platform top)
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor after landing on STATIC floor");
     // Player bottom should be at floor top: y + 10 = 20 → y = 10
@@ -845,7 +854,7 @@ void test_kinematic_floor_out_floor_body_static(void) {
     colSystem->addEntity(wall);
 
     PhysicsActor* floorPtr = reinterpret_cast<PhysicsActor*>(static_cast<uintptr_t>(0xDEAD));
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(0, -1), &floorPtr);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1), SnapPolicy::None, {}, &floorPtr);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
     TEST_ASSERT_NULL_MESSAGE(floorPtr, "STATIC floor should leave outFloorBody as nullptr");
@@ -860,21 +869,21 @@ void test_kinematic_floor_out_floor_body_kinematic(void) {
     colSystem->addEntity(platform);
 
     PhysicsActor* floorPtr = nullptr;
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(0, -1), &floorPtr);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1), SnapPolicy::None, {}, &floorPtr);
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor");
     TEST_ASSERT_NULL_MESSAGE(floorPtr, "v1: outFloorBody always returns nullptr (floorBody dead in v1)");
 }
 
 void test_default_nullptr_parameter_no_crash(void) {
-    // Call with default nullptr (2-arg call) → no crash, unchanged behavior
+    // Call with default snap/outFloorBody → no crash, unchanged behavior
     wall = new StaticActor(toScalar(-50), toScalar(20), 100, 10);
     wall->setCollisionLayer(1);
     wall->setCollisionMask(1);
     colSystem->addEntity(wall);
 
-    // 2-arg call (inherits default nullptr for outFloorBody)
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(0, -1));
+    // Default snap/outFloorBody parameters
+    (void)player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1));
 
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should be on floor with 2-arg call");
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_ceiling(), "Player should NOT be on ceiling");
@@ -903,24 +912,24 @@ void test_was_snap_floor_prevents_snap_on_first_air_frame(void) {
     Vector2 snapBig(toScalar(0), toScalar(6));
 
     // F0: Establish wasSnapFloor=true. Body falls into floor via slide.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), up);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F0: should be on floor after establishing contact");
     // Reset position so F1 tests snap from origin
     player->position.y = toScalar(0);
 
     // F1: On floor via snap (wasSnapFloor=true from F0).
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snapBig, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snapBig);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F1: should be on floor via snap");
 
     // F2: Jump up — old displacement=(0,-12) → velocity=(0,-720)
     // wasSnapFloor=true, snap fires but misses (gap > 6). onFloor=false.
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-720)), snapBig, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(-720)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snapBig);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F2: should be airborne after jump");
     Scalar afterJumpY = player->position.y;
 
     // F3: Zero velocity + non-zero snap. wasSnapFloor=false → guard prevents snap.
     // Body should NOT move (no slide motion, no snap). Position unchanged.
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), snapBig, CollisionSystem::FIXED_DT, up);
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), CollisionSystem::FIXED_DT, up, SnapPolicy::Step, snapBig);
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F3: should NOT snap (wasSnapFloor guard)");
     TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, static_cast<float>(afterJumpY), static_cast<float>(player->position.y),
         "F3: position must not change — guard prevented snap");
@@ -931,7 +940,7 @@ void test_was_snap_floor_allows_snap_on_floor_frame(void) {
     // to establish wasSnapFloor=true, then verify snap re-engages on the next frame.
     //
     // GIVEN: wasSnapFloor=true (after floor contact in F0).
-    // WHEN: moveAndSlideWithSnap with non-zero snap.
+    // WHEN: moveAndSlide with non-zero snap.
     // THEN: Snap engages, onFloor=true, body snaps to floor surface.
     // Floor top at y=14 (body at y=0, bottom=10, gap=4).
     wall = new StaticActor(toScalar(0), toScalar(14), 100, 10);
@@ -940,16 +949,17 @@ void test_was_snap_floor_allows_snap_on_floor_frame(void) {
     colSystem->addEntity(wall);
 
     // F0: Establish wasSnapFloor=true via moveAndSlide (now sets wasSnapFloor,
-    // symmetric with moveAndSlideWithSnap). Body falls into floor via slide.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), Vector2(toScalar(0), toScalar(-1)));
+    // symmetric with moveAndSlide). Body falls into floor via slide.
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(toScalar(0), toScalar(-1)));
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F0: body should be on floor after landing");
 
     // F1: Zero velocity + snap=(0,6) with wasSnapFloor=true → snap fires, places body on floor
-    player->moveAndSlideWithSnap(
+    player->moveAndSlide(
         Vector2(toScalar(0), toScalar(0)),
-        Vector2(toScalar(0), toScalar(6)),
-        CollisionSystem::FIXED_DT,
-        Vector2(toScalar(0), toScalar(-1))
+        kFixedDt,
+        Vector2(toScalar(0), toScalar(-1)),
+        SnapPolicy::Step,
+        Vector2(toScalar(0), toScalar(6))
     );
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "wasSnapFloor=true should allow snap on floor frame");
     // Body bottom at floor top: y + 10 = 14 → y = 4
@@ -968,12 +978,12 @@ void test_is_on_floor_raw_contact(void) {
     colSystem->addEntity(wall);
 
     // Frame 1: Land on floor
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 1: should be on floor (direct contact)");
 
     // Frame 2: Walk off floor (move right with no floor below)
     player->position.x = toScalar(60);
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(1)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(1)), kFixedDt);
 
     // No persistence: should immediately lose floor
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Frame 2: should NOT be on floor (no persistence)");
@@ -988,7 +998,7 @@ void test_depenetration_post_slide(void) {
     colSystem->addEntity(platform);
 
     // Frame 1: Land on platform
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should land");
 
     // Simulate platform shifting up into the player (e.g. moving wall pushes into player)
@@ -999,7 +1009,7 @@ void test_depenetration_post_slide(void) {
     // Frame 2: Pre-slide adds platform velocity (0,0). Depenetration should push player UP
     // Player center (~15) is above platform center (~17), so player goes UP
     Scalar preY = player->position.y;
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(0)), kFixedDt);
 
     // Player should be pushed out from the overlap (clamped to 2.0 units max)
     // Player is above platform center, pushed upward
@@ -1019,10 +1029,54 @@ void test_safe_margin_expansion(void) {
 
     // With default safeMargin (0.08f), moveAndCollide should still detect this
     // but moveAndSlide uses default 0.08f margin
-    player->moveAndSlide(Vector2(toScalar(5), toScalar(0)));
+    player->moveAndSlide(dispVel(toScalar(5), toScalar(0)), kFixedDt);
 
     // Player should NOT pass through the wall
     TEST_ASSERT_TRUE_MESSAGE(player->position.x < toScalar(11.0f), "Safe margin should prevent passing through near wall");
+}
+
+void test_snap_policy_none_default_no_snap(void) {
+    wall = new StaticActor(toScalar(-50), toScalar(13), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
+    TEST_ASSERT_TRUE(player->is_on_floor());
+    player->position.y = toScalar(0);
+
+    Scalar yBefore = player->position.y;
+    (void)player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, static_cast<float>(yBefore), static_cast<float>(player->position.y));
+}
+
+void test_snap_policy_continuous_no_snap(void) {
+#if PIXELROOT32_DEBUG_MODE
+    TEST_IGNORE_MESSAGE("SnapPolicy::Continuous triggers one-shot debug assert by design");
+#else
+    wall = new StaticActor(toScalar(-50), toScalar(13), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
+    player->position.y = toScalar(0);
+
+    (void)player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                               SnapPolicy::Continuous, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, static_cast<float>(player->position.y));
+#endif
+}
+
+void test_move_and_slide_returns_wall_stopped_velocity(void) {
+    wall = new StaticActor(toScalar(20), toScalar(-50), 10, 100);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    Vector2 result = player->moveAndSlide(dispVel(toScalar(15), toScalar(0)), kFixedDt);
+    TEST_ASSERT_TRUE(player->is_on_wall());
+    TEST_ASSERT_TRUE(result.x < dispVel(toScalar(15), toScalar(0)).x);
 }
 
 // =============================================================================
@@ -1052,20 +1106,20 @@ void test_player_cube_jump_sequence(void) {
 
     // Land on floor
     player->position = Vector2(toScalar(50), toScalar(-10));
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(35)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(35)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Start: body should be on floor after landing");
     Scalar startY = player->position.y;
 
     // Frame 0: Establish wasSnapFloor=true via moveAndSlide (now sets wasSnapFloor).
     // Small downward movement so slide step detects floor contact.
     Vector2 vel(toScalar(0), toScalar(15));
-    player->moveAndSlide(vel, up);
+    player->moveAndSlide(dispVel(vel.x, vel.y), kFixedDt, up);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Frame 0: body on floor after snap setup");
 
     // Frame 1: Jump — direct jump velocity (no gravity during ascent frame,
     // matching PlayerCube simplified jump model)
     vel = Vector2(toScalar(0), toScalar(-jumpVelocity));
-    player->moveAndSlideWithSnap(vel, Vector2{}, dt, up); // snap=0 on jump
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(-jumpVelocity)), dt, up, SnapPolicy::Step, Vector2{});
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Frame 1: body should NOT be on floor during jump ascent");
     TEST_ASSERT_TRUE_MESSAGE(player->position.y < startY, "Frame 1: body should be higher (lower y) after jump");
 
@@ -1074,7 +1128,7 @@ void test_player_cube_jump_sequence(void) {
     // The snap guard prevents re-engagement even if snap magnitude exceeds MIN_SNAP.
     for (int frame = 2; frame <= 4; ++frame) {
         vel.y = toScalar(1.0f); // Small downward per frame
-        player->moveAndSlideWithSnap(vel, Vector2(toScalar(0), toScalar(4)), dt, up);
+        player->moveAndSlide(dispVel(toScalar(0), vel.y), dt, up, SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
         // wasSnapFloor=false → snap skipped → body stays airborne
         TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
             "Frame 2-4: should remain airborne (snap guard)");
@@ -1090,9 +1144,9 @@ void test_snap_edge_detachment(void) {
     //
     // Approach:
     //   1. Land body on platform via slide
-    //   2. Establish wasSnapFloor=true via one moveAndSlideWithSnap frame
+    //   2. Establish wasSnapFloor=true via one moveAndSlide frame
     //   3. Teleport body past the platform edge + below the surface
-    //   4. Call moveAndSlideWithSnap again — guard should skip snap
+    //   4. Call moveAndSlide again — guard should skip snap
     //      because body was not on floor in the slide step
     Vector2 up(toScalar(0), toScalar(-1));
     Scalar dt = toScalar(1.0f / 60.0f);
@@ -1106,12 +1160,12 @@ void test_snap_edge_detachment(void) {
 
     // Step 1: Land on platform
     player->position = Vector2(toScalar(30), toScalar(-10));
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(35)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(35)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Landing: body should be on platform");
 
     // Step 2: Establish wasSnapFloor=true via moveAndSlide (now symmetric).
     // Small downward movement so slide step detects floor contact.
-    player->moveAndSlide(Vector2(toScalar(0), toScalar(15)), up);
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: body on floor after snap setup");
 
     // Step 3: Teleport past platform edge and clearly below it.
@@ -1125,9 +1179,7 @@ void test_snap_edge_detachment(void) {
     // wasSnapFloor=false after this call. Next call: snap skipped.
     for (int frame = 1; frame <= 5; ++frame) {
         vel.y += gravity * dt;
-        player->moveAndSlideWithSnap(
-            vel,
-            Vector2(toScalar(0), toScalar(4)), dt, up);
+        player->moveAndSlide(vel, dt, up, SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
         // Body should NOT be on floor — it's past the platform edge
         TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
             "Body should remain airborne past platform edge");
@@ -1212,6 +1264,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_was_snap_floor_prevents_snap_on_first_air_frame);
     RUN_TEST(test_was_snap_floor_allows_snap_on_floor_frame);
     
+    RUN_TEST(test_snap_policy_none_default_no_snap);
+    RUN_TEST(test_snap_policy_continuous_no_snap);
+    RUN_TEST(test_move_and_slide_returns_wall_stopped_velocity);
+
     // Integration regression tests
     RUN_TEST(test_player_cube_jump_sequence);
     RUN_TEST(test_snap_edge_detachment);

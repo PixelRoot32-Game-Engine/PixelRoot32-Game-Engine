@@ -341,7 +341,7 @@ void PhysicsDemoScene::update(unsigned long deltaTime) {
     if (move.length() > toScalar(0)) {
         move.normalize();
         Scalar dt = toScalar(static_cast<float>(deltaTime) * 0.001f);
-        player->moveAndSlide(move * speed * dt);
+        (void)player->moveAndSlide(move * speed, dt);
     }
 
     Scene::update(deltaTime);

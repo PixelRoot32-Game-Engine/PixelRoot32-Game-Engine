@@ -9,6 +9,16 @@
 namespace pixelroot32::physics {
 
 /**
+ * @enum SnapPolicy
+ * @brief Controls floor snap behavior after slide resolution.
+ *
+ * - None: slide only (default).
+ * - Step: guarded snap post-step when wasSnapFloor was true at entry.
+ * - Continuous: reserved for future continuous floor adhesion; currently no-op.
+ */
+enum class SnapPolicy { None, Step, Continuous };
+
+/**
  * @class KinematicActor
  * @brief A physics body moved via script/manual velocity with collision detection.
  *
@@ -20,6 +30,8 @@ namespace pixelroot32::physics {
  */
 class KinematicActor : public pixelroot32::core::PhysicsActor {
 public:
+    static constexpr pixelroot32::math::Scalar MIN_SNAP = pixelroot32::math::toScalar(4.0f); ///< Minimum snap magnitude for SnapPolicy::Step.
+
     /**
      * @brief Constructs a new KinematicActor.
      * @param x X position.
@@ -51,33 +63,25 @@ public:
                         bool recoveryAsCollision = false);
 
     /**
-     * @brief Moves the body while sliding along surfaces.
-     * @param velocity The velocity vector.
-     * @param upDirection The up vector used to differentiate floor/ceiling (optional).
+     * @brief Moves the body while sliding along surfaces, with optional floor snap.
+     * @param velocity World velocity in units/sec (motion = velocity * dt).
+     * @param dt Delta time in seconds. Required — no default.
+     * @param upDirection Up vector for floor/ceiling/wall classification.
+     * @param snapPolicy Snap behavior after slide (default: None).
+     * @param snapVector Max snap distance toward -upDirection; zero disables snap.
      * @param outFloorBody Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
-     * @param dt Delta time used to calculate the movement (default: FIXED_DT).
+     * @return Resolved velocity after slide (+ snap when Step). Assign to caller velocity.
+     *
+     * @note SnapPolicy::Continuous is reserved; debug builds assert once and behave as None.
+     * @note When jumping, pass snapVector=zero explicitly — snap is not auto-disabled on upward velocity.
      */
-    void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
-
-    /**
-     * @brief Moves the body while sliding along surfaces, then snaps to floor.
-     * @param velocity The velocity vector in units/sec (NOT pre-scaled by dt).
-     * @param snap Snap vector toward floor. Pass zero to disable.
-     * @param dt Delta time. REQUIRED — same dt used by the game loop for
-     *           input scaling consistency. No default.
-     * @param upDirection Up direction for floor detection. Defaults to {0, -1}.
-     * @return The actual velocity after slide and snap processing.
-     *         Assign to your velocity variable to replace post-slide zeroing.
-     * 
-     * Performs standard moveAndSlide along velocity, then pushes the AABB
-     * along -upDirection by |snap| to attach to the floor. Returns the
-     * actual velocity after collisions and snap are resolved.
-     * 
-     * @note When jumping, caller MUST pass a zero snap vector explicitly.
-     *       The engine does NOT auto-disable snap on upward velocity.
-     * @note Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
-     */
-    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1});
+    [[nodiscard]] pixelroot32::math::Vector2 moveAndSlide(
+        pixelroot32::math::Vector2 velocity,
+        pixelroot32::math::Scalar dt,
+        pixelroot32::math::Vector2 upDirection = {0, -1},
+        SnapPolicy snapPolicy = SnapPolicy::None,
+        pixelroot32::math::Vector2 snapVector = {},
+        pixelroot32::core::PhysicsActor** outFloorBody = nullptr);
 
     /**
      * @brief Returns true if the body collided with the ceiling.
@@ -119,32 +123,27 @@ public:
      */
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
-protected:
-    static constexpr pixelroot32::math::Scalar MIN_SNAP = pixelroot32::math::toScalar(4.0f); ///< Minimum snap magnitude for moveAndSlideWithSnap.
-
 private:
     int maxSlides = 4; ///< Maximum number of slide iterations to prevent infinite loops.
     bool onFloor = false;
     bool onCeiling = false;
     bool onWall = false;
 
-    /// @brief Tracks whether the body was on floor at the end of the last moveAndSlide or moveAndSlideWithSnap call.
+    /// @brief Tracks whether the body was on floor at the end of the last moveAndSlide call.
     ///
-    /// Used INTERNALLY by moveAndSlideWithSnap's snap step guard: snap only fires if the body
+    /// Used INTERNALLY by SnapPolicy::Step snap guard: snap only fires if the body
     /// was on floor the previous frame. This prevents snap from re-engaging when the body
     /// has left the floor (e.g., after a jump or walking off a ledge).
-    ///
-    /// Both moveAndSlide and moveAndSlideWithSnap set this flag to the value of onFloor at
-    /// the end of their respective slide steps.
-    ///
-    /// @note This is NOT part of the is_on_floor() API contract. is_on_floor() returns only
-    ///       raw current-frame contact state. wasSnapFloor is purely internal to the snap step.
     bool wasSnapFloor = false;
 
-    // Floor state storage (v2 readiness: unused in v1, stores for platform velocity injection)
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
     pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
     pixelroot32::math::Vector2 lastFloorNormal;                ///< Last floor collision normal.
+
+    void resolvePreSlideDepenetration();
+    void resolvePostSlideKinematicDepenetration();
+    void applySnapStep(pixelroot32::math::Vector2 snapVector, pixelroot32::math::Vector2 upDirection,
+                       pixelroot32::core::PhysicsActor*& localFloorBody);
 
     /**
      * @brief Internal slide loop. Iterates moveAndCollide to slide along surfaces.

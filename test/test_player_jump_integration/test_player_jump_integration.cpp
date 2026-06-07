@@ -4,7 +4,7 @@
  *        using real game-loop dt values (NOT synthetic FIXED_DT).
  *
  * These tests guard against the half-jump and gliding regressions by
- * verifying the full velocity -> moveAndSlideWithSnap pipeline at 30/60/120 FPS.
+ * verifying the full velocity -> moveAndSlide pipeline at 30/60/120 FPS.
  *
  * KS-INTEGRATION-TEST-SUITE
  */
@@ -83,7 +83,7 @@ static void setupOnFloor(Scalar floorTopY, Scalar dt) {
     // Player is 16 tall, so position.y = floorTopY - 16 - 1 = floorTopY - 17
     player->position.y = floorTopY - toScalar(17);
 
-    // Step 1: fall into floor via moveAndSlideWithSnap with sufficient velocity.
+    // Step 1: fall into floor via moveAndSlide with sufficient velocity.
     //         displacement = velocity * dt must exceed the 1-unit gap.
     //         Use 600/s at 120FPS: 600/120 = 5 units > 1. Well above threshold.
     //         At 30FPS: 600/30 = 20 units > 1. Also fine.
@@ -92,17 +92,17 @@ static void setupOnFloor(Scalar floorTopY, Scalar dt) {
     //         But at the end: wasSnapFloor = onFloor = true.
     Vector2 up(0, -1);
     Vector2 snap(toScalar(0), toScalar(MIN_SNAP));
-    player->moveAndSlideWithSnap(
+    (void)player->moveAndSlide(
         Vector2(toScalar(0), toScalar(600)),
-        snap, dt, up
+        dt, up, SnapPolicy::None, snap
     );
 
     // Step 2: establish wasSnapFloor via persistent floor contact.
     //         Small downward velocity + snap.
     //         wasSnapFloor=true from step 1 -> snap fires -> onFloor=true.
-    player->moveAndSlideWithSnap(
+    (void)player->moveAndSlide(
         Vector2(toScalar(0), toScalar(60)),
-        snap, dt, up
+        dt, up, SnapPolicy::Step, snap
     );
 }
 
@@ -117,7 +117,7 @@ static Scalar referenceJumpApex(Scalar v0, Scalar dt) {
     Scalar y = v * dt;  // Frame 0 displacement
     Scalar gDt = toScalar(GRAVITY) * dt;
     // Frames 1+: gravity accumulates on the velocity returned from the
-    //            previous moveAndSlideWithSnap frame (which equals the
+    //            previous moveAndSlide frame (which equals the
     //            input velocity in free space, i.e., no collisions).
     while (v < toScalar(0)) {
         v += gDt;  // gravity applied to prev frame's return velocity
@@ -158,8 +158,8 @@ static bool simulatePlayerCubeFrame(Scalar& vy, bool wantsJump, Scalar dt) {
     Vector2 snap = jumpThisFrame
         ? Vector2{}
         : Vector2(toScalar(0), toScalar(MIN_SNAP));
-    Vector2 result = player->moveAndSlideWithSnap(
-        Vector2(toScalar(0), vy), snap, dt, up
+    Vector2 result = player->moveAndSlide(
+        Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap
     );
     vy = static_cast<float>(result.y);
     return player->is_on_floor();
@@ -184,8 +184,8 @@ static bool simulatePlayerActorFrame(Scalar& vy, bool wantsJump, TestState& stat
     Vector2 snap = (state == TestState::JUMP && jumpThisFrame)
         ? Vector2{}
         : Vector2(toScalar(0), toScalar(MIN_SNAP));
-    Vector2 result = player->moveAndSlideWithSnap(
-        Vector2(toScalar(0), vy), snap, dt, up
+    Vector2 result = player->moveAndSlide(
+        Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap
     );
     vy = static_cast<float>(result.y);
     // State machine transition
@@ -326,8 +326,8 @@ void test_free_fall_trajectory_120fps(void) {
 
     for (int frame = 1; frame <= totalFrames; frame++) {
         vy += toScalar(GRAVITY) * dt;
-        Vector2 result = player->moveAndSlideWithSnap(
-            Vector2(toScalar(0), vy), snap, dt, up
+        Vector2 result = player->moveAndSlide(
+            Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap
         );
         vy = result.y;
 
@@ -368,8 +368,8 @@ void test_free_fall_trajectory_60fps(void) {
 
     for (int frame = 1; frame <= totalFrames; frame++) {
         vy += toScalar(GRAVITY) * dt;
-        Vector2 result = player->moveAndSlideWithSnap(
-            Vector2(toScalar(0), vy), snap, dt, up
+        Vector2 result = player->moveAndSlide(
+            Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap
         );
         vy = result.y;
 
@@ -399,13 +399,13 @@ void test_landing_wasSnapFloor_transition(void) {
     Scalar vy = toScalar(60);
     Vector2 up(0, -1);
     Vector2 snap(toScalar(0), toScalar(MIN_SNAP));
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
+    (void)player->moveAndSlide(Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "F1: on floor via snap (wasSnapFloor=true)");
     Scalar floorY = player->position.y;
 
     // F2: Jump with zero snap -> leaves floor
     vy = toScalar(-JUMP_VEL_CUBE);
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), Vector2{}, dt, up);
+    (void)player->moveAndSlide(Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, Vector2{});
     TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "F2: not on floor after jump");
     TEST_ASSERT_TRUE_MESSAGE(player->position.y < floorY, "F2: above floor after jump");
 
@@ -415,7 +415,7 @@ void test_landing_wasSnapFloor_transition(void) {
     int landFrame = -1;
     for (int frame = 3; frame <= 120; frame++) {
         vy += toScalar(GRAVITY) * dt;
-        player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
+        (void)player->moveAndSlide(Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap);
         if (player->is_on_floor()) {
             // Landed! Verify landing is NOT too early (would indicate
             // wasSnapFloor guard failing and snap re-engaging mid-flight).
@@ -433,7 +433,7 @@ void test_landing_wasSnapFloor_transition(void) {
 
     // F(n+1): After landing, snap can re-engage (wasSnapFloor=true again)
     vy = toScalar(60);
-    player->moveAndSlideWithSnap(Vector2(toScalar(0), vy), snap, dt, up);
+    (void)player->moveAndSlide(Vector2(toScalar(0), vy), dt, up, SnapPolicy::Step, snap);
     TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "After landing: on floor via snap re-engage");
 }
 
