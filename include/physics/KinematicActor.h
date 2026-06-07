@@ -60,17 +60,37 @@ public:
     void moveAndSlide(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 upDirection = {0, -1}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
 
     /**
+     * @brief Moves the body while sliding along surfaces, then snaps to floor.
+     * @param velocity The velocity vector in units/sec (NOT pre-scaled by dt).
+     * @param snap Snap vector toward floor. Pass zero to disable.
+     * @param dt Delta time. REQUIRED — same dt used by the game loop for
+     *           input scaling consistency. No default.
+     * @param upDirection Up direction for floor detection. Defaults to {0, -1}.
+     * @return The actual velocity after slide and snap processing.
+     *         Assign to your velocity variable to replace post-slide zeroing.
+     * 
+     * Performs standard moveAndSlide along velocity, then pushes the AABB
+     * along -upDirection by |snap| to attach to the floor. Returns the
+     * actual velocity after collisions and snap are resolved.
+     * 
+     * @note When jumping, caller MUST pass a zero snap vector explicitly.
+     *       The engine does NOT auto-disable snap on upward velocity.
+     * @note Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
+     */
+    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1});
+
+    /**
      * @brief Returns true if the body collided with the ceiling.
      */
     inline bool is_on_ceiling() const { return onCeiling; }
 
     /**
-     * @brief Returns true if the body collided with the floor.
+     * @brief Returns true if the body collided with the floor this frame.
      * 
-     * Includes persistence: returns true for up to MAX_FLOOR_LOST_FRAMES
-     * frames after losing floor contact (walk-off tolerance).
+     * Returns only the current-frame raw contact state, with no
+     * persistence across frames.
      */
-    inline bool is_on_floor() const { return onFloor || (wasOnFloor && floorLostCounter < MAX_FLOOR_LOST_FRAMES); }
+    inline bool is_on_floor() const { return onFloor; }
 
     /**
      * @brief Gets the persisted floor velocity from the last KINEMATIC floor contact.
@@ -83,11 +103,9 @@ public:
      * 
      * Call this on jump to prevent platform velocity inheritance when airborne.
      */
-    void clearFloorVelocity() {
+     void clearFloorVelocity() {
         floorVelocity = pixelroot32::math::Vector2::ZERO();
         floorBody = nullptr;
-        wasOnFloor = false;
-        floorLostCounter = 0;
     }
 
     /**
@@ -101,26 +119,37 @@ public:
      */
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
+protected:
+    static constexpr pixelroot32::math::Scalar MIN_SNAP = pixelroot32::math::toScalar(4.0f); ///< Minimum snap magnitude for moveAndSlideWithSnap.
+
 private:
     int maxSlides = 4; ///< Maximum number of slide iterations to prevent infinite loops.
     bool onFloor = false;
     bool onCeiling = false;
     bool onWall = false;
 
-    // Floor state persistence (Godot-inspired moving platform riding)
+    /// @brief Tracks whether the body was on floor at the end of the last moveAndSlideWithSnap call.
+    ///
+    /// Used INTERNALLY by moveAndSlideWithSnap's snap step guard: snap only fires if the body
+    /// was on floor the previous frame. This prevents snap from re-engaging when the body
+    /// has left the floor (e.g., after a jump or walking off a ledge).
+    ///
+    /// @note This is NOT part of the is_on_floor() API contract. is_on_floor() returns only
+    ///       raw current-frame contact state. wasSnapFloor is purely internal to the snap step.
+    bool wasSnapFloor = false;
+
+    // Floor state storage (v2 readiness: unused in v1, stores for platform velocity injection)
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
     pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
-    bool wasOnFloor = false;                                   ///< Floor state persistence flag.
-    int floorLostCounter = 0;                                  ///< Frames without floor contact.
     pixelroot32::math::Vector2 lastFloorNormal;                ///< Last floor collision normal.
-    static constexpr int MAX_FLOOR_LOST_FRAMES = 2;            ///< Tolerance before losing floor.
 
     /**
-     * @brief Updates floor persistence state.
-     * @param onFloorThisFrame Whether floor contact was detected this frame.
-     * @param floorBodyResult The floor body if on floor, nullptr otherwise.
+     * @brief Internal slide loop. Iterates moveAndCollide to slide along surfaces.
+     * @param currentMotion In/out: the motion vector to process (modified by slides).
+     * @param upDirection Up vector for floor/ceiling/wall classification.
+     * @param localFloorBody Out: set if floor collision is on a KINEMATIC body.
      */
-    void updateFloorState(bool onFloorThisFrame, pixelroot32::core::PhysicsActor* floorBodyResult);
+    void slide(pixelroot32::math::Vector2& currentMotion, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor*& localFloorBody);
 };
 
 } // namespace pixelroot32::physics
