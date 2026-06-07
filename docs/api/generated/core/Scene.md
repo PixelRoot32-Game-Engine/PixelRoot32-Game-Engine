@@ -8,13 +8,21 @@
 
 Represents a game level or screen containing entities.
 
+init() is idempotent — may be called any number of times, each call
+      leaves the state equivalent to a fresh init.
+
+::: tip
+init() is idempotent — may be called any number of times, each call
+      leaves the state equivalent to a fresh init.
+:::
+
 ## Methods
 
 ### `virtual void init()`
 
 **Description:**
 
-Initializes the scene. Called when entering the scene.
+Initialises the scene. Called when entering the scene.
 
 ### `virtual void initUI()`
 
@@ -135,3 +143,9 @@ Removes an entity from the scene.
 **Description:**
 
 Removes all entities from the scene.
+
+### `virtual void resetState() noexcept; Entity* entities[pixelroot32::platforms::config::MaxEntities]; ///< Array of entities in the scene. int entityCount;            ///< Current number of entities. bool needsSorting = false;      ///< Flag to trigger sorting by layer. void sortEntities();            ///< Sorts entities by render layer. bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Resets the scene to a clean initial state.
