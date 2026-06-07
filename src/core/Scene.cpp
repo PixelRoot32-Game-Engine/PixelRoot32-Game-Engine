@@ -195,6 +195,14 @@ namespace pixelroot32::core {
         }
     }
 
+    void Scene::resetState() noexcept {
+        clearEntities();
+        arena.reset();
+        #if PIXELROOT32_ENABLE_PHYSICS
+            collisionSystem.clear();
+        #endif
+    }
+
     void Scene::clearEntities() {
         #if PIXELROOT32_ENABLE_PHYSICS
             for (int i = 0; i < entityCount; i++) {

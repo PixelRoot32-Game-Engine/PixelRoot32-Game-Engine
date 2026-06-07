@@ -77,6 +77,107 @@ void test_scene_clear_entities(void) {
 }
 
 // =============================================================================
+// Tests for re-init idempotency (Phase 1 — RED)
+// =============================================================================
+
+void test_scene_reinit_clears_entities(void) {
+    class ReinitTestScene : public Scene {
+    public:
+        int getEntityCount() const { return entityCount; }
+        Entity** getEntities() { return entities; }
+    };
+
+    ReinitTestScene scene;
+    MockEntity e1(0, 0, 10, 10);
+    MockEntity e2(10, 0, 10, 10);
+    MockEntity e3(20, 0, 10, 10);
+
+    scene.init();
+
+    scene.addEntity(&e1);
+    scene.addEntity(&e2);
+    scene.addEntity(&e3);
+    TEST_ASSERT_EQUAL(3, scene.getEntityCount());
+
+    // Second init MUST clear entities (idempotency)
+    scene.init();
+
+    TEST_ASSERT_EQUAL(0, scene.getEntityCount());
+
+    // Stale entities MUST NOT be updated after re-init
+    scene.update(16);
+    TEST_ASSERT_FALSE(e1.updateCalled);
+    TEST_ASSERT_FALSE(e2.updateCalled);
+    TEST_ASSERT_FALSE(e3.updateCalled);
+}
+
+void test_scene_reinit_derived_unique_ptr(void) {
+    class DerivedScene : public Scene {
+    public:
+        std::unique_ptr<MockEntity> entity;
+        int getCount() const { return entityCount; }
+
+        void init() override {
+            Scene::init();
+            entity = std::make_unique<MockEntity>(0, 0, 10, 10);
+            addEntity(entity.get());
+        }
+    };
+
+    DerivedScene scene;
+    scene.init();
+    TEST_ASSERT_EQUAL(1, scene.getCount());
+
+    // Second init — old unique_ptr destroyed, new one created
+    scene.init();
+
+    // After re-init, entityCount must reflect a single fresh init (1, not 2)
+    TEST_ASSERT_EQUAL(1, scene.getCount());
+
+    // update MUST not crash or touch the destroyed old entity
+    scene.update(16);
+}
+
+void test_scene_reinit_idempotent(void) {
+    Scene scene;
+
+    scene.init();
+    scene.init();  // Must not crash
+
+    // Empty scene re-init must stay empty
+    // (verified via no crash + no-op behavior)
+}
+
+void test_scene_reinit_physics_clear(void) {
+#if PIXELROOT32_ENABLE_PHYSICS
+    class PhyTestScene : public Scene {
+    public:
+        int getCount() const { return entityCount; }
+        pixelroot32::physics::CollisionSystem& getCollisionSystem() {
+            return collisionSystem;
+        }
+    };
+
+    PhyTestScene scene;
+    MockEntity e1(0, 0, 10, 10);
+    MockEntity e2(10, 0, 10, 10);
+
+    scene.init();
+    scene.addEntity(&e1);
+    scene.addEntity(&e2);
+
+    // Verify collision system has registered entities
+    TEST_ASSERT_EQUAL(2, scene.getCollisionSystem().getEntityCount());
+
+    // Re-init MUST clear both scene and collision system state
+    scene.init();
+
+    TEST_ASSERT_EQUAL(0, scene.getCount());
+    TEST_ASSERT_EQUAL(0, scene.getCollisionSystem().getEntityCount());
+#endif
+}
+
+// =============================================================================
 // Tests for sorting
 // =============================================================================
 
@@ -176,6 +277,12 @@ int main(int argc, char **argv) {
     RUN_TEST(test_scene_update_propagation);
     RUN_TEST(test_scene_draw_propagation);
     RUN_TEST(test_scene_draw_with_offset_and_layers);
+    
+    // Re-init idempotency tests (RED)
+    RUN_TEST(test_scene_reinit_clears_entities);
+    RUN_TEST(test_scene_reinit_derived_unique_ptr);
+    RUN_TEST(test_scene_reinit_idempotent);
+    RUN_TEST(test_scene_reinit_physics_clear);
     
     return UNITY_END();
 }
