@@ -76,7 +76,7 @@ public:
      *       The engine does NOT auto-disable snap on upward velocity.
      * @note Snap magnitudes below MIN_SNAP (4.0) are treated as disabled.
      */
-    Vector2 moveAndSlideWithSnap(Vector2 velocity, Vector2 snap, Vector2 upDirection = {0,-1}, Scalar dt = CollisionSystem::FIXED_DT);
+    pixelroot32::math::Vector2 moveAndSlideWithSnap(pixelroot32::math::Vector2 velocity, pixelroot32::math::Vector2 snap, pixelroot32::math::Vector2 upDirection = {0,-1}, pixelroot32::math::Scalar dt = pixelroot32::physics::CollisionSystem::FIXED_DT);
 
     /**
      * @brief Returns true if the body collided with the ceiling.
@@ -121,7 +121,7 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
 private:
-    static constexpr Scalar MIN_SNAP = toScalar(4.0f); ///< Minimum snap magnitude for moveAndSlideWithSnap.
+    static constexpr pixelroot32::math::Scalar MIN_SNAP = pixelroot32::math::toScalar(4.0f); ///< Minimum snap magnitude for moveAndSlideWithSnap.
     int maxSlides = 4; ///< Maximum number of slide iterations to prevent infinite loops.
     bool onFloor = false;
     bool onCeiling = false;
