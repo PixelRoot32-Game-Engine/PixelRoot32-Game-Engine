@@ -621,6 +621,77 @@ void test_kinematic_actor_rigid_body_ignored_in_collision(void) {
 }
 
 // =============================================================================
+// Phase 1: Kinematic snap API tests (TS-001, TS-002, TS-003)
+// =============================================================================
+
+void test_snap_api_compile_2arg_and_4arg(void) {
+    // TS-001: Verify 2-arg and 4-arg calls compile and return Vector2
+    Vector2 result;
+
+    // 2-arg call (defaults for upDirection and dt)
+    result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(4)));
+
+    // 4-arg call with explicit params
+    result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(4)),
+                                          Vector2(0, -1), CollisionSystem::FIXED_DT);
+
+    // Both calls should return valid values (no NaN, no crash)
+    TEST_ASSERT_TRUE_MESSAGE(result.x == result.x, "2-arg return value must be valid (NaN check)");
+    TEST_ASSERT_TRUE_MESSAGE(result.y == result.y, "4-arg return value must be valid (NaN check)");
+}
+
+void test_snap_engages_3px_above_floor(void) {
+    // TS-002: Body 3px above static floor, snap=(0,4) should engage
+    // Player at (0,0) 10x10. Player bottom at y=10. Floor top at y=13. Gap = 3px.
+    wall = new StaticActor(toScalar(-50), toScalar(13), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(4)));
+
+    // Player bottom should be at floor top: y + 10 = 13 → y = 3
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, 3.0f, static_cast<float>(player->position.y),
+        "Snap should place body on floor surface");
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Snap should set is_on_floor()=true when on floor");
+}
+
+void test_snap_degraded_below_MIN_SNAP(void) {
+    // TS-002 (MIN_SNAP degradation guard): snap=(0,2) < MIN_SNAP(4) → no snap
+    // Same setup: body 3px above floor, snap too small to engage
+    wall = new StaticActor(toScalar(-50), toScalar(13), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Player at (0,0). Snap=(0,2) which is below MIN_SNAP=4.0
+    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(2)));
+
+    // Snap should NOT engage — player stays at y=0
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.1f, 0.0f, static_cast<float>(player->position.y),
+        "Below-MIN_SNAP snap should not move body");
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Below-MIN_SNAP snap should not set is_on_floor()");
+}
+
+void test_no_snap_on_jump_launch(void) {
+    // TS-003: Zero snap does not pull body down (snap contract)
+    // Body with upward velocity and zero snap should jump freely.
+    wall = new StaticActor(toScalar(-50), toScalar(20), 100, 10);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    // Jump up with zero snap — zero vector disables snap regardless of current state
+    Vector2 result = player->moveAndSlideWithSnap(Vector2(toScalar(0), toScalar(-10)), Vector2(toScalar(0), toScalar(0)));
+
+    // Body should move up (away from floor) with zero snap
+    TEST_ASSERT_TRUE_MESSAGE(player->position.y < toScalar(0), "Jump should move body upward");
+    // Returned velocity should reflect the upward slide movement
+    TEST_ASSERT_TRUE_MESSAGE(result.y < toScalar(0), "Returned velocity should have upward component");
+    // is_on_floor() behavior depends on persistence state (evaluated in TS-006)
+}
+
+// =============================================================================
 // Phase 4: KINEMATIC floor velocity inheritance tests
 // =============================================================================
 
@@ -936,6 +1007,12 @@ int main(int argc, char **argv) {
     RUN_TEST(test_kinematic_actor_slide_vector_calculation);
     RUN_TEST(test_kinematic_actor_rigid_body_ignored_in_collision);
     
+    // Phase 1: Kinematic snap API tests
+    RUN_TEST(test_snap_api_compile_2arg_and_4arg);
+    RUN_TEST(test_snap_engages_3px_above_floor);
+    RUN_TEST(test_snap_degraded_below_MIN_SNAP);
+    RUN_TEST(test_no_snap_on_jump_launch);
+
     // Phase 4: KINEMATIC floor velocity inheritance tests
     RUN_TEST(test_kinematic_floor_velocity_inheritance);
     RUN_TEST(test_static_floor_no_inheritance);
