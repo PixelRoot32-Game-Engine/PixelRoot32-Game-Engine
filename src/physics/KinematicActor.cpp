@@ -367,35 +367,40 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
     Vector2 afterSlidePos = position;
 
     // --- Snap post-step: move body toward floor via moveAndCollide ---
-    Scalar snapMag = snap.length();
-    if (snapMag >= MIN_SNAP) {
-        // Snap must point opposite to upDirection (i.e., toward floor)
-        if (snap.dot(upDirection) < toScalar(0)) {
-            Vector2 preSnapPos = position;
-            Vector2 snapMotion = -upDirection * snapMag;
-            KinematicCollision snapCol;
-            bool hit = moveAndCollide(snapMotion, &snapCol);
-            if (hit) {
-                Scalar dot = snapCol.normal.dot(upDirection);
-                if (dot > floorThreshold) {
-                    onFloor = true;
-                    if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
-                        auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
-                        if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                            localFloorBody = phys;
-                            lastFloorNormal = snapCol.normal;
+    // Guard: only snap if body was on floor last frame. This prevents snap from
+    // re-engaging when the body has left the floor (e.g., after a jump, or when
+    // walking/falling off a ledge).
+    if (wasSnapFloor) {
+        Scalar snapMag = snap.length();
+        if (snapMag >= MIN_SNAP) {
+            // Snap must point opposite to upDirection (i.e., toward floor)
+            if (snap.dot(upDirection) < toScalar(0)) {
+                Vector2 preSnapPos = position;
+                Vector2 snapMotion = -upDirection * snapMag;
+                KinematicCollision snapCol;
+                bool hit = moveAndCollide(snapMotion, &snapCol);
+                if (hit) {
+                    Scalar dot = snapCol.normal.dot(upDirection);
+                    if (dot > floorThreshold) {
+                        onFloor = true;
+                        if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
+                            auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
+                            if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                                localFloorBody = phys;
+                                lastFloorNormal = snapCol.normal;
+                            }
                         }
+                    } else {
+                        // Hit something but not a floor — restore pre-snap position
+                        position = preSnapPos;
                     }
                 } else {
-                    // Hit something but not a floor — restore pre-snap position
+                    // No hit — snap misses, restore pre-snap position
                     position = preSnapPos;
                 }
-            } else {
-                // No hit — snap misses, restore pre-snap position
-                position = preSnapPos;
             }
         }
-    }
+    } // end wasSnapFloor guard
 
     // --- Post-slide depenetration: push out from overlapping KINEMATIC bodies ---
     if (floorBody && floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
@@ -421,6 +426,9 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlideWithSnap(pixelroot32::mat
             }
         }
     }
+
+    // Persist floor state for the next frame's snap guard
+    wasSnapFloor = onFloor;
 
     // Return velocity from slide displacement only (snap is positional, not velocity-affecting)
     Vector2 displacement = afterSlidePos - startPos;

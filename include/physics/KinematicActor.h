@@ -127,6 +127,16 @@ private:
     bool onCeiling = false;
     bool onWall = false;
 
+    /// @brief Tracks whether the body was on floor at the end of the last moveAndSlideWithSnap call.
+    ///
+    /// Used INTERNALLY by moveAndSlideWithSnap's snap step guard: snap only fires if the body
+    /// was on floor the previous frame. This prevents snap from re-engaging when the body
+    /// has left the floor (e.g., after a jump or walking off a ledge).
+    ///
+    /// @note This is NOT part of the is_on_floor() API contract. is_on_floor() returns only
+    ///       raw current-frame contact state. wasSnapFloor is purely internal to the snap step.
+    bool wasSnapFloor = true;
+
     // Floor state storage (v2 readiness: unused in v1, stores for platform velocity injection)
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
     pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
