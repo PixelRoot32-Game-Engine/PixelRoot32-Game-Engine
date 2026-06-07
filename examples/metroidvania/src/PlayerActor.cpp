@@ -173,6 +173,10 @@ void PlayerActor::update(unsigned long deltaTime) {
     }
 
     // 2. MOVEMENT & COLLISION MASK LOGIC
+
+    // Capture jump intent before it is consumed by the wantsJump check below
+    bool jumpThisFrame = wantsJump;
+
     if (currentState == PlayerState::CLIMBING) {
         // Lock lateral movement to keep the character firmly on the ladder rail
         velocity.x = math::toScalar(0); 
@@ -232,14 +236,17 @@ void PlayerActor::update(unsigned long deltaTime) {
     if (moveDir > math::toScalar(0.0f)) facingLeft = false;
     else if (moveDir < math::toScalar(0.0f)) facingLeft = true;
 
-    // Execute Move and Slide against the physics system
-    // Using KinematicActor standard API for environmental collisions
-    moveAndSlide(velocity * dt, math::Vector2(0, -1));
+    // Compute snap: disabled during CLIMBING (incompatible with ladder logic)
+    // and on jump frame. Active otherwise for floor adhesion.
+    math::Vector2 snap = (currentState == PlayerState::CLIMBING || jumpThisFrame)
+        ? math::Vector2{}
+        : math::Vector2(math::toScalar(0), KinematicActor::MIN_SNAP);
 
-    // Reset velocity on axis that collided
-    if (is_on_floor() || is_on_ceiling()) {
-        velocity.y = math::toScalar(0);
-    }
+    // Execute Move and Slide against the physics system
+    // moveAndSlideWithSnap handles floor/ceiling collision in its return value
+    velocity = moveAndSlideWithSnap(velocity * dt, snap, math::Vector2(0, -1));
+
+    // Keep wall-stop zeroing — moveAndSlideWithSnap doesn't handle wall velocity
     if (is_on_wall()) {
         velocity.x = math::toScalar(0);
     }
