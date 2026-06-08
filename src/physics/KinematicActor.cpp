@@ -248,17 +248,17 @@ void KinematicActor::resolvePreSlideDepenetration() {
     }
 }
 
-void KinematicActor::resolvePostSlideKinematicDepenetration() {
+void KinematicActor::resolvePostSlideKinematicDepenetration(pixelroot32::core::PhysicsActor* targetBody) {
     namespace math = pixelroot32::math;
     using math::Scalar;
     using math::toScalar;
 
-    if (!floorBody || floorBody->getBodyType() != pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+    if (!targetBody || targetBody->getBodyType() != pixelroot32::core::PhysicsBodyType::KINEMATIC) {
         return;
     }
 
     pixelroot32::core::Rect myBox = getHitBox();
-    pixelroot32::core::Rect floorBox = floorBody->getHitBox();
+    pixelroot32::core::Rect floorBox = targetBody->getHitBox();
     if (!myBox.intersects(floorBox)) return;
 
     Scalar overlapX = math::min(myBox.position.x + toScalar(myBox.width),
@@ -271,13 +271,40 @@ void KinematicActor::resolvePostSlideKinematicDepenetration() {
 
     if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
         Scalar correction = math::min(overlapX, depenClamp);
-        if (position.x < floorBody->position.x) position.x -= correction;
+        if (position.x < targetBody->position.x) position.x -= correction;
         else position.x += correction;
     } else if (overlapY > CollisionSystem::SLOP) {
         Scalar correction = math::min(overlapY, depenClamp);
-        if (position.y < floorBody->position.y) position.y -= correction;
+        if (position.y < targetBody->position.y) position.y -= correction;
         else position.y += correction;
     }
+}
+
+bool KinematicActor::hasTopSurfaceSupport(pixelroot32::core::PhysicsActor* floor) {
+    if (!floor) return false;
+    if (!strictTopSurfaceFloor) return true;
+
+    namespace math = pixelroot32::math;
+    using math::Scalar;
+    using math::toScalar;
+
+    pixelroot32::core::Rect myBox = getHitBox();
+    pixelroot32::core::Rect floorBox = floor->getHitBox();
+
+    Scalar playerCenterX = myBox.position.x + toScalar(myBox.width) / 2;
+    Scalar floorLeft = floorBox.position.x;
+    Scalar floorRight = floorBox.position.x + toScalar(floorBox.width);
+    if (playerCenterX < floorLeft || playerCenterX > floorRight) return false;
+
+    Scalar myBottom = myBox.position.y + toScalar(myBox.height);
+    Scalar floorTop = floorBox.position.y;
+    Scalar myTop = myBox.position.y;
+    if (myTop >= floorTop + CollisionSystem::SLOP) return false;
+
+    Scalar bottomDelta = myBottom - floorTop;
+    Scalar alignTolerance = MIN_SNAP + CollisionSystem::SLOP;
+    if (bottomDelta < -alignTolerance || bottomDelta > alignTolerance) return false;
+    return true;
 }
 
 void KinematicActor::applySnapStep(pixelroot32::math::Vector2 snapVector, pixelroot32::math::Vector2 upDirection,
@@ -303,11 +330,21 @@ void KinematicActor::applySnapStep(pixelroot32::math::Vector2 snapVector, pixelr
     if (hit) {
         Scalar dot = snapCol.normal.dot(upDirection);
         if (dot > floorThreshold) {
-            onFloor = true;
+            pixelroot32::core::PhysicsActor* floorPhys = nullptr;
             if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
-                auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
-                if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                    localFloorBody = phys;
+                floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
+            }
+            bool allowFloor = true;
+            if (floorPhys &&
+                floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
+                strictTopSurfaceFloor) {
+                allowFloor = hasTopSurfaceSupport(floorPhys);
+            }
+            if (allowFloor) {
+                onFloor = true;
+                if (floorPhys &&
+                    floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                    localFloorBody = floorPhys;
                     lastFloorNormal = snapCol.normal;
                 }
             }
@@ -337,11 +374,18 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
 
     resolvePreSlideDepenetration();
 
+    pixelroot32::core::PhysicsActor* prevKinematicFloor = nullptr;
+    if (floorBody != nullptr &&
+        floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        prevKinematicFloor = floorBody;
+    }
+
     Vector2 startPos = position;
     Vector2 currentMotion = velocity * dt;
 
     if (wasSnapFloor && floorBody != nullptr &&
-        floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        floorBody->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
+        hasTopSurfaceSupport(floorBody)) {
         currentMotion += floorBody->getVelocity() * dt;
     }
 
@@ -372,7 +416,14 @@ pixelroot32::math::Vector2 KinematicActor::moveAndSlide(
         floorVelocity = Vector2::ZERO();
     }
 
-    resolvePostSlideKinematicDepenetration();
+    pixelroot32::core::PhysicsActor* depenetrateTarget = floorBody;
+    if (depenetrateTarget == nullptr && prevKinematicFloor != nullptr) {
+        pixelroot32::core::Rect myBox = getHitBox();
+        if (myBox.intersects(prevKinematicFloor->getHitBox())) {
+            depenetrateTarget = prevKinematicFloor;
+        }
+    }
+    resolvePostSlideKinematicDepenetration(depenetrateTarget);
 
     if (outFloorBody) {
         *outFloorBody = floorBody;
@@ -401,11 +452,21 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
             Scalar dot = col.normal.dot(upDirection);
 
             if (dot > floorThreshold) {
-                onFloor = true;
+                pixelroot32::core::PhysicsActor* floorPhys = nullptr;
                 if (col.collider && col.collider->isPhysicsBody()) {
-                    auto* phys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
-                    if (phys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                        localFloorBody = phys;
+                    floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
+                }
+                bool allowFloor = true;
+                if (floorPhys &&
+                    floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
+                    strictTopSurfaceFloor) {
+                    allowFloor = hasTopSurfaceSupport(floorPhys);
+                }
+                if (allowFloor) {
+                    onFloor = true;
+                    if (floorPhys &&
+                        floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                        localFloorBody = floorPhys;
                         lastFloorNormal = col.normal;
                     }
                 }

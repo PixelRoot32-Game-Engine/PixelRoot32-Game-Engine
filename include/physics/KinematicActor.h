@@ -118,6 +118,17 @@ public:
     inline bool is_on_wall() const { return onWall; }
 
     /**
+     * @brief Enables or disables top-surface validation for floor state and kinematic carry.
+     * @param strict When true (default), floor contact requires horizontal overlap on the top face.
+     */
+    void setStrictTopSurfaceFloor(bool strict) { strictTopSurfaceFloor = strict; }
+
+    /**
+     * @brief Returns whether top-surface floor validation is active.
+     */
+    inline bool isStrictTopSurfaceFloor() const { return strictTopSurfaceFloor; }
+
+    /**
      * @brief Draws the actor.
      * @param renderer Reference to the renderer.
      */
@@ -139,9 +150,11 @@ private:
     pixelroot32::math::Vector2 floorVelocity;                 ///< Persisted floor velocity from last KINEMATIC floor contact.
     pixelroot32::core::PhysicsActor* floorBody = nullptr;     ///< Current floor body pointer.
     pixelroot32::math::Vector2 lastFloorNormal;                ///< Last floor collision normal.
+    bool strictTopSurfaceFloor = true;                        ///< When true, floor/carry requires top-surface support.
 
+    bool hasTopSurfaceSupport(pixelroot32::core::PhysicsActor* floor);
     void resolvePreSlideDepenetration();
-    void resolvePostSlideKinematicDepenetration();
+    void resolvePostSlideKinematicDepenetration(pixelroot32::core::PhysicsActor* targetBody);
     void applySnapStep(pixelroot32::math::Vector2 snapVector, pixelroot32::math::Vector2 upDirection,
                        pixelroot32::core::PhysicsActor*& localFloorBody);
 
