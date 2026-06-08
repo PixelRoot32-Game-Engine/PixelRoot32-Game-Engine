@@ -40,7 +40,7 @@
 
 **PixelRoot32** is a lightweight, modular 2D game engine written in **C++17**, designed primarily for **ESP32 microcontrollers**, with a native simulation layer for **PC (SDL2)** to enable rapid development without hardware.
 
-The engine follows a scene-based architecture inspired by **Godot Engine**, making it intuitive for developers familiar with modern game development workflows.
+The engine follows a scene-based architecture inspired by **Godot Engine**, featuring kinematic controllers, scene transitions, camera effects, and deterministic gameplay systems tailored for embedded hardware.
 
 ## 🧠 Engine Philosophy
 
@@ -80,10 +80,12 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Sprite System**: Support for 1bpp/2bpp/4bpp sprites with multi-palette selection, flipping, rotation, and animation.
 - **Tilemap Support**: Optimized rendering with viewport culling, static layer caching, multi-palette, and tile animations.
 - **Tile Animation System**: Frame-based animations (water, lava) with O(1) frame resolution and zero-allocation policy.
+- **Scene Transitions**: Built-in Fade, Iris, and Diagonal Wipe transitions with configurable effects and ESP32-optimized rendering.
+- **Camera Effects**: Deterministic camera shake, punch, and offset effects designed for low-resource embedded hardware.
 - **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
 - **NES-Style Audio**: Built-in dynamic 8-voice audio subsystem with fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
-- **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, sensors, and one-way platforms.
+- **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
@@ -162,6 +164,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
+- **Camera Example**: Demonstrates camera effects, scene transitions, moving platforms, and scene management workflows.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
@@ -181,6 +184,10 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 - ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
 - ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
+- ✅ **Moving Platform Support**: Kinematic floor velocity inheritance and platform-aware character movement.
+- ✅ **Custom Hitboxes**: Independent hitbox sizing and offsets for gameplay collision tuning.
+- ✅ **Scene Transition System**: Fade, Iris, and Diagonal Wipe transitions with configurable animation behavior.
+- ✅ **Camera Effects System**: Deterministic shake, punch, and offset effects optimized for ESP32.
 - ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
 - ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
 - ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
@@ -196,32 +203,30 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.5.0
+## 1.6.0
 
-### 🚀 Rendering Performance & Graphics
+### 🎨 Graphics & Scene Transitions
 
-- **Dirty Regions Pipeline**: Implemented `DirtyGrid` optimization with a double dirty grid to eliminate mandatory full-frame redraws, drastically reducing memory bandwidth on ESP32.
-- **Static Tilemap Integration**: Integrated Dirty Regions with `StaticTilemapLayerCache` using fast-path `memcpy` background restores and intelligent dynamic-only dirty marking.
+- **Camera Effects**: Added deterministic camera shake, punch, and offset effects optimized for ESP32-class hardware with zero-allocation operation.
+- **Expanded Transition System**: Added configurable Iris and Diagonal Wipe transitions, directional scene transitions, smooth interpolation, hold-frame support, and RGB565 rendering optimizations.
 
-### 🔊 Audio System
+### 🏀 Physics
 
-- **No-FPU Optimizations**: Added Q15 fixed-point LFO (triangle waves, tremolo, vibrato) and High-Pass Filter (HPF) to eliminate slow soft-float operations on platforms like ESP32-C3.
-- **Performance**: Replaced conditional branching with a static function pointer array dispatch in wave generation to reduce branch mispredictions.
-- **Configurable Block Size**: Added `blockSize` parameter to `AudioScheduler` for platform-specific tuning.
+- **Moving Platform Support**: Enhanced kinematic controllers with floor velocity inheritance, moving platform interaction, and improved floor tracking behavior.
+- **Custom Hitboxes**: Added support for hitbox offsets and custom hitbox dimensions independent from entity size.
+- **Movement Improvements**: Improved collision handling, depenetration, safe margins, and frame-rate independent movement behavior.
 
-### 🎮 Examples
+### 🏗️ Scene Management
 
-- **2048 Puzzle Game**: Added a complete 2048 clone showcasing UI layouts, grid mechanics, NES-style audio, and dual-platform support (Native/ESP32-CYD).
+- **Scene Reuse Support**: Added scene reset lifecycle management and idempotent initialization, enabling safe scene re-entry and repeated scene transitions.
 
 ### 🧪 Testing & QA
 
-- **Collision System Tests**: Added comprehensive physics unit tests for sensor contacts, velocity integration, and penetration correction.
-- **Expanded Coverage**: Improved assertions and expanded test coverage across audio, scene, input, graphics, and UI modules.
+- **Expanded Coverage**: Added extensive unit, integration, and regression tests covering camera effects, scene transitions, physics systems, and scene lifecycle management.
 
-### ⚡ Memory Optimization
+### ⚡ Performance & Optimization
 
-- **`InputConfig` API Change**: The `count` parameter is no longer required. Use `InputConfig(PIN1, PIN2, ...)` instead of `InputConfig(count, PIN1, PIN2, ...)`. See [migration guide](../docs/migration/migration-v1-5-0.md).
-
+- **Embedded Rendering Optimizations**: Optimized transition rendering and camera effect processing while preserving Dirty Regions and tilemap cache efficiency.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

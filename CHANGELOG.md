@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.6.0
+
+### 🎨 Graphics & Scene Transitions
+
+* **Camera Effects System**: Added support for camera shake, punch, and offset effects to improve gameplay feedback while maintaining deterministic behavior and zero-allocation operation on ESP32-class hardware.
+* **Expanded Scene Transitions**: Added configurable Iris and Diagonal Wipe transitions alongside the existing Fade transition system. Diagonal wipes support four directional modes, while Iris transitions now support directional scene changes for side-scrolling games.
+* **Transition Rendering Improvements**: Added smooth interpolation, hold-frame support, edge feathering, and RGB565-optimized rendering paths for improved visual quality and embedded performance.
+
+### 🏀 Physics
+
+* **Moving Platform Support**: Enhanced kinematic controllers with moving platform interaction, floor velocity inheritance, and improved floor tracking behavior.
+* **Custom Hitboxes**: Added support for hitbox offsets and custom hitbox dimensions independent from entity size, providing greater flexibility for collision design.
+* **Collision & Movement Improvements**: Improved collision handling, depenetration, safe-margin processing, and frame-rate independent character movement.
+
+### 🏗️ Scene Management
+
+* **Scene Reinitialization Support**: Added a scene reset lifecycle mechanism that allows safe reuse of scene instances across repeated scene transitions without requiring reconstruction.
+* **Initialization Robustness**: Scene initialization is now idempotent, improving reliability when switching between previously loaded scenes.
+
+### ⚡ Performance & Optimization
+
+* **ESP32 Rendering Optimizations**: Optimized transition rendering and camera effect processing for resource-constrained hardware.
+* **Rendering Cache Preservation**: Camera effects now integrate with the existing tilemap caching pipeline without invalidating static layer optimizations.
+
+### 🧪 Testing & QA
+
+* **Expanded Coverage**: Added comprehensive unit, integration, and regression tests covering scene transitions, camera effects, physics behavior, and scene lifecycle management.
+
 ## 1.5.0
 
 ### 🚀 Rendering Performance & Graphics
