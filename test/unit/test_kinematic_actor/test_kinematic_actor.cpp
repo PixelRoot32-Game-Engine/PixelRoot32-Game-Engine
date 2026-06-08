@@ -1334,6 +1334,25 @@ void test_strict_top_surface_floor_opt_out(void) {
         "Legacy mode should inherit kinematic platform velocity at corner contact");
 }
 
+void test_kinematic_no_carry_on_lateral_side_contact(void) {
+    platform = new KinematicActor(toScalar(30), toScalar(20), 24, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(0), toScalar(-60));
+    colSystem->addEntity(platform);
+
+    Vector2 up(toScalar(0), toScalar(-1));
+    Vector2 snap(toScalar(0), toScalar(4));
+    player->position = Vector2(toScalar(8), toScalar(14));
+
+    for (int frame = 0; frame < 10; ++frame) {
+        player->moveAndSlide(dispVel(toScalar(20), toScalar(12)), kFixedDt, up,
+                             SnapPolicy::Step, snap);
+        TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
+            "Jump miss on lateral face must not set floor or inherit platform carry");
+    }
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -1402,6 +1421,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_vertical_mover_edge_detachment);
     RUN_TEST(test_top_surface_velocity_injection_gated);
     RUN_TEST(test_strict_top_surface_floor_opt_out);
+    RUN_TEST(test_kinematic_no_carry_on_lateral_side_contact);
     RUN_TEST(test_default_nullptr_parameter_no_crash);
     
     // Phase 4 (V2): Raw contact + platform riding tests

@@ -154,7 +154,7 @@ private:
 
     bool hasTopSurfaceSupport(pixelroot32::core::PhysicsActor* floor);
     void resolvePreSlideDepenetration();
-    void resolvePostSlideKinematicDepenetration();
+    void resolvePostSlideKinematicDepenetration(pixelroot32::core::PhysicsActor* targetBody);
     void applySnapStep(pixelroot32::math::Vector2 snapVector, pixelroot32::math::Vector2 upDirection,
                        pixelroot32::core::PhysicsActor*& localFloorBody);
 
