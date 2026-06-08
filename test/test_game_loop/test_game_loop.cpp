@@ -10,6 +10,7 @@
 #include "graphics/DisplayConfig.h"
 #include "graphics/Renderer.h"
 #include "../test_config.h"
+#include "../mocks/MockDrawSurface.h"
 #include <memory>
 
 #ifdef PLATFORM_NATIVE
@@ -47,6 +48,7 @@ public:
     }
 
     void draw(Renderer& r) override {
+        (void)r;
         drawCalled = true;
     }
 };
@@ -64,8 +66,6 @@ public:
      */
     void updateManual(unsigned long fixedDt) {
         deltaTime = fixedDt;
-        // Don't call Engine::update() as it would recalculate deltaTime using millis()
-        // Instead, manually update subsystems
 #ifdef PLATFORM_NATIVE
         inputManager.update(deltaTime, nullptr);
 #else
@@ -74,13 +74,15 @@ public:
         sceneManager.update(deltaTime);
     }
 
-    /**
-     * @brief Manually triggers a draw.
-     */
     void drawManual() {
         draw();
     }
 };
+
+static DisplayConfig makeTestDisplayConfig() {
+    auto mock = std::make_unique<MockDrawSurface>();
+    return PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+}
 
 // =============================================================================
 // Test Cases
@@ -90,16 +92,14 @@ public:
  * @brief Test basic movement in the game loop.
  */
 void test_game_loop_movement(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
-    TestGameEngine engine(config);
+    TestGameEngine engine(makeTestDisplayConfig());
     engine.init();
     
     auto scene = std::make_unique<Scene>();
-    // 100 px/s to the right
     auto entity = std::make_unique<MovingEntity>(10.0f, 10.0f, 100.0f, 0.0f);
     
-    scene->addEntity(entity.get());
     engine.setScene(scene.get());
+    scene->addEntity(entity.get());
     
     // Simulate 1 second
     engine.updateManual(1000);
@@ -116,15 +116,14 @@ void test_game_loop_movement(void) {
  * @brief Test that draw is called on entities during the loop.
  */
 void test_game_loop_render_propagation(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
-    TestGameEngine engine(config);
+    TestGameEngine engine(makeTestDisplayConfig());
     engine.init();
     
     auto scene = std::make_unique<Scene>();
     auto entity = std::make_unique<MovingEntity>(10, 10, 0, 0);
     
-    scene->addEntity(entity.get());
     engine.setScene(scene.get());
+    scene->addEntity(entity.get());
     
     TEST_ASSERT_FALSE(entity->drawCalled);
     
@@ -137,30 +136,27 @@ void test_game_loop_render_propagation(void) {
  * @brief Test scene transitions in the loop.
  */
 void test_game_loop_scene_transition(void) {
-    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
-    TestGameEngine engine(config);
+    TestGameEngine engine(makeTestDisplayConfig());
     engine.init();
     
     auto scene1 = std::make_unique<Scene>();
     auto e1 = std::make_unique<MovingEntity>(0, 0, 0, 0);
-    scene1->addEntity(e1.get());
     
     auto scene2 = std::make_unique<Scene>();
     auto e2 = std::make_unique<MovingEntity>(0, 0, 0, 0);
-    scene2->addEntity(e2.get());
     
     engine.setScene(scene1.get());
+    scene1->addEntity(e1.get());
     engine.updateManual(16);
     engine.drawManual();
     
     TEST_ASSERT_TRUE(e1->drawCalled);
     TEST_ASSERT_FALSE(e2->drawCalled);
     
-    // Reset flags
     e1->drawCalled = false;
     
-    // Switch scene
     engine.setScene(scene2.get());
+    scene2->addEntity(e2.get());
     engine.updateManual(16);
     engine.drawManual();
     
