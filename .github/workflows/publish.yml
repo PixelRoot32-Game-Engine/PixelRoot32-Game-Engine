@@ -1,0 +1,137 @@
+name: Publish to PlatformIO Registry
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Pack and validate only; skip registry publish
+        type: boolean
+        default: true
+      ref:
+        description: Branch or SHA to validate (defaults to main)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-label:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.chk.outputs.release }}
+      dry_run: ${{ steps.chk.outputs.dry_run }}
+      checkout_ref: ${{ steps.chk.outputs.checkout_ref }}
+    steps:
+      - name: Resolve publish gate
+        id: chk
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === 'workflow_dispatch') {
+              const dryRunInput = context.payload.inputs.dry_run;
+              const dryRun = dryRunInput !== 'false' && dryRunInput !== false;
+              core.setOutput('release', 'true');
+              core.setOutput('dry_run', dryRun ? 'true' : 'false');
+              core.setOutput('checkout_ref', context.payload.inputs.ref || 'main');
+              return;
+            }
+
+            const isRelease = context.payload.pull_request.labels
+              .some((label) => label.name === 'release');
+            core.setOutput('release', isRelease ? 'true' : 'false');
+            core.setOutput('dry_run', 'false');
+            core.setOutput('checkout_ref', context.payload.pull_request.merge_commit_sha);
+
+  validate:
+    needs: check-label
+    if: needs.check-label.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-label.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Validate stable version and git tag
+        run: |
+          VERSION=$(jq -r '.version' library.json)
+          echo "library.json version: $VERSION"
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Stable semver required (X.Y.Z). Rejected: $VERSION"
+            exit 1
+          fi
+
+          git fetch --tags --force
+          if ! git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "ERROR: Missing git tag $VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: pip
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pack package and report size
+        run: |
+          PACK_FILE="${RUNNER_TEMP}/pixelroot32-game-engine-${version}.tar.gz"
+          pio pkg pack --output "$PACK_FILE"
+
+          SIZE=$(stat -c%s "$PACK_FILE")
+          SIZE_MB=$(python -c "print(f'{$SIZE / 1048576:.2f}')")
+          THRESHOLD=$((5 * 1024 * 1024))
+
+          {
+            echo "## Package pack result"
+            echo "- Version: ${version}"
+            echo "- Archive: ${PACK_FILE}"
+            echo "- Size: ${SIZE} bytes (${SIZE_MB} MB)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$SIZE" -gt "$THRESHOLD" ]; then
+            echo "::warning::Package size (${SIZE_MB} MB) exceeds 5 MB. Consider adding export field to library.json."
+            echo "**Warning:** Package exceeds 5 MB — consider adding \`export\` to \`library.json\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    needs: [check-label, validate]
+    if: needs.check-label.outputs.release == 'true' && needs.check-label.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-label.outputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: pip
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Publish to PlatformIO Registry
+        env:
+          PLATFORMIO_AUTH_TOKEN: ${{ secrets.PLATFORMIO_AUTH_TOKEN }}
+        run: pio pkg publish --no-interactive --owner gperez88

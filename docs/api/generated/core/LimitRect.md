@@ -15,15 +15,4 @@ Values of -1 indicate no limit on that side.
 
 ### `int width() const`
 
-**Description:**
-
-Constructs a new LimitRect.
-
-**Parameters:**
-
-- `l`: Left limit.
-- `t`: Top limit.
-- `r`: Right limit.
-- `b`: Bottom limit.
-
 ### `int height() const`

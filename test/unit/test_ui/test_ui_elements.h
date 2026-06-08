@@ -183,6 +183,9 @@ void test_panel_draw_with_background() {
     
     UIPanel panel(0, 0, 100, 100);
     panel.setBackgroundColor(Color::Blue);
+    // Cover inline getter: getBackgroundColor()
+    Color bg = panel.getBackgroundColor();
+    TEST_ASSERT_TRUE_MESSAGE(bg == Color::Blue, "Background color should be Blue");
     panel.draw(renderer);
     // Verify position unchanged after draw
     TEST_ASSERT_EQUAL(0, panel.position.x);
@@ -195,6 +198,12 @@ void test_panel_draw_with_border() {
     
     UIPanel panel(0, 0, 100, 100);
     panel.setBorderColor(Color::White);
+    panel.setBorderWidth(2);
+    // Cover inline getters: getBorderColor(), getBorderWidth()
+    Color bc = panel.getBorderColor();
+    TEST_ASSERT_TRUE_MESSAGE(bc == Color::White, "Border color should be White");
+    uint8_t bw = panel.getBorderWidth();
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(2, bw, "Border width should be 2");
     panel.draw(renderer);
     // Verify dimensions preserved after draw
     TEST_ASSERT_EQUAL(100, panel.height);
@@ -533,7 +542,9 @@ void test_label_draw_with_fixed_position() {
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     label.setFixedPosition(true);
     label.draw(renderer);
-    TEST_ASSERT_TRUE(true);
+    // Verify fixed position is preserved after draw
+    TEST_ASSERT_EQUAL(0, label.position.x);
+    TEST_ASSERT_EQUAL(0, label.position.y);
 }
 
 // =============================================================================
@@ -695,9 +706,8 @@ void test_uielement_is_focusable_default_returns_false() {
     UILabel label("Test", Vector2::ZERO(), Color::White, 1);
     
     // Call isFocusable - this exercises the virtual method
-    // Either true or false is valid - we just need line coverage
-    (void)label.isFocusable();
-    TEST_ASSERT_TRUE(true);  // Just verify the method can be called
+    // UILabel is not interactive by default, so isFocusable returns false
+    TEST_ASSERT_FALSE(label.isFocusable());
 }
 
 void test_uielement_get_preferred_size_returns_dimensions() {
@@ -729,4 +739,126 @@ void test_uielement_get_preferred_size_different_dimensions() {
     
     TEST_ASSERT_EQUAL(150, static_cast<int>(prefWidth));
     TEST_ASSERT_EQUAL(25, static_cast<int>(prefHeight));
+}
+
+// =============================================================================
+// Phase 3: UI Widget draw tests (PR 2)
+// =============================================================================
+
+// WD-01: UIPanel::draw() MUST render background filled rect
+void test_panel_draw_background_filled_rect() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIPanel panel(0, 0, 100, 100);
+    panel.setBackgroundColor(Color::Blue);
+    
+    // Draw with background
+    panel.draw(renderer);
+    
+    // Verify at least one rectangle was drawn (background)
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // The first call should be the background filled rect
+    auto [x, y, w, h, c] = mockRaw->rectCalls[0];
+    TEST_ASSERT_EQUAL(0, x);
+    TEST_ASSERT_EQUAL(0, y);
+    TEST_ASSERT_EQUAL(100, w);
+    TEST_ASSERT_EQUAL(100, h);
+}
+
+// WD-02: UIPanel::draw() MUST render border when set
+void test_panel_draw_border_four_sides() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIPanel panel(0, 0, 100, 100);
+    panel.setBackgroundColor(Color::Blue);
+    panel.setBorderColor(Color::White);
+    panel.setBorderWidth(2);
+    
+    // Cover inline getters
+    Color bg = panel.getBackgroundColor();
+    TEST_ASSERT_TRUE(bg == Color::Blue);
+    Color bc = panel.getBorderColor();
+    TEST_ASSERT_TRUE(bc == Color::White);
+    TEST_ASSERT_EQUAL_UINT8(2, panel.getBorderWidth());
+    
+    // Draw with background + border
+    panel.draw(renderer);
+    
+    // 1 background + 4 border sides = 5 filled rects
+    // Background: (0,0,100,100,Blue)
+    // Border top: (0,0,100,2,White)
+    // Border bottom: (0,98,100,2,White)
+    // Border left: (0,2,2,96,White)
+    // Border right: (98,2,2,96,White)
+    size_t callCount = mockRaw->rectCalls.size();
+    TEST_ASSERT_EQUAL(5, static_cast<int>(callCount));
+}
+
+// WD-03: UIButton::handleInput() with focus preserves state
+void test_button_handle_input_selected() {
+    auto cb = nullptr;
+    UIButton btn("Test", 0, Vector2::ZERO(), Vector2(80, 30), cb);
+    
+    // Start not selected
+    TEST_ASSERT_FALSE(btn.getSelected());
+    
+    btn.setSelected(true);
+    TEST_ASSERT_TRUE(btn.getSelected());
+    
+    // handleInput with default InputManager (no buttons) — preserves selection
+    pixelroot32::input::InputConfig inputConfig;
+    pixelroot32::input::InputManager input(inputConfig);
+    btn.handleInput(input);
+    
+    // State preserved after handleInput
+    TEST_ASSERT_TRUE(btn.getSelected());
+}
+
+// WD-04: UIButton::setSelected/getSelected transition
+void test_button_get_selected_transition() {
+    auto cb = nullptr;
+    UIButton btn("Test", 0, Vector2::ZERO(), Vector2(80, 30), cb);
+    
+    // Initial state
+    TEST_ASSERT_FALSE(btn.getSelected());
+    
+    // Transition to selected
+    btn.setSelected(true);
+    TEST_ASSERT_TRUE(btn.getSelected());
+    
+    // Transition back
+    btn.setSelected(false);
+    TEST_ASSERT_FALSE(btn.getSelected());
+    
+    // Additional transitions
+    btn.setSelected(true);
+    TEST_ASSERT_TRUE(btn.getSelected());
+}
+
+// HC-02: UIButton::setStyle exercised with no-background + selected draw
+void test_button_style_no_background_selected_draw() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    auto cb = nullptr;
+    UIButton btn("Test", 0, Vector2::ZERO(), Vector2(80, 30), cb);
+    
+    // Set style with hasBackground=false
+    btn.setStyle(Color::Yellow, Color::Black, false);
+    btn.setSelected(true);
+    TEST_ASSERT_TRUE(btn.getSelected());
+    
+    // Draw with no background + selected — exercises the !hasBackground + isSelected branch
+    btn.draw(renderer);
+    // With hasBackground=false, no filled rectangle should be drawn
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
 }

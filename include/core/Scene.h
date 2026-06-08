@@ -15,6 +15,7 @@
 #include "Entity.h"
 #include "platforms/EngineConfig.h"
 #include "input/TouchEvent.h"
+#include "graphics/CameraEffects.h"
 
 #ifdef PIXELROOT32_ENABLE_UI_SYSTEM
 #include "graphics/ui/UIManager.h"
@@ -47,15 +48,26 @@ T* arenaNew(SceneArena& arena, Args&&... args) {
 /**
  * @class Scene
  * @brief Represents a game level or screen containing entities.
+ *
+ * @note init() is idempotent — may be called any number of times, each call
+ *       leaves the state equivalent to a fresh init.
  */
 class Scene {
 public:
     virtual ~Scene() {}
 
     /**
-     * @brief Initializes the scene. Called when entering the scene.
+     * @brief Initialises the scene. Called when entering the scene.
+     *
+     * Idempotent contract: init() MUST leave the scene in a state equivalent
+     * to a single fresh init.  N invocations MUST NOT produce dangling
+     * pointers, duplicate entities, or leaked resources.
+     *
+     * Calls resetState() first to clear any prior state, then re-initialises
+     * the physics scheduler (if enabled).
      */
     virtual void init() {
+        resetState();
         #if PIXELROOT32_ENABLE_PHYSICS
             physicsScheduler.init();
         #endif
@@ -144,6 +156,18 @@ public:
     virtual bool shouldRedrawFramebuffer() const { return true; }
 
     /**
+     * @brief Get the current summed offset from CameraEffectsSystem.
+     * @return math::Vector2 offset (ZERO when no effects active or feature disabled).
+     */
+    inline pixelroot32::math::Vector2 getCameraEffectOffset() const {
+#if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+        return cameraEffects.getOffset();
+#else
+        return pixelroot32::math::Vector2::ZERO();
+#endif
+    }
+
+    /**
      * @brief Adds an entity to the scene.
      * @param entity Pointer to the Entity to add.
      */
@@ -161,6 +185,23 @@ public:
     void clearEntities();
 
 protected:
+    /**
+     * @brief Resets the scene to a clean initial state.
+     *
+     * Called at the start of every init() invocation.  Default implementation
+     * clears all entities, resets the arena, and (if physics is enabled)
+     * clears the collision system.
+     *
+     * Derived scenes that own heap-allocated resources (e.g. unique_ptr
+     * members) MUST override resetState() to release owned resources BEFORE
+     * calling Scene::resetState().  This ensures no dangling raw pointers
+     * remain in the base entity array.
+     *
+     * Overrides MUST call Scene::resetState() as their last operation
+     * (after releasing owned resources).
+     */
+    virtual void resetState() noexcept;
+
     Entity* entities[pixelroot32::platforms::config::MaxEntities]; ///< Array of entities in the scene.
     int entityCount = 0;            ///< Current number of entities.
     bool needsSorting = false;      ///< Flag to trigger sorting by layer.
@@ -177,6 +218,11 @@ protected:
     // UI System
     #if PIXELROOT32_ENABLE_UI_SYSTEM
         pixelroot32::graphics::ui::UIManager uiManager; ///< Touch UI manager for the scene.
+    #endif
+
+    // Camera Effects
+    #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+        pixelroot32::graphics::CameraEffectsSystem cameraEffects; ///< Camera shake/punch/offset effects.
     #endif
 
     SceneArena arena;

@@ -20,6 +20,21 @@ O(1) update - deterministic timing
 
 ## Methods
 
+### `void update(uint8_t touchId, bool pressed, int16_t x, int16_t y, uint32_t timestamp, TouchEventQueue& outputQueue)`
+
+**Description:**
+
+Process a touch input update
+
+**Parameters:**
+
+- `touchId`: Touch identifier (0-4)
+- `pressed`: True if touch is currently pressed
+- `x`: Current X position
+- `y`: Current Y position
+- `timestamp`: Current timestamp in ms
+- `outputQueue`: Queue to enqueue generated events
+
 ### `void reset(uint8_t touchId)`
 
 **Description:**
@@ -74,6 +89,24 @@ Get time since press for a touch
 **Description:**
 
 Calculate Manhattan distance between two points
+
+### `void handleTouchDown(uint8_t touchId, int16_t x, int16_t y, uint32_t timestamp, TouchEventQueue& queue)`
+
+**Description:**
+
+Handle touch down event
+
+### `void handleTouchUp(uint8_t touchId, int16_t x, int16_t y, uint32_t timestamp, TouchEventQueue& queue)`
+
+**Description:**
+
+Handle touch up event
+
+### `void handleTouchMove(uint8_t touchId, int16_t x, int16_t y, uint32_t timestamp, TouchEventQueue& queue)`
+
+**Description:**
+
+Handle touch move while pressed
 
 ### `void checkLongPress(uint8_t touchId, uint32_t timestamp, TouchEventQueue& queue)`
 

@@ -88,6 +88,11 @@ namespace pixelroot32::core {
             t0 = pixelroot32::platforms::config::profilerMicros();
         }
         
+        #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
+            // Camera effects timer update
+            cameraEffects.update(deltaTime);
+        #endif
+
         #if PIXELROOT32_ENABLE_PHYSICS
             // Use fixed timestep scheduler for physics (converts deltaTime ms to micros)
             physicsScheduler.update(deltaTime * 1000, collisionSystem);
@@ -188,6 +193,14 @@ namespace pixelroot32::core {
                 return;
             }
         }
+    }
+
+    void Scene::resetState() noexcept {
+        clearEntities();
+        arena.reset();
+        #if PIXELROOT32_ENABLE_PHYSICS
+            collisionSystem.clear();
+        #endif
     }
 
     void Scene::clearEntities() {

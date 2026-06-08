@@ -159,6 +159,14 @@ Get pointer to sprite buffer for direct manipulation.
 
 **Returns:** Pointer to 8bpp sprite buffer, or nullptr if not supported
 
+### `virtual uint16_t* getPixelBuffer()`
+
+**Description:**
+
+Get pointer to the native pixel buffer (RGB565 on SDL2).
+
+**Returns:** Pointer to RGB565 pixel array, or nullptr if not supported.
+
 ### `virtual void setContrast(uint8_t level)`
 
 **Description:**

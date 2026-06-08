@@ -3,12 +3,14 @@
 > **Source of truth:**
 > - `include/graphics/Renderer.h`
 > - `include/graphics/Camera2D.h`
+> - `include/graphics/CameraEffects.h`
 > - `include/graphics/Color.h`
 > - `include/graphics/Font.h`, `include/graphics/FontManager.h`
 > - `include/graphics/StaticTilemapLayerCache.h`
 > - `include/graphics/DirtyGrid.h`
 > - `include/graphics/TileAnimation.h`
 > - `include/graphics/DrawSurface.h`, `include/graphics/BaseDrawSurface.h`
+> - `include/graphics/TransitionEffect.h`
 > - `include/graphics/particles/*.h`
 
 ## Overview
@@ -37,6 +39,63 @@ Avoids redrawing "static" **4bpp** tilemaps every frame. It caches the static gr
 ### Camera2D
 
 Manages the viewport and scrolling of the game world. Handles coordinate transformations and target following with configurable dead zones.
+
+### CameraEffectsSystem
+
+*(Requires `PIXELROOT32_ENABLE_CAMERA_EFFECTS=1`)*
+
+Manages up to 4 simultaneous camera effects with round-robin insertion. Effects are updated each frame and the summed offset is retrieved via `getOffset()` for application to a Camera2D.
+
+**Effect Types**:
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `Shake` | Random oscillation with amplitude | Explosions, impacts, earthquakes |
+| `Punch` | Directional impulse with linear decay | Hits, kicks, knockback |
+| `Offset` | Constant displacement for duration | Camera lerp, recoil |
+
+**API**:
+
+```cpp
+#include <CameraEffects.h>
+
+using namespace pixelroot32::graphics;
+
+// Initialize
+CameraEffectsSystem effects;
+
+// Trigger effects
+effects.triggerShake(2.0f, 200);                    // amplitude, duration (ms)
+effects.triggerPunch(3.0f, 150, Vector2(-1, 0));   // amp, dur, direction
+effects.triggerOffset(4.0f, 100);                   // amplitude, duration
+
+// Update (call each frame)
+effects.update(deltaTime);
+
+// Get offset (apply to Camera2D)
+if (effects.hasActiveEffects()) {
+    math::Vector2 offset = effects.getOffset();
+    camera.applyWithEffect(renderer, offset);
+}
+
+// Cancel all effects
+effects.cancelAll();
+```
+
+**Performance**:
+- Zero heap allocation (`std::array<EffectSlot, 4>`)
+- Fast early-out via `hasActiveEffects()`
+- Shake uses Xorshift32 random (pure integer math, no floats)
+- Stub implementation when disabled (zero overhead)
+
+**Feature Gate**:
+```ini
+; platformio.ini
+build_flags =
+    -DPIXELROOT32_ENABLE_CAMERA_EFFECTS=1
+```
+
+When disabled, `CameraEffectsSystem` becomes a no-op stub — all methods return zero/empty, no RAM or CPU cost.
 
 ### Color and Palettes
 
@@ -107,10 +166,73 @@ Lightweight, step-based animation controller for advancing through an array of `
 
 Abstract interfaces for platform-specific drawing operations (e.g., `SDL2_Drawer`, `TFT_eSPI_Drawer`).
 
+### TransitionEffect
+
+*(Requires `PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`)*
+
+Provides scene transition effects (Fade and Iris) for smooth visual transitions between scenes. Uses direct 8bpp buffer access for zero-allocation, ESP32-friendly implementation.
+
+**Transition Types**:
+
+| Type | Method | Description |
+|------|--------|-------------|
+| `Fade` | Palette manipulation | Smooth global dimming via 256-byte LUT |
+| `Iris` | Buffer circle | Circular wipe using squared-distance test |
+
+**API**:
+
+```cpp
+#include <TransitionEffect.h>
+
+using namespace pixelroot32::graphics;
+
+// Create effect
+TransitionEffect effect;
+
+// Start transition
+effect.begin(TransitionType::Fade, 500, TransitionDirection::Out);
+
+// Update (call each frame)
+effect.update(deltaTime);
+
+// Apply to buffer
+if (effect.isActive()) {
+    uint8_t* buffer = surface->getSpriteBuffer();
+    effect.apply(buffer, logicalWidth, logicalHeight);
+}
+
+// Check completion
+if (effect.isComplete()) {
+    // Transition finished
+}
+
+// Iris customization
+effect.setIrisCenter(64, 64);  // Set circle center
+```
+
+**Performance**:
+- Fade: ~2-4% frame budget (LUT lookup per pixel)
+- Iris: ~2.8% frame budget (squared-distance test, no sqrt)
+- Zero heap allocation (256-byte LUT on stack)
+- Direct buffer access via `getSpriteBuffer()`
+
+**Feature Gate**:
+```ini
+; platformio.ini
+build_flags =
+    -DPIXELROOT32_ENABLE_SCENE_TRANSITIONS=1
+```
+
+When disabled, `TransitionEffect` becomes a no-op stub — all methods are safe to call but do nothing.
+
+See [Scene Management Guide](../guide/scenes.md#level-transitions-built-in) for usage examples.
+
 ## Related Types
 
 - `Renderer` → `include/graphics/Renderer.h`
 - `Camera2D` → `include/graphics/Camera2D.h`
+- `CameraEffectsSystem` → `include/graphics/CameraEffects.h`
+- `TransitionEffect` → `include/graphics/TransitionEffect.h`
 - `Color`, `PaletteType` → `include/graphics/Color.h`
 - `Font`, `FontManager` → `include/graphics/FontManager.h`
 - `Sprite`, `TileMap` → `include/graphics/Renderer.h`

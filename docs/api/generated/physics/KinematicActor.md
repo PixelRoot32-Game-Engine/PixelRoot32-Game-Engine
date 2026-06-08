@@ -18,7 +18,29 @@ moveAndSlide for complex character movement.
 
 [PhysicsActor](../core/PhysicsActor.md) → `KinematicActor`
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `constexpr` | `static` | Minimum snap magnitude for SnapPolicy::Step. |
+
 ## Methods
+
+### `bool moveAndCollide(pixelroot32::math::Vector2 motion, KinematicCollision* outCollision = nullptr, bool testOnly = false, pixelroot32::math::Scalar safeMargin = pixelroot32::math::Scalar(0.08f), bool recoveryAsCollision = false)`
+
+**Description:**
+
+Moves the body along a vector and stops at the first collision.
+
+**Parameters:**
+
+- `motion`: The relative movement vector.
+- `outCollision`: Pointer to store collision data if a hit occurs.
+- `testOnly`: If true, checks for collision without moving.
+- `safeMargin`: Extra margin for collision recovery.
+- `recoveryAsCollision`: If true, depenetration is reported as collision.
+
+**Returns:** true if a collision occurred.
 
 ### `inline bool is_on_ceiling() const`
 
@@ -30,10 +52,46 @@ Returns true if the body collided with the ceiling.
 
 **Description:**
 
-Returns true if the body collided with the floor.
+Returns true if the body collided with the floor this frame.
+
+### `const pixelroot32::math::Vector2& getFloorVelocity() const`
+
+**Description:**
+
+Gets the persisted floor velocity from the last KINEMATIC floor contact.
+
+**Returns:** Reference to the floor velocity vector.
+
+### `void clearFloorVelocity()`
+
+**Description:**
+
+Clears floor velocity and state.
 
 ### `inline bool is_on_wall() const`
 
 **Description:**
 
 Returns true if the body collided with a wall.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws the actor.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer.
+
+### `void slide(pixelroot32::math::Vector2& currentMotion, pixelroot32::math::Vector2 upDirection, pixelroot32::core::PhysicsActor*& localFloorBody)`
+
+**Description:**
+
+Internal slide loop. Iterates moveAndCollide to slide along surfaces.
+
+**Parameters:**
+
+- `currentMotion`: In/out: the motion vector to process (modified by slides).
+- `upDirection`: Up vector for floor/ceiling/wall classification.
+- `localFloorBody`: Out: set if floor collision is on a KINEMATIC body.

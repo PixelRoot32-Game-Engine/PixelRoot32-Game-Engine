@@ -20,6 +20,62 @@ navigation automatically.
 
 ## Methods
 
+### `void addElement(UIElement* element)`
+
+**Description:**
+
+Adds a UI element to the layout.
+
+**Parameters:**
+
+- `element`: Pointer to the element to add.
+
+### `void removeElement(UIElement* element)`
+
+**Description:**
+
+Removes a UI element from the layout.
+
+**Parameters:**
+
+- `element`: Pointer to the element to remove.
+
+### `void updateLayout()`
+
+**Description:**
+
+Recalculates positions of all elements.
+
+### `void handleInput(const pixelroot32::input::InputManager& input)`
+
+**Description:**
+
+Handles input for navigation and scrolling.
+
+**Parameters:**
+
+- `input`: Reference to the InputManager.
+
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the layout (handles smooth scrolling).
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since last frame in milliseconds.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws the layout and its visible elements.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer.
+
 ### `void setScrollEnabled(bool enable)`
 
 **Description:**
@@ -122,6 +178,19 @@ Sets the navigation button indices.
 
 - `upButton`: Button index for UP navigation.
 - `downButton`: Button index for DOWN navigation.
+
+### `void setButtonStyle(pixelroot32::graphics::Color selectedTextCol, pixelroot32::graphics::Color selectedBgCol, pixelroot32::graphics::Color unselectedTextCol, pixelroot32::graphics::Color unselectedBgCol)`
+
+**Description:**
+
+Sets the style colors for selected and unselected buttons.
+
+**Parameters:**
+
+- `selectedTextCol`: Text color when selected.
+- `selectedBgCol`: Background color when selected.
+- `unselectedTextCol`: Text color when not selected.
+- `unselectedBgCol`: Background color when not selected.
 
 ### `void calculateContentHeight()`
 

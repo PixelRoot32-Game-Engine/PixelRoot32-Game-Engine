@@ -31,9 +31,13 @@ void PlayerCube::setInput(float dir, bool jumpPressed) {
 void PlayerCube::update(unsigned long deltaTime) {
     float dt = deltaTime * 0.001f;
 
+    // Capture jump intent BEFORE consumption — snap needs it to decide
+    // whether to disable floor snapping on jump frames
+    bool jumpThisFrame = wantsJump;
+
     velocity.y += math::toScalar(PLAYER_GRAVITY * dt);
     velocity.x = math::toScalar(moveDir * moveSpeed);
-    if (wantsJump && is_on_floor()) {
+    if (jumpThisFrame && is_on_floor()) {
         velocity.y = math::toScalar(-jumpImpulse);
     }
     wantsJump = false;
@@ -44,12 +48,16 @@ void PlayerCube::update(unsigned long deltaTime) {
         setCollisionMask(Layers::GROUND | Layers::PLATFORM);
     }
 
-    moveAndSlide(velocity * pixelroot32::math::toScalar(dt), pixelroot32::math::Vector2(0, -1));
-    if (is_on_floor()) {
-        velocity.y = pixelroot32::math::toScalar(0);
-    } else if (is_on_ceiling()) {
-        velocity.y = pixelroot32::math::toScalar(0);
-    }
+    pixelroot32::math::Vector2 snap = (jumpThisFrame)
+        ? pixelroot32::math::Vector2{}
+        : pixelroot32::math::Vector2(pixelroot32::math::toScalar(0), KinematicActor::MIN_SNAP);
+    velocity = moveAndSlide(
+        velocity,
+        pixelroot32::math::toScalar(dt),
+        pixelroot32::math::Vector2(0, -1),
+        pixelroot32::physics::SnapPolicy::Step,
+        snap
+    );
 
     if (worldWidth > 0) {
         if (position.x < math::toScalar(0)) {

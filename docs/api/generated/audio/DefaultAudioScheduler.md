@@ -28,7 +28,39 @@ For platforms with a dedicated audio task (e.g., FreeRTOS on ESP32),
 
 ## Methods
 
-### `bool isMusicPlaying() const`
+### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256)`
+
+### `void submitCommand(const AudioCommand& cmd)`
+
+**Description:**
+
+Enqueues a command to the ApuCore. @param cmd The command to submit.
+
+**Parameters:**
+
+- `cmd`: The command to submit.
+
+### `void start()`
+
+**Description:**
+
+Marks scheduler as running. Starts audio generation context.
+
+### `void stop()`
+
+**Description:**
+
+Marks scheduler as stopped. Silences all voices.
+
+### `bool isIndependent() const`
+
+**Description:**
+
+Returns false (no dedicated audio thread). @return false.
+
+**Returns:** false.
+
+### `void generateSamples(int16_t* stream, int length)`
 
 **Description:**
 
@@ -37,6 +69,8 @@ Generates samples via ApuCore. @param stream Output buffer. @param length Sample
 **Parameters:**
 
 - `stream`: Output buffer.
+
+### `bool isMusicPlaying() const`
 
 ### `bool isMusicPaused() const`
 

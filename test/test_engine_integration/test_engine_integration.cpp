@@ -11,8 +11,8 @@
 #include "graphics/Renderer.h"
 #include "input/InputConfig.h"
 #include "audio/AudioConfig.h"
-#include "../../test_config.h"
-#include "../../mocks/MockDrawSurface.h"
+#include "../test_config.h"
+#include "../mocks/MockDrawSurface.h"
 #include <memory>
 
 using namespace pixelroot32::core;
@@ -106,8 +106,8 @@ void test_engine_update_draw_propagation(void) {
     auto scene = std::make_unique<Scene>();
     auto entity = std::make_unique<MockEntity>();
     
-    scene->addEntity(entity.get());
     engine.setScene(scene.get());
+    scene->addEntity(entity.get());
     
     engine.test_update();
     TEST_ASSERT_TRUE(entity->updated);

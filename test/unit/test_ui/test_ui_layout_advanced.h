@@ -893,3 +893,280 @@ void test_grid_layout_protected_calculate_cell_dimensions() {
     // Verify width unchanged
     TEST_ASSERT_EQUAL(100, layout.width);
 }
+
+// =============================================================================
+// Phase 2: UI Layout draw/navigation tests (PR 2)
+// =============================================================================
+
+// LY-01: UIVerticalLayout::draw() MUST position children top-to-bottom
+void test_vertical_layout_draw_child_y_positions() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIVerticalLayout layout(0, 0, 100, 200);
+    layout.setSpacing(toScalar(0));
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    
+    UIElement* ptr1 = btn1.get();
+    UIElement* ptr2 = btn2.get();
+    
+    layout.addElement(ptr1);
+    layout.addElement(ptr2);
+    layout.updateLayout();
+    
+    // Draw the layout (no crash, children drawn)
+    layout.draw(renderer);
+    
+    // Verify child y positions increment (top-to-bottom)
+    TEST_ASSERT_TRUE(ptr1->position.y < ptr2->position.y);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+}
+
+// LY-02: UIVerticalLayout::handleInput() with selected element forwards input
+void test_vertical_layout_handle_input_selected_preserved() {
+    UIVerticalLayout layout(0, 0, 100, 200);
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    
+    // Set initial selection
+    layout.setSelectedIndex(0);
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    
+    // Call handleInput with default (no buttons pressed) — should not crash, state preserved
+    pixelroot32::input::InputConfig inputConfig;
+    pixelroot32::input::InputManager input(inputConfig);
+    layout.handleInput(input);
+    
+    // Selection preserved after handleInput with no input
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    TEST_ASSERT_EQUAL(2, layout.getElementCount());
+}
+
+// LY-03: UIHorizontalLayout::draw() MUST position children left-to-right
+void test_horizontal_layout_draw_child_x_positions() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIHorizontalLayout layout(0, 0, 300, 50);
+    layout.setSpacing(toScalar(0));
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    
+    UIElement* ptr1 = btn1.get();
+    UIElement* ptr2 = btn2.get();
+    
+    layout.addElement(ptr1);
+    layout.addElement(ptr2);
+    layout.updateLayout();
+    
+    // Draw the layout
+    layout.draw(renderer);
+    
+    // Verify child x positions increment (left-to-right)
+    TEST_ASSERT_TRUE(ptr1->position.x < ptr2->position.x);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+}
+
+// LY-04: UIHorizontalLayout::handleInput() preserves selection state
+void test_horizontal_layout_handle_input_selected_preserved() {
+    UIHorizontalLayout layout(0, 0, 300, 50);
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    
+    layout.setSelectedIndex(0);
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    
+    pixelroot32::input::InputConfig inputConfig;
+    pixelroot32::input::InputManager input(inputConfig);
+    layout.handleInput(input);
+    
+    // Selection preserved after handleInput with no input
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    TEST_ASSERT_EQUAL(2, layout.getElementCount());
+}
+
+// LY-05: UIGridLayout::draw() MUST layout in row-major order
+void test_grid_layout_draw_row_major_positions() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn3 = std::make_unique<UIButton>("3", 2, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn4 = std::make_unique<UIButton>("4", 3, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    
+    UIElement* ptr1 = btn1.get();
+    UIElement* ptr2 = btn2.get();
+    UIElement* ptr3 = btn3.get();
+    UIElement* ptr4 = btn4.get();
+    
+    layout.addElement(ptr1);
+    layout.addElement(ptr2);
+    layout.addElement(ptr3);
+    layout.addElement(ptr4);
+    layout.updateLayout();
+    
+    // Draw the layout
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Row 0: elements 0 and 1 (same row)
+    // Row 1: elements 2 and 3 (same row)
+    // Row 0 y should be less than Row 1 y
+    TEST_ASSERT_TRUE(ptr1->position.y < ptr3->position.y);
+    TEST_ASSERT_TRUE(ptr2->position.y < ptr4->position.y);
+    
+    // Same row: column 0 x < column 1 x
+    TEST_ASSERT_TRUE(ptr1->position.x < ptr2->position.x);
+    TEST_ASSERT_TRUE(ptr3->position.x < ptr4->position.x);
+}
+
+// LY-06: UIGridLayout navigation via setSelectedIndex
+void test_grid_layout_navigation_down_wrap() {
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn3 = std::make_unique<UIButton>("3", 2, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn4 = std::make_unique<UIButton>("4", 3, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    layout.addElement(btn3.get());
+    layout.addElement(btn4.get());
+    
+    // Row 0: [0][1], Row 1: [2][3]
+    // Navigate from index 0 to index 2 (row 1, same column)
+    layout.setSelectedIndex(0);
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    
+    // handleInput with no input — selection preserved, no crash
+    pixelroot32::input::InputConfig inputConfig;
+    pixelroot32::input::InputManager input(inputConfig);
+    layout.handleInput(input);
+    TEST_ASSERT_EQUAL(0, layout.getSelectedIndex());
+    
+    // Use setSelectedIndex to test wrap behavior:
+    // Index 1 (row 0 col 1) → DOWN would go to index 3 (row 1 col 1)
+    layout.setSelectedIndex(3);
+    TEST_ASSERT_EQUAL(3, layout.getSelectedIndex());
+    
+    // Index 3 is last row — DOWN should wrap to col 1 of row 0
+    layout.setSelectedIndex(1);
+    TEST_ASSERT_EQUAL(1, layout.getSelectedIndex());
+    TEST_ASSERT_EQUAL(4, layout.getElementCount());
+}
+
+// LY-07: All layouts MUST skip children when not visible (Vertical)
+void test_vertical_layout_invisible_child_skip() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIVerticalLayout layout(0, 0, 100, 200);
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    
+    // All visible — draw produces calls
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    size_t callCountAllVisible = mockRaw->rectCalls.size();
+    
+    // Hide btn1, draw — still have calls from btn2
+    mockRaw->clearBuffer();
+    btn1->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Hide both — no draw calls
+    mockRaw->clearBuffer();
+    btn2->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
+}
+
+// LY-07: All layouts MUST skip children when not visible (Horizontal)
+void test_horizontal_layout_invisible_child_skip() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIHorizontalLayout layout(0, 0, 200, 50);
+    
+    auto btn1 = std::make_unique<UIButton>("A", 0, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    auto btn2 = std::make_unique<UIButton>("B", 1, Vector2::ZERO(), Vector2(80, 30), nullptr);
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    
+    // All visible — draw produces calls
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Hide btn1, draw — still have calls from btn2
+    mockRaw->clearBuffer();
+    btn1->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Hide both — no draw calls
+    mockRaw->clearBuffer();
+    btn2->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
+}
+
+// LY-07: All layouts MUST skip children when not visible (Grid)
+void test_grid_layout_invisible_child_skip() {
+    auto mockDrawer = std::make_unique<MockDrawSurfaceAdvanced>();
+    MockDrawSurfaceAdvanced* mockRaw = mockDrawer.get();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mockDrawer.release(), 240, 240);
+    Renderer renderer(config);
+    
+    UIGridLayout layout(0, 0, 100, 100);
+    layout.setColumns(2);
+    
+    auto btn1 = std::make_unique<UIButton>("1", 0, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    auto btn2 = std::make_unique<UIButton>("2", 1, Vector2::ZERO(), Vector2(40, 20), nullptr);
+    layout.addElement(btn1.get());
+    layout.addElement(btn2.get());
+    
+    // All visible — draw produces calls
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Hide btn1, draw — still have calls from btn2
+    mockRaw->clearBuffer();
+    btn1->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_FALSE(mockRaw->rectCalls.empty());
+    
+    // Hide both — no draw calls
+    mockRaw->clearBuffer();
+    btn2->setVisible(false);
+    layout.draw(renderer);
+    TEST_ASSERT_TRUE(mockRaw->rectCalls.empty());
+}

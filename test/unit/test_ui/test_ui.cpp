@@ -74,6 +74,13 @@ RUN_TEST(test_checkbox_long_label);
     RUN_TEST(test_uielement_is_focusable_default_returns_false);
     RUN_TEST(test_uielement_get_preferred_size_returns_dimensions);
     RUN_TEST(test_uielement_get_preferred_size_different_dimensions);
+    
+    // Phase 3: UI Widget draw tests (PR 2 - 5 tests)
+    RUN_TEST(test_panel_draw_background_filled_rect);
+    RUN_TEST(test_panel_draw_border_four_sides);
+    RUN_TEST(test_button_handle_input_selected);
+    RUN_TEST(test_button_get_selected_transition);
+    RUN_TEST(test_button_style_no_background_selected_draw);
 
     // UIPaddingContainer Tests (18 tests)
     RUN_TEST(test_padding_container_initialization);
@@ -95,6 +102,17 @@ RUN_TEST(test_checkbox_long_label);
     RUN_TEST(test_padding_container_draw_with_child);
     RUN_TEST(test_padding_container_draw_not_visible);
 
+    // Phase 2: UI Layout draw/navigation tests (PR 2 - 9 tests)
+    RUN_TEST(test_vertical_layout_draw_child_y_positions);
+    RUN_TEST(test_vertical_layout_handle_input_selected_preserved);
+    RUN_TEST(test_horizontal_layout_draw_child_x_positions);
+    RUN_TEST(test_horizontal_layout_handle_input_selected_preserved);
+    RUN_TEST(test_grid_layout_draw_row_major_positions);
+    RUN_TEST(test_grid_layout_navigation_down_wrap);
+    RUN_TEST(test_vertical_layout_invisible_child_skip);
+    RUN_TEST(test_horizontal_layout_invisible_child_skip);
+    RUN_TEST(test_grid_layout_invisible_child_skip);
+    
     // UILayout Tests (28 tests - Basic)
     RUN_TEST(test_vertical_layout_spacing);
     RUN_TEST(test_horizontal_layout_spacing);

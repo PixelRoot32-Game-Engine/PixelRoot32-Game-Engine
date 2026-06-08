@@ -105,44 +105,67 @@ struct Vector2 {
         return *this;
     }
 
-    /** @brief Equality check. @param other Vector to compare. @return True if equal. */
-    constexpr bool operator==(const Vector2& other) const {
-        return x == other.x && y == other.y;
+    /**
+     * @brief Computes the dot product of two vectors.
+     * @param other The other vector.
+     * @return The dot product.
+     */
+    constexpr Scalar dot(const Vector2& other) const {
+        return x * other.x + y * other.y;
     }
 
-    /** @brief Inequality check. @param other Vector to compare. @return True if not equal. */
-    constexpr bool operator!=(const Vector2& other) const {
-        return !(*this == other);
-    }
-
-    /** @brief Computes squared length. @return Squared length of the vector. */
+    /**
+     * @brief Computes the squared length of the vector.
+     * @return The squared length.
+     */
     constexpr Scalar lengthSquared() const {
         return x * x + y * y;
     }
 
-    /** @brief Computes length (magnitude). @return Length of the vector. */
-    inline Scalar length() const {
-        return sqrt(lengthSquared());
-    }
-
-    /** @brief Normalizes the vector in place. */
-    inline void normalize() {
+    /**
+     * @brief Normalizes the vector in-place.
+     */
+    void normalize() {
         Scalar len = length();
         if (len > toScalar(0)) {
             *this /= len;
         }
     }
 
-    /** @brief Returns a normalized copy. @return Normalized vector. */
-    inline Vector2 normalized() const {
+    /**
+     * @brief Returns a normalized copy of the vector.
+     * @return Normalized vector.
+     */
+    Vector2 normalized() const {
         Vector2 v = *this;
         v.normalize();
         return v;
     }
 
-    /** @brief Dot product with another vector. @param other Vector to compute dot product with. @return Dot product result. */
-    inline Scalar dot(const Vector2& other) const {
-        return x * other.x + y * other.y;
+    /**
+     * @brief Computes the length of the vector.
+     * @return The length.
+     */
+    Scalar length() const {
+        return sqrt(lengthSquared());
+    }
+
+    /**
+     * @brief Equality operator.
+     * @param other Vector to compare with.
+     * @return true if vectors are equal.
+     */
+    constexpr bool operator==(const Vector2& other) const {
+        return x == other.x && y == other.y;
+    }
+
+    /**
+     * @brief Inequality operator.
+     * @param other Vector to compare with.
+     * @return true if vectors are not equal.
+     */
+    constexpr bool operator!=(const Vector2& other) const {
+        return !(*this == other);
     }
 
     /** @brief 2D Cross product with another vector. @param other Vector to compute cross product with. @return Cross product result. */

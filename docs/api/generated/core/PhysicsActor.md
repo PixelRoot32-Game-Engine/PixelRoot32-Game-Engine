@@ -19,6 +19,16 @@ Automatically adapts to use float or Fixed16 based on the platform configuration
 
 ## Methods
 
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the actor state.
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since the last frame in milliseconds.
+
 ### `void setLimits(const LimitRect& limitRect)`
 
 **Description:**
@@ -156,16 +166,15 @@ Integrates velocity to update position.
 
 Resolves collisions with the defined world or custom bounds.
 
-### `void setVelocity(T x, T y)`
+### `pixelroot32::core::Rect getHitBox()`
 
 **Description:**
 
-Sets the linear velocity of the actor using floats.
+Gets the axis-aligned bounding box (AABB) hitbox of the actor.
 
-**Parameters:**
+**Returns:** Rect representing the hitbox.
 
-- `x`: Horizontal velocity.
-- `y`: Vertical velocity.
+### `void setVelocity(T x, T y)`
 
 ### `void setVelocity(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y)`
 
@@ -294,6 +303,51 @@ Get user data pointer.
 
 **Returns:** Pointer set via setUserData, or nullptr if never set.
 
+### `void setHitboxOffset(pixelroot32::math::Vector2 offset)`
+
+**Description:**
+
+Sets the hitbox offset relative to position.
+
+**Parameters:**
+
+- `offset`: Offset vector (e.g., {4, 8} shifts hitbox right and down).
+
+### `pixelroot32::math::Vector2 getHitboxOffset() const`
+
+**Description:**
+
+Gets the current hitbox offset.
+
+**Returns:** Offset vector.
+
+### `void setHitboxDimensions(pixelroot32::math::Scalar w, pixelroot32::math::Scalar h)`
+
+**Description:**
+
+Sets custom hitbox dimensions separate from entity dimensions.
+
+**Parameters:**
+
+- `w`: Custom hitbox width (0 = use entity width).
+- `h`: Custom hitbox height (0 = use entity height).
+
+### `pixelroot32::math::Scalar getHitboxWidth() const`
+
+**Description:**
+
+Gets the custom hitbox width.
+
+**Returns:** Custom hitbox width as Scalar (0 means entity width is used).
+
+### `pixelroot32::math::Scalar getHitboxHeight() const`
+
+**Description:**
+
+Gets the custom hitbox height.
+
+**Returns:** Custom hitbox height as Scalar (0 means entity height is used).
+
 ### `void setSensor(bool s)`
 
 **Description:**
@@ -365,6 +419,16 @@ Sets the position and syncs previous position.
 **Parameters:**
 
 - `pos`: The new position.
+
+### `void onCollision(Actor* other)`
+
+**Description:**
+
+Callback triggered when this actor collides with another actor.
+
+**Parameters:**
+
+- `other`: Pointer to the actor involved in the collision.
 
 ### `virtual void onWorldCollision()`
 

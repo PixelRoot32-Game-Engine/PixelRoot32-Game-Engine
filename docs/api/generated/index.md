@@ -34,6 +34,7 @@ Auto-generated API documentation from C++ header files.
 - [Rect](./core/Rect.md) — Represents a 2D rectangle, typically used for hitboxes or bounds.
 - [Scene](./core/Scene.md) — Represents a game level or screen containing entities.
 - [SceneManager](./core/SceneManager.md) — Manages the stack of active scenes.
+- [TransitionState](./core/TransitionState.md) — State machine for scene transitions.
 - [WorldCollisionInfo](./core/WorldCollisionInfo.md) — Stores flags indicating which world boundaries were hit in the current frame.
 
 ## Drivers
@@ -52,9 +53,11 @@ Auto-generated API documentation from C++ header files.
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
 - [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
+- [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
 - [DrawSurface](./graphics/DrawSurface.md) — Abstract interface for platform-specific drawing operations.
+- [EffectSlot](./graphics/EffectSlot.md) — Per-slot state for a single camera effect (20 bytes).
 - [Font](./graphics/Font.md) — Descriptor for a bitmap font using 1bpp sprites.
 - [FontManager](./graphics/FontManager.md) — Static utility class for managing bitmap fonts.
 - [LayerAttributes](./graphics/LayerAttributes.md) — All tiles with attributes in a single tilemap layer.
@@ -81,6 +84,9 @@ Auto-generated API documentation from C++ header files.
 - [TilemapSpriteDirtyMode](./graphics/TilemapSpriteDirtyMode.md) — Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
 - [TouchConfig](./graphics/TouchConfig.md) — Configuration for a touch controller (XPT2046 or GT911).
 - [TouchController](./graphics/TouchController.md) — Supported touch controller types.
+- [TransitionDirection](./graphics/TransitionDirection.md) — Direction of the transition effect.
+- [TransitionEffect](./graphics/TransitionEffect.md) — Manages a single scene transition with zero runtime allocation.
+- [TransitionType](./graphics/TransitionType.md) — Types of scene transitions.
 - [UIAnchorLayout](./graphics/UIAnchorLayout.md) — Layout that positions elements at fixed anchor points on the screen.
 - [UIButton](./graphics/UIButton.md) — A clickable button UI element.
 - [UICheckBox](./graphics/UICheckBox.md) — A clickable checkbox UI element.
@@ -102,6 +108,7 @@ Auto-generated API documentation from C++ header files.
 - [UIWidgetFlags](./graphics/UIWidgetFlags.md) — Flags for widget behavior
 - [UIWidgetState](./graphics/UIWidgetState.md) — Current state of a touch widget
 - [UIWidgetType](./graphics/UIWidgetType.md) — Types of touch UI widgets
+- [WipeDirection](./graphics/WipeDirection.md) — Corner-to-corner directions for DiagonalWipe transitions.
 
 ## Input
 
@@ -144,6 +151,7 @@ Auto-generated API documentation from C++ header files.
 - [RigidActor](./physics/RigidActor.md) — A physics body fully simulated by the engine.
 - [Segment](./physics/Segment.md) — Represents a 2D line segment for collision detection.
 - [SensorActor](./physics/SensorActor.md) — A static body that acts as a trigger: detects overlap but produces no physical response.
+- [SnapPolicy](./physics/SnapPolicy.md) — Controls floor snap behavior after slide resolution.
 - [SpatialGrid](./physics/SpatialGrid.md) — Optimized spatial partitioning with separate static/dynamic layers.
 - [StaticActor](./physics/StaticActor.md) — A physics body that does not move.
 - [TileBehaviorLayer](./physics/TileBehaviorLayer.md) — Runtime representation of exported behavior layer for O(1) flag lookup.

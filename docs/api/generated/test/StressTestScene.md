@@ -16,6 +16,12 @@ Scene for stress testing physics performance.
 
 ## Methods
 
+### `void init()`
+
+### `void update(unsigned long deltaTime)`
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
 ### `const Metrics& getMetrics() const`
 
 ### `void resetMetrics()`

@@ -64,6 +64,13 @@ public:
         return nullptr;
     }
 
+    /**
+     * @brief Get pointer to the RGB565 pixel buffer for transition effects.
+     */
+    uint16_t* getPixelBuffer() override {
+        return pixels;
+    }
+
     bool processEvents() override;
     
     /**

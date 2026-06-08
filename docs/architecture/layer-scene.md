@@ -19,6 +19,7 @@ Central class that orchestrates all subsystems.
 - Manages Renderer, SceneManager, InputManager, AudioEngine, MusicPlayer
 - Runs the main game loop
 - Provides automatic touch processing (when enabled)
+- Manages scene transitions (Fade, Iris) via `TransitionEffect`
 
 **Game Loop**:
 
@@ -45,8 +46,39 @@ void Engine::update() {
 void Engine::draw() {
     renderer.beginFrame();
     sceneManager.draw(renderer);
+    
+    // Apply transition overlay (after scene draw, before present)
+    if (sceneManager.isTransitioning()) {
+        sceneManager.drawTransitionOverlay(renderer);
+    }
+    
     renderer.endFrame();
 }
+```
+
+**Scene Transitions** (`PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`):
+
+```cpp
+// Trigger a transition
+void Engine::triggerTransition(
+    graphics::TransitionType type,      // Fade or Iris
+    unsigned long durationMs,           // Duration per phase (ms)
+    graphics::TransitionDirection dir   // Out (hide) or In (reveal)
+);
+
+// Check if transitioning
+bool isTransitioning() const;
+```
+
+**Transition State Machine**:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> FadingOut: triggerTransition()
+    FadingOut --> SceneSwap: fade complete
+    SceneSwap --> FadingIn: scene swapped
+    FadingIn --> Idle: fade complete
 ```
 
 **Touch Integration** (`PIXELROOT32_ENABLE_TOUCH=1`):
@@ -70,15 +102,19 @@ See [Touch Input Architecture](touch-input.md) for details.
 
 **Files**: `include/core/SceneManager.h`, `src/core/SceneManager.cpp`
 
-Scene stack management (push/pop operations).
+Scene stack management (push/pop operations) and transition orchestration.
 
 **Operations**:
 
 | Method | Description |
 |--------|-------------|
-| `setCurrentScene()` | Replace current scene |
+| `setCurrentScene()` | Replace current scene (immediate) |
 | `pushScene()` | Push new scene (pauses previous) |
 | `popScene()` | Pop scene (resumes previous) |
+| `transitionToScene()` | Begin transition to new scene (Fade/Iris) |
+| `isTransitioning()` | Check if transition is active |
+| `updateTransitions()` | Update transition state machine |
+| `drawTransitionOverlay()` | Render transition effect overlay |
 
 **Scene Stack**:
 
@@ -92,6 +128,26 @@ Useful for:
 - Pause menus (push pause scene over game scene)
 - Settings screens
 - Dialog overlays
+
+**Transition Support** (`PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`):
+
+```cpp
+// Internal state machine
+enum class TransitionState : uint8_t {
+    Idle,           // No transition active
+    FadingOut,      // Applying effect to hide current scene
+    SceneSwap,      // Swapping scene pointer (atomic)
+    FadingIn        // Applying effect to reveal new scene
+};
+
+// Transition is orchestrated by SceneManager but effect is owned by Engine
+void SceneManager::updateTransitions(unsigned long deltaTime);
+void SceneManager::drawTransitionOverlay(graphics::Renderer& renderer);
+```
+
+::: info Input Blocking
+During transitions (`FadingOut` or `FadingIn`), `SceneManager::update()` skips scene updates and input processing. This ensures clean transitions without ghost inputs.
+:::
 
 ---
 

@@ -31,6 +31,62 @@ Adds a UI element with a specific anchor point.
 - `element`: Pointer to the element to add.
 - `anchor`: Anchor point for positioning.
 
+### `void addElement(UIElement* element)`
+
+**Description:**
+
+Adds a UI element to the layout (defaults to TOP_LEFT anchor).
+
+**Parameters:**
+
+- `element`: Pointer to the element to add.
+
+### `void removeElement(UIElement* element)`
+
+**Description:**
+
+Removes a UI element from the layout.
+
+**Parameters:**
+
+- `element`: Pointer to the element to remove.
+
+### `void updateLayout()`
+
+**Description:**
+
+Recalculates positions of all elements based on anchors.
+
+### `void handleInput(const pixelroot32::input::InputManager& input)`
+
+**Description:**
+
+Handles input (no-op for anchor layout, elements handle their own input).
+
+**Parameters:**
+
+- `input`: Reference to the InputManager.
+
+### `void update(unsigned long deltaTime)`
+
+**Description:**
+
+Updates the layout and child elements.
+
+**Parameters:**
+
+- `deltaTime`: Time elapsed since last frame in milliseconds.
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`
+
+**Description:**
+
+Draws all elements.
+
+**Parameters:**
+
+- `renderer`: Reference to the renderer.
+
 ### `void setScreenSize(int screenWidth, int screenHeight)`
 
 **Description:**

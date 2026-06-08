@@ -7,6 +7,7 @@
 #include <platforms/EngineConfig.h>
 
 #include "CameraDemoScene.h"
+#include "CameraDemoScene2.h"
 
 namespace pr32 = pixelroot32;
 
@@ -26,12 +27,15 @@ pr32::input::InputConfig inputConfig(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCA
 pr32::core::Engine engine(config, inputConfig);
 
 camerademo::CameraDemoScene cameraScene;
+camerademo::CameraDemoScene2 cameraScene2;
 
 int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
     engine.init();
+    cameraScene.setScene2(&cameraScene2);
+    cameraScene2.setScene1(&cameraScene);
     engine.setScene(&cameraScene);
 
     engine.run();

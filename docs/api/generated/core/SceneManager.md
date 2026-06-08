@@ -94,3 +94,66 @@ Gets the number of scenes in the stack.
 Checks if the scene stack is empty.
 
 **Returns:** True if there are no scenes.
+
+### `void transitionToScene(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs)`
+
+**Description:**
+
+Start a transition from the current scene to a new one.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: Fade, Iris, or DiagonalWipe transition effect.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+
+Ignored if a transition is already running (state != Idle).
+The full cycle is: FadingOut (durationMs) → SceneSwap → FadingIn (durationMs) → Idle.
+
+### `void transitionToScene(Scene* newScene, pixelroot32::graphics::TransitionType type, unsigned long durationMs, int irisOutCx, int irisOutCy, int irisInCx, int irisInCy)`
+
+**Description:**
+
+Start a transition with direction-specific iris centers.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `type`: Fade, Iris, or DiagonalWipe transition effect.
+- `durationMs`: Duration of each phase (Out and In) in ms.
+- `irisOutCx`: Iris center X for Out (closing) phase.
+- `irisOutCy`: Iris center Y for Out (closing) phase.
+- `irisInCx`: Iris center X for In (opening) phase.
+- `irisInCy`: Iris center Y for In (opening) phase.
+
+Stores the centers and re-applies them after each effect.init()
+(which resets centers to -1). Only meaningful for Iris transitions.
+
+### `bool isTransitioning() const`
+
+**Description:**
+
+Whether a scene transition is currently active.
+
+**Returns:** true when TransitionState != Idle.
+
+### `TransitionState getTransitionState() const`
+
+**Description:**
+
+Get the current transition state.
+
+**Returns:** The active TransitionState.
+
+### `void setTransitionEffect(pixelroot32::graphics::TransitionEffect* effect)`
+
+**Description:**
+
+Provide a pointer to the Engine-owned TransitionEffect instance.
+
+**Parameters:**
+
+- `effect`: Non-owning pointer to the TransitionEffect.
+
+Called by Engine::init(). The Engine owns the TransitionEffect;
+SceneManager only drives it (init, update) during transitions.

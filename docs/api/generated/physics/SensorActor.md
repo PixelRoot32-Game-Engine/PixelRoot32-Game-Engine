@@ -16,3 +16,7 @@ onCollision() without pushing or blocking the other body.
 ## Inheritance
 
 [StaticActor](./StaticActor.md) → `SensorActor`
+
+## Methods
+
+### `void draw(pixelroot32::graphics::Renderer& renderer)`

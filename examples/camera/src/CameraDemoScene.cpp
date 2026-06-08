@@ -1,4 +1,5 @@
 #include "CameraDemoScene.h"
+#include "CameraDemoScene2.h"
 #include "core/Engine.h"
 #include "platforms/EngineConfig.h"
 #include "input/InputManager.h"
@@ -137,12 +138,26 @@ static void initPlatformerTilemap() {
 CameraDemoScene::CameraDemoScene()
     : camera(DISPLAY_WIDTH, DISPLAY_HEIGHT)
     , player(nullptr)
-    , levelWidth(static_cast<float>(TILEMAP_WIDTH * TILE_SIZE)) {
+    , levelWidth(static_cast<float>(TILEMAP_WIDTH * TILE_SIZE))
+    , scene2Ref_(nullptr)
+    , endReached_(false) {
 }
 
 CameraDemoScene::~CameraDemoScene() {}
 
+void CameraDemoScene::resetState() noexcept {
+    // Release owned resources BEFORE clearing base state
+    player.reset();
+    for (int i = 0; i < entityCount; ++i) {
+        ownedEntities[i].reset();
+    }
+    entityCount = 0;
+    // Delegate to base — clears entities[], arena, and collision system
+    Scene::resetState();
+}
+
 void CameraDemoScene::init() {
+    Scene::init();  // Idempotent: resets prior state before re-initialising
     gfx::setPalette(gfx::PaletteType::PR32);
     initPlatformerTilemap();
     jumpInputReady = false;
@@ -159,7 +174,7 @@ void CameraDemoScene::init() {
         ground->setCollisionLayer(Layers::GROUND);
         ground->setCollisionMask(Layers::PLAYER);
         addEntity(ground.get());
-        ownedEntities.push_back(std::move(ground));
+        ownedEntities[entityCount++] = std::move(ground);
     }
 
     struct PlatDef {
@@ -192,7 +207,7 @@ void CameraDemoScene::init() {
             platform->setCollisionMask(0);
         }
         addEntity(platform.get());
-        ownedEntities.push_back(std::move(platform));
+        ownedEntities[entityCount++] = std::move(platform);
     }
 
     float startX = PLAYER_START_X;
@@ -246,6 +261,25 @@ void CameraDemoScene::update(unsigned long deltaTime) {
     if (player) {
         player->setInput(moveDir, jumpPressed);
     }
+
+    // End-of-level detection: player reaches the rightmost edge of the level
+    if (!endReached_ && player && scene2Ref_) {
+        float playerRightEdge = static_cast<float>(player->position.x) + PLAYER_WIDTH;
+        if (playerRightEdge >= levelWidth) {
+            endReached_ = true;
+            // Trigger directional iris transition:
+            //   Out closes from RIGHT edge of the screen
+            //   In opens from LEFT edge of the screen
+            engine.triggerTransition(
+                static_cast<pr32::core::Scene*>(scene2Ref_),
+                gfx::TransitionType::Iris,
+                500,
+                DISPLAY_WIDTH, DISPLAY_HEIGHT / 2,  // Out center: RIGHT
+                0, DISPLAY_HEIGHT / 2                // In center: LEFT
+            );
+        }
+    }
+
     Scene::update(deltaTime);
 
     if (player) {
@@ -281,9 +315,9 @@ void CameraDemoScene::draw(gfx::Renderer& renderer) {
     if (player) {
         player->draw(renderer);
     }
-    for (const auto& entity : ownedEntities) {
-        if (entity->isVisible) {
-            entity->draw(renderer);
+    for (int i = 0; i < entityCount; ++i) {
+        if (ownedEntities[i]->isVisible) {
+            ownedEntities[i]->draw(renderer);
         }
     }
 }

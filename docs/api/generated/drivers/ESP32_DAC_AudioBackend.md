@@ -23,6 +23,8 @@ Target: ESP32 (original), ESP32-S2. The DAC does not exist on S3/C3.
 
 ## Methods
 
+### `void init(pixelroot32::audio::AudioEngine* engine, const pixelroot32::platforms::PlatformCapabilities& caps)`
+
 ### `int getSampleRate() const`
 
 ### `void audioTaskLoop()`

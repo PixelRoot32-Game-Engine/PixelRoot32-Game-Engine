@@ -203,7 +203,15 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
     stripped = original_line
     sig_part = stripped
     if '{' in stripped:
-        sig_part = stripped.split('{')[0].strip()
+        # Heuristic: If { is preceded by = (default arg) and the line ends with ;
+        # then it's likely a declaration, not an inline body.
+        brace_pos = stripped.find('{')
+        equal_pos = stripped.find('=')
+        if equal_pos != -1 and equal_pos < brace_pos and stripped.strip().endswith(';'):
+            # It's a declaration with brace-init default arg
+            pass
+        else:
+            sig_part = stripped.split('{')[0].strip()
 
     # Check for virtual
     is_virtual = 'virtual ' in sig_part
@@ -214,8 +222,8 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
     sig_part = sig_part.replace('static ', '')
 
     # Check for explicit override/final and pure virtual
-    sig_part = re.sub(r'\s+override\s*$', '', sig_part)
-    sig_part = re.sub(r'\s+final\s*$', '', sig_part)
+    sig_part = re.sub(r'\s+override\b', '', sig_part)
+    sig_part = re.sub(r'\s+final\b', '', sig_part)
     sig_part = re.sub(r'\s*=\s*0\s*;', ';', sig_part)
 
     # For matching, use sig_part as-is
@@ -224,9 +232,9 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
     # Use sig_part (already stripped of inline body, override, final)
     # Match method signature: return_type name(params) [const];
     method_pattern = r'^(?:template\s*<[^>]+>\s*)?'  # Optional template
-    method_pattern += r'([\w:<>,\s&*~]+?)'  # Return type (non-greedy), allow ~ for destructor
+    method_pattern += r'([\w:<>,\s&*]+?)'  # Return type (no ~ or . allowed here)
     method_pattern += r'\s+([\w~]+)\s*'  # Method name (allow ~ for destructor)
-    method_pattern += r'\((.*?)\)'  # Parameters (non-greedy)
+    method_pattern += r'\((.*)\)'  # Parameters (greedy to catch nested parens)
     method_pattern += r'\s*(const)?'  # Optional const
     method_pattern += r'(?:\s*=\s*0)?'  # Optional pure virtual = 0
     method_pattern += r'(?:\s*;)?$'  # Optional semicolon at end
@@ -323,17 +331,28 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
             classes.append(class_doc)
         else:
             # Check if this doc comment precedes a method
-            # Look for method signature in following lines
+            # Look for method signature in following lines (support multi-line)
             method_found = False
-            for line in following_lines[:5]:
+            accumulated_line = ""
+            # Track access level - assume we're parsing from the start of class
+            # We'll detect access specifiers as we accumulate
+            local_access = "private"  # Will be updated by parse_class_body for body parsing
+            for line in following_lines[:10]:
                 line = line.strip()
                 if not line or line.startswith('//'):
                     continue
                 if line.startswith('/*'):
                     break
+                # Track access specifiers - if we hit one, stop processing
+                if line.startswith('public:'):
+                    break  # Stop - we're past the doc comment context
+                if line.startswith('private:') or line.startswith('protected:'):
+                    break  # Stop - private/protected section, don't document
+                
+                accumulated_line = (accumulated_line + " " + line).strip()
                 
                 # Check for method signature
-                method_info = extract_method_signature(line)
+                method_info = extract_method_signature(accumulated_line)
                 if method_info and classes:
                     # Associate with the most recent class
                     name, sig, is_virt, is_static, is_ctor, is_dtor = method_info
@@ -412,38 +431,60 @@ def parse_class_body(body: str, class_doc: ClassDoc):
                         prop = Property(name=prop_name, type=prop_type, doc=prop_doc)
                         class_doc.properties.append(prop)
         
-        # Look for methods without preceding doc comments
-        method_info = extract_method_signature(line)
-        if method_info:
-            name, sig, is_virt, is_static, is_ctor, is_dtor = method_info
-            
-            # Check if method with same name already exists
-            # If it does and the existing one has no documentation, we might want to keep both
-            # or replace if signatures match closely
-            existing_idx = None
-            for idx, m in enumerate(class_doc.methods):
-                if m.name == name:
-                    # Normalize signatures for comparison (remove const, spaces)
-                    sig_clean = re.sub(r'\s+const\s*$', '', sig).replace(' ', '')
-                    existing_clean = re.sub(r'\s+const\s*$', '', m.signature).replace(' ', '')
-                    if sig_clean == existing_clean:
-                        existing_idx = idx
-                        break
-            
-            if existing_idx is None:
-                # New method - add it
-                method = Method(
-                    name=name,
-                    signature=sig,
-                    doc=DocComment(),
-                    is_virtual=is_virt,
-                    is_static=is_static,
-                    is_constructor=is_ctor,
-                    is_destructor=is_dtor
-                )
-                class_doc.methods.append(method)
+        # Look for methods without preceding doc comments (support multi-line)
+        method_info = None
+        accumulated_line = ""
+        # Track access level within multiline accumulation to avoid picking up private methods
+        local_access = current_access
+        for j in range(i, min(i + 5, len(lines))):
+            next_line = lines[j].strip()
+            # Track access specifiers even within multiline parsing
+            if next_line.startswith('public:'):
+                local_access = "public"
+                break  # Stop accumulating, we've crossed into public section
+            elif next_line.startswith('private:'):
+                local_access = "private"
+                break  # Stop accumulating, we've crossed into private section
+            elif next_line.startswith('protected:'):
+                local_access = "protected"
+                break  # Stop accumulating, we've crossed into protected section
+            if not next_line or next_line.startswith('//') or next_line.startswith('*') or next_line.startswith('/*'):
+                continue
+            accumulated_line = (accumulated_line + " " + next_line).strip()
+            method_info = extract_method_signature(accumulated_line)
+            if method_info:
+                name, sig, is_virt, is_static, is_ctor, is_dtor = method_info
+                
+                # Only add if we're still in public section
+                if local_access != "public":
+                    break  # Stop - we found a method but it's not public
+                
+                # Check if method with same name already exists
+                existing_idx = None
+                for idx, m in enumerate(class_doc.methods):
+                    if m.name == name:
+                        sig_clean = re.sub(r'\s+const\s*$', '', sig).replace(' ', '')
+                        existing_clean = re.sub(r'\s+const\s*$', '', m.signature).replace(' ', '')
+                        if sig_clean == existing_clean:
+                            existing_idx = idx
+                            break
+                
+                if existing_idx is None:
+                    method = Method(
+                        name=name,
+                        signature=sig,
+                        doc=DocComment(),
+                        is_virtual=is_virt,
+                        is_static=is_static,
+                        is_constructor=is_ctor,
+                        is_destructor=is_dtor
+                    )
+                    class_doc.methods.append(method)
+                i = j + 1  # Advance to the end of the signature
+                break  # Found method, stop multiline accumulation
         
-        i += 1
+        if not method_info:
+            i += 1
 
 
 def deduplicate_methods(methods: List[Method]) -> List[Method]:
