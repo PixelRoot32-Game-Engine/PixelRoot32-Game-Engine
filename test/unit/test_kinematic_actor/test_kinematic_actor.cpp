@@ -1211,9 +1211,128 @@ void test_snap_edge_detachment(void) {
     }
 }
 
+void test_vertical_mover_centered_riding(void) {
+    platform = new KinematicActor(toScalar(-50), toScalar(20), 100, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(0), toScalar(-60));
+    colSystem->addEntity(platform);
 
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Player should land on vertical mover");
 
+    Scalar playerYAfterLand = player->position.y;
 
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::None);
+
+    Scalar expectedDelta = toScalar(-60) * kFixedDt;
+    Scalar actualDelta = player->position.y - playerYAfterLand;
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, static_cast<float>(expectedDelta),
+        static_cast<float>(actualDelta),
+        "Centered rider should inherit vertical platform displacement");
+}
+
+void test_vertical_mover_edge_detachment(void) {
+    Vector2 up(toScalar(0), toScalar(-1));
+    Scalar dt = kFixedDt;
+    Scalar gravity = toScalar(600.0f);
+
+    platform = new KinematicActor(toScalar(0), toScalar(20), 32, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(0), toScalar(-60));
+    colSystem->addEntity(platform);
+
+    player->position = Vector2(toScalar(11), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Landing: on platform");
+
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: on floor");
+
+    Scalar yBeforeEdge = player->position.y;
+    player->position = Vector2(toScalar(30), toScalar(10));
+
+    Vector2 vel(toScalar(20), toScalar(0));
+    for (int frame = 1; frame <= 5; ++frame) {
+        vel.y += gravity * dt;
+        player->moveAndSlide(vel, dt, up, SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+        TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(),
+            "Player past top edge should not remain grounded on lateral face");
+    }
+
+    TEST_ASSERT_TRUE_MESSAGE(player->position.y > yBeforeEdge,
+        "Player past edge should fall (Y increases) instead of riding platform upward");
+}
+
+void test_top_surface_velocity_injection_gated(void) {
+    platform = new KinematicActor(toScalar(0), toScalar(20), 32, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(0), toScalar(-60));
+    colSystem->addEntity(platform);
+
+    player->position = Vector2(toScalar(11), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: on platform");
+
+    player->position = Vector2(toScalar(30), toScalar(10));
+    Scalar yBefore = player->position.y;
+
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+
+    Scalar actualDelta = player->position.y - yBefore;
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, 0.0f, static_cast<float>(actualDelta),
+        "No kinematic carry when feet are past the platform top edge");
+    TEST_ASSERT_FALSE_MESSAGE(player->is_on_floor(), "Lateral edge contact must not set floor");
+}
+
+void test_strict_top_surface_floor_opt_out(void) {
+    platform = new KinematicActor(toScalar(0), toScalar(20), 32, 10);
+    platform->setCollisionLayer(1);
+    platform->setCollisionMask(1);
+    platform->setVelocity(toScalar(0), toScalar(-60));
+    colSystem->addEntity(platform);
+
+    player->position = Vector2(toScalar(11), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+
+    player->position = Vector2(toScalar(30), toScalar(10));
+    Scalar yBefore = player->position.y;
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::None);
+    Scalar strictDelta = player->position.y - yBefore;
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, 0.0f, static_cast<float>(strictDelta),
+        "Strict mode: no vertical carry past platform top edge");
+
+    player->position = Vector2(toScalar(11), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::Step, Vector2(toScalar(0), toScalar(4)));
+
+    player->setStrictTopSurfaceFloor(false);
+    player->position = Vector2(toScalar(30), toScalar(10));
+    yBefore = player->position.y;
+    player->moveAndSlide(Vector2(toScalar(0), toScalar(0)), kFixedDt, Vector2(0, -1),
+                         SnapPolicy::None);
+    Scalar legacyDelta = player->position.y - yBefore;
+    Scalar expectedCarry = toScalar(-60) * kFixedDt;
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(0.5f, static_cast<float>(expectedCarry),
+        static_cast<float>(legacyDelta),
+        "Legacy mode should inherit kinematic platform velocity at corner contact");
+}
 
 int main(int argc, char **argv) {
     (void)argc;
@@ -1279,6 +1398,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_kinematic_floor_out_floor_body_static);
     RUN_TEST(test_kinematic_floor_out_floor_body_kinematic);
     RUN_TEST(test_kinematic_floor_velocity_injection_horizontal);
+    RUN_TEST(test_vertical_mover_centered_riding);
+    RUN_TEST(test_vertical_mover_edge_detachment);
+    RUN_TEST(test_top_surface_velocity_injection_gated);
+    RUN_TEST(test_strict_top_surface_floor_opt_out);
     RUN_TEST(test_default_nullptr_parameter_no_crash);
     
     // Phase 4 (V2): Raw contact + platform riding tests

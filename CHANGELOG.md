@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### 🏀 Physics
 
-* **Moving Platform Support**: Enhanced kinematic controllers with moving platform interaction, floor velocity inheritance, and improved floor tracking behavior.
+* **Moving Platform Support**: Enhanced kinematic controllers with moving platform interaction, floor velocity inheritance, and top-surface floor tracking (edge detachment when leaving the platform top; optional `setStrictTopSurfaceFloor(false)` for custom edge-anchor mechanics).
 * **Custom Hitboxes**: Added support for hitbox offsets and custom hitbox dimensions independent from entity size, providing greater flexibility for collision design.
 * **Collision & Movement Improvements**: Improved collision handling, depenetration, safe-margin processing, and frame-rate independent character movement.
 
