@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.6.1
+
+### 🏀 Physics
+
+* **Platform edge standing**: Restored symmetric top-surface depenetration guard so narrow hitboxes are not pushed horizontally off static platform edges. `hasTopSurfaceSupport()` validates horizontal foot overlap (center-X gate retained for kinematic movers only). `slide`/`applySnapStep` accept top-surface floor when corner normals are lateral.
+
 # 1.6.0
 
 ### 🎨 Graphics & Scene Transitions
