@@ -45,6 +45,13 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     
     Vector2 startPos = position;
     Vector2 targetPos = startPos + motion;
+
+    Scalar hitboxH = getHitboxHeight();
+    if (hitboxH <= toScalar(0)) {
+        hitboxH = toScalar(height);
+    }
+    Vector2 hitboxOffset = getHitboxOffset();
+    Scalar motionStartHitboxBottom = startPos.y + hitboxOffset.y + hitboxH;
     
     // Use a static array for collision query to avoid allocation
     static pixelroot32::core::Actor* collisions[16];
@@ -91,8 +98,21 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
                          normal = (distY < toScalar(0)) ? Vector2(0, -1) : Vector2(0, 1);
                      }
                      
-                     if (!collisionSystem->validateOneWayPlatform(this, physOther, normal)) {
-                         continue;  // Ignore this one-way platform
+                     if (!collisionSystem->validateOneWayPlatform(this, physOther, normal,
+                             motionStartHitboxBottom)) {
+                         // Deep vertical probes can yield downward normals; still block when
+                         // the move started from the platform top surface.
+                         if (motion.y > toScalar(0)) {
+                             Scalar platformTop = otherBox.position.y;
+                             if (motionStartHitboxBottom <= platformTop + CollisionSystem::SLOP &&
+                                 overlapX > CollisionSystem::SLOP) {
+                                 // Accept as a valid one-way floor contact for this move.
+                             } else {
+                                 continue;
+                             }
+                         } else {
+                             continue;
+                         }
                      }
                  }
             }
@@ -210,7 +230,11 @@ void KinematicActor::resolvePreSlideDepenetration() {
 
         if (physOther->isOneWay()) {
             pixelroot32::core::Rect otherBox = physOther->getHitBox();
-            Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
+            Scalar hitboxH = getHitboxHeight();
+            if (hitboxH <= toScalar(0)) {
+                hitboxH = toScalar(height);
+            }
+            Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + hitboxH;
             Scalar platformTop = otherBox.position.y;
             if (previousBottom > platformTop + CollisionSystem::SLOP) {
                 continue;
@@ -492,12 +516,16 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
                 strictTopSurfaceFloor) {
                 allowFloor = hasTopSurfaceSupport(floorPhys);
             }
+            Vector2 slideNormal = col.normal;
             if (allowFloor) {
                 onFloor = true;
+                if (dot <= floorThreshold) {
+                    slideNormal = -upDirection;
+                }
                 if (floorPhys &&
                     floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
                     localFloorBody = floorPhys;
-                    lastFloorNormal = col.normal;
+                    lastFloorNormal = slideNormal;
                 }
             } else if (dot < -floorThreshold) {
                 onCeiling = true;
@@ -506,7 +534,7 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
             }
 
             Vector2 remainderVector = currentMotion.normalized() * col.remainder;
-            currentMotion = remainderVector.slide(col.normal);
+            currentMotion = remainderVector.slide(slideNormal);
             if (currentMotion.is_zero_approx()) break;
         } else {
             break;

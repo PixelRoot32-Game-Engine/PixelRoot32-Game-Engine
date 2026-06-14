@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### 🏀 Physics
 
 * **Platform edge standing**: Restored symmetric top-surface depenetration guard so narrow hitboxes are not pushed horizontally off static platform edges. `hasTopSurfaceSupport()` validates horizontal foot overlap (center-X gate retained for kinematic movers only). `slide`/`applySnapStep` accept top-surface floor when corner normals are lateral.
+* **One-way platform edges**: `validateOneWayPlatform()` accepts lateral narrow-phase normals when feet align with the tile top (including landing penetration from `moveAndCollide`). Slide remainder uses floor normal at edge contacts so actors are not ejected off the platform. Kinematic `moveAndCollide` passes motion-start foot height for one-way probes and accepts deep vertical contacts when the move began on the surface.
 
 # 1.6.0
 
