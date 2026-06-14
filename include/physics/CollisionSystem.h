@@ -162,12 +162,15 @@ public:
      * @param actor The moving actor.
      * @param platform The one-way platform.
      * @param collisionNormal The contact normal.
+     * @param motionStartHitboxBottom Hitbox bottom at the start of the current move probe
+     *        (used by kinematic moveAndCollide). Negative to use previousPosition instead.
      * @return True if the collision is valid and should be resolved.
      */
     bool validateOneWayPlatform(
         pixelroot32::core::PhysicsActor* actor,
         pixelroot32::core::PhysicsActor* platform,
-        const pixelroot32::math::Vector2& collisionNormal
+        const pixelroot32::math::Vector2& collisionNormal,
+        pixelroot32::math::Scalar motionStartHitboxBottom = pixelroot32::math::toScalar(-1.0f)
     );
 
 private:

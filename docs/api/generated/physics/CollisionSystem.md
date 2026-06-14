@@ -122,7 +122,7 @@ Performs a swept collision test between a circle and an AABB.
 
 **Returns:** True if a collision occurs.
 
-### `bool validateOneWayPlatform( pixelroot32::core::PhysicsActor* actor, pixelroot32::core::PhysicsActor* platform, const pixelroot32::math::Vector2& collisionNormal )`
+### `bool validateOneWayPlatform( pixelroot32::core::PhysicsActor* actor, pixelroot32::core::PhysicsActor* platform, const pixelroot32::math::Vector2& collisionNormal, pixelroot32::math::Scalar motionStartHitboxBottom = pixelroot32::math::toScalar(-1.0f)`
 
 **Description:**
 
@@ -133,5 +133,7 @@ Validates if a collision with a one-way platform should occur.
 - `actor`: The moving actor.
 - `platform`: The one-way platform.
 - `collisionNormal`: The contact normal.
+- `motionStartHitboxBottom`: Hitbox bottom at the start of the current move probe
+       (used by kinematic moveAndCollide). Negative to use previousPosition instead.
 
 **Returns:** True if the collision is valid and should be resolved.

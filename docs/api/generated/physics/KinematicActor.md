@@ -74,6 +74,22 @@ Clears floor velocity and state.
 
 Returns true if the body collided with a wall.
 
+### `void setStrictTopSurfaceFloor(bool strict)`
+
+**Description:**
+
+Enables or disables top-surface validation for floor state and kinematic carry.
+
+**Parameters:**
+
+- `strict`: When true (default), floor contact requires horizontal overlap on the top face.
+
+### `inline bool isStrictTopSurfaceFloor() const`
+
+**Description:**
+
+Returns whether top-surface floor validation is active.
+
 ### `void draw(pixelroot32::graphics::Renderer& renderer)`
 
 **Description:**

@@ -542,6 +542,23 @@ void test_one_way_platform_stationary_on_surface(void) {
     TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
 }
 
+void test_one_way_platform_lateral_normal_top_surface_edge(void) {
+    CollisionSystem system;
+    MockActor player(40, 16, 16, 16);
+    player.setHitboxOffset(Vector2(toScalar(3), toScalar(2)));
+    player.setHitboxDimensions(toScalar(4), toScalar(8));
+    StaticActor platform(toScalar(40), toScalar(20), 8, 8);
+    platform.setOneWay(true);
+
+    player.updatePreviousPosition();
+    player.position = Vector2(toScalar(36), toScalar(8));
+    player.setVelocity(0, 0);
+
+    Vector2 normal(-1, 0);
+
+    TEST_ASSERT_TRUE(system.validateOneWayPlatform(&player, &platform, normal));
+}
+
 void test_one_way_platform_not_one_way(void) {
     CollisionSystem system;
     MockActor player(40, 20, 20, 20);
@@ -2158,6 +2175,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_one_way_platform_large_delta_movement);
     RUN_TEST(test_one_way_platform_velocity_sign_change);
     RUN_TEST(test_one_way_platform_stationary_on_surface);
+    RUN_TEST(test_one_way_platform_lateral_normal_top_surface_edge);
     RUN_TEST(test_one_way_platform_not_one_way);
     
     // Error handling tests
