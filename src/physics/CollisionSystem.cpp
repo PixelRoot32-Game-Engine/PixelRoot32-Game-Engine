@@ -38,6 +38,49 @@ namespace pixelroot32::physics {
     using math::clamp;
 
     namespace {
+
+    constexpr Scalar kTopSurfaceAlignTolerance = toScalar(4.0f) + CollisionSystem::SLOP;
+
+    bool actorHasOneWayTopSurfaceSupport(PhysicsActor* actor, PhysicsActor* platform) {
+        if (!actor || !platform) return false;
+
+        Rect platformBox = platform->getHitBox();
+        Rect actorHitBox = actor->getHitBox();
+
+        Scalar overlapX = math::min(actorHitBox.position.x + toScalar(actorHitBox.width),
+                                    platformBox.position.x + toScalar(platformBox.width)) -
+                          math::max(actorHitBox.position.x, platformBox.position.x);
+        if (overlapX <= CollisionSystem::SLOP) return false;
+
+        Scalar platformTop = platformBox.position.y;
+        Scalar myTop = actorHitBox.position.y;
+        Scalar currentBottom = actorHitBox.position.y + toScalar(actorHitBox.height);
+        Scalar bottomDelta = currentBottom - platformTop;
+
+        if (myTop >= platformTop + CollisionSystem::SLOP) return false;
+        if (actor->getVelocity().y < toScalar(0)) return false;
+
+        if (bottomDelta >= -kTopSurfaceAlignTolerance && bottomDelta <= kTopSurfaceAlignTolerance) {
+            return true;
+        }
+
+        if (bottomDelta > kTopSurfaceAlignTolerance && myTop <= platformTop + CollisionSystem::SLOP) {
+            Scalar maxPenetration = toScalar(actorHitBox.height) + kTopSurfaceAlignTolerance;
+            return bottomDelta <= maxPenetration;
+        }
+
+        return false;
+    }
+
+    Scalar actorPreviousHitboxBottom(PhysicsActor* actor) {
+        Vector2 offset = actor->getHitboxOffset();
+        Scalar hitboxH = actor->getHitboxHeight();
+        if (hitboxH <= toScalar(0)) {
+            hitboxH = toScalar(actor->height);
+        }
+        return actor->getPreviousPosition().y + offset.y + hitboxH;
+    }
+
         struct ScalarRect {
             Scalar x, y, w, h;
             static ScalarRect from(const Rect& r) {
@@ -562,17 +605,37 @@ namespace pixelroot32::physics {
     bool CollisionSystem::validateOneWayPlatform(
         PhysicsActor* actor,
         PhysicsActor* platform,
-        const Vector2& collisionNormal
+        const Vector2& collisionNormal,
+        Scalar motionStartHitboxBottom
     ) {
         // Not a one-way platform, always valid
         if (!platform->isOneWay()) return true;
-        
-        // One-way platforms only affect vertical collisions
-        // Reject horizontal collisions (side collisions) completely
+
         Scalar absNormalY = (collisionNormal.y < toScalar(0)) ? -collisionNormal.y : collisionNormal.y;
+
+        // Corner/edge contact: lateral narrow-phase normal with feet on the top face.
         if (absNormalY < toScalar(0.1f)) {
-            // Normal is mostly horizontal, ignore this collision for one-way platforms
-            return false;
+            if (actorHasOneWayTopSurfaceSupport(actor, platform)) {
+                return true;
+            }
+
+            Rect platformBox = platform->getHitBox();
+            Scalar platformTop = platformBox.position.y;
+            Rect actorHitBox = actor->getHitBox();
+            Scalar currentBottom = actorHitBox.position.y + toScalar(actorHitBox.height);
+            Scalar referenceBottom = motionStartHitboxBottom;
+            if (referenceBottom < toScalar(0)) {
+                referenceBottom = actorPreviousHitboxBottom(actor);
+            }
+
+            Scalar overlapX = math::min(actorHitBox.position.x + toScalar(actorHitBox.width),
+                                        platformBox.position.x + toScalar(platformBox.width)) -
+                              math::max(actorHitBox.position.x, platformBox.position.x);
+            if (overlapX <= CollisionSystem::SLOP) return false;
+            if (actor->getVelocity().y < toScalar(0)) return false;
+
+            return (referenceBottom <= platformTop + CollisionSystem::SLOP) &&
+                   (currentBottom >= platformTop - CollisionSystem::SLOP);
         }
         
         // One-way platforms only block from above (normal pointing up to push actor up)
@@ -586,10 +649,7 @@ namespace pixelroot32::physics {
         // Use hitbox to determine crossing from above (offset-aware)
         Rect actorHitBox = actor->getHitBox();
         Scalar currentBottom = actorHitBox.position.y + toScalar(actorHitBox.height);
-        
-        // Previous hitbox bottom: approximate using previous position + offset
-        Vector2 offset = actor->getHitboxOffset();
-        Scalar previousBottom = actor->getPreviousPosition().y + offset.y + toScalar(actor->height);
+        Scalar previousBottom = actorPreviousHitboxBottom(actor);
         
         // Must have been above surface and now at/below surface
         bool crossedFromAbove = (previousBottom <= platformTop) && 

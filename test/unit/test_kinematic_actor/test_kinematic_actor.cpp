@@ -1353,6 +1353,65 @@ void test_kinematic_no_carry_on_lateral_side_contact(void) {
     }
 }
 
+void test_narrow_hitbox_static_platform_right_edge(void) {
+    // Regression: Find-the-Key style 4x8 hitbox on 8x8 static tiles must stay
+    // grounded on the right edge when feet still overlap the tile top (1 px).
+    wall = new StaticActor(toScalar(40), toScalar(20), 8, 8);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    player->setHitboxOffset(Vector2(toScalar(3), toScalar(2)));
+    player->setHitboxDimensions(toScalar(4), toScalar(8));
+
+    Vector2 up(toScalar(0), toScalar(-1));
+    Vector2 snap(toScalar(0), toScalar(4));
+
+    player->position = Vector2(toScalar(38), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                         SnapPolicy::Step, snap);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: land on 8x8 static tile");
+
+    // Hitbox x=47..51 on tile x=40..48 (1 px overlap, center past right edge).
+    player->position = Vector2(toScalar(44), player->position.y);
+
+    for (int frame = 0; frame < 5; ++frame) {
+        player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                             SnapPolicy::Step, snap);
+        TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(),
+            "Should stay grounded while standing on static tile right edge");
+    }
+}
+
+void test_narrow_hitbox_oneway_platform_left_edge(void) {
+    wall = new StaticActor(toScalar(40), toScalar(20), 8, 8);
+    wall->setOneWay(true);
+    wall->setCollisionLayer(1);
+    wall->setCollisionMask(1);
+    colSystem->addEntity(wall);
+
+    player->setHitboxOffset(Vector2(toScalar(3), toScalar(2)));
+    player->setHitboxDimensions(toScalar(4), toScalar(8));
+
+    Vector2 up(toScalar(0), toScalar(-1));
+    Vector2 snap(toScalar(0), toScalar(4));
+
+    player->position = Vector2(toScalar(38), toScalar(0));
+    player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                         SnapPolicy::Step, snap);
+    TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(), "Setup: land on one-way tile");
+
+    // Hitbox x=39..43 on tile x=40..48 (left edge, feet overlap top surface).
+    player->position = Vector2(toScalar(36), player->position.y);
+
+    for (int frame = 0; frame < 5; ++frame) {
+        player->moveAndSlide(dispVel(toScalar(0), toScalar(15)), kFixedDt, up,
+                             SnapPolicy::Step, snap);
+        TEST_ASSERT_TRUE_MESSAGE(player->is_on_floor(),
+            "Should stay grounded on one-way tile left edge");
+    }
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -1422,6 +1481,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_top_surface_velocity_injection_gated);
     RUN_TEST(test_strict_top_surface_floor_opt_out);
     RUN_TEST(test_kinematic_no_carry_on_lateral_side_contact);
+    RUN_TEST(test_narrow_hitbox_static_platform_right_edge);
+    RUN_TEST(test_narrow_hitbox_oneway_platform_left_edge);
     RUN_TEST(test_default_nullptr_parameter_no_crash);
     
     // Phase 4 (V2): Raw contact + platform riding tests

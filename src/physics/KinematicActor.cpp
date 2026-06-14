@@ -45,6 +45,13 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
     
     Vector2 startPos = position;
     Vector2 targetPos = startPos + motion;
+
+    Scalar hitboxH = getHitboxHeight();
+    if (hitboxH <= toScalar(0)) {
+        hitboxH = toScalar(height);
+    }
+    Vector2 hitboxOffset = getHitboxOffset();
+    Scalar motionStartHitboxBottom = startPos.y + hitboxOffset.y + hitboxH;
     
     // Use a static array for collision query to avoid allocation
     static pixelroot32::core::Actor* collisions[16];
@@ -91,8 +98,21 @@ bool KinematicActor::moveAndCollide(pixelroot32::math::Vector2 motion, Kinematic
                          normal = (distY < toScalar(0)) ? Vector2(0, -1) : Vector2(0, 1);
                      }
                      
-                     if (!collisionSystem->validateOneWayPlatform(this, physOther, normal)) {
-                         continue;  // Ignore this one-way platform
+                     if (!collisionSystem->validateOneWayPlatform(this, physOther, normal,
+                             motionStartHitboxBottom)) {
+                         // Deep vertical probes can yield downward normals; still block when
+                         // the move started from the platform top surface.
+                         if (motion.y > toScalar(0)) {
+                             Scalar platformTop = otherBox.position.y;
+                             if (motionStartHitboxBottom <= platformTop + CollisionSystem::SLOP &&
+                                 overlapX > CollisionSystem::SLOP) {
+                                 // Accept as a valid one-way floor contact for this move.
+                             } else {
+                                 continue;
+                             }
+                         } else {
+                             continue;
+                         }
                      }
                  }
             }
@@ -210,7 +230,11 @@ void KinematicActor::resolvePreSlideDepenetration() {
 
         if (physOther->isOneWay()) {
             pixelroot32::core::Rect otherBox = physOther->getHitBox();
-            Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + toScalar(height);
+            Scalar hitboxH = getHitboxHeight();
+            if (hitboxH <= toScalar(0)) {
+                hitboxH = toScalar(height);
+            }
+            Scalar previousBottom = getPreviousPosition().y + getHitboxOffset().y + hitboxH;
             Scalar platformTop = otherBox.position.y;
             if (previousBottom > platformTop + CollisionSystem::SLOP) {
                 continue;
@@ -231,6 +255,26 @@ void KinematicActor::resolvePreSlideDepenetration() {
         Scalar depenClamp = toScalar(4.0f);
 
         if (overlapX < overlapY && overlapX > CollisionSystem::SLOP) {
+            // Top-surface contact: vertical correction only (avoids ejecting the
+            // actor off left or right platform edges when feet align with the top).
+            Scalar myBottom = myBox.position.y + toScalar(myBox.height);
+            Scalar otherTop = otherBox.position.y;
+            Scalar bottomDelta = myBottom - otherTop;
+            Scalar floorAlignTolerance = MIN_SNAP + CollisionSystem::SLOP;
+            if (bottomDelta >= -CollisionSystem::SLOP &&
+                bottomDelta <= floorAlignTolerance) {
+                if (overlapY > CollisionSystem::SLOP) {
+                    Scalar correction = math::min(overlapY, depenClamp);
+                    if (position.y + getHitboxOffset().y + toScalar(myBox.height)/2.0f <
+                        otherBox.position.y + toScalar(otherBox.height)/2.0f) {
+                        position.y -= correction;
+                    } else {
+                        position.y += correction;
+                    }
+                }
+                continue;
+            }
+
             Scalar correction = math::min(overlapX, depenClamp);
             if (position.x + getHitboxOffset().x + toScalar(myBox.width)/2.0f < otherBox.position.x + toScalar(otherBox.width)/2.0f) {
                 position.x -= correction;
@@ -291,10 +335,17 @@ bool KinematicActor::hasTopSurfaceSupport(pixelroot32::core::PhysicsActor* floor
     pixelroot32::core::Rect myBox = getHitBox();
     pixelroot32::core::Rect floorBox = floor->getHitBox();
 
-    Scalar playerCenterX = myBox.position.x + toScalar(myBox.width) / 2;
+    Scalar myLeft = myBox.position.x;
+    Scalar myRight = myBox.position.x + toScalar(myBox.width);
     Scalar floorLeft = floorBox.position.x;
     Scalar floorRight = floorBox.position.x + toScalar(floorBox.width);
-    if (playerCenterX < floorLeft || playerCenterX > floorRight) return false;
+    Scalar overlapX = math::min(myRight, floorRight) - math::max(myLeft, floorLeft);
+    if (overlapX <= CollisionSystem::SLOP) return false;
+
+    if (floor->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+        Scalar playerCenterX = myLeft + toScalar(myBox.width) / 2;
+        if (playerCenterX < floorLeft || playerCenterX > floorRight) return false;
+    }
 
     Scalar myBottom = myBox.position.y + toScalar(myBox.height);
     Scalar floorTop = floorBox.position.y;
@@ -329,24 +380,25 @@ void KinematicActor::applySnapStep(pixelroot32::math::Vector2 snapVector, pixelr
 
     if (hit) {
         Scalar dot = snapCol.normal.dot(upDirection);
-        if (dot > floorThreshold) {
-            pixelroot32::core::PhysicsActor* floorPhys = nullptr;
-            if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
-                floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
-            }
-            bool allowFloor = true;
+        pixelroot32::core::PhysicsActor* floorPhys = nullptr;
+        if (snapCol.collider && snapCol.collider->isPhysicsBody()) {
+            floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(snapCol.collider);
+        }
+        bool allowFloor = (dot > floorThreshold);
+        if (!allowFloor && strictTopSurfaceFloor && floorPhys) {
+            allowFloor = hasTopSurfaceSupport(floorPhys);
+        }
+        if (allowFloor && floorPhys &&
+            floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
+            strictTopSurfaceFloor) {
+            allowFloor = hasTopSurfaceSupport(floorPhys);
+        }
+        if (allowFloor) {
+            onFloor = true;
             if (floorPhys &&
-                floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
-                strictTopSurfaceFloor) {
-                allowFloor = hasTopSurfaceSupport(floorPhys);
-            }
-            if (allowFloor) {
-                onFloor = true;
-                if (floorPhys &&
-                    floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                    localFloorBody = floorPhys;
-                    lastFloorNormal = snapCol.normal;
-                }
+                floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                localFloorBody = floorPhys;
+                lastFloorNormal = snapCol.normal;
             }
         } else {
             position = preSnapPos;
@@ -451,24 +503,29 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
         if (moveAndCollide(currentMotion, &col)) {
             Scalar dot = col.normal.dot(upDirection);
 
-            if (dot > floorThreshold) {
-                pixelroot32::core::PhysicsActor* floorPhys = nullptr;
-                if (col.collider && col.collider->isPhysicsBody()) {
-                    floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
+            pixelroot32::core::PhysicsActor* floorPhys = nullptr;
+            if (col.collider && col.collider->isPhysicsBody()) {
+                floorPhys = static_cast<pixelroot32::core::PhysicsActor*>(col.collider);
+            }
+            bool allowFloor = (dot > floorThreshold);
+            if (!allowFloor && strictTopSurfaceFloor && floorPhys) {
+                allowFloor = hasTopSurfaceSupport(floorPhys);
+            }
+            if (allowFloor && floorPhys &&
+                floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
+                strictTopSurfaceFloor) {
+                allowFloor = hasTopSurfaceSupport(floorPhys);
+            }
+            Vector2 slideNormal = col.normal;
+            if (allowFloor) {
+                onFloor = true;
+                if (dot <= floorThreshold) {
+                    slideNormal = -upDirection;
                 }
-                bool allowFloor = true;
                 if (floorPhys &&
-                    floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC &&
-                    strictTopSurfaceFloor) {
-                    allowFloor = hasTopSurfaceSupport(floorPhys);
-                }
-                if (allowFloor) {
-                    onFloor = true;
-                    if (floorPhys &&
-                        floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
-                        localFloorBody = floorPhys;
-                        lastFloorNormal = col.normal;
-                    }
+                    floorPhys->getBodyType() == pixelroot32::core::PhysicsBodyType::KINEMATIC) {
+                    localFloorBody = floorPhys;
+                    lastFloorNormal = slideNormal;
                 }
             } else if (dot < -floorThreshold) {
                 onCeiling = true;
@@ -477,7 +534,7 @@ void KinematicActor::slide(pixelroot32::math::Vector2& currentMotion, pixelroot3
             }
 
             Vector2 remainderVector = currentMotion.normalized() * col.remainder;
-            currentMotion = remainderVector.slide(col.normal);
+            currentMotion = remainderVector.slide(slideNormal);
             if (currentMotion.is_zero_approx()) break;
         } else {
             break;

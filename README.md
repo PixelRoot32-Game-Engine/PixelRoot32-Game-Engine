@@ -117,7 +117,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.6.0
+    gperez88/PixelRoot32-Game-Engine@^1.6.1
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -202,6 +202,17 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.6.1
+
+### 🏀 Physics
+
+- **Platform edge standing**: Narrow hitboxes with custom offsets no longer get pushed off static platform edges during depenetration. Floor contact now validates horizontal foot overlap instead of center-X alone (center-X gate kept for kinematic movers only).
+- **One-way platform edges**: One-way tiles accept corner contacts when feet align with the top surface, including lateral normals and deep landing probes from `moveAndCollide`. Slide remainder uses the floor normal at edges so actors stay grounded on both left and right tile borders.
+
+### 🧪 Testing & QA
+
+- **Regression coverage**: Added unit tests for narrow hitboxes on static and one-way platform edges (Find-the-Key style 4×8 hitboxes).
 
 ## 1.6.0
 
