@@ -993,6 +993,116 @@ void test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event(void) {
     TEST_ASSERT_GREATER_OR_EQUAL_INT(2, count_enabled_sfx_voices(apu));
 }
 
+void test_apu_core_percussion_borrows_idle_music_slot(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLeadNotes[] = {
+        {Note::C, 4, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kBassNotes[] = {
+        {Note::C, 3, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kDrumHit[] = {
+        makeNote(INSTR_KICK, Note::Rest, 1.0f),
+    };
+    static const MusicTrack kLeadTrack{kLeadNotes, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kBassTrack{kBassNotes, 1, false, WaveType::TRIANGLE, 0.5f};
+    static const MusicTrack kDrumTrack{kDrumHit, 1, false, WaveType::NOISE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kLeadTrack;          // trackIdx 0 -> voice slot 0
+    play.subTrackCount = 2;
+    play.subTracks[0] = &kBassTrack;   // trackIdx 1 -> voice slot 1
+    play.subTracks[1] = &kDrumTrack;   // trackIdx 2 (percussion never claims its own slot)
+    apu.submitCommand(play);
+
+    // Saturate the SFX/percussion subpool (slots 4-7) BEFORE the drum hit
+    // fires, so the fallback allocator finds no free voice in its own pool.
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.duration = 2.0f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    for (int i = 0; i < 4; ++i) {
+        sfx.event.frequency = 500.0f + (float)i * 40.0f;
+        apu.submitCommand(sfx);
+    }
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    // Melodic slots 0 and 1 are live; SFX pool 4-7 is saturated.
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(1));
+    for (int slot = ApuCore::SFX_VOICE_BASE; slot < ApuCore::MAX_VOICES; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+    }
+
+    // Voice slot 2 was never claimed by a melodic track (trackIdx 2 is the
+    // drum, which never allocates its own trackIdx slot), so it is idle.
+    TEST_ASSERT_FALSE(apu.isMusicTrackVoiceActiveForTesting(2));
+
+    // With the SFX subpool saturated and slot 2 idle, the percussion hit
+    // must borrow the idle music slot instead of stealing a live SFX voice.
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(2));
+    TEST_ASSERT_FALSE(apu.isMusicTrackVoiceActiveForTesting(2));
+}
+
+void test_apu_core_percussion_never_steals_live_melodic_voice(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kDrumNotes[] = {
+        {Note::Rest, 4, 1.0f, 0.0f, nullptr},    // silent tick, advances the sequencer
+        makeNote(INSTR_KICK, Note::Rest, 1.0f),  // actual percussion hit, next tick
+    };
+    static const MusicNote kMelodyNotes[] = {
+        {Note::C, 4, 16.0f, 0.8f, nullptr},      // long note, still gated on the drum tick
+    };
+    static const MusicTrack kDrumTrack{kDrumNotes, 2, false, WaveType::NOISE, 0.5f};
+    static const MusicTrack kMelodyTrack{kMelodyNotes, 1, false, WaveType::PULSE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kDrumTrack;            // trackIdx 0 (percussion never claims voice slot 0)
+    play.subTrackCount = 1;
+    play.subTracks[0] = &kMelodyTrack;   // trackIdx 1 -> voice slot 1
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    // Voice slot 1 is now a live melodic note.
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(1));
+    TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting(1));
+
+    // Saturate the SFX/percussion subpool before the drum's second tick fires.
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.duration = 2.0f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    for (int i = 0; i < 4; ++i) {
+        sfx.event.frequency = 600.0f + (float)i * 40.0f;
+        apu.submitCommand(sfx);
+    }
+
+    const int tick_samples =
+        (int)((44100.0f * 60.0f) / (ApuCore::DEFAULT_BPM * ApuCore::TICKS_PER_BEAT));
+    for (int tick = 0; tick < 5; ++tick) {
+        apu.generateSamples(buffer, tick_samples);
+    }
+
+    // The drum's second note has now fired a real percussion hit while
+    // slot 1's melodic gate was still live; slot 1 must remain untouched.
+    TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting(1));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(1));
+}
+
 void test_apu_core_sequencer_tempo_factor_short_notes_keeps_playing(void) {
     ApuCore apu;
     apu.init(44100);
@@ -1206,6 +1316,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_sequencer_percussion_same_step_uses_distinct_sfx_voices);
     RUN_TEST(test_apu_core_sequencer_percussion_does_not_disturb_melodic_slots);
     RUN_TEST(test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event);
+    RUN_TEST(test_apu_core_percussion_borrows_idle_music_slot);
+    RUN_TEST(test_apu_core_percussion_never_steals_live_melodic_voice);
     RUN_TEST(test_apu_core_sequencer_tempo_factor_short_notes_keeps_playing);
     RUN_TEST(test_apu_core_melodic_noise_on_track_three_uses_music_slot);
 
