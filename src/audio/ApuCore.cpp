@@ -664,7 +664,7 @@ namespace pixelroot32::audio {
     }
 
     void ApuCore::playSequencerPercussionHit(const AudioEvent& event) {
-        Voice* ch = findVoiceForSfxEvent(WaveType::NOISE);
+        Voice* ch = findVoiceForPercussionHit();
         if (ch == nullptr) {
             return;
         }
@@ -696,6 +696,37 @@ namespace pixelroot32::audio {
         }
 
         if (bestInactive) return bestInactive;
+        return bestSteal;
+    }
+
+    Voice* ApuCore::findVoiceForPercussionHit() {
+        Voice* bestInactive = nullptr;
+        Voice* bestSteal = nullptr;
+        uint64_t minRemaining = UINT64_MAX;
+
+        for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
+            Voice& voice = voices[i];
+            if (!voice.enabled) {
+                if (!bestInactive) bestInactive = &voice;
+                continue;
+            }
+            if (voice.remainingSamples < minRemaining) {
+                minRemaining = voice.remainingSamples;
+                bestSteal = &voice;
+            }
+        }
+
+        if (bestInactive) return bestInactive;
+
+        // SFX/percussion subpool is saturated: borrow an idle music slot
+        // before stealing a live SFX/percussion voice. A slot only counts as
+        // idle when it is both disabled and not holding a live melodic gate,
+        // so a live melodic note is never stolen; music always reclaims its
+        // fixed slot on the next note-on via musicVoiceForTrack().
+        for (int i = MUSIC_VOICE_BASE; i < SFX_VOICE_BASE; ++i) {
+            if (!voices[i].enabled && !track_voice_active_[i]) return &voices[i];
+        }
+
         return bestSteal;
     }
 

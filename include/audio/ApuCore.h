@@ -209,6 +209,7 @@ namespace pixelroot32::audio {
         void clearMusicTrackVoiceState();
         Voice* musicVoiceForTrack(size_t track_index);
         Voice* findVoiceForSfxEvent(WaveType type);
+        Voice* findVoiceForPercussionHit();
         float generateSampleForVoice(Voice& voice);
 
         // -- Channels and I/O ---------------------------------------------
