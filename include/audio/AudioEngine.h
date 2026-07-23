@@ -41,6 +41,17 @@ namespace pixelroot32::audio {
         void init();
 
         /**
+         * @brief Re-initializes the underlying ApuCore at a new sample rate.
+         *
+         * Used when the audio backend reports a device sample rate that
+         * diverges from the originally requested rate (e.g. SDL granted a
+         * different frequency via SDL_AUDIO_ALLOW_FREQUENCY_CHANGE), so the
+         * APU's internal timing stays in sync with the actual output rate.
+         * @param freq The confirmed device sample rate, in Hz.
+         */
+        void reinitSampleRate(int freq);
+
+        /**
          * @brief Generates audio samples into the output buffer.
          * @param stream Output buffer (mono, int16 samples).
          * @param length Number of samples to generate.
