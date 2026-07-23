@@ -11,6 +11,8 @@ namespace musicdemo {
 // MELODY 1 — Classic Arcade — 8 bars / 32 beats: A | A' | B | B'
 // =============================================================================
 
+static const float classic_arcade_bpm = 140.0f;
+
 static const pr32::audio::MusicNote sClassicArcadeLeadNotes[] = {
     pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::E, 5, Q),
     pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::B, 4, Q),
@@ -130,7 +132,8 @@ static const pr32::audio::MusicTrack sClassicArcadeLead = {
     0.5f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sClassicArcadeBass = {
     sClassicArcadeBassNotes,
@@ -140,7 +143,8 @@ static const pr32::audio::MusicTrack sClassicArcadeBass = {
     0.5f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sClassicArcadeHarmony = {
     sClassicArcadeHarmonyNotes,
@@ -150,7 +154,8 @@ static const pr32::audio::MusicTrack sClassicArcadeHarmony = {
     0.125f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sClassicArcadeDrums = {
     sClassicArcadeDrumsNotes,
@@ -160,7 +165,8 @@ static const pr32::audio::MusicTrack sClassicArcadeDrums = {
     0.0f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sClassicArcadeTrack = {
     sClassicArcadeLeadNotes,
@@ -170,6 +176,7 @@ static const pr32::audio::MusicTrack sClassicArcadeTrack = {
     0.5f,
     &sClassicArcadeBass,
     &sClassicArcadeHarmony,
-    &sClassicArcadeDrums};
+    &sClassicArcadeDrums
+};
 
 }

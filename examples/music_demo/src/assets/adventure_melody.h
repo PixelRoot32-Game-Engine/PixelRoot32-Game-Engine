@@ -11,6 +11,8 @@ namespace musicdemo {
 // MELODY 2 — Adventure — 16 bars / 64 beats: A | B | A' | C
 // =============================================================================
 
+static const float adventure_bpm = 125.0f;
+
 static const pr32::audio::MusicNote sAdventureLeadNotes[] = {
     pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::C, 5, E),
     pr32::audio::makeNote(pr32::audio::INSTR_PULSE_LEAD, pr32::audio::Note::D, 5, E),
