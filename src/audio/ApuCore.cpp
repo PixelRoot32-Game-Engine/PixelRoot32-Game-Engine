@@ -106,6 +106,7 @@ namespace pixelroot32::audio {
             voices[i].reset();
             voices[i].type = WaveType::PULSE;
         }
+        clearMusicTrackVoiceState();
     }
 
     void ApuCore::init(int sr) {
@@ -142,6 +143,7 @@ namespace pixelroot32::audio {
         musicPausedFlag.store(false, std::memory_order_release);
         droppedCommands.store(0, std::memory_order_release);
         firstSequencerCallAfterPlay_ = false;
+        clearMusicTrackVoiceState();
     }
 
 #if defined(UNIT_TEST)
@@ -158,7 +160,34 @@ namespace pixelroot32::audio {
     size_t ApuCore::getSequencerMainNoteIndexForTesting() const {
         return currentNoteIndices[0];
     }
+
+    bool ApuCore::isVoiceEnabledForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return false;
+        }
+        return voices[slot].enabled;
+    }
+
+    bool ApuCore::isMusicTrackVoiceActiveForTesting(size_t track_index) const {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return false;
+        }
+        return track_voice_active_[track_index];
+    }
 #endif
+
+    void ApuCore::clearMusicTrackVoiceState() {
+        for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
+            track_voice_active_[i] = false;
+        }
+    }
+
+    Voice* ApuCore::musicVoiceForTrack(size_t track_index) {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return nullptr;
+        }
+        return &voices[MUSIC_VOICE_BASE + static_cast<int>(track_index)];
+    }
 
     void ApuCore::setSequencerNoteLimit(size_t limit) {
         if (limit == 0) {
@@ -220,6 +249,7 @@ namespace pixelroot32::audio {
                     break;
 
                 case AudioCommandType::MUSIC_PLAY: {
+                    clearMusicTrackVoiceState();
                     activeTrackCount = 1;
                     tracks[0] = cmd.track;
                     currentNoteIndices[0] = 0;
@@ -253,6 +283,7 @@ namespace pixelroot32::audio {
                 }
 
                 case AudioCommandType::MUSIC_STOP:
+                    clearMusicTrackVoiceState();
                     for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
                         tracks[i] = nullptr;
                         currentNoteIndices[i] = 0;
@@ -370,7 +401,23 @@ namespace pixelroot32::audio {
 
                     event.volume = note.volume;
                     event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
-                    executePlayEvent(event);
+                    if (isPercussionHit) {
+                        playSequencerPercussionHit(event);
+                    } else {
+                        Voice* voice = musicVoiceForTrack(trackIdx);
+                        if (voice != nullptr) {
+                            const uint64_t gate_samples = noteTicks * tickDurationSamples;
+                            initVoiceFromEvent(
+                                voice, event,
+                                gate_samples > 0 ? gate_samples : 1,
+                                true);
+                            track_voice_active_[trackIdx] = true;
+                        }
+                    }
+                } else if (note.note == Note::Rest && !isPercussionHit) {
+                    if (track_voice_active_[trackIdx]) {
+                        beginReleaseOnMusicTrack(trackIdx);
+                    }
                 }
 
                 nextTick += noteTicks;
@@ -419,23 +466,55 @@ namespace pixelroot32::audio {
     // ------------------------------------------------------------------
     // Play event (retrigger a voice)
     // ------------------------------------------------------------------
-    void ApuCore::executePlayEvent(const AudioEvent& event) {
-        Voice* ch = findVoiceForEvent(event.type);
-        if (!ch) return;
+    void ApuCore::beginReleaseOnMusicTrack(size_t track_index) {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return;
+        }
+
+        track_voice_active_[track_index] = false;
+        Voice& ch = voices[MUSIC_VOICE_BASE + static_cast<int>(track_index)];
+        if (!ch.enabled) {
+            return;
+        }
+        if (ch.envelope.stage == EnvelopeState::Stage::RELEASE
+            || ch.envelope.stage == EnvelopeState::Stage::OFF) {
+            return;
+        }
+        if (ch.envelope.releaseSamples > 0) {
+            ch.envelope.stage = EnvelopeState::Stage::RELEASE;
+            ch.envelope.sampleCounter = 0;
+            ch.remainingSamples = ch.envelope.releaseSamples;
+        } else {
+            ch.enabled = false;
+            ch.envelope.stage = EnvelopeState::Stage::OFF;
+            ch.remainingSamples = 0;
+        }
+    }
+
+    void ApuCore::initVoiceFromEvent(Voice* ch,
+                                     const AudioEvent& event,
+                                     uint64_t gate_samples,
+                                     bool music_sequencer_legato) {
+        if (ch == nullptr) {
+            return;
+        }
+
+        const bool legato = music_sequencer_legato && ch->enabled
+            && ch->envelope.stage != EnvelopeState::Stage::OFF
+            && ch->envelope.currentLevel > 0.05f;
+        const float legato_level = legato ? ch->envelope.currentLevel : 0.0f;
 
         const VoiceType voiceType = toVoiceType(event.type);
         // Compatibility fallback required by migration plan.
         ch->type = toWaveType(voiceType);
         ch->enabled = true;
         ch->frequency = event.frequency;
-        ch->phase = 0.0f;
         ch->phaseIncrement = event.frequency / (float)sampleRate;
 
-        // Fixed-point mirror so the no-FPU mixing path (ESP32-C3) never
-        // touches float inside the per-sample inner loop. Computed once
-        // per retrigger in float, which is fine since executePlayEvent is
-        // rare compared to the 22 050 Hz sample loop.
-        ch->phaseQ32 = 0u;
+        if (!legato) {
+            ch->phase = 0.0f;
+            ch->phaseQ32 = 0u;
+        }
         if (sampleRate > 0) {
             const double inc = (double)event.frequency * 4294967296.0 / (double)sampleRate;
             ch->phaseIncQ32 = (inc < 0.0) ? 0u
@@ -468,8 +547,13 @@ namespace pixelroot32::audio {
         env.releaseSamples = std::min((uint32_t)(releaseTime * (float)sampleRate),
                                      (uint32_t)(sampleRate / 10));
         env.sampleCounter  = 0;
-        env.currentLevel   = 0.0f;
-        env.stage          = EnvelopeState::Stage::ATTACK;
+        if (legato) {
+            env.currentLevel = std::max(legato_level, sustainLevel);
+            env.stage        = EnvelopeState::Stage::SUSTAIN;
+        } else {
+            env.currentLevel = 0.0f;
+            env.stage        = EnvelopeState::Stage::ATTACK;
+        }
 
         ch->volume = event.volume;  // base volume (preset level)
         ch->targetVolume = event.volume;
@@ -481,7 +565,7 @@ namespace pixelroot32::audio {
 
 #if defined(ESP32) && (!defined(SOC_CPU_HAS_FPU) || !SOC_CPU_HAS_FPU)
         // Initialize Q15 envelope fields for RISC-V fast path
-        env.currentLevelQ15 = 0;
+        env.currentLevelQ15 = (int32_t)(env.currentLevel * 32768.0f);
         env.sustainLevelQ15 = (int32_t)(sustainLevel * 32768.0f);
         env.attackDeltaQ15 = (env.attackSamples > 0) ? (32768 / (int32_t)env.attackSamples) : 32768;
         env.decayDeltaQ15 = (env.decaySamples > 0) ? ((32768 - env.sustainLevelQ15) / (int32_t)env.decaySamples) : 0;
@@ -505,7 +589,16 @@ namespace pixelroot32::audio {
             ch->lfo.currentValueQ15 = 0;
         }
 
-        ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
+        if (gate_samples > 0) {
+            ch->remainingSamples = gate_samples;
+            // Overlap release into the next beat only when retriggering an active line.
+            if (legato && env.releaseSamples > 0) {
+                ch->remainingSamples += env.releaseSamples;
+            }
+        } else {
+            ch->remainingSamples =
+                (uint64_t)(event.duration * (float)sampleRate);
+        }
 
         ch->sweepSamplesTotal = 0;
         ch->sweepSamplesRemaining = 0;
@@ -565,12 +658,26 @@ namespace pixelroot32::audio {
         }
     }
 
-    Voice* ApuCore::findVoiceForEvent(WaveType type) {
+    void ApuCore::playSequencerPercussionHit(const AudioEvent& event) {
+        Voice* ch = findVoiceForSfxEvent(WaveType::NOISE);
+        if (ch == nullptr) {
+            return;
+        }
+        initVoiceFromEvent(ch, event, 0);
+    }
+
+    void ApuCore::executePlayEvent(const AudioEvent& event) {
+        Voice* ch = findVoiceForSfxEvent(event.type);
+        if (!ch) return;
+        initVoiceFromEvent(ch, event, 0);
+    }
+
+    Voice* ApuCore::findVoiceForSfxEvent(WaveType type) {
         Voice* bestInactive = nullptr;
         Voice* bestSteal = nullptr;
         uint64_t minRemaining = UINT64_MAX;
 
-        for (int i = 0; i < MAX_VOICES; ++i) {
+        for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
             Voice& voice = voices[i];
             if (!voice.enabled) {
                 if (voice.type == type) return &voice;

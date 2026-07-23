@@ -20,6 +20,7 @@
 #include "../../test_config.h"
 #include "audio/ApuCore.h"
 #include "audio/AudioTypes.h"
+#include "audio/AudioMusicTypes.h"
 
 using namespace pixelroot32::audio;
 
@@ -727,6 +728,302 @@ void test_apu_core_full_volume(void) {
 }
 
 // =============================================================================
+// Tests for 4+4 voice partition (upstream v2)
+// =============================================================================
+
+void test_apu_core_voice_partition_constants(void) {
+    TEST_ASSERT_EQUAL_INT(8, ApuCore::MAX_VOICES);
+    TEST_ASSERT_EQUAL_INT(0, ApuCore::MUSIC_VOICE_BASE);
+    TEST_ASSERT_EQUAL_INT(4, ApuCore::MUSIC_VOICE_COUNT);
+    TEST_ASSERT_EQUAL_INT(4, ApuCore::SFX_VOICE_BASE);
+    TEST_ASSERT_EQUAL_INT(4, ApuCore::SFX_VOICE_COUNT);
+}
+
+void test_apu_core_music_pulse_tracks_do_not_steal_each_other(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    AudioCommand bpmCmd{};
+    bpmCmd.type = AudioCommandType::MUSIC_SET_BPM;
+    bpmCmd.bpm = 120.0f;
+    apu.submitCommand(bpmCmd);
+
+    static const MusicNote kLeadNotes[] = {
+        {Note::C, 4, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kHarmonyNotes[] = {
+        {Note::E, 4, 0.5f, 0.8f, nullptr},
+        {Note::Rest, 4, 3.5f, 0.0f, nullptr},
+    };
+    static const MusicTrack kLeadTrack{kLeadNotes, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kHarmonyTrack{kHarmonyNotes, 2, false, WaveType::PULSE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kLeadTrack;
+    play.subTrackCount = 1;
+    play.subTracks[0] = &kHarmonyTrack;
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(1));
+    TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting(0));
+
+    const int tick_samples = (44100 * 60) / (120 * 4);
+    for (int tick = 0; tick < 3; ++tick) {
+        apu.generateSamples(buffer, tick_samples);
+    }
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_FALSE(apu.isMusicTrackVoiceActiveForTesting(1));
+}
+
+void test_apu_core_sfx_play_event_uses_sfx_voice_pool(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLongNote[] = {{Note::C, 4, 16.0f, 0.5f, nullptr}};
+    static const MusicTrack kTrack0{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack1{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack2{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack3{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack0;
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kTrack1;
+    play.subTracks[1] = &kTrack2;
+    play.subTracks[2] = &kTrack3;
+    apu.submitCommand(play);
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    for (int slot = 0; slot < ApuCore::SFX_VOICE_BASE; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+    }
+
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.frequency = 880.0f;
+    sfx.event.duration = 0.5f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    apu.submitCommand(sfx);
+    apu.generateSamples(buffer, 256);
+
+    bool sfx_in_high_pool = false;
+    for (int slot = ApuCore::SFX_VOICE_BASE; slot < ApuCore::MAX_VOICES; ++slot) {
+        if (apu.isVoiceEnabledForTesting(slot)) {
+            sfx_in_high_pool = true;
+        }
+    }
+    TEST_ASSERT_TRUE(sfx_in_high_pool);
+    for (int slot = 0; slot < ApuCore::SFX_VOICE_BASE; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+    }
+}
+
+void test_apu_core_sfx_steal_does_not_touch_music_slots(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLongNote[] = {{Note::C, 4, 16.0f, 0.5f, nullptr}};
+    static const MusicTrack kTrack0{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack1{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack2{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack3{kLongNote, 1, false, WaveType::PULSE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack0;
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kTrack1;
+    play.subTracks[1] = &kTrack2;
+    play.subTracks[2] = &kTrack3;
+    apu.submitCommand(play);
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.frequency = 660.0f;
+    sfx.event.duration = 2.0f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+
+    for (int i = 0; i < 5; ++i) {
+        apu.submitCommand(sfx);
+    }
+    apu.generateSamples(buffer, 256);
+
+    for (int slot = 0; slot < ApuCore::SFX_VOICE_BASE; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+    }
+}
+
+static int count_enabled_sfx_voices(const ApuCore& apu) {
+    int count = 0;
+    for (int slot = ApuCore::SFX_VOICE_BASE; slot < ApuCore::MAX_VOICES; ++slot) {
+        if (apu.isVoiceEnabledForTesting(slot)) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+void test_apu_core_sequencer_percussion_same_step_uses_distinct_sfx_voices(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kStackedDrums[] = {
+        makeNote(INSTR_KICK, Note::Rest, 0.0f),
+        makeNote(INSTR_SNARE, Note::Rest, 0.0f),
+        makeNote(INSTR_HIHAT, Note::Rest, 1.0f),
+    };
+    static const MusicTrack kDrumTrack{
+        kStackedDrums,
+        sizeof(kStackedDrums) / sizeof(kStackedDrums[0]),
+        false,
+        WaveType::NOISE,
+        0.5f,
+    };
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kDrumTrack;
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    TEST_ASSERT_GREATER_OR_EQUAL_INT(2, count_enabled_sfx_voices(apu));
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(3));
+    TEST_ASSERT_FALSE(apu.isMusicTrackVoiceActiveForTesting(0));
+
+    bool has_audio = false;
+    for (int i = 0; i < 256; ++i) {
+        if (buffer[i] != 0) {
+            has_audio = true;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(has_audio);
+}
+
+void test_apu_core_sequencer_percussion_does_not_disturb_melodic_slots(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLeadNotes[] = {
+        {Note::C, 4, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kBassNotes[] = {
+        {Note::C, 3, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kHarmonyNotes[] = {
+        {Note::E, 4, 4.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kDrumHit[] = {
+        makeNote(INSTR_KICK, Note::Rest, 1.0f),
+    };
+
+    static const MusicTrack kLeadTrack{kLeadNotes, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kBassTrack{kBassNotes, 1, false, WaveType::TRIANGLE, 0.5f};
+    static const MusicTrack kHarmonyTrack{kHarmonyNotes, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kDrumTrack{kDrumHit, 1, false, WaveType::NOISE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kLeadTrack;
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kBassTrack;
+    play.subTracks[1] = &kHarmonyTrack;
+    play.subTracks[2] = &kDrumTrack;
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(1));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(2));
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(3));
+    TEST_ASSERT_TRUE(count_enabled_sfx_voices(apu) >= 1);
+    TEST_ASSERT_FALSE(apu.isMusicTrackVoiceActiveForTesting(3));
+}
+
+void test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLongMelody[] = {{Note::C, 4, 16.0f, 0.5f, nullptr}};
+    static const MusicTrack kMelodyTrack{kLongMelody, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicNote kDrumHit[] = {makeNote(INSTR_SNARE, Note::Rest, 1.0f)};
+    static const MusicTrack kDrumTrack{kDrumHit, 1, false, WaveType::NOISE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kMelodyTrack;
+    play.subTrackCount = 1;
+    play.subTracks[0] = &kDrumTrack;
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(1));
+
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.frequency = 880.0f;
+    sfx.event.duration = 0.5f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    apu.submitCommand(sfx);
+    apu.generateSamples(buffer, 256);
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+    TEST_ASSERT_GREATER_OR_EQUAL_INT(2, count_enabled_sfx_voices(apu));
+}
+
+void test_apu_core_melodic_noise_on_track_three_uses_music_slot(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kSilent[] = {{Note::Rest, 4, 16.0f, 0.0f, nullptr}};
+    static const MusicNote kNoiseMelody[] = {
+        {Note::C, 4, 2.0f, 0.8f, nullptr},
+    };
+    static const MusicTrack kTrack0{kSilent, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack1{kSilent, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack2{kSilent, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack3{kNoiseMelody, 1, false, WaveType::NOISE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack0;
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kTrack1;
+    play.subTracks[1] = &kTrack2;
+    play.subTracks[2] = &kTrack3;
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(3));
+    TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting(3));
+    TEST_ASSERT_EQUAL_INT(0, count_enabled_sfx_voices(apu));
+}
+
+// =============================================================================
 // Integration test - full audio pipeline
 // =============================================================================
 
@@ -853,6 +1150,16 @@ int main(int argc, char** argv) {
     // Volume tests
     RUN_TEST(test_apu_core_zero_volume);
     RUN_TEST(test_apu_core_full_volume);
+
+    // 4+4 voice partition tests
+    RUN_TEST(test_apu_core_voice_partition_constants);
+    RUN_TEST(test_apu_core_music_pulse_tracks_do_not_steal_each_other);
+    RUN_TEST(test_apu_core_sfx_play_event_uses_sfx_voice_pool);
+    RUN_TEST(test_apu_core_sfx_steal_does_not_touch_music_slots);
+    RUN_TEST(test_apu_core_sequencer_percussion_same_step_uses_distinct_sfx_voices);
+    RUN_TEST(test_apu_core_sequencer_percussion_does_not_disturb_melodic_slots);
+    RUN_TEST(test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event);
+    RUN_TEST(test_apu_core_melodic_noise_on_track_three_uses_music_slot);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);
