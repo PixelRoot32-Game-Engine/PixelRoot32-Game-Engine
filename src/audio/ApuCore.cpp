@@ -596,8 +596,11 @@ namespace pixelroot32::audio {
 
         if (gate_samples > 0) {
             ch->remainingSamples = gate_samples;
-            // Overlap release into the next beat only when retriggering an active line.
-            if (legato && env.releaseSamples > 0) {
+            // Extend every melodic gate by the release tail so the note overlaps the
+            // next beat/rest instead of hard-cutting at the beat boundary. The
+            // per-sample RELEASE auto-arm still runs afterwards, so an un-retriggered
+            // note holds one release length at sustain, then decays.
+            if (env.releaseSamples > 0) {
                 ch->remainingSamples += env.releaseSamples;
             }
         } else {

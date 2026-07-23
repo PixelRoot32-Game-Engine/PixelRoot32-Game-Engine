@@ -1180,6 +1180,95 @@ void test_apu_core_melodic_noise_on_track_three_uses_music_slot(void) {
     TEST_ASSERT_EQUAL_INT(0, count_enabled_sfx_voices(apu));
 }
 
+// Fix B (WU-3): melodic note-on must extend remainingSamples by the full
+// env.releaseSamples regardless of legato, so the release tail overlaps
+// the next beat instead of being hard-cut at the gate boundary.
+//
+// There is no test-only accessor for Voice::remainingSamples, so this
+// drives through the real sequencer path and asserts the *observable*
+// timing consequence instead: at exactly `gate_samples + releaseSamples`
+// generated samples,
+//   - pre-fix:  remainingSamples started at gate_samples only, so the
+//     per-sample auto-release trigger (generateSampleForVoice) already
+//     armed and fully exhausted one release cycle by this point ->
+//     voice is disabled.
+//   - post-fix: remainingSamples started at gate_samples + releaseSamples,
+//     so the auto-release trigger only just now arms the release stage ->
+//     voice is still enabled (tail keeps sounding into the next beat).
+void test_apu_core_melodic_tail_overlaps_next_beat(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    // Fresh voice, single note-on -> music_sequencer_legato collapses to
+    // false internally (ch->enabled starts false), so this exercises the
+    // exact "not legato" case the pre-fix gate guarded against.
+    static const MusicNote kNote[] = {
+        {Note::C, 4, 1.0f, 0.8f, &INSTR_PULSE_BASS},
+    };
+    static const MusicTrack kTrack{
+        kNote, 1, false, WaveType::PULSE, INSTR_PULSE_BASS.duty};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack;
+    apu.submitCommand(play);
+
+    // gate_samples = noteTicks(4) * tickDurationSamples(4410 @ default
+    // 150 BPM, 44100 Hz) = 17640.
+    // releaseSamples = min(INSTR_PULSE_BASS.releaseTime * 44100, 4410)
+    //                = min(3528, 4410) = 3528.
+    // Target = gate_samples + releaseSamples = 21168.
+    static int16_t buffer[21168];
+    apu.generateSamples(buffer, 21168);
+
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(0));
+}
+
+// Fix B counterpart: a preset with releaseTime == 0 must leave the gate
+// unchanged (no tail extension) in both pre- and post-fix code, since the
+// `env.releaseSamples > 0` guard rejects the addition either way.
+void test_apu_core_melodic_zero_release_leaves_gate_unchanged(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static constexpr InstrumentPreset kNoReleasePreset{
+        0.30f,    // baseVolume
+        0.25f,    // duty
+        2,        // defaultOctave
+        0.0f,     // defaultDuration
+        0,        // noisePeriod
+        0.001f,   // attackTime
+        0.08f,    // decayTime
+        0.35f,    // sustainLevel
+        0.0f,     // releaseTime -- zero on purpose
+        LfoTarget::NONE,
+        0.0f,     // lfoFrequency
+        0.0f,     // lfoDepth
+        0.0f,     // lfoDelay
+        false,    // noiseShortMode
+        0.0f      // dutySweep
+    };
+
+    static const MusicNote kNote[] = {
+        {Note::C, 4, 1.0f, 0.8f, &kNoReleasePreset},
+    };
+    static const MusicTrack kTrack{
+        kNote, 1, false, WaveType::PULSE, kNoReleasePreset.duty};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack;
+    apu.submitCommand(play);
+
+    // gate_samples = 17640 (same tempo/note-duration math as above).
+    // releaseSamples == 0 => remainingSamples == gate_samples exactly, so
+    // the voice must be fully disabled right at the gate boundary.
+    static int16_t buffer[17640];
+    apu.generateSamples(buffer, 17640);
+
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(0));
+}
+
 // =============================================================================
 // Integration test - full audio pipeline
 // =============================================================================
@@ -1320,6 +1409,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_percussion_never_steals_live_melodic_voice);
     RUN_TEST(test_apu_core_sequencer_tempo_factor_short_notes_keeps_playing);
     RUN_TEST(test_apu_core_melodic_noise_on_track_three_uses_music_slot);
+    RUN_TEST(test_apu_core_melodic_tail_overlaps_next_beat);
+    RUN_TEST(test_apu_core_melodic_zero_release_leaves_gate_unchanged);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);
