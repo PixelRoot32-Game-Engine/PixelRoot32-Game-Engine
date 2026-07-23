@@ -1270,6 +1270,133 @@ void test_apu_core_melodic_zero_release_leaves_gate_unchanged(void) {
 }
 
 // =============================================================================
+// WU-4: Partition / API / mixer invariant regression tests. Pure coverage --
+// no production change is expected here (see spec "Partition and Isolation
+// Invariants Preserved").
+// =============================================================================
+
+// A melodic note-on for track 3 must always land on its fixed slot
+// (MUSIC_VOICE_BASE + 3), unaffected by percussion allocator activity
+// elsewhere in the pool.
+void test_apu_core_melodic_track_keeps_fixed_slot_mapping(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kDrumHit[] = {
+        makeNote(INSTR_KICK, Note::Rest, 1.0f),
+    };
+    static const MusicNote kSilent[] = {{Note::Rest, 4, 16.0f, 0.0f, nullptr}};
+    static const MusicNote kMelodyNote[] = {
+        {Note::C, 4, 2.0f, 0.8f, nullptr},
+    };
+    static const MusicTrack kTrack0{kDrumHit, 1, false, WaveType::NOISE, 0.5f};
+    static const MusicTrack kTrack1{kSilent, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack2{kSilent, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack3{kMelodyNote, 1, false, WaveType::PULSE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack0;           // trackIdx 0 (percussion never claims its own slot)
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kTrack1;    // trackIdx 1, idle filler
+    play.subTracks[1] = &kTrack2;    // trackIdx 2, idle filler
+    play.subTracks[2] = &kTrack3;    // trackIdx 3 -> fixed voice slot MUSIC_VOICE_BASE+3
+    apu.submitCommand(play);
+
+    // Saturate the SFX/percussion subpool so the drum hit is forced through
+    // the idle-melodic-slot fallback, perturbing percussion allocator state
+    // before track 3's fixed mapping is exercised.
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.duration = 2.0f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    for (int i = 0; i < 4; ++i) {
+        sfx.event.frequency = 800.0f + (float)i * 40.0f;
+        apu.submitCommand(sfx);
+    }
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    // Track 3's melodic note-on always allocates its fixed slot
+    // MUSIC_VOICE_BASE + 3, regardless of percussion allocator activity.
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(ApuCore::MUSIC_VOICE_BASE + 3));
+    TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting(3));
+}
+
+// Complement to WU-2's borrow test: when the SFX subpool is saturated AND
+// every melodic slot is busy (enabled + a live track gate), the percussion
+// allocator has no idle slot to borrow and must stay confined to the
+// steal-SFX fallback (slots 4-7), never disturbing slots 0-3.
+void test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    static const MusicNote kLongMelody[] = {
+        {Note::C, 4, 16.0f, 0.8f, nullptr},
+    };
+    static const MusicNote kTrack3Notes[] = {
+        {Note::C, 4, 1.0f, 0.8f, nullptr},          // claims slot 3 first
+        makeNote(INSTR_KICK, Note::Rest, 1.0f),     // then a real percussion hit
+    };
+    static const MusicTrack kTrack0{kLongMelody, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack1{kLongMelody, 1, false, WaveType::TRIANGLE, 0.5f};
+    static const MusicTrack kTrack2{kLongMelody, 1, false, WaveType::PULSE, 0.5f};
+    static const MusicTrack kTrack3{kTrack3Notes, 2, false, WaveType::NOISE, 0.5f};
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack0;           // trackIdx 0 -> voice slot 0
+    play.subTrackCount = 3;
+    play.subTracks[0] = &kTrack1;    // trackIdx 1 -> voice slot 1
+    play.subTracks[1] = &kTrack2;    // trackIdx 2 -> voice slot 2
+    play.subTracks[2] = &kTrack3;    // trackIdx 3 -> voice slot 3, then fires a percussion hit
+    apu.submitCommand(play);
+
+    int16_t buffer[8192];
+    apu.generateSamples(buffer, 256);
+
+    // All 4 melodic slots are live before the percussion hit fires.
+    for (int slot = ApuCore::MUSIC_VOICE_BASE; slot < ApuCore::SFX_VOICE_BASE; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+        TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting((size_t)slot));
+    }
+
+    // Saturate the SFX/percussion subpool before track 3's second note (the
+    // real percussion hit) fires.
+    AudioCommand sfx{};
+    sfx.type = AudioCommandType::PLAY_EVENT;
+    sfx.event.type = WaveType::PULSE;
+    sfx.event.duration = 2.0f;
+    sfx.event.volume = 0.5f;
+    sfx.event.duty = 0.5f;
+    for (int i = 0; i < 4; ++i) {
+        sfx.event.frequency = 900.0f + (float)i * 40.0f;
+        apu.submitCommand(sfx);
+    }
+
+    const int tick_samples =
+        (int)((44100.0f * 60.0f) / (ApuCore::DEFAULT_BPM * ApuCore::TICKS_PER_BEAT));
+    for (int tick = 0; tick < 5; ++tick) {
+        apu.generateSamples(buffer, tick_samples);
+    }
+
+    // With SFX saturated and every melodic slot busy, the percussion hit
+    // must never disturb a melodic slot -- every track keeps its gate.
+    for (int slot = ApuCore::MUSIC_VOICE_BASE; slot < ApuCore::SFX_VOICE_BASE; ++slot) {
+        TEST_ASSERT_TRUE(apu.isMusicTrackVoiceActiveForTesting((size_t)slot));
+    }
+
+    // The hit stayed confined to the SFX/percussion subpool (steal-SFX
+    // fallback), never touching 0-3.
+    for (int slot = ApuCore::SFX_VOICE_BASE; slot < ApuCore::MAX_VOICES; ++slot) {
+        TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(slot));
+    }
+}
+
+// =============================================================================
 // Integration test - full audio pipeline
 // =============================================================================
 
@@ -1411,6 +1538,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_melodic_noise_on_track_three_uses_music_slot);
     RUN_TEST(test_apu_core_melodic_tail_overlaps_next_beat);
     RUN_TEST(test_apu_core_melodic_zero_release_leaves_gate_unchanged);
+    RUN_TEST(test_apu_core_melodic_track_keeps_fixed_slot_mapping);
+    RUN_TEST(test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);
