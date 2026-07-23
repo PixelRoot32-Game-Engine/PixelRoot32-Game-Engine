@@ -56,6 +56,18 @@ namespace pixelroot32::drivers::native {
             log(LogLevel::Error, "Failed to open audio device: %s\n", SDL_GetError());
         } else {
             log("Audio device opened: %dHz, %dch\n", have.freq, (int)have.channels);
+
+            if (have.freq > 0 && have.freq != sampleRate) {
+                log(LogLevel::Warning,
+                    "SDL granted a different sample rate than requested (%d -> %d Hz); "
+                    "re-syncing ApuCore\n",
+                    sampleRate, have.freq);
+                sampleRate = have.freq;
+                if (engineInstance) {
+                    engineInstance->reinitSampleRate(have.freq);
+                }
+            }
+
             // Start playback
             SDL_PauseAudioDevice(deviceId, 0);
         }

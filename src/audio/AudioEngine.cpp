@@ -38,6 +38,12 @@ namespace pixelroot32::audio {
         }
     }
 
+    void AudioEngine::reinitSampleRate(int freq) {
+        if (scheduler) {
+            scheduler->getApuCore().init(freq);
+        }
+    }
+
     void AudioEngine::generateSamples(int16_t* stream, int length) {
         if (scheduler) {
             scheduler->generateSamples(stream, length);
