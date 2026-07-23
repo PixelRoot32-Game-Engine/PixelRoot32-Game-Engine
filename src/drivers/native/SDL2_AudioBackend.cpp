@@ -49,7 +49,8 @@ namespace pixelroot32::drivers::native {
         want.callback = SDLAudioCallbackWrapper;
         want.userdata = this;
 
-        deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0); // 0 = no changes allowed
+        deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have,
+                                       SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 
         if (deviceId == 0) {
             log(LogLevel::Error, "Failed to open audio device: %s\n", SDL_GetError());

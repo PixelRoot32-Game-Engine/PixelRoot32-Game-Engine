@@ -993,6 +993,53 @@ void test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event(void) {
     TEST_ASSERT_GREATER_OR_EQUAL_INT(2, count_enabled_sfx_voices(apu));
 }
 
+void test_apu_core_sequencer_tempo_factor_short_notes_keeps_playing(void) {
+    ApuCore apu;
+    apu.init(44100);
+
+    // Space-invaders-style SI_HR: 0.25-beat notes (1 tick at tempoFactor 1.0).
+    static const MusicNote kShortPulse[] = {
+        makeNote(INSTR_PULSE_BASS, Note::C, 0.25f),
+        makeRest(0.25f),
+    };
+    static const MusicNote kDrumHit[] = {
+        makeNote(INSTR_KICK, Note::Rest, 1, 0.5f),
+    };
+    static const MusicTrack kMainTrack{
+        kShortPulse, 2, true, WaveType::PULSE, INSTR_PULSE_BASS.duty};
+    static const MusicTrack kDrumTrack{
+        kDrumHit, 1, true, WaveType::NOISE, 0.5f};
+
+    AudioCommand tempo{};
+    tempo.type = AudioCommandType::MUSIC_SET_TEMPO;
+    tempo.tempoFactor = 1.5f;
+    apu.submitCommand(tempo);
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kMainTrack;
+    play.subTrackCount = 1;
+    play.subTracks[0] = &kDrumTrack;
+    apu.submitCommand(play);
+
+    int16_t buffer[4096];
+    for (int frame = 0; frame < 80; ++frame) {
+        apu.generateSamples(buffer, 512);
+    }
+
+    TEST_ASSERT_TRUE(apu.isMusicPlaying());
+
+    bool has_audio = false;
+    apu.generateSamples(buffer, 4096);
+    for (int i = 0; i < 4096; ++i) {
+        if (buffer[i] != 0) {
+            has_audio = true;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(has_audio);
+}
+
 void test_apu_core_melodic_noise_on_track_three_uses_music_slot(void) {
     ApuCore apu;
     apu.init(44100);
@@ -1159,6 +1206,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_sequencer_percussion_same_step_uses_distinct_sfx_voices);
     RUN_TEST(test_apu_core_sequencer_percussion_does_not_disturb_melodic_slots);
     RUN_TEST(test_apu_core_sequencer_percussion_shares_sfx_pool_with_play_event);
+    RUN_TEST(test_apu_core_sequencer_tempo_factor_short_notes_keeps_playing);
     RUN_TEST(test_apu_core_melodic_noise_on_track_three_uses_music_slot);
 
     // Integration tests

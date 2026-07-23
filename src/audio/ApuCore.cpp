@@ -356,6 +356,11 @@ namespace pixelroot32::audio {
                 // duration == 0 => fire without advancing (stacked drum hits).
                 uint64_t noteTicks =
                     (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+                // tempoFactor > 1 must not truncate short notes to 0 ticks: that stalls
+                // nextTick and can spin the per-track while-loop indefinitely.
+                if (note.duration > 0.0f && noteTicks == 0) {
+                    noteTicks = 1;
+                }
 
                 // Check note limit per frame - bounded processing.
                 // Zero-tick stacked hits always process so same-step drums stay together.

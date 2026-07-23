@@ -108,10 +108,10 @@ void test_default_scheduler_stop_all(void) {
     cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     scheduler.submitCommand(cmd);
     
-    // Stop channel 0 (DefaultAudioScheduler uses channels 0-3)
+    // Stop the SFX voice (PLAY_EVENT uses subpool slots 4–7, not slot 0).
     AudioCommand stopCmd{};
     stopCmd.type = AudioCommandType::STOP_CHANNEL;
-    stopCmd.channelIndex = 0;
+    stopCmd.channelIndex = static_cast<uint8_t>(ApuCore::SFX_VOICE_BASE);
     scheduler.submitCommand(stopCmd);
     
     int16_t buffer[256];

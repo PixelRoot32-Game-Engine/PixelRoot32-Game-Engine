@@ -50,25 +50,17 @@ namespace pixelroot32::audio {
          */
         bool enqueue(const AudioCommand& cmd) {
             size_t currentTail = tail.load(std::memory_order_relaxed);
-            
-            do {
-                size_t nextTail = (currentTail + 1) % CAPACITY;
-                
-                if (nextTail == head.load(std::memory_order_acquire)) {
-                    // Queue full - drop newest command and increment dropped counter
-                    droppedCommands.fetch_add(1, std::memory_order_relaxed);
-                    return false;
-                }
-                
-                // Try to advance tail atomically using CAS
-                if (tail.compare_exchange_weak(currentTail, nextTail,
-                    std::memory_order_release, std::memory_order_relaxed)) {
-                    // Successfully advanced tail, now write the command
-                    buffer[currentTail] = cmd;
-                    return true;
-                }
-                // CAS failed, tail was modified by another producer, retry
-            } while (true);
+            size_t nextTail = (currentTail + 1) % CAPACITY;
+
+            if (nextTail == head.load(std::memory_order_acquire)) {
+                // Queue full - drop newest command and increment dropped counter
+                droppedCommands.fetch_add(1, std::memory_order_relaxed);
+                return false;
+            }
+
+            buffer[currentTail] = cmd;
+            tail.store(nextTail, std::memory_order_release);
+            return true;
         }
 
         /**
