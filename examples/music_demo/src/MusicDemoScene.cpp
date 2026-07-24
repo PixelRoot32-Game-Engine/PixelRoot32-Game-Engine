@@ -239,22 +239,22 @@ void MusicDemoScene::playMelody(int idx) {
 
     switch (idx) {
         case 1: {
-            player.setBPM(140.0f);
+            player.setBPM(classic_arcade_bpm);
             player.play(sClassicArcadeTrack);
             break;
         }
         case 2: {
-            player.setBPM(125.0f);
+            player.setBPM(adventure_bpm);
             player.play(sAdventureTrack);
             break;
         }
         case 3: {
-            player.setBPM(160.0f);
+            player.setBPM(action_bpm);
             player.play(sActionTrack);
             break;
         }
         case 4: {
-            player.setBPM(145.0f);
+            player.setBPM(arp_demo_bpm);
             player.play(sArpDemoTrack);
             break;
         }

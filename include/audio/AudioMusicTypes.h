@@ -97,7 +97,9 @@ inline float noteToFrequency(Note note, int octave) {
 struct MusicNote {
     Note note;
     uint8_t octave; // 0-8 (for percussion: 1=Kick, 2=Snare, 3+=Hi-HAT)
-    float duration; // Seconds
+    /// Sequencer advance in beats (quarter = 1.0; ApuCore TICKS_PER_BEAT = 4).
+    /// Use 0.0 to fire a stacked hit without advancing tempo (same-step drums).
+    float duration;
     float volume;   // 0.0 - 1.0
     const InstrumentPreset* preset = nullptr;  // nullptr = use track preset or legacy behavior
 };

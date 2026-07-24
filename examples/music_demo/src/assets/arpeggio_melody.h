@@ -11,6 +11,8 @@ namespace musicdemo {
 // MELODY 4 — Em arpeggio + full arrangement (4 flat layers)
 // =============================================================================
 
+static const float arp_demo_bpm = 145.0f;
+
 // 16 × (4 × ARP_STEP) = 32 beats to align with the main theme loop.
 #define ARP_DEMO_CELL()                                                                                               \
     pr32::audio::makeNote(pr32::audio::INSTR_TRIANGLE_LEAD, pr32::audio::Note::E, 3, ARP_STEP),                       \
@@ -162,7 +164,8 @@ static const pr32::audio::MusicTrack sArpDemoBass = {
     0.5f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sArpDemoDrums = {
     sArpDemoDrumsNotes,
@@ -172,7 +175,8 @@ static const pr32::audio::MusicTrack sArpDemoDrums = {
     0.0f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sArpDemoTrack = {
     sArpDemoLeadNotes,

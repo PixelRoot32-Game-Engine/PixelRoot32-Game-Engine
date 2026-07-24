@@ -11,6 +11,8 @@ namespace musicdemo {
 // MELODY 3 — Action — 8 bars / 32 beats + break
 // =============================================================================
 
+static const float action_bpm = 160.0f;
+
 #define ARP_EM() \
     pr32::audio::makeNote(DEMO_SNES_LEAD_TIGHT, pr32::audio::Note::E, 5, S), \
     pr32::audio::makeNote(DEMO_SNES_LEAD_TIGHT, pr32::audio::Note::G, 5, S), \
@@ -215,7 +217,8 @@ static const pr32::audio::MusicTrack sActionLead = {
     0.5f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sActionBass = {
     sActionBassNotes,
@@ -225,7 +228,8 @@ static const pr32::audio::MusicTrack sActionBass = {
     0.5f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sActionHarmony = {
     sActionHarmonyNotes,
@@ -235,7 +239,8 @@ static const pr32::audio::MusicTrack sActionHarmony = {
     0.125f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sActionDrums = {
     sActionDrumsNotes,
@@ -245,7 +250,8 @@ static const pr32::audio::MusicTrack sActionDrums = {
     0.0f,
     nullptr,
     nullptr,
-    nullptr};
+    nullptr
+};
 
 static const pr32::audio::MusicTrack sActionTrack = {
     sActionLeadNotes,
@@ -256,5 +262,4 @@ static const pr32::audio::MusicTrack sActionTrack = {
     &sActionBass,
     &sActionHarmony,
     &sActionDrums};
-    
 }

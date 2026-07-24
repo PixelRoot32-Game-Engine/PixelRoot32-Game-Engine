@@ -318,13 +318,18 @@ namespace pixelroot32::audio {
 
             while (musicPlayingFlag.load(std::memory_order_acquire)
                    && globalTickCounter >= nextTick) {
-                // Check note limit per frame - bounded processing
-                if (notesProcessedThisFrame >= limit) {
+                if (noteIdx >= track->count) {
+                    break;
+                }
+                const MusicNote& note = track->notes[noteIdx];
+                // duration == 0 => fire without advancing (stacked drum hits).
+                uint64_t noteTicks =
+                    (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+
+                // Check note limit per frame - bounded processing.
+                // Zero-tick stacked hits always process so same-step drums stay together.
+                if (notesProcessedThisFrame >= limit && noteTicks > 0) {
                     frameDeferredNotes++;
-                    // Still need to advance timing even if we skip the note
-                    const MusicNote& note = track->notes[noteIdx];
-                    uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
-                    if (noteTicks == 0) noteTicks = 1;
                     nextTick += noteTicks;
                     noteIdx++;
                     if (noteIdx >= track->count) {
@@ -337,46 +342,37 @@ namespace pixelroot32::audio {
                     }
                     continue;
                 }
-                const MusicNote& note = track->notes[noteIdx];
 
-                // On NOISE channels, Rest notes are treated as hits so
-                // percussion tracks can be authored as a pattern of hits.
-                bool shouldPlay = (note.note != Note::Rest)
-                               || (track->channelType == WaveType::NOISE);
+                // Percussion hits use Note::Rest + noise preset. Plain rests are silence.
+                const bool isPercussionHit =
+                    track->channelType == WaveType::NOISE && note.preset &&
+                    note.preset->duty == 0.0f;
+                const bool shouldPlay =
+                    (note.note != Note::Rest) || isPercussionHit;
 
                 if (shouldPlay) {
                     AudioEvent event{};
                     event.type = track->channelType;
 
-                    const InstrumentPreset* percPreset = nullptr;
-                    if (note.preset && note.preset->duty == 0.0f) {
-                        percPreset = note.preset;
-                    }
-
-                    if (percPreset) {
-                        event.frequency = instrumentToFrequency(*percPreset, note.note, note.octave);
-                        event.duration = (percPreset->defaultDuration > 0.0f)
-                            ? percPreset->defaultDuration / tempoFactor
-                            : note.duration / tempoFactor;
-                        event.noisePeriod = percPreset->noisePeriod;
+                    if (isPercussionHit) {
+                        event.frequency = instrumentToFrequency(*note.preset, note.note, note.octave);
+                        event.duration = (note.preset->defaultDuration > 0.0f)
+                            ? note.preset->defaultDuration / tempoFactor
+                            : (note.duration > 0.0f ? note.duration : 0.05f) / tempoFactor;
+                        event.noisePeriod = note.preset->noisePeriod;
+                        event.preset = note.preset;
                     } else {
-                        if (note.note == Note::Rest && event.type == WaveType::NOISE) {
-                            event.frequency = 1000.0f;
-                        } else {
-                            event.frequency = noteToFrequency(note.note, note.octave);
-                        }
+                        event.frequency = noteToFrequency(note.note, note.octave);
                         event.duration = note.duration / tempoFactor;
                         event.noisePeriod = 0;
+                        event.preset = note.preset;
                     }
 
                     event.volume = note.volume;
                     event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
-                    event.preset = note.preset;  // Forward ADSR/LFO params
                     executePlayEvent(event);
                 }
 
-                uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
-                if (noteTicks == 0) noteTicks = 1;
                 nextTick += noteTicks;
 
                 noteIdx++;
@@ -388,7 +384,10 @@ namespace pixelroot32::audio {
                         break;
                     }
                 }
-                notesProcessedThisFrame++;
+                // Count only tempo-advancing notes toward the per-frame budget.
+                if (noteTicks > 0) {
+                    notesProcessedThisFrame++;
+                }
             }
         }
 
