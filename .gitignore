@@ -102,3 +102,6 @@ AGENTS.md
 
 # Ignore all file start with _*
 _*
+
+# Ignore all files with .DS_Store
+.DS_Store
