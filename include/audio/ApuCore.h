@@ -220,6 +220,16 @@ namespace pixelroot32::audio {
          * @return Frequency in Hz if slot is valid, 0 otherwise.
          */
         float getVoiceFrequencyForTesting(int slot) const;
+        /**
+         * @brief Test-only: current PULSE duty cycle [0,1].
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         */
+        float getVoiceDutyCycleForTesting(int slot) const;
+        /**
+         * @brief Test-only: continuous dutySweep delta per sample (0 when duty stepped).
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         */
+        float getVoiceDutySweepPerSampleForTesting(int slot) const;
 #endif
 
     private:

@@ -114,6 +114,23 @@ namespace pixelroot32::audio {
     enum class SweepCurve : uint8_t { Linear = 0, Exponential = 1 };
 
     /**
+     * @struct SfxBreakpoint
+     * @brief Timed automation point for SFX duty steps or pitch envelope.
+     *
+     * `value` is duty in [0,1] for duty steps, or frequency/clock Hz for pitch.
+     * Tables are static/constexpr in exported banks; AudioEvent holds pointer+count.
+     */
+    struct SfxBreakpoint {
+        float timeSec = 0.0f; ///< Offset from voice start (seconds); non-decreasing in a table.
+        float value = 0.0f;   ///< Duty [0,1] or Hz > 0 depending on table context.
+    };
+
+    /** Max duty-step breakpoints per AudioEvent (hold semantics). */
+    static constexpr uint8_t kMaxSfxDutySteps = 4;
+    /** Max pitch-envelope breakpoints per AudioEvent (multi-segment). */
+    static constexpr uint8_t kMaxSfxPitchPoints = 4;
+
+    /**
      * @struct LfoState
      * @brief Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
      * 
@@ -194,6 +211,24 @@ namespace pixelroot32::audio {
         float dutyCycle = 0.5f;      // For Pulse wave [0.0 - 1.0]
         float dutySweep = 0.0f;      // Duty cycle change per sample
         int32_t dutySweepQ32 = 0;    // Fixed-point duty sweep
+        /** Duty stepped table (PULSE); nullptr/0 = use duty + dutySweep. */
+        const SfxBreakpoint* dutySteps = nullptr;
+        uint8_t dutyStepCount = 0;
+        /** Next duty step index to apply; == count when finished. */
+        uint8_t dutyStepIndex = 0;
+        /** Sample age at which the next duty step applies (UINT32_MAX = none). */
+        uint32_t dutyNextBoundarySamples = 0xFFFFFFFFu;
+        /** Samples since voice start (duty/pitch automation clock). */
+        uint32_t automationAgeSamples = 0;
+        /** Pitch envelope table; runtime multi-segment when count >= 2. */
+        const SfxBreakpoint* pitchEnvelope = nullptr;
+        uint8_t pitchEnvelopeCount = 0;
+        /** Start-point index of the active pitch segment (0 .. count-2). */
+        uint8_t pitchSegIndex = 0;
+        /** Absolute sample age at the start of the active pitch segment. */
+        uint32_t pitchSegStartAge = 0;
+        /** Length of the active pitch segment in samples (0 = hold final value). */
+        uint32_t pitchSegLenSamples = 0;
         uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
         bool noiseShortMode = false; // true = 93-step sequence (metallic), false = 32767-step
 
@@ -231,6 +266,16 @@ namespace pixelroot32::audio {
             dutyCycleQ32 = 0x80000000u;
             dutySweep = 0.0f;
             dutySweepQ32 = 0;
+            dutySteps = nullptr;
+            dutyStepCount = 0;
+            dutyStepIndex = 0;
+            dutyNextBoundarySamples = 0xFFFFFFFFu;
+            automationAgeSamples = 0;
+            pitchEnvelope = nullptr;
+            pitchEnvelopeCount = 0;
+            pitchSegIndex = 0;
+            pitchSegStartAge = 0;
+            pitchSegLenSamples = 0;
             envelope.reset();
             lfo.reset();
             volume = 0.0f;
@@ -297,6 +342,21 @@ namespace pixelroot32::audio {
 
         /** Sweep interpolation; additive at end of struct for brace-init safety (0 = Linear). */
         SweepCurve sweepCurve = SweepCurve::Linear;
+
+        /**
+         * Optional duty stepped table (PULSE). Active when dutySteps != nullptr and
+         * dutyStepCount > 0 (clamped to kMaxSfxDutySteps). Hold between points;
+         * ignores InstrumentPreset::dutySweep while active.
+         */
+        const SfxBreakpoint* dutySteps = nullptr;
+        uint8_t dutyStepCount = 0;
+
+        /**
+         * Optional multi-breakpoint pitch envelope. Active when count >= 2
+         * (clamped to kMaxSfxPitchPoints); then replaces single-segment sweep.
+         */
+        const SfxBreakpoint* pitchEnvelope = nullptr;
+        uint8_t pitchEnvelopeCount = 0;
     };
 
     // --- Command Types ---
