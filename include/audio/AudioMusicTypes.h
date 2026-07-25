@@ -225,7 +225,6 @@ constexpr InstrumentPreset INSTR_PULSE_PAD{
     0.08f     // dutySweep – gentle PWM movement for evolving texture
 };
 
-
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
     0.28f,    // baseVolume – more accompaniment presence
     0.125f,   // duty (1/8)
@@ -280,7 +279,6 @@ constexpr InstrumentPreset INSTR_PULSE_BASS{
     0.0f      // dutySweep
 };
 
-
 constexpr InstrumentPreset INSTR_KICK{
     0.45f,    // baseVolume – more punch
     0.0f,     // duty (0 → noise channel)
@@ -332,6 +330,60 @@ constexpr InstrumentPreset INSTR_HIHAT{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic timbre for closed hat
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_OPEN_HAT{
+    0.22f,    // baseVolume
+    0.0f,     // duty → noise
+    4,        // defaultOctave (open-hat selector; distinct from closed hat)
+    0.12f,    // defaultDuration – longer open hat
+    11,       // noisePeriod
+    0.0005f,  // attackTime
+    0.15f,    // decayTime – longer than closed hat
+    0.00f,    // sustainLevel
+    0.02f,    // releaseTime
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    true,     // noiseShortMode – metallic
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_TOM{
+    0.32f,    // baseVolume
+    0.0f,     // duty → noise
+    5,        // defaultOctave (tom selector)
+    0.12f,    // defaultDuration
+    32,       // noisePeriod – mid/slow body
+    0.001f,   // attackTime
+    0.10f,    // decayTime
+    0.00f,    // sustainLevel
+    0.03f,    // releaseTime
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    false,    // noiseShortMode – long LFSR
+    0.0f      // dutySweep
+};
+
+constexpr InstrumentPreset INSTR_ZAP{
+    0.30f,    // baseVolume
+    0.0f,     // duty → noise
+    6,        // defaultOctave (zap selector)
+    0.08f,    // defaultDuration
+    8,        // noisePeriod – bright/fast
+    0.0005f,  // attackTime
+    0.08f,    // decayTime
+    0.00f,    // sustainLevel
+    0.02f,    // releaseTime
+    LfoTarget::NONE,
+    0.0f,
+    0.0f,
+    0.0f,
+    true,     // noiseShortMode – metallic zap
     0.0f      // dutySweep
 };
 
