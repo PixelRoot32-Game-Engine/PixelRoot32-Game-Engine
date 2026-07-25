@@ -187,6 +187,8 @@ void test_instr_pulse_lead_values(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.15f, INSTR_PULSE_LEAD.lfoDelay);
     TEST_ASSERT_FALSE(INSTR_PULSE_LEAD.noiseShortMode);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.dutySweep);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.pitchSweepEndHz);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.pitchSweepDurationSec);
 }
 
 void test_instr_triangle_lead_values(void) {

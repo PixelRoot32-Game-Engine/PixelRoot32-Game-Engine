@@ -151,6 +151,10 @@ struct InstrumentPreset {
     // Waveform Refinements
     bool noiseShortMode = false;   // For NOISE: true = metallic timbre (93-step LFSR)
     float dutySweep = 0.0f;        // For PULSE: duty cycle change per second
+
+    // Optional pitch sweep (materialized to AudioEvent.sweep* when both > 0)
+    float pitchSweepEndHz = 0.0f;       // End frequency in Hz; 0 = inactive
+    float pitchSweepDurationSec = 0.0f; // Sweep duration in seconds; 0 = inactive
 };
 
 constexpr InstrumentPreset INSTR_PULSE_LEAD{
@@ -168,7 +172,9 @@ constexpr InstrumentPreset INSTR_PULSE_LEAD{
     0.025f,   // lfoDepth    – slightly more vibrato
     0.15f,    // lfoDelay    – delayed vibrato for natural feel
     false,    // noiseShortMode (unused for pulse)
-    0.0f      // dutySweep   – no sweep by default
+    0.0f,      // dutySweep   – no sweep by default
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
@@ -186,7 +192,9 @@ constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
     0.020f,   // lfoDepth – subtle vibrato
     0.20f,    // lfoDelay – delayed vibrato
     false,    // noiseShortMode (unused)
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
@@ -204,7 +212,9 @@ constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
     0.15f,    // lfoDepth – subtle volume movement
     0.50f,    // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_PULSE_PAD{
@@ -222,7 +232,9 @@ constexpr InstrumentPreset INSTR_PULSE_PAD{
     0.035f,   // lfoDepth – noticeable pitch modulation
     0.30f,    // lfoDelay
     false,    // noiseShortMode
-    0.08f     // dutySweep – gentle PWM movement for evolving texture
+    0.08f,     // dutySweep – gentle PWM movement for evolving texture
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
@@ -240,7 +252,9 @@ constexpr InstrumentPreset INSTR_PULSE_HARMONY{
     0.30f,    // lfoDepth    – 30 % volume modulation
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.15f     // dutySweep   – more pronounced PWM-like movement
+    0.15f,     // dutySweep   – more pronounced PWM-like movement
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
@@ -258,7 +272,9 @@ constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
     0.0f,     // lfoDepth
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_PULSE_BASS{
@@ -276,7 +292,9 @@ constexpr InstrumentPreset INSTR_PULSE_BASS{
     0.0f,     // lfoDepth
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_KICK{
@@ -294,7 +312,9 @@ constexpr InstrumentPreset INSTR_KICK{
     0.0f,
     0.0f,
     false,    // noiseShortMode – kick is not metallic
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_SNARE{
@@ -312,7 +332,9 @@ constexpr InstrumentPreset INSTR_SNARE{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic 93‑step LFSR for snare
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_HIHAT{
@@ -330,7 +352,9 @@ constexpr InstrumentPreset INSTR_HIHAT{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic timbre for closed hat
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_OPEN_HAT{
@@ -348,7 +372,9 @@ constexpr InstrumentPreset INSTR_OPEN_HAT{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TOM{
@@ -366,7 +392,9 @@ constexpr InstrumentPreset INSTR_TOM{
     0.0f,
     0.0f,
     false,    // noiseShortMode – long LFSR
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_ZAP{
@@ -384,7 +412,9 @@ constexpr InstrumentPreset INSTR_ZAP{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic zap
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 /**

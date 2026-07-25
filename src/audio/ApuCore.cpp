@@ -406,6 +406,14 @@ namespace pixelroot32::audio {
 
                     event.volume = note.volume;
                     event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
+                    if (note.preset != nullptr &&
+                        note.preset->pitchSweepEndHz > 0.0f &&
+                        note.preset->pitchSweepDurationSec > 0.0f &&
+                        (event.type == WaveType::PULSE ||
+                         event.type == WaveType::TRIANGLE)) {
+                        event.sweepEndHz = note.preset->pitchSweepEndHz;
+                        event.sweepDurationSec = note.preset->pitchSweepDurationSec;
+                    }
                     if (isPercussionHit) {
                         playSequencerPercussionHit(event);
                     } else {
