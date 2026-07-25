@@ -154,15 +154,15 @@ struct InstrumentPreset {
 };
 
 constexpr InstrumentPreset INSTR_PULSE_LEAD{
-    0.35f,    // baseVolume
+    0.40f,    // baseVolume – modern fullness (presence without mixer rewrite)
     0.5f,     // duty (square)
     4,        // defaultOctave
     0.0f,     // defaultDuration (use note.duration)
     0,        // noisePeriod (unused)
     0.005f,   // attackTime  – fast attack for lead
-    0.20f,    // decayTime   – noticeable decay to shape note
-    0.70f,    // sustainLevel– moderate sustain
-    0.15f,    // releaseTime – shorter release for fast passages
+    0.18f,    // decayTime   – slightly quicker settle into sustain
+    0.88f,    // sustainLevel– fuller body in sustained notes
+    0.22f,    // releaseTime – short tail for presence without wash
     LfoTarget::PITCH,   // lfoTarget – vibrato
     5.0f,     // lfoFrequency (Hz)
     0.025f,   // lfoDepth    – slightly more vibrato
@@ -172,15 +172,15 @@ constexpr InstrumentPreset INSTR_PULSE_LEAD{
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
-    0.32f,    // baseVolume – slightly lower than pulse lead (triangle is softer)
+    0.36f,    // baseVolume – slightly lower than pulse lead (triangle is softer)
     0.5f,     // duty (unused for triangle, API uniformity)
     5,        // defaultOctave – higher range for lead melodies
     0.0f,     // defaultDuration
     0,        // noisePeriod (unused)
     0.003f,   // attackTime – fast attack
-    0.15f,    // decayTime
-    0.75f,    // sustainLevel – smooth triangle sustain
-    0.12f,    // releaseTime
+    0.12f,    // decayTime
+    0.88f,    // sustainLevel – smoother/fuller triangle sustain
+    0.18f,    // releaseTime
     LfoTarget::PITCH,   // lfoTarget – vibrato
     4.0f,     // lfoFrequency (Hz) – gentle vibrato
     0.020f,   // lfoDepth – subtle vibrato
@@ -190,14 +190,14 @@ constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
-    0.28f,    // baseVolume – soft atmospheric pad
+    0.30f,    // baseVolume – soft atmospheric pad
     0.5f,     // duty (unused for triangle)
     4,        // defaultOctave – mid range for pad chords
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.015f,   // attackTime – slow attack for pad swells
     0.40f,    // decayTime – long decay
-    0.65f,    // sustainLevel
+    0.75f,    // sustainLevel – more pad body
     0.50f,    // releaseTime – long release
     LfoTarget::VOLUME,  // lfoTarget – gentle tremolo
     2.5f,     // lfoFrequency (Hz) – slow modulation
@@ -208,14 +208,14 @@ constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
 };
 
 constexpr InstrumentPreset INSTR_PULSE_PAD{
-    0.26f,    // baseVolume
+    0.28f,    // baseVolume
     0.25f,    // duty (1/4) – hollow pulse sound
     4,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.020f,   // attackTime – pad-like slow attack
     0.60f,    // decayTime – very long decay
-    0.55f,    // sustainLevel
+    0.65f,    // sustainLevel – more pad body
     0.45f,    // releaseTime
     LfoTarget::PITCH,   // lfoTarget – slow pitch drift
     3.0f,     // lfoFrequency (Hz)
@@ -227,15 +227,15 @@ constexpr InstrumentPreset INSTR_PULSE_PAD{
 
 
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
-    0.22f,    // baseVolume
+    0.28f,    // baseVolume – more accompaniment presence
     0.125f,   // duty (1/8)
     5,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.005f,   // attackTime
-    0.50f,    // decayTime   – long decay for evolving pad
-    0.60f,    // sustainLevel– slightly higher sustain for more presence
-    0.30f,    // releaseTime
+    0.40f,    // decayTime   – settle into fuller sustain
+    0.75f,    // sustainLevel– more presence under leads
+    0.36f,    // releaseTime
     LfoTarget::VOLUME,  // lfoTarget – tremolo
     6.0f,     // lfoFrequency (Hz)
     0.30f,    // lfoDepth    – 30 % volume modulation
@@ -245,15 +245,15 @@ constexpr InstrumentPreset INSTR_PULSE_HARMONY{
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
-    0.30f,    // baseVolume
+    0.36f,    // baseVolume – more bass weight
     0.5f,     // duty (unused for triangle, kept for API uniformity)
     3,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.005f,   // attackTime
-    0.10f,    // decayTime
-    0.20f,    // sustainLevel– low sustain for tight bass
-    0.10f,    // releaseTime
+    0.08f,    // decayTime
+    0.45f,    // sustainLevel– fuller bass body (still tighter than leads)
+    0.16f,    // releaseTime
     LfoTarget::NONE,
     0.0f,     // lfoFrequency
     0.0f,     // lfoDepth
@@ -263,15 +263,15 @@ constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
 };
 
 constexpr InstrumentPreset INSTR_PULSE_BASS{
-    0.30f,    // baseVolume – punchy pulse bass
+    0.34f,    // baseVolume – punchy pulse bass
     0.25f,    // duty (1/4) – tighter, hollow sound
     2,        // defaultOctave – low range for bass
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.001f,   // attackTime – fast punch
     0.08f,    // decayTime – tight decay
-    0.35f,    // sustainLevel – medium sustain
-    0.08f,    // releaseTime – quick release
+    0.55f,    // sustainLevel – fuller sustain while keeping punch
+    0.14f,    // releaseTime – short body tail
     LfoTarget::NONE,
     0.0f,     // lfoFrequency
     0.0f,     // lfoDepth

@@ -1460,6 +1460,58 @@ void test_apu_core_integration_multiple_voices(void) {
 }
 
 // =============================================================================
+// Export parity: MusicTrack.duty is authoritative (not InstrumentPreset.duty)
+// =============================================================================
+
+void test_apu_core_music_uses_track_duty_not_preset_duty(void)
+{
+    // Preset duty is 50%; track duty is 12.5%. Sequencer must wire track->duty.
+    static const InstrumentPreset kPresetDuty50{
+        0.8f, 0.5f, 4, 0.0f, 0, 0.001f, 0.0f, 1.0f, 0.001f,
+        LfoTarget::NONE, 0.0f, 0.0f, 0.0f, false, 0.0f};
+    static const MusicNote kNotes[] = {
+        makeNote(kPresetDuty50, Note::C, 4, 2.0f),
+    };
+    static const MusicTrack kTrack{
+        kNotes, 1, false, WaveType::PULSE, 0.125f, nullptr, nullptr, nullptr};
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand bpm{};
+    bpm.type = AudioCommandType::MUSIC_SET_BPM;
+    bpm.bpm = 120.0f;
+    TEST_ASSERT_TRUE(apu.submitCommand(bpm));
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kTrack;
+    TEST_ASSERT_TRUE(apu.submitCommand(play));
+
+    int16_t buffer[4096] = {0};
+    apu.generateSamples(buffer, 4096);
+
+    int positive = 0;
+    int negative = 0;
+    for (int i = 0; i < 4096; ++i) {
+        if (buffer[i] > 0) {
+            ++positive;
+        } else if (buffer[i] < 0) {
+            ++negative;
+        }
+    }
+    TEST_ASSERT_TRUE(positive > 0);
+    TEST_ASSERT_TRUE(negative > 0);
+    // 12.5% duty ⇒ far fewer positive samples than a 50% square.
+    const float pos_ratio =
+        static_cast<float>(positive) /
+        static_cast<float>(positive + negative);
+    TEST_ASSERT_TRUE_MESSAGE(pos_ratio < 0.30f,
+                             "track duty 0.125 must dominate over preset 0.5");
+}
+
+// =============================================================================
 // Unity test runner
 // =============================================================================
 
@@ -1540,6 +1592,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_melodic_zero_release_leaves_gate_unchanged);
     RUN_TEST(test_apu_core_melodic_track_keeps_fixed_slot_mapping);
     RUN_TEST(test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx);
+    RUN_TEST(test_apu_core_music_uses_track_duty_not_preset_duty);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);

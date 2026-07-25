@@ -96,7 +96,7 @@ void test_make_note_with_default_octave(void) {
     TEST_ASSERT_EQUAL(Note::A, note.note);
     TEST_ASSERT_EQUAL(INSTR_PULSE_LEAD.defaultOctave, note.octave);  // 4
     TEST_ASSERT_EQUAL_FLOAT(0.5f, note.duration);
-    TEST_ASSERT_EQUAL_FLOAT(INSTR_PULSE_LEAD.baseVolume, note.volume); // 0.35f
+    TEST_ASSERT_EQUAL_FLOAT(INSTR_PULSE_LEAD.baseVolume, note.volume); // 0.40f
     TEST_ASSERT_EQUAL(&INSTR_PULSE_LEAD, note.preset);
 }
 
@@ -106,7 +106,7 @@ void test_make_note_with_explicit_octave(void) {
     TEST_ASSERT_EQUAL(Note::C, note.note);
     TEST_ASSERT_EQUAL(3, note.octave);
     TEST_ASSERT_EQUAL_FLOAT(1.0f, note.duration);
-    TEST_ASSERT_EQUAL_FLOAT(INSTR_TRIANGLE_BASS.baseVolume, note.volume); // 0.30f
+    TEST_ASSERT_EQUAL_FLOAT(INSTR_TRIANGLE_BASS.baseVolume, note.volume); // 0.36f
     TEST_ASSERT_EQUAL(&INSTR_TRIANGLE_BASS, note.preset);
 }
 
@@ -117,10 +117,10 @@ void test_make_note_different_instruments(void) {
     MusicNote hihat = makeNote(INSTR_HIHAT, Note::Rest, 0.05f);
     MusicNote pad = makeNote(INSTR_TRIANGLE_PAD, Note::G, 0.5f);
     
-    TEST_ASSERT_EQUAL_FLOAT(0.35f, lead.volume);   // INSTR_PULSE_LEAD.baseVolume
+    TEST_ASSERT_EQUAL_FLOAT(0.40f, lead.volume);   // INSTR_PULSE_LEAD.baseVolume
     TEST_ASSERT_EQUAL_FLOAT(0.45f, kick.volume);   // INSTR_KICK.baseVolume
     TEST_ASSERT_EQUAL_FLOAT(0.25f, hihat.volume);  // INSTR_HIHAT.baseVolume
-    TEST_ASSERT_EQUAL_FLOAT(0.28f, pad.volume);    // INSTR_TRIANGLE_PAD.baseVolume
+    TEST_ASSERT_EQUAL_FLOAT(0.30f, pad.volume);    // INSTR_TRIANGLE_PAD.baseVolume
     
     // Verify octave is from preset
     TEST_ASSERT_EQUAL(4, lead.octave);   // INSTR_PULSE_LEAD.defaultOctave
@@ -172,15 +172,15 @@ void test_instrument_to_frequency_melodic_returns_440(void) {
 // ============================================================================
 
 void test_instr_pulse_lead_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.35f, INSTR_PULSE_LEAD.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.40f, INSTR_PULSE_LEAD.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.5f, INSTR_PULSE_LEAD.duty);
     TEST_ASSERT_EQUAL(4, INSTR_PULSE_LEAD.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.defaultDuration);
     TEST_ASSERT_EQUAL(0, INSTR_PULSE_LEAD.noisePeriod);
     TEST_ASSERT_EQUAL_FLOAT(0.005f, INSTR_PULSE_LEAD.attackTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.20f, INSTR_PULSE_LEAD.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.70f, INSTR_PULSE_LEAD.sustainLevel);
-    TEST_ASSERT_EQUAL_FLOAT(0.15f, INSTR_PULSE_LEAD.releaseTime);
+    TEST_ASSERT_EQUAL_FLOAT(0.18f, INSTR_PULSE_LEAD.decayTime);
+    TEST_ASSERT_EQUAL_FLOAT(0.88f, INSTR_PULSE_LEAD.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.22f, INSTR_PULSE_LEAD.releaseTime);
     TEST_ASSERT_EQUAL(LfoTarget::PITCH, INSTR_PULSE_LEAD.lfoTarget);
     TEST_ASSERT_EQUAL_FLOAT(5.0f, INSTR_PULSE_LEAD.lfoFrequency);
     TEST_ASSERT_EQUAL_FLOAT(0.025f, INSTR_PULSE_LEAD.lfoDepth);
@@ -190,21 +190,21 @@ void test_instr_pulse_lead_values(void) {
 }
 
 void test_instr_triangle_lead_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.32f, INSTR_TRIANGLE_LEAD.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.36f, INSTR_TRIANGLE_LEAD.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.5f, INSTR_TRIANGLE_LEAD.duty);
     TEST_ASSERT_EQUAL(5, INSTR_TRIANGLE_LEAD.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.003f, INSTR_TRIANGLE_LEAD.attackTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.15f, INSTR_TRIANGLE_LEAD.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.75f, INSTR_TRIANGLE_LEAD.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.12f, INSTR_TRIANGLE_LEAD.decayTime);
+    TEST_ASSERT_EQUAL_FLOAT(0.88f, INSTR_TRIANGLE_LEAD.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::PITCH, INSTR_TRIANGLE_LEAD.lfoTarget);
 }
 
 void test_instr_triangle_pad_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.28f, INSTR_TRIANGLE_PAD.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.30f, INSTR_TRIANGLE_PAD.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(4, INSTR_TRIANGLE_PAD.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.015f, INSTR_TRIANGLE_PAD.attackTime);
     TEST_ASSERT_EQUAL_FLOAT(0.40f, INSTR_TRIANGLE_PAD.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.65f, INSTR_TRIANGLE_PAD.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.75f, INSTR_TRIANGLE_PAD.sustainLevel);
     TEST_ASSERT_EQUAL_FLOAT(0.50f, INSTR_TRIANGLE_PAD.releaseTime);
     TEST_ASSERT_EQUAL(LfoTarget::VOLUME, INSTR_TRIANGLE_PAD.lfoTarget);
     TEST_ASSERT_EQUAL_FLOAT(2.5f, INSTR_TRIANGLE_PAD.lfoFrequency);
@@ -213,22 +213,22 @@ void test_instr_triangle_pad_values(void) {
 }
 
 void test_instr_pulse_pad_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.26f, INSTR_PULSE_PAD.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.28f, INSTR_PULSE_PAD.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.25f, INSTR_PULSE_PAD.duty);     // 1/4 duty
     TEST_ASSERT_EQUAL(4, INSTR_PULSE_PAD.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.020f, INSTR_PULSE_PAD.attackTime);
     TEST_ASSERT_EQUAL_FLOAT(0.60f, INSTR_PULSE_PAD.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.55f, INSTR_PULSE_PAD.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.65f, INSTR_PULSE_PAD.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::PITCH, INSTR_PULSE_PAD.lfoTarget);
     TEST_ASSERT_EQUAL_FLOAT(0.08f, INSTR_PULSE_PAD.dutySweep);
 }
 
 void test_instr_pulse_harmony_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.22f, INSTR_PULSE_HARMONY.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.28f, INSTR_PULSE_HARMONY.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.125f, INSTR_PULSE_HARMONY.duty); // 1/8 duty
     TEST_ASSERT_EQUAL(5, INSTR_PULSE_HARMONY.defaultOctave);
-    TEST_ASSERT_EQUAL_FLOAT(0.50f, INSTR_PULSE_HARMONY.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.60f, INSTR_PULSE_HARMONY.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.40f, INSTR_PULSE_HARMONY.decayTime);
+    TEST_ASSERT_EQUAL_FLOAT(0.75f, INSTR_PULSE_HARMONY.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::VOLUME, INSTR_PULSE_HARMONY.lfoTarget);
     TEST_ASSERT_EQUAL_FLOAT(6.0f, INSTR_PULSE_HARMONY.lfoFrequency);
     TEST_ASSERT_EQUAL_FLOAT(0.30f, INSTR_PULSE_HARMONY.lfoDepth);
@@ -236,22 +236,22 @@ void test_instr_pulse_harmony_values(void) {
 }
 
 void test_instr_triangle_bass_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.30f, INSTR_TRIANGLE_BASS.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.36f, INSTR_TRIANGLE_BASS.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.5f, INSTR_TRIANGLE_BASS.duty);
     TEST_ASSERT_EQUAL(3, INSTR_TRIANGLE_BASS.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.005f, INSTR_TRIANGLE_BASS.attackTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.10f, INSTR_TRIANGLE_BASS.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.20f, INSTR_TRIANGLE_BASS.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.08f, INSTR_TRIANGLE_BASS.decayTime);
+    TEST_ASSERT_EQUAL_FLOAT(0.45f, INSTR_TRIANGLE_BASS.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::NONE, INSTR_TRIANGLE_BASS.lfoTarget);
 }
 
 void test_instr_pulse_bass_values(void) {
-    TEST_ASSERT_EQUAL_FLOAT(0.30f, INSTR_PULSE_BASS.baseVolume);
+    TEST_ASSERT_EQUAL_FLOAT(0.34f, INSTR_PULSE_BASS.baseVolume);
     TEST_ASSERT_EQUAL_FLOAT(0.25f, INSTR_PULSE_BASS.duty);   // 1/4
     TEST_ASSERT_EQUAL(2, INSTR_PULSE_BASS.defaultOctave);
     TEST_ASSERT_EQUAL_FLOAT(0.001f, INSTR_PULSE_BASS.attackTime);
     TEST_ASSERT_EQUAL_FLOAT(0.08f, INSTR_PULSE_BASS.decayTime);
-    TEST_ASSERT_EQUAL_FLOAT(0.35f, INSTR_PULSE_BASS.sustainLevel);
+    TEST_ASSERT_EQUAL_FLOAT(0.55f, INSTR_PULSE_BASS.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::NONE, INSTR_PULSE_BASS.lfoTarget);
 }
 
