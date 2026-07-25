@@ -517,7 +517,7 @@ engine.getAudioEngine().submitCommand(stop);
 
 **Timed SFX sequences (arpeggios)**
 
-The Engine does **not** embed an SFX step sequencer. Games (or headers exported from **PixelRoot32 Tool Suite**) schedule multiple `PLAY_EVENT` commands at offsets — e.g. coin arpeggio at 0 / 25 / 50 ms — using a game timer or audio-time callback. Tool Suite exports `sequenceStepCount` / `sequenceStep(SfxId, i)` with `{ delaySec, AudioEvent }` for this pattern; see Tool Suite `docs/SFX_ENGINE_ABI_REFERENCE.md`.
+The Engine does **not** embed an SFX step sequencer inside `ApuCore`. Prefer the opt-in helper [`playSfxBank`](include/audio/SfxBankPlayback.h): it dispatches Tool Suite bank `layerEvent` calls at `t = 0` and hands delayed `sequenceStep` entries to a game-supplied `SfxDelayScheduler` (scene timer / command queue). Looping voices still require `STOP_CHANNEL` (or steal); the helper does not manage cooldowns or global SFX volume. Legacy games may keep iterating `layerCount` / `layerEvent` only. See Tool Suite `docs/SFX_ENGINE_ABI_REFERENCE.md`.
 
 **ADSR Envelope (via `InstrumentPreset`)**
 - `attackTime`: how quickly the sound reaches peak volume (0.0 = instant).

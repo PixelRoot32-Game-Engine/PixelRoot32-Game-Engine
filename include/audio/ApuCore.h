@@ -214,6 +214,12 @@ namespace pixelroot32::audio {
          * @return true if voice is in loop mode.
          */
         bool isVoiceLoopForTesting(int slot) const;
+        /**
+         * @brief Test-only: current voice frequency in Hz (melodic / noise clock).
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return Frequency in Hz if slot is valid, 0 otherwise.
+         */
+        float getVoiceFrequencyForTesting(int slot) const;
 #endif
 
     private:

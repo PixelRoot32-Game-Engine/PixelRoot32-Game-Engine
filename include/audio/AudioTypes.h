@@ -110,6 +110,9 @@ namespace pixelroot32::audio {
     // --- LFO Types ---
     enum class LfoTarget : uint8_t { NONE, PITCH, VOLUME };
 
+    /** Pitch/period sweep interpolation curve (default Linear keeps legacy behavior). */
+    enum class SweepCurve : uint8_t { Linear = 0, Exponential = 1 };
+
     /**
      * @struct LfoState
      * @brief Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
@@ -204,13 +207,17 @@ namespace pixelroot32::audio {
         /** Continuous voice: no auto-disable; cleared only by STOP_CHANNEL / steal. */
         bool loop = false;
 
-        // Optional linear frequency/period sweep (melodic waves + NOISE clock)
+        // Optional frequency/period sweep (melodic waves + NOISE clock)
         uint32_t sweepSamplesTotal = 0;   ///< Total samples for the sweep.
         uint32_t sweepSamplesRemaining = 0;///< Samples remaining in the sweep.
         float sweepStartHz = 0.0f;        ///< Starting frequency in Hz (NOISE: LFSR clock).
         float sweepEndHz = 0.0f;          ///< Ending frequency in Hz (NOISE: LFSR clock).
         uint32_t sweepStartIncQ32 = 0;    ///< Melodic: Q32 phase inc start; NOISE: start period.
         uint32_t sweepEndIncQ32 = 0;      ///< Melodic: Q32 phase inc end; NOISE: end period.
+        SweepCurve sweepCurve = SweepCurve::Linear; ///< Active sweep curve (may fallback to Linear).
+        float sweepLogRatio = 0.0f;       ///< FPU Exponential: logf(endHz/startHz).
+        int32_t sweepLogStartQ16 = 0;     ///< Q15 path Exponential: log2(start) in Q16.
+        int32_t sweepLogDeltaQ16 = 0;     ///< Q15 path Exponential: log2(end/start) in Q16.
 
         /**
          * @brief Resets the channel to a clean disabled state.
@@ -239,6 +246,10 @@ namespace pixelroot32::audio {
             sweepEndHz = 0.0f;
             sweepStartIncQ32 = 0;
             sweepEndIncQ32 = 0;
+            sweepCurve = SweepCurve::Linear;
+            sweepLogRatio = 0.0f;
+            sweepLogStartQ16 = 0;
+            sweepLogDeltaQ16 = 0;
         }
     };
 
@@ -266,10 +277,12 @@ namespace pixelroot32::audio {
         const struct InstrumentPreset* preset = nullptr;
 
         /**
-         * Optional linear frequency/period sweep (PULSE / TRIANGLE / SINE / SAW / NOISE).
+         * Optional frequency/period sweep (PULSE / TRIANGLE / SINE / SAW / NOISE).
          * Active iff sweepDurationSec > 0 and sweepEndHz > 0.
          * Melodic: starts at `frequency`, ends at `sweepEndHz`.
          * NOISE: interpolates LFSR clock Hz (and thus noisePeriodSamples).
+         * Curve: Linear (default) or Exponential (geometric in Hz); falls back to Linear
+         * if start/end Hz are not both > 0.
          * Duration clamped to note length for one-shots; full sweepDurationSec when loop.
          * API decision: ADR-A1 in docs/architecture/AUDIO_ROADMAP_SHORT_MEDIUM.md §A.7.
          */
@@ -281,6 +294,9 @@ namespace pixelroot32::audio {
          * When false, duration <= 0 MUST NOT leave a hanging voice (disabled immediately).
          */
         bool loop = false;
+
+        /** Sweep interpolation; additive at end of struct for brace-init safety (0 = Linear). */
+        SweepCurve sweepCurve = SweepCurve::Linear;
     };
 
     // --- Command Types ---

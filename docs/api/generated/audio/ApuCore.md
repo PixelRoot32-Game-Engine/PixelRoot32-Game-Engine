@@ -256,3 +256,15 @@ Test-only: whether a voice slot is in continuous loop mode.
 - `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
 
 **Returns:** true if voice is in loop mode.
+
+### `float getVoiceFrequencyForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current voice frequency in Hz (melodic / noise clock).
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** Frequency in Hz if slot is valid, 0 otherwise.

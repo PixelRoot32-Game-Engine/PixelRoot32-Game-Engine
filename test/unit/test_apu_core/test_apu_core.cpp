@@ -16,6 +16,7 @@
  */
 
 #include <unity.h>
+#include <cmath>
 #include <cstring>
 #include "../../test_config.h"
 #include "audio/ApuCore.h"
@@ -1573,6 +1574,166 @@ void test_apu_core_oneshot_zero_duration_does_not_hang(void) {
     TEST_ASSERT_EQUAL_INT(0, apu.countEnabledVoicesForTesting());
 }
 
+// =============================================================================
+// SweepCurve Linear / Exponential (sfx-synthesis-medium-priority)
+// =============================================================================
+
+static int find_first_enabled_sfx_slot(ApuCore& apu) {
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceEnabledForTesting(i)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void test_apu_core_linear_sweep_midpoint_arithmetic(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 1.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 880.0f;
+    cmd.event.sweepDurationSec = 0.1f;  // 4410 samples
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    // Advance to ~50% of sweep (2205 samples ≈ 8.6 * 256).
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const float hz = apu.getVoiceFrequencyForTesting(slot);
+    // Linear midpoint ≈ 660 Hz; allow coarse window around arithmetic mean.
+    TEST_ASSERT_FLOAT_WITHIN(40.0f, 660.0f, hz);
+}
+
+void test_apu_core_exponential_sweep_midpoint_geometric(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 1.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 880.0f;
+    cmd.event.sweepDurationSec = 0.1f;
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const float hz = apu.getVoiceFrequencyForTesting(slot);
+    // Geometric midpoint = 440 * sqrt(2) ≈ 622.25; must not sit on linear 660.
+    TEST_ASSERT_FLOAT_WITHIN(35.0f, 622.25f, hz);
+    TEST_ASSERT_TRUE(std::fabs(hz - 660.0f) > 15.0f);
+}
+
+void test_apu_core_exponential_noise_sweep_updates_period(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 2000.0f;  // period = 22
+    cmd.event.duration = 0.5f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.noisePeriod = 0;
+    cmd.event.sweepEndHz = 200.0f;  // period = 220
+    cmd.event.sweepDurationSec = 0.05f;
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+
+    const uint32_t startPeriod = 44100u / 2000u;
+    const uint32_t endPeriod = 44100u / 200u;
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const uint32_t periodAfter = apu.getVoiceNoisePeriodForTesting(slot);
+    TEST_ASSERT_TRUE(periodAfter > startPeriod);
+    TEST_ASSERT_TRUE(periodAfter <= endPeriod);
+
+    for (int n = 0; n < 20; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    TEST_ASSERT_EQUAL_UINT32(endPeriod, apu.getVoiceNoisePeriodForTesting(slot));
+}
+
+void test_apu_core_sweep_curve_default_linear_and_nonpositive_fallback(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    // Brace-init omits sweepCurve → Linear (ABI default 0).
+    AudioCommand linearCmd{};
+    linearCmd.type = AudioCommandType::PLAY_EVENT;
+    linearCmd.event.type = WaveType::PULSE;
+    linearCmd.event.frequency = 440.0f;
+    linearCmd.event.duration = 1.0f;
+    linearCmd.event.volume = 0.5f;
+    linearCmd.event.duty = 0.5f;
+    linearCmd.event.sweepEndHz = 880.0f;
+    linearCmd.event.sweepDurationSec = 0.1f;
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(SweepCurve::Linear),
+                            static_cast<uint8_t>(linearCmd.event.sweepCurve));
+    TEST_ASSERT_TRUE(apu.submitCommand(linearCmd));
+
+    int16_t buffer[256] = {0};
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(40.0f, 660.0f, apu.getVoiceFrequencyForTesting(slot));
+
+    // Exponential with non-positive start Hz falls back to Linear arithmetic.
+    apu.reset();
+    AudioCommand fallbackCmd{};
+    fallbackCmd.type = AudioCommandType::PLAY_EVENT;
+    fallbackCmd.event.type = WaveType::PULSE;
+    fallbackCmd.event.frequency = 0.0f;
+    fallbackCmd.event.duration = 1.0f;
+    fallbackCmd.event.volume = 0.5f;
+    fallbackCmd.event.duty = 0.5f;
+    fallbackCmd.event.sweepEndHz = 880.0f;
+    fallbackCmd.event.sweepDurationSec = 0.1f;
+    fallbackCmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(fallbackCmd));
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    // Linear from 0 → 880 at alpha≈0.5 ≈ 440 (not geometric, which is undefined).
+    TEST_ASSERT_FLOAT_WITHIN(50.0f, 440.0f, apu.getVoiceFrequencyForTesting(slot));
+}
+
 void test_apu_core_loop_voice_is_stealable(void) {
     ApuCore apu;
     apu.init(44100);
@@ -1752,6 +1913,10 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx);
     RUN_TEST(test_apu_core_music_uses_track_duty_not_preset_duty);
     RUN_TEST(test_apu_core_noise_pitch_sweep_updates_period);
+    RUN_TEST(test_apu_core_linear_sweep_midpoint_arithmetic);
+    RUN_TEST(test_apu_core_exponential_sweep_midpoint_geometric);
+    RUN_TEST(test_apu_core_exponential_noise_sweep_updates_period);
+    RUN_TEST(test_apu_core_sweep_curve_default_linear_and_nonpositive_fallback);
     RUN_TEST(test_apu_core_loop_voice_stays_enabled_until_stop);
     RUN_TEST(test_apu_core_oneshot_zero_duration_does_not_hang);
     RUN_TEST(test_apu_core_loop_voice_is_stealable);
