@@ -80,6 +80,21 @@ void playCoin(pr32::core::Engine& engine) {
 
 - **`frequency`** on a **NOISE** event does **not** set musical pitch in **`ApuCore`**. It drives the **noise clock**: default period in samples is `sample_rate / max(frequency, 1 Hz)` when `noisePeriod == 0`. Lower values → coarser / more “hit-like”; higher values → denser noise. Use **`noisePeriod`** for fixed percussion periods.
 - **All platforms** share the same **15-bit NES-style LFSR** inside **`ApuCore`**; step rate follows `noisePeriodSamples` / `noiseCountdown` (and `AudioEvent`), not `rand()`.
+- **Period sweep**: with `sweepDurationSec > 0` and `sweepEndHz > 0`, **`NOISE`** interpolates the LFSR clock from the initial period toward the period implied by `sweepEndHz` (descending “scream” / boom effects).
+
+### Linear sweep and loop (`AudioEvent`)
+
+| Field | Melodic waves | NOISE |
+|-------|---------------|-------|
+| `sweepEndHz` | Target frequency (Hz) | Target LFSR clock (Hz) |
+| `sweepDurationSec` | Sweep length (seconds) | Same |
+| `loop` | Hold voice until `STOP_CHANNEL` or steal | Same |
+
+- One-shots: `duration > 0` and `loop == false` (default).
+- Continuous: `loop == true`; duration is not used as a finite gate.
+- **`duration <= 0` with `loop == false`** disables the voice immediately (safe no-op).
+
+Arpeggios and fanfares are **not** built into the Engine: schedule multiple `playEvent` calls at time offsets (Tool Suite exported banks provide `sequenceStepCount` / `sequenceStep` helpers — see Tool Suite `SFX_ENGINE_ABI_REFERENCE.md`).
 
 ### Master volume
 

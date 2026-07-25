@@ -11,7 +11,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 
 #ifdef ESP32
 #include <Arduino.h>
@@ -66,19 +68,44 @@ namespace pixelroot32::audio {
         return (uint32_t)inc;
     }
 
-    /** Linear sweep: updates frequency + phaseIncrement; decrements sweep counter. */
+    /** NOISE LFSR period from clock Hz (minimum 1 sample). */
+    static inline uint32_t noise_clock_hz_to_period(float hz, int sr) {
+        if (sr <= 0) return 1u;
+        if (hz < 1.0f) hz = 1.0f;
+        uint32_t period = (uint32_t)((float)sr / hz);
+        if (period < 1u) period = 1u;
+        return period;
+    }
+
+    /** Steal ranking: looping voices score 0 so they can be replaced (anti-starvation). */
+    static inline uint64_t voice_steal_score(const AudioChannel& voice) {
+        if (voice.loop) return 0;
+        return voice.remainingSamples;
+    }
+
+    /** Linear sweep: melodic phase inc or NOISE LFSR period; decrements sweep counter. */
     static inline void apply_linear_frequency_sweep_float(AudioChannel& ch, int sr) {
         if (sr <= 0) return;
-        if (ch.sweepSamplesTotal == 0 || ch.type == WaveType::NOISE) return;
+        if (ch.sweepSamplesTotal == 0) return;
         if (ch.sweepSamplesRemaining == 0) return;
         const float denom = (float)ch.sweepSamplesTotal;
         const float alpha = (float)(ch.sweepSamplesTotal - ch.sweepSamplesRemaining) / denom;
-        ch.frequency = ch.sweepStartHz + (ch.sweepEndHz - ch.sweepStartHz) * alpha;
-        ch.phaseIncrement = ch.frequency / (float)sr;
+        const float hz = ch.sweepStartHz + (ch.sweepEndHz - ch.sweepStartHz) * alpha;
+        if (ch.type == WaveType::NOISE) {
+            ch.frequency = hz;
+            ch.noisePeriodSamples = noise_clock_hz_to_period(hz, sr);
+        } else {
+            ch.frequency = hz;
+            ch.phaseIncrement = hz / (float)sr;
+        }
         ch.sweepSamplesRemaining--;
         if (ch.sweepSamplesRemaining == 0) {
             ch.frequency = ch.sweepEndHz;
-            ch.phaseIncrement = ch.sweepEndHz / (float)sr;
+            if (ch.type == WaveType::NOISE) {
+                ch.noisePeriodSamples = noise_clock_hz_to_period(ch.sweepEndHz, sr);
+            } else {
+                ch.phaseIncrement = ch.sweepEndHz / (float)sr;
+            }
             ch.sweepSamplesTotal = 0;
         }
     }
@@ -173,6 +200,27 @@ namespace pixelroot32::audio {
             return false;
         }
         return track_voice_active_[track_index];
+    }
+
+    uint32_t ApuCore::getVoiceNoisePeriodForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0u;
+        }
+        return voices[slot].noisePeriodSamples;
+    }
+
+    uint64_t ApuCore::getVoiceRemainingSamplesForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0u;
+        }
+        return voices[slot].remainingSamples;
+    }
+
+    bool ApuCore::isVoiceLoopForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return false;
+        }
+        return voices[slot].loop;
     }
 #endif
 
@@ -602,6 +650,7 @@ namespace pixelroot32::audio {
             ch->lfo.currentValueQ15 = 0;
         }
 
+        ch->loop = false;
         if (gate_samples > 0) {
             ch->remainingSamples = gate_samples;
             // Extend every melodic gate by the release tail so the note overlaps the
@@ -611,29 +660,19 @@ namespace pixelroot32::audio {
             if (env.releaseSamples > 0) {
                 ch->remainingSamples += env.releaseSamples;
             }
+        } else if (event.loop) {
+            ch->loop = true;
+            ch->remainingSamples = std::numeric_limits<uint64_t>::max();
         } else {
             ch->remainingSamples =
                 (uint64_t)(event.duration * (float)sampleRate);
-        }
-
-        ch->sweepSamplesTotal = 0;
-        ch->sweepSamplesRemaining = 0;
-        if ((event.type == WaveType::PULSE || event.type == WaveType::TRIANGLE
-                || event.type == WaveType::SINE || event.type == WaveType::SAW)
-            && event.sweepDurationSec > 0.0f && event.sweepEndHz > 0.0f && sampleRate > 0) {
-            const uint64_t noteLen = ch->remainingSamples;
-            if (noteLen > 0) {
-                uint64_t sweepLen = (uint64_t)(event.sweepDurationSec * (float)sampleRate);
-                if (sweepLen == 0) sweepLen = 1;
-                if (sweepLen > noteLen) sweepLen = noteLen;
-                if (sweepLen >= 1) {
-                    ch->sweepSamplesTotal = (uint32_t)sweepLen;
-                    ch->sweepSamplesRemaining = ch->sweepSamplesTotal;
-                    ch->sweepStartHz = event.frequency;
-                    ch->sweepEndHz = event.sweepEndHz;
-                    ch->sweepStartIncQ32 = frequency_hz_to_phase_inc_q32(event.frequency, sampleRate);
-                    ch->sweepEndIncQ32 = frequency_hz_to_phase_inc_q32(event.sweepEndHz, sampleRate);
-                }
+            if (ch->remainingSamples == 0) {
+                // One-shot with duration==0 must not hang the voice.
+                ch->enabled = false;
+                ch->loop = false;
+                ch->sweepSamplesTotal = 0;
+                ch->sweepSamplesRemaining = 0;
+                return;
             }
         }
 
@@ -653,14 +692,17 @@ namespace pixelroot32::audio {
             }
         } else if (event.type == WaveType::NOISE) {
             uint32_t period;
+            float noiseHz = event.frequency;
             if (event.noisePeriod > 0) {
                 period = event.noisePeriod;
+                if (sampleRate > 0) {
+                    noiseHz = (float)sampleRate / (float)period;
+                }
             } else {
-                float noiseHz = event.frequency;
                 if (noiseHz < 1.0f) noiseHz = 1000.0f;
-                period = (uint32_t)((float)sampleRate / noiseHz);
-                if (period < 1u) period = 1u;
+                period = noise_clock_hz_to_period(noiseHz, sampleRate);
             }
+            ch->frequency = noiseHz;
             ch->noisePeriodSamples = period;
             ch->noiseCountdown = 1u;
             ch->lfsrState = 0x4000;
@@ -671,6 +713,43 @@ namespace pixelroot32::audio {
             ch->dutyCycle = 0.5f;
             ch->dutySweep = 0.0f;
             ch->dutySweepQ32 = 0;
+        }
+
+        ch->sweepSamplesTotal = 0;
+        ch->sweepSamplesRemaining = 0;
+        if ((event.type == WaveType::PULSE || event.type == WaveType::TRIANGLE
+                || event.type == WaveType::SINE || event.type == WaveType::SAW
+                || event.type == WaveType::NOISE)
+            && event.sweepDurationSec > 0.0f && event.sweepEndHz > 0.0f && sampleRate > 0) {
+            uint64_t sweepLen = (uint64_t)(event.sweepDurationSec * (float)sampleRate);
+            if (sweepLen == 0) sweepLen = 1;
+            if (!ch->loop) {
+                const uint64_t noteLen = ch->remainingSamples;
+                if (noteLen == 0) {
+                    sweepLen = 0;
+                } else if (sweepLen > noteLen) {
+                    sweepLen = noteLen;
+                }
+            }
+            if (sweepLen > 0xFFFFFFFFu) {
+                sweepLen = 0xFFFFFFFFu;
+            }
+            if (sweepLen >= 1) {
+                ch->sweepSamplesTotal = (uint32_t)sweepLen;
+                ch->sweepSamplesRemaining = ch->sweepSamplesTotal;
+                ch->sweepStartHz = ch->frequency;
+                ch->sweepEndHz = event.sweepEndHz;
+                if (event.type == WaveType::NOISE) {
+                    ch->sweepStartIncQ32 = ch->noisePeriodSamples;
+                    ch->sweepEndIncQ32 =
+                        noise_clock_hz_to_period(event.sweepEndHz, sampleRate);
+                } else {
+                    ch->sweepStartIncQ32 =
+                        frequency_hz_to_phase_inc_q32(ch->sweepStartHz, sampleRate);
+                    ch->sweepEndIncQ32 =
+                        frequency_hz_to_phase_inc_q32(event.sweepEndHz, sampleRate);
+                }
+            }
         }
     }
 
@@ -691,7 +770,7 @@ namespace pixelroot32::audio {
     Voice* ApuCore::findVoiceForSfxEvent(WaveType type) {
         Voice* bestInactive = nullptr;
         Voice* bestSteal = nullptr;
-        uint64_t minRemaining = UINT64_MAX;
+        uint64_t minScore = std::numeric_limits<uint64_t>::max();
 
         for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
             Voice& voice = voices[i];
@@ -700,8 +779,9 @@ namespace pixelroot32::audio {
                 if (!bestInactive) bestInactive = &voice;
                 continue;
             }
-            if (voice.remainingSamples < minRemaining) {
-                minRemaining = voice.remainingSamples;
+            const uint64_t score = voice_steal_score(voice);
+            if (score < minScore) {
+                minScore = score;
                 bestSteal = &voice;
             }
         }
@@ -713,7 +793,7 @@ namespace pixelroot32::audio {
     Voice* ApuCore::findVoiceForPercussionHit() {
         Voice* bestInactive = nullptr;
         Voice* bestSteal = nullptr;
-        uint64_t minRemaining = UINT64_MAX;
+        uint64_t minScore = std::numeric_limits<uint64_t>::max();
 
         for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
             Voice& voice = voices[i];
@@ -721,8 +801,9 @@ namespace pixelroot32::audio {
                 if (!bestInactive) bestInactive = &voice;
                 continue;
             }
-            if (voice.remainingSamples < minRemaining) {
-                minRemaining = voice.remainingSamples;
+            const uint64_t score = voice_steal_score(voice);
+            if (score < minScore) {
+                minScore = score;
                 bestSteal = &voice;
             }
         }
@@ -968,7 +1049,8 @@ namespace pixelroot32::audio {
 
         // Trigger RELEASE when remaining duration expires (Decision D2:
         // release samples are added to remainingSamples at transition).
-        if (ch.remainingSamples > 0) {
+        // Looping voices never auto-expire.
+        if (!ch.loop && ch.remainingSamples > 0) {
             ch.remainingSamples--;
             if (ch.remainingSamples == 0) {
                 if (ch.envelope.stage != EnvelopeState::Stage::RELEASE
@@ -1120,25 +1202,38 @@ namespace pixelroot32::audio {
                 // ADSR envelope tick (fixed-point Q15, once per sample).
                 tickEnvelopeQ15(ch);
 
-                // Linear frequency sweep (integer phase inc, no soft-float in lerp).
-                if (ch.sweepSamplesTotal > 0 && ch.type != WaveType::NOISE && ch.sweepSamplesRemaining > 0) {
+                // Linear frequency/period sweep (integer lerp; NOISE uses period fields).
+                if (ch.sweepSamplesTotal > 0 && ch.sweepSamplesRemaining > 0) {
                     const uint32_t numer = ch.sweepSamplesTotal - ch.sweepSamplesRemaining;
                     const int64_t delta = (int64_t)ch.sweepEndIncQ32 - (int64_t)ch.sweepStartIncQ32;
-                    int64_t inc = (int64_t)ch.sweepStartIncQ32
+                    int64_t value = (int64_t)ch.sweepStartIncQ32
                         + (delta * (int64_t)numer) / (int64_t)ch.sweepSamplesTotal;
-                    if (inc < 0) inc = 0;
-                    if (inc > (int64_t)0xFFFFFFFFLL) inc = 0xFFFFFFFFLL;
-                    ch.basePhaseIncQ32 = (uint32_t)inc;
+                    if (value < 0) value = 0;
+                    if (value > (int64_t)0xFFFFFFFFLL) value = 0xFFFFFFFFLL;
+                    if (ch.type == WaveType::NOISE) {
+                        uint32_t period = (uint32_t)value;
+                        if (period < 1u) period = 1u;
+                        ch.noisePeriodSamples = period;
+                    } else {
+                        ch.basePhaseIncQ32 = (uint32_t)value;
+                    }
                     ch.sweepSamplesRemaining--;
                     if (ch.sweepSamplesRemaining == 0) {
-                        ch.basePhaseIncQ32 = ch.sweepEndIncQ32;
+                        if (ch.type == WaveType::NOISE) {
+                            uint32_t period = ch.sweepEndIncQ32;
+                            if (period < 1u) period = 1u;
+                            ch.noisePeriodSamples = period;
+                        } else {
+                            ch.basePhaseIncQ32 = ch.sweepEndIncQ32;
+                        }
                         ch.sweepSamplesTotal = 0;
                     }
                 }
 
                 // LFO tick + pitch modulation (Q15-only, no float).
                 tickLfoQ15(ch.lfo);
-                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH) {
+                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH
+                    && ch.type != WaveType::NOISE) {
                     // Vibrato: inc = base * (1 + lfo * depth)
                     // modQ15 = currentValueQ15 * depthQ15 >> 15
                     int32_t modQ15 = (int32_t)((int64_t)ch.lfo.currentValueQ15 * ch.lfo.depthQ15 >> 15);
@@ -1147,7 +1242,7 @@ namespace pixelroot32::audio {
                 }
 
                 // Duration countdown + release trigger (same as float path).
-                if (ch.remainingSamples > 0) {
+                if (!ch.loop && ch.remainingSamples > 0) {
                     ch.remainingSamples--;
                     if (ch.remainingSamples == 0) {
                         if (ch.envelope.stage != EnvelopeState::Stage::RELEASE

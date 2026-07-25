@@ -6,7 +6,7 @@ The `MusicPlayer` class provides a simple yet powerful way to add background mus
 
 **Modular Compilation:** The MusicPlayer is only compiled when `PIXELROOT32_ENABLE_AUDIO=1`. When disabled, all music-related functionality is excluded from the build, saving both firmware size and RAM usage. `MusicTrack::channelType` supports `PULSE`, `TRIANGLE`, `NOISE`, `SINE`, and `SAW`.
 
-**Voice pool vs. sequencer tracks:** `MusicPlayer` can arrange up to **`MAX_MUSIC_TRACKS` (4)** logical layers (main + sub-tracks), but every note still becomes a `PLAY_EVENT` inside **`ApuCore`**, which mixes at most **`ApuCore::MAX_VOICES` (8)** simultaneous **voices**. Dense chords, fast arps, **plus** heavy SFX can exceed eight concurrent notes and trigger **voice stealing** (shortest remaining note is replaced). Author shorter note lengths or fewer simultaneous layers if you need deterministic timbres on hardware.
+**Voice pool vs. sequencer tracks:** `MusicPlayer` can arrange up to **`MAX_MUSIC_TRACKS` (4)** logical layers (main + sub-tracks), but every note still becomes a `PLAY_EVENT` inside **`ApuCore`**, which mixes at most **`ApuCore::MAX_VOICES` (8)** simultaneous **voices**. Dense chords, fast arps, **plus** heavy SFX can exceed eight concurrent notes and trigger **voice stealing** (lowest steal score; looping voices are preferred steal targets). Author shorter note lengths or fewer simultaneous layers if you need deterministic timbres on hardware.
 
 This guide covers everything from basic music playback to advanced patterns like adaptive soundtracks and smooth transitions.
 
@@ -562,7 +562,7 @@ For global lo-fi degradation or analysis, use **`AudioEngine::setMasterBitcrush`
 
 ### Related API (sweeps and extra waves)
 
-One-shot **frequency sweeps** on `AudioEvent` (`sweepEndHz`, `sweepDurationSec`) apply to **`PULSE`** and **`TRIANGLE`** (and to **`SINE`** / **`SAW`** when extra waves are enabled). **`NOISE`** ignores sweep fields. Full detail: [audio.md](../api/audio.md).
+One-shot **frequency / period sweeps** on `AudioEvent` (`sweepEndHz`, `sweepDurationSec`) apply to **`PULSE`**, **`TRIANGLE`**, **`SINE`**, and **`SAW`** (melodic Hz), and to **`NOISE`** (LFSR clock / period interpolation). Set **`loop = true`** for continuous SFX until **`STOP_CHANNEL`**. Full detail: [audio.md](../api/audio.md) and [Audio subsystem](../architecture/audio-subsystem.md).
 
 ---
 

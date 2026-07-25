@@ -220,3 +220,39 @@ Test-only: reports whether a music track has an active melodic gate.
 ::: tip
 Available only when UNIT_TEST is defined (native_test). Not for game code.
 :::
+
+### `uint32_t getVoiceNoisePeriodForTesting(int slot) const`
+
+**Description:**
+
+Test-only: NOISE LFSR period in samples for a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** NOISE LFSR period in samples if slot is valid, 0 otherwise.
+
+### `uint64_t getVoiceRemainingSamplesForTesting(int slot) const`
+
+**Description:**
+
+Test-only: remaining sample gate for a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** remaining samples if slot is valid, 0 otherwise.
+
+### `bool isVoiceLoopForTesting(int slot) const`
+
+**Description:**
+
+Test-only: whether a voice slot is in continuous loop mode.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
+
+**Returns:** true if voice is in loop mode.

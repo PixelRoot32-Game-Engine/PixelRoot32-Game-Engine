@@ -201,14 +201,16 @@ namespace pixelroot32::audio {
 
         // Duration control (sample-accurate timing)
         uint64_t remainingSamples = 0;
+        /** Continuous voice: no auto-disable; cleared only by STOP_CHANNEL / steal. */
+        bool loop = false;
 
-        // Optional linear frequency sweep (PULSE / TRIANGLE only; see AudioEvent::sweep*)
+        // Optional linear frequency/period sweep (melodic waves + NOISE clock)
         uint32_t sweepSamplesTotal = 0;   ///< Total samples for the sweep.
         uint32_t sweepSamplesRemaining = 0;///< Samples remaining in the sweep.
-        float sweepStartHz = 0.0f;        ///< Starting frequency in Hz.
-        float sweepEndHz = 0.0f;          ///< Ending frequency in Hz.
-        uint32_t sweepStartIncQ32 = 0;    ///< Q32 phase increment at sweep start.
-        uint32_t sweepEndIncQ32 = 0;      ///< Q32 phase increment at sweep end.
+        float sweepStartHz = 0.0f;        ///< Starting frequency in Hz (NOISE: LFSR clock).
+        float sweepEndHz = 0.0f;          ///< Ending frequency in Hz (NOISE: LFSR clock).
+        uint32_t sweepStartIncQ32 = 0;    ///< Melodic: Q32 phase inc start; NOISE: start period.
+        uint32_t sweepEndIncQ32 = 0;      ///< Melodic: Q32 phase inc end; NOISE: end period.
 
         /**
          * @brief Resets the channel to a clean disabled state.
@@ -226,6 +228,7 @@ namespace pixelroot32::audio {
             lfo.reset();
             volume = 0.0f;
             remainingSamples = 0;
+            loop = false;
             lfsrState = 0x4000; // Initialize LFSR to non-zero state
             noiseShortMode = false;
             noisePeriodSamples = 1;
@@ -263,14 +266,21 @@ namespace pixelroot32::audio {
         const struct InstrumentPreset* preset = nullptr;
 
         /**
-         * Optional linear frequency sweep (PULSE / TRIANGLE only).
+         * Optional linear frequency/period sweep (PULSE / TRIANGLE / SINE / SAW / NOISE).
          * Active iff sweepDurationSec > 0 and sweepEndHz > 0.
-         * Starts at `frequency`, ends at `sweepEndHz`, over at most sweepDurationSec
-         * (clamped to note length before release).
+         * Melodic: starts at `frequency`, ends at `sweepEndHz`.
+         * NOISE: interpolates LFSR clock Hz (and thus noisePeriodSamples).
+         * Duration clamped to note length for one-shots; full sweepDurationSec when loop.
          * API decision: ADR-A1 in docs/architecture/AUDIO_ROADMAP_SHORT_MEDIUM.md §A.7.
          */
         float sweepEndHz = 0.0f;
         float sweepDurationSec = 0.0f;
+
+        /**
+         * Continuous playback: voice stays enabled until STOP_CHANNEL (or steal).
+         * When false, duration <= 0 MUST NOT leave a hanging voice (disabled immediately).
+         */
+        bool loop = false;
     };
 
     // --- Command Types ---

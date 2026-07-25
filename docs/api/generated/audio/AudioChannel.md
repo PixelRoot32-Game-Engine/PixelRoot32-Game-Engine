@@ -16,10 +16,10 @@ Designed to be static and memory-efficient.
 |------|------|-------------|
 | `sweepSamplesTotal` | `uint32_t` | Total samples for the sweep. |
 | `sweepSamplesRemaining` | `uint32_t` | Samples remaining in the sweep. |
-| `sweepStartHz` | `float` | Starting frequency in Hz. |
-| `sweepEndHz` | `float` | Ending frequency in Hz. |
-| `sweepStartIncQ32` | `uint32_t` | Q32 phase increment at sweep start. |
-| `sweepEndIncQ32` | `uint32_t` | Q32 phase increment at sweep end. |
+| `sweepStartHz` | `float` | Starting frequency in Hz (NOISE: LFSR clock). |
+| `sweepEndHz` | `float` | Ending frequency in Hz (NOISE: LFSR clock). |
+| `sweepStartIncQ32` | `uint32_t` | Melodic: Q32 phase inc start; NOISE: start period. |
+| `sweepEndIncQ32` | `uint32_t` | Melodic: Q32 phase inc end; NOISE: end period. |
 
 ## Methods
 

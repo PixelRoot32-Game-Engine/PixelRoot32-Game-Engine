@@ -196,6 +196,24 @@ namespace pixelroot32::audio {
          * @return true after a melodic note until Rest note-off or lifecycle reset.
          */
         bool isMusicTrackVoiceActiveForTesting(size_t track_index) const;
+        /**
+         * @brief Test-only: NOISE LFSR period in samples for a voice slot.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return NOISE LFSR period in samples if slot is valid, 0 otherwise.
+         */
+        uint32_t getVoiceNoisePeriodForTesting(int slot) const;
+        /**
+         * @brief Test-only: remaining sample gate for a voice slot.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return remaining samples if slot is valid, 0 otherwise.
+         */
+        uint64_t getVoiceRemainingSamplesForTesting(int slot) const;
+        /**
+         * @brief Test-only: whether a voice slot is in continuous loop mode.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns false.
+         * @return true if voice is in loop mode.
+         */
+        bool isVoiceLoopForTesting(int slot) const;
 #endif
 
     private:

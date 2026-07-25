@@ -24,7 +24,7 @@ The Audio module provides a **NES-inspired** synthesis stack (Pulse, Triangle, N
 - `SINE`: Band-limited sine via LUT.
 - `SAW`: Sawtooth from a linear phase ramp.
 
-All `WaveType` values share the same **`MAX_VOICES`** pool. Under contention the implementation may steal a voice (shortest remaining time) to make room for a new event. Internally, `VoiceType` mirrors these for allocation logic.
+All `WaveType` values share the same **`MAX_VOICES`** pool. Under contention the implementation may steal a voice (lowest steal score; looping SFX score 0) to make room for a new event. Internally, `VoiceType` mirrors these for allocation logic.
 
 ### Predefined Instrument Presets
 
@@ -49,19 +49,34 @@ evt.duty = 0.5f;
 audio.playEvent(evt);
 ```
 
-Sweep example (pulse or triangle only; ignored for `NOISE`):
+Sweep example (melodic or noise period sweep):
 
 ```cpp
 AudioEvent sweep{};
 sweep.type = WaveType::PULSE;
 sweep.frequency = 2000.0f;       // start Hz
-sweep.sweepEndHz = 400.0f;       // end Hz
+sweep.sweepEndHz = 400.0f;       // end Hz (melodic) or target noise clock Hz for NOISE
 sweep.sweepDurationSec = 0.15f;  // active when both this and sweepEndHz > 0
 sweep.duration = 0.25f;
 sweep.volume = 0.7f;
 sweep.duty = 0.5f;
 audio.playEvent(sweep);
 ```
+
+Looping SFX (motor, ambience) — stop explicitly when done:
+
+```cpp
+AudioEvent motor{};
+motor.type = WaveType::TRIANGLE;
+motor.frequency = 110.0f;
+motor.loop = true;
+motor.volume = 0.35f;
+motor.preset = &INSTR_TRIANGLE_BASS;
+audio.playEvent(motor);
+// Later: STOP_CHANNEL on the voice slot, or stop all SFX voices when leaving the scene.
+```
+
+Under SFX pool saturation, **looping voices are preferred steal targets** (steal score 0) so new one-shots are not starved.
 
 ### Playing Music
 

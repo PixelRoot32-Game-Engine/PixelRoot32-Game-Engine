@@ -1463,6 +1463,164 @@ void test_apu_core_integration_multiple_voices(void) {
 // Export parity: MusicTrack.duty is authoritative (not InstrumentPreset.duty)
 // =============================================================================
 
+// =============================================================================
+// Noise sweep, loop, and duration==0 one-shot (sfx-synthesis-high-priority)
+// =============================================================================
+
+void test_apu_core_noise_pitch_sweep_updates_period(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 2000.0f;  // period = 44100/2000 = 22
+    cmd.event.duration = 0.5f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.noisePeriod = 0;
+    cmd.event.sweepEndHz = 200.0f;  // period = 44100/200 = 220
+    cmd.event.sweepDurationSec = 0.05f;
+    cmd.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+
+    const uint32_t startPeriod = 44100u / 2000u;
+    const uint32_t endPeriod = 44100u / 200u;
+    int sfxSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceEnabledForTesting(i)) {
+            sfxSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(sfxSlot >= 0);
+    const uint32_t periodAfter = apu.getVoiceNoisePeriodForTesting(sfxSlot);
+    TEST_ASSERT_TRUE(periodAfter > startPeriod);
+    TEST_ASSERT_TRUE(periodAfter <= endPeriod);
+
+    // Run through the rest of the sweep window.
+    for (int n = 0; n < 20; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    const uint32_t periodEnd = apu.getVoiceNoisePeriodForTesting(sfxSlot);
+    TEST_ASSERT_EQUAL_UINT32(endPeriod, periodEnd);
+}
+
+void test_apu_core_loop_voice_stays_enabled_until_stop(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::TRIANGLE;
+    cmd.event.frequency = 220.0f;
+    cmd.event.duration = 0.0f;
+    cmd.event.volume = 0.4f;
+    cmd.event.duty = 0.5f;
+    cmd.event.loop = true;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[512] = {0};
+    apu.generateSamples(buffer, 512);
+    TEST_ASSERT_TRUE(apu.countEnabledVoicesForTesting() >= 1);
+
+    int loopSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceLoopForTesting(i) && apu.isVoiceEnabledForTesting(i)) {
+            loopSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(loopSlot >= 0);
+
+    // Far beyond any short one-shot duration — still playing.
+    for (int n = 0; n < 40; ++n) {
+        apu.generateSamples(buffer, 512);
+    }
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(loopSlot));
+    TEST_ASSERT_TRUE(apu.isVoiceLoopForTesting(loopSlot));
+
+    AudioCommand stop{};
+    stop.type = AudioCommandType::STOP_CHANNEL;
+    stop.channelIndex = static_cast<uint8_t>(loopSlot);
+    TEST_ASSERT_TRUE(apu.submitCommand(stop));
+    apu.generateSamples(buffer, 64);
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(loopSlot));
+}
+
+void test_apu_core_oneshot_zero_duration_does_not_hang(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[128] = {0};
+    apu.generateSamples(buffer, 128);
+    TEST_ASSERT_EQUAL_INT(0, apu.countEnabledVoicesForTesting());
+}
+
+void test_apu_core_loop_voice_is_stealable(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    // Fill SFX pool with long one-shots + one loop; then force steal.
+    for (int i = 0; i < ApuCore::SFX_VOICE_COUNT; ++i) {
+        AudioCommand cmd{};
+        cmd.type = AudioCommandType::PLAY_EVENT;
+        cmd.event.type = WaveType::PULSE;
+        cmd.event.frequency = 300.0f + static_cast<float>(i) * 10.0f;
+        cmd.event.duration = (i == 0) ? 0.0f : 2.0f;
+        cmd.event.volume = 0.3f;
+        cmd.event.duty = 0.5f;
+        cmd.event.loop = (i == 0);
+        TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+    }
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+    TEST_ASSERT_EQUAL_INT(ApuCore::SFX_VOICE_COUNT,
+                          static_cast<int>(apu.countEnabledVoicesForTesting()));
+
+    int loopSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceLoopForTesting(i)) {
+            loopSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(loopSlot >= 0);
+
+    // New event must steal the loop (steal score 0) rather than starve.
+    AudioCommand steal{};
+    steal.type = AudioCommandType::PLAY_EVENT;
+    steal.event.type = WaveType::TRIANGLE;
+    steal.event.frequency = 880.0f;
+    steal.event.duration = 0.2f;
+    steal.event.volume = 0.5f;
+    steal.event.duty = 0.5f;
+    steal.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(steal));
+    apu.generateSamples(buffer, 64);
+
+    TEST_ASSERT_FALSE(apu.isVoiceLoopForTesting(loopSlot));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(loopSlot));
+}
+
 void test_apu_core_music_uses_track_duty_not_preset_duty(void)
 {
     // Preset duty is 50%; track duty is 12.5%. Sequencer must wire track->duty.
@@ -1593,6 +1751,10 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_melodic_track_keeps_fixed_slot_mapping);
     RUN_TEST(test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx);
     RUN_TEST(test_apu_core_music_uses_track_duty_not_preset_duty);
+    RUN_TEST(test_apu_core_noise_pitch_sweep_updates_period);
+    RUN_TEST(test_apu_core_loop_voice_stays_enabled_until_stop);
+    RUN_TEST(test_apu_core_oneshot_zero_duration_does_not_hang);
+    RUN_TEST(test_apu_core_loop_voice_is_stealable);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);

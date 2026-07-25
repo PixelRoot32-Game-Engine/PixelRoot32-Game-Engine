@@ -26,6 +26,16 @@ Usage:
 
 Initializes the engine and its internal scheduler.
 
+### `void reinitSampleRate(int freq)`
+
+**Description:**
+
+Re-initializes the underlying ApuCore at a new sample rate.
+
+**Parameters:**
+
+- `freq`: The confirmed device sample rate, in Hz.
+
 ### `void generateSamples(int16_t* stream, int length)`
 
 **Description:**
