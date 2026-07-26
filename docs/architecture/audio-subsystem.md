@@ -23,7 +23,7 @@ high-level architecture and the concrete implementation details.
 
 - **Dynamic voice pool** inside **`ApuCore`** (default **`MAX_VOICES = 8`**). Each voice holds the same oscillator/envelope state as before (`AudioChannel`, exposed as alias **`Voice`** in [`AudioTypes.h`](include/audio/AudioTypes.h)).
 - **Public API unchanged**: games and music still describe sounds with **`WaveType`** on **`AudioEvent`** / **`MusicTrack::channelType`**. Internally, `ApuCore` maps `WaveType` ↔ **`VoiceType`** (`PULSE`, `TRIANGLE`, `NOISE`, `SINE`, `SAW`) for allocation policy; the active waveform on a voice is still a `WaveType` on that voice’s state.
-- **Voice allocation**: on `PLAY_EVENT`, `ApuCore` prefers an **inactive** voice whose stored type matches the requested `WaveType`; if none, it may **steal** the active voice with the **smallest `remainingSamples`**. When all eight voices are busy, the newest event replaces the “shortest remaining” note (same steal metric as under the old 2-voice melodic pool, but generalized across the whole pool).
+- **Voice allocation**: melodic sequencer tracks use **fixed slots 0–3** (`trackIdx` → slot). **Sequencer percussion hits** (NOISE + kit preset with `duty == 0`) and **`PLAY_EVENT` SFX** share the **SFX subpool** (slots **4–7**). Allocation searches only 4–7, preferring an inactive voice whose stored type matches the requested `WaveType`; if none, it may **steal** the active SFX voice with the **smallest `remainingSamples`**. SFX never steals melodic slots 0–3, and concurrent music tracks with the same `WaveType` do not interrupt each other.
 - Software mixing into a **mono** 16-bit (`int16_t`) stream.
 - **Event-driven** model: games fire short-lived `AudioEvent` instances (SFX, notes).
 - **Conditionally compiled**: Entire subsystem can be excluded with `PIXELROOT32_ENABLE_AUDIO=0` to save firmware size and RAM.
@@ -221,9 +221,28 @@ When **`PIXELROOT32_ENABLE_PROFILING`** is defined (`platforms/EngineConfig.h` �
 
 `ApuCore` then:
 
-- Selects a **voice slot** via **`findVoiceForEvent(WaveType)`**: prefers an **inactive** voice whose `type` already matches the requested `WaveType`; otherwise picks any inactive slot; if **all** voices are active, **steals** the voice with the **minimum `remainingSamples`** (breaking ties by scan order).
+- Selects a **voice slot** via **`findVoiceForSfxEvent(WaveType)`** (slots **4–7** only): prefers an **inactive** voice whose `type` already matches the requested `WaveType`; otherwise picks any inactive slot in the subpool; if **all four** SFX slots are active, **steals** the voice with the **minimum `remainingSamples`** (breaking ties by scan order).
 - Converts the event's duration (seconds) into `remainingSamples` based on the current sample rate.
 - Initializes the voice state (`enabled`, `frequency`, `phase`, fixed-point mirrors, ADSR envelope, LFSR for noise, etc.) and sets `type` from the event.
+
+### 3.6 Sequencer percussion and SFX coexistence
+
+Background music **melody / bass / harmony** always occupy fixed slots **0–2** (and slot **3** only for **melodic** notes on the fourth track). **Drum-kit hits** from the music sequencer are **not** monophonic on slot 3: each hit is a one-shot routed through **`playSequencerPercussionHit` → `findVoiceForSfxEvent(NOISE)`**, the same subpool as **`PLAY_EVENT`** (jump, damage, power-up, etc.).
+
+| Source | Voice slots | Notes |
+|--------|-------------|--------|
+| Melodic tracks 0–3 | 0–3 (fixed per `trackIdx`) | Gates in beats; `Rest` note-off scoped per track |
+| Sequencer percussion (kit preset, `duty == 0`) | 4–7 (shared) | Same-step kick+snare+hi-hat can use up to three concurrent NOISE voices |
+| Gameplay `PLAY_EVENT` SFX | 4–7 (shared) | Steal policy when subpool saturated |
+
+**Practical limits (documented for future tuning):**
+
+- At most **four** concurrent voices among **all** sequencer drums **plus** gameplay SFX.
+- Under saturation, the **shortest remaining** voice in 4–7 may be stolen — no priority between drums and gameplay SFX today (acceptable for typical retro titles with short one-shots).
+- Melodic music in 0–3 is **never** affected by drum or SFX allocation.
+- Stacked same-step drums use `MusicNote.duration == 0` on all but the last hit so the sequencer fires every hit on one tick without advancing tempo between them.
+
+**Future options** (not implemented): reserved SFX slots for gameplay, drum-vs-SFX steal priority, or a larger voice pool.
 
 ---
 
@@ -666,7 +685,7 @@ void GeometryJumpScene::init() {
 }
 ```
 
-- Music uses the same **`executePlayEvent`** path as SFX, so melody notes **consume slots in the voice pool** alongside sound effects. With **8** voices, simple lead lines still leave headroom for SFX; dense multi-track + rapid SFX can trigger **voice stealing** (§3.5).
+- Melodic sequencer notes use **fixed slots 0–3**; **sequencer percussion** and **`PLAY_EVENT` SFX** share slots **4–7** (see §3.6). With **8** voices, simple lead lines still leave headroom for drums and SFX; dense drum patterns plus rapid SFX can trigger **voice stealing** within the SFX subpool only (§3.5–3.6).
 - Timing is **sample-accurate** in `ApuCore`, so melody playback does not depend on render FPS; game logic should still avoid assuming instant delivery of enqueued commands if the audio queue overflows (§3.5).
 
 ### 7.5 Multi-track music playback

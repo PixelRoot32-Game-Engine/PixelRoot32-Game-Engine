@@ -32,13 +32,13 @@ Tracks are split per theme; shared beat constants and demo-only **`InstrumentPre
 
 | File | Role |
 |------|------|
-| [`common_melodies.h`](src/assets/common_melodies.h) | Beat fractions (`S`/`E`/`Q`/…), `kDemoArcadeLeadWave` / `kDemoAdventureLeadWave`, **`DEMO_SNES_LEAD_TIGHT`** / **`DEMO_SNES_BASS_STAC`** (tighter ADSR for SNES-style arranging), **`ARP_STEP`** |
+| [`common_melodies.h`](src/assets/common_melodies.h) | Beat fractions (`S`/`E`/`Q`/…), wave aliases, demo **`InstrumentPreset`** overrides (`DEMO_MELODY_LEAD`, `DEMO_HARMONY`, `DEMO_DRUM_*`, `DEMO_SNES_*`, `DEMO_ARP_VOICE`) retuned for beat-accurate gates under ApuCore 4+4 |
 | [`classic_arcade_melody.h`](src/assets/classic_arcade_melody.h) | **Melody 1** — Classic Arcade (`sClassicArcadeTrack`) |
 | [`adventure_melody.h`](src/assets/adventure_melody.h) | **Melody 2** — Adventure (`sAdventureTrack`) |
 | [`action_melody.h`](src/assets/action_melody.h) | **Melody 3** — Action (`sActionTrack`) |
 | [`arpeggio_melody.h`](src/assets/arpeggio_melody.h) | **Melody 4** — Em arpeggio demo (`sArpDemoTrack`) |
 
-Each full arrangement uses **`MusicTrack`** layering: **main** + optional **`secondVoice`**, **`thirdVoice`**, and **`percussion`**, flattened by `MusicPlayer` into the global voice pool (**`ApuCore::MAX_VOICES`** = 8). The headers comment on keeping harmony/percussion notes relatively short so **SFX** can share the pool without constant stealing.
+Each full arrangement uses **`MusicTrack`** layering: **main** + optional **`secondVoice`**, **`thirdVoice`**, and **`percussion`**, mapped by `MusicPlayer` to ApuCore music slots **0–3** (SFX keeps slots **4–7**). Demo presets in **`common_melodies.h`** add level and tail so loops stay full after beat-accurate gates.
 
 ## Melodies (UI labels vs. engine)
 

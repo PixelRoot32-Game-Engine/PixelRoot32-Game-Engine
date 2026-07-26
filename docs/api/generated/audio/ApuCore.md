@@ -8,8 +8,10 @@
 
 Shared NES-style APU core used by every AudioScheduler.
 
-Owns the 4 channels (2x PULSE, 1x TRIANGLE, 1x NOISE), the SPSC command
-queue and the music sequencer. Platform-specific schedulers
+Owns an eight-voice pool (MAX_VOICES = 8), the SPSC command queue and the
+music sequencer. Voice slots 0–3 are reserved for sequencer tracks
+(trackIdx maps 1:1 to slot); slots 4–7 are reserved for PLAY_EVENT / SFX
+and sequencer percussion hits (shared subpool, steal policy confined to 4–7). Platform-specific schedulers
 (DefaultAudioScheduler, ESP32AudioScheduler, NativeAudioScheduler) are
 thin orchestrators that decide *when* generateSamples() runs; all
 synthesis, mixing and sequencing lives here to eliminate the three-way
@@ -165,4 +167,56 @@ Reads and clears all profile entries.
 
 ### `size_t countEnabledVoicesForTesting() const`
 
+**Description:**
+
+Test-only: counts voices with enabled==true.
+
+**Returns:** Active voice count in [0, MAX_VOICES].
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
 ### `size_t getSequencerMainNoteIndexForTesting() const`
+
+**Description:**
+
+Test-only: main music track note index after the last sequencer run.
+
+**Returns:** Index into track 0's note array.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
+### `bool isVoiceEnabledForTesting(int slot) const`
+
+**Description:**
+
+Test-only: reports whether a voice slot is currently synthesizing.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
+
+**Returns:** true if voices[slot].enabled.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
+### `bool isMusicTrackVoiceActiveForTesting(size_t track_index) const`
+
+**Description:**
+
+Test-only: reports whether a music track has an active melodic gate.
+
+**Parameters:**
+
+- `track_index`: Sequencer track [0, MAX_MUSIC_TRACKS); out-of-range returns false.
+
+**Returns:** true after a melodic note until Rest note-off or lifecycle reset.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
