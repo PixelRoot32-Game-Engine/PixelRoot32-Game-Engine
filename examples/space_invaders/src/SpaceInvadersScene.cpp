@@ -29,11 +29,11 @@ namespace math = pr32::math;
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
 
 /** Arena for all scene entities (background, player, aliens, bunkers, projectiles).
- *  Before the tile-attributes changes, PhysicsActor was smaller (no userData, sensor, oneWay, etc.),
- *  so 2048 bytes were enough. With the current engine, each actor is larger and ~50 entities need
- *  more space; 4096 is safe. If you need 2048 again (e.g. tight RAM), build this target without
- *  PIXELROOT32_ENABLE_SCENE_ARENA so the scene uses heap instead of this fixed buffer. */
-static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[4096];
+ *  ~46 arena allocations (PhysicsActor-heavy player/projectiles/bunkers + 32 aliens).
+ *  Measured need is ~5.5–6.5 KB with alignment; 8192 leaves headroom on ESP32 without
+ *  affecting runtime CPU (static BSS only). For tighter RAM, disable PIXELROOT32_ENABLE_SCENE_ARENA
+ *  so the scene uses heap instead of this fixed buffer. */
+static unsigned char SPACE_INVADERS_SCENE_ARENA_BUFFER[8192];
 #endif
 
 ExplosionAnimation::ExplosionAnimation()
@@ -144,6 +144,7 @@ void SpaceInvadersScene::init() {
 
 void SpaceInvadersScene::restartThreatBgmSlow() {
     bgmThreatTier = ThreatBgmTier::Slow;
+    engine.getMusicPlayer().setBPM(150.0f);
     engine.getMusicPlayer().play(BGM_SLOW_TRACK);
     engine.getMusicPlayer().setTempoFactor(currentMusicTempoFactor);
 }
@@ -176,10 +177,14 @@ void SpaceInvadersScene::resetGame() {
 
 #ifdef PIXELROOT32_ENABLE_SCENE_ARENA
     background = core::arenaNew<StarfieldBackground>(arena);
-    addEntity(background);
+    if (background != nullptr) {
+        addEntity(background);
+    }
 
     player = core::arenaNew<PlayerActor>(arena, math::Vector2(PLAYER_START_X, PLAYER_START_Y));
-    addEntity(player);
+    if (player != nullptr) {
+        addEntity(player);
+    }
 #else
     if (background) {
         addEntity(background.get());

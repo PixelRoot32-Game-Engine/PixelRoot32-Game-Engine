@@ -83,7 +83,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Scene Transitions**: Built-in Fade, Iris, and Diagonal Wipe transitions with configurable effects and ESP32-optimized rendering.
 - **Camera Effects**: Deterministic camera shake, punch, and offset effects designed for low-resource embedded hardware.
 - **Independent Resolution Scaling**: Render at low logical resolutions (e.g., 128x128) and scale to physical displays (e.g., 240x240).
-- **NES-Style Audio**: Built-in dynamic 8-voice audio subsystem with fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
+- **NES-Style Audio**: Dynamic 8-voice subsystem with a fixed **4+4 partition** (melodic tracks vs percussion/SFX), advanced SFX synthesis (loops, sweeps, breakpoint envelopes, `playSfxBank`), and fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
@@ -117,7 +117,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.6.1
+    gperez88/PixelRoot32-Game-Engine@^1.7.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build.
@@ -131,7 +131,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvanina`, `tic_tac_toe`, `space_invaders`, `brick_breaker`, `physics`, `camera`, `dual_palette`, `sprites`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvania`, `tic_tac_toe`, `space_invaders`, `brick_breaker`, `physics`, `camera`, `dual_palette`, `sprites`, `music_demo`, `2048`) is a **standalone PlatformIO project** with its own `platformio.ini`.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -198,46 +198,24 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - ✅ **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
 - ✅ **Unified Logging System**: Cross-platform `log()` abstraction with `PIXELROOT32_DEBUG_MODE`.
 - ✅ **Touch Screen Support**: `UITouchButton`, `UITouchCheckbox`, and `UITouchSlider`.
+- ✅ **4+4 Audio Voice Partition**: Melodic sequencer tracks (slots 0–3) isolated from percussion/SFX (slots 4–7) with subpool-limited voice stealing.
+- ✅ **Advanced SFX Synthesis**: Looping SFX, noise period sweep, Linear/Exponential curves, duty/pitch breakpoint envelopes, and header-only `playSfxBank` (additive `AudioEvent` ABI).
 
 ---
 
 ## 🕒 Changelog
 
-## 1.6.1
+## 1.7.0
 
-### 🏀 Physics
+### 🔊 Audio
 
-- **Platform edge standing**: Narrow hitboxes with custom offsets no longer get pushed off static platform edges during depenetration. Floor contact now validates horizontal foot overlap instead of center-X alone (center-X gate kept for kinematic movers only).
-- **One-way platform edges**: One-way tiles accept corner contacts when feet align with the top surface, including lateral normals and deep landing probes from `moveAndCollide`. Slide remainder uses the floor normal at edges so actors stay grounded on both left and right tile borders.
-
-### 🧪 Testing & QA
-
-- **Regression coverage**: Added unit tests for narrow hitboxes on static and one-way platform edges (Find-the-Key style 4×8 hitboxes).
-
-## 1.6.0
-
-### 🎨 Graphics & Scene Transitions
-
-- **Camera Effects**: Added deterministic camera shake, punch, and offset effects optimized for ESP32-class hardware with zero-allocation operation.
-- **Expanded Transition System**: Added configurable Iris and Diagonal Wipe transitions, directional scene transitions, smooth interpolation, hold-frame support, and RGB565 rendering optimizations.
-
-### 🏀 Physics
-
-- **Moving Platform Support**: Enhanced kinematic controllers with floor velocity inheritance, moving platform interaction, and improved floor tracking behavior.
-- **Custom Hitboxes**: Added support for hitbox offsets and custom hitbox dimensions independent from entity size.
-- **Movement Improvements**: Improved collision handling, depenetration, safe margins, and frame-rate independent movement behavior.
-
-### 🏗️ Scene Management
-
-- **Scene Reuse Support**: Added scene reset lifecycle management and idempotent initialization, enabling safe scene re-entry and repeated scene transitions.
+- **4+4 Voice Partition**: Melodic tracks use slots 0–3; percussion and SFX use slots 4–7 with steal limited to the SFX subpool, so effects no longer interrupt long melodic notes.
+- **Sequencer Percussion**: Zero-duration notes stack Kick/Snare/Hi-Hat on the same step; only `Rest + noise preset` counts as a hit. Short notes under `tempoFactor > 1` clamp to 1 tick (no infinite loop).
+- **SFX Synthesis**: Additive `AudioEvent` ABI — noise period sweep, looping SFX + `STOP_CHANNEL`, Linear/Exponential `SweepCurve`, duty/pitch `SfxBreakpoint` tables, and header-only `playSfxBank`.
 
 ### 🧪 Testing & QA
 
-- **Expanded Coverage**: Added extensive unit, integration, and regression tests covering camera effects, scene transitions, physics systems, and scene lifecycle management.
-
-### ⚡ Performance & Optimization
-
-- **Embedded Rendering Optimizations**: Optimized transition rendering and camera effect processing while preserving Dirty Regions and tilemap cache efficiency.
+- **Audio Regression Coverage**: Unity tests for voice partition, stacked percussion, tempo-factor short notes, duty stepped hold, and multi-breakpoint pitch envelopes.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

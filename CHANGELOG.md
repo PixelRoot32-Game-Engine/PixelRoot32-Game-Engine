@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.7.0
+
+### 🔊 Audio — Voice Allocation & Sequencer
+
+* **4+4 Voice Partition**: `ApuCore` reserves slots **0–3** for sequencer melodic tracks (`trackIdx → slot` in O(1)) and slots **4–7** for sequencer percussion (NOISE + drum kit preset) and `PLAY_EVENT` SFX. Voice stealing is limited to the SFX subpool so melodic voices are not interrupted by effects.
+* **Anti-Steal Melodic Policy**: Melodic tracks that share the same `WaveType` no longer steal voices from each other; SFX cannot interrupt long melodic notes (aligned with Tool Suite / upstream v2 behavior).
+* **Stacked Percussion Hits**: `MusicNote.duration == 0` allows multiple hits on the same sequencer step without advancing time (Kick/Snare/Hi-Hat on the NOISE track). Only **`Rest + noise preset`** counts as a percussion hit; plain rests on NOISE remain silence.
+* **Track-Scoped Note-Off**: Melodic note-off triggered by `Rest` applies only to the slot assigned to the track that processed the event.
+* **Tempo-Factor Short Notes Fix**: When `tempoFactor > 1` truncates a note duration to 0 ticks, the sequencer clamps to a minimum of 1 tick, preventing infinite loops (regression seen with Space Invaders-style accelerated BGM).
+* **Drum Preset Timbre**: Tuned `noisePeriod` for `INSTR_KICK` (60) and `INSTR_SNARE` (15) for clearer kick/snare character.
+
+### 🔊 Audio — SFX Synthesis Capability
+
+Additive `AudioEvent` ABI (no breaking changes for existing banks; new fields default to null/0):
+
+* **Noise Period Sweep**: Continuous noise-period modulation for richer percussion and FX textures.
+* **Looping SFX & Stop**: Continuous `loop` playback with `STOP_CHANNEL`, plus steal ranking that prefers reclaiming looped voices when the SFX subpool is full.
+* **Sweep Curves**: `SweepCurve` supports Linear and Exponential pitch/parameter sweeps.
+* **Breakpoint Tables (`SfxBreakpoint`)**: Duty stepped hold for PULSE (ignores `dutySweep` when active) and multi-breakpoint pitch envelopes (≥2 points supersede single-segment sweep). FPU and Q15 paths; no heap allocation in `generateSamples`.
+* **`playSfxBank` Helper**: Header-only helper to play events from an SFX bank with less boilerplate.
+
+Out of scope (by design): 4-bit Triangle/envelope quantization and DPCM / NES hardware emulation.
+
+### ⚡ Performance & Platform
+
+* **SPSC Queue Simplification**: Removed the CAS retry loop from `AudioCommandQueue::enqueue` (single-producer SPSC queue).
+* **SDL2 Frequency Negotiation**: Opening the audio device now allows `SDL_AUDIO_ALLOW_FREQUENCY_CHANGE` for more reliable host audio setup.
+
+### 🎮 Examples
+
+* **Space Invaders Stability**: Scene arena increased from **4096 → 8192** bytes, with null checks after `arenaNew`. Restarting the slow BGM now calls `setBPM(150)`.
+
+### 📚 Documentation
+
+* **Voice Allocation Policy**: Documented the 4+4 partition and stealing rules in `docs/architecture/audio-subsystem.md`.
+
+### 🧪 Testing & QA
+
+* **Voice Partition & Sequencer Regression**: Unity coverage for the 4+4 partition, anti-steal melodic policy, stacked zero-duration percussion, SFX subpool `stopAll`, and short notes under accelerated `tempoFactor`.
+* **SFX Synthesis Coverage**: Unit tests for duty stepped hold and multi-breakpoint pitch envelope behavior in `ApuCore`.
+
 # 1.6.1
 
 ### 🏀 Physics

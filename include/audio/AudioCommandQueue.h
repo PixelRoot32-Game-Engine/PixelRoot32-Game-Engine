@@ -13,18 +13,19 @@ namespace pixelroot32::audio {
 
     /**
      * @class AudioCommandQueue
-     * @brief Multi-Producer Single-Consumer (MPSC) lock-free ring buffer for AudioCommands.
+     * @brief Single-Producer Single-Consumer (SPSC) lock-free ring buffer for AudioCommands.
      * 
      * Fixed-size, zero-allocation queue designed for real-time audio thread communication.
-     * Supports multiple concurrent producer threads (e.g., game logic, music sequencer)
-     * and a single consumer thread (the audio thread).
+     * Supports one producer (game/logic thread) and a single consumer (the audio thread).
+     * Concurrent multi-producer use is not supported by this algorithm.
      * 
      * Drop policy: When the queue is full, the newest command is silently dropped and
      * the droppedCommands counter is incremented. Callers can monitor this via
      * getDroppedCommands() for diagnostics.
      * 
-     * Thread-safety: Uses compare-and-swap (CAS) for atomic ring index advancement.
-     * The producer path is wait-free; the consumer path is lock-free.
+     * Thread-safety: Atomic head/tail loads and stores for SPSC handoff.
+     * Safe for one producer and one consumer; not wait-free under contention from
+     * multiple producers.
      */
     class AudioCommandQueue {
     public:
@@ -44,31 +45,23 @@ namespace pixelroot32::audio {
         AudioCommandQueue() : head(0), tail(0), droppedCommands(0) {}
 
         /**
-         * @brief Enqueues a command. Thread-safe for multiple producers.
+         * @brief Enqueues a command. Safe for a single producer thread.
          * @param cmd The command to enqueue.
          * @return true if successful, false if the queue is full (dropped).
          */
         bool enqueue(const AudioCommand& cmd) {
             size_t currentTail = tail.load(std::memory_order_relaxed);
-            
-            do {
-                size_t nextTail = (currentTail + 1) % CAPACITY;
-                
-                if (nextTail == head.load(std::memory_order_acquire)) {
-                    // Queue full - drop newest command and increment dropped counter
-                    droppedCommands.fetch_add(1, std::memory_order_relaxed);
-                    return false;
-                }
-                
-                // Try to advance tail atomically using CAS
-                if (tail.compare_exchange_weak(currentTail, nextTail,
-                    std::memory_order_release, std::memory_order_relaxed)) {
-                    // Successfully advanced tail, now write the command
-                    buffer[currentTail] = cmd;
-                    return true;
-                }
-                // CAS failed, tail was modified by another producer, retry
-            } while (true);
+            size_t nextTail = (currentTail + 1) % CAPACITY;
+
+            if (nextTail == head.load(std::memory_order_acquire)) {
+                // Queue full - drop newest command and increment dropped counter
+                droppedCommands.fetch_add(1, std::memory_order_relaxed);
+                return false;
+            }
+
+            buffer[currentTail] = cmd;
+            tail.store(nextTail, std::memory_order_release);
+            return true;
         }
 
         /**
@@ -98,7 +91,7 @@ namespace pixelroot32::audio {
 
         /**
          * @brief Returns the count of dropped commands due to queue full.
-         * Thread-safe for concurrent reads from multiple producers.
+         * Safe to read from the producer or consumer thread.
          */
         size_t getDroppedCommands() const {
             return droppedCommands.load(std::memory_order_relaxed);

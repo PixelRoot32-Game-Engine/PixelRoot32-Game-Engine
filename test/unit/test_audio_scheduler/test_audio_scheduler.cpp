@@ -108,10 +108,10 @@ void test_default_scheduler_stop_all(void) {
     cmd.event.preset = nullptr;  // Explicitly set to avoid garbage pointer
     scheduler.submitCommand(cmd);
     
-    // Stop channel 0 (DefaultAudioScheduler uses channels 0-3)
+    // Stop the SFX voice (PLAY_EVENT uses subpool slots 4–7, not slot 0).
     AudioCommand stopCmd{};
     stopCmd.type = AudioCommandType::STOP_CHANNEL;
-    stopCmd.channelIndex = 0;
+    stopCmd.channelIndex = static_cast<uint8_t>(ApuCore::SFX_VOICE_BASE);
     scheduler.submitCommand(stopCmd);
     
     int16_t buffer[256];
@@ -372,6 +372,42 @@ void test_music_play_no_burst_after_long_idle(void) {
     TEST_ASSERT_EQUAL_UINT32(1u,
                              (unsigned)scheduler.core().getSequencerMainNoteIndexForTesting());
     TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
+}
+
+/** duration == 0 fires without advancing so Kick+HiHat can share one sequencer step. */
+void test_music_stacked_zero_duration_percussion_hits(void) {
+    DefaultAudioScheduler scheduler;
+    initScheduler(scheduler);
+
+    static const MusicNote kStackedDrumNotes[] = {
+        makeNote(INSTR_KICK, Note::Rest, 1, 0.0f),   // stacked: no tempo advance
+        makeNote(INSTR_HIHAT, Note::Rest, 3, 1.0f),  // carries 1 beat (4 ticks)
+        makeNote(INSTR_SNARE, Note::Rest, 2, 1.0f),
+    };
+    static const MusicTrack kStackedDrumTrack{
+        kStackedDrumNotes,
+        sizeof(kStackedDrumNotes) / sizeof(kStackedDrumNotes[0]),
+        false,
+        WaveType::NOISE,
+        0.5f,
+        nullptr,
+        nullptr,
+        nullptr,
+    };
+
+    AudioCommand play{};
+    play.type = AudioCommandType::MUSIC_PLAY;
+    play.track = &kStackedDrumTrack;
+    scheduler.submitCommand(play);
+
+    int16_t buf[256];
+    scheduler.generateSamples(buf, 256);
+
+    // Kick (dur 0) + HiHat (dur 1.0) must both process on the first sequencer pass.
+    // Old clamp (dur 0 -> 1 tick) would leave the index at 1 after the first pass.
+    TEST_ASSERT_EQUAL_UINT32(
+        2u, (unsigned)scheduler.core().getSequencerMainNoteIndexForTesting());
+    TEST_ASSERT_TRUE(scheduler.isMusicPlaying());
 }
 
 void test_set_master_volume_clamping(void) {
@@ -1154,6 +1190,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_music_pause_resume_command);
     RUN_TEST(test_music_set_tempo_command);
     RUN_TEST(test_music_play_no_burst_after_long_idle);
+    RUN_TEST(test_music_stacked_zero_duration_percussion_hits);
     RUN_TEST(test_set_master_volume_clamping);
     
     // Edge case tests

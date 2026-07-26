@@ -11,7 +11,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 
 #ifdef ESP32
 #include <Arduino.h>
@@ -66,20 +68,414 @@ namespace pixelroot32::audio {
         return (uint32_t)inc;
     }
 
-    /** Linear sweep: updates frequency + phaseIncrement; decrements sweep counter. */
-    static inline void apply_linear_frequency_sweep_float(AudioChannel& ch, int sr) {
+    /** NOISE LFSR period from clock Hz (minimum 1 sample). */
+    static inline uint32_t noise_clock_hz_to_period(float hz, int sr) {
+        if (sr <= 0) return 1u;
+        if (hz < 1.0f) hz = 1.0f;
+        uint32_t period = (uint32_t)((float)sr / hz);
+        if (period < 1u) period = 1u;
+        return period;
+    }
+
+    static inline uint32_t time_sec_to_samples(float timeSec, int sr) {
+        if (sr <= 0 || timeSec <= 0.0f) {
+            return 0u;
+        }
+        const double samples = (double)timeSec * (double)sr;
+        if (samples >= 4294967295.0) {
+            return 0xFFFFFFFFu;
+        }
+        return (uint32_t)samples;
+    }
+
+    static inline void set_pulse_duty(AudioChannel& ch, float duty) {
+        if (duty < 0.0f) {
+            duty = 0.0f;
+        }
+        if (duty > 1.0f) {
+            duty = 1.0f;
+        }
+        ch.dutyCycle = duty;
+        ch.dutyCycleQ32 = (uint32_t)((double)duty * 4294967296.0);
+    }
+
+    /** Apply t<=0 duty steps at init; schedule next boundary in samples (no float/sample). */
+    static void init_duty_stepped(AudioChannel& ch, const AudioEvent& event, int sr) {
+        ch.dutySteps = nullptr;
+        ch.dutyStepCount = 0;
+        ch.dutyStepIndex = 0;
+        ch.dutyNextBoundarySamples = 0xFFFFFFFFu;
+        ch.automationAgeSamples = 0;
+
+        if (event.type != WaveType::PULSE || event.dutySteps == nullptr || event.dutyStepCount == 0) {
+            return;
+        }
+
+        uint8_t count = event.dutyStepCount;
+        if (count > kMaxSfxDutySteps) {
+            count = kMaxSfxDutySteps;
+        }
+        ch.dutySteps = event.dutySteps;
+        ch.dutyStepCount = count;
+
+        uint8_t applied = 0;
+        while (applied < count && event.dutySteps[applied].timeSec <= 0.0f) {
+            set_pulse_duty(ch, event.dutySteps[applied].value);
+            ++applied;
+        }
+        ch.dutyStepIndex = applied;
+        if (applied < count) {
+            ch.dutyNextBoundarySamples =
+                time_sec_to_samples(event.dutySteps[applied].timeSec, sr);
+        }
+    }
+
+    static inline bool pitch_envelope_active(const AudioChannel& ch) {
+        return ch.pitchEnvelope != nullptr && ch.pitchEnvelopeCount >= 2;
+    }
+
+    static inline void set_voice_hz(AudioChannel& ch, float hz, int sr) {
+        if (sr <= 0) {
+            return;
+        }
+        if (ch.type == WaveType::NOISE) {
+            if (hz < 1.0f) {
+                hz = 1.0f;
+            }
+            ch.frequency = hz;
+            ch.noisePeriodSamples = noise_clock_hz_to_period(hz, sr);
+        } else {
+            if (hz < 0.0f) {
+                hz = 0.0f;
+            }
+            ch.frequency = hz;
+            ch.phaseIncrement = hz / (float)sr;
+            ch.phaseIncQ32 = frequency_hz_to_phase_inc_q32(hz, sr);
+            ch.basePhaseIncQ32 = ch.phaseIncQ32;
+        }
+    }
+
+    /**
+     * Advance duty stepped hold table using sample-age boundaries.
+     * Does not increment automationAgeSamples (shared clock owned by tick_voice_automation).
+     */
+    static void tick_duty_stepped(AudioChannel& ch, int sr) {
+        if (ch.dutyStepCount == 0 || ch.dutySteps == nullptr) {
+            return;
+        }
+        while (ch.dutyStepIndex < ch.dutyStepCount
+               && ch.automationAgeSamples >= ch.dutyNextBoundarySamples) {
+            set_pulse_duty(ch, ch.dutySteps[ch.dutyStepIndex].value);
+            ++ch.dutyStepIndex;
+            if (ch.dutyStepIndex < ch.dutyStepCount) {
+                ch.dutyNextBoundarySamples =
+                    time_sec_to_samples(ch.dutySteps[ch.dutyStepIndex].timeSec, sr);
+            } else {
+                ch.dutyNextBoundarySamples = 0xFFFFFFFFu;
+                break;
+            }
+        }
+    }
+
+    /** Steal ranking: looping voices score 0 so they can be replaced (anti-starvation). */
+    static inline uint64_t voice_steal_score(const AudioChannel& voice) {
+        if (voice.loop) return 0;
+        return voice.remainingSamples;
+    }
+
+    /** Fractional part of 2^x: LUT[i] ≈ 2^(i/256) in Q15 (range [1, 2)). */
+    static constexpr uint16_t kExp2FracQ15[256] = {
+        32768,32857,32946,33035,33125,33215,33305,33395,33486,33576,33667,33759,33850,33942,34034,34126,
+        34219,34312,34405,34498,34591,34685,34779,34874,34968,35063,35158,35253,35349,35445,35541,35637,
+        35734,35831,35928,36025,36123,36221,36319,36417,36516,36615,36715,36814,36914,37014,37114,37215,
+        37316,37417,37518,37620,37722,37824,37927,38030,38133,38236,38340,38444,38548,38653,38757,38863,
+        38968,39074,39180,39286,39392,39499,39606,39714,39821,39929,40037,40146,40255,40364,40473,40583,
+        40693,40804,40914,41025,41136,41248,41360,41472,41584,41697,41810,41923,42037,42151,42265,42380,
+        42495,42610,42726,42841,42958,43074,43191,43308,43425,43543,43661,43780,43898,44017,44137,44256,
+        44376,44497,44617,44738,44859,44981,45103,45225,45348,45471,45594,45718,45842,45966,46091,46216,
+        46341,46467,46593,46719,46846,46973,47100,47228,47356,47484,47613,47742,47871,48001,48131,48262,
+        48393,48524,48655,48787,48920,49052,49185,49319,49452,49586,49721,49856,49991,50126,50262,50399,
+        50535,50672,50810,50947,51085,51224,51363,51502,51642,51782,51922,52063,52204,52346,52488,52630,
+        52773,52916,53059,53203,53347,53492,53637,53782,53928,54074,54221,54368,54515,54663,54811,54960,
+        55109,55258,55408,55558,55709,55860,56012,56163,56316,56468,56622,56775,56929,57083,57238,57393,
+        57549,57705,57861,58018,58176,58333,58491,58650,58809,58968,59128,59289,59449,59611,59772,59934,
+        60097,60260,60423,60587,60751,60916,61081,61247,61413,61579,61746,61914,62081,62250,62419,62588,
+        62757,62928,63098,63269,63441,63613,63785,63958,64132,64306,64480,64655,64830,65006,65182,65359
+    };
+
+    static inline int32_t log2_q16_from_float(float x) {
+        if (!(x > 0.0f)) return -32 * 65536;
+        return (int32_t)(std::log2(x) * 65536.0f);
+    }
+
+    static inline int32_t log2_q16_from_u32(uint32_t x) {
+        if (x == 0u) return -32 * 65536;
+        return log2_q16_from_float((float)x);
+    }
+
+    /** Integer 2^(logQ16/65536) for Q15 sweep path (no soft-float per sample). */
+    static inline uint32_t exp2_q16_to_u32(int32_t logQ16) {
+        if (logQ16 <= -32 * 65536) return 0u;
+        if (logQ16 >= 32 * 65536) return 0xFFFFFFFFu;
+        const int32_t ip = logQ16 >> 16;
+        const uint32_t frac = (uint32_t)(logQ16 & 0xFFFF);
+        const uint32_t mantQ15 = kExp2FracQ15[frac >> 8];
+        if (ip >= 0) {
+            if (ip > 31) return 0xFFFFFFFFu;
+            const uint64_t v = ((uint64_t)mantQ15 << (uint32_t)ip) >> 15;
+            if (v > 0xFFFFFFFFu) return 0xFFFFFFFFu;
+            return (uint32_t)v;
+        }
+        const int sh = 15 - ip;
+        if (sh >= 32) return 0u;
+        return mantQ15 >> sh;
+    }
+
+    /** Frequency/period sweep (Linear or Exponential); decrements sweep counter. */
+    static inline void apply_frequency_sweep_float(AudioChannel& ch, int sr) {
         if (sr <= 0) return;
-        if (ch.sweepSamplesTotal == 0 || ch.type == WaveType::NOISE) return;
+        if (ch.sweepSamplesTotal == 0) return;
         if (ch.sweepSamplesRemaining == 0) return;
         const float denom = (float)ch.sweepSamplesTotal;
         const float alpha = (float)(ch.sweepSamplesTotal - ch.sweepSamplesRemaining) / denom;
-        ch.frequency = ch.sweepStartHz + (ch.sweepEndHz - ch.sweepStartHz) * alpha;
-        ch.phaseIncrement = ch.frequency / (float)sr;
+        float hz;
+        if (ch.sweepCurve == SweepCurve::Exponential
+            && ch.sweepStartHz > 0.0f && ch.sweepEndHz > 0.0f) {
+            hz = ch.sweepStartHz * std::exp(alpha * ch.sweepLogRatio);
+        } else {
+            hz = ch.sweepStartHz + (ch.sweepEndHz - ch.sweepStartHz) * alpha;
+        }
+        if (ch.type == WaveType::NOISE) {
+            ch.frequency = hz;
+            ch.noisePeriodSamples = noise_clock_hz_to_period(hz, sr);
+        } else {
+            ch.frequency = hz;
+            ch.phaseIncrement = hz / (float)sr;
+        }
         ch.sweepSamplesRemaining--;
         if (ch.sweepSamplesRemaining == 0) {
             ch.frequency = ch.sweepEndHz;
-            ch.phaseIncrement = ch.sweepEndHz / (float)sr;
+            if (ch.type == WaveType::NOISE) {
+                ch.noisePeriodSamples = noise_clock_hz_to_period(ch.sweepEndHz, sr);
+            } else {
+                ch.phaseIncrement = ch.sweepEndHz / (float)sr;
+            }
             ch.sweepSamplesTotal = 0;
+        }
+    }
+
+    /** Configure current pitch segment i → i+1; reuses sweep* fields as segment state. */
+    static void begin_pitch_segment(AudioChannel& ch, uint8_t segIndex, int sr) {
+        if (!pitch_envelope_active(ch) || segIndex + 1u >= ch.pitchEnvelopeCount || sr <= 0) {
+            ch.pitchSegLenSamples = 0;
+            return;
+        }
+        const SfxBreakpoint& a = ch.pitchEnvelope[segIndex];
+        const SfxBreakpoint& b = ch.pitchEnvelope[segIndex + 1u];
+        ch.pitchSegIndex = segIndex;
+        ch.pitchSegStartAge = time_sec_to_samples(a.timeSec, sr);
+        const uint32_t endAge = time_sec_to_samples(b.timeSec, sr);
+        ch.pitchSegLenSamples = (endAge > ch.pitchSegStartAge)
+            ? (endAge - ch.pitchSegStartAge)
+            : 1u;
+        ch.sweepStartHz = a.value;
+        ch.sweepEndHz = b.value;
+        if (ch.type == WaveType::NOISE) {
+            ch.sweepStartIncQ32 = noise_clock_hz_to_period(a.value, sr);
+            ch.sweepEndIncQ32 = noise_clock_hz_to_period(b.value, sr);
+        } else {
+            ch.sweepStartIncQ32 = frequency_hz_to_phase_inc_q32(a.value, sr);
+            ch.sweepEndIncQ32 = frequency_hz_to_phase_inc_q32(b.value, sr);
+        }
+        if (ch.sweepCurve == SweepCurve::Exponential
+            && ch.sweepStartHz > 0.0f && ch.sweepEndHz > 0.0f) {
+            ch.sweepLogRatio = std::log(ch.sweepEndHz / ch.sweepStartHz);
+            if (ch.type == WaveType::NOISE) {
+                ch.sweepLogStartQ16 = log2_q16_from_float(ch.sweepStartHz);
+                ch.sweepLogDeltaQ16 =
+                    log2_q16_from_float(ch.sweepEndHz) - ch.sweepLogStartQ16;
+            } else {
+                ch.sweepLogStartQ16 = log2_q16_from_u32(ch.sweepStartIncQ32);
+                ch.sweepLogDeltaQ16 =
+                    log2_q16_from_u32(ch.sweepEndIncQ32) - ch.sweepLogStartQ16;
+            }
+        } else {
+            ch.sweepLogRatio = 0.0f;
+            ch.sweepLogStartQ16 = 0;
+            ch.sweepLogDeltaQ16 = 0;
+        }
+    }
+
+    static void init_pitch_envelope(AudioChannel& ch, const AudioEvent& event, int sr) {
+        ch.pitchEnvelope = nullptr;
+        ch.pitchEnvelopeCount = 0;
+        ch.pitchSegIndex = 0;
+        ch.pitchSegStartAge = 0;
+        ch.pitchSegLenSamples = 0;
+
+        if (event.pitchEnvelope == nullptr || event.pitchEnvelopeCount == 0) {
+            return;
+        }
+        uint8_t count = event.pitchEnvelopeCount;
+        if (count > kMaxSfxPitchPoints) {
+            count = kMaxSfxPitchPoints;
+        }
+        ch.pitchEnvelope = event.pitchEnvelope;
+        ch.pitchEnvelopeCount = count;
+        ch.sweepCurve = event.sweepCurve;
+
+        if (count < 2) {
+            return; // stored only; single-segment sweep remains authoritative
+        }
+
+        set_voice_hz(ch, event.pitchEnvelope[0].value, sr);
+        begin_pitch_segment(ch, 0, sr);
+    }
+
+    /** Advance completed pitch segments; returns false if holding final value. */
+    static bool advance_pitch_segments(AudioChannel& ch, int sr) {
+        while (ch.pitchSegLenSamples > 0) {
+            const uint32_t segEnd = ch.pitchSegStartAge + ch.pitchSegLenSamples;
+            if (ch.automationAgeSamples < segEnd) {
+                return true;
+            }
+            const uint8_t next = static_cast<uint8_t>(ch.pitchSegIndex + 1u);
+            if (next + 1u >= ch.pitchEnvelopeCount) {
+                ch.pitchSegLenSamples = 0;
+                set_voice_hz(ch, ch.pitchEnvelope[ch.pitchEnvelopeCount - 1u].value, sr);
+                return false;
+            }
+            begin_pitch_segment(ch, next, sr);
+            set_voice_hz(ch, ch.sweepStartHz, sr);
+        }
+        return false;
+    }
+
+    /** Interpolate multi-breakpoint pitch envelope (FPU path). */
+    static void tick_pitch_envelope_float(AudioChannel& ch, int sr) {
+        if (!pitch_envelope_active(ch) || sr <= 0) {
+            return;
+        }
+        if (!advance_pitch_segments(ch, sr)) {
+            return;
+        }
+        if (ch.automationAgeSamples < ch.pitchSegStartAge) {
+            set_voice_hz(ch, ch.sweepStartHz, sr);
+            return;
+        }
+
+        uint32_t numer = ch.automationAgeSamples - ch.pitchSegStartAge;
+        if (numer > ch.pitchSegLenSamples) {
+            numer = ch.pitchSegLenSamples;
+        }
+        const float alpha = (float)numer / (float)ch.pitchSegLenSamples;
+        float hz;
+        if (ch.sweepCurve == SweepCurve::Exponential
+            && ch.sweepStartHz > 0.0f && ch.sweepEndHz > 0.0f) {
+            hz = ch.sweepStartHz * std::exp(alpha * ch.sweepLogRatio);
+        } else {
+            hz = ch.sweepStartHz + (ch.sweepEndHz - ch.sweepStartHz) * alpha;
+        }
+        set_voice_hz(ch, hz, sr);
+    }
+
+    /**
+     * Pitch envelope for Q15/no-FPU path: integer lerp / log-domain on precomputed
+     * segment endpoints (no soft-float per sample).
+     */
+    static void tick_pitch_envelope_q15(AudioChannel& ch, int sr) {
+        if (!pitch_envelope_active(ch) || sr <= 0) {
+            return;
+        }
+        if (!advance_pitch_segments(ch, sr)) {
+            return;
+        }
+        if (ch.automationAgeSamples < ch.pitchSegStartAge) {
+            if (ch.type == WaveType::NOISE) {
+                ch.noisePeriodSamples = ch.sweepStartIncQ32 < 1u ? 1u : ch.sweepStartIncQ32;
+            } else {
+                ch.basePhaseIncQ32 = ch.sweepStartIncQ32;
+                ch.phaseIncQ32 = ch.sweepStartIncQ32;
+            }
+            ch.frequency = ch.sweepStartHz;
+            return;
+        }
+
+        uint32_t numer = ch.automationAgeSamples - ch.pitchSegStartAge;
+        if (numer > ch.pitchSegLenSamples) {
+            numer = ch.pitchSegLenSamples;
+        }
+
+        if (ch.sweepCurve == SweepCurve::Exponential
+            && ch.sweepStartHz > 0.0f && ch.sweepEndHz > 0.0f) {
+            const int32_t logV = ch.sweepLogStartQ16
+                + (int32_t)(((int64_t)ch.sweepLogDeltaQ16 * (int64_t)numer)
+                            / (int64_t)ch.pitchSegLenSamples);
+            if (ch.type == WaveType::NOISE) {
+                uint32_t hz = exp2_q16_to_u32(logV);
+                if (hz < 1u) {
+                    hz = 1u;
+                }
+                uint32_t period = (uint32_t)sr / hz;
+                if (period < 1u) {
+                    period = 1u;
+                }
+                ch.noisePeriodSamples = period;
+                ch.frequency = (float)hz;
+            } else {
+                ch.basePhaseIncQ32 = exp2_q16_to_u32(logV);
+                ch.phaseIncQ32 = ch.basePhaseIncQ32;
+            }
+        } else {
+            const int64_t delta =
+                (int64_t)ch.sweepEndIncQ32 - (int64_t)ch.sweepStartIncQ32;
+            int64_t value = (int64_t)ch.sweepStartIncQ32
+                + (delta * (int64_t)numer) / (int64_t)ch.pitchSegLenSamples;
+            if (value < 0) {
+                value = 0;
+            }
+            if (value > (int64_t)0xFFFFFFFFLL) {
+                value = 0xFFFFFFFFLL;
+            }
+            if (ch.type == WaveType::NOISE) {
+                uint32_t period = (uint32_t)value;
+                if (period < 1u) {
+                    period = 1u;
+                }
+                ch.noisePeriodSamples = period;
+            } else {
+                ch.basePhaseIncQ32 = (uint32_t)value;
+                ch.phaseIncQ32 = ch.basePhaseIncQ32;
+            }
+            // Approximate Hz for diagnostics (not used by oscillator on Q15 path).
+            ch.frequency = ch.sweepStartHz
+                + (ch.sweepEndHz - ch.sweepStartHz)
+                    * ((float)numer / (float)ch.pitchSegLenSamples);
+        }
+    }
+
+    /**
+     * Shared automation clock: one age++ per sample, then duty + pitch.
+     * When pitch envelope is active, single-segment sweep must not run.
+     */
+    static void tick_voice_automation(AudioChannel& ch, int sr, bool q15Path) {
+        const bool dutyActive = ch.dutyStepCount > 0 && ch.dutySteps != nullptr;
+        const bool pitchActive = pitch_envelope_active(ch);
+        if (!dutyActive && !pitchActive) {
+            return;
+        }
+        if (ch.automationAgeSamples < 0xFFFFFFFFu) {
+            ++ch.automationAgeSamples;
+        }
+        if (dutyActive) {
+            tick_duty_stepped(ch, sr);
+        }
+        if (pitchActive) {
+            if (q15Path) {
+                tick_pitch_envelope_q15(ch, sr);
+            } else {
+                tick_pitch_envelope_float(ch, sr);
+            }
         }
     }
 
@@ -106,6 +502,7 @@ namespace pixelroot32::audio {
             voices[i].reset();
             voices[i].type = WaveType::PULSE;
         }
+        clearMusicTrackVoiceState();
     }
 
     void ApuCore::init(int sr) {
@@ -142,6 +539,7 @@ namespace pixelroot32::audio {
         musicPausedFlag.store(false, std::memory_order_release);
         droppedCommands.store(0, std::memory_order_release);
         firstSequencerCallAfterPlay_ = false;
+        clearMusicTrackVoiceState();
     }
 
 #if defined(UNIT_TEST)
@@ -158,7 +556,76 @@ namespace pixelroot32::audio {
     size_t ApuCore::getSequencerMainNoteIndexForTesting() const {
         return currentNoteIndices[0];
     }
+
+    bool ApuCore::isVoiceEnabledForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return false;
+        }
+        return voices[slot].enabled;
+    }
+
+    bool ApuCore::isMusicTrackVoiceActiveForTesting(size_t track_index) const {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return false;
+        }
+        return track_voice_active_[track_index];
+    }
+
+    uint32_t ApuCore::getVoiceNoisePeriodForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0u;
+        }
+        return voices[slot].noisePeriodSamples;
+    }
+
+    uint64_t ApuCore::getVoiceRemainingSamplesForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0u;
+        }
+        return voices[slot].remainingSamples;
+    }
+
+    bool ApuCore::isVoiceLoopForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return false;
+        }
+        return voices[slot].loop;
+    }
+
+    float ApuCore::getVoiceFrequencyForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0.0f;
+        }
+        return voices[slot].frequency;
+    }
+
+    float ApuCore::getVoiceDutyCycleForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0.0f;
+        }
+        return voices[slot].dutyCycle;
+    }
+
+    float ApuCore::getVoiceDutySweepPerSampleForTesting(int slot) const {
+        if (slot < 0 || slot >= MAX_VOICES) {
+            return 0.0f;
+        }
+        return voices[slot].dutySweep;
+    }
 #endif
+
+    void ApuCore::clearMusicTrackVoiceState() {
+        for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
+            track_voice_active_[i] = false;
+        }
+    }
+
+    Voice* ApuCore::musicVoiceForTrack(size_t track_index) {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return nullptr;
+        }
+        return &voices[MUSIC_VOICE_BASE + static_cast<int>(track_index)];
+    }
 
     void ApuCore::setSequencerNoteLimit(size_t limit) {
         if (limit == 0) {
@@ -220,6 +687,7 @@ namespace pixelroot32::audio {
                     break;
 
                 case AudioCommandType::MUSIC_PLAY: {
+                    clearMusicTrackVoiceState();
                     activeTrackCount = 1;
                     tracks[0] = cmd.track;
                     currentNoteIndices[0] = 0;
@@ -253,6 +721,7 @@ namespace pixelroot32::audio {
                 }
 
                 case AudioCommandType::MUSIC_STOP:
+                    clearMusicTrackVoiceState();
                     for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
                         tracks[i] = nullptr;
                         currentNoteIndices[i] = 0;
@@ -318,13 +787,23 @@ namespace pixelroot32::audio {
 
             while (musicPlayingFlag.load(std::memory_order_acquire)
                    && globalTickCounter >= nextTick) {
-                // Check note limit per frame - bounded processing
-                if (notesProcessedThisFrame >= limit) {
+                if (noteIdx >= track->count) {
+                    break;
+                }
+                const MusicNote& note = track->notes[noteIdx];
+                // duration == 0 => fire without advancing (stacked drum hits).
+                uint64_t noteTicks =
+                    (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+                // tempoFactor > 1 must not truncate short notes to 0 ticks: that stalls
+                // nextTick and can spin the per-track while-loop indefinitely.
+                if (note.duration > 0.0f && noteTicks == 0) {
+                    noteTicks = 1;
+                }
+
+                // Check note limit per frame - bounded processing.
+                // Zero-tick stacked hits always process so same-step drums stay together.
+                if (notesProcessedThisFrame >= limit && noteTicks > 0) {
                     frameDeferredNotes++;
-                    // Still need to advance timing even if we skip the note
-                    const MusicNote& note = track->notes[noteIdx];
-                    uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
-                    if (noteTicks == 0) noteTicks = 1;
                     nextTick += noteTicks;
                     noteIdx++;
                     if (noteIdx >= track->count) {
@@ -337,46 +816,61 @@ namespace pixelroot32::audio {
                     }
                     continue;
                 }
-                const MusicNote& note = track->notes[noteIdx];
 
-                // On NOISE channels, Rest notes are treated as hits so
-                // percussion tracks can be authored as a pattern of hits.
-                bool shouldPlay = (note.note != Note::Rest)
-                               || (track->channelType == WaveType::NOISE);
+                // Percussion hits use Note::Rest + noise preset. Plain rests are silence.
+                const bool isPercussionHit =
+                    track->channelType == WaveType::NOISE && note.preset &&
+                    note.preset->duty == 0.0f;
+                const bool shouldPlay =
+                    (note.note != Note::Rest) || isPercussionHit;
 
                 if (shouldPlay) {
                     AudioEvent event{};
                     event.type = track->channelType;
 
-                    const InstrumentPreset* percPreset = nullptr;
-                    if (note.preset && note.preset->duty == 0.0f) {
-                        percPreset = note.preset;
-                    }
-
-                    if (percPreset) {
-                        event.frequency = instrumentToFrequency(*percPreset, note.note, note.octave);
-                        event.duration = (percPreset->defaultDuration > 0.0f)
-                            ? percPreset->defaultDuration / tempoFactor
-                            : note.duration / tempoFactor;
-                        event.noisePeriod = percPreset->noisePeriod;
+                    if (isPercussionHit) {
+                        event.frequency = instrumentToFrequency(*note.preset, note.note, note.octave);
+                        event.duration = (note.preset->defaultDuration > 0.0f)
+                            ? note.preset->defaultDuration / tempoFactor
+                            : (note.duration > 0.0f ? note.duration : 0.05f) / tempoFactor;
+                        event.noisePeriod = note.preset->noisePeriod;
+                        event.preset = note.preset;
                     } else {
-                        if (note.note == Note::Rest && event.type == WaveType::NOISE) {
-                            event.frequency = 1000.0f;
-                        } else {
-                            event.frequency = noteToFrequency(note.note, note.octave);
-                        }
+                        event.frequency = noteToFrequency(note.note, note.octave);
                         event.duration = note.duration / tempoFactor;
                         event.noisePeriod = 0;
+                        event.preset = note.preset;
                     }
 
                     event.volume = note.volume;
                     event.duty = (event.type == WaveType::PULSE) ? track->duty : 0.5f;
-                    event.preset = note.preset;  // Forward ADSR/LFO params
-                    executePlayEvent(event);
+                    if (note.preset != nullptr &&
+                        note.preset->pitchSweepEndHz > 0.0f &&
+                        note.preset->pitchSweepDurationSec > 0.0f &&
+                        (event.type == WaveType::PULSE ||
+                         event.type == WaveType::TRIANGLE)) {
+                        event.sweepEndHz = note.preset->pitchSweepEndHz;
+                        event.sweepDurationSec = note.preset->pitchSweepDurationSec;
+                    }
+                    if (isPercussionHit) {
+                        playSequencerPercussionHit(event);
+                    } else {
+                        Voice* voice = musicVoiceForTrack(trackIdx);
+                        if (voice != nullptr) {
+                            const uint64_t gate_samples = noteTicks * tickDurationSamples;
+                            initVoiceFromEvent(
+                                voice, event,
+                                gate_samples > 0 ? gate_samples : 1,
+                                true);
+                            track_voice_active_[trackIdx] = true;
+                        }
+                    }
+                } else if (note.note == Note::Rest && !isPercussionHit) {
+                    if (track_voice_active_[trackIdx]) {
+                        beginReleaseOnMusicTrack(trackIdx);
+                    }
                 }
 
-                uint64_t noteTicks = (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
-                if (noteTicks == 0) noteTicks = 1;
                 nextTick += noteTicks;
 
                 noteIdx++;
@@ -388,7 +882,10 @@ namespace pixelroot32::audio {
                         break;
                     }
                 }
-                notesProcessedThisFrame++;
+                // Count only tempo-advancing notes toward the per-frame budget.
+                if (noteTicks > 0) {
+                    notesProcessedThisFrame++;
+                }
             }
         }
 
@@ -420,23 +917,55 @@ namespace pixelroot32::audio {
     // ------------------------------------------------------------------
     // Play event (retrigger a voice)
     // ------------------------------------------------------------------
-    void ApuCore::executePlayEvent(const AudioEvent& event) {
-        Voice* ch = findVoiceForEvent(event.type);
-        if (!ch) return;
+    void ApuCore::beginReleaseOnMusicTrack(size_t track_index) {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return;
+        }
+
+        track_voice_active_[track_index] = false;
+        Voice& ch = voices[MUSIC_VOICE_BASE + static_cast<int>(track_index)];
+        if (!ch.enabled) {
+            return;
+        }
+        if (ch.envelope.stage == EnvelopeState::Stage::RELEASE
+            || ch.envelope.stage == EnvelopeState::Stage::OFF) {
+            return;
+        }
+        if (ch.envelope.releaseSamples > 0) {
+            ch.envelope.stage = EnvelopeState::Stage::RELEASE;
+            ch.envelope.sampleCounter = 0;
+            ch.remainingSamples = ch.envelope.releaseSamples;
+        } else {
+            ch.enabled = false;
+            ch.envelope.stage = EnvelopeState::Stage::OFF;
+            ch.remainingSamples = 0;
+        }
+    }
+
+    void ApuCore::initVoiceFromEvent(Voice* ch,
+                                     const AudioEvent& event,
+                                     uint64_t gate_samples,
+                                     bool music_sequencer_legato) {
+        if (ch == nullptr) {
+            return;
+        }
+
+        const bool legato = music_sequencer_legato && ch->enabled
+            && ch->envelope.stage != EnvelopeState::Stage::OFF
+            && ch->envelope.currentLevel > 0.05f;
+        const float legato_level = legato ? ch->envelope.currentLevel : 0.0f;
 
         const VoiceType voiceType = toVoiceType(event.type);
         // Compatibility fallback required by migration plan.
         ch->type = toWaveType(voiceType);
         ch->enabled = true;
         ch->frequency = event.frequency;
-        ch->phase = 0.0f;
         ch->phaseIncrement = event.frequency / (float)sampleRate;
 
-        // Fixed-point mirror so the no-FPU mixing path (ESP32-C3) never
-        // touches float inside the per-sample inner loop. Computed once
-        // per retrigger in float, which is fine since executePlayEvent is
-        // rare compared to the 22 050 Hz sample loop.
-        ch->phaseQ32 = 0u;
+        if (!legato) {
+            ch->phase = 0.0f;
+            ch->phaseQ32 = 0u;
+        }
         if (sampleRate > 0) {
             const double inc = (double)event.frequency * 4294967296.0 / (double)sampleRate;
             ch->phaseIncQ32 = (inc < 0.0) ? 0u
@@ -469,8 +998,13 @@ namespace pixelroot32::audio {
         env.releaseSamples = std::min((uint32_t)(releaseTime * (float)sampleRate),
                                      (uint32_t)(sampleRate / 10));
         env.sampleCounter  = 0;
-        env.currentLevel   = 0.0f;
-        env.stage          = EnvelopeState::Stage::ATTACK;
+        if (legato) {
+            env.currentLevel = std::max(legato_level, sustainLevel);
+            env.stage        = EnvelopeState::Stage::SUSTAIN;
+        } else {
+            env.currentLevel = 0.0f;
+            env.stage        = EnvelopeState::Stage::ATTACK;
+        }
 
         ch->volume = event.volume;  // base volume (preset level)
         ch->targetVolume = event.volume;
@@ -482,7 +1016,7 @@ namespace pixelroot32::audio {
 
 #if defined(ESP32) && (!defined(SOC_CPU_HAS_FPU) || !SOC_CPU_HAS_FPU)
         // Initialize Q15 envelope fields for RISC-V fast path
-        env.currentLevelQ15 = 0;
+        env.currentLevelQ15 = (int32_t)(env.currentLevel * 32768.0f);
         env.sustainLevelQ15 = (int32_t)(sustainLevel * 32768.0f);
         env.attackDeltaQ15 = (env.attackSamples > 0) ? (32768 / (int32_t)env.attackSamples) : 32768;
         env.decayDeltaQ15 = (env.decaySamples > 0) ? ((32768 - env.sustainLevelQ15) / (int32_t)env.decaySamples) : 0;
@@ -506,85 +1040,225 @@ namespace pixelroot32::audio {
             ch->lfo.currentValueQ15 = 0;
         }
 
-        ch->remainingSamples = (uint64_t)(event.duration * (float)sampleRate);
-
-        ch->sweepSamplesTotal = 0;
-        ch->sweepSamplesRemaining = 0;
-        if ((event.type == WaveType::PULSE || event.type == WaveType::TRIANGLE
-                || event.type == WaveType::SINE || event.type == WaveType::SAW)
-            && event.sweepDurationSec > 0.0f && event.sweepEndHz > 0.0f && sampleRate > 0) {
-            const uint64_t noteLen = ch->remainingSamples;
-            if (noteLen > 0) {
-                uint64_t sweepLen = (uint64_t)(event.sweepDurationSec * (float)sampleRate);
-                if (sweepLen == 0) sweepLen = 1;
-                if (sweepLen > noteLen) sweepLen = noteLen;
-                if (sweepLen >= 1) {
-                    ch->sweepSamplesTotal = (uint32_t)sweepLen;
-                    ch->sweepSamplesRemaining = ch->sweepSamplesTotal;
-                    ch->sweepStartHz = event.frequency;
-                    ch->sweepEndHz = event.sweepEndHz;
-                    ch->sweepStartIncQ32 = frequency_hz_to_phase_inc_q32(event.frequency, sampleRate);
-                    ch->sweepEndIncQ32 = frequency_hz_to_phase_inc_q32(event.sweepEndHz, sampleRate);
-                }
+        ch->loop = false;
+        if (gate_samples > 0) {
+            ch->remainingSamples = gate_samples;
+            // Extend every melodic gate by the release tail so the note overlaps the
+            // next beat/rest instead of hard-cutting at the beat boundary. The
+            // per-sample RELEASE auto-arm still runs afterwards, so an un-retriggered
+            // note holds one release length at sustain, then decays.
+            if (env.releaseSamples > 0) {
+                ch->remainingSamples += env.releaseSamples;
+            }
+        } else if (event.loop) {
+            ch->loop = true;
+            ch->remainingSamples = std::numeric_limits<uint64_t>::max();
+        } else {
+            ch->remainingSamples =
+                (uint64_t)(event.duration * (float)sampleRate);
+            if (ch->remainingSamples == 0) {
+                // One-shot with duration==0 must not hang the voice.
+                ch->enabled = false;
+                ch->loop = false;
+                ch->sweepSamplesTotal = 0;
+                ch->sweepSamplesRemaining = 0;
+                return;
             }
         }
 
         if (event.type == WaveType::PULSE) {
-            ch->dutyCycle = event.duty;
-            double d = (double)event.duty;
-            if (d < 0.0) d = 0.0;
-            if (d > 1.0) d = 1.0;
-            ch->dutyCycleQ32 = (uint32_t)(d * 4294967296.0);
-            
-            if (event.preset) {
+            set_pulse_duty(*ch, event.duty);
+
+            // Duty stepped (count > 0) supersedes continuous dutySweep.
+            const bool useDutySteps =
+                event.dutySteps != nullptr && event.dutyStepCount > 0;
+            if (event.preset && !useDutySteps) {
                 ch->dutySweep = event.preset->dutySweep / (float)sampleRate;
-                ch->dutySweepQ32 = (int32_t)((double)event.preset->dutySweep * 4294967296.0 / (double)sampleRate);
+                ch->dutySweepQ32 = (int32_t)((double)event.preset->dutySweep
+                                             * 4294967296.0 / (double)sampleRate);
             } else {
                 ch->dutySweep = 0.0f;
                 ch->dutySweepQ32 = 0;
             }
+            init_duty_stepped(*ch, event, sampleRate);
         } else if (event.type == WaveType::NOISE) {
             uint32_t period;
+            float noiseHz = event.frequency;
             if (event.noisePeriod > 0) {
                 period = event.noisePeriod;
+                if (sampleRate > 0) {
+                    noiseHz = (float)sampleRate / (float)period;
+                }
             } else {
-                float noiseHz = event.frequency;
                 if (noiseHz < 1.0f) noiseHz = 1000.0f;
-                period = (uint32_t)((float)sampleRate / noiseHz);
-                if (period < 1u) period = 1u;
+                period = noise_clock_hz_to_period(noiseHz, sampleRate);
             }
+            ch->frequency = noiseHz;
             ch->noisePeriodSamples = period;
             ch->noiseCountdown = 1u;
             ch->lfsrState = 0x4000;
             ch->noiseShortMode = (event.preset) ? event.preset->noiseShortMode : false;
             ch->phase = 0.0f;
             ch->phaseIncrement = 0.0f;
+            ch->dutySweep = 0.0f;
+            ch->dutySweepQ32 = 0;
+            ch->dutySteps = nullptr;
+            ch->dutyStepCount = 0;
+            ch->dutyStepIndex = 0;
+            ch->dutyNextBoundarySamples = 0xFFFFFFFFu;
+            ch->automationAgeSamples = 0;
         } else if (event.type == WaveType::SINE || event.type == WaveType::SAW) {
             ch->dutyCycle = 0.5f;
             ch->dutySweep = 0.0f;
             ch->dutySweepQ32 = 0;
+            ch->dutySteps = nullptr;
+            ch->dutyStepCount = 0;
+            ch->dutyStepIndex = 0;
+            ch->dutyNextBoundarySamples = 0xFFFFFFFFu;
+            ch->automationAgeSamples = 0;
+        } else {
+            // TRIANGLE (and any future non-pulse): no duty automation.
+            ch->dutySweep = 0.0f;
+            ch->dutySweepQ32 = 0;
+            ch->dutySteps = nullptr;
+            ch->dutyStepCount = 0;
+            ch->dutyStepIndex = 0;
+            ch->dutyNextBoundarySamples = 0xFFFFFFFFu;
+            ch->automationAgeSamples = 0;
+        }
+
+        init_pitch_envelope(*ch, event, sampleRate);
+
+        ch->sweepSamplesTotal = 0;
+        ch->sweepSamplesRemaining = 0;
+        // Pitch envelope (>=2 points) supersedes single-segment sweep.
+        // Do not clear sweepLog*/sweepStartHz — init_pitch_envelope owns them as segment state.
+        if (!pitch_envelope_active(*ch)) {
+            ch->sweepCurve = SweepCurve::Linear;
+            ch->sweepLogRatio = 0.0f;
+            ch->sweepLogStartQ16 = 0;
+            ch->sweepLogDeltaQ16 = 0;
+        }
+        if (!pitch_envelope_active(*ch)
+            && (event.type == WaveType::PULSE || event.type == WaveType::TRIANGLE
+                || event.type == WaveType::SINE || event.type == WaveType::SAW
+                || event.type == WaveType::NOISE)
+            && event.sweepDurationSec > 0.0f && event.sweepEndHz > 0.0f && sampleRate > 0) {
+            uint64_t sweepLen = (uint64_t)(event.sweepDurationSec * (float)sampleRate);
+            if (sweepLen == 0) sweepLen = 1;
+            if (!ch->loop) {
+                const uint64_t noteLen = ch->remainingSamples;
+                if (noteLen == 0) {
+                    sweepLen = 0;
+                } else if (sweepLen > noteLen) {
+                    sweepLen = noteLen;
+                }
+            }
+            if (sweepLen > 0xFFFFFFFFu) {
+                sweepLen = 0xFFFFFFFFu;
+            }
+            if (sweepLen >= 1) {
+                ch->sweepSamplesTotal = (uint32_t)sweepLen;
+                ch->sweepSamplesRemaining = ch->sweepSamplesTotal;
+                ch->sweepStartHz = ch->frequency;
+                ch->sweepEndHz = event.sweepEndHz;
+                if (event.type == WaveType::NOISE) {
+                    ch->sweepStartIncQ32 = ch->noisePeriodSamples;
+                    ch->sweepEndIncQ32 =
+                        noise_clock_hz_to_period(event.sweepEndHz, sampleRate);
+                } else {
+                    ch->sweepStartIncQ32 =
+                        frequency_hz_to_phase_inc_q32(ch->sweepStartHz, sampleRate);
+                    ch->sweepEndIncQ32 =
+                        frequency_hz_to_phase_inc_q32(event.sweepEndHz, sampleRate);
+                }
+                const bool use_exp = (event.sweepCurve == SweepCurve::Exponential
+                    && ch->sweepStartHz > 0.0f && event.sweepEndHz > 0.0f);
+                if (use_exp) {
+                    ch->sweepCurve = SweepCurve::Exponential;
+                    ch->sweepLogRatio = std::log(event.sweepEndHz / ch->sweepStartHz);
+                    if (event.type == WaveType::NOISE) {
+                        ch->sweepLogStartQ16 = log2_q16_from_float(ch->sweepStartHz);
+                        ch->sweepLogDeltaQ16 =
+                            log2_q16_from_float(event.sweepEndHz) - ch->sweepLogStartQ16;
+                    } else {
+                        ch->sweepLogStartQ16 = log2_q16_from_u32(ch->sweepStartIncQ32);
+                        ch->sweepLogDeltaQ16 =
+                            log2_q16_from_u32(ch->sweepEndIncQ32) - ch->sweepLogStartQ16;
+                    }
+                } else {
+                    ch->sweepCurve = SweepCurve::Linear;
+                }
+            }
         }
     }
 
-    Voice* ApuCore::findVoiceForEvent(WaveType type) {
+    void ApuCore::playSequencerPercussionHit(const AudioEvent& event) {
+        Voice* ch = findVoiceForPercussionHit();
+        if (ch == nullptr) {
+            return;
+        }
+        initVoiceFromEvent(ch, event, 0);
+    }
+
+    void ApuCore::executePlayEvent(const AudioEvent& event) {
+        Voice* ch = findVoiceForSfxEvent(event.type);
+        if (!ch) return;
+        initVoiceFromEvent(ch, event, 0);
+    }
+
+    Voice* ApuCore::findVoiceForSfxEvent(WaveType type) {
         Voice* bestInactive = nullptr;
         Voice* bestSteal = nullptr;
-        uint64_t minRemaining = UINT64_MAX;
+        uint64_t minScore = std::numeric_limits<uint64_t>::max();
 
-        for (int i = 0; i < MAX_VOICES; ++i) {
+        for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
             Voice& voice = voices[i];
             if (!voice.enabled) {
                 if (voice.type == type) return &voice;
                 if (!bestInactive) bestInactive = &voice;
                 continue;
             }
-            if (voice.remainingSamples < minRemaining) {
-                minRemaining = voice.remainingSamples;
+            const uint64_t score = voice_steal_score(voice);
+            if (score < minScore) {
+                minScore = score;
                 bestSteal = &voice;
             }
         }
 
         if (bestInactive) return bestInactive;
+        return bestSteal;
+    }
+
+    Voice* ApuCore::findVoiceForPercussionHit() {
+        Voice* bestInactive = nullptr;
+        Voice* bestSteal = nullptr;
+        uint64_t minScore = std::numeric_limits<uint64_t>::max();
+
+        for (int i = SFX_VOICE_BASE; i < MAX_VOICES; ++i) {
+            Voice& voice = voices[i];
+            if (!voice.enabled) {
+                if (!bestInactive) bestInactive = &voice;
+                continue;
+            }
+            const uint64_t score = voice_steal_score(voice);
+            if (score < minScore) {
+                minScore = score;
+                bestSteal = &voice;
+            }
+        }
+
+        if (bestInactive) return bestInactive;
+
+        // SFX/percussion subpool is saturated: borrow an idle music slot
+        // before stealing a live SFX/percussion voice. A slot only counts as
+        // idle when it is both disabled and not holding a live melodic gate,
+        // so a live melodic note is never stolen; music always reclaims its
+        // fixed slot on the next note-on via musicVoiceForTrack().
+        for (int i = MUSIC_VOICE_BASE; i < SFX_VOICE_BASE; ++i) {
+            if (!voices[i].enabled && !track_voice_active_[i]) return &voices[i];
+        }
+
         return bestSteal;
     }
 
@@ -746,7 +1420,10 @@ namespace pixelroot32::audio {
     float ApuCore::generateSampleForVoice(Voice& ch) {
         if (!ch.enabled) return 0.0f;
 
-        apply_linear_frequency_sweep_float(ch, sampleRate);
+        tick_voice_automation(ch, sampleRate, /*q15Path=*/false);
+        if (!pitch_envelope_active(ch)) {
+            apply_frequency_sweep_float(ch, sampleRate);
+        }
 
         float sample = 0.0f;
         switch (ch.type) {
@@ -815,7 +1492,8 @@ namespace pixelroot32::audio {
 
         // Trigger RELEASE when remaining duration expires (Decision D2:
         // release samples are added to remainingSamples at transition).
-        if (ch.remainingSamples > 0) {
+        // Looping voices never auto-expire.
+        if (!ch.loop && ch.remainingSamples > 0) {
             ch.remainingSamples--;
             if (ch.remainingSamples == 0) {
                 if (ch.envelope.stage != EnvelopeState::Stage::RELEASE
@@ -956,6 +1634,9 @@ namespace pixelroot32::audio {
                 sv = (sv * 13107) >> 15;
                 sum += sv;
 
+                // Duty stepped + pitch envelope (shared age; integer pitch path).
+                tick_voice_automation(ch, sampleRate, /*q15Path=*/true);
+
                 // Phase accumulator (integer, wraps automatically).
                 if (ch.type != WaveType::NOISE) {
                     ch.phaseQ32 += ch.phaseIncQ32;
@@ -967,34 +1648,67 @@ namespace pixelroot32::audio {
                 // ADSR envelope tick (fixed-point Q15, once per sample).
                 tickEnvelopeQ15(ch);
 
-                // Linear frequency sweep (integer phase inc, no soft-float in lerp).
-                if (ch.sweepSamplesTotal > 0 && ch.type != WaveType::NOISE && ch.sweepSamplesRemaining > 0) {
+                // Single-segment sweep only when pitch envelope is inactive.
+                if (!pitch_envelope_active(ch)
+                    && ch.sweepSamplesTotal > 0 && ch.sweepSamplesRemaining > 0) {
                     const uint32_t numer = ch.sweepSamplesTotal - ch.sweepSamplesRemaining;
-                    const int64_t delta = (int64_t)ch.sweepEndIncQ32 - (int64_t)ch.sweepStartIncQ32;
-                    int64_t inc = (int64_t)ch.sweepStartIncQ32
-                        + (delta * (int64_t)numer) / (int64_t)ch.sweepSamplesTotal;
-                    if (inc < 0) inc = 0;
-                    if (inc > (int64_t)0xFFFFFFFFLL) inc = 0xFFFFFFFFLL;
-                    ch.basePhaseIncQ32 = (uint32_t)inc;
+                    if (ch.sweepCurve == SweepCurve::Exponential) {
+                        const int32_t logV = ch.sweepLogStartQ16
+                            + (int32_t)(((int64_t)ch.sweepLogDeltaQ16 * (int64_t)numer)
+                                        / (int64_t)ch.sweepSamplesTotal);
+                        if (ch.type == WaveType::NOISE) {
+                            uint32_t hz = exp2_q16_to_u32(logV);
+                            if (hz < 1u) hz = 1u;
+                            uint32_t period = (sampleRate > 0)
+                                ? ((uint32_t)sampleRate / hz) : 1u;
+                            if (period < 1u) period = 1u;
+                            ch.noisePeriodSamples = period;
+                        } else {
+                            ch.basePhaseIncQ32 = exp2_q16_to_u32(logV);
+                        }
+                    } else {
+                        const int64_t delta =
+                            (int64_t)ch.sweepEndIncQ32 - (int64_t)ch.sweepStartIncQ32;
+                        int64_t value = (int64_t)ch.sweepStartIncQ32
+                            + (delta * (int64_t)numer) / (int64_t)ch.sweepSamplesTotal;
+                        if (value < 0) value = 0;
+                        if (value > (int64_t)0xFFFFFFFFLL) value = 0xFFFFFFFFLL;
+                        if (ch.type == WaveType::NOISE) {
+                            uint32_t period = (uint32_t)value;
+                            if (period < 1u) period = 1u;
+                            ch.noisePeriodSamples = period;
+                        } else {
+                            ch.basePhaseIncQ32 = (uint32_t)value;
+                        }
+                    }
                     ch.sweepSamplesRemaining--;
                     if (ch.sweepSamplesRemaining == 0) {
-                        ch.basePhaseIncQ32 = ch.sweepEndIncQ32;
+                        if (ch.type == WaveType::NOISE) {
+                            uint32_t period = ch.sweepEndIncQ32;
+                            if (period < 1u) period = 1u;
+                            ch.noisePeriodSamples = period;
+                        } else {
+                            ch.basePhaseIncQ32 = ch.sweepEndIncQ32;
+                        }
                         ch.sweepSamplesTotal = 0;
                     }
                 }
 
                 // LFO tick + pitch modulation (Q15-only, no float).
                 tickLfoQ15(ch.lfo);
-                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH) {
+                if (ch.lfo.enabled && ch.lfo.target == LfoTarget::PITCH
+                    && ch.type != WaveType::NOISE) {
                     // Vibrato: inc = base * (1 + lfo * depth)
                     // modQ15 = currentValueQ15 * depthQ15 >> 15
                     int32_t modQ15 = (int32_t)((int64_t)ch.lfo.currentValueQ15 * ch.lfo.depthQ15 >> 15);
                     int64_t inc = (int64_t)ch.basePhaseIncQ32 + ((int64_t)ch.basePhaseIncQ32 * modQ15 >> 15);
                     ch.phaseIncQ32 = (inc < 0) ? 0u : (uint32_t)inc;
+                } else if (ch.type != WaveType::NOISE) {
+                    ch.phaseIncQ32 = ch.basePhaseIncQ32;
                 }
 
                 // Duration countdown + release trigger (same as float path).
-                if (ch.remainingSamples > 0) {
+                if (!ch.loop && ch.remainingSamples > 0) {
                     ch.remainingSamples--;
                     if (ch.remainingSamples == 0) {
                         if (ch.envelope.stage != EnvelopeState::Stage::RELEASE

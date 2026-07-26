@@ -8,8 +8,10 @@
 
 Shared NES-style APU core used by every AudioScheduler.
 
-Owns the 4 channels (2x PULSE, 1x TRIANGLE, 1x NOISE), the SPSC command
-queue and the music sequencer. Platform-specific schedulers
+Owns an eight-voice pool (MAX_VOICES = 8), the SPSC command queue and the
+music sequencer. Voice slots 0–3 are reserved for sequencer tracks
+(trackIdx maps 1:1 to slot); slots 4–7 are reserved for PLAY_EVENT / SFX
+and sequencer percussion hits (shared subpool, steal policy confined to 4–7). Platform-specific schedulers
 (DefaultAudioScheduler, ESP32AudioScheduler, NativeAudioScheduler) are
 thin orchestrators that decide *when* generateSamples() runs; all
 synthesis, mixing and sequencing lives here to eliminate the three-way
@@ -165,4 +167,124 @@ Reads and clears all profile entries.
 
 ### `size_t countEnabledVoicesForTesting() const`
 
+**Description:**
+
+Test-only: counts voices with enabled==true.
+
+**Returns:** Active voice count in [0, MAX_VOICES].
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
 ### `size_t getSequencerMainNoteIndexForTesting() const`
+
+**Description:**
+
+Test-only: main music track note index after the last sequencer run.
+
+**Returns:** Index into track 0's note array.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
+### `bool isVoiceEnabledForTesting(int slot) const`
+
+**Description:**
+
+Test-only: reports whether a voice slot is currently synthesizing.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
+
+**Returns:** true if voices[slot].enabled.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
+### `bool isMusicTrackVoiceActiveForTesting(size_t track_index) const`
+
+**Description:**
+
+Test-only: reports whether a music track has an active melodic gate.
+
+**Parameters:**
+
+- `track_index`: Sequencer track [0, MAX_MUSIC_TRACKS); out-of-range returns false.
+
+**Returns:** true after a melodic note until Rest note-off or lifecycle reset.
+
+::: tip
+Available only when UNIT_TEST is defined (native_test). Not for game code.
+:::
+
+### `uint32_t getVoiceNoisePeriodForTesting(int slot) const`
+
+**Description:**
+
+Test-only: NOISE LFSR period in samples for a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** NOISE LFSR period in samples if slot is valid, 0 otherwise.
+
+### `uint64_t getVoiceRemainingSamplesForTesting(int slot) const`
+
+**Description:**
+
+Test-only: remaining sample gate for a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** remaining samples if slot is valid, 0 otherwise.
+
+### `bool isVoiceLoopForTesting(int slot) const`
+
+**Description:**
+
+Test-only: whether a voice slot is in continuous loop mode.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
+
+**Returns:** true if voice is in loop mode.
+
+### `float getVoiceFrequencyForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current voice frequency in Hz (melodic / noise clock).
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** Frequency in Hz if slot is valid, 0 otherwise.
+
+### `float getVoiceDutyCycleForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current PULSE duty cycle [0,1].
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+### `float getVoiceDutySweepPerSampleForTesting(int slot) const`
+
+**Description:**
+
+Test-only: continuous dutySweep delta per sample (0 when duty stepped).
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.

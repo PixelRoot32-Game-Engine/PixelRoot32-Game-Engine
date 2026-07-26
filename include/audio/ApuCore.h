@@ -17,8 +17,10 @@ namespace pixelroot32::audio {
       * @class ApuCore
       * @brief Shared NES-style APU core used by every AudioScheduler.
       *
-      * Owns the 4 channels (2x PULSE, 1x TRIANGLE, 1x NOISE), the SPSC command
-      * queue and the music sequencer. Platform-specific schedulers
+      * Owns an eight-voice pool (MAX_VOICES = 8), the SPSC command queue and the
+      * music sequencer. Voice slots 0–3 are reserved for sequencer tracks
+      * (trackIdx maps 1:1 to slot); slots 4–7 are reserved for PLAY_EVENT / SFX
+      * and sequencer percussion hits (shared subpool, steal policy confined to 4–7). Platform-specific schedulers
       * (DefaultAudioScheduler, ESP32AudioScheduler, NativeAudioScheduler) are
       * thin orchestrators that decide *when* generateSamples() runs; all
       * synthesis, mixing and sequencing lives here to eliminate the three-way
@@ -43,6 +45,16 @@ namespace pixelroot32::audio {
         static constexpr int NUM_CHANNELS = MAX_VOICES;
         /** @brief Maximum simultaneous music tracks. */
         static constexpr size_t MAX_MUSIC_TRACKS = 4;
+        /** @brief First voice slot reserved for music tracks (inclusive). */
+        static constexpr int MUSIC_VOICE_BASE = 0;
+        /** @brief Number of voice slots reserved for music tracks. */
+        static constexpr int MUSIC_VOICE_COUNT = static_cast<int>(MAX_MUSIC_TRACKS);
+        /** @brief First voice slot reserved for SFX / PLAY_EVENT (inclusive). */
+        static constexpr int SFX_VOICE_BASE = MUSIC_VOICE_BASE + MUSIC_VOICE_COUNT;
+        /** @brief Number of voice slots reserved for SFX. */
+        static constexpr int SFX_VOICE_COUNT = MAX_VOICES - SFX_VOICE_BASE;
+        static_assert(SFX_VOICE_BASE + SFX_VOICE_COUNT == MAX_VOICES,
+                      "Music + SFX voice partitions must cover MAX_VOICES");
         /** @brief Default ticks (subdivisions) per beat. */
         static constexpr int TICKS_PER_BEAT = 4;
         /** @brief Default tempo in BPM. */
@@ -157,17 +169,81 @@ namespace pixelroot32::audio {
         void getAndResetProfileStats(ProfileEntry* out, uint8_t& count);
 
 #if defined(UNIT_TEST)
-        /** Diagnostic: count voices with enabled==true (native_test regression). */
+        // -- Test diagnostics (native_test only; stripped in firmware builds) --
+        /**
+         * @brief Test-only: counts voices with enabled==true.
+         * @note Available only when UNIT_TEST is defined (native_test). Not for game code.
+         * @return Active voice count in [0, MAX_VOICES].
+         */
         size_t countEnabledVoicesForTesting() const;
-        /** Main music track note index after sequencer run (native_test regression). */
+        /**
+         * @brief Test-only: main music track note index after the last sequencer run.
+         * @note Available only when UNIT_TEST is defined (native_test). Not for game code.
+         * @return Index into track 0's note array.
+         */
         size_t getSequencerMainNoteIndexForTesting() const;
+        /**
+         * @brief Test-only: reports whether a voice slot is currently synthesizing.
+         * @note Available only when UNIT_TEST is defined (native_test). Not for game code.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns false.
+         * @return true if voices[slot].enabled.
+         */
+        bool isVoiceEnabledForTesting(int slot) const;
+        /**
+         * @brief Test-only: reports whether a music track has an active melodic gate.
+         * @note Available only when UNIT_TEST is defined (native_test). Not for game code.
+         * @param track_index Sequencer track [0, MAX_MUSIC_TRACKS); out-of-range returns false.
+         * @return true after a melodic note until Rest note-off or lifecycle reset.
+         */
+        bool isMusicTrackVoiceActiveForTesting(size_t track_index) const;
+        /**
+         * @brief Test-only: NOISE LFSR period in samples for a voice slot.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return NOISE LFSR period in samples if slot is valid, 0 otherwise.
+         */
+        uint32_t getVoiceNoisePeriodForTesting(int slot) const;
+        /**
+         * @brief Test-only: remaining sample gate for a voice slot.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return remaining samples if slot is valid, 0 otherwise.
+         */
+        uint64_t getVoiceRemainingSamplesForTesting(int slot) const;
+        /**
+         * @brief Test-only: whether a voice slot is in continuous loop mode.
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns false.
+         * @return true if voice is in loop mode.
+         */
+        bool isVoiceLoopForTesting(int slot) const;
+        /**
+         * @brief Test-only: current voice frequency in Hz (melodic / noise clock).
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         * @return Frequency in Hz if slot is valid, 0 otherwise.
+         */
+        float getVoiceFrequencyForTesting(int slot) const;
+        /**
+         * @brief Test-only: current PULSE duty cycle [0,1].
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         */
+        float getVoiceDutyCycleForTesting(int slot) const;
+        /**
+         * @brief Test-only: continuous dutySweep delta per sample (0 when duty stepped).
+         * @param slot Voice index [0, MAX_VOICES); out-of-range returns 0.
+         */
+        float getVoiceDutySweepPerSampleForTesting(int slot) const;
 #endif
 
     private:
         void processCommands();
         void updateMusicSequencer();
         void executePlayEvent(const AudioEvent& event);
-        Voice* findVoiceForEvent(WaveType type);
+        void playSequencerPercussionHit(const AudioEvent& event);
+        void initVoiceFromEvent(Voice* voice, const AudioEvent& event, uint64_t gate_samples,
+                                bool music_sequencer_legato = false);
+        void beginReleaseOnMusicTrack(size_t track_index);
+        void clearMusicTrackVoiceState();
+        Voice* musicVoiceForTrack(size_t track_index);
+        Voice* findVoiceForSfxEvent(WaveType type);
+        Voice* findVoiceForPercussionHit();
         float generateSampleForVoice(Voice& voice);
 
         // -- Channels and I/O ---------------------------------------------
@@ -226,6 +302,9 @@ namespace pixelroot32::audio {
 
         /** After MUSIC_PLAY, allow one sequencer pass even when currentTick == startTick. */
         bool firstSequencerCallAfterPlay_ = false;
+
+        /** True while a track's melodic gate is active (for scoped Rest note-off). */
+        bool track_voice_active_[MAX_MUSIC_TRACKS] = {};
 
         // -- Post-mix hook -------------------------------------------------
         void (*postMixMono_)(int16_t* mono, int length, void* user) = nullptr;

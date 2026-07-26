@@ -49,12 +49,25 @@ namespace pixelroot32::drivers::native {
         want.callback = SDLAudioCallbackWrapper;
         want.userdata = this;
 
-        deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0); // 0 = no changes allowed
+        deviceId = SDL_OpenAudioDevice(nullptr, 0, &want, &have,
+                                       SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 
         if (deviceId == 0) {
             log(LogLevel::Error, "Failed to open audio device: %s\n", SDL_GetError());
         } else {
             log("Audio device opened: %dHz, %dch\n", have.freq, (int)have.channels);
+
+            if (have.freq > 0 && have.freq != sampleRate) {
+                log(LogLevel::Warning,
+                    "SDL granted a different sample rate than requested (%d -> %d Hz); "
+                    "re-syncing ApuCore\n",
+                    sampleRate, have.freq);
+                sampleRate = have.freq;
+                if (engineInstance) {
+                    engineInstance->reinitSampleRate(have.freq);
+                }
+            }
+
             // Start playback
             SDL_PauseAudioDevice(deviceId, 0);
         }

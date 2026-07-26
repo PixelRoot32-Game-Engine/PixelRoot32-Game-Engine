@@ -110,6 +110,26 @@ namespace pixelroot32::audio {
     // --- LFO Types ---
     enum class LfoTarget : uint8_t { NONE, PITCH, VOLUME };
 
+    /** Pitch/period sweep interpolation curve (default Linear keeps legacy behavior). */
+    enum class SweepCurve : uint8_t { Linear = 0, Exponential = 1 };
+
+    /**
+     * @struct SfxBreakpoint
+     * @brief Timed automation point for SFX duty steps or pitch envelope.
+     *
+     * `value` is duty in [0,1] for duty steps, or frequency/clock Hz for pitch.
+     * Tables are static/constexpr in exported banks; AudioEvent holds pointer+count.
+     */
+    struct SfxBreakpoint {
+        float timeSec = 0.0f; ///< Offset from voice start (seconds); non-decreasing in a table.
+        float value = 0.0f;   ///< Duty [0,1] or Hz > 0 depending on table context.
+    };
+
+    /** Max duty-step breakpoints per AudioEvent (hold semantics). */
+    static constexpr uint8_t kMaxSfxDutySteps = 4;
+    /** Max pitch-envelope breakpoints per AudioEvent (multi-segment). */
+    static constexpr uint8_t kMaxSfxPitchPoints = 4;
+
     /**
      * @struct LfoState
      * @brief Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
@@ -191,6 +211,24 @@ namespace pixelroot32::audio {
         float dutyCycle = 0.5f;      // For Pulse wave [0.0 - 1.0]
         float dutySweep = 0.0f;      // Duty cycle change per sample
         int32_t dutySweepQ32 = 0;    // Fixed-point duty sweep
+        /** Duty stepped table (PULSE); nullptr/0 = use duty + dutySweep. */
+        const SfxBreakpoint* dutySteps = nullptr;
+        uint8_t dutyStepCount = 0;
+        /** Next duty step index to apply; == count when finished. */
+        uint8_t dutyStepIndex = 0;
+        /** Sample age at which the next duty step applies (UINT32_MAX = none). */
+        uint32_t dutyNextBoundarySamples = 0xFFFFFFFFu;
+        /** Samples since voice start (duty/pitch automation clock). */
+        uint32_t automationAgeSamples = 0;
+        /** Pitch envelope table; runtime multi-segment when count >= 2. */
+        const SfxBreakpoint* pitchEnvelope = nullptr;
+        uint8_t pitchEnvelopeCount = 0;
+        /** Start-point index of the active pitch segment (0 .. count-2). */
+        uint8_t pitchSegIndex = 0;
+        /** Absolute sample age at the start of the active pitch segment. */
+        uint32_t pitchSegStartAge = 0;
+        /** Length of the active pitch segment in samples (0 = hold final value). */
+        uint32_t pitchSegLenSamples = 0;
         uint16_t lfsrState = 0x4000; // NES-style 15-bit LFSR for deterministic noise
         bool noiseShortMode = false; // true = 93-step sequence (metallic), false = 32767-step
 
@@ -201,14 +239,20 @@ namespace pixelroot32::audio {
 
         // Duration control (sample-accurate timing)
         uint64_t remainingSamples = 0;
+        /** Continuous voice: no auto-disable; cleared only by STOP_CHANNEL / steal. */
+        bool loop = false;
 
-        // Optional linear frequency sweep (PULSE / TRIANGLE only; see AudioEvent::sweep*)
+        // Optional frequency/period sweep (melodic waves + NOISE clock)
         uint32_t sweepSamplesTotal = 0;   ///< Total samples for the sweep.
         uint32_t sweepSamplesRemaining = 0;///< Samples remaining in the sweep.
-        float sweepStartHz = 0.0f;        ///< Starting frequency in Hz.
-        float sweepEndHz = 0.0f;          ///< Ending frequency in Hz.
-        uint32_t sweepStartIncQ32 = 0;    ///< Q32 phase increment at sweep start.
-        uint32_t sweepEndIncQ32 = 0;      ///< Q32 phase increment at sweep end.
+        float sweepStartHz = 0.0f;        ///< Starting frequency in Hz (NOISE: LFSR clock).
+        float sweepEndHz = 0.0f;          ///< Ending frequency in Hz (NOISE: LFSR clock).
+        uint32_t sweepStartIncQ32 = 0;    ///< Melodic: Q32 phase inc start; NOISE: start period.
+        uint32_t sweepEndIncQ32 = 0;      ///< Melodic: Q32 phase inc end; NOISE: end period.
+        SweepCurve sweepCurve = SweepCurve::Linear; ///< Active sweep curve (may fallback to Linear).
+        float sweepLogRatio = 0.0f;       ///< FPU Exponential: logf(endHz/startHz).
+        int32_t sweepLogStartQ16 = 0;     ///< Q15 path Exponential: log2(start) in Q16.
+        int32_t sweepLogDeltaQ16 = 0;     ///< Q15 path Exponential: log2(end/start) in Q16.
 
         /**
          * @brief Resets the channel to a clean disabled state.
@@ -222,10 +266,21 @@ namespace pixelroot32::audio {
             dutyCycleQ32 = 0x80000000u;
             dutySweep = 0.0f;
             dutySweepQ32 = 0;
+            dutySteps = nullptr;
+            dutyStepCount = 0;
+            dutyStepIndex = 0;
+            dutyNextBoundarySamples = 0xFFFFFFFFu;
+            automationAgeSamples = 0;
+            pitchEnvelope = nullptr;
+            pitchEnvelopeCount = 0;
+            pitchSegIndex = 0;
+            pitchSegStartAge = 0;
+            pitchSegLenSamples = 0;
             envelope.reset();
             lfo.reset();
             volume = 0.0f;
             remainingSamples = 0;
+            loop = false;
             lfsrState = 0x4000; // Initialize LFSR to non-zero state
             noiseShortMode = false;
             noisePeriodSamples = 1;
@@ -236,6 +291,10 @@ namespace pixelroot32::audio {
             sweepEndHz = 0.0f;
             sweepStartIncQ32 = 0;
             sweepEndIncQ32 = 0;
+            sweepCurve = SweepCurve::Linear;
+            sweepLogRatio = 0.0f;
+            sweepLogStartQ16 = 0;
+            sweepLogDeltaQ16 = 0;
         }
     };
 
@@ -263,14 +322,41 @@ namespace pixelroot32::audio {
         const struct InstrumentPreset* preset = nullptr;
 
         /**
-         * Optional linear frequency sweep (PULSE / TRIANGLE only).
+         * Optional frequency/period sweep (PULSE / TRIANGLE / SINE / SAW / NOISE).
          * Active iff sweepDurationSec > 0 and sweepEndHz > 0.
-         * Starts at `frequency`, ends at `sweepEndHz`, over at most sweepDurationSec
-         * (clamped to note length before release).
+         * Melodic: starts at `frequency`, ends at `sweepEndHz`.
+         * NOISE: interpolates LFSR clock Hz (and thus noisePeriodSamples).
+         * Curve: Linear (default) or Exponential (geometric in Hz); falls back to Linear
+         * if start/end Hz are not both > 0.
+         * Duration clamped to note length for one-shots; full sweepDurationSec when loop.
          * API decision: ADR-A1 in docs/architecture/AUDIO_ROADMAP_SHORT_MEDIUM.md §A.7.
          */
         float sweepEndHz = 0.0f;
         float sweepDurationSec = 0.0f;
+
+        /**
+         * Continuous playback: voice stays enabled until STOP_CHANNEL (or steal).
+         * When false, duration <= 0 MUST NOT leave a hanging voice (disabled immediately).
+         */
+        bool loop = false;
+
+        /** Sweep interpolation; additive at end of struct for brace-init safety (0 = Linear). */
+        SweepCurve sweepCurve = SweepCurve::Linear;
+
+        /**
+         * Optional duty stepped table (PULSE). Active when dutySteps != nullptr and
+         * dutyStepCount > 0 (clamped to kMaxSfxDutySteps). Hold between points;
+         * ignores InstrumentPreset::dutySweep while active.
+         */
+        const SfxBreakpoint* dutySteps = nullptr;
+        uint8_t dutyStepCount = 0;
+
+        /**
+         * Optional multi-breakpoint pitch envelope. Active when count >= 2
+         * (clamped to kMaxSfxPitchPoints); then replaces single-segment sweep.
+         */
+        const SfxBreakpoint* pitchEnvelope = nullptr;
+        uint8_t pitchEnvelopeCount = 0;
     };
 
     // --- Command Types ---

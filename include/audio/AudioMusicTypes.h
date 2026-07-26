@@ -97,7 +97,9 @@ inline float noteToFrequency(Note note, int octave) {
 struct MusicNote {
     Note note;
     uint8_t octave; // 0-8 (for percussion: 1=Kick, 2=Snare, 3+=Hi-HAT)
-    float duration; // Seconds
+    /// Sequencer advance in beats (quarter = 1.0; ApuCore TICKS_PER_BEAT = 4).
+    /// Use 0.0 to fire a stacked hit without advancing tempo (same-step drums).
+    float duration;
     float volume;   // 0.0 - 1.0
     const InstrumentPreset* preset = nullptr;  // nullptr = use track preset or legacy behavior
 };
@@ -149,135 +151,151 @@ struct InstrumentPreset {
     // Waveform Refinements
     bool noiseShortMode = false;   // For NOISE: true = metallic timbre (93-step LFSR)
     float dutySweep = 0.0f;        // For PULSE: duty cycle change per second
+
+    // Optional pitch sweep (materialized to AudioEvent.sweep* when both > 0)
+    float pitchSweepEndHz = 0.0f;       // End frequency in Hz; 0 = inactive
+    float pitchSweepDurationSec = 0.0f; // Sweep duration in seconds; 0 = inactive
 };
 
 constexpr InstrumentPreset INSTR_PULSE_LEAD{
-    0.35f,    // baseVolume
+    0.40f,    // baseVolume – modern fullness (presence without mixer rewrite)
     0.5f,     // duty (square)
     4,        // defaultOctave
     0.0f,     // defaultDuration (use note.duration)
     0,        // noisePeriod (unused)
     0.005f,   // attackTime  – fast attack for lead
-    0.20f,    // decayTime   – noticeable decay to shape note
-    0.70f,    // sustainLevel– moderate sustain
-    0.15f,    // releaseTime – shorter release for fast passages
+    0.18f,    // decayTime   – slightly quicker settle into sustain
+    0.88f,    // sustainLevel– fuller body in sustained notes
+    0.22f,    // releaseTime – short tail for presence without wash
     LfoTarget::PITCH,   // lfoTarget – vibrato
     5.0f,     // lfoFrequency (Hz)
     0.025f,   // lfoDepth    – slightly more vibrato
     0.15f,    // lfoDelay    – delayed vibrato for natural feel
     false,    // noiseShortMode (unused for pulse)
-    0.0f      // dutySweep   – no sweep by default
+    0.0f,      // dutySweep   – no sweep by default
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_LEAD{
-    0.32f,    // baseVolume – slightly lower than pulse lead (triangle is softer)
+    0.36f,    // baseVolume – slightly lower than pulse lead (triangle is softer)
     0.5f,     // duty (unused for triangle, API uniformity)
     5,        // defaultOctave – higher range for lead melodies
     0.0f,     // defaultDuration
     0,        // noisePeriod (unused)
     0.003f,   // attackTime – fast attack
-    0.15f,    // decayTime
-    0.75f,    // sustainLevel – smooth triangle sustain
-    0.12f,    // releaseTime
+    0.12f,    // decayTime
+    0.88f,    // sustainLevel – smoother/fuller triangle sustain
+    0.18f,    // releaseTime
     LfoTarget::PITCH,   // lfoTarget – vibrato
     4.0f,     // lfoFrequency (Hz) – gentle vibrato
     0.020f,   // lfoDepth – subtle vibrato
     0.20f,    // lfoDelay – delayed vibrato
     false,    // noiseShortMode (unused)
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_PAD{
-    0.28f,    // baseVolume – soft atmospheric pad
+    0.30f,    // baseVolume – soft atmospheric pad
     0.5f,     // duty (unused for triangle)
     4,        // defaultOctave – mid range for pad chords
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.015f,   // attackTime – slow attack for pad swells
     0.40f,    // decayTime – long decay
-    0.65f,    // sustainLevel
+    0.75f,    // sustainLevel – more pad body
     0.50f,    // releaseTime – long release
     LfoTarget::VOLUME,  // lfoTarget – gentle tremolo
     2.5f,     // lfoFrequency (Hz) – slow modulation
     0.15f,    // lfoDepth – subtle volume movement
     0.50f,    // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_PULSE_PAD{
-    0.26f,    // baseVolume
+    0.28f,    // baseVolume
     0.25f,    // duty (1/4) – hollow pulse sound
     4,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.020f,   // attackTime – pad-like slow attack
     0.60f,    // decayTime – very long decay
-    0.55f,    // sustainLevel
+    0.65f,    // sustainLevel – more pad body
     0.45f,    // releaseTime
     LfoTarget::PITCH,   // lfoTarget – slow pitch drift
     3.0f,     // lfoFrequency (Hz)
     0.035f,   // lfoDepth – noticeable pitch modulation
     0.30f,    // lfoDelay
     false,    // noiseShortMode
-    0.08f     // dutySweep – gentle PWM movement for evolving texture
+    0.08f,     // dutySweep – gentle PWM movement for evolving texture
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
-
 constexpr InstrumentPreset INSTR_PULSE_HARMONY{
-    0.22f,    // baseVolume
+    0.28f,    // baseVolume – more accompaniment presence
     0.125f,   // duty (1/8)
     5,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.005f,   // attackTime
-    0.50f,    // decayTime   – long decay for evolving pad
-    0.60f,    // sustainLevel– slightly higher sustain for more presence
-    0.30f,    // releaseTime
+    0.40f,    // decayTime   – settle into fuller sustain
+    0.75f,    // sustainLevel– more presence under leads
+    0.36f,    // releaseTime
     LfoTarget::VOLUME,  // lfoTarget – tremolo
     6.0f,     // lfoFrequency (Hz)
     0.30f,    // lfoDepth    – 30 % volume modulation
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.15f     // dutySweep   – more pronounced PWM-like movement
+    0.15f,     // dutySweep   – more pronounced PWM-like movement
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_TRIANGLE_BASS{
-    0.30f,    // baseVolume
+    0.36f,    // baseVolume – more bass weight
     0.5f,     // duty (unused for triangle, kept for API uniformity)
     3,        // defaultOctave
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.005f,   // attackTime
-    0.10f,    // decayTime
-    0.20f,    // sustainLevel– low sustain for tight bass
-    0.10f,    // releaseTime
+    0.08f,    // decayTime
+    0.45f,    // sustainLevel– fuller bass body (still tighter than leads)
+    0.16f,    // releaseTime
     LfoTarget::NONE,
     0.0f,     // lfoFrequency
     0.0f,     // lfoDepth
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_PULSE_BASS{
-    0.30f,    // baseVolume – punchy pulse bass
+    0.34f,    // baseVolume – punchy pulse bass
     0.25f,    // duty (1/4) – tighter, hollow sound
     2,        // defaultOctave – low range for bass
     0.0f,     // defaultDuration
     0,        // noisePeriod
     0.001f,   // attackTime – fast punch
     0.08f,    // decayTime – tight decay
-    0.35f,    // sustainLevel – medium sustain
-    0.08f,    // releaseTime – quick release
+    0.55f,    // sustainLevel – fuller sustain while keeping punch
+    0.14f,    // releaseTime – short body tail
     LfoTarget::NONE,
     0.0f,     // lfoFrequency
     0.0f,     // lfoDepth
     0.0f,     // lfoDelay
     false,    // noiseShortMode
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
-
 
 constexpr InstrumentPreset INSTR_KICK{
     0.45f,    // baseVolume – more punch
@@ -294,7 +312,9 @@ constexpr InstrumentPreset INSTR_KICK{
     0.0f,
     0.0f,
     false,    // noiseShortMode – kick is not metallic
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_SNARE{
@@ -312,7 +332,9 @@ constexpr InstrumentPreset INSTR_SNARE{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic 93‑step LFSR for snare
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 constexpr InstrumentPreset INSTR_HIHAT{
@@ -330,7 +352,9 @@ constexpr InstrumentPreset INSTR_HIHAT{
     0.0f,
     0.0f,
     true,     // noiseShortMode – metallic timbre for closed hat
-    0.0f      // dutySweep
+    0.0f,      // dutySweep
+    0.0f,     // pitchSweepEndHz
+    0.0f      // pitchSweepDurationSec
 };
 
 /**
