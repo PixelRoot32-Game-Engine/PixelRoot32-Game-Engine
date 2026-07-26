@@ -268,3 +268,23 @@ Test-only: current voice frequency in Hz (melodic / noise clock).
 - `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
 
 **Returns:** Frequency in Hz if slot is valid, 0 otherwise.
+
+### `float getVoiceDutyCycleForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current PULSE duty cycle [0,1].
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+### `float getVoiceDutySweepPerSampleForTesting(int slot) const`
+
+**Description:**
+
+Test-only: continuous dutySweep delta per sample (0 when duty stepped).
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
