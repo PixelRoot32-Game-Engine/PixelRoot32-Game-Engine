@@ -16,6 +16,7 @@
  */
 
 #include <unity.h>
+#include <cmath>
 #include <cstring>
 #include "../../test_config.h"
 #include "audio/ApuCore.h"
@@ -1463,6 +1464,603 @@ void test_apu_core_integration_multiple_voices(void) {
 // Export parity: MusicTrack.duty is authoritative (not InstrumentPreset.duty)
 // =============================================================================
 
+// =============================================================================
+// Noise sweep, loop, and duration==0 one-shot (sfx-synthesis-high-priority)
+// =============================================================================
+
+void test_apu_core_noise_pitch_sweep_updates_period(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 2000.0f;  // period = 44100/2000 = 22
+    cmd.event.duration = 0.5f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.noisePeriod = 0;
+    cmd.event.sweepEndHz = 200.0f;  // period = 44100/200 = 220
+    cmd.event.sweepDurationSec = 0.05f;
+    cmd.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+
+    const uint32_t startPeriod = 44100u / 2000u;
+    const uint32_t endPeriod = 44100u / 200u;
+    int sfxSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceEnabledForTesting(i)) {
+            sfxSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(sfxSlot >= 0);
+    const uint32_t periodAfter = apu.getVoiceNoisePeriodForTesting(sfxSlot);
+    TEST_ASSERT_TRUE(periodAfter > startPeriod);
+    TEST_ASSERT_TRUE(periodAfter <= endPeriod);
+
+    // Run through the rest of the sweep window.
+    for (int n = 0; n < 20; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    const uint32_t periodEnd = apu.getVoiceNoisePeriodForTesting(sfxSlot);
+    TEST_ASSERT_EQUAL_UINT32(endPeriod, periodEnd);
+}
+
+void test_apu_core_loop_voice_stays_enabled_until_stop(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::TRIANGLE;
+    cmd.event.frequency = 220.0f;
+    cmd.event.duration = 0.0f;
+    cmd.event.volume = 0.4f;
+    cmd.event.duty = 0.5f;
+    cmd.event.loop = true;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[512] = {0};
+    apu.generateSamples(buffer, 512);
+    TEST_ASSERT_TRUE(apu.countEnabledVoicesForTesting() >= 1);
+
+    int loopSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceLoopForTesting(i) && apu.isVoiceEnabledForTesting(i)) {
+            loopSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(loopSlot >= 0);
+
+    // Far beyond any short one-shot duration — still playing.
+    for (int n = 0; n < 40; ++n) {
+        apu.generateSamples(buffer, 512);
+    }
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(loopSlot));
+    TEST_ASSERT_TRUE(apu.isVoiceLoopForTesting(loopSlot));
+
+    AudioCommand stop{};
+    stop.type = AudioCommandType::STOP_CHANNEL;
+    stop.channelIndex = static_cast<uint8_t>(loopSlot);
+    TEST_ASSERT_TRUE(apu.submitCommand(stop));
+    apu.generateSamples(buffer, 64);
+    TEST_ASSERT_FALSE(apu.isVoiceEnabledForTesting(loopSlot));
+}
+
+void test_apu_core_oneshot_zero_duration_does_not_hang(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[128] = {0};
+    apu.generateSamples(buffer, 128);
+    TEST_ASSERT_EQUAL_INT(0, apu.countEnabledVoicesForTesting());
+}
+
+// =============================================================================
+// SweepCurve Linear / Exponential (sfx-synthesis-medium-priority)
+// =============================================================================
+
+static int find_first_enabled_sfx_slot(ApuCore& apu) {
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceEnabledForTesting(i)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void test_apu_core_linear_sweep_midpoint_arithmetic(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 1.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 880.0f;
+    cmd.event.sweepDurationSec = 0.1f;  // 4410 samples
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    // Advance to ~50% of sweep (2205 samples ≈ 8.6 * 256).
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const float hz = apu.getVoiceFrequencyForTesting(slot);
+    // Linear midpoint ≈ 660 Hz; allow coarse window around arithmetic mean.
+    TEST_ASSERT_FLOAT_WITHIN(40.0f, 660.0f, hz);
+}
+
+void test_apu_core_exponential_sweep_midpoint_geometric(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 1.0f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 880.0f;
+    cmd.event.sweepDurationSec = 0.1f;
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const float hz = apu.getVoiceFrequencyForTesting(slot);
+    // Geometric midpoint = 440 * sqrt(2) ≈ 622.25; must not sit on linear 660.
+    TEST_ASSERT_FLOAT_WITHIN(35.0f, 622.25f, hz);
+    TEST_ASSERT_TRUE(std::fabs(hz - 660.0f) > 15.0f);
+}
+
+void test_apu_core_exponential_noise_sweep_updates_period(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 2000.0f;  // period = 22
+    cmd.event.duration = 0.5f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.noisePeriod = 0;
+    cmd.event.sweepEndHz = 200.0f;  // period = 220
+    cmd.event.sweepDurationSec = 0.05f;
+    cmd.event.loop = false;
+    cmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+
+    const uint32_t startPeriod = 44100u / 2000u;
+    const uint32_t endPeriod = 44100u / 200u;
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const uint32_t periodAfter = apu.getVoiceNoisePeriodForTesting(slot);
+    TEST_ASSERT_TRUE(periodAfter > startPeriod);
+    TEST_ASSERT_TRUE(periodAfter <= endPeriod);
+
+    for (int n = 0; n < 20; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    TEST_ASSERT_EQUAL_UINT32(endPeriod, apu.getVoiceNoisePeriodForTesting(slot));
+}
+
+void test_apu_core_sweep_curve_default_linear_and_nonpositive_fallback(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    // Brace-init omits sweepCurve → Linear (ABI default 0).
+    AudioCommand linearCmd{};
+    linearCmd.type = AudioCommandType::PLAY_EVENT;
+    linearCmd.event.type = WaveType::PULSE;
+    linearCmd.event.frequency = 440.0f;
+    linearCmd.event.duration = 1.0f;
+    linearCmd.event.volume = 0.5f;
+    linearCmd.event.duty = 0.5f;
+    linearCmd.event.sweepEndHz = 880.0f;
+    linearCmd.event.sweepDurationSec = 0.1f;
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(SweepCurve::Linear),
+                            static_cast<uint8_t>(linearCmd.event.sweepCurve));
+    TEST_ASSERT_TRUE(apu.submitCommand(linearCmd));
+
+    int16_t buffer[256] = {0};
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(40.0f, 660.0f, apu.getVoiceFrequencyForTesting(slot));
+
+    // Exponential with non-positive start Hz falls back to Linear arithmetic.
+    apu.reset();
+    AudioCommand fallbackCmd{};
+    fallbackCmd.type = AudioCommandType::PLAY_EVENT;
+    fallbackCmd.event.type = WaveType::PULSE;
+    fallbackCmd.event.frequency = 0.0f;
+    fallbackCmd.event.duration = 1.0f;
+    fallbackCmd.event.volume = 0.5f;
+    fallbackCmd.event.duty = 0.5f;
+    fallbackCmd.event.sweepEndHz = 880.0f;
+    fallbackCmd.event.sweepDurationSec = 0.1f;
+    fallbackCmd.event.sweepCurve = SweepCurve::Exponential;
+    TEST_ASSERT_TRUE(apu.submitCommand(fallbackCmd));
+    for (int n = 0; n < 9; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    // Linear from 0 → 880 at alpha≈0.5 ≈ 440 (not geometric, which is undefined).
+    TEST_ASSERT_FLOAT_WITHIN(50.0f, 440.0f, apu.getVoiceFrequencyForTesting(slot));
+}
+
+void test_apu_core_loop_voice_is_stealable(void) {
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    // Fill SFX pool with long one-shots + one loop; then force steal.
+    for (int i = 0; i < ApuCore::SFX_VOICE_COUNT; ++i) {
+        AudioCommand cmd{};
+        cmd.type = AudioCommandType::PLAY_EVENT;
+        cmd.event.type = WaveType::PULSE;
+        cmd.event.frequency = 300.0f + static_cast<float>(i) * 10.0f;
+        cmd.event.duration = (i == 0) ? 0.0f : 2.0f;
+        cmd.event.volume = 0.3f;
+        cmd.event.duty = 0.5f;
+        cmd.event.loop = (i == 0);
+        TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+    }
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 256);
+    TEST_ASSERT_EQUAL_INT(ApuCore::SFX_VOICE_COUNT,
+                          static_cast<int>(apu.countEnabledVoicesForTesting()));
+
+    int loopSlot = -1;
+    for (int i = ApuCore::SFX_VOICE_BASE; i < ApuCore::MAX_VOICES; ++i) {
+        if (apu.isVoiceLoopForTesting(i)) {
+            loopSlot = i;
+            break;
+        }
+    }
+    TEST_ASSERT_TRUE(loopSlot >= 0);
+
+    // New event must steal the loop (steal score 0) rather than starve.
+    AudioCommand steal{};
+    steal.type = AudioCommandType::PLAY_EVENT;
+    steal.event.type = WaveType::TRIANGLE;
+    steal.event.frequency = 880.0f;
+    steal.event.duration = 0.2f;
+    steal.event.volume = 0.5f;
+    steal.event.duty = 0.5f;
+    steal.event.loop = false;
+    TEST_ASSERT_TRUE(apu.submitCommand(steal));
+    apu.generateSamples(buffer, 64);
+
+    TEST_ASSERT_FALSE(apu.isVoiceLoopForTesting(loopSlot));
+    TEST_ASSERT_TRUE(apu.isVoiceEnabledForTesting(loopSlot));
+}
+
+// =============================================================================
+// Duty stepped (sfx-synthesis-low-priority block 1)
+// =============================================================================
+
+void test_apu_core_duty_stepped_absent_keeps_legacy_duty_sweep(void) {
+    // Large dutySweep with no duty steps must still advance dutyCycle (legacy PWM).
+    static const InstrumentPreset kSweepPreset{
+        0.8f, 0.5f, 4, 0.0f, 0, 0.001f, 0.0f, 1.0f, 0.001f,
+        LfoTarget::NONE, 0.0f, 0.0f, 0.0f, false,
+        8.0f  // dutySweep: +8.0 duty units per second
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.5f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.125f;
+    cmd.event.preset = &kSweepPreset;
+    cmd.event.dutySteps = nullptr;
+    cmd.event.dutyStepCount = 0;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 1);
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.125f, apu.getVoiceDutyCycleForTesting(slot));
+    TEST_ASSERT_TRUE(apu.getVoiceDutySweepPerSampleForTesting(slot) != 0.0f);
+
+    apu.generateSamples(buffer, 256);
+    const float dutyAfter = apu.getVoiceDutyCycleForTesting(slot);
+    TEST_ASSERT_TRUE_MESSAGE(dutyAfter > 0.125f + 0.01f,
+                             "legacy dutySweep must advance duty without steps");
+}
+
+void test_apu_core_duty_stepped_mid_note_hold(void) {
+    static const SfxBreakpoint kSteps[] = {
+        {0.0f, 0.125f},
+        {0.05f, 0.5f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.25f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.75f;  // superseded by step at t=0
+    cmd.event.dutySteps = kSteps;
+    cmd.event.dutyStepCount = 2;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 1);
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.125f, apu.getVoiceDutyCycleForTesting(slot));
+
+    // Just before 0.05s (2205 samples @ 44100): still 12.5%.
+    const int beforeBoundary = 2200;
+    int remaining = beforeBoundary - 1;  // already generated 1 sample
+    while (remaining > 0) {
+        const int n = remaining > 256 ? 256 : remaining;
+        apu.generateSamples(buffer, n);
+        remaining -= n;
+    }
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.125f, apu.getVoiceDutyCycleForTesting(slot));
+
+    // Cross 0.05s boundary → hold 50%.
+    apu.generateSamples(buffer, 16);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, apu.getVoiceDutyCycleForTesting(slot));
+}
+
+void test_apu_core_pitch_envelope_three_points_linear(void) {
+    static const SfxBreakpoint kPitch[] = {
+        {0.0f, 523.25f},
+        {0.1f, 659.25f},
+        {0.2f, 783.99f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 100.0f;  // superseded by first pitch point
+    cmd.event.duration = 0.4f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.pitchEnvelope = kPitch;
+    cmd.event.pitchEnvelopeCount = 3;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 1);
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(2.0f, 523.25f, apu.getVoiceFrequencyForTesting(slot));
+
+    // Midpoint of first segment (~0.05s).
+    int remaining = 2205 - 1;
+    while (remaining > 0) {
+        const int n = remaining > 256 ? 256 : remaining;
+        apu.generateSamples(buffer, n);
+        remaining -= n;
+    }
+    TEST_ASSERT_FLOAT_WITHIN(8.0f, 591.25f, apu.getVoiceFrequencyForTesting(slot));
+
+    // Midpoint of second segment (~0.15s): +4410 samples from 0.05.
+    remaining = 4410;
+    while (remaining > 0) {
+        const int n = remaining > 256 ? 256 : remaining;
+        apu.generateSamples(buffer, n);
+        remaining -= n;
+    }
+    TEST_ASSERT_FLOAT_WITHIN(8.0f, 721.62f, apu.getVoiceFrequencyForTesting(slot));
+
+    // Past last point: hold.
+    for (int i = 0; i < 20; ++i) {
+        apu.generateSamples(buffer, 256);
+    }
+    TEST_ASSERT_FLOAT_WITHIN(2.0f, 783.99f, apu.getVoiceFrequencyForTesting(slot));
+}
+
+void test_apu_core_pitch_envelope_noise_updates_period(void) {
+    static const SfxBreakpoint kPitch[] = {
+        {0.0f, 2000.0f},
+        {0.05f, 200.0f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::NOISE;
+    cmd.event.frequency = 500.0f;
+    cmd.event.duration = 0.3f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.pitchEnvelope = kPitch;
+    cmd.event.pitchEnvelopeCount = 2;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    apu.generateSamples(buffer, 1);
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_EQUAL_UINT32(44100u / 2000u, apu.getVoiceNoisePeriodForTesting(slot));
+
+    for (int i = 0; i < 20; ++i) {
+        apu.generateSamples(buffer, 256);
+    }
+    TEST_ASSERT_EQUAL_UINT32(44100u / 200u, apu.getVoiceNoisePeriodForTesting(slot));
+}
+
+void test_apu_core_pitch_envelope_precedes_single_sweep(void) {
+    static const SfxBreakpoint kPitch[] = {
+        {0.0f, 440.0f},
+        {0.1f, 880.0f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::TRIANGLE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.3f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 100.0f;       // must be ignored
+    cmd.event.sweepDurationSec = 0.1f;
+    cmd.event.pitchEnvelope = kPitch;
+    cmd.event.pitchEnvelopeCount = 2;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    for (int i = 0; i < 30; ++i) {
+        apu.generateSamples(buffer, 256);
+    }
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    const float hz = apu.getVoiceFrequencyForTesting(slot);
+    TEST_ASSERT_FLOAT_WITHIN(5.0f, 880.0f, hz);
+    TEST_ASSERT_TRUE_MESSAGE(hz > 400.0f, "must follow pitch envelope, not sweepEndHz=100");
+}
+
+void test_apu_core_pitch_envelope_count_below_two_keeps_sweep(void) {
+    static const SfxBreakpoint kOnePoint[] = {
+        {0.0f, 220.0f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 440.0f;
+    cmd.event.duration = 0.3f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.sweepEndHz = 880.0f;
+    cmd.event.sweepDurationSec = 0.1f;
+    cmd.event.pitchEnvelope = kOnePoint;
+    cmd.event.pitchEnvelopeCount = 1;
+    cmd.event.sweepCurve = SweepCurve::Linear;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[256] = {0};
+    for (int i = 0; i < 30; ++i) {
+        apu.generateSamples(buffer, 256);
+    }
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(5.0f, 880.0f, apu.getVoiceFrequencyForTesting(slot));
+}
+
+void test_apu_core_duty_stepped_hold_after_last_and_ignores_duty_sweep(void) {
+    static const InstrumentPreset kSweepPreset{
+        0.8f, 0.5f, 4, 0.0f, 0, 0.001f, 0.0f, 1.0f, 0.001f,
+        LfoTarget::NONE, 0.0f, 0.0f, 0.0f, false,
+        20.0f  // would move duty fast if not ignored
+    };
+    static const SfxBreakpoint kSteps[] = {
+        {0.0f, 0.25f},
+        {0.02f, 0.125f},
+    };
+
+    ApuCore apu;
+    apu.init(44100);
+    apu.reset();
+
+    AudioCommand cmd{};
+    cmd.type = AudioCommandType::PLAY_EVENT;
+    cmd.event.type = WaveType::PULSE;
+    cmd.event.frequency = 330.0f;
+    cmd.event.duration = 0.2f;
+    cmd.event.volume = 0.5f;
+    cmd.event.duty = 0.5f;
+    cmd.event.preset = &kSweepPreset;
+    cmd.event.dutySteps = kSteps;
+    cmd.event.dutyStepCount = 2;
+    TEST_ASSERT_TRUE(apu.submitCommand(cmd));
+
+    int16_t buffer[512] = {0};
+    apu.generateSamples(buffer, 1);
+    const int slot = find_first_enabled_sfx_slot(apu);
+    TEST_ASSERT_TRUE(slot >= 0);
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 0.0f, apu.getVoiceDutySweepPerSampleForTesting(slot));
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.25f, apu.getVoiceDutyCycleForTesting(slot));
+
+    // Past last breakpoint (0.02s = 882 samples): hold 12.5%, no PWM drift.
+    for (int n = 0; n < 8; ++n) {
+        apu.generateSamples(buffer, 256);
+    }
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.125f, apu.getVoiceDutyCycleForTesting(slot));
+}
+
 void test_apu_core_music_uses_track_duty_not_preset_duty(void)
 {
     // Preset duty is 50%; track duty is 12.5%. Sequencer must wire track->duty.
@@ -1593,6 +2191,23 @@ int main(int argc, char** argv) {
     RUN_TEST(test_apu_core_melodic_track_keeps_fixed_slot_mapping);
     RUN_TEST(test_apu_core_percussion_saturated_no_idle_slot_confined_to_sfx);
     RUN_TEST(test_apu_core_music_uses_track_duty_not_preset_duty);
+    RUN_TEST(test_apu_core_noise_pitch_sweep_updates_period);
+    RUN_TEST(test_apu_core_linear_sweep_midpoint_arithmetic);
+    RUN_TEST(test_apu_core_exponential_sweep_midpoint_geometric);
+    RUN_TEST(test_apu_core_exponential_noise_sweep_updates_period);
+    RUN_TEST(test_apu_core_sweep_curve_default_linear_and_nonpositive_fallback);
+    RUN_TEST(test_apu_core_loop_voice_stays_enabled_until_stop);
+    RUN_TEST(test_apu_core_oneshot_zero_duration_does_not_hang);
+    RUN_TEST(test_apu_core_loop_voice_is_stealable);
+
+    // Duty stepped + pitch envelope (sfx-synthesis-low-priority)
+    RUN_TEST(test_apu_core_duty_stepped_absent_keeps_legacy_duty_sweep);
+    RUN_TEST(test_apu_core_duty_stepped_mid_note_hold);
+    RUN_TEST(test_apu_core_duty_stepped_hold_after_last_and_ignores_duty_sweep);
+    RUN_TEST(test_apu_core_pitch_envelope_three_points_linear);
+    RUN_TEST(test_apu_core_pitch_envelope_noise_updates_period);
+    RUN_TEST(test_apu_core_pitch_envelope_precedes_single_sweep);
+    RUN_TEST(test_apu_core_pitch_envelope_count_below_two_keeps_sweep);
 
     // Integration tests
     RUN_TEST(test_apu_core_integration_full_pipeline);

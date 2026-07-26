@@ -1,0 +1,117 @@
+{
+  "target": "esp32dev",
+  "resolution": "128x128",
+  "methodology": {
+    "flash": "pio size delta: measure_full vs flag-disabled build (code linked via BenchScene refs)",
+    "ram_static": "pio size .data+.bss delta",
+    "ram_audio_heap": "sizeof(ESP32AudioScheduler) always allocated when AUDIO=1",
+    "note": "ESP32 base_esp32 uses reduced physics grid (4/4/64). Particles RAM includes 1 ParticleEmitter member pool."
+  },
+  "builds": {
+    "measure_full": {
+      "ram_bytes": 102993,
+      "flash_bytes": 342241,
+      "details": {
+        "text": 255033,
+        "data": 87208,
+        "bss": 15785,
+        "dec": 358026
+      }
+    },
+    "measure_no_audio": {
+      "ram_bytes": 102297,
+      "flash_bytes": 332045,
+      "details": {
+        "text": 245461,
+        "data": 86584,
+        "bss": 15713,
+        "dec": 347758
+      }
+    },
+    "measure_no_physics": {
+      "ram_bytes": 94265,
+      "flash_bytes": 335249,
+      "details": {
+        "text": 248881,
+        "data": 86368,
+        "bss": 7897,
+        "dec": 343146
+      }
+    },
+    "measure_no_ui": {
+      "ram_bytes": 94233,
+      "flash_bytes": 330081,
+      "details": {
+        "text": 251513,
+        "data": 78568,
+        "bss": 15665,
+        "dec": 345746
+      }
+    },
+    "measure_no_particles": {
+      "ram_bytes": 100681,
+      "flash_bytes": 337137,
+      "details": {
+        "text": 250977,
+        "data": 86160,
+        "bss": 14521,
+        "dec": 351658
+      }
+    },
+    "measure_all_off": {
+      "ram_bytes": 82181,
+      "flash_bytes": 306705,
+      "details": {
+        "text": 230965,
+        "data": 75740,
+        "bss": 6441,
+        "dec": 313146
+      }
+    }
+  },
+  "sizeofs": {
+    "ESP32AudioScheduler": 13464,
+    "CollisionSystem": 4884,
+    "ParticleEmitter": 1264,
+    "UIManager": 96,
+    "UILabel": 64,
+    "UIButton": 64
+  },
+  "deltas": {
+    "audio": {
+      "ram_static_bytes": 696,
+      "ram_bytes": 14160,
+      "flash_bytes": 10196,
+      "ram_display": "~14 KB",
+      "flash_display": "~10 KB"
+    },
+    "physics": {
+      "ram_static_bytes": 8728,
+      "ram_bytes": 8728,
+      "flash_bytes": 6992,
+      "ram_display": "~9 KB",
+      "flash_display": "~7 KB"
+    },
+    "ui": {
+      "ram_static_bytes": 8760,
+      "ram_bytes": 8760,
+      "flash_bytes": 12160,
+      "ram_display": "~9 KB",
+      "flash_display": "~12 KB"
+    },
+    "particles": {
+      "ram_static_bytes": 2312,
+      "ram_bytes": 2312,
+      "flash_bytes": 5104,
+      "ram_display": "~2 KB",
+      "flash_display": "~5 KB"
+    },
+    "all": {
+      "ram_static_bytes": 20812,
+      "ram_bytes": 34276,
+      "flash_bytes": 35536,
+      "ram_display": "~33 KB",
+      "flash_display": "~35 KB"
+    }
+  }
+}

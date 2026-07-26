@@ -25,7 +25,7 @@ high-level architecture and the concrete implementation details.
 - **Public API unchanged**: games and music still describe sounds with **`WaveType`** on **`AudioEvent`** / **`MusicTrack::channelType`**. Internally, `ApuCore` maps `WaveType` ↔ **`VoiceType`** (`PULSE`, `TRIANGLE`, `NOISE`, `SINE`, `SAW`) for allocation policy; the active waveform on a voice is still a `WaveType` on that voice’s state.
 - **Voice allocation**: melodic sequencer tracks use **fixed slots 0–3** (`trackIdx` → slot). **Sequencer percussion hits** (NOISE + kit preset with `duty == 0`) and **`PLAY_EVENT` SFX** share the **SFX subpool** (slots **4–7**). Allocation searches only 4–7, preferring an inactive voice whose stored type matches the requested `WaveType`; if none, it may **steal** the active SFX voice with the **smallest `remainingSamples`**. SFX never steals melodic slots 0–3, and concurrent music tracks with the same `WaveType` do not interrupt each other.
 - Software mixing into a **mono** 16-bit (`int16_t`) stream.
-- **Event-driven** model: games fire short-lived `AudioEvent` instances (SFX, notes).
+- **Event-driven** model: games fire `AudioEvent` instances (SFX one-shots, loops, or scheduled sequences; music notes).
 - **Conditionally compiled**: Entire subsystem can be excluded with `PIXELROOT32_ENABLE_AUDIO=0` to save firmware size and RAM.
 - **Platform-agnostic API** with concrete work split as follows:
   - [`AudioEngine`](include/audio/AudioEngine.h) is a thin facade: it forwards `playEvent` / `setMasterVolume` as commands and delegates `generateSamples` to an `AudioScheduler`.
@@ -103,7 +103,7 @@ Highlights (see [`AudioTypes.h`](include/audio/AudioTypes.h) for the full struct
 - **Float path** (FPU ESP32, native): `phase` in `[0,1)`, `phaseIncrement = frequency / sampleRate`, linear volume ramp (`volume`, `targetVolume`, `volumeDelta`).
 - **Integer mirror** (ESP32-C3, no FPU): `phaseQ32`, `phaseIncQ32`, `dutyCycleQ32` — updated on each `PLAY_EVENT` so the hot inner loop in `ApuCore::generateSamples` avoids per-sample soft-float.
 - **Noise**: `lfsrState` (15-bit LFSR), `noisePeriodSamples`, `noiseCountdown` — same deterministic polynomial on **all** platforms.
-- **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled (then it can be reused or stolen per §3.5).
+- **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled, unless **`loop == true`** (see §2.3). Looping voices use a sentinel (`UINT64_MAX`) and do not auto-disable; they may be stolen per §3.5.
 
 On **note on**, `ApuCore` initializes an ADSR envelope from the `InstrumentPreset` (or legacy defaults: 2ms attack, no decay, full sustain, 5ms release) to shape the note amplitude over time, reducing clicks and enabling expressive articulation.
 
@@ -115,17 +115,22 @@ Also defined in `AudioTypes.h`:
 struct AudioEvent {
     WaveType type;
     float frequency;
-    float duration; // seconds
+    float duration; // seconds (one-shot length; ignored as finite gate when loop==true)
     float volume;   // 0.0 - 1.0
     float duty;     // only for PULSE
     uint8_t noisePeriod = 0;  // for NOISE: 0=calc from frequency, >0=direct LFSR period
     const InstrumentPreset* preset = nullptr;
-    float sweepEndHz = 0.0f;       // linear sweep target (PULSE/TRIANGLE); 0 = off
+    float sweepEndHz = 0.0f;       // linear sweep target (melodic Hz or NOISE clock Hz)
     float sweepDurationSec = 0.0f; // sweep length; 0 = off
+    bool loop = false;             // continuous until STOP_CHANNEL or steal (see below)
 };
 ```
 
-- **Linear sweep** (optional): when `sweepDurationSec > 0` and `sweepEndHz > 0`, and `type` is `PULSE` or `TRIANGLE`, frequency moves linearly from `frequency` toward `sweepEndHz` over `min(ceil(sweepDurationSec * sampleRate), note samples)`; `NOISE` ignores these fields.
+- **Linear sweep** (optional): when `sweepDurationSec > 0` and `sweepEndHz > 0`:
+  - **PULSE / TRIANGLE / SINE / SAW**: frequency moves linearly from `frequency` toward `sweepEndHz` over `min(ceil(sweepDurationSec * sampleRate), note samples)` for one-shots, or the full sweep duration when `loop == true`.
+  - **NOISE**: interpolates the **LFSR clock** (period in samples) from the initial value (`noisePeriod` or derived from `frequency`) toward the period implied by `sweepEndHz`.
+- **`loop`**: when `true`, the voice stays enabled until **`STOP_CHANNEL`** on that voice slot or **voice steal** under SFX pool saturation. `remainingSamples` uses `UINT64_MAX` and does not count down.
+- **One-shot safety**: when `loop == false` and `duration <= 0`, `ApuCore` **disables the voice immediately** (no hanging voice).
 - It is the basic unit used to trigger a sound.
 - It is passed as a parameter to `AudioEngine::playEvent`.
 - **Note**: Only available when `PIXELROOT32_ENABLE_AUDIO=1`
@@ -150,8 +155,9 @@ The audio system no longer uses `deltaTime` or frame-based updates. Instead, it 
 
 - **Audio Time**: Internal unit is samples (e.g., 1 second = 44100 samples at 44.1kHz).
 - **Decoupled Logic**: The `AudioScheduler` runs in a separate thread (SDL2) or core (ESP32).
-- **Lifetime**: For each active **voice** (`AudioChannel` / `Voice`), `ApuCore` subtracts 1 from `remainingSamples` for every sample generated.
+- **Lifetime**: For each active **voice** (`AudioChannel` / `Voice`), `ApuCore` subtracts 1 from `remainingSamples` for every sample generated **unless `loop == true`**.
 - When `remainingSamples` reaches 0, the voice is automatically disabled (unless extended by the ADSR **RELEASE** phase per existing rules).
+- **Looping SFX**: `loop == true` sets `remainingSamples = UINT64_MAX`; stop explicitly with **`STOP_CHANNEL`** or rely on steal when the SFX subpool is full.
 
 Important:
 
@@ -165,7 +171,7 @@ Oscillator work is implemented in **`ApuCore::generateSampleForVoice`** (float p
 
 1. **`PULSE`**: square with configurable duty (`dutyCycle` / `dutyCycleQ32`).
 2. **`TRIANGLE`**: symmetric triangle in `[-1, 1]` (float) or quantized from `phaseQ32` high bits (integer path).
-3. **`NOISE`**: **NES-style 15-bit LFSR** on **all** targets — same bit taps, advanced when `noiseCountdown` reaches 0, then reloaded from `noisePeriodSamples`. `AudioEvent::frequency` for noise sets the default clock when `noisePeriod == 0`; otherwise a fixed period can be supplied for percussion.
+3. **`NOISE`**: **NES-style 15-bit LFSR** on **all** targets — same bit taps, advanced when `noiseCountdown` reaches 0, then reloaded from `noisePeriodSamples`. `AudioEvent::frequency` for noise sets the default clock when `noisePeriod == 0`; otherwise a fixed period can be supplied for percussion. Optional **period sweep** uses `sweepEndHz` / `sweepDurationSec` (clock Hz target, not melodic pitch).
 
 After the per-voice sample (float path):
 
@@ -221,9 +227,9 @@ When **`PIXELROOT32_ENABLE_PROFILING`** is defined (`platforms/EngineConfig.h` �
 
 `ApuCore` then:
 
-- Selects a **voice slot** via **`findVoiceForSfxEvent(WaveType)`** (slots **4–7** only): prefers an **inactive** voice whose `type` already matches the requested `WaveType`; otherwise picks any inactive slot in the subpool; if **all four** SFX slots are active, **steals** the voice with the **minimum `remainingSamples`** (breaking ties by scan order).
-- Converts the event's duration (seconds) into `remainingSamples` based on the current sample rate.
-- Initializes the voice state (`enabled`, `frequency`, `phase`, fixed-point mirrors, ADSR envelope, LFSR for noise, etc.) and sets `type` from the event.
+- Selects a **voice slot** via **`findVoiceForSfxEvent(WaveType)`** (slots **4–7** only): prefers an **inactive** voice whose `type` already matches the requested `WaveType`; otherwise picks any inactive slot in the subpool; if **all four** SFX slots are active, **steals** the voice with the **minimum steal score** (breaking ties by scan order). **Looping voices score 0** (treated as lowest remaining priority) so new one-shots can replace a stuck engine/motor loop under saturation.
+- Converts the event's duration (seconds) into `remainingSamples` based on the current sample rate, or sets the loop sentinel when `event.loop == true`.
+- Initializes the voice state (`enabled`, `frequency`, `phase`, fixed-point mirrors, ADSR envelope, LFSR for noise, sweep state, etc.) and sets `type` from the event.
 
 ### 3.6 Sequencer percussion and SFX coexistence
 
@@ -238,7 +244,7 @@ Background music **melody / bass / harmony** always occupy fixed slots **0–2**
 **Practical limits (documented for future tuning):**
 
 - At most **four** concurrent voices among **all** sequencer drums **plus** gameplay SFX.
-- Under saturation, the **shortest remaining** voice in 4–7 may be stolen — no priority between drums and gameplay SFX today (acceptable for typical retro titles with short one-shots).
+- Under saturation, the voice with the **lowest steal score** in 4–7 may be stolen — looping SFX are preferred steal targets; no separate drum-vs-SFX priority today (acceptable for typical retro titles with short one-shots).
 - Melodic music in 0–3 is **never** affected by drum or SFX allocation.
 - Stacked same-step drums use `MusicNote.duration == 0` on all but the last hit so the sequencer fires every hit on one tick without advancing tempo between them.
 
@@ -490,13 +496,28 @@ Internally this uses `AudioCommandType::SET_MASTER_BITCRUSH` on the same SPSC qu
 Effects are built by combining basic parameters and optional ADSR envelopes:
 
 **Basic Parameters**
-- `frequency`: lower or higher pitch (sweep start when using `sweepEndHz` / `sweepDurationSec`).
-- `duration`: effect length (seconds).
+- `frequency`: lower or higher pitch (sweep start when using `sweepEndHz` / `sweepDurationSec`). On **NOISE**, sets the initial LFSR clock when `noisePeriod == 0`.
+- `duration`: effect length (seconds) for one-shots; must be **> 0** when `loop == false`.
 - `volume`: 0.0–1.0.
+- `loop`: continuous tone (motor, ambience) until **`STOP_CHANNEL`** on the voice slot or steal.
 - `duty` (pulse only):
   - 0.125: thinner, sharper timbre.
   - 0.25: classic "NES lead".
   - 0.5: symmetric square, "fatter" sound.
+
+**Stopping a looping SFX**
+
+```cpp
+// After playEvent on a looping event, stop the voice slot when the effect should end:
+pr32::audio::AudioCommand stop{};
+stop.type = pr32::audio::AudioCommandType::STOP_CHANNEL;
+stop.channelIndex = voiceSlot; // 0..MAX_VOICES-1
+engine.getAudioEngine().submitCommand(stop);
+```
+
+**Timed SFX sequences (arpeggios)**
+
+The Engine does **not** embed an SFX step sequencer inside `ApuCore`. Prefer the opt-in helper [`playSfxBank`](include/audio/SfxBankPlayback.h): it dispatches Tool Suite bank `layerEvent` calls at `t = 0` and hands delayed `sequenceStep` entries to a game-supplied `SfxDelayScheduler` (scene timer / command queue). Looping voices still require `STOP_CHANNEL` (or steal); the helper does not manage cooldowns or global SFX volume. Legacy games may keep iterating `layerCount` / `layerEvent` only. See Tool Suite `docs/SFX_ENGINE_ABI_REFERENCE.md`.
 
 **ADSR Envelope (via `InstrumentPreset`)**
 - `attackTime`: how quickly the sound reaches peak volume (0.0 = instant).
@@ -739,7 +760,9 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **ADSR Envelopes**: Full Attack-Decay-Sustain-Release envelopes implemented via `InstrumentPreset` for expressive note articulation and click-free playback.
 - **LFO Modulation**: Low-frequency oscillators for vibrato (pitch) and tremolo (volume) effects.
 - **Multi-track Music**: Support for up to 4 simultaneous tracks (main + 3 sub-tracks) with independent voices and percussion.
-- **Linear frequency sweep**: optional portamento on `PULSE` / `TRIANGLE` via `AudioEvent::sweepEndHz` and `sweepDurationSec` (sample-accurate linear interpolation; applied before LFO pitch modulation each sample).
+- **Linear frequency sweep**: optional portamento on **PULSE / TRIANGLE / SINE / SAW** via `AudioEvent::sweepEndHz` and `sweepDurationSec` (sample-accurate linear interpolation; applied before LFO pitch modulation each sample).
+- **Noise period sweep**: same sweep fields on **`NOISE`** interpolate LFSR clock Hz (period), enabling descending “scream” / boom effects.
+- **Continuous SFX (`loop`)**: `AudioEvent::loop == true` holds a voice until **`STOP_CHANNEL`** or steal; one-shots with `duration <= 0` and `loop == false` disable immediately (no accidental hang).
 - **Master bitcrush**: optional `AudioEngine::setMasterBitcrush` (0–15) on the final `int16_t` bus.
 - **extra waveforms**: `WaveType::SINE` (256-point LUT in [`AudioOscLUT.h`](include/audio/AudioOscLUT.h)) and `WaveType::SAW` (linear ramp); both are first-class `WaveType` values allocated from the **same `MAX_VOICES` pool** as pulse/triangle/noise. `executePlayEvent` sets each voice’s `type` per note; linear sweep applies to SINE/SAW as well.
 - **— post-mix hook**: optional `AudioConfig::postMixMono` / `postMixUser`, applied in `ApuCore::generateSamples` after bitcrush on the full buffer. **RT-safe contract:** no heap allocation, no mutexes, bounded work. `AudioEngine::init` forwards the pointer to `ApuCore::setPostMixMono`.
