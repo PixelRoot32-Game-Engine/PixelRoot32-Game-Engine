@@ -3,6 +3,8 @@
  * Licensed under the MIT License
  */
 #include "audio/AudioEngine.h"
+#include "core/Log.h"
+#include <pixelroot32/apu/ApuConfig.h>
 #ifdef ESP32
 #include "drivers/esp32/ESP32AudioScheduler.h"
 #elif defined(PLATFORM_NATIVE)
@@ -28,6 +30,14 @@ namespace pixelroot32::audio {
     }
 
     void AudioEngine::init() {
+        // Route the shared APU library's diagnostics through the engine logger.
+        apuSetLogHandler([](ApuLogLevel level, const char* message) {
+            namespace logging = pixelroot32::core::logging;
+            logging::log(level == ApuLogLevel::Warning
+                             ? logging::LogLevel::Warning
+                             : logging::LogLevel::Info,
+                         "%s", message);
+        });
         if (scheduler) {
             scheduler->init(config.backend, config.sampleRate, capabilities, config.blockSize);
             scheduler->getApuCore().setPostMixMono(config.postMixMono, config.postMixUser);
