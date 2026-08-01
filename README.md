@@ -117,10 +117,10 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.7.0
+    gperez88/PixelRoot32-Game-Engine@^1.8.0
 ```
 
-PlatformIO will automatically download and install the library and its dependencies during the next build.
+PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
 
 ### Fast Setup
 
@@ -200,10 +200,21 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - ✅ **Touch Screen Support**: `UITouchButton`, `UITouchCheckbox`, and `UITouchSlider`.
 - ✅ **4+4 Audio Voice Partition**: Melodic sequencer tracks (slots 0–3) isolated from percussion/SFX (slots 4–7) with subpool-limited voice stealing.
 - ✅ **Advanced SFX Synthesis**: Looping SFX, noise period sweep, Linear/Exponential curves, duty/pitch breakpoint envelopes, and header-only `playSfxBank` (additive `AudioEvent` ABI).
+- ✅ **Shared APU Library**: The synthesis core lives in [PixelRoot32-APU](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-APU), shared with the PixelRoot32 Tool Suite — one ABI source, byte-identical preview/export audio.
 
 ---
 
 ## 🕒 Changelog
+
+## 1.8.0
+
+### 🔊 Audio
+
+- **Shared APU Library**: The APU core is now the [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) library (`gperez88/PixelRoot32-APU@^1.0.1`), resolved automatically by PlatformIO. Engine includes and the `pixelroot32::audio` namespace are unchanged — games compile as-is.
+- **Music Transport**: New `MUSIC_SEEK` / `MUSIC_UPDATE_TRACKS` commands with loop-aware sequencer resync and transport tick getters.
+- **Percussion Fix**: `INSTR_KICK` / `INSTR_SNARE` noise periods now match the documented 1.7.0 values (60/15) — 1.7.0 shipped them swapped.
+- **Q15 Correctness**: Master volume applied before the compressor in the fixed-point path; unified FPU detection (`PR32_APU_HAS_FPU`).
+- **Scheduler**: `DefaultAudioScheduler::stop()` now truly silences output until `start()`.
 
 ## 1.7.0
 
