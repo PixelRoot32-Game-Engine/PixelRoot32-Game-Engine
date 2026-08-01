@@ -40,5 +40,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git"
-  }
+  },
+  "homepage": "https://pixelroot32.org"
 }
