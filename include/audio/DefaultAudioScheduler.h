@@ -33,13 +33,28 @@ namespace pixelroot32::audio {
             apu.init(44100);
         }
 
+        /**
+         * @brief Initializes the underlying ApuCore.
+         *
+         * @param backend Unused: generation is driven by the caller of
+         *        generateSamples(), so no backend handle is needed.
+         * @param sampleRate Output sample rate forwarded to ApuCore.
+         * @param caps Unused: no thread/core pinning happens here.
+         * @param blockSize Unused: the caller chooses the buffer length on
+         *        every generateSamples() call.
+         */
         void init(AudioBackend* backend, int sampleRate,
                   const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
         /** @brief Enqueues a command to the ApuCore. @param cmd The command to submit. */
         void submitCommand(const AudioCommand& cmd) override;
-        /** @brief Marks scheduler as running. Starts audio generation context. */
+        /** @brief Resumes sample generation after stop(). Generation starts enabled. */
         void start() override;
-        /** @brief Marks scheduler as stopped. Silences all voices. */
+        /**
+         * @brief Halts generation: generateSamples() outputs silence until start().
+         *
+         * Commands submitted while stopped stay queued in the ApuCore and are
+         * processed on the first generateSamples() call after start().
+         */
         void stop() override;
         /** @brief Returns false (no dedicated audio thread). @return false. */
         bool isIndependent() const override;
@@ -57,7 +72,7 @@ namespace pixelroot32::audio {
 
     private:
         ApuCore apu;     ///< The shared APU core handling all synthesis.
-        bool running = false; ///< Whether the scheduler is active.
+        bool running = true; ///< Generation enabled by default; stop() silences output.
     };
 
 } // namespace pixelroot32::audio
