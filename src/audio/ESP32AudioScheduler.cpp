@@ -6,8 +6,6 @@
 
 #include "drivers/esp32/ESP32AudioScheduler.h"
 
-#include <Arduino.h>
-
 namespace pixelroot32::audio {
 
     namespace platforms = pixelroot32::platforms;
@@ -37,11 +35,8 @@ namespace pixelroot32::audio {
     }
 
     void ESP32AudioScheduler::stop() {
+        // Backends own the FreeRTOS task; this only flags the scheduler state.
         running = false;
-        if (taskHandle) {
-            vTaskDelete(taskHandle);
-            taskHandle = nullptr;
-        }
     }
 
     void ESP32AudioScheduler::generateSamples(int16_t* stream, int length) {

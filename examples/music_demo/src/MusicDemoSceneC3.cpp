@@ -1,9 +1,9 @@
 #include "MusicDemoConstants.h"
 #include "MusicDemoSceneC3.h"
-#include "assets/classic_arcade_melody.h"
-#include "assets/adventure_melody.h"
-#include "assets/action_melody.h"
-#include "assets/arpeggio_melody.h"
+#include "assets/coinleaf_grove.h"
+#include "assets/blaster_ridge.h"
+#include "assets/lightworld_march.h"
+#include "assets/moonwell_hymn.h"
 
 #include <core/Engine.h>
 #include <cstdio>
@@ -60,23 +60,27 @@ void MusicDemoSceneC3::playMelody(int idx) {
 
     switch (idx) {
         case 1: {
-            player.setBPM(140.0f);
-            player.play(sClassicArcadeTrack);
+        //     player.setBPM(140.0f);
+        //     player.play(sClassicArcadeTrack);
+            int a = 1;
             break;
         }
         case 2: {
-            player.setBPM(125.0f);
-            player.play(sAdventureTrack);
+            // player.setBPM(125.0f);
+            // player.play(sAdventureTrack);
+            int a = 1;
             break;
         }
         case 3: {
-            player.setBPM(160.0f);
-            player.play(sActionTrack);
+            // player.setBPM(160.0f);
+            // player.play(sActionTrack);
+            int a = 1;
             break;
         }
         case 4: {
-            player.setBPM(145.0f);
-            player.play(sArpDemoTrack);
+            // player.setBPM(145.0f);
+            // player.play(sArpDemoTrack);
+            int a = 1;
             break;
         }
     }

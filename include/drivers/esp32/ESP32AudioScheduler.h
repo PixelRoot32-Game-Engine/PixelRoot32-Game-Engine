@@ -48,7 +48,6 @@ namespace pixelroot32::audio {
     private:
         ApuCore apu;
         AudioBackend* backend = nullptr;
-        TaskHandle_t taskHandle = nullptr;
         volatile bool running = false;
         int blockSize = 256;
     };

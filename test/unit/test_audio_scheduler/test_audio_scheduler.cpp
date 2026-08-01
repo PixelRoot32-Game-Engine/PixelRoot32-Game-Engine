@@ -264,8 +264,16 @@ void test_default_scheduler_stop(void) {
     scheduler.submitCommand(cmd);
     scheduler.stop();
     int16_t buffer[256];
+    // Pre-fill with garbage so the silence assertion is meaningful.
+    for (int i = 0; i < 256; ++i) buffer[i] = (int16_t)0x2D2D;
     scheduler.generateSamples(buffer, 256);
-    (void)buffer;
+    TEST_ASSERT_TRUE(bufferAllSilence(buffer, 256));
+
+    // start() resumes generation; the PLAY_EVENT queued while stopped is
+    // processed on the first call after resuming.
+    scheduler.start();
+    scheduler.generateSamples(buffer, 256);
+    TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 256));
 }
 
 void test_default_scheduler_is_independent(void) {
@@ -538,6 +546,7 @@ void test_audio_scheduler_shutdown_during_active_playback(void) {
     TEST_ASSERT_TRUE(bufferHasNonZero(buffer, 256));
     scheduler.stop();
     scheduler.generateSamples(buffer, 256);
+    TEST_ASSERT_TRUE(bufferAllSilence(buffer, 256));
     TEST_ASSERT_EQUAL(0u, scheduler.core().getDroppedCommands());
 }
 
