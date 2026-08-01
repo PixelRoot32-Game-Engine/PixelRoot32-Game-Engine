@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.8.0
+
+### 🔊 Audio — Shared APU Library (extract-apu)
+
+* **PixelRoot32-APU Dependency**: The APU core (`ApuCore`, audio types, oscillator/mixer LUTs, SPSC command queue) now lives in the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) library (`gperez88/PixelRoot32-APU@^1.0.1`), consumed by both the engine and the PixelRoot32 Tool Suite. The engine headers under `include/audio/` re-export the library, so games keep compiling with the same includes and `pixelroot32::audio` namespace — no source changes required.
+* **Single ABI Source**: Engine and Tool Suite parity is now guaranteed by the library version pin instead of the retired hand-maintained Tool Suite mirror.
+* **Transport Superset (from Tool Suite convergence)**: New `MUSIC_UPDATE_TRACKS` and `MUSIC_SEEK` commands with loop-aware `resyncTrackSequencerToTick`, transport tick getters (`getMusicGlobalTick` / `getMusicPlayStartTick`) and `executePlayEvent` gate override.
+* **Percussion Fix**: `INSTR_KICK.noisePeriod = 60` / `INSTR_SNARE.noisePeriod = 15` now actually match the values documented in the 1.7.0 changelog — 1.7.0 shipped them swapped. Existing content that relied on the swapped timbre will sound different (kick deeper, snare brighter).
+* **Note Duration Clamp**: Sequencer note gate is now `max(duration, 0.05) / tempoFactor` (previously zero-length notes could produce inaudible gates).
+* **Q15 Path Correctness**: Master volume is applied before the compressor/LUT stage (numeric equivalence with the float path); duplicate float mixer branches merged; unified FPU detection via `PR32_APU_HAS_FPU`; APU diagnostics routed through `core/Log.h` via the library's injectable log handler.
+* **Scheduler Cleanup**: `DefaultAudioScheduler::stop()` now silences `generateSamples()` output until `start()` resumes; removed dead FreeRTOS task-handle code from `ESP32AudioScheduler`.
+
+### 🎮 Examples
+
+* All 15 example projects declare the shared APU library alongside the engine in `lib_deps`.
+
 # 1.7.0
 
 ### 🔊 Audio — Voice Allocation & Sequencer
