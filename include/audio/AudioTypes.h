@@ -367,11 +367,15 @@ namespace pixelroot32::audio {
         SET_MASTER_VOLUME,
         SET_MASTER_BITCRUSH,
         MUSIC_PLAY,
+        /// Hot-swap sequencer tracks while playback continues (no transport reset).
+        MUSIC_UPDATE_TRACKS,
         MUSIC_STOP,
         MUSIC_PAUSE,
         MUSIC_RESUME,
         MUSIC_SET_TEMPO,
         MUSIC_SET_BPM,
+        /// Reposition music sequencer to an elapsed-tick offset from piece start.
+        MUSIC_SEEK,
     };
 
     // Forward declaration for MusicTrack
@@ -396,6 +400,8 @@ namespace pixelroot32::audio {
         static constexpr size_t MAX_SUB_TRACKS = 3;
         /** Used when type == SET_MASTER_BITCRUSH (clamped 0–15; 0 = off). */
         uint8_t masterBitcrushBits = 0;
+        /** Used when type == MUSIC_SEEK: elapsed ticks from music play start. */
+        uint64_t seekOffsetTicks = 0;
         const MusicTrack* subTracks[MAX_SUB_TRACKS];
         size_t subTrackCount;
 
@@ -405,6 +411,7 @@ namespace pixelroot32::audio {
         AudioCommand()
             : type(AudioCommandType::STOP_CHANNEL),
               masterBitcrushBits(0),
+              seekOffsetTicks(0),
               subTracks{nullptr, nullptr, nullptr},
               subTrackCount(0) {
             std::memset(static_cast<void*>(&event), 0, sizeof(event));

@@ -302,7 +302,7 @@ constexpr InstrumentPreset INSTR_KICK{
     0.0f,     // duty (0 → noise channel)
     1,        // defaultOctave (kick selector)
     0.12f,    // defaultDuration (fixed length)
-    15,       // noisePeriod – lower for deeper kick sound
+    60,       // noisePeriod – higher = slower LFSR clock, deeper kick body
     0.001f,   // attackTime  – instantaneous click
     0.10f,    // decayTime   – slightly longer for more body
     0.00f,    // sustainLevel– no sustain
@@ -322,7 +322,7 @@ constexpr InstrumentPreset INSTR_SNARE{
     0.0f,     // duty → noise
     2,        // defaultOctave (snare selector)
     0.15f,    // defaultDuration
-    60,       // noisePeriod – brighter, crisper noise
+    15,       // noisePeriod – lower = faster LFSR clock, brighter snare crack
     0.001f,   // attackTime
     0.08f,    // decayTime   – shorter for a snappier sound
     0.00f,    // sustainLevel– no sustain

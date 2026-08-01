@@ -131,6 +131,16 @@ namespace pixelroot32::audio {
         /** @brief Reports if music is paused. @return true if paused. */
         bool isMusicPaused()  const { return musicPausedFlag.load(std::memory_order_acquire); }
 
+        /** @brief Current absolute sequencer tick (transport clock). Thread-safe. */
+        uint64_t getMusicGlobalTick() const {
+            return musicGlobalTick_.load(std::memory_order_acquire);
+        }
+
+        /** @brief Absolute tick at which the current piece started (MUSIC_PLAY / MUSIC_SEEK anchor). Thread-safe. */
+        uint64_t getMusicPlayStartTick() const {
+            return musicPlayStartTick_.load(std::memory_order_acquire);
+        }
+
         /** @brief Gets the configured sample rate. @return Sample rate in Hz. */
         int getSampleRate() const { return sampleRate; }
 
@@ -190,6 +200,23 @@ namespace pixelroot32::audio {
          */
         bool isVoiceEnabledForTesting(int slot) const;
         /**
+         * @brief Test-only: envelope stage of the first enabled voice of a wave type.
+         * @param type Wave type to search for.
+         * @return Envelope stage, or EnvelopeState::Stage::OFF if no match.
+         */
+        EnvelopeState::Stage getActiveVoiceStageForTesting(WaveType type) const;
+        /**
+         * @brief Test-only: fixed music voice slot when the melodic gate is active, else -1.
+         * @param track_index Sequencer track [0, MAX_MUSIC_TRACKS).
+         */
+        int getTrackVoiceSlotForTesting(size_t track_index) const;
+        /**
+         * @brief Test-only: envelope stage of a music track's fixed voice slot.
+         * @param track_index Sequencer track [0, MAX_MUSIC_TRACKS).
+         * @return Envelope stage, or EnvelopeState::Stage::OFF if disabled/out-of-range.
+         */
+        EnvelopeState::Stage getTrackVoiceStageForTesting(size_t track_index) const;
+        /**
          * @brief Test-only: reports whether a music track has an active melodic gate.
          * @note Available only when UNIT_TEST is defined (native_test). Not for game code.
          * @param track_index Sequencer track [0, MAX_MUSIC_TRACKS); out-of-range returns false.
@@ -233,9 +260,13 @@ namespace pixelroot32::audio {
 #endif
 
     private:
+        static constexpr int kInvalidVoiceSlot = -1;
+
         void processCommands();
         void updateMusicSequencer();
-        void executePlayEvent(const AudioEvent& event);
+        /** Rebuild a track's note index / next-tick state for an absolute target tick. */
+        void resyncTrackSequencerToTick(size_t track_index, uint64_t target_tick);
+        void executePlayEvent(const AudioEvent& event, uint64_t gate_samples = 0);
         void playSequencerPercussionHit(const AudioEvent& event);
         void initVoiceFromEvent(Voice* voice, const AudioEvent& event, uint64_t gate_samples,
                                 bool music_sequencer_legato = false);
@@ -299,6 +330,10 @@ namespace pixelroot32::audio {
         // natural end-of-track without polling private state.
         std::atomic<bool> musicPlayingFlag{false};
         std::atomic<bool> musicPausedFlag{false};
+
+        /** Transport clock mirrors (absolute ticks) for playhead observers. */
+        std::atomic<uint64_t> musicGlobalTick_{0};
+        std::atomic<uint64_t> musicPlayStartTick_{0};
 
         /** After MUSIC_PLAY, allow one sequencer pass even when currentTick == startTick. */
         bool firstSequencerCallAfterPlay_ = false;

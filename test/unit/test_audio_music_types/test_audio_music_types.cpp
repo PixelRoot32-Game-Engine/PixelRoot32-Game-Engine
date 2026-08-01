@@ -262,7 +262,9 @@ void test_instr_kick_values(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_KICK.duty);          // duty=0 -> NOISE channel
     TEST_ASSERT_EQUAL(1, INSTR_KICK.defaultOctave);         // kick selector
     TEST_ASSERT_EQUAL_FLOAT(0.12f, INSTR_KICK.defaultDuration);
-    TEST_ASSERT_EQUAL(15, INSTR_KICK.noisePeriod);
+    // Canonical percussion values (Tool Suite parity): higher period = slower
+    // LFSR clock = deeper kick body.
+    TEST_ASSERT_EQUAL(60, INSTR_KICK.noisePeriod);
     TEST_ASSERT_EQUAL_FLOAT(0.001f, INSTR_KICK.attackTime);
     TEST_ASSERT_EQUAL_FLOAT(0.10f, INSTR_KICK.decayTime);
     TEST_ASSERT_EQUAL_FLOAT(0.00f, INSTR_KICK.sustainLevel);
@@ -275,7 +277,9 @@ void test_instr_snare_values(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_SNARE.duty);
     TEST_ASSERT_EQUAL(2, INSTR_SNARE.defaultOctave);        // snare selector
     TEST_ASSERT_EQUAL_FLOAT(0.15f, INSTR_SNARE.defaultDuration);
-    TEST_ASSERT_EQUAL(60, INSTR_SNARE.noisePeriod);
+    // Canonical percussion values (Tool Suite parity): lower period = faster
+    // LFSR clock = brighter snare crack.
+    TEST_ASSERT_EQUAL(15, INSTR_SNARE.noisePeriod);
     TEST_ASSERT_EQUAL_FLOAT(0.08f, INSTR_SNARE.decayTime);
     TEST_ASSERT_TRUE(INSTR_SNARE.noiseShortMode);            // metallic timbre
 }

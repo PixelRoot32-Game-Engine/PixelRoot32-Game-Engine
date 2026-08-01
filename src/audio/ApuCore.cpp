@@ -537,6 +537,8 @@ namespace pixelroot32::audio {
         deferredNotes.store(0, std::memory_order_release);
         musicPlayingFlag.store(false, std::memory_order_release);
         musicPausedFlag.store(false, std::memory_order_release);
+        musicGlobalTick_.store(0, std::memory_order_release);
+        musicPlayStartTick_.store(0, std::memory_order_release);
         droppedCommands.store(0, std::memory_order_release);
         firstSequencerCallAfterPlay_ = false;
         clearMusicTrackVoiceState();
@@ -562,6 +564,38 @@ namespace pixelroot32::audio {
             return false;
         }
         return voices[slot].enabled;
+    }
+
+    EnvelopeState::Stage ApuCore::getActiveVoiceStageForTesting(WaveType type) const {
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            if (voices[i].enabled && voices[i].type == type) {
+                return voices[i].envelope.stage;
+            }
+        }
+        return EnvelopeState::Stage::OFF;
+    }
+
+    int ApuCore::getTrackVoiceSlotForTesting(size_t track_index) const {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return kInvalidVoiceSlot;
+        }
+        if (!track_voice_active_[track_index]) {
+            return kInvalidVoiceSlot;
+        }
+        return static_cast<int>(track_index);
+    }
+
+    EnvelopeState::Stage ApuCore::getTrackVoiceStageForTesting(
+        size_t track_index) const
+    {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return EnvelopeState::Stage::OFF;
+        }
+        const Voice& voice = voices[static_cast<int>(track_index)];
+        if (!voice.enabled) {
+            return EnvelopeState::Stage::OFF;
+        }
+        return voice.envelope.stage;
     }
 
     bool ApuCore::isMusicTrackVoiceActiveForTesting(size_t track_index) const {
@@ -687,7 +721,6 @@ namespace pixelroot32::audio {
                     break;
 
                 case AudioCommandType::MUSIC_PLAY: {
-                    clearMusicTrackVoiceState();
                     activeTrackCount = 1;
                     tracks[0] = cmd.track;
                     currentNoteIndices[0] = 0;
@@ -702,6 +735,8 @@ namespace pixelroot32::audio {
                         (tickDurationSamples > 0) ? (audioTimeSamples / tickDurationSamples) : 0;
                     globalTickCounter = startTick;
                     nextNoteTicks[0] = startTick;
+                    musicPlayStartTick_.store(startTick, std::memory_order_release);
+                    musicGlobalTick_.store(startTick, std::memory_order_release);
 
                     for (size_t i = 0;
                          i < cmd.subTrackCount && activeTrackCount < MAX_MUSIC_TRACKS;
@@ -715,20 +750,54 @@ namespace pixelroot32::audio {
                     }
 
                     firstSequencerCallAfterPlay_ = true;
+                    clearMusicTrackVoiceState();
                     musicPlayingFlag.store(true, std::memory_order_release);
                     musicPausedFlag.store(false, std::memory_order_release);
                     break;
                 }
 
-                case AudioCommandType::MUSIC_STOP:
+                case AudioCommandType::MUSIC_UPDATE_TRACKS: {
+                    if (!musicPlayingFlag.load(std::memory_order_acquire)) {
+                        break;
+                    }
+
+                    activeTrackCount = 1;
+                    tracks[0] = cmd.track;
+
+                    for (size_t i = 0;
+                         i < cmd.subTrackCount && activeTrackCount < MAX_MUSIC_TRACKS;
+                         ++i) {
+                        if (cmd.subTracks[i]) {
+                            tracks[activeTrackCount] = cmd.subTracks[i];
+                            activeTrackCount++;
+                        }
+                    }
+
+                    const uint64_t target_tick =
+                        (tickDurationSamples > 0)
+                            ? (audioTimeSamples / tickDurationSamples)
+                            : globalTickCounter;
+                    for (size_t track_idx = 0; track_idx < activeTrackCount;
+                         ++track_idx) {
+                        resyncTrackSequencerToTick(track_idx, target_tick);
+                    }
+
                     clearMusicTrackVoiceState();
+                    firstSequencerCallAfterPlay_ = false;
+                    break;
+                }
+
+                case AudioCommandType::MUSIC_STOP:
                     for (size_t i = 0; i < MAX_MUSIC_TRACKS; ++i) {
                         tracks[i] = nullptr;
                         currentNoteIndices[i] = 0;
                         nextNoteTicks[i] = 0;
                     }
                     activeTrackCount = 0;
+                    clearMusicTrackVoiceState();
                     musicPlayingFlag.store(false, std::memory_order_release);
+                    musicGlobalTick_.store(0, std::memory_order_release);
+                    musicPlayStartTick_.store(0, std::memory_order_release);
                     break;
 
                 case AudioCommandType::MUSIC_PAUSE:
@@ -749,6 +818,43 @@ namespace pixelroot32::audio {
                         (uint64_t)((float)sampleRate * 60.0f / (tempoBPM * (float)TICKS_PER_BEAT));
                     break;
 
+                case AudioCommandType::MUSIC_SEEK: {
+                    if (!musicPlayingFlag.load(std::memory_order_acquire)) {
+                        break;
+                    }
+
+                    uint64_t target_tick =
+                        (tickDurationSamples > 0)
+                            ? (audioTimeSamples / tickDurationSamples)
+                            : globalTickCounter;
+                    const uint64_t seek_ticks = cmd.seekOffsetTicks;
+
+                    // Want elapsed = seek_ticks, i.e. target - start == seek_ticks.
+                    // When "now" is still before seek_ticks (just after play), advance
+                    // the clock so start=0 and current=seek_ticks.
+                    if (target_tick < seek_ticks) {
+                        musicPlayStartTick_.store(0, std::memory_order_release);
+                        target_tick = seek_ticks;
+                        if (tickDurationSamples > 0) {
+                            audioTimeSamples = seek_ticks * tickDurationSamples;
+                        }
+                    } else {
+                        musicPlayStartTick_.store(target_tick - seek_ticks,
+                                                  std::memory_order_release);
+                    }
+                    musicGlobalTick_.store(target_tick, std::memory_order_release);
+                    globalTickCounter = target_tick;
+
+                    for (size_t track_idx = 0; track_idx < activeTrackCount;
+                         ++track_idx) {
+                        resyncTrackSequencerToTick(track_idx, target_tick);
+                        beginReleaseOnMusicTrack(track_idx);
+                    }
+                    clearMusicTrackVoiceState();
+                    firstSequencerCallAfterPlay_ = false;
+                    break;
+                }
+
                 default:
                     break;
             }
@@ -758,6 +864,112 @@ namespace pixelroot32::audio {
     // ------------------------------------------------------------------
     // Music sequencer (NES-style tick sync)
     // ------------------------------------------------------------------
+    void ApuCore::resyncTrackSequencerToTick(size_t track_index, uint64_t target_tick)
+    {
+        if (track_index >= MAX_MUSIC_TRACKS) {
+            return;
+        }
+
+        const MusicTrack* track = tracks[track_index];
+        if (track == nullptr || track->count == 0) {
+            currentNoteIndices[track_index] = 0;
+            nextNoteTicks[track_index] = target_tick;
+            return;
+        }
+
+        auto note_ticks_for = [this](const MusicNote& note) -> uint64_t {
+            // duration == 0 means "fire now, do not advance" (stacked drum hits).
+            return (uint64_t)(note.duration * (float)TICKS_PER_BEAT / tempoFactor);
+        };
+
+        uint64_t loop_ticks = 0;
+        for (size_t i = 0; i < track->count; ++i) {
+            loop_ticks += note_ticks_for(track->notes[i]);
+        }
+        if (loop_ticks == 0) {
+            loop_ticks = 1;
+        }
+
+        const uint64_t start_tick =
+            musicPlayStartTick_.load(std::memory_order_acquire);
+        uint64_t loop_index = 0;
+        uint64_t pos_in_loop = 0;
+        if (target_tick >= start_tick) {
+            const uint64_t elapsed = target_tick - start_tick;
+            if (track->loop) {
+                loop_index = elapsed / loop_ticks;
+                pos_in_loop = elapsed % loop_ticks;
+            } else {
+                pos_in_loop = elapsed;
+                if (pos_in_loop >= loop_ticks) {
+                    tracks[track_index] = nullptr;
+                    currentNoteIndices[track_index] = track->count;
+                    nextNoteTicks[track_index] = start_tick + loop_ticks;
+                    return;
+                }
+            }
+        }
+
+        const uint64_t abs_cycle_base = start_tick + loop_index * loop_ticks;
+        uint64_t rel_tick = 0;
+        size_t note_idx = 0;
+
+        for (int guard = 0; guard < 100000; ++guard) {
+            if (note_idx >= track->count) {
+                if (!track->loop) {
+                    tracks[track_index] = nullptr;
+                    currentNoteIndices[track_index] = note_idx;
+                    nextNoteTicks[track_index] = abs_cycle_base + rel_tick;
+                    return;
+                }
+                note_idx = 0;
+                rel_tick = 0;
+            }
+
+            const uint64_t note_ticks = note_ticks_for(track->notes[note_idx]);
+            // Zero-duration stacked hits: land on the first one at this tick.
+            if (note_ticks == 0) {
+                if (rel_tick == pos_in_loop) {
+                    currentNoteIndices[track_index] = note_idx;
+                    nextNoteTicks[track_index] = abs_cycle_base + rel_tick;
+                    return;
+                }
+                ++note_idx;
+                continue;
+            }
+
+            if (rel_tick + note_ticks > pos_in_loop) {
+                if (pos_in_loop > rel_tick) {
+                    size_t next_idx = note_idx + 1;
+                    if (next_idx >= track->count) {
+                        if (track->loop) {
+                            next_idx = 0;
+                        } else {
+                            tracks[track_index] = nullptr;
+                            currentNoteIndices[track_index] = next_idx;
+                            nextNoteTicks[track_index] =
+                                abs_cycle_base + rel_tick + note_ticks;
+                            return;
+                        }
+                    }
+                    currentNoteIndices[track_index] = next_idx;
+                    nextNoteTicks[track_index] =
+                        abs_cycle_base + rel_tick + note_ticks;
+                } else {
+                    currentNoteIndices[track_index] = note_idx;
+                    nextNoteTicks[track_index] = abs_cycle_base + rel_tick;
+                }
+                return;
+            }
+
+            rel_tick += note_ticks;
+            ++note_idx;
+        }
+
+        currentNoteIndices[track_index] = std::min(note_idx, track->count);
+        nextNoteTicks[track_index] = abs_cycle_base + rel_tick;
+    }
+
     void ApuCore::updateMusicSequencer() {
         if (!musicPlayingFlag.load(std::memory_order_acquire)
             || musicPausedFlag.load(std::memory_order_acquire)
@@ -773,6 +985,7 @@ namespace pixelroot32::audio {
         }
         firstSequencerCallAfterPlay_ = false;
         globalTickCounter = currentTick;
+        musicGlobalTick_.store(globalTickCounter, std::memory_order_release);
 
         const size_t limit = sequencerNoteLimit.load(std::memory_order_acquire);
         size_t notesProcessedThisFrame = 0;
@@ -832,7 +1045,7 @@ namespace pixelroot32::audio {
                         event.frequency = instrumentToFrequency(*note.preset, note.note, note.octave);
                         event.duration = (note.preset->defaultDuration > 0.0f)
                             ? note.preset->defaultDuration / tempoFactor
-                            : (note.duration > 0.0f ? note.duration : 0.05f) / tempoFactor;
+                            : std::max(note.duration, 0.05f) / tempoFactor;
                         event.noisePeriod = note.preset->noisePeriod;
                         event.preset = note.preset;
                     } else {
@@ -1201,10 +1414,10 @@ namespace pixelroot32::audio {
         initVoiceFromEvent(ch, event, 0);
     }
 
-    void ApuCore::executePlayEvent(const AudioEvent& event) {
+    void ApuCore::executePlayEvent(const AudioEvent& event, uint64_t gate_samples) {
         Voice* ch = findVoiceForSfxEvent(event.type);
         if (!ch) return;
-        initVoiceFromEvent(ch, event, 0);
+        initVoiceFromEvent(ch, event, gate_samples);
     }
 
     Voice* ApuCore::findVoiceForSfxEvent(WaveType type) {
@@ -1526,8 +1739,10 @@ namespace pixelroot32::audio {
         // R = 0.995 at 22050 Hz -> ~35 Hz -3dB
         constexpr float HPF_R = 0.995f;
 
-#if defined(SOC_CPU_HAS_FPU) && SOC_CPU_HAS_FPU
-        // ---- FPU path (ESP32 classic, ESP32-S3, native) -----------------
+#if !defined(ESP32) || (defined(SOC_CPU_HAS_FPU) && SOC_CPU_HAS_FPU)
+        // ---- Float path (native, ESP32 classic, ESP32-S3) ---------------
+        // Single float branch for every FPU-capable or desktop target; the
+        // integer/LUT branch below is reserved for no-FPU ESP32 cores.
         for (int i = 0; i < length; ++i) {
             float acc = 0.0f;
             for (int c = 0; c < MAX_VOICES; ++c) {
@@ -1550,7 +1765,7 @@ namespace pixelroot32::audio {
             if (finalSample < -32768.0f) finalSample = -32768.0f;
             stream[i] = apply_master_bitcrush((int16_t)finalSample, masterBitcrushBits_);
         }
-#elif defined(ESP32)
+#else
         // ---- Integer / LUT path (ESP32-C3, RISC-V no-FPU) ---------------
         // Uses the Q32 phase mirror + Q15 output per channel so the inner
         // loop contains zero soft-float operations. The LUT is pre-fitted
@@ -1724,6 +1939,13 @@ namespace pixelroot32::audio {
                 }
             }
 
+            // Apply master volume before the compressor curve so the nonlinear
+            // stage sees the attenuated mix — same order as the FPU path
+            // (acc *= masterVolume happens before the soft-clip there).
+            if (masterVolumeScale != 65536) {
+                sum = (int32_t)(((int64_t)sum * (int64_t)masterVolumeScale) >> 16);
+            }
+
             int32_t index = (sum + 131072) >> 8;
             if (index < 0) index = 0;
             if (index > 1024) index = 1024;
@@ -1751,17 +1973,11 @@ namespace pixelroot32::audio {
             hpfPrevInQ15 = inputQ15;
             hpfPrevOutQ15 = hpfOutQ15;
 
-            // Convert to Q14 for master volume (matches FPU path scaling)
+            // Fixed -6 dB headroom pad (Q15 -> Q14). NOTE: the FPU path has no
+            // equivalent pad; kept for now to avoid a silent loudness change on
+            // no-FPU targets — revisit when unifying paths in the APU library.
             int32_t finalSample = hpfOutQ15 >> 1;
 
-            // Apply master volume after HPF (matches FPU path order)
-            if (masterVolumeScale != 65536) {
-                finalSample = (finalSample * masterVolumeScale) >> 16;
-                // Clamp to 16-bit range
-                if (finalSample > 32767) finalSample = 32767;
-                if (finalSample < -32768) finalSample = -32768;
-            }
-            
             stream[i] = apply_master_bitcrush((int16_t)finalSample, masterBitcrushBits_);
 
             const int32_t absSample = (stream[i] < 0) ? -(int32_t)stream[i] : (int32_t)stream[i];
@@ -1772,29 +1988,6 @@ namespace pixelroot32::audio {
         // (and the FPU fallback if ever invoked) sees up-to-date state.
         for (int c = 0; c < MAX_VOICES; ++c) {
             voices[c].volume = (float)volQ15[c] / 32768.0f;
-        }
-#else
-        // ---- Native / fallback path -------------------------------------
-        for (int i = 0; i < length; ++i) {
-            float acc = 0.0f;
-            for (int c = 0; c < MAX_VOICES; ++c) {
-                if (voices[c].enabled) {
-                    acc += generateSampleForVoice(voices[c]) * MIXER_SCALE;
-                }
-            }
-            acc *= masterVolume;
-            float mixed = acc / (1.0f + std::fabs(acc) * MIXER_K);
-
-            const float hpfOut = mixed - hpfPrevIn + HPF_R * hpfPrevOut;
-            hpfPrevIn = mixed;
-            hpfPrevOut = hpfOut;
-
-            float finalSample = hpfOut * FINAL_SCALE;
-            const float absSample = std::fabs(finalSample);
-            if (absSample > currentPeak) currentPeak = absSample;
-            if (finalSample > 32767.0f) finalSample = 32767.0f;
-            if (finalSample < -32768.0f) finalSample = -32768.0f;
-            stream[i] = apply_master_bitcrush((int16_t)finalSample, masterBitcrushBits_);
         }
 #endif
 
