@@ -1,0 +1,2073 @@
+{
+  "format": "pr32music-export-sidecar",
+  "headerFingerprint": "5acaab8ca04aceda",
+  "headerFingerprintAlgorithm": "fnv1a64",
+  "project": {
+    "bpm": 168.0,
+    "defaultPatternLengthSteps": 64,
+    "format": "pr32music",
+    "instrumentPalette": [
+      "LIB_SAW_EDGE",
+      "LIB_SAW_GROWL_BASS",
+      "LIB_PULSE_HERO_BRASS",
+      "LIB_SAW_RAZOR",
+      "LIB_SAW_BRIGHT"
+    ],
+    "instruments": [],
+    "loop": true,
+    "name": "Blaster Ridge",
+    "patterns": [
+      {
+        "id": "B_a",
+        "lengthSteps": 64,
+        "name": "Bass Blaster",
+        "notes": [
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 0,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 1,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 2,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 4,
+            "startStep": 3,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 4,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 5,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 11,
+            "startStep": 6,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 7,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 8,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 9,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 10,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 4,
+            "startStep": 11,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 12,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 13,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 11,
+            "startStep": 14,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 15,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 16,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 17,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 18,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 0,
+            "startStep": 19,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 20,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 21,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 22,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 0,
+            "startStep": 23,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 24,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 25,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 26,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 2,
+            "startStep": 27,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 28,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 29,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 30,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 31,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 32,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 33,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 34,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 4,
+            "startStep": 35,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 36,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 37,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 11,
+            "startStep": 38,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 39,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 40,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 41,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 42,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 7,
+            "startStep": 43,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 44,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 45,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 2,
+            "startStep": 46,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 7,
+            "startStep": 47,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 48,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 49,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 50,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 3,
+            "pitch": 9,
+            "startStep": 51,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 52,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 53,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 4,
+            "startStep": 54,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 9,
+            "startStep": 55,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 56,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 57,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 58,
+            "volume": 0.75
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 11,
+            "startStep": 59,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 60,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 61,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 2,
+            "pitch": 6,
+            "startStep": 62,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 11,
+            "startStep": 63,
+            "volume": 0.6000000238418579
+          }
+        ],
+        "trackId": "t2"
+      },
+      {
+        "id": "D_a",
+        "lengthSteps": 64,
+        "name": "Drums Blaster",
+        "notes": [
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 0,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 3,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 4,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 8,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_TOM",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 11,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 12,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_ZAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 14,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "LIB_DRUM_CLAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 15,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 0,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 1,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 2,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 3,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 4,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 5,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 6,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 7,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 8,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 9,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 10,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 11,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 12,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 13,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 14,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 15,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 16,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 19,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 20,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 24,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_TOM",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 27,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 28,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_ZAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 30,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "LIB_DRUM_CLAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 31,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 16,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 17,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 18,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 19,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 20,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 21,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 22,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 23,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 24,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 25,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 26,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 27,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 28,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 29,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 30,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 31,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 32,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 35,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 36,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 40,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_TOM",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 43,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 44,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_ZAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 46,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "LIB_DRUM_CLAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 47,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 32,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 33,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 34,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 35,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 36,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 37,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 38,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 39,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 40,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 41,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 42,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 43,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 44,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 45,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 46,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 47,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 48,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 51,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 52,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "INSTR_KICK",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 56,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_TOM",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 59,
+            "volume": 0.6499999761581421
+          },
+          {
+            "instrumentId": "INSTR_SNARE",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 60,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "LIB_DRUM_ZAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 62,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "LIB_DRUM_CLAP",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 63,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 48,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 49,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 50,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 51,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 52,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 53,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 54,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 55,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 56,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 57,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 58,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 59,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 60,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 61,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 62,
+            "volume": 0.3199999928474426
+          },
+          {
+            "instrumentId": "INSTR_HIHAT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 63,
+            "volume": 0.2199999988079071
+          },
+          {
+            "instrumentId": "LIB_DRUM_CRASH",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 1,
+            "pitch": 0,
+            "startStep": 60,
+            "volume": 0.699999988079071
+          }
+        ],
+        "trackId": "t4"
+      },
+      {
+        "id": "H_a",
+        "lengthSteps": 64,
+        "name": "Brass Hits",
+        "notes": [
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 0,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 11,
+            "startStep": 4,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 8,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 12,
+            "volume": 0.5199999809265137
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 16,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 9,
+            "startStep": 20,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 11,
+            "startStep": 24,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 2,
+            "startStep": 28,
+            "volume": 0.5199999809265137
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 0,
+            "startStep": 32,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 7,
+            "startStep": 36,
+            "volume": 0.5
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 9,
+            "startStep": 40,
+            "volume": 0.5199999809265137
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 11,
+            "startStep": 44,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 48,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 52,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 3,
+            "pitch": 11,
+            "startStep": 56,
+            "volume": 0.5799999833106995
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 60,
+            "volume": 0.6200000047683716
+          }
+        ],
+        "trackId": "t3"
+      },
+      {
+        "id": "L_a",
+        "lengthSteps": 64,
+        "name": "Lead Blaster",
+        "notes": [
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 0,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 2,
+            "volume": 0.800000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 4,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 4,
+            "startStep": 6,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 2,
+            "startStep": 8,
+            "volume": 0.8199999928474426
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 10,
+            "volume": 0.800000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 9,
+            "startStep": 12,
+            "volume": 0.7799999713897705
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 14,
+            "volume": 0.7599999904632568
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 16,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 18,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 4,
+            "pitch": 6,
+            "startStep": 19,
+            "volume": 0.7200000286102295
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 20,
+            "volume": 0.8199999928474426
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 9,
+            "startStep": 22,
+            "volume": 0.8399999737739563
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 24,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 4,
+            "startStep": 26,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 2,
+            "startStep": 28,
+            "volume": 0.8600000143051147
+          },
+          {
+            "instrumentId": "LIB_SAW_BRIGHT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 5,
+            "pitch": 4,
+            "startStep": 30,
+            "volume": 0.6000000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 5,
+            "pitch": 2,
+            "startStep": 31,
+            "volume": 0.699999988079071
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 0,
+            "startStep": 32,
+            "volume": 0.8399999737739563
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 34,
+            "volume": 0.8199999928474426
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 9,
+            "startStep": 36,
+            "volume": 0.800000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 38,
+            "volume": 0.7799999713897705
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 6,
+            "startStep": 40,
+            "volume": 0.800000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 42,
+            "volume": 0.8199999928474426
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 9,
+            "startStep": 44,
+            "volume": 0.8399999737739563
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 46,
+            "volume": 0.8600000143051147
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 4,
+            "startStep": 48,
+            "volume": 0.9200000166893005
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 50,
+            "volume": 0.8500000238418579
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 7,
+            "startStep": 52,
+            "volume": 0.8199999928474426
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 54,
+            "volume": 0.800000011920929
+          },
+          {
+            "instrumentId": "LIB_SAW_RAZOR",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 5,
+            "pitch": 2,
+            "startStep": 56,
+            "volume": 0.8799999952316284
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 58,
+            "volume": 0.8399999737739563
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 2,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 60,
+            "volume": 0.8999999761581421
+          },
+          {
+            "instrumentId": "LIB_SAW_BRIGHT",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 4,
+            "pitch": 11,
+            "startStep": 62,
+            "volume": 0.550000011920929
+          },
+          {
+            "instrumentId": "",
+            "isRest": false,
+            "lengthSteps": 1,
+            "octave": 4,
+            "pitch": 4,
+            "startStep": 63,
+            "volume": 0.699999988079071
+          }
+        ],
+        "trackId": "t1"
+      }
+    ],
+    "placements": [
+      {
+        "id": "pl1",
+        "patternId": "L_a",
+        "startStep": 0,
+        "trackId": "t1"
+      },
+      {
+        "id": "pl2",
+        "patternId": "B_a",
+        "startStep": 0,
+        "trackId": "t2"
+      },
+      {
+        "id": "pl3",
+        "patternId": "H_a",
+        "startStep": 0,
+        "trackId": "t3"
+      },
+      {
+        "id": "pl4",
+        "patternId": "D_a",
+        "startStep": 0,
+        "trackId": "t4"
+      },
+      {
+        "id": "pl5",
+        "patternId": "L_a",
+        "startStep": 64,
+        "trackId": "t1"
+      },
+      {
+        "id": "pl6",
+        "patternId": "B_a",
+        "startStep": 64,
+        "trackId": "t2"
+      },
+      {
+        "id": "pl7",
+        "patternId": "H_a",
+        "startStep": 64,
+        "trackId": "t3"
+      },
+      {
+        "id": "pl8",
+        "patternId": "D_a",
+        "startStep": 64,
+        "trackId": "t4"
+      }
+    ],
+    "stepsPerBeat": 4,
+    "tracks": [
+      {
+        "colorIndex": 0,
+        "defaultInstrumentId": "LIB_SAW_EDGE",
+        "duty": 0.5,
+        "dutyManuallyEdited": false,
+        "id": "t1",
+        "loop": true,
+        "mute": false,
+        "name": "Lead",
+        "role": "Lead",
+        "solo": false,
+        "volume": 0.699999988079071,
+        "waveType": "SAW"
+      },
+      {
+        "colorIndex": 1,
+        "defaultInstrumentId": "LIB_SAW_GROWL_BASS",
+        "duty": 0.5,
+        "dutyManuallyEdited": false,
+        "id": "t2",
+        "loop": true,
+        "mute": false,
+        "name": "Bass",
+        "role": "Bass",
+        "solo": false,
+        "volume": 0.8199999928474426,
+        "waveType": "SAW"
+      },
+      {
+        "colorIndex": 2,
+        "defaultInstrumentId": "LIB_PULSE_HERO_BRASS",
+        "duty": 0.5,
+        "dutyManuallyEdited": true,
+        "id": "t3",
+        "loop": true,
+        "mute": false,
+        "name": "Harmony",
+        "role": "Harmony",
+        "solo": false,
+        "volume": 0.47999998927116394,
+        "waveType": "PULSE"
+      },
+      {
+        "colorIndex": 3,
+        "defaultInstrumentId": "INSTR_KICK",
+        "duty": 0.5,
+        "dutyManuallyEdited": false,
+        "id": "t4",
+        "loop": true,
+        "mute": false,
+        "name": "Drums",
+        "role": "Drums",
+        "solo": false,
+        "volume": 0.6499999761581421,
+        "waveType": "NOISE"
+      }
+    ],
+    "version": 7
+  },
+  "version": 1
+}

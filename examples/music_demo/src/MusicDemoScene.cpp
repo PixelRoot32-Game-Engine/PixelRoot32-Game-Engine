@@ -1,9 +1,9 @@
 #include "MusicDemoConstants.h"
 #include "MusicDemoScene.h"
-#include "assets/classic_arcade_melody.h"
-#include "assets/adventure_melody.h"
-#include "assets/action_melody.h"
-#include "assets/arpeggio_melody.h"
+#include "assets/coinleaf_grove.h"
+#include "assets/blaster_ridge.h"
+#include "assets/lightworld_march.h"
+#include "assets/moonwell_hymn.h"
 
 #include <core/Engine.h>
 #include <cstdio>
@@ -134,10 +134,10 @@ void MusicDemoScene::setupInstrumentPresetMenu() {
 }
 
 void MusicDemoScene::setupMelodiesMenu() {
-    melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 1", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 2", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 3", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
-    melody4Button = std::make_unique<pr32::graphics::ui::UIButton>("Melody 4 + ARP voice", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody4, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody1Button = std::make_unique<pr32::graphics::ui::UIButton>("Blaster Ridge", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody1, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody2Button = std::make_unique<pr32::graphics::ui::UIButton>("Coinleaf Grove", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody2, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody3Button = std::make_unique<pr32::graphics::ui::UIButton>("Lightworld March", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody3, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
+    melody4Button = std::make_unique<pr32::graphics::ui::UIButton>("Moonwell Hymn", BTN_SELECT, Vector2::ZERO(), Vector2{static_cast<int>(BTN_WIDTH), static_cast<int>(BTN_HEIGHT)}, onMelody4, pr32::graphics::ui::TextAlignment::CENTER, BTN_FONT_SIZE);
 }
 
 void MusicDemoScene::setupAudioLabMenu() {
@@ -239,23 +239,23 @@ void MusicDemoScene::playMelody(int idx) {
 
     switch (idx) {
         case 1: {
-            player.setBPM(classic_arcade_bpm);
-            player.play(sClassicArcadeTrack);
+            player.setBPM(musicdemo::blaster_ridge::kBpm);
+            player.play(musicdemo::blaster_ridge::kTrack);
             break;
         }
         case 2: {
-            player.setBPM(adventure_bpm);
-            player.play(sAdventureTrack);
+            player.setBPM(musicdemo::coinleaf_grove::kBpm);
+            player.play(musicdemo::coinleaf_grove::kTrack);
             break;
         }
         case 3: {
-            player.setBPM(action_bpm);
-            player.play(sActionTrack);
+            player.setBPM(musicdemo::lightworld_march::kBpm);
+            player.play(musicdemo::lightworld_march::kTrack);
             break;
         }
         case 4: {
-            player.setBPM(arp_demo_bpm);
-            player.play(sArpDemoTrack);
+            player.setBPM(musicdemo::moonwell_hymn::kBpm);
+            player.play(musicdemo::moonwell_hymn::kTrack);
             break;
         }
     }
