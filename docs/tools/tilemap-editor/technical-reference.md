@@ -1,3 +1,8 @@
+---
+title: "Technical Reference"
+description: "Engine limits, binary format v6, project structure, C++ export, data formats, and compatibility"
+---
+
 # Tilemap Editor - Technical Reference
 
 **Level**: ⭐⭐⭐ Advanced
@@ -8,7 +13,7 @@
 > - [Engine Limits](#engine-limits)
 > - [File Formats](#file-formats)
 > - [Project Structure](#project-structure)
-> - [API Services](#api-services)
+> - [Application Architecture](#application-architecture)
 > - [C++ Export](#c-export)
 > - [Data Formats](#data-formats)
 > - [Compatibility](#compatibility)
@@ -36,7 +41,7 @@
 | **MIN_FRAME_DURATION** | 1 | Minimum duration (ticks) |
 | **MAX_FRAME_DURATION** | 255 | Maximum duration (ticks) |
 
-> ⚠️ **Correction**: Previous docs said 4 layers. Actual limit is **8 layers**.
+> **Enforcement**: Tile size, layer count, and animation limits are validated at edit time (project creation, add-layer, add-animation). At save, animations and player spawn positions are re-validated.
 
 ### Screen Resolutions
 
@@ -52,38 +57,37 @@
 
 ## File Formats
 
-### Supported Formats
+### Project File
 
-| Format | Extension | Advantages | Disadvantages |
-|--------|-----------|------------|-------------|
-| **JSON** | `.pr32scene` | Human-readable, git-friendly | Large files |
-| **Binary** | `.pr32scene.bin` | Up to 335× smaller, 10× faster | Not readable |
+The editor stores projects in a **single binary format** (`.pr32scene.bin`, version **6**). There is **no human-readable JSON writer**; the JSON object used inside the serializer only carries project metadata and per-tile attributes embedded in the binary container.
 
-### Binary Format Versions
+The **"Use Binary Format"** preference in **File → Preferences** only affects the **file extension** written to disk (`.pr32scene.bin` vs `.pr32scene`). The on-disk content is the same binary v6 container either way.
 
-| Version | Features | Compatibility |
-|---------|----------|---------------|
-| 1 | Basic | ✅ Compatible |
-| 2 | Tile attributes | ✅ Compatible |
-| 3 | Palette slots | ✅ Compatible |
-| 4 | Multi-palette complete | ✅ Compatible |
+| Extension | Content |
+|-----------|---------|
+| `.pr32scene.bin` | Binary v6 container (default) |
+| `.pr32scene` | Legacy extension accepted for open; still binary v6 when saved |
 
-> ⚠️ **Correction**: Previous docs said version 3. Actual is **version 4**.
+### Binary Format
 
-### Compression Benchmarks
+The `.pr32scene.bin` format is a **big-endian** binary container (current version **6**). Layout:
 
-| Project | JSON | Binary | Reduction |
-|----------|------|--------|----------|
-| Small (1 scene) | 2.6 KB | 355 bytes | **86%** |
-| Medium (3 scenes) | 227 KB | 752 bytes | **99.7%** |
-| Large (10 scenes) | ~1 MB | ~5 KB | **99.5%** |
+| Field | Size | Notes |
+|-------|------|-------|
+| **MAGIC** | 4 B | `PR32` (big-endian `0x50523332`) |
+| **VERSION** | u16 | Current: **6** |
+| **FLAGS** | u16 | Bit 0: `COMPRESSION_ZLIB` |
+| **tileSize** | u8 | Tile size in px |
+| **reserved** | 3 B | Padding |
+| **Metadata** | u32 len + JSON | Project metadata (JSON embedded) |
+| **Tilesets** | u16 count + entries | Per-tileset data |
+| **Scenes** | u16 count + entries | Per-scene data; optional zlib-compressed layers; v6+: player spawn `x/y` |
 
-### Performance
+The serializer targets byte-for-byte compatibility with the engine's binary project format (big-endian layout). Layer payloads can be zlib-compressed (flag bit 0).
 
-| Operation | JSON | Binary | Improvement |
-|-----------|------|--------|------------|
-| **Save** | 20ms | 2ms | **10×** |
-| **Load** | 60ms | 21ms | **3×** |
+### Size & Performance
+
+The binary format keeps projects compact and fast to load (single-format; there is no alternative JSON serialization to compare against).
 
 ---
 
@@ -93,8 +97,7 @@
 
 ```
 my_project/
-├── my_project.pr32scene      # Main file
-├── my_project.pr32scene.bin  # Binary version (optional)
+├── my_project.pr32scene.bin  # Project file (binary v6, default)
 ├── tile_flag_rules.json   # Custom rules (optional)
 └── assets/
     └── tilesets/
@@ -102,76 +105,55 @@ my_project/
         └── tileset2.png
 ```
 
+> The file is stored as `.pr32scene.bin` by default. With **"Use Binary Format"** disabled it is written as `.pr32scene` instead (still binary v6 content). Only the extension changes.
+
 ### Exported Files
 
 ```
 output/
-├── my_scene.h              # Declarations
+├── my_scene.h              # Declarations + animations + palettes (multi-palette)
 ├── my_scene.cpp            # Data (palettes, tiles, indices)
-├── my_scene_animations.h  # Animation declarations (if any)
-├── my_scene_animations.cpp # Animation data (if any)
-└── shared_palette.h    # Shared palette (single palette mode)
+└── {namespace}_tilemap_palette.h  # Shared palette (single palette mode)
 ```
+
+> Animations are embedded in `my_scene.h` alongside their layer (`<LAYER>_TILE_ANIMATIONS[]`). There are no separate `*_animations.h/.cpp` files.
 
 ---
 
-## API Services
+## Application Architecture
 
-### Services
+The Tilemap Editor is a **native desktop application** built with **C++17** on **SDL2 + ImGui** + **OpenGL 3.3**. There is no Python/Tkinter runtime. The editor is distributed as a compiled binary within the Tool Suite.
 
-#### ProjectService
+### Core Services
 
-```python
-class ProjectService:
-    def create_project(self, name: str, tile_size: int, ...) -> ProjectModel:
-        """Create new project"""
-    
-    def load_project(self, path: str) -> ProjectModel:
-        """Load project"""
-    
-    def save_project(self, project: ProjectModel, binary: bool = False):
-        """Save project"""
-    
-    def export_to_cpp(self, project: ProjectModel, output_dir: str) -> Dict:
-        """Export to C++"""
-```
+The editor's logic is organized into the following internal services (C++):
 
-#### ExporterService
+| Service | File (source) | Responsibility |
+|---------|---------------|----------------|
+| **ProjectService** | `tools/tilemap_module/project_service.{h,cpp}` | Create / load / save projects, validate project name, manage tile flag rules |
+| **BinarySerializer** | `tools/tilemap_module/binary_serializer.{h,cpp}` | Read/write `.pr32scene.bin` (v6, big-endian, optional zlib compression) |
+| **HistoryManager** | `tools/tilemap_module/history_manager.{h,cpp}` | Bounded (100 entries) undo/redo stack with optional compression |
+| **AnimationValidator** | `tools/tilemap_module/core/animation_validator.{h,cpp}` | Validate animations against engine limits (bounds, overlap, count, duration) |
+| **ExporterService** | `tools/tilemap_module/exporter_service.{h,cpp}` | Gate C++ export behind a valid license; coordinate the native export pipeline |
+| **ExportOrchestrator** | `tools/tilemap_module/native_export/export_orchestrator.{h,cpp}` | Multi-palette detection, image processing, palette analysis, tile dedup, C++ code generation |
+| **AutosaveService** | `tools/tilemap_module/autosave_service.{h,cpp}` | Interval-based autosave |
+| **ToolManager** | `tools/tilemap_module/tool_manager.{h,cpp}` | Active tool registry (Brush, Eraser, Rectangle, Pan, Pipette, Attribute, Anim) |
 
-```python
-class ExporterService:
-    def can_export(self) -> bool:
-        """Check if user can export (requires valid license)"""
-    
-    def export_project(self, project, output_dir: str) -> Dict:
-        """Export project to C++ files"""
-        # Auto-detects single/multi-palette
-```
+> **Note:** These services are internal C++ modules compiled into the Tool Suite binary. They are **not** a public Python API and cannot be imported by external scripts. Automation should use the file formats described below or the external `pr32-sprite-compiler` CLI (Sprite Compiler module).
 
-#### ValidationService
+### Runtime Environment
 
-```python
-class ValidationService:
-    def validate_project(self, project: ProjectModel) -> ValidationResult:
-        """Validate full project"""
-    
-    def validate_animations(self, animations) -> ValidationResult:
-        """Validate against limits"""
-```
-
-#### AnimationService
-
-```python
-class AnimationService:
-    def create_animation(self, name: str) -> TileAnimation:
-        """Create animation"""
-    
-    def link_to_tile(self, animation: TileAnimation, base_tile: int):
-        """Link animation to tile"""
-    
-    def export_animations(self, animations, output_dir: str):
-        """Export animations to C++"""
-```
+| Item | Detail |
+|------|--------|
+| **Language / standard** | C++17 |
+| **GUI framework** | Dear ImGui (v1.92.8) |
+| **Windowing / GPU** | SDL2 + OpenGL 3.3 (single window, DockSpace layout) |
+| **JSON** | nlohmann/json v3.11.3 |
+| **SVG rasterization** | lunasvg v3.1.0 |
+| **Native file pickers** | portable-file-dialogs |
+| **Compression** | zlib (`.pr32scene.bin` layer payloads) |
+| **Crypto** | OpenSSL (SHA-256 checksum + AES-256-CBC) |
+| **Build system** | CMake ≥ 3.20 |
 
 ---
 
@@ -179,9 +161,9 @@ class AnimationService:
 
 ### Requirements
 
-⚠️ **Important**: C++ export **requires a valid license**.
+⚠️ **Important**: C++ export **requires a valid license** (Ed25519 v3 key, machine-bound). See **[License & Activation](/tools/tilemap-editor/license-and-activation)** for full details.
 
-- No license: Button shows 🔒
+- Without license, the **Upgrade Required** dialog appears when attempting to export
 - Other features work without license
 
 ### Export Options
@@ -189,8 +171,8 @@ class AnimationService:
 | Option | Description | Recommended |
 |--------|-------------|-------------|
 | **C++ Namespace** | Namespace for code | Project name |
-| **Color Depth** | Bit depth (auto-detect) | Auto-detect |
-| **Store in Flash** | Save to PROGMEM | ✅ Always |
+| **Color Depth (BPP)** | Read-only; auto-detected (1/2/4) | Auto-detect |
+| **Store in Flash (ESP32)** | Save to PROGMEM | ✅ Always |
 | **Legacy Format** | Without Flash attributes | Compatibility only |
 
 ### Export Mode
@@ -206,30 +188,22 @@ class AnimationService:
 
 ```cpp
 // level1.h
-extern const uint16_t TILEMAP_PALETTE_DATA[];
-extern const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[];
-extern const pixelroot32::graphics::TileMap layer_foreground;
+static const uint16_t TILEMAP_PALETTE_DATA[] = { /* RGB565 */ };
+extern pixelroot32::graphics::TileMap4bpp layer_foreground;
 
 // level1.cpp
-static const uint16_t TILEMAP_PALETTE_DATA[] = { /* RGB565 */ };
 static const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[] = { /* tiles */ };
 static const uint8_t LAYER_FOREGROUND_INDICES[] = { /* indices */ };
-
-void init() {
-    layer_foreground.palette = TILEMAP_PALETTE_DATA;
-    layer_foreground.tiles = TILESET_SPRITES;
-    layer_foreground.indices = LAYER_FOREGROUND_INDICES;
-}
 ```
+
+> The palette array is declared in the header; tiles and index data live in the `.cpp`. The layer struct is `TileMap`, `TileMap2bpp`, or `TileMap4bpp` depending on the auto-detected BPP.
 
 #### Multi-Palette
 
 ```cpp
 // level1.h
-// setBackgroundCustomPaletteSlot(1, PLATFORMS_PALETTE);
-extern const uint16_t PLATFORMS_PALETTE[];
-extern const uint16_t STAIRS_PALETTE[];
-extern const pixelroot32::graphics::Sprite4bpp PLATFORMS_TILESET_SPRITES[];
+static const uint16_t PLATFORMS_PALETTE[16] = { /* RGB565 */ };
+static const uint16_t STAIRS_PALETTE[16] = { /* RGB565 */ };
 
 // level1.cpp
 void init() {
@@ -245,7 +219,7 @@ void init() {
 #include "level1.h"
 
 level1::init();
-renderer.drawTileMap(level1::layer_background, x, y);
+renderer.drawTileMap(level1::layer_foreground, x, y);
 ```
 
 **Multi-Palette**:
@@ -263,15 +237,17 @@ renderer.drawTileMap(level1::platforms,  0, 0);
 const char* type = level1::get_tile_attribute(0, x, y, "type");
 
 // Query flags
-uint8_t flags = level1::behavior_layer_background[y * width + x];
+uint8_t flags = level1::getTileFlags(0, x, y);  // layer index, x, y
 if (flags & TILE_SOLID) { /* collision */ }
 ```
 
 **Animations**:
 ```cpp
-level1::get_animation_manager().step();
-renderer.drawTileMap(level1::layer_background, x, y);
+level1::getForegroundAnimManager().step();
+renderer.drawTileMap(level1::layer_foreground, x, y);
 ```
+
+> Each animated layer exposes a `<LayerName>AnimManager()`. A legacy `getAnimManager()` alias maps to the Details layer when present.
 
 ---
 
@@ -298,24 +274,28 @@ renderer.drawTileMap(level1::layer_background, x, y);
 
 ### BPP Auto-Detection
 
-| Colors Used | BPP | Maximum |
+| Real Colors (excl. transparency) | BPP | Maximum |
 |------------|-----|----------|
-| 1-2 | 1 bpp | 2 |
-| 3-4 | 2 bpp | 4 |
-| 5-16 | 4 bpp | 16 |
+| ≤ 1 | 1 bpp | 2 |
+| 2-4 total slots (incl. optional transparency) | 2 bpp | 4 |
+| otherwise | 4 bpp | 16 |
+
+> `totalSlots = realColors + (hasTransparency ? 1 : 0)`. 1bpp requires ≤1 real color; 2bpp when total slots ≤ 4; otherwise 4bpp.
 
 ---
 
 ## Compatibility
 
-### Dependencies
+### Runtime
 
-| Package | Minimum Version |
-|---------|--------------|
-| **Python** | 3.8+ |
-| **Tkinter** | 8.6+ |
-| **ttkbootstrap** | 1.0+ |
-| **Pillow** | 9.0+ |
+The Tilemap Editor is distributed as a **pre-built native binary** (part of the Tool Suite). No Python, Tkinter, or Pillow installation is required.
+
+| Requirement | Detail |
+|-------------|--------|
+| **Operating system** | Windows, Linux, macOS (per release) |
+| **GPU / Windowing** | OpenGL 3.3 capable GPU; SDL2-based window |
+| **Storage** | ~tens of MB for the app + generated assets |
+| **License** | A valid Tool Suite license is required for **C++ export** |
 
 ### Target Hardware
 

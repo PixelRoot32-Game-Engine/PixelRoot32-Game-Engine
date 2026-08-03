@@ -1,3 +1,8 @@
+---
+title: "Advanced Guide"
+description: "Tile animations, license, multi-palette export, tile attributes, flag rules, and project optimization"
+---
+
 # Tilemap Editor - Advanced Guide
 
 **Level**: ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
@@ -8,7 +13,6 @@
 >
 > - [Tile Animations](#tile-animations)
 > - [License System](#license-system)
-> - [Memory & Lazy Loading](#memory--lazy-loading)
 > - [Multi-Palette Export](#multi-palette-export)
 > - [Tile Attributes](#tile-attributes)
 > - [Tile Flag Rules](#tile-flag-rules)
@@ -31,7 +35,7 @@
 
 ### ⭐⭐ Animation Panel
 
-**Access**: **View → Animation Panel** or click animation icon
+**Access**: The **Animations** panel is always docked at the bottom of the editor window (part of the default layout). No menu toggles it.
 
 **Components**:
 
@@ -44,8 +48,8 @@
 
 **Step 1**: New animation
 
-1. Click **Add** in Animation Panel
-2. "New Animation" appears in list
+1. Click **Add** in the Animations panel
+2. "Animation N" appears in the list
 3. Select to configure
 
 **Step 2**: Configure properties
@@ -53,9 +57,9 @@
 | Property | Description | Recommended |
 |----------|--------------|-------------|
 | **Name** | Descriptive name | "Water", "Fire" |
-| **Base Tile** | First tile index | - |
+| **Base Tile** | First tile index (assigned via Animation tool, see Step 3) | - |
 | **Frame Count** | Number of frames | 2-8 |
-| **Frame Duration** | Speed in engine ticks | 8-16 |
+| **Frame Duration** | Speed in engine cycles | 8-16 |
 
 **Example**: Water with 4 frames
 
@@ -67,44 +71,32 @@ Frame Duration: 8 ticks
 
 **Step 3**: Assign tiles
 
-**Method 1** - Animation Eyedropper:
-
-1. Select **Animation Eyedropper** (**I**)
-2. Click tiles on canvas
-3. Auto-linked
-
-**Method 2** - Manual:
-
-1. Select animation
-2. Enter base tile
-3. Click **Apply**
+Select the **Animation** tool from the toolbar, then click the tile on the canvas that should be the animation's base tile. The clicked tile becomes the base tile of the currently selected animation.
 
 ### ⭐⭐⭐ Visual Indicators
 
-- Animated tiles show ▶ icon
-- Icon color indicates status
+- Animated tiles show ▶ icon on the canvas
+- Indicators visible only on the active layer
 - Hover for details
 
 ### ⭐⭐⭐ Live Preview
 
 **Toggle**:
 
-1. Click **Live Preview** button
-2. Or press **L**
-3. Animations play in real-time
+1. Click the **▶ Live Preview** button in the toolbar
+2. Animations play in real-time on the canvas
 
 **Features**:
 
-- **Synchronized**: Same timer as ESP32
+- **Synchronized**: Same timer as the engine
 - **Optimized**: Only renders visible
 - **Frame Accurate**: Exact game frames
 - **Multi-layer**: Works across layers
 
 **Controls**:
 
-- **Play/Pause**: Toggle playback
-- **Speed Control**: 1×, 2×, 0.5×
-- **Frame Step**: Debug frame by frame
+- **Play / Pause / Stop**: Toggle playback
+- Enabled at zoom levels above the Live Preview threshold
 
 ### ⭐⭐⭐ Validation
 
@@ -113,45 +105,41 @@ The editor auto-validates:
 **Checks**:
 
 - **Tile Bounds**: base_tile + frame_count ≤ tileset
-- **Overlap Detection**: No overlapping ranges
-- **Memory Constraints**: ESP32 limits (64 animations, 256 frames)
-- **Frame Duration**: Valid values (1-255 ticks)
+- **Frame Duration**: Valid values (1-255)
+- **Memory Constraints**: ESP32 limits (64 animations, 256 frames per scene)
 
-**Error Messages**:
-
-- "Animation exceeds tileset bounds"
-- "Animations overlap"
-- "Too many animations"
+> Animations are capped at 64 per scene; attempting to add more silently stops adding new ones.
 
 ### ⭐⭐⭐ Export to C++
 
-Animations auto-export with C++ export:
+Animations auto-export with C++ export — embedded in the scene header alongside the layer definitions (no separate animation file):
 
 ```cpp
-// scene_name_animations.h
-extern const pixelroot32::graphics::TileAnimation scene_name_animations[];
-constexpr size_t SCENE_NAME_ANIMATION_COUNT = 2;
-
-// scene_name_animations.cpp
-static const pixelroot32::graphics::TileAnimation scene_name_animations[] = {
+// scene_name.h (excerpt)
+static const pixelroot32::graphics::TileAnimation FOREGROUND_TILE_ANIMATIONS[] = {
     { 16, 4, 8, 0 },  // Water
-    { 32, 2, 12, 0 }  // Fire
+    { 32, 2, 12, 0 }, // Fire
 };
+static const uint8_t FOREGROUND_TILE_ANIMATION_COUNT = 2;
 ```
+
+The initializer order is: `{ baseTile, frameCount, frameDuration, 0 }` (the trailing `0` is a reserved flag field).
 
 **Engine Integration**:
 
 ```cpp
-#include "level1_animations.h"
+#include "level1.h"
 
 void game_loop() {
     level1::init();
     while (game_running) {
-        level1::get_animation_manager().step();
+        level1::getForegroundAnimManager().step();
         render_tilemap();
     }
 }
 ```
+
+> Each animated layer gets a `<LayerName>AnimManager()` accessor. A legacy alias `getAnimManager()` maps to the Details layer when present.
 
 ### ⭐⭐⭐ ESP32 Limits
 
@@ -166,50 +154,31 @@ void game_loop() {
 
 ## License System
 
+> ⚠️ **Full documentation**: See **[License & Activation](/tools/tilemap-editor/license-and-activation)** for the complete licensing model (key format, fingerprint binding, storage, troubleshooting).
+
 ### 🔒 Export License
 
 C++ export **requires a valid license**. Without:
 
-- Export button shows 🔒
-- Upgrade dialog appears
+- The **Upgrade Required** dialog appears when attempting to export ("This feature requires an active license")
 - Other features work normally
 
-### ⭐⭐⭐ Verify License
+### ⭐⭐ Verify License
 
-**File → License Status** shows:
+**Help → License Info** (or the launcher footer **License Info** button) shows:
 
-- License status (active/expired)
-- Expiration date
-- Available features
+- License status (active / not active)
+- Masked key (e.g. `PR32-3X-1-****-XXXXXXXX`)
+- Product version
+- Activation date
 
-### ⭐⭐⭐ Activate License
+### ⭐⭐ Activate License
 
-1. **File → Activate License**
+1. **Help → License Info** or the trial dialog on first launch
 2. Enter license key
-3. Click **Activate**
+3. Click **Activate License**
 
----
-
-## Memory & Lazy Loading
-
-### 💾 Lazy Loading
-
-Editor implements **lazy loading**:
-
-- Inactive scenes stay unloaded
-- Load on demand when switching
-- Configurable in preferences
-
-### ⭐⭐⭐ Memory Optimization
-
-**For large projects**:
-
-1. **Use binary format**: `.pr32scene.bin` (up to 335× smaller)
-2. **Enable History Compression**: In preferences
-3. **Close unused scenes**: Free memory
-4. **Limit preload**: Reduce RAM usage
-
-**Check**: **File → Project Statistics** shows estimated memory.
+The key is validated against an Ed25519 v3 signature and bound to your machine fingerprint. See the [full license documentation](/tools/tilemap-editor/license-and-activation) for details on fingerprint tolerance and key rotation.
 
 ---
 
@@ -291,7 +260,7 @@ Editor implements **lazy loading**:
 4. Add/edit/remove
 5. Click **Save**
 
-**Visual**: Orange triangle on tiles with instance attributes.
+**Visual**: Green triangle indicator on tiles with instance attributes.
 
 > ⚠️ Indicators only visible on active layer.
 
@@ -366,12 +335,12 @@ trigger = true/false
 Rules resolve in order:
 
 1. **Project rules** (`project_dir/tile_flag_rules.json`)
-2. **Editor defaults** (`modules/tilemap_editor/assets/tile_flag_rules.json`)
+2. **Editor defaults** (`assets/tilemap/tile_flag_rules.json`)
 3. **Legacy fallback** (hardcoded)
 
 ### ⭐⭐⭐ Managing Project Rules
 
-**Access**: **File → Project Settings** → "Tile Flag Rules"
+**Access**: Click the **Settings** (gear) button in the toolbar → "Tile Flag Rules" section
 
 **Indicator**:
 
@@ -384,19 +353,19 @@ Rules resolve in order:
 
 1. Click **Create Project Rules**
 2. Template created
-3. Status: "✓ Created template rules file"
+3. Status: "Created tile_flag_rules.json"
 
 **Reset**:
 
 1. Click **Reset to Defaults**
 2. Confirm
-3. Status: "✓ Reset to editor defaults"
+3. Status: "Reset to editor default rules"
 
 ### ⭐⭐⭐⭐ Available Flags
 
 | Flag | Function |
 |------|----------|
-| `TILE_NONE` | No flag |
+| `TILE_NONE` | Default / no flag (0) |
 | `TILE_SOLID` | Collision |
 | `TILE_SENSOR` | Trigger without blocking |
 | `TILE_DAMAGE` | Hurts player |
@@ -435,7 +404,6 @@ if (type && strcmp(type, "door") == 0) {
 1. **Binary format** (`.bin`) for >1MB projects
 2. **History Compression** in preferences
 3. **Close unused scenes**
-4. **Limit preload**
 
 **Export size**:
 
@@ -443,14 +411,7 @@ if (type && strcmp(type, "door") == 0) {
 2. **Remove duplicate tiles**
 3. **Use appropriate BPP** (1/2/4)
 
-### ⭐⭐⭐ Statistics
-
-**File → Project Statistics**:
-
-- Unique tiles used
-- Layers and scenes
-- Estimated memory
-- Animation limits
+> There is no separate "Project Statistics" dialog. The export status output reports tile counts and estimated size.
 
 ---
 

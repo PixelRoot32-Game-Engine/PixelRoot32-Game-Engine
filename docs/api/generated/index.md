@@ -4,22 +4,12 @@ Auto-generated API documentation from C++ header files.
 
 ## Audio
 
-- [ApuCore](./audio/ApuCore.md) — Shared NES-style APU core used by every AudioScheduler.
 - [AudioBackend](./audio/AudioBackend.md) — Abstract interface for platform-specific audio drivers.
-- [AudioChannel](./audio/AudioChannel.md) — Represents the internal state of a single audio channel.
-- [AudioCommand](./audio/AudioCommand.md) — Internal command to communicate between game and audio threads.
-- [AudioCommandQueue](./audio/AudioCommandQueue.md) — Single-Producer Single-Consumer (SPSC) lock-free ring buffer for AudioCommands.
 - [AudioConfig](./audio/AudioConfig.md) — Configuration for the Audio subsystem.
 - [AudioEngine](./audio/AudioEngine.md) — Facade class for the NES-style audio subsystem.
-- [AudioEvent](./audio/AudioEvent.md) — A fire-and-forget sound event triggered by the game.
 - [AudioScheduler](./audio/AudioScheduler.md) — Abstract interface for the audio execution context.
 - [DefaultAudioScheduler](./audio/DefaultAudioScheduler.md) — Backend-driven scheduler used on platforms without a dedicated audio task.
-- [EnvelopeState](./audio/EnvelopeState.md) — Holds ADSR envelope state for a single voice.
-- [InstrumentPreset](./audio/InstrumentPreset.md) — Defines instrument characteristics for playback.
-- [LfoState](./audio/LfoState.md) — Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
-- [MusicNote](./audio/MusicNote.md) — Represents a single note in a melody.
 - [MusicPlayer](./audio/MusicPlayer.md) — Simple sequencer to play MusicTracks using the AudioEngine.
-- [SfxBreakpoint](./audio/SfxBreakpoint.md) — Timed automation point for SFX duty steps or pitch envelope.
 
 ## Core
 

@@ -30,6 +30,19 @@ For platforms with a dedicated audio task (e.g., FreeRTOS on ESP32),
 
 ### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256)`
 
+**Description:**
+
+Initializes the underlying ApuCore.
+
+**Parameters:**
+
+- `backend`: Unused: generation is driven by the caller of
+       generateSamples(), so no backend handle is needed.
+- `sampleRate`: Output sample rate forwarded to ApuCore.
+- `caps`: Unused: no thread/core pinning happens here.
+- `blockSize`: Unused: the caller chooses the buffer length on
+       every generateSamples() call.
+
 ### `void submitCommand(const AudioCommand& cmd)`
 
 **Description:**
@@ -44,13 +57,13 @@ Enqueues a command to the ApuCore. @param cmd The command to submit.
 
 **Description:**
 
-Marks scheduler as running. Starts audio generation context.
+Resumes sample generation after stop(). Generation starts enabled.
 
 ### `void stop()`
 
 **Description:**
 
-Marks scheduler as stopped. Silences all voices.
+Halts generation: generateSamples() outputs silence until start().
 
 ### `bool isIndependent() const`
 
