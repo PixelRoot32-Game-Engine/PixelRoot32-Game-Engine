@@ -43,6 +43,10 @@ Available - visual editor for multi-layer tilemaps, tilesets, animations, attrib
 
 Upcoming - pattern-based tracker with multi-channel support for PixelRoot32 APU (planned).
 
+### SFX Editor (module 3)
+
+Upcoming - sound effect synthesis editor for the PR32 APU SFX pipeline (planned).
+
 ---
 
 ## Summary
@@ -52,5 +56,6 @@ Upcoming - pattern-based tracker with multi-channel support for PixelRoot32 APU 
 | Sprite Compiler | Free / standalone | Available |
 | Tilemap Editor | Premium (suite) | Available |
 | Music Editor | Premium (suite) | Upcoming |
+| SFX Editor | Premium (suite) | Upcoming |
 
 **Engine docs:** [Graphics Techniques](../guide/graphics-techniques) · [Rendering](../guide/rendering) · [Tile animation (architecture)](../architecture/tile-animation)

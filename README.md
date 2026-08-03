@@ -24,6 +24,7 @@
 <p align="center">
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
+  <a href="#-tool-suite">Tool Suite</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-best-practices">Best Practices</a> •
   <a href="#-documentation">Documentation</a> •
@@ -90,6 +91,21 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/#getting-started).
+
+---
+
+## 🧰 Tool Suite
+
+The **PixelRoot32 Tool Suite** is now available — a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
+
+| Module | Status |
+|--------|--------|
+| **Sprite Compiler** | ✅ Available — PNG to C headers (1bpp/2bpp/4bpp, grid selection) |
+| **Tilemap Editor** | ✅ Available — visual multi-layer tilemaps with C++ export |
+| **Music Editor** | 🔜 Coming soon — pattern-based tracker for the PR32 APU |
+| **SFX Editor** | 🔜 Coming soon — sound effect synthesis |
+
+👉 [Get the Tool Suite](https://pixelroot32.com) · [Detailed docs](docs/tools/index.md)
 
 ---
 
@@ -175,10 +191,10 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🗺️ Roadmap
 
-- 🗺️ **TileMap Editor**: Specialized tool to design environments with C++ export.
-- 🎵 **Music Editor**: Mini DAW for SFX and music creation.
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
+- 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
+- ⚙️ **Gameplay Framework**: Generic gameplay systems for interactions, triggers, events, state machines, and reusable gameplay components.
 
 ### Completed Features ✅
 
@@ -201,6 +217,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - ✅ **4+4 Audio Voice Partition**: Melodic sequencer tracks (slots 0–3) isolated from percussion/SFX (slots 4–7) with subpool-limited voice stealing.
 - ✅ **Advanced SFX Synthesis**: Looping SFX, noise period sweep, Linear/Exponential curves, duty/pitch breakpoint envelopes, and header-only `playSfxBank` (additive `AudioEvent` ABI).
 - ✅ **Shared APU Library**: The synthesis core lives in [PixelRoot32-APU](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-APU), shared with the PixelRoot32 Tool Suite — one ABI source, byte-identical preview/export audio.
+- ✅ **TileMap Editor**: Specialized tool to design environments with C++ export. [PixelRoot32 Tool Suite](https://pixelroot32.com).
 
 ---
 
