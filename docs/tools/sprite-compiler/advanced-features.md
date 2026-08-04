@@ -1,6 +1,6 @@
 # Sprite Compiler Advanced Features
 
-Advanced behaviour of the PixelRoot32 Sprite Compiler: palettes, prefixes, and export modes.
+Advanced behaviour of the PixelRoot32 Sprite Compiler: palettes, prefixes, and export modes. These apply to both the Tool Suite module and the standalone CLI — only the invocation differs.
 
 ## Automatic palette detection
 
@@ -22,7 +22,7 @@ The engine exposes five built-in palette types (see [Color (API)](/api/graphics/
 2. **Match**: If every color fits a built-in palette, the tool may **omit** a custom RGB mapping array and assume you use `Color::setPalette` / engine palettes at runtime.
 3. **Custom colors**: If any color is outside those sets, the header can include a `{PREFIX}_PALETTE_MAPPING[16]` (or similar) for your indices.
 
-Exact behaviour depends on the tool version — use `python main.py --help` on your checkout.
+Exact behaviour depends on the tool version — use `python main.py --help` on your checkout (standalone CLI), or check the tooltip / Log panel in the Tool Suite module.
 
 ## Naming with prefixes
 
