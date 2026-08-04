@@ -1,24 +1,50 @@
 # Sprite Compiler Usage Guide
 
-Complete guide to using the PixelRoot32 Sprite Compiler for converting images to sprite data.
+Complete guide to using the PixelRoot32 Sprite Compiler. The compiler is available in two modes:
 
-> **Note:** The compiler is used as **`python main.py`** from a [source install](/tools/sprite-compiler/installation) of the repository. There is **no** official Node/npm global package; ignore any older docs that referenced `npm install -g pr32-sprite-compiler`.
+- **Tool Suite module** — native ImGui GUI inside the Tool Suite application.
+- **Standalone CLI** — `python main.py` from the open-source repo (see [installation](/tools/sprite-compiler/installation)).
 
-## Basic Usage
+Both produce identical C headers. The Tool Suite module delegates compilation to the `pr32-sprite-compiler` binary (bundled or on `PATH`). The standalone CLI runs directly from Python — ideal for CI and build automation.
 
-### Launching the GUI
+> **Note:** There is **no** official Node/npm global package; ignore any older docs that referenced `npm install -g pr32-sprite-compiler`.
 
-The easiest way to use the compiler is via the Graphical User Interface (GUI).
+## GUI Usage (Tool Suite)
 
-```bash
-python main.py
-```
+### Opening the module
 
-This will open the application where you can interactively load images, configure the grid, and export sprites.
+1. Launch the **PixelRoot32 Tool Suite**
+2. Click **"Sprite Compiler"** on the launcher card
 
-### Command Line Interface (CLI)
+The module opens a 3-panel docked window:
 
-For automation, you can use the CLI mode by passing arguments to the script.
+- **Settings** (left) — Input image, Tile Settings (grid W×H, offset), Sprite Selection, Export (mode, prefix, output path)
+- **Preview** (center) — Real-time visual preview of the selected sprite
+- **Log** (bottom) — Colour-coded output (Info / Warning / Error / Success)
+
+### Module workflow
+
+1. **Open or create a project** (File menu: Ctrl+N / Ctrl+O)
+2. **Select an input image** — browse or type the PNG path in the Settings panel
+3. **Configure grid** — set tile Width × Height, offset, and limit
+4. **Select sprites** — auto-detect or manually add regions
+5. **Export** — choose mode (Layered / 2bpp / 4bpp), prefix, output file, and click **"Export Sprites"**
+
+Projects are saved as `.pr32sprite` files so you can resume work later. The module owns its **File** menu (a toolbar popup): New, Open, Save, Save As, Close.
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | New project |
+| `Ctrl+O` | Open project |
+| `Ctrl+S` | Save project |
+| `Ctrl+Shift+S` | Save project as |
+| `Ctrl+W` | Close project |
+
+## Standalone CLI
+
+For automation, build scripts, and CI environments. Install via [Python source](/tools/sprite-compiler/installation#method-2-standalone-cli-python-source).
 
 ```bash
 python main.py [input] [options]
@@ -37,7 +63,7 @@ python main.py [input] [options]
 - `--offset X,Y`: Initial offset in pixels (default: `0,0`)
 - `--mode MODE`: Export mode (`layered`, `2bpp`, `4bpp`)
 
-## CLI Examples
+## CLI Examples (Standalone)
 
 ### Simple Conversion
 
@@ -156,10 +182,12 @@ Add `--sprite` lines for `y = 1…3` for the remaining rows (or pick cells in th
 ```cpp
 #include "characters.h"
 
-// Sprites named CHARACTER_0, CHARACTER_1, etc.
-renderer.drawSprite(CHARACTER_0, 50, 50, Color::White);
-renderer.drawSprite(CHARACTER_1, 70, 50, Color::White);
+// Sprites named {PREFIX}_SPRITE_{N}_LAYER_{layer}, e.g. CHARACTER_SPRITE_0_LAYER_0
+renderer.drawSprite(CHARACTER_SPRITE_0_LAYER_0, 50, 50, Color::White);
+renderer.drawSprite(CHARACTER_SPRITE_1_LAYER_0, 70, 50, Color::White);
 ```
+
+> With `--mode layered`, each sprite emits one array per color layer (`..._SPRITE_N_LAYER_{i}`). Packed modes emit `..._SPRITE_N_2BPP` / `..._SPRITE_N_4BPP`.
 
 ## Batch Processing
 
@@ -220,7 +248,7 @@ python main.py --help
 
 and match your CLI to that output. Do **not** assume a globally installed `pr32-sprite-compiler` from npm.
 
-## Integration with Build Systems
+## Build-system Automation (Standalone CLI)
 
 ### PlatformIO
 
@@ -297,35 +325,7 @@ foreach(SPRITE ${SPRITE_FILES})
 endforeach()
 ```
 
-## GUI Usage (If Available)
-
-### Opening GUI
-
-From the compiler repository (see upstream README):
-
-```bash
-python main.py
-```
-
-Or launch a packaged GUI executable from **Releases**, if provided for your OS.
-
-### GUI Workflow
-
-1. **Drag and drop** images into the window
-2. **Preview** sprite data in real-time
-3. **Adjust settings** visually (format, threshold, etc.)
-4. **Export** to header files
-5. **Batch process** multiple files
-
-### GUI Features
-
-- Visual preview of sprite conversion
-- Real-time threshold adjustment
-- Palette selection
-- Batch processing interface
-- Export options
-
-## Best Practices
+## Build Integration (Standalone CLI)
 
 ### Image Preparation
 
@@ -391,7 +391,13 @@ project/
 - Check file is not corrupted
 - Try re-saving image in image editor
 
-### Getting Help
+**Tool Suite: Export fails silently or warns about missing CLI**
+
+- The `pr32-sprite-compiler` binary must be available alongside the Tool Suite executable or on `PATH`.
+- Re-run the Tool Suite installer, or download the binary from the [releases](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Sprite-Sheet-Compiler/releases) page and place it next to the Tool Suite.
+- Check the Log panel at the bottom of the Sprite Compiler module for the exact error message.
+
+### Getting Help (Standalone CLI)
 
 ```bash
 python main.py --help

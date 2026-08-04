@@ -1,6 +1,13 @@
 # Sprite Compiler Overview
 
-The **Sprite Compiler** is a tool that converts PNG images into PixelRoot32 sprite data formats. It provides both a graphical interface (GUI) and a command-line interface (CLI) to automate the process of creating sprite arrays from image files.
+The **Sprite Compiler** converts PNG images into PixelRoot32 sprite data arrays. It is available in two modes:
+
+| Mode | Interface | Best for |
+|------|-----------|----------|
+| **Tool Suite module** | Native ImGui GUI (3-panel: Settings / Preview / Log) | Interactive editing, project management, visual preview |
+| **Standalone CLI** | `python main.py` from the open-source repo | CI scripts, batch processing, build automation |
+
+Both modes produce identical C header output. The Tool Suite module delegates the actual compilation to the `pr32-sprite-compiler` CLI binary (bundled with the Tool Suite installation or available on `PATH`). The standalone CLI runs directly from a Python checkout — no Tool Suite required.
 
 ## What It Does
 
@@ -19,29 +26,33 @@ The Sprite Compiler takes bitmap images (PNG) and converts them into C header fi
 - **2bpp (4 colors)**: Packed format, 2 bits per pixel.
 - **4bpp (16 colors)**: Packed format, 4 bits per pixel.
 
-### GUI & CLI
+### Tool Suite GUI
 
-- **Modern GUI**: Step-by-step card-based interface for easy configuration.
-- **Powerful CLI**: Suited to build scripts and automation via `python main.py`.
+The Tool Suite module provides a 3-panel docked interface:
 
-### Sprite sheets
+1. **Settings** (left): Input image, Tile Size grid, Sprite Selection, Export mode/prefix/output
+2. **Preview** (center): Real-time visual preview of the selected sprite
+3. **Log** (bottom): Colour-coded log entries (Info / Warning / Error / Success)
 
-Example: two cells from a sheet using `--grid` and repeated `--sprite`:
+The module manages `.pr32sprite` project files so you can save and resume work. Export invokes the external `pr32-sprite-compiler` CLI automatically — it must be available alongside the Tool Suite or on `PATH`.
+
+### Standalone CLI
+
+The open-source Python repo (`PixelRoot32-Sprite-Sheet-Compiler`) provides the CLI entry `python main.py`. Example: two cells from a sheet using `--grid` and repeated `--sprite`:
 
 ```bash
 python main.py sheet.png --grid 16x16 --sprite 0,0,1,1 --sprite 1,0,1,1 --out output.h
 ```
 
-## GUI Interface
+## GUI Interface (Tool Suite)
 
-The GUI follows a linear flow:
+The Tool Suite module follows a step-by-step flow:
 
 1. **Input Image**: Select your PNG source.
 2. **Grid Settings**: Define the cell size and offsets.
 3. **Sprite Selection**: Pick which cells to export.
 4. **Export Settings**: Choose the mode (Layered, 2bpp, 4bpp), set a **Prefix**, and choose the output path.
-5. **About**: Version info and credits (via the `?` button).
-6. **Log**: Technical feedback and performance alerts.
+5. **Log**: Technical feedback and status messages.
 
 ## Input Requirements
 
@@ -54,6 +65,8 @@ The GUI follows a linear flow:
 
 ### Image constraints
 
+> The **16-pixel width cap applies only to 1bpp** sprites — it is a 1bpp row-format constraint of the engine's `Sprite`/`MultiSprite` renderer. `Sprite2bpp`/`Sprite4bpp` use a `uint8_t` width field with no 16-pixel limit.
+
 **For 1bpp sprites:**
 
 - Maximum width: 16 pixels
@@ -62,12 +75,12 @@ The GUI follows a linear flow:
 
 **For 2bpp sprites:**
 
-- Maximum width: 16 pixels
+- Width: any (no fixed cap)
 - Colors: Up to 4 colors
 
 **For 4bpp sprites:**
 
-- Maximum width: 16 pixels
+- Width: any (no fixed cap)
 - Colors: Up to 16 colors
 
 ## Output Format
@@ -90,9 +103,9 @@ static const uint16_t PLAYER_SPRITE_0_4BPP[] = {
 };
 ```
 
-## Use Cases
+## Use Cases (Standalone CLI)
 
-All examples assume you are in the Sprite Compiler repository directory (or invoke `main.py` with a full path). The CLI is **`python main.py`**.
+All examples below use the **standalone CLI** (`python main.py` from the open-source repo `PixelRoot32-Sprite-Sheet-Compiler`). For the Tool Suite module, open the Sprite Compiler from the Tool Suite launcher and use the 3-panel GUI instead.
 
 ### 1. Single sprite conversion
 
@@ -135,13 +148,13 @@ for f in assets/sprites/*.png; do
 done
 ```
 
-## Workflow integration
+## Workflow integration (Standalone CLI)
 
 ### Typical development workflow
 
 1. **Create sprites** in your image editor (Aseprite, Piskel, GIMP, etc.)
 2. **Save as PNG** with appropriate dimensions
-3. **Run** `python main.py …` to generate header files
+3. **Run** `python main.py …` (standalone CLI) or use the Tool Suite module GUI
 4. **Include headers** in your PixelRoot32 project
 5. **Use sprites** in your game code
 
@@ -170,7 +183,7 @@ platformio run
 
 ## Limitations
 
-- **Width limit**: 16 pixels wide for these sprite modes (engine / hardware constraint).
+- **Width limit**: 16 pixels max for 1bpp sprites (row-format constraint; 2bpp/4bpp have no fixed cap).
 - **Color depth**: Limited by format (1bpp = 2 colors, 2bpp = 4, 4bpp = 16).
 - **File format**: Primarily PNG (convert other formats first).
 

@@ -6,7 +6,12 @@ PixelRoot32 ships optional **workflow tools** alongside the open-source engine. 
 
 ## Sprite Compiler (free)
 
-Converts **PNG** images into **C headers** with sprite data (layered 1bpp, 2bpp, 4bpp, grid selection, GUI + CLI).
+Converts **PNG** images into **C headers** with sprite data (layered 1bpp, 2bpp, 4bpp, grid selection).
+
+**Two ways to use it:**
+
+- **Tool Suite (recommended)**: Integrated as a native GUI module inside the Tool Suite. The actual compilation uses an external `pr32-sprite-compiler` CLI (bundled with the Tool Suite or available on `PATH`).
+- **Standalone CLI**: Open-source Python repo (`python main.py …`) — ideal for CI scripts and build-automation without the full Tool Suite.
 
 - [Overview](/tools/sprite-compiler/overview)
 - [Installation](/tools/sprite-compiler/installation)
@@ -25,7 +30,7 @@ The **Tool Suite** adds advanced editor modules. Licensing and downloads are han
 
 ### Tilemap Editor (module 1)
 
-Coming soon - visual editor for multi-layer tilemaps, tilesets, animations, attributes, and **C++ export** aligned with the engine.
+Available - visual editor for multi-layer tilemaps, tilesets, animations, attributes, and **C++ export** aligned with the engine. Ships as a native desktop app (C++17 / SDL2 / ImGui) inside the Tool Suite.
 
 - [Overview](/tools/tilemap-editor/overview)
 - [Quick start](/tools/tilemap-editor/quick-start)
@@ -36,7 +41,11 @@ Coming soon - visual editor for multi-layer tilemaps, tilesets, animations, attr
 
 ### Music Editor (module 2)
 
-Upcoming - tracker-style music authoring for PixelRoot32.
+Upcoming - pattern-based tracker with multi-channel support for PixelRoot32 APU (planned).
+
+### SFX Editor (module 3)
+
+Upcoming - sound effect synthesis editor for the PR32 APU SFX pipeline (planned).
 
 ---
 
@@ -45,7 +54,8 @@ Upcoming - tracker-style music authoring for PixelRoot32.
 | Tool | Type | Status |
 |------|------|--------|
 | Sprite Compiler | Free / standalone | Available |
-| Tilemap Editor | Premium (suite) | Coming soon |
+| Tilemap Editor | Premium (suite) | Available |
 | Music Editor | Premium (suite) | Upcoming |
+| SFX Editor | Premium (suite) | Upcoming |
 
-**Engine docs:** [Graphics Techniques](../guide/graphics-techniques.md) · [Rendering](../guide/rendering.md) · [Tile animation (architecture)](../architecture/tile-animation.md)
+**Engine docs:** [Graphics Techniques](../guide/graphics-techniques) · [Rendering](../guide/rendering) · [Tile animation (architecture)](../architecture/tile-animation)

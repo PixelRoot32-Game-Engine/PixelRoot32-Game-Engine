@@ -1,3 +1,8 @@
+---
+title: "Usage Guide"
+description: "Day-to-day PixelRoot32 Tilemap Editor reference - layers, projects, tilesets, tools, and keyboard shortcuts"
+---
+
 # Tilemap Editor - Usage Guide
 
 **Level**: ⭐ Beginner | ⭐⭐ Intermediate
@@ -26,8 +31,6 @@
 - **Bottom layer**: Rendered below others
 - **Maximum**: **8 layers** per scene
 
-> ⚠️ **Correction**: Previous docs said 4 layers. Actual limit is **8 layers**.
-
 ### ⭐⭐ Managing Layers
 
 **Add layer**:
@@ -48,7 +51,7 @@
 - Or use ordering commands
 
 **Rename**:
-1. Double-click layer name
+1. Click the ✏️ rename button on the layer row
 2. Type new name
 3. Press Enter
 
@@ -77,6 +80,8 @@
 3. Click **Create Project**
 4. Select empty folder
 
+> Project names are sanitized to lowercase alphanumeric + `_`. Dots `..` and `.` are rejected. See [Tile Flag Rules](/tools/tilemap-editor/advanced-guide#tile-flag-rules) for per-project rule files.
+
 💡 **Tip**: Use "Fit Map to Hardware Limit" to auto-fit to ESP32 (320×240).
 
 ### ⭐ Project Settings
@@ -90,12 +95,24 @@
 
 ### ⭐ Save & Load
 
-| Format | Extension | Advantages |
-|--------|----------|------------|
-| **JSON** | `.pr32scene` | Human-readable, git-friendly |
-| **Binary** | `.pr32scene.bin` | Up to 335× smaller, 10× faster |
+| Extension | Content |
+|-----------|---------|
+| `.pr32scene.bin` | Binary v6 format (default) |
+| `.pr32scene` | Legacy extension; still binary v6 content |
 
-**Switch to binary**: **File → Preferences → Use Binary Format**
+**File → Preferences** opens a modal dialog. The **"Use Binary Format"** checkbox inside only changes the saved **extension** (`.pr32scene.bin` vs `.pr32scene`). The on-disk content is always the binary v6 container — there is no JSON project format.
+
+### ⭐ Toolbar Indicators
+
+The top toolbar shows status indicators while a project is open:
+
+| Indicator | Meaning | Interactive |
+|-----------|---------|:---:|
+| `HIST:n` | Number of undo entries in history (max **100**) | ❌ |
+| `BIN` / `JSON` | Current save format preference | ✅ Click to toggle |
+| `Export` | Shortcut to export dialog | ✅ Click to open |
+
+> The undo history is limited to **100 operations per session**. Enabling **History Compression** in Preferences merges consecutive similar edits to stay within the cap longer.
 
 ---
 
@@ -103,14 +120,9 @@
 
 ### ⭐ Importing a Tileset
 
-**Method 1** - TILESET panel:
-1. Click **Import tileset**
+1. In the **TILESET** panel, click **Import tileset**
 2. Select PNG/JPG/BMP
 3. Auto-copied to `assets/tilesets/`
-
-**Method 2** - Menu:
-1. **File → Import Tileset**
-2. Select image
 
 📝 **Format**: PNG recommended, multiples of tile size, up to 16 colors.
 
@@ -128,7 +140,7 @@
 
 - **Zoom In**: Mouse wheel up
 - **Zoom Out**: Mouse wheel down
-- Increments: 0.5× (min 1×, max 10×)
+- Increments: 0.25× (min 1×, max 4×)
 
 ### ⭐ Multiple Tilesets
 
@@ -169,16 +181,16 @@ Tileset B: 8 tiles (indices 10-17)
 ### ⭐⭐ Managing Scenes
 
 **Rename**:
-1. Right-click scene → **Rename**
+1. Click the ✏️ rename button on the scene row
 2. Type new name
 3. Press Enter
 
 **Duplicate**:
-1. Right-click scene → **Duplicate**
+1. Click the 📄 duplicate button on the scene row
 2. Exact copy with "(Copy)"
 
 **Delete**:
-1. Right-click scene → **Delete**
+1. Click 🗑️ delete button on the scene row
 2. Confirm
 > ⚠️ Cannot delete last scene
 
@@ -211,39 +223,32 @@ Tileset B: 8 tiles (indices 10-17)
 **Method 2** (universal):
 - Right-click with any tool
 
-### ⭐⭐ Pipette (P)
+### ⭐⭐ Pipette (I)
 
-1. Select Pipette (**P**)
-2. Click tile on canvas
-3. Auto-selected in TILESET
+1. Select Pipette (**I**)
+2. Click tile on canvas to pick it as the active tile
+3. The picked tile is auto-selected in the TILESET panel
+4. To assign a tile to an animation: pick the tile with Pipette, open the **Animations** panel, select a target animation, and click **Apply**
+
+> 💡 **See**: [Advanced Guide](/tools/tilemap-editor/advanced-guide) for animations and attributes
 
 ### ⭐⭐ Attribute Tool (A)
 
-1. Select Attribute (**A**)
-2. Click tile to assign/edit
-3. Configure properties
+### ⭐⭐ Live Preview
 
-> 💡 **See**: [Advanced Guide](/tools/tilemap-editor/advanced-guide) for attributes
+1. Click the **▶ Live Preview** button in the toolbar
+2. Animations play in real-time on the canvas
+3. Uses the **Play/Pause** button, speed controls (1× / 2× / 0.5×), and frame-stepping from the toolbar
 
-### ⭐⭐ Animation Eyedropper (I)
+### ⭐⭐ Pan
 
-1. Select Animation Eyedropper (**I**)
-2. Click tile on canvas
-3. Auto-linked to current animation
+**Persistent Pan (G)**:
+- Press **G** to switch to Pan tool permanently
+- Use another tool key (B, E, R, I, A) to switch back
 
-> 💡 **See**: [Advanced Guide](/tools/tilemap-editor/advanced-guide) for animations
-
-### ⭐⭐ Live Preview (L)
-
-1. Click **Live Preview** button
-2. Or press **L**
-3. Animations play in real-time on canvas
-
-### ⭐ Pan (Space)
-
-1. Hold **Space**
-2. Drag to move view
-3. Release to return to tool
+**Temporary Pan (Space)**:
+- Hold **Space** to temporarily pan
+- Release to return to your previous tool
 
 ### ⭐ Zoom Controls
 
@@ -276,7 +281,7 @@ Mouse over canvas:
 ### ⭐ Activating
 
 **Per scene**:
-1. Click 🧅 icon next to scene
+1. Check the 🧅 checkbox next to the scene
 2. Scene appears translucent
 
 **Global**:
@@ -285,9 +290,8 @@ Mouse over canvas:
 
 ### ⭐ Adjusting Opacity
 
-- Use **"Opacity"** slider
+- Use **"Opacity"** slider (0.0-1.0)
 - Recommended: 0.3-0.5 (30-50%)
-- Default: 0.4 (40%)
 
 ### ⭐⭐ Example: Aligning Exit
 
@@ -300,6 +304,27 @@ Mouse over canvas:
 
 ---
 
+## Export
+
+### ⭐⭐ Export to C++
+
+1. Click the **Export** button in the toolbar, or **File → Export**
+2. Configure options:
+
+| Option | Description |
+|--------|-------------|
+| **C++ Namespace** | Namespace for generated code |
+| **Color Depth** | Auto-detected BPP (1/2/4) |
+| **Store in Flash (ESP32)** | Save tile data to PROGMEM |
+| **Legacy Format** | Without Flash attributes (compatibility) |
+
+3. Select output directory
+4. Generated files: `scene_name.h`, `scene_name.cpp`, optional `scene_name_animations.h/.cpp`, and `shared_palette.h`
+
+🔒 **License required**: Exporting to C++ requires a valid license. See [License & Activation](/tools/tilemap-editor/license-and-activation).
+
+---
+
 ## Preferences
 
 ### ⭐ Access
@@ -307,25 +332,19 @@ Mouse over canvas:
 **File → Preferences**
 
 **Grid Settings**:
-- **Canvas Grid Intensity**: Grid opacity (0-255)
-- **Tileset Grid Intensity**: Grid opacity in tileset
-- **Attribute Indicator Opacity**: Marker opacity (0.0-1.0)
+- **Grid Background Color**: Color of the canvas background behind the grid
+- **Canvas Grid Intensity**: Grid opacity on the canvas (0-255, default 40)
+- **Tileset Grid Intensity**: Grid opacity in the tileset panel (0-255, default 120)
+- **Attribute Indicator Opacity**: Marker opacity for tile attributes (0-255, default 200)
+- **Animation Indicator Opacity**: Marker opacity for animated tiles (0-255, default 180)
 
 **Auto-save**:
-- **Enabled**: On/off
-- **Interval**: Minutes (1-60)
+- **Enabled**: On/off (enabled by default)
+- **Interval**: Minutes (1-30, default 5 min)
 
 **Optimization**:
-- **History Compression**: Compresses consecutive operations
-- **Use Binary Format**: Default .bin format
-
-### ⭐⭐ Memory & Lazy Loading
-
-Editor implements **lazy loading** for memory optimization:
-
-- Inactive scenes stay unloaded
-- Load on demand when switching
-- Configurable in preferences
+- **History Compression**: Compresses consecutive undo operations
+- **Use Binary Format**: Sets the saved file extension
 
 ---
 
@@ -338,11 +357,10 @@ Editor implements **lazy loading** for memory optimization:
 | **B** | Brush |
 | **E** | Eraser |
 | **R** | Rectangle |
-| **P** | Pipette |
+| **G** | Pan (persistent) |
+| **I** | Pipette |
 | **A** | Attribute |
-| **I** | Animation Eyedropper |
-| **L** | Live Preview |
-| **Space** | Pan (hold) |
+| **Space** | Pan (temporary hold) |
 
 ### Navigation
 
@@ -354,15 +372,23 @@ Editor implements **lazy loading** for memory optimization:
 | **Ctrl+0** | Reset zoom |
 | **Ctrl+F** | Fit to screen |
 
+### File
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+N** | New project |
+| **Ctrl+O** | Open project |
+| **Ctrl+S** | Save |
+| **Ctrl+Shift+S** | Save As |
+| **Ctrl+W** | Close project |
+
 ### Editing
 
 | Shortcut | Action |
 |----------|--------|
 | **Ctrl+Z** | Undo |
-| **Ctrl+Y** | Redo |
-| **Ctrl+S** | Save |
-| **Ctrl+E** | Export C++ |
-| **Esc** | Close panels |
+| **Ctrl+Y** / **Ctrl+Shift+Z** | Redo |
+| **F1** | Keyboard shortcuts panel |
 
 ### Mouse
 
