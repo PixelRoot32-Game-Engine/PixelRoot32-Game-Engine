@@ -597,9 +597,8 @@ bool TicTacToeScene::touchToCell(int16_t touchX, int16_t touchY, int& outRow, in
         return false;
     }
 
-    // Calculate the cell position (floor division; negative relX/relY from the
-    // hit-slop margin above land outside [0, BOARD_SIZE) and are rejected by
-    // containsCell() below - D9).
+    // Floor division: a touch inside the hit-slop margin above lands outside
+    // [0, BOARD_SIZE) as a negative index, and containsCell() rejects it below.
     outCol = gameplay::worldToCellX(touchX, kBoardGrid);
     outRow = gameplay::worldToCellY(touchY, kBoardGrid);
 
