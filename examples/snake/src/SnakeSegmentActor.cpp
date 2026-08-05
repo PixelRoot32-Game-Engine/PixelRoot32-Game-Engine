@@ -16,7 +16,7 @@ static constexpr physics::CollisionLayer LAYER_SNAKE_BODY = 1 << 1;
 
 SnakeSegmentActor::SnakeSegmentActor(int gridX, int gridY, bool head)
     : pr32::core::Actor(
-        math::Vector2(math::toScalar(gridX * CELL_SIZE), math::toScalar(gridY * CELL_SIZE)),
+        gameplay::cellToWorld(gridX, gridY, kSnakeGrid),
         CELL_SIZE - 1, CELL_SIZE - 1),
       cellX(gridX),
       cellY(gridY),
@@ -31,15 +31,12 @@ void SnakeSegmentActor::update(unsigned long deltaTime) {
 
 void SnakeSegmentActor::draw(gfx::Renderer& renderer) {
     gfx::Color color = isHead ? gfx::Color::LightGreen : gfx::Color::DarkGreen;
-    renderer.drawFilledRectangle(cellX * CELL_SIZE, cellY * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1, color);
+    renderer.drawFilledRectangle(gameplay::cellToWorldX(cellX, kSnakeGrid), gameplay::cellToWorldY(cellY, kSnakeGrid), CELL_SIZE - 1, CELL_SIZE - 1, color);
 }
 
 core::Rect SnakeSegmentActor::getHitBox() {
-    return { 
-        math::Vector2(
-            math::toScalar(cellX * CELL_SIZE),
-            math::toScalar(cellY * CELL_SIZE)
-        ),
+    return {
+        gameplay::cellToWorld(cellX, cellY, kSnakeGrid),
         CELL_SIZE - 1,
         CELL_SIZE - 1
     };
@@ -55,8 +52,7 @@ void SnakeSegmentActor::onCollision(core::Actor* other) {
 void SnakeSegmentActor::setCellPosition(int gridX, int gridY) {
     cellX = gridX;
     cellY = gridY;
-    position.x = math::toScalar(cellX * CELL_SIZE);
-    position.y = math::toScalar(cellY * CELL_SIZE);
+    position = gameplay::cellToWorld(cellX, cellY, kSnakeGrid);
 }
 
 int SnakeSegmentActor::getCellX() const {
