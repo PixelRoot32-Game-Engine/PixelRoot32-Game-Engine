@@ -94,6 +94,19 @@
 #define PIXELROOT32_ENABLE_DEPTH_SORT 0
 #endif
 
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE)
+#define PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL)
+#define PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL 0
+#endif
+
+// No dependency guard is declared for the two flags above: unlike interaction
+// triggers and spatial queries, neither the state machine nor the object pool
+// includes any physics-gated header, so both are usable with
+// PIXELROOT32_ENABLE_PHYSICS=0 and are independent of each other.
+
 // Interaction triggers and spatial queries are built on top of CollisionSystem
 // and SpatialGrid, which only exist when physics is enabled (see
 // include/core/Scene.h:213-216). Fail the build loudly instead of silently

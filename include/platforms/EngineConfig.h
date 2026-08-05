@@ -516,6 +516,26 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableDepthSort = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE
+
+    /** @brief Type-safe access to EnableGameplayStateMachine configuration. */
+    inline constexpr bool EnableGameplayStateMachine = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayStateMachine configuration. */
+    inline constexpr bool EnableGameplayStateMachine = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL
+
+    /** @brief Type-safe access to EnableGameplayObjectPool configuration. */
+    inline constexpr bool EnableGameplayObjectPool = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayObjectPool configuration. */
+    inline constexpr bool EnableGameplayObjectPool = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }
