@@ -6,6 +6,7 @@
 #include "physics/KinematicActor.h"
 #include "GameConstants.h"
 #include "GameLayers.h"
+#include "gameplay/StateMachine.h"
 
 namespace metroidvania {
 
@@ -66,9 +67,24 @@ public:
     }
 
 private:
+    /// Bound to a caller-owned, static const table (see .cpp) whose onUpdate
+    /// callbacks hold the actual IDLE/RUN/JUMP transition logic. Configured
+    /// and started in the constructor.
+    pixelroot32::gameplay::StateMachine stateMachine;
+
+    // Animation timing stays explicit rather than derived from
+    // stateMachine.getTimeInState(): once transitions are requested from
+    // inside onUpdate (below), StateMachine::update() has already added this
+    // frame's deltaTime to time-in-state BEFORE onUpdate runs (see
+    // StateMachine.h's `update()` contract and Rule 5), so a same-frame
+    // transition resets time-in-state to exactly 0, discarding that delta —
+    // unlike the original code, which reset then added the delta, ending the
+    // transition frame at `deltaTime`, not `0`. Keeping these fields and
+    // resetting them from onEnterAnyState (fired synchronously by
+    // requestState() regardless of call site) reproduces the original
+    // ordering exactly; see PlayerActor.cpp for the full trace.
     unsigned long timeAccumulator = 0;
     uint8_t currentFrame = 0;
-    PlayerState currentState = PlayerState::IDLE;
 
     pixelroot32::math::Scalar moveDir = pixelroot32::math::toScalar(0.0f);       ///< Horizontal direction (-1, 0, 1)
     pixelroot32::math::Scalar verticalDir = pixelroot32::math::toScalar(0.0f);   ///< Vertical direction for ladders
@@ -99,6 +115,34 @@ private:
 
     /** @brief Changes player state and resets animation if needed. */
     void changeState(PlayerState newState);
+
+    /** @brief Current player state, read back from the state machine. */
+    PlayerState currentState() const;
+
+    // StateMachine::State callbacks (see the kPlayerStates table in the
+    // .cpp). `owner` is always `this` — configure() binds it once in the
+    // constructor. Static so they match EnterFn/UpdateFn's C function
+    // pointer signatures; each recovers the instance via
+    // `static_cast<PlayerActor*>(owner)`.
+
+    /** @brief Shared onEnter for every row: resets animation timing, exactly
+     *  what the old `changeState()` did on every real transition. */
+    static void onEnterAnyState(void* owner, pixelroot32::gameplay::StateId fromState);
+
+    /** @brief IDLE -> JUMP (airborne) or RUN (moving), mirrors the old switch. */
+    static void onUpdateIdle(void* owner, unsigned long deltaTime, uint32_t timeInStateMs);
+
+    /** @brief RUN -> JUMP (airborne) or IDLE (stopped), mirrors the old switch. */
+    static void onUpdateRun(void* owner, unsigned long deltaTime, uint32_t timeInStateMs);
+
+    /** @brief JUMP -> RUN or IDLE on landing, mirrors the old switch. */
+    static void onUpdateJump(void* owner, unsigned long deltaTime, uint32_t timeInStateMs);
+
+    /// State table bound in the constructor. Defined out-of-line in the .cpp
+    /// (class-static, not namespace-scope, so its rows can take the address
+    /// of the private callbacks above) — still `static const`, so it lands
+    /// in flash/.rodata per StateMachine.h's documented convention.
+    static const pixelroot32::gameplay::StateMachine::State kPlayerStates[4];
 };
 
 } // namespace metroidvania
