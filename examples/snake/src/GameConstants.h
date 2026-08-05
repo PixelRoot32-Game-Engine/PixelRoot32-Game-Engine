@@ -22,8 +22,10 @@ namespace snake {
     constexpr int GRID_HEIGHT = 24;
     constexpr int TOP_UI_GRID_ROWS = 2;
 
-    /// Cell<->world grid for the snake playfield (design.md D1); NOT used with
-    /// containsCell() for the wall check (design.md D6) — see SnakeScene::update().
+    /// Cell<->world grid for the snake playfield. Deliberately NOT used with
+    /// containsCell() for the wall check: the playfield's lower Y bound is
+    /// TOP_UI_GRID_ROWS, not 0, so containsCell() would admit the UI band.
+    /// See SnakeScene::update().
     inline constexpr gameplay::GridSpec kSnakeGrid{0, 0, CELL_SIZE, CELL_SIZE, GRID_WIDTH, GRID_HEIGHT};
     static_assert(gameplay::gridSpecIsValid(kSnakeGrid), "kSnakeGrid exceeds Scalar's range or has an invalid cell size.");
 
