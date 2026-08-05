@@ -494,13 +494,24 @@ namespace pixelroot32::physics {
     }
 
     void CollisionSystem::triggerCallbacks() {
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->beginFrame();
+#endif
         for (int i = 0; i < contactCount; ++i) {
             const Contact& contact = contacts[i];
             if (contact.bodyA && contact.bodyB) {
                 contact.bodyA->onCollision(static_cast<Actor*>(contact.bodyB));
                 contact.bodyB->onCollision(static_cast<Actor*>(contact.bodyA));
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+                if (interactionTracker_) {
+                    interactionTracker_->recordPair(static_cast<Actor*>(contact.bodyA), static_cast<Actor*>(contact.bodyB));
+                }
+#endif
             }
         }
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->endFrame();   // diff → enter/exit dispatch
+#endif
     }
 
     bool CollisionSystem::checkCollision(Actor* actor, Actor** outArray, int& count, int maxCount) {

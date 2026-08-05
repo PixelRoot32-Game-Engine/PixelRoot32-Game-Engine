@@ -15,6 +15,10 @@
 #include "core/Entity.h"
 #include "platforms/EngineConfig.h"
 
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+#include "gameplay/InteractionTracker.h"
+#endif
+
 namespace pixelroot32::core { class Actor; class PhysicsActor; }
 
 namespace pixelroot32::physics {
@@ -114,6 +118,21 @@ public:
      */
     void triggerCallbacks();
 
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    /**
+     * @brief Sets the (optional, non-owning) interaction tracker that
+     *        observes trigger enter/exit edges from triggerCallbacks().
+     *
+     * With no tracker set, triggerCallbacks() behaves exactly as it does
+     * with the flag off (design.md D3). CollisionSystem does not own the
+     * tracker; the caller (game or Scene::init()) is responsible for its
+     * lifetime, mirroring SceneManager::setTransitionEffect().
+     */
+    void setInteractionTracker(pixelroot32::gameplay::InteractionTracker* tracker) {
+        interactionTracker_ = tracker;
+    }
+#endif
+
     /**
      * @brief Gets the total number of registered entities.
      * @return Number of entities.
@@ -123,7 +142,14 @@ public:
     /**
      * @brief Clears the collision system state.
      */
-    void clear() { entityCount = 0; contactCount = 0; grid.clear(); }
+    void clear() {
+        entityCount = 0;
+        contactCount = 0;
+        grid.clear();
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->reset();
+#endif
+    }
 
     /**
      * @brief Checks for collisions with a specific actor.
@@ -191,7 +217,11 @@ private:
     int contactCount = 0;
     SpatialGrid grid;
     uint16_t nextEntityId = 1;  ///< Next id to assign on addEntity; 0 is reserved for "unregistered".
-    
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    pixelroot32::gameplay::InteractionTracker* interactionTracker_ = nullptr; ///< Non-owning; set via setInteractionTracker().
+#endif
+
     bool generateContact(pixelroot32::core::PhysicsActor* a, 
                          pixelroot32::core::PhysicsActor* b);
     bool generateCircleVsCircleContact(Contact& contact);
