@@ -53,6 +53,15 @@ public:
     int firePower() const { return firePower_; }
     int maxBombs() const { return maxBombs_; }
 
+    /// Applies a Fire power-up: increases the blast arm length by the fixed
+    /// increment. Takes effect on the NEXT bomb placed -- an already-placed
+    /// bomb keeps the range it snapshotted at placement (see BombermanBombs.h).
+    void applyFirePowerUp() { firePower_ += kFirePowerIncrement; }
+
+    /// Applies a Bomb power-up: increases the simultaneous-bomb limit by
+    /// one.
+    void applyBombPowerUp() { ++maxBombs_; }
+
     /// Puts the player at rest in a fresh cell (level restart). Also
     /// clears the own-bomb exemption, since a fresh level has no bombs.
     void resetTo(int startCellX, int startCellY);

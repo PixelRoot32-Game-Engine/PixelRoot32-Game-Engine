@@ -14,8 +14,9 @@ namespace bomberman {
  *
  * Holds references to the scene's board/bomb/blastSteps arrays — never
  * copies — so a regenerated level or a fresh bomb pool is visible without
- * re-adding or reconstructing this entity. Item draw passes are added in
- * later work.
+ * re-adding or reconstructing this entity. Power-up tiles are drawn as part
+ * of the same per-cell pass as walls/exit; enemies and the player draw
+ * themselves as layer-1 actors, added separately.
  */
 class BoardRenderer : public pixelroot32::core::Entity {
 public:

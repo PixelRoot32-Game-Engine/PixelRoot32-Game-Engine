@@ -95,4 +95,9 @@ constexpr int kDefaultFirePower = 2;
 constexpr int kDefaultMaxBombs = 1;
 constexpr int kStartingLives = 3;
 
+/* Power-up increments. A Fire pickup adds this many cells to the blast arm
+ * length; a Bomb pickup adds one to the simultaneous-bomb limit (that half
+ * has no separate constant -- it is always exactly +1). */
+constexpr int kFirePowerIncrement = 1;
+
 }  // namespace bomberman

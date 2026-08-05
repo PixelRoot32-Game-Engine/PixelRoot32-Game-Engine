@@ -46,9 +46,14 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
             } else if (t == TileType::Exit) {
                 renderer.drawRectangle(px, py, kCellSize, kCellSize, gfx::Color::Purple);
                 renderer.drawFilledRectangle(px + 4, py + 4, 8, 8, gfx::Color::Purple);
+            } else if (t == TileType::PowerUpFire) {
+                renderer.drawFilledCircle(px + kCellSize / 2, py + kCellSize / 2, 5, gfx::Color::LightRed);
+                renderer.drawCircle(px + kCellSize / 2, py + kCellSize / 2, 6, gfx::Color::Yellow);
+            } else if (t == TileType::PowerUpBomb) {
+                renderer.drawFilledCircle(px + kCellSize / 2, py + kCellSize / 2, 5, gfx::Color::Blue);
+                renderer.drawCircle(px + kCellSize / 2, py + kCellSize / 2, 6, gfx::Color::Cyan);
             }
-            // TileType::Empty draws nothing. PowerUpFire/PowerUpBomb draw
-            // passes are added with power-up pickup, in later work.
+            // TileType::Empty draws nothing.
         }
     }
 
