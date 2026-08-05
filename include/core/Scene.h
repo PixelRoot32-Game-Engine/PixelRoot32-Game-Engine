@@ -206,8 +206,38 @@ protected:
     int entityCount = 0;            ///< Current number of entities.
     bool needsSorting = false;      ///< Flag to trigger sorting by layer.
 
+    /**
+     * @brief Function-pointer comparator for secondary ordering within a render layer.
+     *
+     * `true` when `a` must be drawn before `b`. Consulted by shouldPrecede()
+     * only when both entities share the same renderLayer; `nullptr` (the
+     * default) means "no secondary ordering", which keeps sortEntities()
+     * byte-identical to its pre-capability behavior (see design.md D5).
+     */
+    using DepthComparator = bool (*)(Entity* a, Entity* b);
+
+    DepthComparator depthComparator = nullptr;  ///< Optional secondary comparator (nullptr = today's behavior).
+    bool depthSortEnabled = false;              ///< When true, draw() re-sorts every frame regardless of needsSorting.
+
     void sortEntities();            ///< Sorts entities by render layer.
     bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer);
+
+    /**
+     * @brief Insertion-sort predicate used by sortEntities(): whether `key`
+     * must be placed before `at`.
+     *
+     * Primary comparison is renderLayer, identical to today's behavior. Only
+     * when both entities share the same renderLayer does the comparator get
+     * consulted; with no comparator set this falls through to `false`,
+     * matching today's stable-insertion behavior for equal layers exactly.
+     */
+    inline bool shouldPrecede(Entity* key, Entity* at) const {
+        const unsigned char la = at->getRenderLayer();
+        const unsigned char lk = key->getRenderLayer();
+        if (la != lk) return la > lk;               // identical to today
+        if (depthComparator == nullptr) return false; // identical to today
+        return depthComparator(key, at);
+    }
 
     // Physics 
     #if PIXELROOT32_ENABLE_PHYSICS
