@@ -73,6 +73,35 @@
 #define PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE 1
 #endif
 
+// -----------------------------------------------------------------------------
+// Gameplay Framework Feature Defaults
+// -----------------------------------------------------------------------------
+// By default, the gameplay framework capabilities are disabled. No existing
+// example uses them, so games that do not opt in pay zero RAM/flash cost.
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_EVENTS)
+#define PIXELROOT32_ENABLE_GAMEPLAY_EVENTS 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_INTERACTION_TRIGGERS)
+#define PIXELROOT32_ENABLE_INTERACTION_TRIGGERS 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_SPATIAL_QUERY)
+#define PIXELROOT32_ENABLE_SPATIAL_QUERY 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_DEPTH_SORT)
+#define PIXELROOT32_ENABLE_DEPTH_SORT 0
+#endif
+
+// Interaction triggers and spatial queries are built on top of CollisionSystem
+// and SpatialGrid, which only exist when physics is enabled (see
+// include/core/Scene.h:213-216). Fail the build loudly instead of silently
+// disabling the flag.
+#if (PIXELROOT32_ENABLE_INTERACTION_TRIGGERS || PIXELROOT32_ENABLE_SPATIAL_QUERY) && !PIXELROOT32_ENABLE_PHYSICS
+#error "PIXELROOT32_ENABLE_INTERACTION_TRIGGERS and PIXELROOT32_ENABLE_SPATIAL_QUERY require PIXELROOT32_ENABLE_PHYSICS=1 (CollisionSystem and SpatialGrid only exist when physics is enabled)"
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================
