@@ -84,11 +84,8 @@ void Game2048Scene::resetGame() {
     aiController.reset();  // Reset AI corner strategy for new game
 #endif
 
-    // Calculate grid position (centered)
-    int gridSize = GRID_SIZE * CELL_SIZE;
-    int gridX = (DISPLAY_WIDTH - gridSize) / 2;
-    int gridY = (DISPLAY_HEIGHT - gridSize) / 2;
-    gridPosition = pr32::math::Vector2(pr32::math::toScalar(gridX), pr32::math::toScalar(gridY));
+    // Grid position (centered) -- cell (0, 0)'s world origin.
+    gridPosition = gameplay::cellToWorld(0, 0, kGame2048Grid);
 
     inputReady = false;
     lastMoveTime = 0;
@@ -278,15 +275,15 @@ void Game2048Scene::draw(pixelroot32::graphics::Renderer& renderer) {
 }
 
 void Game2048Scene::drawGrid(pixelroot32::graphics::Renderer& renderer) {
-    int startX = static_cast<int>(gridPosition.x);
-    int startY = static_cast<int>(gridPosition.y);
+    int startX = gameplay::cellToWorldX(0, kGame2048Grid);
+    int startY = gameplay::cellToWorldY(0, kGame2048Grid);
     int gridPixelSize = GRID_SIZE * CELL_SIZE;
 
     // Draw background cells
     for (int row = 0; row < GRID_SIZE; ++row) {
         for (int col = 0; col < GRID_SIZE; ++col) {
-            int cellX = startX + col * CELL_SIZE + TILE_SPACING;
-            int cellY = startY + row * CELL_SIZE + TILE_SPACING;
+            int cellX = gameplay::cellToWorldX(col, kGame2048Grid) + TILE_SPACING;
+            int cellY = gameplay::cellToWorldY(row, kGame2048Grid) + TILE_SPACING;
             int cellSize = CELL_SIZE - TILE_SPACING * 2;
 
             // Use DarkGray for empty cells (better contrast)
@@ -312,11 +309,8 @@ void Game2048Scene::drawTiles(pixelroot32::graphics::Renderer& renderer) {
 }
 
 void Game2048Scene::drawTile(pixelroot32::graphics::Renderer& renderer, int row, int col, uint16_t value) {
-    int startX = static_cast<int>(gridPosition.x);
-    int startY = static_cast<int>(gridPosition.y);
-
-    int tileX = startX + col * CELL_SIZE + TILE_SPACING;
-    int tileY = startY + row * CELL_SIZE + TILE_SPACING;
+    int tileX = gameplay::cellToWorldX(col, kGame2048Grid) + TILE_SPACING;
+    int tileY = gameplay::cellToWorldY(row, kGame2048Grid) + TILE_SPACING;
     int tileSize = CELL_SIZE - TILE_SPACING * 2;
 
     // Draw tile background
