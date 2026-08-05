@@ -51,6 +51,9 @@ Understanding the engine's memory limits is crucial for developing stable games 
 | **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
 | **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
 | **Velocity Iterations** | 2 | ✅ via `PIXELROOT32_VELOCITY_ITERATIONS` | Physics solver iterations |
+| **Gameplay Event Queue Capacity** | 32 | ✅ via `GAMEPLAY_EVENT_QUEUE_CAPACITY` | Ring buffer slots for `gameplay::GameplayEventBus` (Gameplay Framework Phase 1) |
+| **Max Interactive Actors** | 16 | ✅ via `GAMEPLAY_MAX_INTERACTIVE_ACTORS` | Registry size for `gameplay::InteractionTracker` (Gameplay Framework Phase 1) |
+| **Spatial Query Max Radius** | 128 | ✅ via `SPATIAL_QUERY_MAX_RADIUS` | Clamp for `queryRadius()` to avoid Q16.16 squared-distance overflow (Gameplay Framework Phase 1) |
 
 **Modular Compilation Impact:**
 
@@ -63,6 +66,26 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 | `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB | UIElement, all layouts, UI containers |
 | `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB | ParticleEmitter, particle pools |
 | **All disabled** | **~30 KB** | **~70 KB** | Maximum savings |
+
+**Gameplay Framework Phase 1 flags (opt-in, default `0`):** unlike the flags above — which default to `1` because audio/physics/UI/particles are load-bearing for existing examples — these four capabilities are purely additive and default **off**, so none of the 15 existing examples pays their cost unless explicitly enabled:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_EVENTS=1` | `0` | ~512 B (ESP32-C3) / ~768 B (native) | `gameplay::GameplayEventBus` — single-threaded, `Engine`-owned event ring buffer |
+| `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` | `0` | ~704 B (ESP32, `PHYSICS_MAX_CONTACTS=64`) / ~1.2 KB (native default 128) | `gameplay::InteractionTracker` — enter/exit edge detection over `CollisionSystem` contacts. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
+| `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` | `0` | 0 B extra static storage (adds methods only) | `SpatialGrid::queryRadius/queryBox` + `CollisionSystem::queryRadius/queryBox`. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
+| `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `0` | ~8 B per `Scene` (comparator pointer + bool) | `Scene::depthComparator` / `depthSortEnabled` secondary sort key, used by `Scene::sortEntities()` |
+
+`PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` or `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` combined with `PIXELROOT32_ENABLE_PHYSICS=0` fails the build at compile time via an `#error` in `PlatformDefaults.h` (`CollisionSystem` and `SpatialGrid` only exist when physics is enabled), rather than silently disabling the feature.
+
+**`GameplayEvent` byte budget (`GAMEPLAY_EVENT_QUEUE_CAPACITY` slots, default 32):**
+
+| Target | `void*` | `Scalar` | ids (2× `uint16_t`) | type tag | padding | `sizeof(GameplayEvent)` | Queue total |
+|--------|---------|----------|----------------------|----------|---------|--------------------------|-------------|
+| ESP32-C3 (32-bit, `Scalar` = `Fixed16`) | 4 B | 4 B | 4 B | 1 B | 3 B | **16 B** | **512 B** |
+| native/PC (64-bit, `Scalar` = `float`) | 8 B | 4 B | 4 B | 1 B | 7 B | **24 B** | **768 B** |
+
+**Non-atomic bus contract:** `gameplay::GameplayEventBus` is produced and consumed entirely inside the single-threaded `Scene::update()`/`Scene::draw()` loop driven from `SceneManager::update()`. Its head/tail/count indices are plain `uint16_t`, not `std::atomic` — unlike `AudioCommandQueue`, which bridges the game thread and the audio task. Publishing from an ISR or the audio task is **explicitly unsupported** and will corrupt the ring buffer's indices; it is not a replacement for `AudioCommandQueue`. Overflow policy is drop-newest with a monotonic `getDroppedCount()` diagnostic (preserves enter/exit pairing rather than risking a dangling `TriggerExit` for an evicted `TriggerEnter`). The bus is drained (`clear()`) on every `SceneManager::setCurrentScene()` call (including `SceneSwap` transitions), but **not** on `pushScene()`/`popScene()`, since a paused scene under an overlay never runs and should not lose events it expects to consume on resume.
 
 #### Subsystem Compilation Patterns
 
