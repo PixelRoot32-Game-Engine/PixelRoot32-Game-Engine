@@ -542,8 +542,8 @@ void TicTacToeScene::drawCursor(gfx::Renderer& renderer) {
 void TicTacToeScene::drawMarks(gfx::Renderer& renderer) {
     for (int i = 0; i < BOARD_SIZE; ++i) {
         for (int j = 0; j < BOARD_SIZE; ++j) {
-            int x = static_cast<int>(boardPosition.x) + j * CELL_SIZE;
-            int y = static_cast<int>(boardPosition.y) + i * CELL_SIZE;
+            int x = gameplay::cellToWorldX(j, kBoardGrid);
+            int y = gameplay::cellToWorldY(i, kBoardGrid);
 
             if (board[i][j] == Player::X) {
                 drawX(renderer, x, y);
