@@ -11,15 +11,13 @@ placeholder for "not yet".
 
 ---
 
-## The audit finding (§5.9)
+## Why there is no engine class
 
-The engine's top-down capability audit (`docs/audits/topdown-genre-capability-audit.md`,
-§5.9) flagged that several examples repeat the same trio — `int score;
-int lives; bool gameOver;` — and asked whether a small reusable class was
-worth adding. Gameplay Framework Phase 2's design (`design.md` D0) closed that
-question: **no.** The evidence, checked against the 15 examples under
-`examples/`, is weaker than the audit's one-line summary suggested, and the
-shape of what exists is actively incompatible across examples.
+At first glance several examples look like they repeat the same trio — `int
+score; int lives; bool gameOver;` — which reads as an obvious candidate for a
+small reusable class. Checked against all 15 examples under `examples/`, that
+impression does not survive: the overlap is much thinner than it looks, and
+the shapes that do exist are actively incompatible with each other.
 
 ### `score`, `lives`, and `gameOver` are not one recurring shape — they are three
 
@@ -91,7 +89,7 @@ and by definition would be wrong for at least two of the three.
 `Scene`. Both are members of `Game2048Logic`
 (`examples/2048/src/Game2048Logic.h:41,43`) — a plain domain-logic class the
 scene owns and queries via `getScore()` / `isGameOver()`. A `Scene`-attached
-tracker (the shape the audit's phrasing implies) would not even have
+tracker — the most natural shape for such a class — would not even have
 anywhere to attach in this example, because the scene is deliberately a thin
 presentation layer over logic that owns its own state. This is the fourth
 data point, and it points the same direction as the other three: session
@@ -110,7 +108,7 @@ have handled the same question.
 | **Unity** | No | `PlayerPrefs` — generic key-value persistence. Score/lives are always user-defined `MonoBehaviour` fields or a project-specific `GameManager` singleton. |
 | **Godot** | No | Documents a project-defined **autoload singleton** (e.g. a `GameState.gd`) as *the* recommended pattern for cross-scene session data — explicitly leaving its shape to the game. |
 | **Bevy** (ECS) | No | A plain `Resource` the game defines itself; ECS engines have no opinion on what constitutes "session state" because that's domain data, not engine data. |
-| **Unreal Engine** | **Yes** — `Score` lives on `APlayerState` | But `PlayerState` exists as **network-replication infrastructure**: it is Unreal's per-connected-player container, replicated to every client so each peer knows every other player's score. The `Score` field is a side effect of that container already existing for multiplayer, not evidence that "score" deserves first-class engine status on its own. PixelRoot32 has no equivalent — its only networking surface (ESP-NOW) is explicitly out of scope for this engine's gameplay layer (`docs/audits/topdown-genre-capability-audit.md` line 264). Without replication, there is no structural reason to centralize `Score` the way `APlayerState` does. |
+| **Unreal Engine** | **Yes** — `Score` lives on `APlayerState` | But `PlayerState` exists as **network-replication infrastructure**: it is Unreal's per-connected-player container, replicated to every client so each peer knows every other player's score. The `Score` field is a side effect of that container already existing for multiplayer, not evidence that "score" deserves first-class engine status on its own. PixelRoot32 has no equivalent — it ships no networking at all today; the ESP-NOW module is a roadmap item (`README.md`, Roadmap). Without replication, there is no structural reason to centralize `Score` the way `APlayerState` does. |
 | **GameMaker Studio** | **Shipped one, then deprecated it** | GameMaker is the closest analogue to this project — 2D, sample/tutorial-driven, aimed at exactly this kind of arcade game. It shipped built-in global `score`, `lives`, and `health` variables from its earliest versions. Despite costing next to nothing in memory, they were deprecated in later versions precisely because they baked in an arcade session model (one score, one life counter, one health value, globally) that does not fit every game built with the engine — a puzzle game, a turn-based game, or anything with per-entity rather than per-player health had to work around built-ins that assumed the wrong shape. |
 
 The GameMaker case is the most directly instructive: this is not a
