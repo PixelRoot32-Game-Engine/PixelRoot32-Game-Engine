@@ -167,10 +167,7 @@ void TicTacToeScene::resetGame() {
     instructionsLabel->setText("DPAD/Touch: Move | A/Click: Select");
     
     // Center the board on screen
-    int boardSize = BOARD_SIZE * CELL_SIZE;
-    int boardX = (DISPLAY_WIDTH - boardSize) / 2;
-    int boardY = (DISPLAY_HEIGHT - boardSize) / 2;  
-    boardPosition = pr32::math::Vector2(pr32::math::toScalar(boardX), pr32::math::toScalar(boardY));
+    boardPosition = gameplay::cellToWorld(0, 0, kBoardGrid);
 
     engine.getMusicPlayer().setBPM(128.0f);
     engine.getMusicPlayer().play(BG_MUSIC);
@@ -520,12 +517,12 @@ void TicTacToeScene::drawGrid(gfx::Renderer& renderer) {
     Color borderColor = Color::Gold;
 
     for (int i = 1; i < BOARD_SIZE; ++i) {
-        int x = startX + i * CELL_SIZE;
+        int x = gameplay::cellToWorldX(i, kBoardGrid);
         renderer.drawLine(x, startY, x, startY + fullSize, gridColor);
     }
 
     for (int i = 1; i < BOARD_SIZE; ++i) {
-        int y = startY + i * CELL_SIZE;
+        int y = gameplay::cellToWorldY(i, kBoardGrid);
         renderer.drawLine(startX, y, startX + fullSize, y, gridColor);
     }
 
@@ -536,8 +533,8 @@ void TicTacToeScene::drawCursor(gfx::Renderer& renderer) {
     int row = cursorIndex / BOARD_SIZE;
     int col = cursorIndex % BOARD_SIZE;
     
-    int x = static_cast<int>(boardPosition.x) + col * CELL_SIZE;
-    int y = static_cast<int>(boardPosition.y) + row * CELL_SIZE;
+    int x = gameplay::cellToWorldX(col, kBoardGrid);
+    int y = gameplay::cellToWorldY(row, kBoardGrid);
 
     renderer.drawRectangle(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, Color::Yellow);
 }

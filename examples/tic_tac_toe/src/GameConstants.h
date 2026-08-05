@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "gameplay/GridSpace.h"
 
 namespace tictactoe {
 
@@ -7,6 +8,7 @@ namespace tictactoe {
  * @file GameConstants.h
  * @brief Tic-tac-toe configuration.
  */
+    namespace gameplay = pixelroot32::gameplay;
 
     /** Input button IDs */
     constexpr uint8_t BTN_UP = 0;
@@ -22,5 +24,12 @@ namespace tictactoe {
 
     /** AI difficulty (0=perfect, 1=random) */
     constexpr float DEFAULT_AI_ERROR_CHANCE = 0.25f;
+
+    /// Cell<->world grid for the tic-tac-toe board (design.md D8); origin is
+    /// compile-time derivable from DISPLAY_WIDTH/HEIGHT (platforms/EngineConfig.h,
+    /// pulled in transitively by TicTacToeScene.h before this header - the only
+    /// includer), so kBoardGrid is constexpr like kSnakeGrid.
+    inline constexpr gameplay::GridSpec kBoardGrid{(DISPLAY_WIDTH - BOARD_SIZE * CELL_SIZE) / 2, (DISPLAY_HEIGHT - BOARD_SIZE * CELL_SIZE) / 2, CELL_SIZE, CELL_SIZE, BOARD_SIZE, BOARD_SIZE};
+    static_assert(gameplay::gridSpecIsValid(kBoardGrid), "kBoardGrid exceeds Scalar's range or has an invalid cell size.");
 
 }
