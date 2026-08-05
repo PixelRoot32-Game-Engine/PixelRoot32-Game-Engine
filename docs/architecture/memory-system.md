@@ -78,6 +78,40 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 
 `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` or `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` combined with `PIXELROOT32_ENABLE_PHYSICS=0` fails the build at compile time via an `#error` in `PlatformDefaults.h` (`CollisionSystem` and `SpatialGrid` only exist when physics is enabled), rather than silently disabling the feature.
 
+**Gameplay Framework Phase 2 flags (opt-in, default `0`):** two more capabilities in `pixelroot32::gameplay`, each pure composition with zero engine-side wiring — no new member, virtual, or hook on `Scene`, `Actor`, or `Entity`. Unlike Phase 1's `INTERACTION_TRIGGERS`/`SPATIAL_QUERY`, **neither depends on `PIXELROOT32_ENABLE_PHYSICS` or any other flag** — neither header includes `core/`, `physics/`, `math/`, or any other capability's header, so no `#error` guard exists or is needed:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE=1` | `0` | 20 B/instance (ESP32-C3) / 32 B/instance (native), plus one shared table in flash per class | `gameplay::StateMachine` — non-template FSM over a caller-owned `const` state table |
+| `PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL=1` | `0` | `N * sizeof(T)` + 8-12 B bookkeeping per pool instantiation (see table below) | `gameplay::ObjectPool<T, N>` — fixed-capacity, zero-heap slot pool with placement-new storage |
+
+**`StateMachine::State` byte budget (one table row — flash/`.rodata`, shared per class, not per instance):**
+
+| Target | 3 function pointers | `id` (`StateId`/`uint8_t`) | padding | `sizeof(State)` |
+|--------|----------------------|----------------------------|---------|-------------------|
+| ESP32-C3 (32-bit) | 3 × 4 = 12 B | 1 B | 3 B | **16 B** |
+| native/PC (64-bit) | 3 × 8 = 24 B | 1 B | 7 B | **32 B** |
+
+**`StateMachine` instance byte budget (SRAM, one per stateful actor):**
+
+| Target | `owner_` + `states_` (2 pointers) | `timeInStateMs_` | 6 × 1 B fields (`current_`, `previous_`, `pending_`, `stateCount_`, `inTransition_`, `transitionOverflows_`) | padding | `sizeof(StateMachine)` |
+|--------|-----------------------------------|-------------------|----------------------------------------------------------------------------------------------------------|---------|--------------------------|
+| ESP32-C3 (32-bit) | 8 B | 4 B | 6 B | 2 B | **20 B** |
+| native/PC (64-bit) | 16 B | 4 B | 6 B | 6 B | **32 B** |
+
+Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field order is `owner_`, `states_`, `timeInStateMs_`, then the six 1-byte fields, exactly as budgeted; no drift from the design.
+
+**`ObjectPool<T, N>` byte budget:** `N * sizeof(T)` for the aligned slot storage, plus target-independent bookkeeping (a `uint32_t liveWords_[(N+31)/32]` bitmask plus two `uint16_t` counters, `liveCount_` and `scanHint_`) — identical on ESP32-C3 and native because every bookkeeping field is a fixed-width type:
+
+| `N` (pool capacity) | `liveWords_` | counters (`liveCount_` + `scanHint_`) | **bookkeeping total** | per-slot equivalent |
+|---|---|---|---|---|
+| 8 | 1 × 4 B | 4 B | **8 B** | 1.00 B/slot |
+| 16 | 1 × 4 B | 4 B | **8 B** | 0.50 B/slot |
+| 32 | 1 × 4 B | 4 B | **8 B** | 0.25 B/slot |
+| 64 | 2 × 4 B | 4 B | **12 B** | 0.19 B/slot |
+
+Total instance size is `N * sizeof(T) + bookkeeping`, plus up to `alignof(T) - 1` bytes of tail padding for an over-aligned `T`. Since it is a template, only the `(T, N)` pairs a game actually instantiates emit any code or data — an unused instantiation costs nothing.
+
 **`GameplayEvent` byte budget (`GAMEPLAY_EVENT_QUEUE_CAPACITY` slots, default 32):**
 
 | Target | `void*` | `Scalar` | ids (2× `uint16_t`) | type tag | padding | `sizeof(GameplayEvent)` | Queue total |

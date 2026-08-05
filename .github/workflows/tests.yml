@@ -42,6 +42,14 @@ jobs:
       run: |
         pio test -e native_test --verbose
 
+    # Separate step, not appended to the one above, so a failure names which
+    # configuration broke. The env above proves the gameplay flags stay
+    # behavior-inert when off; this one is the only place their functional
+    # assertions actually run.
+    - name: Run Tests (gameplay flags enabled)
+      run: |
+        pio test -e native_test_gameplay --verbose
+
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
