@@ -17,17 +17,16 @@
  *        uniform grid, without ever performing a division on the hot path.
  *
  * `GridSpec` describes a grid's origin, per-axis cell size, and extent as a
- * plain, `constexpr`-constructible aggregate (design.md D1) — there is
- * deliberately no `snapToGrid` and no runtime "grid" object: this header is
- * conversion math only, composed on demand by callers
- * (`cellToWorld(worldToCell(p))`).
+ * plain, `constexpr`-constructible aggregate — there is deliberately no
+ * `snapToGrid` and no runtime "grid" object: this header is conversion math
+ * only, composed on demand by callers (`cellToWorld(worldToCell(p))`).
  *
  * `worldToCellX`/`worldToCellY` always use FLOOR semantics (round toward
  * negative infinity), never C++'s truncate-toward-zero integer division —
- * the negative-coordinate hazard a naive `/` would get silently wrong
- * (design.md D2). The Scalar overloads floor first via `math::floorToInt()`
- * and then reuse the exact same int primitive (design.md D3): no
- * `Fixed16::operator/` is reachable from any path in this header.
+ * the negative-coordinate hazard a naive `/` would get silently wrong. The
+ * Scalar overloads floor first via `math::floorToInt()` and then reuse the
+ * exact same int primitive: no `Fixed16::operator/` is reachable from any
+ * path in this header.
  */
 
 namespace pixelroot32::gameplay {
@@ -37,7 +36,7 @@ namespace pixelroot32::gameplay {
  * @brief Plain six-`int` aggregate describing a grid's origin, per-axis cell
  *        size, and extent (columns/rows). No member functions, no
  *        per-instance runtime state beyond these fields — a `constexpr
- *        GridSpec` costs zero SRAM (design.md D1).
+ *        GridSpec` costs zero SRAM.
  */
 struct GridSpec {
     int originX    = 0;  ///< World-space X of cell (0, 0)'s top-left corner, in pixels.
@@ -54,8 +53,8 @@ struct GridSpec {
  * Checks BOTH that `cellWidth`/`cellHeight` are at least `1` (a RISC-V
  * `div` by zero returns `-1` instead of trapping, so this must be caught
  * here rather than relying on hardware) AND that every corner of the grid's
- * extent stays within Scalar's +/-32767 fixed-point integer range
- * (design.md D5). Enforcement is caller-side, via a `static_assert` at the
+ * extent stays within Scalar's +/-32767 fixed-point integer range.
+ * Enforcement is caller-side, via a `static_assert` at the
  * grid's declaration site — a plain aggregate cannot self-assert its own
  * constructor arguments under `-fno-exceptions`.
  *
@@ -89,7 +88,7 @@ namespace detail {
  * @brief Floor division: `floor(value / divisor)`, for `divisor >= 1`.
  *
  * Branchless (a ternary selecting a bias, not an `if`), exactly ONE `div`,
- * no `rem` (design.md D2). Rejected alternatives: a `rem`-based
+ * no `rem`. Rejected alternatives: a `rem`-based
  * `q + (r >> 31)` form (RISC-V has no combined div/rem instruction, so that
  * still costs two multi-cycle ops, not one) and `value >> 31` in place of
  * the ternary (signed right shift is implementation-defined in C++17
@@ -140,7 +139,7 @@ constexpr int worldToCellY(int worldY, const GridSpec& spec) {
 }
 
 /// Scalar overload: floors `worldX` via `math::floorToInt()` first, then
-/// reuses the exact int primitive above (design.md D3). Exact, not
+/// reuses the exact int primitive above. Exact, not
 /// approximate — `floor(floor(x)/n) == floor(x/n)` for integer `n > 0` and
 /// an integer origin commutes with floor. `Fixed16::operator/` is never
 /// reached from this path. Not `constexpr`: `std::floor` is not `constexpr`
@@ -150,7 +149,7 @@ inline int worldToCellX(math::Scalar worldX, const GridSpec& spec) {
 }
 
 /// Scalar overload: floors `worldY` via `math::floorToInt()` first, then
-/// reuses the exact int primitive above (design.md D3). See worldToCellX()
+/// reuses the exact int primitive above. See worldToCellX()
 /// for the full rationale.
 inline int worldToCellY(math::Scalar worldY, const GridSpec& spec) {
     return worldToCellY(math::floorToInt(worldY), spec);
@@ -159,7 +158,7 @@ inline int worldToCellY(math::Scalar worldY, const GridSpec& spec) {
 /// Deleted: `double` is ambiguous against the int and Scalar overloads on
 /// native (Scalar == float) but silently resolves to the int overload on
 /// the C3 (a user-defined conversion loses to a standard one). Deleting it
-/// makes that a hard error identically on both targets (design.md D4).
+/// makes that a hard error identically on both targets.
 int worldToCellX(double, const GridSpec&) = delete;
 
 /// Deleted: see worldToCellX(double, const GridSpec&) above.
