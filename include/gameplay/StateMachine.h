@@ -88,6 +88,25 @@ public:
      *
      * A transition triggered inline by that `onUpdate` does not also run the
      * newly entered state's `onUpdate` this call. No-op when `!isRunning()`.
+     *
+     * @warning Ordering hazard when transitioning from inside `onUpdate`.
+     * `deltaTime` is added to time-in-state BEFORE `onUpdate` is dispatched,
+     * and `requestState()` resets time-in-state to `0`. So a call that
+     * transitions from within `onUpdate` returns with `getTimeInState() == 0`:
+     * that frame's `deltaTime` was attributed to the state being LEFT, and the
+     * state being entered starts from zero having consumed none of it.
+     *
+     * That accounting is deliberate — the time really was spent in the old
+     * state — but it differs from the common hand-rolled shape, where a
+     * `changeState()` zeroes an accumulator and the frame's delta is then
+     * added to the NEW state in the same tick. Code ported from that shape
+     * onto `getTimeInState()` loses one frame's worth of elapsed time per
+     * transition. It is usually invisible (a sub-frame phase shift in an
+     * animation) and therefore easy to ship unnoticed.
+     *
+     * If you need "reset, then accumulate this frame" semantics, either call
+     * `requestState()` BEFORE `update()` rather than from inside `onUpdate`,
+     * or keep your own accumulator and reset it from `onEnter`.
      */
     void update(unsigned long deltaTime);
 
@@ -124,6 +143,11 @@ public:
 
     StateId  getCurrentState()  const { return current_; }
     StateId  getPreviousState() const { return previous_; }
+
+    /// Milliseconds since the current state was entered, saturating at
+    /// `UINT32_MAX`. Read `update()`'s ordering warning before deriving a
+    /// per-frame value (such as an animation index) from this while also
+    /// transitioning from inside `onUpdate`.
     uint32_t getTimeInState()   const { return timeInStateMs_; }
     bool     isRunning()        const { return current_ != kInvalidStateId; }
 
