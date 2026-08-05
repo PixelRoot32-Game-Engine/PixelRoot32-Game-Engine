@@ -6,6 +6,7 @@
 #include "physics/KinematicActor.h"
 #include "GameConstants.h"
 #include "GameLayers.h"
+#include "gameplay/StateMachine.h"
 
 namespace metroidvania {
 
@@ -66,9 +67,9 @@ public:
     }
 
 private:
-    unsigned long timeAccumulator = 0;
-    uint8_t currentFrame = 0;
-    PlayerState currentState = PlayerState::IDLE;
+    /// Owns no state table (caller-owned, static const — see .cpp). Configured
+    /// and started in the constructor.
+    pixelroot32::gameplay::StateMachine stateMachine;
 
     pixelroot32::math::Scalar moveDir = pixelroot32::math::toScalar(0.0f);       ///< Horizontal direction (-1, 0, 1)
     pixelroot32::math::Scalar verticalDir = pixelroot32::math::toScalar(0.0f);   ///< Vertical direction for ladders
@@ -91,14 +92,21 @@ private:
     /** @brief Checks if the player is overlapping a stairs area. */
     bool isOverlappingStairs() const;
 
-    /** @brief Returns the number of frames for the current state. */
-    int getNumberOfFramesByState() const;
-
     /** @brief Returns the sprite for the current state and frame. */
     pixelroot32::graphics::Sprite4bpp getSpriteByState() const;
 
     /** @brief Changes player state and resets animation if needed. */
     void changeState(PlayerState newState);
+
+    /** @brief Current player state, read back from the state machine. */
+    PlayerState currentState() const;
+
+    /**
+     * @brief Current animation frame for `numFrames`, derived from time spent
+     * in the current state. Equivalent to the previous accumulator-based
+     * wrap: `floor(timeInState / ANIMATION_FRAME_TIME_MS) % numFrames`.
+     */
+    int animationFrame(int numFrames) const;
 };
 
 } // namespace metroidvania

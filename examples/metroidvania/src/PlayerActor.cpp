@@ -43,11 +43,28 @@ static const Sprite4bpp JUM_FRAMES[] = {
     { reinterpret_cast<const uint8_t*>(PLAYER_JUM_SPRITE_4_4BPP), metroidvania::PLAYER_PALETTE_MAPPING, PLAYER_WIDTH, PLAYER_HEIGHT, 8 },
 };
 
+// Player state table for pixelroot32::gameplay::StateMachine. No callbacks
+// are needed: the animation frame is derived on demand from getTimeInState()
+// (see PlayerActor::animationFrame), and the machine itself already resets
+// time-in-state to 0 on every real transition, which was the only effect
+// `changeState()` used to have. `static const` at namespace scope so it
+// lands in flash/.rodata, per StateMachine.h's documented convention.
+static const pixelroot32::gameplay::StateMachine::State kPlayerStates[] = {
+    { nullptr, nullptr, nullptr, static_cast<pixelroot32::gameplay::StateId>(PlayerState::IDLE) },
+    { nullptr, nullptr, nullptr, static_cast<pixelroot32::gameplay::StateId>(PlayerState::RUN) },
+    { nullptr, nullptr, nullptr, static_cast<pixelroot32::gameplay::StateId>(PlayerState::JUMP) },
+    { nullptr, nullptr, nullptr, static_cast<pixelroot32::gameplay::StateId>(PlayerState::CLIMBING) },
+};
+static const uint8_t kPlayerStateCount = sizeof(kPlayerStates) / sizeof(kPlayerStates[0]);
+
 PlayerActor::PlayerActor(pixelroot32::math::Vector2 position)
     : KinematicActor(position, PLAYER_WIDTH, PLAYER_HEIGHT) {
     setRenderLayer(2);
     setCollisionLayer(Layers::PLAYER);
-    setCollisionMask(Layers::ENEMY | Layers::GROUND | Layers::PLATFORM); 
+    setCollisionMask(Layers::ENEMY | Layers::GROUND | Layers::PLATFORM);
+
+    stateMachine.configure(this, kPlayerStates, kPlayerStateCount);
+    stateMachine.start(static_cast<pixelroot32::gameplay::StateId>(PlayerState::IDLE));
 }
 
 void PlayerActor::setInput(math::Scalar dir, math::Scalar vDir, bool jumpPressed) {
@@ -55,7 +72,7 @@ void PlayerActor::setInput(math::Scalar dir, math::Scalar vDir, bool jumpPressed
     verticalDir = vDir;
     if (jumpPressed) {
         // If climbing, jump releases the ladder
-        if (currentState == PlayerState::CLIMBING) {
+        if (currentState() == PlayerState::CLIMBING) {
             changeState(PlayerState::JUMP);
             velocity.y = math::toScalar(-PLAYER_JUMP_VELOCITY * 0.8f);  // NOLINT(readability-magic-numbers)
         } else {
@@ -130,7 +147,7 @@ void PlayerActor::update(unsigned long deltaTime) {
     bool overlappingStairs = isOverlappingStairs();
 
     // 1. STATE MACHINE TRANSITIONS (Before applying movements/masks)
-    if (currentState == PlayerState::CLIMBING) {
+    if (currentState() == PlayerState::CLIMBING) {
         // Drop off the ladder if we moved outside the stairs area
         if (!overlappingStairs) {
             changeState(PlayerState::IDLE);
@@ -177,7 +194,7 @@ void PlayerActor::update(unsigned long deltaTime) {
     // Capture jump intent before it is consumed by the wantsJump check below
     bool jumpThisFrame = wantsJump;
 
-    if (currentState == PlayerState::CLIMBING) {
+    if (currentState() == PlayerState::CLIMBING) {
         // Lock lateral movement to keep the character firmly on the ladder rail
         velocity.x = math::toScalar(0); 
         velocity.y = math::toScalar(verticalDir * PLAYER_CLIMB_SPEED);
@@ -238,7 +255,7 @@ void PlayerActor::update(unsigned long deltaTime) {
 
     // Compute snap: disabled during CLIMBING (incompatible with ladder logic)
     // and on jump frame. Active otherwise for floor adhesion.
-    math::Vector2 snap = (currentState == PlayerState::CLIMBING || jumpThisFrame)
+    math::Vector2 snap = (currentState() == PlayerState::CLIMBING || jumpThisFrame)
         ? math::Vector2{}
         : math::Vector2(math::toScalar(0), KinematicActor::MIN_SNAP);
 
@@ -278,8 +295,8 @@ void PlayerActor::update(unsigned long deltaTime) {
     }
 
     // State machine for animations
-    PlayerState nextState = currentState;
-    switch (currentState) {
+    PlayerState nextState = currentState();
+    switch (currentState()) {
         case PlayerState::IDLE:
             if (!is_on_floor()) nextState = PlayerState::JUMP;
             else if (moveDir != math::toScalar(0.0f)) nextState = PlayerState::RUN;
@@ -297,16 +314,15 @@ void PlayerActor::update(unsigned long deltaTime) {
             // CLIMBING state is managed by ladder presence and vertical input
             break;
     }
-    if (nextState != currentState) changeState(nextState);
+    if (nextState != currentState()) changeState(nextState);
 
-    // Animation frame update
-    timeAccumulator += deltaTime;
-    while (timeAccumulator >= ANIMATION_FRAME_TIME_MS) {
-        timeAccumulator -= ANIMATION_FRAME_TIME_MS;
-        ++currentFrame;
-        int numFrames = getNumberOfFramesByState();
-        if (currentFrame >= numFrames) currentFrame = 0;
-    }
+    // Animation frame update: accumulate time-in-state once per update() call,
+    // in the same position the old timeAccumulator increment used to run —
+    // after any transition requested above, exactly like `changeState()` used
+    // to reset `timeAccumulator` before this same increment ran. The actual
+    // frame index is derived on demand in getSpriteByState() via
+    // animationFrame(), so there is nothing left to wrap here.
+    stateMachine.update(deltaTime);
 }
 
 void PlayerActor::draw(pr32::graphics::Renderer& renderer) {
@@ -323,33 +339,32 @@ void PlayerActor::onCollision(pr32::core::Actor* other) {
 }
 
 void PlayerActor::changeState(PlayerState newState) {
-    if (currentState != newState) {
-        currentState = newState;
-        currentFrame = 0;
-        timeAccumulator = 0;
-    }
+    // requestState() is itself a no-op when newState matches the current
+    // state (StateMachine.h Rule 1), so the guard the old code had here is
+    // no longer needed. On a real transition it resets time-in-state to 0
+    // before onEnter — the same effect `currentFrame`/`timeAccumulator`
+    // reset used to have.
+    stateMachine.requestState(static_cast<pixelroot32::gameplay::StateId>(newState));
 }
 
-int PlayerActor::getNumberOfFramesByState() const {
-    switch (currentState) {
-        case PlayerState::IDLE:     return NUM_IDLE_FRAMES;
-        case PlayerState::RUN:      return NUM_RUN_FRAMES;
-        case PlayerState::JUMP:     return NUM_JUM_FRAMES;
-        case PlayerState::CLIMBING: return NUM_RUN_FRAMES;
-    }
-    return NUM_IDLE_FRAMES;
+PlayerState PlayerActor::currentState() const {
+    return static_cast<PlayerState>(stateMachine.getCurrentState());
+}
+
+int PlayerActor::animationFrame(int numFrames) const {
+    return static_cast<int>(stateMachine.getTimeInState() / ANIMATION_FRAME_TIME_MS) % numFrames;
 }
 
 Sprite4bpp PlayerActor::getSpriteByState() const {
-    switch (currentState) {
+    switch (currentState()) {
         case PlayerState::IDLE:
-            return IDLE_FRAMES[currentFrame < NUM_IDLE_FRAMES ? currentFrame : 0];
+            return IDLE_FRAMES[animationFrame(NUM_IDLE_FRAMES)];
         case PlayerState::RUN:
-            return RUN_FRAMES[currentFrame < NUM_RUN_FRAMES ? currentFrame : 0];
+            return RUN_FRAMES[animationFrame(NUM_RUN_FRAMES)];
         case PlayerState::JUMP:
-            return JUM_FRAMES[currentFrame < NUM_JUM_FRAMES ? currentFrame : 0];
+            return JUM_FRAMES[animationFrame(NUM_JUM_FRAMES)];
         case PlayerState::CLIMBING:
-            return RUN_FRAMES[currentFrame < NUM_RUN_FRAMES ? currentFrame : 0];
+            return RUN_FRAMES[animationFrame(NUM_RUN_FRAMES)];
     }
     return IDLE_FRAMES[0];
 }
