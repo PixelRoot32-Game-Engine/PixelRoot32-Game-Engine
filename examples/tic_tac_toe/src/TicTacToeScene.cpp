@@ -597,19 +597,13 @@ bool TicTacToeScene::touchToCell(int16_t touchX, int16_t touchY, int& outRow, in
         return false;
     }
 
-    // Calculate the cell position
-    int relX = touchX - boardStartX;
-    int relY = touchY - boardStartY;
+    // Calculate the cell position (floor division; negative relX/relY from the
+    // hit-slop margin above land outside [0, BOARD_SIZE) and are rejected by
+    // containsCell() below - D9).
+    outCol = gameplay::worldToCellX(touchX, kBoardGrid);
+    outRow = gameplay::worldToCellY(touchY, kBoardGrid);
 
-    // Clamp to board bounds
-    if (relX < 0 || relX >= fullSize || relY < 0 || relY >= fullSize) {
-        return false;
-    }
-
-    outCol = relX / CELL_SIZE;
-    outRow = relY / CELL_SIZE;
-
-    return (outRow >= 0 && outRow < BOARD_SIZE && outCol >= 0 && outCol < BOARD_SIZE);
+    return gameplay::containsCell(outCol, outRow, kBoardGrid);
 }
 
 bool TicTacToeScene::placeMark(int row, int col) {
