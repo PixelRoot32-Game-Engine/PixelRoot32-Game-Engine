@@ -3,6 +3,7 @@
 #include "graphics/Renderer.h"
 #include "input/InputManager.h"
 #include "BombermanBoard.h"
+#include "BombermanBombs.h"
 #include "BombermanConstants.h"
 #include "GridMove.h"
 
@@ -10,7 +11,8 @@ namespace bomberman {
 
 /**
  * @class PlayerActor
- * @brief Interpolated grid movement driven by held input.
+ * @brief Interpolated grid movement driven by held input, bomb placement,
+ *        and the own-bomb pass-through exemption.
  *
  * logicStep() is called once per fixed logic step from
  * BombermanScene::logicStep() — never from Entity::update(unsigned long),
@@ -21,19 +23,20 @@ namespace bomberman {
  * both embed a GridMove and both interpolate the same way: the two differ
  * in blocking policy (the player stays put when blocked; the enemy
  * re-picks a direction), in direction source (held input vs. seeded PRNG),
- * and — from Phase 3 on — in the pass-through exemption, which is
- * player-only. Collapsing the two loops early would remove the very
- * comparison this example exists to produce.
+ * and in the pass-through exemption below, which is player-only.
+ * Collapsing the two loops early would remove the very comparison this
+ * example exists to produce.
  */
 class PlayerActor : public pixelroot32::core::Actor {
 public:
     PlayerActor(int startCellX, int startCellY);
 
-    /// Advances interpolation and, when at rest, starts a new step toward
-    /// a held direction if the target cell is enterable. Board-only
-    /// blocking at this phase; bomb blocking and the own-bomb pass-through
-    /// exemption are added in Phase 3.
-    void logicStep(const TileType (&board)[kCells], const pixelroot32::input::InputManager& input);
+    /// Reads bomb-placement input, then advances interpolation and, when
+    /// at rest, starts a new step toward a held direction if the target
+    /// cell is enterable (board tiles and bombs, minus the own-bomb
+    /// pass-through exemption).
+    void logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
+                   const pixelroot32::input::InputManager& input);
 
     void draw(pixelroot32::graphics::Renderer& renderer) override;
     pixelroot32::core::Rect getHitBox() override;
@@ -41,15 +44,47 @@ public:
 
     int cellX() const { return mv.cellX; }
     int cellY() const { return mv.cellY; }
+    int firePower() const { return firePower_; }
+    int maxBombs() const { return maxBombs_; }
 
-    /// Puts the player at rest in a fresh cell (level restart).
+    /// Puts the player at rest in a fresh cell (level restart). Also
+    /// clears the own-bomb exemption, since a fresh level has no bombs.
     void resetTo(int startCellX, int startCellY);
 
 private:
     GridMove mv;
+    int firePower_ = kDefaultFirePower;
+    int maxBombs_ = kDefaultMaxBombs;
 
-    bool canEnter(int nx, int ny, const TileType (&board)[kCells]) const;
+    // Own-bomb pass-through: the one bomb-occupied cell that does NOT
+    // block the player, valid only while it names the player's current
+    // logical cell. Three rules, no fourth:
+    //   1. Placing a bomb sets this to the player's logical cell
+    //      (tryPlaceBomb()).
+    //   2. canEnter() lets a bomb-occupied target through only if it
+    //      equals this cell.
+    //   3. The instant the logical cell changes (onArrive, inside
+    //      logicStep()), this clears unless the arrival cell still
+    //      matches it.
+    // The logical cell changes at exactly one instant (step completion),
+    // so there is no window where this is half-valid: mid-interpolation,
+    // the logical cell is still the FROM-cell, and input toward a new step
+    // is ignored anyway while a step is in flight.
+    bool exemptValid_ = false;
+    int exemptX_ = 0;
+    int exemptY_ = 0;
+
+    bool canEnter(int nx, int ny, const TileType (&board)[kCells], const Bomb (&bombs)[kMaxBombs]) const;
     void updateInterpolatedPosition();
+
+    /// Attempts to place a bomb in the player's current logical cell
+    /// (mv.cellX, mv.cellY — the FROM-cell if a step is mid-flight, since
+    /// that value never changes outside onArrive()). Delegates the pool
+    /// write to placeBomb() and, on success, sets the exemption using the
+    /// SAME cell just written, so the two can never disagree. No-op,
+    /// returns false, if the player is already at their own max-bombs
+    /// limit or the pool write itself fails.
+    bool tryPlaceBomb(Bomb (&bombs)[kMaxBombs]);
 };
 
 }  // namespace bomberman
