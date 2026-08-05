@@ -101,7 +101,7 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 
 Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field order is `owner_`, `states_`, `timeInStateMs_`, then the six 1-byte fields, exactly as budgeted; no drift from the design.
 
-**Gameplay Framework Phase 3 flag (opt-in, default `0`):** one capability in `pixelroot32::gameplay`, header-only with no `.cpp` file, so there is no additional code cost when the flag is off. It is the first gameplay header to include `math/` (`Vector2`, `MathUtil`), but — like the Phase 2 flags above — it carries **no `#error` guard**: `math/` is always available regardless of `PIXELROOT32_ENABLE_PHYSICS` or any other flag:
+**Gameplay Framework Phase 3 flag (opt-in, default `0`):** one capability in `pixelroot32::gameplay`, header-only with no `.cpp` file, so there is no additional code cost when the flag is off. It depends on `math/` (`Vector2`, `MathUtil`) but carries **no `#error` guard**, on the same terms as `DepthCompare.h` and `GameplayEvent.h`, which already depend on `math/Scalar.h`: `math/` is always available regardless of `PIXELROOT32_ENABLE_PHYSICS` or any other flag:
 
 | Flag | Default | RAM Cost When Enabled | Subsystem Added |
 |------|---------|------------------------|------------------|
