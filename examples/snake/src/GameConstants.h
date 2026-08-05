@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "gameplay/GridSpace.h"
 
 namespace snake {
 
@@ -7,6 +8,7 @@ namespace snake {
  * @file GameConstants.h
  * @brief Snake game configuration.
  */
+    namespace gameplay = pixelroot32::gameplay;
 
     /* Input button IDs */
     constexpr std::uint8_t BTN_UP = 0;
@@ -19,6 +21,11 @@ namespace snake {
     constexpr int GRID_WIDTH = 24;
     constexpr int GRID_HEIGHT = 24;
     constexpr int TOP_UI_GRID_ROWS = 2;
+
+    /// Cell<->world grid for the snake playfield (design.md D1); NOT used with
+    /// containsCell() for the wall check (design.md D6) — see SnakeScene::update().
+    inline constexpr gameplay::GridSpec kSnakeGrid{0, 0, CELL_SIZE, CELL_SIZE, GRID_WIDTH, GRID_HEIGHT};
+    static_assert(gameplay::gridSpecIsValid(kSnakeGrid), "kSnakeGrid exceeds Scalar's range or has an invalid cell size.");
 
     /* Text positions */
     constexpr int SCORE_TEXT_X = CELL_SIZE / 2;
