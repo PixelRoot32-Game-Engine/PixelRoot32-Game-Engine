@@ -22,7 +22,8 @@ BombermanScene::BombermanScene()
       state_(LevelState::Loading),
       accumulatorMs_(0),
       seed_(0),
-      lives_(kStartingLives) {
+      lives_(kStartingLives),
+      bombPressLatched_(false) {
     addEntity(&renderer_);
     addEntity(&player_);
 }
@@ -51,6 +52,9 @@ void BombermanScene::startLevel() {
 
     player_.resetTo(kPlayerStartCellX, kPlayerStartCellY);
     accumulatorMs_ = 0;
+    // A press held across the death that triggered this restart must not
+    // drop a bomb on the fresh board's first step.
+    bombPressLatched_ = false;
 
     state_ = LevelState::Playing;
 
@@ -61,6 +65,12 @@ void BombermanScene::startLevel() {
 }
 
 void BombermanScene::update(unsigned long deltaTime) {
+    // Latch here, at frame scope, while the press edge is still live. The
+    // loop below may run no logic step at all this frame.
+    if (engine.getInputManager().isButtonPressed(BTN_BOMB)) {
+        bombPressLatched_ = true;
+    }
+
     accumulatorMs_ += deltaTime;
     int steps = 0;
     while (accumulatorMs_ >= static_cast<unsigned long>(kLogicStepMs) && steps < kMaxLogicStepsPerFrame) {
@@ -87,10 +97,14 @@ void BombermanScene::logicStep() {
 
     auto& input = engine.getInputManager();
 
-    // Input + player movement, including bomb placement (the player's own
-    // action, read inside PlayerActor::logicStep) and bomb-aware blocking
-    // (the own-bomb pass-through exemption).
-    player_.logicStep(board_, bombs_, input);
+    // Input + player movement, including bomb placement and bomb-aware
+    // blocking (the own-bomb pass-through exemption). Movement reads held
+    // buttons straight from the InputManager -- a level state is correct to
+    // sample per logic step. The bomb press is the latched frame edge
+    // instead, consumed exactly once here.
+    const bool bombPressed = bombPressLatched_;
+    bombPressLatched_ = false;
+    player_.logicStep(board_, bombs_, input, bombPressed);
 
     // Bomb fuses tick down, seeding this step's detonation queue with any
     // bomb whose fuse just reached zero.

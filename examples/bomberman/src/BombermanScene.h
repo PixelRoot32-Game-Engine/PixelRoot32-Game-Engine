@@ -45,6 +45,18 @@ private:
     uint32_t seed_;
     int lives_;
 
+    /// Frame-scoped bomb press, latched for the fixed-step loop to consume.
+    /// InputManager recomputes its press edge once per engine frame, but the
+    /// accumulator below runs zero, one, or two logic steps in that same
+    /// frame. Reading the edge from inside a logic step therefore drops any
+    /// press that lands on a zero-step frame -- at a 20 ms step and a frame
+    /// faster than 50 Hz, that is a routine occurrence, not a rare one. The
+    /// latch is set where the edge is live (update(), frame scope) and
+    /// cleared by the first logic step that consumes it, so a press is
+    /// neither lost on a zero-step frame nor acted on twice on a two-step
+    /// one.
+    bool bombPressLatched_;
+
     /// (Re)generates the board, resets the bomb pool/explosion mask, and
     /// resets the player. Deliberately does NOT call the base Scene::init(),
     /// since Scene::resetState() clears every entity and this scene's

@@ -31,12 +31,18 @@ class PlayerActor : public pixelroot32::core::Actor {
 public:
     PlayerActor(int startCellX, int startCellY);
 
-    /// Reads bomb-placement input, then advances interpolation and, when
+    /// Places a bomb if `bombPressed`, then advances interpolation and, when
     /// at rest, starts a new step toward a held direction if the target
     /// cell is enterable (board tiles and bombs, minus the own-bomb
     /// pass-through exemption).
+    ///
+    /// `bombPressed` is passed in rather than read from `input` because a
+    /// press edge belongs to the frame that produced it, while this function
+    /// runs on the fixed logic step -- the caller latches the edge across
+    /// that gap. Held direction is a level state and is read from `input`
+    /// directly, which is correct to sample per step.
     void logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
-                   const pixelroot32::input::InputManager& input);
+                   const pixelroot32::input::InputManager& input, bool bombPressed);
 
     void draw(pixelroot32::graphics::Renderer& renderer) override;
     pixelroot32::core::Rect getHitBox() override;

@@ -16,14 +16,20 @@ PlayerActor::PlayerActor(int startCellX, int startCellY)
 }
 
 void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
-                             const input::InputManager& inputManager) {
-    // Bomb placement is read first, before movement advances below. That
+                             const input::InputManager& inputManager, bool bombPressed) {
+    // Bomb placement is handled first, before movement advances below. That
     // guarantees a bomb dropped this step always lands in the cell that
     // was logical at the START of this call, even on a call where movement
     // also happens to complete an in-flight step — "placement uses the
     // FROM-cell" stays true by construction instead of depending on
     // statement order elsewhere.
-    if (inputManager.isButtonPressed(BTN_BOMB)) {
+    //
+    // `bombPressed` arrives already latched by the caller rather than being
+    // read from inputManager here: the press edge is a frame-scoped fact and
+    // this function runs on the fixed logic step, which is a different
+    // clock. Held movement below is a level state, so sampling it per step
+    // is correct as-is.
+    if (bombPressed) {
         tryPlaceBomb(bombs);
     }
 
