@@ -80,4 +80,19 @@ constexpr int kEnemySafeDistance = 6;   // Manhattan distance from the player's 
 constexpr int kPlayerStartCellX = 1;
 constexpr int kPlayerStartCellY = 1;
 
+/* Bomb pool. Fixed-size, no dynamic allocation: 8 slots is headroom, not a
+ * requirement — with exactly one Bomb power-up per level the reachable
+ * maximum a single player can carry is small, but sizing the pool larger
+ * than that gives the chain-reaction queue in BombermanBombs.cpp a bound
+ * that stays correct if a later change adds more Bomb power-ups. */
+constexpr int kMaxBombs = 8;
+
+/* Player starting stats. Fire power is the blast arm length in cells;
+ * max bombs is the number of simultaneously active bombs the player may
+ * have out at once. Both are fixed constants in this slice — power-ups
+ * that raise them are later work. */
+constexpr int kDefaultFirePower = 2;
+constexpr int kDefaultMaxBombs = 1;
+constexpr int kStartingLives = 3;
+
 }  // namespace bomberman
