@@ -88,9 +88,9 @@ LevelLayout generateLevel(uint32_t seed, int requestedEnemies, int softWallPerce
     //    kEnemySafeDistance from the player's start (1,1), then draw
     //    distinct candidates via a bounded partial shuffle — no rejection
     //    loop, so the draw count is fixed by
-    //    min(requestedEnemies, candidateCount). If fewer candidates exist
-    //    than requested, spawn as many as exist and record the real count;
-    //    never loop looking for a cell that isn't there.
+    //    min(requestedEnemies, candidateCount, kMaxEnemies). If fewer
+    //    candidates exist than requested, spawn as many as exist and record
+    //    the real count; never loop looking for a cell that isn't there.
     uint8_t enemyCandidates[kCells];
     int enemyCandidateCount = 0;
     for (int i = 0; i < kCells; ++i) {
@@ -106,8 +106,17 @@ LevelLayout generateLevel(uint32_t seed, int requestedEnemies, int softWallPerce
         }
     }
 
-    const int toSpawn =
-        (requestedEnemies < enemyCandidateCount) ? requestedEnemies : enemyCandidateCount;
+    // enemyCells[] holds kMaxEnemies entries, so the pool size bounds the
+    // write regardless of what a caller asks for. The static_assert on
+    // kEnemyCount guards the constant the scene passes; this guards the
+    // parameter, which is the only thing the write actually depends on.
+    int toSpawn = (requestedEnemies < enemyCandidateCount) ? requestedEnemies : enemyCandidateCount;
+    if (toSpawn > kMaxEnemies) {
+        toSpawn = kMaxEnemies;
+    }
+    if (toSpawn < 0) {
+        toSpawn = 0;
+    }
     for (int i = 0; i < toSpawn; ++i) {
         const int32_t j = math::rand_int(i, enemyCandidateCount - 1);
         const uint8_t picked = enemyCandidates[j];
