@@ -10,17 +10,17 @@
  * - contains-cell-bounds-checks-a-cell-index-against-the-grid-extent
  * - feature-gated-and-zero-cost-when-disabled
  *
- * Plus design.md's Testing-strategy cases not called out verbatim by the
- * spec: non-square cells (cellWidth != cellHeight scaling independently per
- * axis), the Scalar overloads floor a genuinely fractional input rather than
- * truncating it, and axis independence on a non-square grid.
+ * Plus cases the requirement names above do not call out verbatim: non-square
+ * cells (cellWidth != cellHeight scaling independently per axis), the Scalar
+ * overloads flooring a genuinely fractional input rather than truncating it,
+ * and axis independence on a non-square grid.
  *
  * The functional tests only compile when PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE
  * is enabled, since GridSpace is entirely guarded behind that flag (see
  * include/gameplay/GridSpace.h). This file therefore compiles cleanly in
  * BOTH the default (flag off) and opt-in (flag on) configurations, matching
- * the "no behavior change for existing examples" goal and the CI matrix from
- * design.md.
+ * the "no behavior change for existing examples" goal and the flags-off /
+ * flags-on CI matrix.
  */
 
 #include <unity.h>
@@ -239,8 +239,7 @@ void test_gameplay_grid_space_zero_cost_when_disabled(void) {
     // With the flag on, GridSpec must stay a plain six-int aggregate — no
     // vtable, no hidden padding-inducing member — and every free function
     // must be usable from a constexpr context, proving zero runtime
-    // footprint for the constexpr-consumer path design.md's byte budget
-    // relies on.
+    // footprint for the constexpr-consumer path the byte budget relies on.
     static_assert(sizeof(GridSpec) == 6 * sizeof(int),
                   "GridSpec must be exactly six ints: any growth here is "
                   "SRAM cost paid by every non-constexpr consumer.");
