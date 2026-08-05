@@ -101,6 +101,14 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 
 Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field order is `owner_`, `states_`, `timeInStateMs_`, then the six 1-byte fields, exactly as budgeted; no drift from the design.
 
+**Gameplay Framework Phase 3 flag (opt-in, default `0`):** one capability in `pixelroot32::gameplay`, header-only with no `.cpp` file, so there is no additional code cost when the flag is off. It is the first gameplay header to include `math/` (`Vector2`, `MathUtil`), but — like the Phase 2 flags above — it carries **no `#error` guard**: `math/` is always available regardless of `PIXELROOT32_ENABLE_PHYSICS` or any other flag:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 0 B SRAM | `gameplay::GridSpace.h` — grid-to-world/world-to-grid coordinate conversion (`GridSpec`, `cellToWorldX/Y`, `cellToWorld`, `worldToCellX/Y`, `containsCell`) |
+
+**`GridSpec` byte budget:** every shipped consumer (`examples/snake`, `examples/tic_tac_toe`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
+
 **`ObjectPool<T, N>` byte budget:** `N * sizeof(T)` for the aligned slot storage, plus target-independent bookkeeping (a `uint32_t liveWords_[(N+31)/32]` bitmask plus two `uint16_t` counters, `liveCount_` and `scanHint_`) — identical on ESP32-C3 and native because every bookkeeping field is a fixed-width type:
 
 | `N` (pool capacity) | `liveWords_` | counters (`liveCount_` + `scanHint_`) | **bookkeeping total** | per-slot equivalent |

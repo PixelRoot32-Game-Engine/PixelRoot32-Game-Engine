@@ -8,6 +8,7 @@ On **`esp32cyd`**, **`PIXELROOT32_ENABLE_TOUCH`** and **`onUnconsumedTouchEvent`
 
 - **`PIXELROOT32_ENABLE_TOUCH=1`** on **`native`** and **`esp32cyd`** (see `platformio.ini`) so touch code paths compile where used.
 - ESP32 Dev preset does **not** set touch in `platformio.ini` — use GPIO **DPAD + A** (or equivalent) as in `GameConstants.h` (`BTN_UP`, `BTN_DOWN`, `BTN_PREV`, `BTN_NEXT`, `BTN_SELECT`).
+- **`PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1`** — required, not optional. `GameConstants.h` declares `kBoardGrid` as a `gameplay::GridSpec`, and the whole `GridSpace.h` header lives behind this flag (default `0`), so the example does not compile without it.
 
 `PIXELROOT32_ENABLE_UI_SYSTEM` defaults to **on** in the engine ([`PlatformDefaults.h`](../../include/platforms/PlatformDefaults.h)).
 
@@ -36,12 +37,15 @@ Touches that the UI does not consume are handled in **`onUnconsumedTouchEvent`**
 - **`TouchEvent`** pipeline for board placement
 - **AI**: `computeAIMove`, win detection, draw state
 - **Custom palette** and vector draw for marks (no tilemap required for the board)
+- Cell/world conversion via **`gameplay::GridSpace`**: board centring, grid lines, cursor position, and mark drawing are all placed through `kBoardGrid` (`GameConstants.h`) instead of hand-rolled `* CELL_SIZE` / `/ CELL_SIZE` arithmetic. `touchToCell()` maps a raw touch position to a board cell with `worldToCellX/Y` + `containsCell`, which correctly rejects touches inside `kTouchHitSlop` that land outside the board (a truncating conversion would have silently accepted some of them).
 
 ## Documentation links
 
 - [UI API](../../docs/api/ui.md)
 - [Input API](../../docs/api/input.md)
 - [Core API](../../docs/api/core.md)
+- [Memory system — gameplay flags and byte budgets](../../docs/architecture/memory-system.md) — RAM cost of `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE`
+- [`gameplay/GridSpace.h`](../../include/gameplay/GridSpace.h) — the full grid conversion API
 
 ## Build
 
