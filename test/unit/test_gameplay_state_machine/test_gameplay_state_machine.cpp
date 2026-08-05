@@ -410,6 +410,40 @@ void test_restart_state_performs_real_cycle_and_resets_time(void) {
     TEST_ASSERT_EQUAL_UINT8(kStateA, owner.log[1].other);
 }
 
+void test_restart_state_honors_transition_requested_from_its_callbacks(void) {
+    MockOwner owner;
+    StateMachine fsm;
+    owner.fsm = &fsm;
+
+    fsm.configure(&owner, kTestTable, kTestTableCount);
+    fsm.start(kStateA);
+    owner.logCount = 0;
+
+    // Arm A's onEnter to request B. During restartState() that request lands
+    // while a transition is in flight, so it is queued rather than recursing.
+    owner.requestFromEnterOf     = kStateA;
+    owner.requestFromEnterTarget = kStateB;
+
+    fsm.restartState();
+
+    // The queued request must be drained, not silently dropped: requestState()
+    // returned true to the caller inside onEnter, so the machine owes it a
+    // real transition.
+    TEST_ASSERT_EQUAL_UINT8(kStateB, fsm.getCurrentState());
+    TEST_ASSERT_EQUAL_INT(4, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].kind == LogEntry::Kind::Exit);
+    TEST_ASSERT_EQUAL_UINT8(kStateA, owner.log[0].state);
+    TEST_ASSERT_TRUE(owner.log[1].kind == LogEntry::Kind::Enter);
+    TEST_ASSERT_EQUAL_UINT8(kStateA, owner.log[1].state);
+    TEST_ASSERT_TRUE(owner.log[2].kind == LogEntry::Kind::Exit);
+    TEST_ASSERT_EQUAL_UINT8(kStateA, owner.log[2].state);
+    TEST_ASSERT_EQUAL_UINT8(kStateB, owner.log[2].other);
+    TEST_ASSERT_TRUE(owner.log[3].kind == LogEntry::Kind::Enter);
+    TEST_ASSERT_EQUAL_UINT8(kStateB, owner.log[3].state);
+    TEST_ASSERT_EQUAL_UINT8(kStateA, owner.log[3].other);
+    TEST_ASSERT_EQUAL_UINT32(0, fsm.getTimeInState());
+}
+
 // =============================================================================
 // Requirement: Transitions Requested From onEnter Or onExit Are Queued And
 // Drained Without Recursion
@@ -711,6 +745,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_time_in_state_saturates_at_uint32_max);
     RUN_TEST(test_request_current_state_is_noop);
     RUN_TEST(test_restart_state_performs_real_cycle_and_resets_time);
+    RUN_TEST(test_restart_state_honors_transition_requested_from_its_callbacks);
     RUN_TEST(test_onenter_requesting_transition_produces_no_recursion);
     RUN_TEST(test_onexit_requested_transition_honored_after_inflight_completes);
     RUN_TEST(test_last_writer_wins_within_one_drain_iteration);

@@ -103,11 +103,19 @@ void StateMachine::restartState() {
     current_ = self;
     timeInStateMs_ = 0;
     if (row && row->onEnter) row->onEnter(owner_, self);
-    // A transition requested from either callback during a restart is
-    // discarded rather than drained — design.md gives restartState() no
-    // chained-transition contract, unlike requestState()'s Rule 4.
+
+    // A transition requested from either callback is honored, not dropped:
+    // requestState() already returned true to that caller, so discarding the
+    // request would make that return value a lie. Handing it back to
+    // requestState() reuses Rule 4's bounded, non-recursive drain instead of
+    // duplicating it here; inTransition_ is cleared first so the drain runs
+    // normally, and nesting stays bounded at one extra frame.
+    const StateId queued = pending_;
     pending_ = kInvalidStateId;
     inTransition_ = false;
+    if (queued != kInvalidStateId && queued != current_) {
+        requestState(queued);
+    }
 }
 
 void StateMachine::reset() {
