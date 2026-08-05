@@ -100,7 +100,11 @@ void test_acquire_on_nonfull_pool_returns_live_constructed_object(void) {
     TEST_ASSERT_EQUAL_INT(11, obj->value);
     TEST_ASSERT_EQUAL_UINT16(1, pool.size());
     const uint16_t index = pool.indexOf(obj);
-    TEST_ASSERT_TRUE(index != ObjectPool<TrackedPayload, 4>::kEnd);
+    // Alias, not the spelled-out template: the comma in <TrackedPayload, 4>
+    // is an argument separator to the preprocessor, so naming the template
+    // inside a Unity macro splits it into two arguments and fails to compile.
+    using Pool = ObjectPool<TrackedPayload, 4>;
+    TEST_ASSERT_TRUE(index != Pool::kEnd);
     TEST_ASSERT_TRUE(pool.isLive(index));
     TEST_ASSERT_EQUAL_INT(1, TrackedPayload::constructCount);
 }
@@ -209,7 +213,8 @@ void test_releasing_null_foreign_or_already_free_pointer_is_safe_noop(void) {
     TrackedPayload standalone(1, 1);
     TEST_ASSERT_FALSE(pool.release(&standalone));
     TEST_ASSERT_EQUAL_UINT16(0, pool.size());
-    TEST_ASSERT_EQUAL_UINT16(ObjectPool<TrackedPayload, 4>::kEnd, pool.indexOf(&standalone));
+    using Pool = ObjectPool<TrackedPayload, 4>;
+    TEST_ASSERT_EQUAL_UINT16(Pool::kEnd, pool.indexOf(&standalone));
 
     // Already-free slot: release a live object, then release it again.
     TrackedPayload* obj = pool.acquire(2, 2);
@@ -494,6 +499,36 @@ void test_at_returns_correctly_aligned_pointer_for_overaligned_t(void) {
         const auto addr = reinterpret_cast<std::uintptr_t>(recovered);
         TEST_ASSERT_EQUAL_UINT32(0u, static_cast<uint32_t>(addr % alignof(AlignedPayload)));
     }
+}
+
+// =============================================================================
+// Requirement: Feature-Gated And Zero-Cost When Disabled
+//
+// Defined in BOTH flag states, mirroring
+// test_gameplay_state_machine.cpp:680/711, because main() RUN_TESTs it
+// unconditionally. Defining it only in the #else branch leaves main()
+// referencing an undeclared function whenever the flag is on.
+// =============================================================================
+
+void test_gameplay_object_pool_zero_cost_when_disabled(void) {
+    // With the flag on, the cost must be exactly the slots and nothing per
+    // slot beyond the shared bitmask. Doubling N must grow the pool by
+    // exactly N * sizeof(T) — proving there is no hidden per-slot header,
+    // no vtable, and no indirection. This is the flag-on complement to
+    // test_pool_sizeof_stays_within_declared_budget's upper bound.
+    using Pool8 = ObjectPool<TrackedPayload, 8>;
+    using Pool16 = ObjectPool<TrackedPayload, 16>;
+
+    // Both N values fall in the same single bitmask word ((N + 31) / 32 == 1),
+    // so bookkeeping is identical and the delta is pure storage.
+    const size_t growth = sizeof(Pool16) - sizeof(Pool8);
+    TEST_ASSERT_EQUAL_UINT32(
+        static_cast<uint32_t>(8 * sizeof(TrackedPayload)),
+        static_cast<uint32_t>(growth));
+
+    // An instantiated pool reserves its slots statically: no heap, no
+    // pointer indirection to storage held elsewhere.
+    TEST_ASSERT_TRUE(sizeof(Pool8) >= 8 * sizeof(TrackedPayload));
 }
 
 #else  // !PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL
