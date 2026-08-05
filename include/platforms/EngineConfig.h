@@ -536,6 +536,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableGameplayObjectPool = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE
+
+    /** @brief Type-safe access to EnableGameplayGridSpace configuration. */
+    inline constexpr bool EnableGameplayGridSpace = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayGridSpace configuration. */
+    inline constexpr bool EnableGameplayGridSpace = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }
