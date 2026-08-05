@@ -24,6 +24,13 @@ namespace pixelroot32::core {
     }
 
     void SceneManager::setCurrentScene(Scene* newScene) {
+        #if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+        // Drain the gameplay event bus at the SceneSwap funnel — this covers
+        // both transitionToScene()'s SceneSwap arm and any direct call.
+        // Deliberately NOT done in pushScene()/popScene() (design.md D7).
+        if (eventBus_) eventBus_->clear();
+        #endif
+
         sceneCount = 0;  // Clear previous scenes
         sceneStack[sceneCount++] = newScene;
         newScene->init();
