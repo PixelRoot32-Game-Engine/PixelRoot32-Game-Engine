@@ -11,6 +11,7 @@ A compact **platformer** sample with **4bpp tilemap layers**, **`StaticTilemapLa
 - **`PIXELROOT32_ENABLE_SCENE_ARENA`**
 - **`PIXELROOT32_ENABLE_DIRTY_REGIONS`**
 - **`PIXELROOT32_ENABLE_CAMERA_EFFECTS`** — camera shake when player falls into void
+- **`PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE`** — required, not optional. `PlayerActor` holds a `gameplay::StateMachine` member and the whole class lives behind this flag (default `0`), so the actor does not compile without it.
 
 See **`platformio.ini`** for **`native`** and **`esp32dev`** presets (no `esp32cyd` environment in this project).
 
@@ -33,7 +34,9 @@ The **`PlayerActor`** extends **`KinematicActor`** and implements:
 
 - **Gravity + horizontal movement** with configurable `PLAYER_GRAVITY`, `PLAYER_MOVE_SPEED`, `PLAYER_JUMP_VELOCITY`
 - **Ladder climbing** via `setStairs()` / `buildStairsCache()` — a bitmask RAM cache of climbable tiles
-- **State machine**: `IDLE`, `RUN`, `JUMP`, `CLIMBING` with sprite animation per state
+- **State machine**: `IDLE`, `RUN`, `JUMP`, `CLIMBING` with sprite animation per state, dispatched through the engine's **`gameplay::StateMachine`** rather than a hand-written `switch`. The state graph is declared in a `static const` table on `PlayerActor`; `IDLE`/`RUN`/`JUMP` carry `onUpdate` callbacks that request the next transition. `CLIMBING`'s callback is deliberately null — that state is entered and left by ladder presence and vertical input, from outside the machine.
+
+  Animation timing keeps an explicit accumulator reset from `onEnter`, rather than deriving frames from `getTimeInState()`. That is not an oversight: `StateMachine::update()` adds the frame delta *before* dispatching `onUpdate`, and `requestState()` then resets time-in-state to `0`, so a transition made from inside `onUpdate` would lose one frame per transition. See the `@warning` on `update()` in [`gameplay/StateMachine.h`](../../include/gameplay/StateMachine.h).
 - **Collision layers**: `PLAYER`, `PLATFORM`, `GROUND`, `ENEMY` (for future extension)
 
 ## How this scene uses the tilemap cache
