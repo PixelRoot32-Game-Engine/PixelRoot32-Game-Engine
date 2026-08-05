@@ -167,10 +167,7 @@ void TicTacToeScene::resetGame() {
     instructionsLabel->setText("DPAD/Touch: Move | A/Click: Select");
     
     // Center the board on screen
-    int boardSize = BOARD_SIZE * CELL_SIZE;
-    int boardX = (DISPLAY_WIDTH - boardSize) / 2;
-    int boardY = (DISPLAY_HEIGHT - boardSize) / 2;  
-    boardPosition = pr32::math::Vector2(pr32::math::toScalar(boardX), pr32::math::toScalar(boardY));
+    boardPosition = gameplay::cellToWorld(0, 0, kBoardGrid);
 
     engine.getMusicPlayer().setBPM(128.0f);
     engine.getMusicPlayer().play(BG_MUSIC);
@@ -520,12 +517,12 @@ void TicTacToeScene::drawGrid(gfx::Renderer& renderer) {
     Color borderColor = Color::Gold;
 
     for (int i = 1; i < BOARD_SIZE; ++i) {
-        int x = startX + i * CELL_SIZE;
+        int x = gameplay::cellToWorldX(i, kBoardGrid);
         renderer.drawLine(x, startY, x, startY + fullSize, gridColor);
     }
 
     for (int i = 1; i < BOARD_SIZE; ++i) {
-        int y = startY + i * CELL_SIZE;
+        int y = gameplay::cellToWorldY(i, kBoardGrid);
         renderer.drawLine(startX, y, startX + fullSize, y, gridColor);
     }
 
@@ -536,8 +533,8 @@ void TicTacToeScene::drawCursor(gfx::Renderer& renderer) {
     int row = cursorIndex / BOARD_SIZE;
     int col = cursorIndex % BOARD_SIZE;
     
-    int x = static_cast<int>(boardPosition.x) + col * CELL_SIZE;
-    int y = static_cast<int>(boardPosition.y) + row * CELL_SIZE;
+    int x = gameplay::cellToWorldX(col, kBoardGrid);
+    int y = gameplay::cellToWorldY(row, kBoardGrid);
 
     renderer.drawRectangle(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4, Color::Yellow);
 }
@@ -545,8 +542,8 @@ void TicTacToeScene::drawCursor(gfx::Renderer& renderer) {
 void TicTacToeScene::drawMarks(gfx::Renderer& renderer) {
     for (int i = 0; i < BOARD_SIZE; ++i) {
         for (int j = 0; j < BOARD_SIZE; ++j) {
-            int x = static_cast<int>(boardPosition.x) + j * CELL_SIZE;
-            int y = static_cast<int>(boardPosition.y) + i * CELL_SIZE;
+            int x = gameplay::cellToWorldX(j, kBoardGrid);
+            int y = gameplay::cellToWorldY(i, kBoardGrid);
 
             if (board[i][j] == Player::X) {
                 drawX(renderer, x, y);
@@ -600,19 +597,12 @@ bool TicTacToeScene::touchToCell(int16_t touchX, int16_t touchY, int& outRow, in
         return false;
     }
 
-    // Calculate the cell position
-    int relX = touchX - boardStartX;
-    int relY = touchY - boardStartY;
+    // Floor division: a touch inside the hit-slop margin above lands outside
+    // [0, BOARD_SIZE) as a negative index, and containsCell() rejects it below.
+    outCol = gameplay::worldToCellX(touchX, kBoardGrid);
+    outRow = gameplay::worldToCellY(touchY, kBoardGrid);
 
-    // Clamp to board bounds
-    if (relX < 0 || relX >= fullSize || relY < 0 || relY >= fullSize) {
-        return false;
-    }
-
-    outCol = relX / CELL_SIZE;
-    outRow = relY / CELL_SIZE;
-
-    return (outRow >= 0 && outRow < BOARD_SIZE && outCol >= 0 && outCol < BOARD_SIZE);
+    return gameplay::containsCell(outCol, outRow, kBoardGrid);
 }
 
 bool TicTacToeScene::placeMark(int row, int col) {

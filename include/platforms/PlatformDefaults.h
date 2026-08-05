@@ -102,10 +102,15 @@
 #define PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL 0
 #endif
 
-// No dependency guard is declared for the two flags above: unlike interaction
-// triggers and spatial queries, neither the state machine nor the object pool
-// includes any physics-gated header, so both are usable with
-// PIXELROOT32_ENABLE_PHYSICS=0 and are independent of each other.
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE)
+#define PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE 0
+#endif
+
+// No dependency guard is declared for the three flags above: unlike
+// interaction triggers and spatial queries, none of the state machine, the
+// object pool, or the grid space helper includes any physics-gated header,
+// so all three are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are
+// independent of each other.
 
 // Interaction triggers and spatial queries are built on top of CollisionSystem
 // and SpatialGrid, which only exist when physics is enabled (see

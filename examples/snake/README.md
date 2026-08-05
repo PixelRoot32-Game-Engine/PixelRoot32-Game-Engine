@@ -5,6 +5,7 @@ Classic **Snake** on a grid: discrete movement (no physics engine), **pre-alloca
 ## Requirements (build flags)
 
 - **`PIXELROOT32_ENABLE_AUDIO=1`** — set in [`lib/platformio.ini`](lib/platformio.ini) `base` template so all environments inherit it.
+- **`PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1`** — required, not optional. `GameConstants.h` declares `kSnakeGrid` as a `gameplay::GridSpec`, and the whole `GridSpace.h` header lives behind this flag (default `0`), so the example does not compile without it.
 
 Display size is **240×240** in the project `platformio.ini` (see **`PHYSICAL_DISPLAY_*`**).
 
@@ -32,12 +33,15 @@ Pin choices for I2S / DAC are in **`src/platforms/esp32_dev.h`** (edit there if 
 - **Scene** + **Entity** background + pooled **`SnakeSegmentActor`**
 - **Grid logic** and timers (`moveInterval`, `lastMoveTime`)
 - **Audio** subsystem integration (`AudioEngine`, platform backends)
+- Cell/world conversion via **`gameplay::GridSpace`**: segment positions, hit boxes, and food spawn points are all placed through `kSnakeGrid` (`GameConstants.h`) instead of hand-rolled `* CELL_SIZE` / `/ CELL_SIZE` arithmetic. The food-eaten check compares cells (`worldToCellX/Y`), not pixel-aligned equality, so it also works if food is ever spawned off the cell grid.
 
 ## Documentation links
 
 - [Audio API](../../docs/api/audio.md)
 - [Core API](../../docs/api/core.md)
 - [Input API](../../docs/api/input.md)
+- [Memory system — gameplay flags and byte budgets](../../docs/architecture/memory-system.md) — RAM cost of `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE`
+- [`gameplay/GridSpace.h`](../../include/gameplay/GridSpace.h) — the full grid conversion API
 
 ## Build
 

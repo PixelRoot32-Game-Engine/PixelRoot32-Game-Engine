@@ -190,7 +190,7 @@ void SnakeScene::update(unsigned long deltaTime) {
         engine.getAudioEngine().playEvent(moveSound);
 
         // Check if ate food
-        bool ateFood = (newHeadX * CELL_SIZE == static_cast<int>(food.x) && newHeadY * CELL_SIZE == static_cast<int>(food.y));
+        bool ateFood = (newHeadX == gameplay::worldToCellX(food.x, kSnakeGrid) && newHeadY == gameplay::worldToCellY(food.y, kSnakeGrid));
 
         if (ateFood) {
             // Growth: Find free slot in pool
@@ -283,8 +283,7 @@ void SnakeScene::spawnFood() {
     while (!valid) {
         int gx = std::rand() % GRID_WIDTH;
         int gy = std::rand() % (GRID_HEIGHT - TOP_UI_GRID_ROWS) + TOP_UI_GRID_ROWS;
-        food.x = math::toScalar(gx * CELL_SIZE);
-        food.y = math::toScalar(gy * CELL_SIZE);
+        food = gameplay::cellToWorld(gx, gy, kSnakeGrid);
 
         valid = true;
         for (size_t i = 0; i < snakeLength; ++i) {
