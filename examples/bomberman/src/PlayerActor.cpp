@@ -17,6 +17,16 @@ PlayerActor::PlayerActor(int startCellX, int startCellY)
 
 void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
                              const input::InputManager& inputManager, bool bombPressed) {
+    // This advance loop is a deliberate, near-duplicate of
+    // EnemyActor::logicStep()'s. They are not merged into one shared
+    // controller: this one stays put when blocked and reads held input,
+    // while the enemy's re-picks a direction and reads the seeded PRNG, and
+    // only this one has the own-bomb pass-through exemption below. Sharing
+    // just the five-field GridMove struct is the entire real overlap; a
+    // controller that also owned blocking policy or the arrival callback
+    // would need three behaviour hooks to configure it back into these two
+    // shapes, which is worse than the loop it would replace.
+
     // Bomb placement is handled first, before movement advances below. That
     // guarantees a bomb dropped this step always lands in the cell that
     // was logical at the START of this call, even on a call where movement
