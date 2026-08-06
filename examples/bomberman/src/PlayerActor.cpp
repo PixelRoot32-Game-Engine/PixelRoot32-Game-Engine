@@ -15,7 +15,7 @@ PlayerActor::PlayerActor(int startCellX, int startCellY)
     resetTo(startCellX, startCellY);
 }
 
-void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
+bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
                              const input::InputManager& inputManager, bool bombPressed) {
     // This advance loop is a deliberate, near-duplicate of
     // EnemyActor::logicStep()'s. They are not merged into one shared
@@ -39,8 +39,9 @@ void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
     // this function runs on the fixed logic step, which is a different
     // clock. Held movement below is a level state, so sampling it per step
     // is correct as-is.
+    bool bombPlaced = false;
     if (bombPressed) {
-        tryPlaceBomb(bombs);
+        bombPlaced = tryPlaceBomb(bombs);
     }
 
     if (mv.progress > 0) {
@@ -63,7 +64,7 @@ void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
             }
         }
         updateInterpolatedPosition();
-        return;
+        return bombPlaced;
     }
 
     // At rest: held input may start a new step. Fixed priority
@@ -95,6 +96,7 @@ void PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
     }
 
     updateInterpolatedPosition();
+    return bombPlaced;
 }
 
 bool PlayerActor::canEnter(int nx, int ny, const TileType (&board)[kCells],

@@ -100,4 +100,14 @@ constexpr int kStartingLives = 3;
  * has no separate constant -- it is always exactly +1). */
 constexpr int kFirePowerIncrement = 1;
 
+/* Level countdown. Ticks once per logic step, inside the same pipeline
+ * stage as the bomb fuses (BombermanScene::logicStep()); reaching zero
+ * costs the player one life through the exact same path as an explosion or
+ * an enemy contact -- there is no separate "time's up" state. 180 seconds
+ * is a first estimate sized to comfortably cover destroying both
+ * power-up-bearing walls, collecting both power-ups, clearing four enemies,
+ * and reaching the exit at 240ms/cell; it is a playability guess, not a
+ * measured value, since no live play session tuned it. */
+constexpr std::uint16_t kInitialCountdownSeconds = 180;
+
 }  // namespace bomberman
