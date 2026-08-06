@@ -15,20 +15,56 @@ PlayerActor::PlayerActor(int startCellX, int startCellY)
     resetTo(startCellX, startCellY);
 }
 
-void PlayerActor::logicStep(const TileType (&board)[kCells], const input::InputManager& inputManager) {
+bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
+                             const input::InputManager& inputManager, bool bombPressed) {
+    // This advance loop is a deliberate, near-duplicate of
+    // EnemyActor::logicStep()'s. They are not merged into one shared
+    // controller: this one stays put when blocked and reads held input,
+    // while the enemy's re-picks a direction and reads the seeded PRNG, and
+    // only this one has the own-bomb pass-through exemption below. Sharing
+    // just the five-field GridMove struct is the entire real overlap; a
+    // controller that also owned blocking policy or the arrival callback
+    // would need three behaviour hooks to configure it back into these two
+    // shapes, which is worse than the loop it would replace.
+
+    // Bomb placement is handled first, before movement advances below. That
+    // guarantees a bomb dropped this step always lands in the cell that
+    // was logical at the START of this call, even on a call where movement
+    // also happens to complete an in-flight step — "placement uses the
+    // FROM-cell" stays true by construction instead of depending on
+    // statement order elsewhere.
+    //
+    // `bombPressed` arrives already latched by the caller rather than being
+    // read from inputManager here: the press edge is a frame-scoped fact and
+    // this function runs on the fixed logic step, which is a different
+    // clock. Held movement below is a level state, so sampling it per step
+    // is correct as-is.
+    bool bombPlaced = false;
+    if (bombPressed) {
+        bombPlaced = tryPlaceBomb(bombs);
+    }
+
     if (mv.progress > 0) {
-        // A step is already in flight: finish it, ignore input this step.
+        // A step is already in flight: finish it, ignore movement input
+        // this step.
         ++mv.progress;
         if (mv.progress >= kPlayerStepsPerCell) {
             // The LOGICAL cell flips here, and only here.
             mv.cellX = mv.toX;
             mv.cellY = mv.toY;
             mv.progress = 0;
-            // onArrive() hook point: nothing to do yet in this slice. Phase
-            // 3 clears the bomb pass-through exemption here.
+
+            // onArrive(): the own-bomb exemption is valid only while it
+            // names the player's current logical cell. Leaving the bombed
+            // cell makes that bomb solid again from this instant. A no-op
+            // if no exemption is active, or if the arrival cell still
+            // matches it.
+            if (exemptValid_ && (mv.cellX != exemptX_ || mv.cellY != exemptY_)) {
+                exemptValid_ = false;
+            }
         }
         updateInterpolatedPosition();
-        return;
+        return bombPlaced;
     }
 
     // At rest: held input may start a new step. Fixed priority
@@ -50,7 +86,7 @@ void PlayerActor::logicStep(const TileType (&board)[kCells], const input::InputM
     if (dx != 0 || dy != 0) {
         const int nx = mv.cellX + dx;
         const int ny = mv.cellY + dy;
-        if (canEnter(nx, ny, board)) {
+        if (canEnter(nx, ny, board, bombs)) {
             mv.toX = nx;
             mv.toY = ny;
             mv.progress = 1;
@@ -60,16 +96,42 @@ void PlayerActor::logicStep(const TileType (&board)[kCells], const input::InputM
     }
 
     updateInterpolatedPosition();
+    return bombPlaced;
 }
 
-bool PlayerActor::canEnter(int nx, int ny, const TileType (&board)[kCells]) const {
+bool PlayerActor::canEnter(int nx, int ny, const TileType (&board)[kCells],
+                            const Bomb (&bombs)[kMaxBombs]) const {
     if (!gameplay::containsCell(nx, ny, kBoardGrid)) {
         return false;
     }
     const TileType t = board[cellIndex(nx, ny)];
-    // Bomb blocking and the own-bomb pass-through exemption are added in
-    // Phase 3 (3.3); this phase only ever has board tiles to consult.
-    return t != TileType::HardWall && !isSoftWall(t);
+    if (t == TileType::HardWall || isSoftWall(t)) {
+        return false;
+    }
+    if (bombAt(bombs, nx, ny)) {
+        // A bomb blocks unless it is the one cell the player is currently
+        // exempt from. The exemption clears the instant the player's
+        // logical cell changes (see onArrive() above), so this can only
+        // ever admit the cell the player is standing on right now, never a
+        // bomb anywhere else.
+        return exemptValid_ && nx == exemptX_ && ny == exemptY_;
+    }
+    return true;
+}
+
+bool PlayerActor::tryPlaceBomb(Bomb (&bombs)[kMaxBombs]) {
+    if (activeBombCount(bombs) >= maxBombs_) {
+        return false;
+    }
+    if (!placeBomb(bombs, mv.cellX, mv.cellY, firePower_)) {
+        return false;
+    }
+    // The bomb was just written into (mv.cellX, mv.cellY) above; exempt
+    // that same cell so the two can never disagree.
+    exemptValid_ = true;
+    exemptX_ = mv.cellX;
+    exemptY_ = mv.cellY;
+    return true;
 }
 
 void PlayerActor::updateInterpolatedPosition() {
@@ -108,6 +170,9 @@ void PlayerActor::resetTo(int startCellX, int startCellY) {
     mv.cellX = mv.toX = startCellX;
     mv.cellY = mv.toY = startCellY;
     mv.progress = 0;
+    exemptValid_ = false;
+    exemptX_ = 0;
+    exemptY_ = 0;
     updateInterpolatedPosition();
 }
 
