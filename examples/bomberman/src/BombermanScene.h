@@ -83,11 +83,17 @@ private:
     /// one.
     bool bombPressLatched_;
 
-    /// Same latch pattern as bombPressLatched_ above, for the restart
-    /// button read during GameOver/StageClear. Both isButtonPressed() reads
-    /// in this codebase live in update(), at frame scope -- logicStep()
-    /// only ever consumes an already-latched bool, never the raw edge, so
-    /// the fixed-step clock never observes a press directly.
+    /// Same latch pattern as bombPressLatched_ above, for the restart button
+    /// acted on during GameOver/StageClear. Both isButtonPressed() reads in
+    /// this codebase live in update(), at frame scope -- logicStep() only
+    /// ever consumes an already-latched bool, never the raw edge, so the
+    /// fixed-step clock never observes a press directly.
+    ///
+    /// Consumed on EVERY logic step, not only in the states that act on it.
+    /// A latch cleared only by the state that uses it is a latch that goes
+    /// stale: a press during normal play would stay armed for the rest of
+    /// the session and then fire on the first step after the game ended,
+    /// skipping the very state it was meant to be read in.
     bool restartPressLatched_;
 
     /// (Re)generates the board, resets the bomb pool/explosion mask, resets

@@ -126,14 +126,23 @@ void BombermanScene::update(unsigned long deltaTime) {
 }
 
 void BombermanScene::logicStep() {
+    // The restart press is consumed here, once per logic step, in EVERY
+    // state -- not only in the terminal branch below. Latching in update()
+    // is what keeps the read on the frame clock; clearing it unconditionally
+    // is what keeps it from going stale. A press made during normal play is
+    // meaningless, so it is discarded rather than left armed: leaving it set
+    // would mean one stray press at any point in a session sits pending and
+    // then fires on the very first step after the game ends, skipping the
+    // game-over and stage-clear states entirely. The bomb latch below is
+    // safe for the same reason -- it is consumed every step, never only in
+    // the state that happens to act on it.
+    const bool restartPressed = restartPressLatched_;
+    restartPressLatched_ = false;
+
     if (state_ == LevelState::StageClear || state_ == LevelState::GameOver) {
         // Terminal state: freeze the simulation, except for a restart
-        // request. restartPressLatched_ was set in update(), at frame
-        // scope, while the press edge was live -- reading it here (instead
-        // of calling isButtonPressed() directly) keeps every press read in
-        // this codebase on the frame clock, never the logic-step clock.
-        if (restartPressLatched_) {
-            restartPressLatched_ = false;
+        // request.
+        if (restartPressed) {
             lives_ = kStartingLives;
             startLevel();
         }
