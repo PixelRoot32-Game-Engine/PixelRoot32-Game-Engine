@@ -41,7 +41,12 @@ public:
     /// runs on the fixed logic step -- the caller latches the edge across
     /// that gap. Held direction is a level state and is read from `input`
     /// directly, which is correct to sample per step.
-    void logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
+    ///
+    /// Returns true iff a bomb was actually placed this call (the press was
+    /// latched AND the pool/limit checks in tryPlaceBomb() both passed) --
+    /// the caller uses this to fire the bomb-placed audio event exactly once
+    /// per successful placement, never on a press that was rejected.
+    bool logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
                    const pixelroot32::input::InputManager& input, bool bombPressed);
 
     void draw(pixelroot32::graphics::Renderer& renderer) override;
@@ -52,6 +57,15 @@ public:
     int cellY() const { return mv.cellY; }
     int firePower() const { return firePower_; }
     int maxBombs() const { return maxBombs_; }
+
+    /// Applies a Fire power-up: increases the blast arm length by the fixed
+    /// increment. Takes effect on the NEXT bomb placed -- an already-placed
+    /// bomb keeps the range it snapshotted at placement (see BombermanBombs.h).
+    void applyFirePowerUp() { firePower_ += kFirePowerIncrement; }
+
+    /// Applies a Bomb power-up: increases the simultaneous-bomb limit by
+    /// one.
+    void applyBombPowerUp() { ++maxBombs_; }
 
     /// Puts the player at rest in a fresh cell (level restart). Also
     /// clears the own-bomb exemption, since a fresh level has no bombs.

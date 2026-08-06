@@ -7,20 +7,15 @@
 #include "BombermanBoard.h"
 #include "BombermanBombs.h"
 #include "BombermanConstants.h"
+#include "EnemyActor.h"
 #include "PlayerActor.h"
 
 namespace bomberman {
 
 /**
  * @class BombermanScene
- * @brief Scene shell: fixed-step drain, board init, player + bomb/chain
- *        logic, and lives/restart on explosion death.
- *
- * Enemy actors, the HUD, and the full five-state level enum (Loading,
- * Playing, ExitUnlocked, StageClear, GameOver) are assembled in later
- * work. This slice only needs Loading -> Playing, plus a simple frozen
- * state once lives run out, since nothing here yet needs the other three
- * states.
+ * @brief Scene shell: fixed-step drain, the full nine-stage logic pipeline,
+ *        board/bomb/enemy state, and the level lifecycle.
  */
 class BombermanScene : public pixelroot32::core::Scene {
 public:
@@ -31,7 +26,18 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
 private:
-    enum class LevelState : uint8_t { Loading, Playing };
+    /// Level lifecycle, five states. This is a PLAIN enum, not the engine's
+    /// generic per-class state-machine primitive, and that is deliberate:
+    /// every transition below is a condition checked in a fixed order once
+    /// per logic step (see logicStep()), not a per-state callback dispatched
+    /// by some external driver. A generic state-machine type would only be
+    /// buying a dispatch table this game barely uses -- exactly one state
+    /// (Loading) does any real one-time entry work, and that work is
+    /// already a single named function (startLevel()) called from exactly
+    /// two call sites. Before reaching for a state-machine primitive here,
+    /// re-derive that tradeoff from scratch; it does not hold for this
+    /// shape of update loop.
+    enum class LevelState : uint8_t { Loading, Playing, ExitUnlocked, StageClear, GameOver };
 
     TileType board_[kCells];
     Bomb bombs_[kMaxBombs];
@@ -40,10 +46,30 @@ private:
     BoardRenderer renderer_;
     PlayerActor player_;
 
+    /// Fixed pool of enemy slots, sized to kMaxEnemies (BombermanConstants.h)
+    /// and constructed once, here, never destroyed. Only the first
+    /// enemyCount_ slots are ever added to the scene or touched by
+    /// logicStep()/draw() for the CURRENT level; the rest sit unused and
+    /// unregistered, exactly like the entity guardrail's static_assert
+    /// assumes.
+    EnemyActor enemies_[kMaxEnemies];
+    int enemyCount_;    ///< Total enemies spawned this level (may be < kEnemyCount; see BombermanBoard.cpp step 6).
+    int enemiesAlive_;  ///< Live count; ExitUnlocked is entered the step this reaches 0.
+
     LevelState state_;
     unsigned long accumulatorMs_;
     uint32_t seed_;
     int lives_;
+
+    /// Level countdown: seconds remaining plus how many logic steps have
+    /// elapsed into the current second. Both tick inside logicStep()'s
+    /// bomb/timer stage, on the fixed 20 ms clock -- never from
+    /// update()'s deltaTime -- so the countdown is exactly as reproducible
+    /// as every other timer in this game (fuses, explosion decay). Reaching
+    /// zero costs the player one life through handlePlayerDeath(), the same
+    /// funnel explosion and enemy contact already use.
+    uint16_t countdownSeconds_;
+    uint8_t countdownSubSteps_;
 
     /// Frame-scoped bomb press, latched for the fixed-step loop to consume.
     /// InputManager recomputes its press edge once per engine frame, but the
@@ -57,25 +83,54 @@ private:
     /// one.
     bool bombPressLatched_;
 
-    /// (Re)generates the board, resets the bomb pool/explosion mask, and
-    /// resets the player. Deliberately does NOT call the base Scene::init(),
-    /// since Scene::resetState() clears every entity and this scene's
-    /// entities are added once, in the constructor, and never re-added —
-    /// matching the snake/2048 examples. Deliberately does NOT touch
-    /// `lives_`: that field lives outside this function entirely so a
-    /// death-with-lives-remaining restart carries the decremented value
-    /// over instead of resetting it.
+    /// Same latch pattern as bombPressLatched_ above, for the restart button
+    /// acted on during GameOver/StageClear. Both isButtonPressed() reads in
+    /// this codebase live in update(), at frame scope -- logicStep() only
+    /// ever consumes an already-latched bool, never the raw edge, so the
+    /// fixed-step clock never observes a press directly.
+    ///
+    /// Consumed on EVERY logic step, not only in the states that act on it.
+    /// A latch cleared only by the state that uses it is a latch that goes
+    /// stale: a press during normal play would stay armed for the rest of
+    /// the session and then fire on the first step after the game ended,
+    /// skipping the very state it was meant to be read in.
+    bool restartPressLatched_;
+
+    /// (Re)generates the board, resets the bomb pool/explosion mask, resets
+    /// the player, and redeploys enemies to match the freshly generated
+    /// layout's (possibly different) enemy count. Deliberately does NOT
+    /// call the base Scene::init(), since Scene::resetState() clears every
+    /// entity and the renderer/player are added once, in the constructor,
+    /// and never re-added. Enemies ARE removed and re-added here, because
+    /// their count varies per generated level, unlike the renderer/player.
+    /// Deliberately does NOT touch `lives_`: that field lives outside this
+    /// function entirely so a death-with-lives-remaining restart carries
+    /// the decremented value over instead of resetting it.
     void startLevel();
 
-    /// The fixed-step logic pipeline, driven by update()'s accumulator:
-    /// player input/movement/placement, bomb fuse tick, chain-reaction
-    /// drain, explosion decay, then explosion-contact death. Enemy
-    /// movement, power-ups, and victory are added in later work.
+    /// The fixed nine-stage logic pipeline, driven by update()'s
+    /// accumulator: (1) input, (2) player movement, (3) enemy movement,
+    /// (4) bomb fuse tick (the level countdown ticks in this same stage),
+    /// (5) chain-reaction drain, (6) explosion decay, (7) power-up pickup,
+    /// (8) collision detection (explosion contact for both enemies and the
+    /// player, then player-enemy contact), (9) victory check. A "cycle" in
+    /// this codebase always means one fixed 20 ms logic step
+    /// (BombermanConstants.h's kLogicStepMs) -- never a rendered frame,
+    /// which runs at a different, variable rate. While the level is in a
+    /// terminal state (StageClear/GameOver) this function only checks for a
+    /// latched restart press and otherwise returns immediately -- the nine
+    /// stages above never run against a frozen level.
     void logicStep();
 
-    /// One life lost to an explosion. Restarts the level if lives remain;
-    /// otherwise leaves the board frozen — logicStep()'s own guard stops
-    /// processing once lives_ reaches zero.
+    /// Removes an enemy from play: marks it dead, unregisters it from the
+    /// scene's entity list (so it stops drawing and stops being iterated by
+    /// future logic steps), and decrements the live count that
+    /// exit-gating/victory reads.
+    void killEnemy(int index);
+
+    /// One life lost to an explosion or an enemy. Restarts the level if
+    /// lives remain (decremented value carried over); otherwise enters
+    /// GameOver, which logicStep()'s own top-of-function guard freezes.
     void handlePlayerDeath();
 };
 
