@@ -41,7 +41,12 @@ public:
     /// runs on the fixed logic step -- the caller latches the edge across
     /// that gap. Held direction is a level state and is read from `input`
     /// directly, which is correct to sample per step.
-    void logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
+    ///
+    /// Returns true iff a bomb was actually placed this call (the press was
+    /// latched AND the pool/limit checks in tryPlaceBomb() both passed) --
+    /// the caller uses this to fire the bomb-placed audio event exactly once
+    /// per successful placement, never on a press that was rejected.
+    bool logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
                    const pixelroot32::input::InputManager& input, bool bombPressed);
 
     void draw(pixelroot32::graphics::Renderer& renderer) override;

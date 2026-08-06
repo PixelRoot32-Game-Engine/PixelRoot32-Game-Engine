@@ -61,6 +61,16 @@ private:
     uint32_t seed_;
     int lives_;
 
+    /// Level countdown: seconds remaining plus how many logic steps have
+    /// elapsed into the current second. Both tick inside logicStep()'s
+    /// bomb/timer stage, on the fixed 20 ms clock -- never from
+    /// update()'s deltaTime -- so the countdown is exactly as reproducible
+    /// as every other timer in this game (fuses, explosion decay). Reaching
+    /// zero costs the player one life through handlePlayerDeath(), the same
+    /// funnel explosion and enemy contact already use.
+    uint16_t countdownSeconds_;
+    uint8_t countdownSubSteps_;
+
     /// Frame-scoped bomb press, latched for the fixed-step loop to consume.
     /// InputManager recomputes its press edge once per engine frame, but the
     /// accumulator below runs zero, one, or two logic steps in that same
@@ -72,6 +82,13 @@ private:
     /// neither lost on a zero-step frame nor acted on twice on a two-step
     /// one.
     bool bombPressLatched_;
+
+    /// Same latch pattern as bombPressLatched_ above, for the restart
+    /// button read during GameOver/StageClear. Both isButtonPressed() reads
+    /// in this codebase live in update(), at frame scope -- logicStep()
+    /// only ever consumes an already-latched bool, never the raw edge, so
+    /// the fixed-step clock never observes a press directly.
+    bool restartPressLatched_;
 
     /// (Re)generates the board, resets the bomb pool/explosion mask, resets
     /// the player, and redeploys enemies to match the freshly generated
@@ -87,12 +104,16 @@ private:
 
     /// The fixed nine-stage logic pipeline, driven by update()'s
     /// accumulator: (1) input, (2) player movement, (3) enemy movement,
-    /// (4) bomb fuse tick, (5) chain-reaction drain, (6) explosion decay,
-    /// (7) power-up pickup, (8) collision detection (explosion contact for
-    /// both enemies and the player, then player-enemy contact), (9) victory
-    /// check. A "cycle" in this codebase always means one fixed 20 ms logic
-    /// step (BombermanConstants.h's kLogicStepMs) -- never a rendered frame,
-    /// which runs at a different, variable rate.
+    /// (4) bomb fuse tick (the level countdown ticks in this same stage),
+    /// (5) chain-reaction drain, (6) explosion decay, (7) power-up pickup,
+    /// (8) collision detection (explosion contact for both enemies and the
+    /// player, then player-enemy contact), (9) victory check. A "cycle" in
+    /// this codebase always means one fixed 20 ms logic step
+    /// (BombermanConstants.h's kLogicStepMs) -- never a rendered frame,
+    /// which runs at a different, variable rate. While the level is in a
+    /// terminal state (StageClear/GameOver) this function only checks for a
+    /// latched restart press and otherwise returns immediately -- the nine
+    /// stages above never run against a frozen level.
     void logicStep();
 
     /// Removes an enemy from play: marks it dead, unregisters it from the

@@ -1,6 +1,8 @@
 #include "BombermanScene.h"
 #include "core/Engine.h"
+#include "audio/AudioTypes.h"
 #include <cassert>
+#include <cstdio>
 #include <ctime>
 
 namespace pr32 = pixelroot32;
@@ -11,6 +13,7 @@ namespace bomberman {
 
 namespace gfx = pr32::graphics;
 namespace core = pr32::core;
+namespace audio = pr32::audio;
 
 BombermanScene::BombermanScene()
     : board_{},
@@ -25,7 +28,10 @@ BombermanScene::BombermanScene()
       accumulatorMs_(0),
       seed_(0),
       lives_(kStartingLives),
-      bombPressLatched_(false) {
+      countdownSeconds_(kInitialCountdownSeconds),
+      countdownSubSteps_(0),
+      bombPressLatched_(false),
+      restartPressLatched_(false) {
     // enemies_ is default-initialized above (omitted here): every slot
     // starts dead at (0,0) via EnemyActor's default constructor and is not
     // registered with the scene until startLevel() decides how many of
@@ -74,6 +80,9 @@ void BombermanScene::startLevel() {
         addEntity(&enemies_[i]);
     }
 
+    countdownSeconds_ = kInitialCountdownSeconds;
+    countdownSubSteps_ = 0;
+
     accumulatorMs_ = 0;
     // A press held across the death that triggered this restart must not
     // drop a bomb on the fresh board's first step.
@@ -89,9 +98,16 @@ void BombermanScene::startLevel() {
 
 void BombermanScene::update(unsigned long deltaTime) {
     // Latch here, at frame scope, while the press edge is still live. The
-    // loop below may run no logic step at all this frame.
-    if (engine.getInputManager().isButtonPressed(BTN_BOMB)) {
+    // loop below may run no logic step at all this frame. Both button
+    // presses this example ever reads (bomb, restart) are latched exactly
+    // this way -- isButtonPressed() is never called from inside logicStep(),
+    // which runs on the fixed 20 ms clock instead of the frame clock.
+    auto& input = engine.getInputManager();
+    if (input.isButtonPressed(BTN_BOMB)) {
         bombPressLatched_ = true;
+    }
+    if (input.isButtonPressed(BTN_RESTART)) {
+        restartPressLatched_ = true;
     }
 
     accumulatorMs_ += deltaTime;
@@ -111,8 +127,16 @@ void BombermanScene::update(unsigned long deltaTime) {
 
 void BombermanScene::logicStep() {
     if (state_ == LevelState::StageClear || state_ == LevelState::GameOver) {
-        // Terminal state: freeze the simulation. Both end states stop the
-        // pipeline the same way; only how they were reached differs.
+        // Terminal state: freeze the simulation, except for a restart
+        // request. restartPressLatched_ was set in update(), at frame
+        // scope, while the press edge was live -- reading it here (instead
+        // of calling isButtonPressed() directly) keeps every press read in
+        // this codebase on the frame clock, never the logic-step clock.
+        if (restartPressLatched_) {
+            restartPressLatched_ = false;
+            lives_ = kStartingLives;
+            startLevel();
+        }
         return;
     }
 
@@ -125,7 +149,15 @@ void BombermanScene::logicStep() {
     // frame edge instead, consumed exactly once here.
     const bool bombPressed = bombPressLatched_;
     bombPressLatched_ = false;
-    player_.logicStep(board_, bombs_, input, bombPressed);
+    if (player_.logicStep(board_, bombs_, input, bombPressed)) {
+        audio::AudioEvent bombPlacedSound;
+        bombPlacedSound.type = audio::WaveType::PULSE;
+        bombPlacedSound.frequency = 220.0f;
+        bombPlacedSound.duration = 0.08f;
+        bombPlacedSound.volume = 0.5f;
+        bombPlacedSound.duty = 0.5f;
+        engine.getAudioEngine().playEvent(bombPlacedSound);
+    }
 
     // Stage 3: enemy movement. Each alive enemy re-decides its own
     // direction independently, straight-else-PRNG; see EnemyActor.cpp.
@@ -136,16 +168,48 @@ void BombermanScene::logicStep() {
     }
 
     // Stage 4: bomb fuses tick down, seeding this step's detonation queue
-    // with any bomb whose fuse just reached zero.
+    // with any bomb whose fuse just reached zero. The level countdown ticks
+    // in this same stage, on the identical fixed 20 ms clock -- never from
+    // update()'s deltaTime -- so it is exactly as reproducible as the fuses
+    // it shares a pipeline stage with.
     uint8_t detonationQueue[kMaxBombs] = {};
     int queueTail = 0;
     tickFuses(bombs_, detonationQueue, queueTail);
+
+    if (countdownSeconds_ > 0) {
+        ++countdownSubSteps_;
+        if (countdownSubSteps_ >= kStepsPerSecond) {
+            countdownSubSteps_ = 0;
+            --countdownSeconds_;
+            if (countdownSeconds_ == 0) {
+                // Expiry costs a life via the exact same funnel as an
+                // explosion or an enemy contact. handlePlayerDeath() may
+                // call startLevel(), which resets board_/bombs_/blastSteps_
+                // -- so this returns immediately rather than letting stages
+                // 5+ below run resolveDetonations()/tickExplosions() against
+                // a detonation queue seeded for a board that no longer
+                // exists.
+                handlePlayerDeath();
+                return;
+            }
+        }
+    }
 
     // Stage 5: the queue -- including any bomb a blast arm chain-triggers
     // along the way -- drains to a fixed point within this same call. See
     // resolveDetonations()'s termination comment for why that is
     // guaranteed to happen in at most kMaxBombs iterations.
-    resolveDetonations(detonationQueue, queueTail, bombs_, board_, blastSteps_, hiddenPowerUp_);
+    const int detonatedCount =
+        resolveDetonations(detonationQueue, queueTail, bombs_, board_, blastSteps_, hiddenPowerUp_);
+    if (detonatedCount > 0) {
+        audio::AudioEvent explosionSound;
+        explosionSound.type = audio::WaveType::NOISE;
+        explosionSound.frequency = 90.0f;
+        explosionSound.duration = 0.3f;
+        explosionSound.volume = 0.7f;
+        explosionSound.duty = 0.5f;
+        engine.getAudioEngine().playEvent(explosionSound);
+    }
 
     // Stage 6: explosion cells count down toward reverting to their
     // post-destruction tile.
@@ -211,6 +275,13 @@ void BombermanScene::logicStep() {
     }
     if (state_ == LevelState::ExitUnlocked && board_[playerCell] == TileType::Exit) {
         state_ = LevelState::StageClear;
+        audio::AudioEvent stageClearSound;
+        stageClearSound.type = audio::WaveType::TRIANGLE;
+        stageClearSound.frequency = 660.0f;
+        stageClearSound.duration = 0.6f;
+        stageClearSound.volume = 0.7f;
+        stageClearSound.duty = 0.5f;
+        engine.getAudioEngine().playEvent(stageClearSound);
     }
 }
 
@@ -221,6 +292,17 @@ void BombermanScene::killEnemy(int index) {
 }
 
 void BombermanScene::handlePlayerDeath() {
+    // The single funnel for every death cause (explosion contact, enemy
+    // contact, countdown expiry) -- one audio event fires here regardless
+    // of which one triggered it.
+    audio::AudioEvent deathSound;
+    deathSound.type = audio::WaveType::SAW;
+    deathSound.frequency = 300.0f;
+    deathSound.duration = 0.4f;
+    deathSound.volume = 0.7f;
+    deathSound.duty = 0.5f;
+    engine.getAudioEngine().playEvent(deathSound);
+
     --lives_;
     if (lives_ > 0) {
         // lives_ lives outside startLevel() entirely, so it carries the
@@ -233,9 +315,33 @@ void BombermanScene::handlePlayerDeath() {
 
 void BombermanScene::draw(gfx::Renderer& renderer) {
     // BoardRenderer (layer 0), then PlayerActor + live EnemyActors
-    // (layer 1) -- Scene::draw() sorts by render layer. HUD text and
-    // overlays are later work.
+    // (layer 1) -- Scene::draw() sorts by render layer. HUD text and the
+    // game-over/stage-clear overlay are drawn on top, here, same idiom as
+    // the board's status band (BoardRenderer draws the band's background;
+    // this draws the text that sits on it).
     Scene::draw(renderer);
+
+    char buffer[24];
+
+    std::snprintf(buffer, sizeof(buffer), "LIVES %d  ENEMIES %d", lives_, enemiesAlive_);
+    renderer.drawText(buffer, 4, 6, gfx::Color::White, 1);
+
+    std::snprintf(buffer, sizeof(buffer), "F%d B%d  TIME %03u", player_.firePower(), player_.maxBombs(),
+                  static_cast<unsigned>(countdownSeconds_));
+    renderer.drawText(buffer, 4, 22, gfx::Color::White, 1);
+
+    // Text overlay, not a separate screen or Scene: both terminal states
+    // draw a dark band across the middle of the board with centered text
+    // over whatever the board looks like at the moment of the transition.
+    if (state_ == LevelState::GameOver) {
+        renderer.drawFilledRectangle(0, 104, DISPLAY_WIDTH, 32, gfx::Color::Black);
+        renderer.drawTextCentered("GAME OVER", 112, gfx::Color::Red, 1);
+        renderer.drawTextCentered("PRESS RESTART", 124, gfx::Color::Red, 1);
+    } else if (state_ == LevelState::StageClear) {
+        renderer.drawFilledRectangle(0, 104, DISPLAY_WIDTH, 32, gfx::Color::Black);
+        renderer.drawTextCentered("STAGE CLEAR", 112, gfx::Color::Cyan, 1);
+        renderer.drawTextCentered("PRESS RESTART", 124, gfx::Color::Cyan, 1);
+    }
 }
 
 }  // namespace bomberman
