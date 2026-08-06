@@ -52,6 +52,16 @@ constexpr int kMaxLogicStepsPerFrame = 4;   // catch-up clamp: 80ms of backlog
 
 constexpr int kPlayerStepsPerCell = 12;     // 240ms/cell
 constexpr int kEnemyStepsPerCell = 20;      // 400ms/cell
+
+/// Player walk-frame animation divisor. mv.progress / kPlayerAnimStepDiv % 3
+/// yields the walk frame. 12/4 = 3 distinct frames per cell, matching the
+/// 3-frame walk tables in kPlayerWalkDown/Up/Right.
+constexpr int kPlayerAnimStepDiv = 4;
+
+/// Enemy walk-frame animation divisor. mv.progress / kEnemyAnimStepDiv % 7
+/// yields the walk frame. 20/4 = 5 distinct frames per cell out of the
+/// 7-frame walk table in kEnemyBallomWalk.
+constexpr int kEnemyAnimStepDiv = 4;
 constexpr int kBombFuseSteps = 150;         // 3.00s
 constexpr int kBombFlashSteps = 50;         // last 1.00s of the fuse
 constexpr int kExplosionSteps = 25;         // 0.50s
@@ -99,6 +109,25 @@ constexpr int kStartingLives = 3;
  * length; a Bomb pickup adds one to the simultaneous-bomb limit (that half
  * has no separate constant -- it is always exactly +1). */
 constexpr int kFirePowerIncrement = 1;
+
+/**
+ * @brief Blast segment type for each exploded cell — written alongside
+ *        blastSteps_ by resolveDetonations() and paintArm(), read by
+ *        BoardRenderer to select the correct directional sprite from
+ *        kExplosionByShape[shape][flicker].
+ *
+ * Observation-only (audit §8.5): never read by rule functions, so
+ * logic determinism is unaffected by the contents of this array.
+ */
+enum class BlastShape : std::uint8_t {
+    Center = 0,  ///< Bomb's own cell.
+    ArmH   = 1,  ///< Horizontal blast arm.
+    ArmV   = 2,  ///< Vertical blast arm.
+    TipL   = 3,  ///< Leftward-facing tip.
+    TipR   = 4,  ///< Rightward-facing tip.
+    TipU   = 5,  ///< Upward-facing tip.
+    TipD   = 6   ///< Downward-facing tip.
+};
 
 /* Level countdown. Ticks once per logic step, inside the same pipeline
  * stage as the bomb fuses (BombermanScene::logicStep()); reaching zero

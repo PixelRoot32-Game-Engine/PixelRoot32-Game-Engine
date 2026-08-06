@@ -42,6 +42,7 @@ private:
     TileType board_[kCells];
     Bomb bombs_[kMaxBombs];
     uint8_t blastSteps_[kCells];
+    uint8_t blastShape_[kCells] = {};  ///< Observation-only per audit §8.5; written by resolveDetonations alongside blastSteps_.
     TileType hiddenPowerUp_;
     BoardRenderer renderer_;
     PlayerActor player_;

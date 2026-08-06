@@ -87,6 +87,13 @@ bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
         const int nx = mv.cellX + dx;
         const int ny = mv.cellY + dy;
         if (canEnter(nx, ny, board, bombs)) {
+            // Update facing before starting the step. Encode (dx, dy) into a
+            // single facing value: Down=0, Up=1, Left=2, Right=3.
+            if (dx == 0 && dy == 1)       facing_ = 0;  // Down
+            else if (dx == 0 && dy == -1) facing_ = 1;  // Up
+            else if (dx == -1)            facing_ = 2;  // Left
+            else if (dx == 1)             facing_ = 3;  // Right
+            // else: dx=dy=0 (no input); keep current facing
             mv.toX = nx;
             mv.toY = ny;
             mv.progress = 1;
@@ -151,8 +158,8 @@ void PlayerActor::updateInterpolatedPosition() {
 void PlayerActor::draw(gfx::Renderer& renderer) {
     const int x = static_cast<int>(position.x);
     const int y = static_cast<int>(position.y);
-    renderer.drawFilledRectangle(x + 3, y + 4, 10, 12, gfx::Color::White);
-    renderer.drawFilledCircle(x + 8, y + 4, 4, gfx::Color::LightGreen);
+    const PlayerWalkFrame frame = playerWalkSpriteFor(facing_, mv.progress);
+    renderer.drawSprite(*frame.sprite, x, y, 0, frame.flipX);
 }
 
 core::Rect PlayerActor::getHitBox() {

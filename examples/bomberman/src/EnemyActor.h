@@ -5,8 +5,16 @@
 #include "BombermanBombs.h"
 #include "BombermanConstants.h"
 #include "GridMove.h"
+#include "assets/EnemySprites.h"
 
 namespace bomberman {
+
+/// Maps progress → the correct Ballom walk-cycle sprite.
+/// progress: mv.progress (0 when at rest). 7 frames, wraps.
+inline const pixelroot32::graphics::Sprite4bpp* enemyWalkSpriteFor(int progress) {
+    const int frame = (progress / kEnemyAnimStepDiv) % 7;
+    return &kEnemyBallomWalk[frame];
+}
 
 /**
  * @class EnemyActor
@@ -69,6 +77,11 @@ private:
     int dirX_ = 0;
     int dirY_ = 0;
     bool alive_ = true;
+
+    /// Whether the enemy currently faces left. Updated in logicStep()
+    /// when dirX_ is decided (PRNG draw or continue-straight).
+    /// Passed as flipX to drawSprite() in draw().
+    bool facingLeft_ = false;
 
     /// Board + bomb-pool blocking check only -- no exemption of any kind,
     /// unlike PlayerActor::canEnter(). An enemy treats every bomb as a

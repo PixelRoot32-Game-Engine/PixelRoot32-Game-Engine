@@ -13,6 +13,10 @@ namespace bomberman {
  * Pure data and pure functions over plain arrays — nothing here touches an
  * Actor or a Scene, so this whole file is callable and inspectable without
  * a live game, exactly like BombermanBoard.h's generateLevel().
+ *
+ * All function bodies are inline in this header (Phase 2 refactor per
+ * audit §8.5) so unit tests can include and call them directly without
+ * needing to link against a separate translation unit.
  */
 
 /// One pool slot. `range` is snapshotted from the placing player's fire
@@ -32,10 +36,25 @@ static_assert(sizeof(Bomb) == 5,
 /// True iff an active bomb currently occupies (cellX, cellY). Correctly
 /// reports false for a cell whose bomb already detonated (active == false),
 /// even while that cell's blastSteps entry is still counting down.
-bool bombAt(const Bomb (&bombs)[kMaxBombs], int cellX, int cellY);
+inline bool bombAt(const Bomb (&bombs)[kMaxBombs], int cellX, int cellY) {
+    for (int i = 0; i < kMaxBombs; ++i) {
+        if (bombs[i].active && bombs[i].cellX == cellX && bombs[i].cellY == cellY) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /// Number of currently active (not yet detonated) bombs in the pool.
-int activeBombCount(const Bomb (&bombs)[kMaxBombs]);
+inline int activeBombCount(const Bomb (&bombs)[kMaxBombs]) {
+    int count = 0;
+    for (int i = 0; i < kMaxBombs; ++i) {
+        if (bombs[i].active) {
+            ++count;
+        }
+    }
+    return count;
+}
 
 /// Writes a new bomb into the first free pool slot at (cellX, cellY) with
 /// the given blast range and a full fuse. Returns false, changing nothing,
@@ -43,7 +62,22 @@ int activeBombCount(const Bomb (&bombs)[kMaxBombs]);
 /// This function knows nothing about any player's own max-simultaneous-bomb
 /// limit — that is caller-side policy (see PlayerActor::tryPlaceBomb), kept
 /// separate so this pool operation stays reusable by any placer.
-bool placeBomb(Bomb (&bombs)[kMaxBombs], int cellX, int cellY, int range);
+inline bool placeBomb(Bomb (&bombs)[kMaxBombs], int cellX, int cellY, int range) {
+    if (bombAt(bombs, cellX, cellY)) {
+        return false;
+    }
+    for (int i = 0; i < kMaxBombs; ++i) {
+        if (!bombs[i].active) {
+            bombs[i].cellX = static_cast<uint8_t>(cellX);
+            bombs[i].cellY = static_cast<uint8_t>(cellY);
+            bombs[i].fuseSteps = static_cast<uint8_t>(kBombFuseSteps);
+            bombs[i].range = static_cast<uint8_t>(range);
+            bombs[i].active = true;
+            return true;
+        }
+    }
+    return false;  // pool full
+}
 
 /// Advances every active bomb's fuse by one step. A bomb whose fuse reaches
 /// zero this call is deactivated and its pool index appended to
@@ -55,12 +89,106 @@ bool placeBomb(Bomb (&bombs)[kMaxBombs], int cellX, int cellY, int range);
 /// detonation batch — nothing in this codebase carries a queue across two
 /// calls), and every write into `detonationQueue` is bounded against
 /// kMaxBombs at the write site, not merely trusted from the caller.
-void tickFuses(Bomb (&bombs)[kMaxBombs], uint8_t (&detonationQueue)[kMaxBombs], int& queueTail);
+inline void tickFuses(Bomb (&bombs)[kMaxBombs], uint8_t (&detonationQueue)[kMaxBombs], int& queueTail) {
+    for (int i = 0; i < kMaxBombs; ++i) {
+        if (!bombs[i].active) {
+            continue;
+        }
+        if (bombs[i].fuseSteps > 0) {
+            --bombs[i].fuseSteps;
+        }
+        if (bombs[i].fuseSteps == 0) {
+            bombs[i].active = false;
+            if (queueTail < kMaxBombs) {  // bounded at the write site
+                detonationQueue[queueTail++] = static_cast<uint8_t>(i);
+            }
+        }
+    }
+}
+
+namespace detail {
+
+/// Walks one direction from (cx, cy) out to `range` cells, painting
+/// blastSteps and applying destruction/chain-triggering per the header's
+/// propagation rules. `tail` is bounded against kMaxBombs at the write
+/// site — never assumed safe purely because the caller promised it.
+///
+/// blastShape (Phase 2): each cell that receives blastSteps also records
+/// its blast segment type (Center, ArmH/V, TipL/R/U/D) so the renderer
+/// can select the correct directional explosion sprite. Observation-only
+/// per audit §8.5.
+inline void paintArm(int cx, int cy, int dx, int dy, int range,
+                     TileType (&board)[kCells], uint8_t (&blastSteps)[kCells],
+                     uint8_t (&blastShape)[kCells],
+                     uint8_t (&detonationQueue)[kMaxBombs], int& tail,
+                     Bomb (&bombs)[kMaxBombs], TileType hiddenPowerUp) {
+    int x = cx;
+    int y = cy;
+    int lastIdx = -1;
+    const uint8_t armShape = (dx == 0)
+        ? static_cast<uint8_t>(BlastShape::ArmV)
+        : static_cast<uint8_t>(BlastShape::ArmH);
+    const uint8_t tipShape = (dx == 0)
+        ? static_cast<uint8_t>(dy < 0 ? BlastShape::TipU : BlastShape::TipD)
+        : static_cast<uint8_t>(dx < 0 ? BlastShape::TipL : BlastShape::TipR);
+
+    for (int step = 0; step < range; ++step) {
+        x += dx;
+        y += dy;
+        if (!gameplay::containsCell(x, y, kBoardGrid)) {
+            return;  // the border is always HardWall; unreachable in practice
+        }
+        const int idx = cellIndex(x, y);
+        const TileType t = board[idx];
+
+        if (t == TileType::HardWall) {
+            return;  // stops the arm; the cell is untouched; no upgrade
+        }
+        if (isSoftWall(t)) {
+            board[idx] = destroyedInto(t, hiddenPowerUp);
+            blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
+            blastShape[idx] = tipShape;  // soft wall cell IS the tip
+            return;
+        }
+
+        bool chained = false;
+        for (int i = 0; i < kMaxBombs; ++i) {
+            if (bombs[i].active && bombs[i].cellX == x && bombs[i].cellY == y) {
+                bombs[i].active = false;
+                if (tail < kMaxBombs) {  // bounded at the write site
+                    detonationQueue[tail++] = static_cast<uint8_t>(i);
+                }
+                chained = true;
+                break;
+            }
+        }
+        blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
+        blastShape[idx] = chained ? tipShape : armShape;  // chain cell IS the tip
+        lastIdx = idx;
+        if (chained) {
+            // The chained bomb produces its own independent cross on a
+            // later iteration of the drain loop; this arm stops here so
+            // the two crosses never repaint the same cells against each
+            // other.
+            return;
+        }
+        // Otherwise: Empty, or a cell whose bomb already detonated earlier
+        // in this same drain — paint it and let the arm continue.
+    }
+    // Out-of-range: upgrade the last painted cell from Arm to Tip.
+    if (lastIdx >= 0) blastShape[lastIdx] = tipShape;
+}
+
+}  // namespace detail
 
 /// Drains `detonationQueue` (already seeded by tickFuses) to a fixed point,
 /// painting each detonating bomb's cross into `board`/`blastSteps` and
 /// chain-triggering any OTHER active bomb an arm reaches. Returns the total
 /// number of bombs that detonated this call.
+///
+/// blastShape (Phase 2): written alongside blastSteps. Each cell records
+/// its segment type (Center/ArmH/ArmV/TipL/TipR/TipU/TipD). Observation-
+/// only; never read by rule functions (audit §8.5).
 ///
 /// TERMINATION ARGUMENT. A pool slot enters detonationQueue in exactly two
 /// places in this file: in tickFuses (a fuse reaching zero) and inside this
@@ -74,17 +202,43 @@ void tickFuses(Bomb (&bombs)[kMaxBombs], uint8_t (&detonationQueue)[kMaxBombs], 
 /// kMaxBombs mutually-adjacent bombs, where every slot chains into exactly
 /// one neighbour and the queue still fills at most once per slot. No
 /// recursion, no unbounded growth, no bomb ever processed twice.
-int resolveDetonations(uint8_t (&detonationQueue)[kMaxBombs], int queueTail,
-                        Bomb (&bombs)[kMaxBombs],
-                        TileType (&board)[kCells],
-                        uint8_t (&blastSteps)[kCells],
-                        TileType hiddenPowerUp);
+inline int resolveDetonations(uint8_t (&detonationQueue)[kMaxBombs], int queueTail,
+                               Bomb (&bombs)[kMaxBombs],
+                               TileType (&board)[kCells],
+                               uint8_t (&blastSteps)[kCells],
+                               uint8_t (&blastShape)[kCells],
+                               TileType hiddenPowerUp) {
+    int head = 0;
+    int tail = (queueTail < kMaxBombs) ? queueTail : kMaxBombs;  // bounded at the write site
+
+    static constexpr int kArmDX[4] = {0, 0, -1, 1};
+    static constexpr int kArmDY[4] = {-1, 1, 0, 0};
+
+    while (head < tail) {
+        const Bomb b = bombs[detonationQueue[head++]];  // copy: paintArm mutates other slots
+        const int idx = cellIndex(b.cellX, b.cellY);
+        blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
+        blastShape[idx] = static_cast<uint8_t>(BlastShape::Center);
+        for (int d = 0; d < 4; ++d) {
+            detail::paintArm(b.cellX, b.cellY, kArmDX[d], kArmDY[d], b.range,
+                             board, blastSteps, blastShape,
+                             detonationQueue, tail, bombs, hiddenPowerUp);
+        }
+    }
+    return tail;
+}
 
 /// Decrements every nonzero blastSteps cell by one step. Cells reaching
 /// zero simply stop being lethal/drawn from the next call onward — the
 /// tile itself was already finalized by resolveDetonations() at
 /// propagation time (destroyedInto() runs once, when an arm hits the cell,
 /// not when blastSteps expires).
-void tickExplosions(uint8_t (&blastSteps)[kCells]);
+inline void tickExplosions(uint8_t (&blastSteps)[kCells]) {
+    for (int i = 0; i < kCells; ++i) {
+        if (blastSteps[i] > 0) {
+            --blastSteps[i];
+        }
+    }
+}
 
 }  // namespace bomberman
