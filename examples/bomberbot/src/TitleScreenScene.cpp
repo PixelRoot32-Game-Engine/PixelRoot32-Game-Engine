@@ -84,9 +84,9 @@ void TitleScreenScene::draw(gfx::Renderer& renderer) {
     // Single menu entry, intentionally without CONTINUE.
     renderer.drawTextCentered("START", 156, gfx::Color::White, 1);
 
-    // Copyright block: the 1987 line is a nod to the reference, but the
+    // Copyright block: the 2026 line is a nod to the reference, but the
     // rights holder is PIXELROOT32 GAME ENGINE, not Nintendo of America.
-    renderer.drawTextCentered("(C) 1987 PIXELROOT32 GAME ENGINE", 184, gfx::Color::White, 1);
+    renderer.drawTextCentered("(C) 2026 PIXELROOT32 GAME ENGINE", 184, gfx::Color::White, 1);
     renderer.drawTextCentered("LICENSED BY",                       196, gfx::Color::White, 1);
     renderer.drawTextCentered("PIXELROOT32 GAME ENGINE",           208, gfx::Color::White, 1);
 
