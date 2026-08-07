@@ -4,7 +4,8 @@
  *
  * Tests for REQ-PH2-001 (BlastShape enum), REQ-PH2-003 (resolveDetonations
  * shape writes), REQ-PH2-006 (bomb flash behaviour), and the refactored
- * header-only BombermanBombs module.
+ * header-only BombermanBombs module. Also covers Phase 2+ range-aware
+ * sprite selection (blastDist/blastRange + explosionSpriteFor signature).
  */
 
 #include <cstdint>
@@ -21,21 +22,23 @@ void setUp(void) { test_setup(); }
 void tearDown(void) { test_teardown(); }
 
 // =============================================================================
-// Stage 1: BlastShape enum value assertions (REQ-PH2-001)
+// Stage 1: BlastShape enum value assertions (REQ-PH2-001 + Phase 2+)
 // =============================================================================
 
 void test_blast_shape_enum_values(void) {
     TEST_ASSERT_EQUAL_INT(0, static_cast<int>(BlastShape::Center));
-    TEST_ASSERT_EQUAL_INT(1, static_cast<int>(BlastShape::ArmH));
-    TEST_ASSERT_EQUAL_INT(2, static_cast<int>(BlastShape::ArmV));
-    TEST_ASSERT_EQUAL_INT(3, static_cast<int>(BlastShape::TipL));
-    TEST_ASSERT_EQUAL_INT(4, static_cast<int>(BlastShape::TipR));
-    TEST_ASSERT_EQUAL_INT(5, static_cast<int>(BlastShape::TipU));
-    TEST_ASSERT_EQUAL_INT(6, static_cast<int>(BlastShape::TipD));
+    TEST_ASSERT_EQUAL_INT(1, static_cast<int>(BlastShape::ArmHL));
+    TEST_ASSERT_EQUAL_INT(2, static_cast<int>(BlastShape::ArmHR));
+    TEST_ASSERT_EQUAL_INT(3, static_cast<int>(BlastShape::ArmVU));
+    TEST_ASSERT_EQUAL_INT(4, static_cast<int>(BlastShape::ArmVD));
+    TEST_ASSERT_EQUAL_INT(5, static_cast<int>(BlastShape::TipL));
+    TEST_ASSERT_EQUAL_INT(6, static_cast<int>(BlastShape::TipR));
+    TEST_ASSERT_EQUAL_INT(7, static_cast<int>(BlastShape::TipU));
+    TEST_ASSERT_EQUAL_INT(8, static_cast<int>(BlastShape::TipD));
 }
 
-void test_blast_shape_enum_count_is_seven(void) {
-    TEST_ASSERT_EQUAL_INT(7, static_cast<int>(BlastShape::TipD) + 1);
+void test_blast_shape_enum_count_is_nine(void) {
+    TEST_ASSERT_EQUAL_INT(9, static_cast<int>(BlastShape::TipD) + 1);
 }
 
 // =============================================================================
@@ -145,7 +148,7 @@ void test_tick_explosions_decrements_nonzero(void) {
 }
 
 // =============================================================================
-// Stage 3: blastShape write assertions (REQ-PH2-003, REQ-PH2-004)
+// Stage 3: blastShape / blastDist / blastRange write assertions (REQ-PH2-003 + Phase 2+)
 // =============================================================================
 
 void test_blast_shape_center_written_for_bomb_cell(void) {
@@ -161,17 +164,22 @@ void test_blast_shape_center_written_for_bomb_cell(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     // Seed the queue manually — bomb at slot 0, not yet cleared
     dq[0] = 0;
     // resolveDetonations copies the Bomb, then reads from it; the bomb is
     // still active at this point (it clears inside resolveDetonations'
     // chain-trigger path which won't fire here), but the copy makes it safe.
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
     const int ci = cellIndex(6, 5);
     TEST_ASSERT_EQUAL_UINT8(kExplosionSteps, blastSteps[ci]);
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::Center), blastShape[ci]);
+    TEST_ASSERT_EQUAL_UINT8(0, blastDist[ci]);         // center = distance 0
+    TEST_ASSERT_EQUAL_UINT8(2, blastRange[ci]);         // bomb.range written
 }
 
 void test_blast_shape_arm_and_tip_for_straight_blast(void) {
@@ -187,33 +195,46 @@ void test_blast_shape_arm_and_tip_for_straight_blast(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     dq[0] = 0;
 
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
     // Bomb cell
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::Center), blastShape[cellIndex(3, 5)]);
 
-    // Right arm: (4,5),(5,5) are ArmH; (6,5) is TipR (range exhausted, loop completes → upgrade)
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH),  blastShape[cellIndex(4, 5)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH),  blastShape[cellIndex(5, 5)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipR),  blastShape[cellIndex(6, 5)]);
+    // Right arm: (4,5),(5,5) are ArmHR; (6,5) is TipR (range exhausted, loop completes → upgrade)
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR),  blastShape[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR),  blastShape[cellIndex(5, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipR),   blastShape[cellIndex(6, 5)]);
 
-    // Left arm: (2,5) ArmH, (1,5) ArmH — no tip because (0,5) is a border
+    // blastDist / blastRange for the right arm
+    TEST_ASSERT_EQUAL_UINT8(1, blastDist[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(2, blastDist[cellIndex(5, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(3, blastDist[cellIndex(6, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(3, blastRange[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(3, blastRange[cellIndex(6, 5)]);
+
+    // Left arm: (2,5) ArmHL, (1,5) ArmHL — no tip because (0,5) is a border
     // HardWall that stops the arm short (blunt end, per design).
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH),  blastShape[cellIndex(2, 5)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH),  blastShape[cellIndex(1, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHL),  blastShape[cellIndex(2, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHL),  blastShape[cellIndex(1, 5)]);
+    // blastDist counts from 1 regardless of direction
+    TEST_ASSERT_EQUAL_UINT8(1, blastDist[cellIndex(2, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(2, blastDist[cellIndex(1, 5)]);
 
-    // Up arm: (3,4)=ArmV, (3,3)=ArmV, (3,2)=TipU (loop completes → upgrade)
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV),  blastShape[cellIndex(3, 4)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV),  blastShape[cellIndex(3, 3)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipU),  blastShape[cellIndex(3, 2)]);
+    // Up arm: (3,4)=ArmVU, (3,3)=ArmVU, (3,2)=TipU (loop completes → upgrade)
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVU),  blastShape[cellIndex(3, 4)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVU),  blastShape[cellIndex(3, 3)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipU),   blastShape[cellIndex(3, 2)]);
 
-    // Down arm: (3,6)=ArmV, (3,7)=ArmV, (3,8)=TipD (loop completes → upgrade)
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV),  blastShape[cellIndex(3, 6)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV),  blastShape[cellIndex(3, 7)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipD),  blastShape[cellIndex(3, 8)]);
+    // Down arm: (3,6)=ArmVD, (3,7)=ArmVD, (3,8)=TipD (loop completes → upgrade)
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVD),  blastShape[cellIndex(3, 6)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVD),  blastShape[cellIndex(3, 7)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipD),   blastShape[cellIndex(3, 8)]);
 }
 
 void test_blast_shape_blocked_by_hard_wall(void) {
@@ -231,21 +252,26 @@ void test_blast_shape_blocked_by_hard_wall(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     dq[0] = 0;
 
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
-    // (4,5) is ArmH — painted before the hard wall
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH), blastShape[cellIndex(4, 5)]);
+    // (4,5) is ArmHR — painted before the hard wall
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR), blastShape[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(1, blastDist[cellIndex(4, 5)]);
     // (5,5) is UNCHANGED — hard wall, no blast, no shape
     TEST_ASSERT_EQUAL_UINT8(0, blastSteps[cellIndex(5, 5)]);
     TEST_ASSERT_EQUAL_UINT8(0, blastShape[cellIndex(5, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(0, blastDist[cellIndex(5, 5)]);
     // (6,5) is untouched past the wall
     TEST_ASSERT_EQUAL_UINT8(0, blastSteps[cellIndex(6, 5)]);
 
     // Arm is blunt at (4,5) — no tip because hard wall cut the arm short.
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH), blastShape[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR), blastShape[cellIndex(4, 5)]);
 }
 
 void test_blast_shape_tip_at_soft_wall(void) {
@@ -262,16 +288,20 @@ void test_blast_shape_tip_at_soft_wall(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     dq[0] = 0;
 
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
-    // (4,5), (5,5) are ArmH
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH), blastShape[cellIndex(4, 5)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH), blastShape[cellIndex(5, 5)]);
+    // (4,5), (5,5) are ArmHR
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR), blastShape[cellIndex(4, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR), blastShape[cellIndex(5, 5)]);
     // (6,5) is TipR — the soft wall cell IS the tip
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipR), blastShape[cellIndex(6, 5)]);
+    TEST_ASSERT_EQUAL_UINT8(3, blastDist[cellIndex(6, 5)]);
     // Soft wall was destroyed
     TEST_ASSERT_NOT_EQUAL(TileType::SoftWall, board[cellIndex(6, 5)]);
 }
@@ -296,19 +326,22 @@ void test_blast_shape_chain(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     dq[0] = 0;  // seed bomb A
 
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
     // Bomb A's own cell is Center
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::Center), blastShape[cellIndex(3, 5)]);
-    // (4,5) is ArmH from bomb A's right arm
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmH),  blastShape[cellIndex(4, 5)]);
+    // (4,5) is ArmHR from bomb A's right arm
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmHR),  blastShape[cellIndex(4, 5)]);
     // (5,5) gets TipL from bomb B's OWN left-arm tip (later-write-wins on crossing blast).
-    // Bomb B at (6,5) range=1 left arm: paintArm writes ArmH then upgrades to TipL
-    // because loop completes. This overwrites bomb A's earlier ArmH at (5,5).
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipL),  blastShape[cellIndex(5, 5)]);
+    // Bomb B at (6,5) range=1 left arm: paintArm writes ArmHL then upgrades to TipL
+    // because loop completes. This overwrites bomb A's earlier ArmHR at (5,5).
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipL),   blastShape[cellIndex(5, 5)]);
     // (6,5) — bomb A wrote TipR (chain cell IS tip), then bomb B's detonation
     // overwrites with Center. Center=0 is the final value.
     TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::Center), blastShape[cellIndex(6, 5)]);
@@ -327,18 +360,23 @@ void test_blast_shape_arm_v_for_vertical_blast(void) {
 
     uint8_t blastSteps[kCells] = {};
     uint8_t blastShape[kCells] = {};
+    uint8_t blastDist[kCells] = {};
+    uint8_t blastRange[kCells] = {};
     uint8_t dq[kMaxBombs] = {};
     dq[0] = 0;
 
-    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, TileType::PowerUpFire);
+    resolveDetonations(dq, 1, bombs, board, blastSteps, blastShape, blastDist, blastRange,
+                       TileType::PowerUpFire);
 
-    // Up: ArmV then TipU
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV), blastShape[cellIndex(6, 4)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipU), blastShape[cellIndex(6, 3)]);
+    // Up: ArmVU then TipU
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVU), blastShape[cellIndex(6, 4)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipU),  blastShape[cellIndex(6, 3)]);
+    TEST_ASSERT_EQUAL_UINT8(1, blastDist[cellIndex(6, 4)]);
+    TEST_ASSERT_EQUAL_UINT8(2, blastDist[cellIndex(6, 3)]);
 
-    // Down: ArmV then TipD
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmV), blastShape[cellIndex(6, 6)]);
-    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipD), blastShape[cellIndex(6, 7)]);
+    // Down: ArmVD then TipD
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::ArmVD), blastShape[cellIndex(6, 6)]);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(BlastShape::TipD),  blastShape[cellIndex(6, 7)]);
 }
 
 void test_blast_shape_default_initialized_to_center(void) {
@@ -372,41 +410,76 @@ void test_bomb_flash_uses_faster_pulse_cadence(void) {
 }
 
 // =============================================================================
-// Stage 4: explosionSpriteFor helper tests (REQ-PH2-005)
+// Stage 4: explosionSpriteFor helper tests (Phase 2+ range-aware signature)
 // =============================================================================
 
 void test_explosion_sprite_for_center_returns_non_null(void) {
     const Sprite4bpp* s = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::Center), 25);
+        static_cast<uint8_t>(BlastShape::Center), 0, 2, 25);
     TEST_ASSERT_NOT_NULL(s);
 }
 
-void test_explosion_sprite_for_arm_h_returns_non_null(void) {
+void test_explosion_sprite_for_arm_hr_returns_non_null(void) {
+    // ArmHR at dist=1 (base), range=3
     const Sprite4bpp* s = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::ArmH), 14);
+        static_cast<uint8_t>(BlastShape::ArmHR), 1, 3, 14);
+    TEST_ASSERT_NOT_NULL(s);
+}
+
+void test_explosion_sprite_for_arm_hl_at_tip_returns_non_null(void) {
+    // ArmHL at dist==range (tip)
+    const Sprite4bpp* s = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::ArmHL), 2, 2, 14);
     TEST_ASSERT_NOT_NULL(s);
 }
 
 void test_explosion_sprite_for_tip_d_returns_non_null(void) {
+    // Legacy Tip* fallback path
     const Sprite4bpp* s = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::TipD), 7);
+        static_cast<uint8_t>(BlastShape::TipD), 0, 0, 7);
     TEST_ASSERT_NOT_NULL(s);
 }
 
 void test_explosion_sprite_for_null_for_invalid_shape(void) {
     const Sprite4bpp* s = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::TipD) + 1, 10);
+        static_cast<uint8_t>(BlastShape::TipD) + 1, 0, 0, 10);
     TEST_ASSERT_NULL(s);
 }
 
-void test_explosion_sprite_for_flicker_alternates(void) {
-    // Flicker = (blastSteps / 7) % 2
+void test_explosion_sprite_range_aware_picks_distinct_sprites(void) {
+    // Same ArmHR direction, but dist==1 (base) vs dist==range (tip) should
+    // yield different Sprite4bpp descriptors.
+    const Sprite4bpp* base = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::ArmHR), 1, 3, 14);
+    const Sprite4bpp* tip = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::ArmHR), 3, 3, 14);
+    TEST_ASSERT_NOT_EQUAL(base, tip);
+    // Mid (dist=2, ext) should be different from base too.
+    const Sprite4bpp* ext = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::ArmHR), 2, 3, 14);
+    TEST_ASSERT_NOT_EQUAL(base, ext);
+    TEST_ASSERT_NOT_EQUAL(ext, tip);
+}
+
+void test_explosion_sprite_frame_index_changes_with_steps(void) {
+    // Flicker = (blastSteps / 7) % N where N varies. blastSteps=25 -> frame 0;
+    // blastSteps=20 -> frame 0 too (20/7=2, 3-2=1). blastSteps=14 -> frame 1.
+    // Just assert: blastSteps=25 vs blastSteps=0 yield different pointers
+    // (25/7=3, frame=0; 0/7=0, frame=3).
+    const Sprite4bpp* s25 = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::Center), 0, 0, 25);
     const Sprite4bpp* s0 = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::Center), 25);
-    const Sprite4bpp* s1 = explosionSpriteFor(
-        static_cast<uint8_t>(BlastShape::Center), 20);
-    // 25/7=3, 3%2=1; 20/7=2, 2%2=0 — different flicker frames
-    TEST_ASSERT_NOT_EQUAL(s0, s1);
+        static_cast<uint8_t>(BlastShape::Center), 0, 0, 0);
+    TEST_ASSERT_NOT_EQUAL(s25, s0);
+}
+
+void test_explosion_sprite_dist_zero_overrides_arm_shape(void) {
+    // An arm-shaped cell with dist==0 should still render as Center.
+    const Sprite4bpp* center = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::Center), 0, 3, 14);
+    const Sprite4bpp* armDistZero = explosionSpriteFor(
+        static_cast<uint8_t>(BlastShape::ArmHR), 0, 3, 14);
+    TEST_ASSERT_EQUAL(center, armDistZero);
 }
 
 // =============================================================================
@@ -420,7 +493,7 @@ int main(int argc, char **argv) {
 
     // Stage 1: enum
     RUN_TEST(test_blast_shape_enum_values);
-    RUN_TEST(test_blast_shape_enum_count_is_seven);
+    RUN_TEST(test_blast_shape_enum_count_is_nine);
 
     // Stage 2: bomb pool regression
     RUN_TEST(test_place_bomb_returns_true_on_free_slot);
@@ -445,10 +518,13 @@ int main(int argc, char **argv) {
 
     // Stage 4: explosionSpriteFor helper
     RUN_TEST(test_explosion_sprite_for_center_returns_non_null);
-    RUN_TEST(test_explosion_sprite_for_arm_h_returns_non_null);
+    RUN_TEST(test_explosion_sprite_for_arm_hr_returns_non_null);
+    RUN_TEST(test_explosion_sprite_for_arm_hl_at_tip_returns_non_null);
     RUN_TEST(test_explosion_sprite_for_tip_d_returns_non_null);
     RUN_TEST(test_explosion_sprite_for_null_for_invalid_shape);
-    RUN_TEST(test_explosion_sprite_for_flicker_alternates);
+    RUN_TEST(test_explosion_sprite_range_aware_picks_distinct_sprites);
+    RUN_TEST(test_explosion_sprite_frame_index_changes_with_steps);
+    RUN_TEST(test_explosion_sprite_dist_zero_overrides_arm_shape);
 
     return UNITY_END();
 }

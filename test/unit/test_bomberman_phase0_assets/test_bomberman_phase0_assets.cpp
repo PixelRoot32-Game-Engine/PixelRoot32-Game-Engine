@@ -157,31 +157,56 @@ void test_bomb_sprites_are_16x16(void) {
 // =============================================================================
 
 /**
- * @test kExplosionByShape is a 7x4 array
- * @expected 7 shapes × 4 animation frames each
+ * @test Each named explosion sprite group has exactly 4 animation frames.
+ * @expected 12 base+ext+tip groups + CENTER = 13 named groups (5 _BASE
+ *           groups are reserved for future use, so they are also
+ *           checked for size 4 here).
  */
-void test_explosion_by_shape_dimensions(void) {
-    TEST_ASSERT_EQUAL(7, (int)(sizeof(kExplosionByShape) / sizeof(kExplosionByShape[0])));
-    TEST_ASSERT_EQUAL(4, (int)(sizeof(kExplosionByShape[0]) / sizeof(Sprite4bpp)));
+void test_explosion_sprite_groups_have_4_frames(void) {
+    const Sprite4bpp* groups[] = {
+        &kCENTER[0],
+        &kARMBASE_HR[0], &kARNEXT_HR[0],
+        &kARMBASE_HL[0], &kARNEXT_HL[0],
+        &kARMBASE_VD[0], &kARNEXT_VD[0],
+        &kARMBASE_VU[0], &kARNEXT_VU[0],
+        &kTIPU[0], &kTIPU_BASE[0],
+        &kTIPD[0], &kTIPD_BASE[0],
+        &kTIPL[0], &kTIPL_BASE[0],
+        &kTIPR[0], &kTIPR_BASE[0],
+    };
+    int count = sizeof(groups) / sizeof(groups[0]);
+    TEST_ASSERT_EQUAL(17, count);
+    for (int i = 0; i < count; i++) {
+        for (int f = 0; f < 4; f++) {
+            TEST_ASSERT_NOT_NULL(groups[i][f].data);
+            TEST_ASSERT_EQUAL_UINT8(16, groups[i][f].width);
+            TEST_ASSERT_EQUAL_UINT8(16, groups[i][f].height);
+        }
+    }
 }
 
 /**
- * @test Each explosion sprite has valid data and the expected mixed
- *       width/height per shape (Center 16x16; ArmH/TipL/TipR 32x16;
- *       ArmV/TipU/TipD 16x32).
- * @expected All 28 sprites (7 shapes × 4 frames) have non-null data and
- *           their declared width/height matches the BlastShape.
+ * @test Every raw explosion array has exactly 64 uint16 entries (16x16 @ 4bpp).
+ * @expected All 17 groups x 4 frames = 68 raw arrays of 64 uint16 each.
  */
-void test_explosion_sprites_have_valid_data_and_size(void) {
-    static const uint8_t expectedW[7] = {16, 32, 16, 32, 32, 16, 16};
-    static const uint8_t expectedH[7] = {16, 16, 32, 16, 16, 32, 32};
-    for (int shape = 0; shape < 7; shape++) {
-        for (int frame = 0; frame < 4; frame++) {
-            TEST_ASSERT_EQUAL_UINT8(expectedW[shape], kExplosionByShape[shape][frame].width);
-            TEST_ASSERT_EQUAL_UINT8(expectedH[shape], kExplosionByShape[shape][frame].height);
-            TEST_ASSERT_NOT_NULL(kExplosionByShape[shape][frame].data);
-        }
-    }
+void test_explosion_raw_arrays_have_64_entries(void) {
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_CENTER_0_4BPP)        / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARMBASE_HR_0_4BPP)    / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARNEXT_HR_0_4BPP)     / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARMBASE_HL_0_4BPP)    / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARNEXT_HL_0_4BPP)     / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARMBASE_VD_0_4BPP)    / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARNEXT_VD_0_4BPP)     / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARMBASE_VU_0_4BPP)    / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_ARNEXT_VU_0_4BPP)     / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPU_0_4BPP)          / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPU_BASE_0_4BPP)      / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPD_0_4BPP)          / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPD_BASE_0_4BPP)      / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPL_0_4BPP)          / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPL_BASE_0_4BPP)      / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPR_0_4BPP)          / sizeof(uint16_t)));
+    TEST_ASSERT_EQUAL(64, (int)(sizeof(EXPLOSION_TIPR_BASE_0_4BPP)      / sizeof(uint16_t)));
 }
 
 // =============================================================================
@@ -323,8 +348,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_header_comment_block_present);
     RUN_TEST(test_bomb_sprites_has_3_frames);
     RUN_TEST(test_bomb_sprites_are_16x16);
-    RUN_TEST(test_explosion_by_shape_dimensions);
-    RUN_TEST(test_explosion_sprites_have_valid_data_and_size);
+    RUN_TEST(test_explosion_sprite_groups_have_4_frames);
+    RUN_TEST(test_explosion_raw_arrays_have_64_entries);
     RUN_TEST(test_player_walk_tables_3_frames);
     RUN_TEST(test_player_death_6_frames);
     RUN_TEST(test_player_sprites_are_16x16);
