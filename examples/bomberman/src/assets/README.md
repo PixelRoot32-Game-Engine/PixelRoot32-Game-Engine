@@ -40,13 +40,8 @@ The shared palette is in `BombermanPalette.h`:
 
 ## .gitignore status
 
-All generated `.h` files under `examples/bomberman/src/assets/` are
-local-only and NOT committed to the public repository. This protects
-Hudson Soft intellectual property (NES Bomberman sprite sheet) and keeps
-long hex arrays out of diffs.
-
-This `README.md` is tracked — it documents the regeneration workflow so
-any developer can recreate the headers from their local PNG.
+The generated `.h` files under `examples/bomberman/src/assets/` are tracked
+in git. The `.gitignore` in the example root excludes build artifacts only.
 
 ## Licensing warning
 

@@ -4,7 +4,4 @@
 .vscode/launch.json
 .vscode/ipch
 
-# Generated sprite asset headers are local-only (Hudson Soft IP).
-# Regenerate from the local PNG using instructions in README.md.
-src/assets/*.h
-!src/assets/README.md
+# Sprite asset headers are tracked in git (see README.md regeneration guide).
