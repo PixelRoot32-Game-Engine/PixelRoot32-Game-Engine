@@ -41,11 +41,17 @@ void tearDown(void) {
 // =============================================================================
 
 /**
- * @test Palette index 0 is transparent
- * @expected BOMBERBOT_SPRITE_PALETTE_RGB565[0] == 0x0000
+ * @test Palette index 0 is a non-zero "near-background" color
+ * @expected BOMBERBOT_SPRITE_PALETTE_RGB565[0] != 0x0000
+ *
+ * The 8bpp framebuffer treats RGB565 value 0x0000 as transparent, which
+ * would make black outlines vanish. The palette therefore maps index 0
+ * to a non-zero dark-green that still reads as the background floor
+ * (see the comment in BomberbotPalette.h). The assert guards the
+ * invariant that index 0 is NOT 0x0000, so outlines never disappear.
  */
-void test_palette_index_zero_is_transparent(void) {
-    TEST_ASSERT_EQUAL_UINT16(0x0000, BOMBERBOT_SPRITE_PALETTE_RGB565[0]);
+void test_palette_index_zero_is_not_transparent_zero(void) {
+    TEST_ASSERT_NOT_EQUAL_UINT16(0x0000, BOMBERBOT_SPRITE_PALETTE_RGB565[0]);
 }
 
 /**
@@ -339,7 +345,7 @@ int main(int argc, char **argv) {
     (void)argv;
     UNITY_BEGIN();
 
-    RUN_TEST(test_palette_index_zero_is_transparent);
+    RUN_TEST(test_palette_index_zero_is_not_transparent_zero);
     RUN_TEST(test_palette_mapping_size_matches);
     RUN_TEST(test_rgb565_conversion_boundary);
     RUN_TEST(test_all_tile_sprites_are_16x16);

@@ -5,24 +5,11 @@
 #if PIXELROOT32_ENABLE_AUDIO
 #include <audio/AudioEngine.h>
 #include <audio/AudioTypes.h>
+#include "assets/audio/SfxBank.h"
 #endif
 
-namespace bomberbot {
 
-/// Game-owned SFX ids — must match exported SfxBank.cppSymbol cases.
-enum class SfxId : uint8_t {
-    PlaceBomb,
-    Death,
-    CoinBlip,
-    MenuBlip,
-    StageClear,
-    PickupPowerSoft,
-    BombExplosionTiny,
-    EnemyDeath,
-    Footstep,
-    FootstepSoft,
-    Count
-};
+namespace bomberbot {
 
 class AudioDirector {
 public:

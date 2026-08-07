@@ -37,7 +37,7 @@ private:
     /// two call sites. Before reaching for a state-machine primitive here,
     /// re-derive that tradeoff from scratch; it does not hold for this
     /// shape of update loop.
-    enum class LevelState : uint8_t { Loading, Playing, ExitUnlocked, StageClear, GameOver };
+    enum class LevelState : uint8_t { Loading, Playing, PlayerDying, ExitUnlocked, StageClear, GameOver };
 
     TileType board_[kCells];
     Bomb bombs_[kMaxBombs];

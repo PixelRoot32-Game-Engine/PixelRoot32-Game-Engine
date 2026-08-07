@@ -1,9 +1,5 @@
 #include "AudioDirector.h"
 
-#if PIXELROOT32_ENABLE_AUDIO
-#include "assets/audio/SfxBank.h"
-#endif
-
 namespace bomberbot {
 
 AudioDirector& AudioDirector::instance() {

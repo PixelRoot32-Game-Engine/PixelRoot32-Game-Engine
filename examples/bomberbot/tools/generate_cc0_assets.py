@@ -114,61 +114,70 @@ HEADER_TAIL = """
 """
 
 # ---------------------------------------------------------------------------
-# Art: Bomb (3 pulse frames) - round black bomb with fuse spark
+# Art: Bot land mine (3 pulse frames) - solid black disc with a single
+# red dot in the centre that blinks on/off across the three frames. The
+# disc is hand-pixeled as a 10x10 circle, centred at (7, 7) in the 16x16
+# cell, with a 1-cell transparent border so it reads as a round object
+# "sitting on the floor" rather than touching the cell edges. No spikes,
+# no LED offset, no fuse -- the indicator IS the centre pixel, and a
+# proximity mine does not have a visible wick.
 # ---------------------------------------------------------------------------
 
-def bomb_frame(spark_col):
-    # fuse spark position shifts per frame; white highlight top-left
-    rows = [
-        "................",
-        ".......F1F......",
-        "......F11F......",
-        ".....F111F......",
-        "....F11111F.....",
-        "...F1111111F....",
-        "...F1111111F....",
-        "..F11111111F....",
-        "..F1{0}1111111F...".format(spark_col),
-        "..F111111111F...",
-        "...F1111111F....",
-        "...F11111111F...",
-        "....F11111F.....",
-        ".....F111F......",
-        "......FFF.......",
-        "................",
-    ]
-    # 8 = width of spark column check; patch row 8 spark position
+# Body mask: 10x10 near-black disc (1) with the centre cell at (7, 7)
+# punched out to leave room for the red indicator dot. Cell colour is
+# 0 (transparent) everywhere outside the disc.
+_BODY_MASK = [
+    "................",  # 0
+    "................",  # 1
+    "....11111111....",  # 2  disc top (8-wide taper)
+    "...1111111111...",  # 3  10 wide
+    "..111111111111..",  # 4
+    "..111111111111..",  # 5
+    ".11111111111111.",  # 6  14 wide (widest row)
+    ".11111111111111.",  # 7  centre row -- indicator dot goes here
+    ".11111111111111.",  # 8
+    "..111111111111..",  # 9
+    "..111111111111..",  # 10
+    "...1111111111...",  # 11 10 wide
+    "....11111111....",  # 12 disc bottom (8-wide taper)
+    "................",  # 13
+    "................",  # 14
+    "................",  # 15
+]
+
+# Indicator dot: single pixel at the dead centre of the disc. Pulses
+# on/off across the three frames so the mine reads as "armed sensor"
+# even from across the board.
+_INDICATOR_ROW = 7
+_INDICATOR_COL = 7
+_INDICATOR_COLOR = "D"  # coral, reads as red against the black disc
+
+
+def bomb_rows(indicator_on):
+    """Return the 16x16 rows for one land-mine frame.
+
+    When `indicator_on` is True the centre cell of the disc is painted
+    with `_INDICATOR_COLOR` (coral = red). When False it is left
+    transparent, so the disc looks "off" for that frame. The 3-frame
+    cycle is on, off, on -- a square-wave blink that the engine
+    iterates at the bomb's pulse rate.
+    """
+    rows = []
+    for y, src in enumerate(_BODY_MASK):
+        row = list(src)
+        if indicator_on and y == _INDICATOR_ROW:
+            row[_INDICATOR_COL] = _INDICATOR_COLOR
+        rows.append("".join(row))
     return rows
 
 
-# Rebuild bomb with explicit per-frame spark rows (simpler than format above)
-def bomb_rows(spark):
-    r = ['.'] * 16
-    r = [
-        "................",
-        ".......F1F......",
-        "......F11F......",
-        ".....F111F......",
-        "....F11111F.....",
-        "...F1111111F....",
-        "...F1111111F....",
-        "..F11111111F....",
-        "..F1111{0}1111F...".format(spark),
-        "..F111111111F...",
-        "...F1111111F....",
-        "...F11111111F...",
-        "....F11111F.....",
-        ".....F111F......",
-        "......FFF.......",
-        "................",
-    ]
-    return r
-
-
 BOMB = {
-    "BOMB_FRAME_0_4BPP": bomb_rows("D"),
-    "BOMB_FRAME_1_4BPP": bomb_rows("F"),
-    "BOMB_FRAME_2_4BPP": bomb_rows("1"),
+    # Frame 0: indicator ON (red dot visible in the centre).
+    "BOMB_FRAME_0_4BPP": bomb_rows(indicator_on=True),
+    # Frame 1: indicator OFF (plain black disc).
+    "BOMB_FRAME_1_4BPP": bomb_rows(indicator_on=False),
+    # Frame 2: indicator ON again (square-wave blink).
+    "BOMB_FRAME_2_4BPP": bomb_rows(indicator_on=True),
 }
 
 # ---------------------------------------------------------------------------
@@ -1119,8 +1128,11 @@ PLAYER_DEATH = {
 
 def write_bomb():
     lines = [HEADER_HEAD,
-             "// Bomb pulse cycle: 3 original CC0 frames. Black body (1) with a",
-             "// white highlight (F) and a moving fuse spark (D/F).",
+             "// Bot land-mine pulse cycle: 3 original CC0 frames. 10x10 black disc",
+             "// (1) with a single red dot (D = coral) in the centre that blinks",
+             "// ON, OFF, ON across the three frames -- a square-wave indicator on",
+             "// an otherwise plain disc. No spikes, no fuse, no LED offset: the",
+             "// centre pixel IS the proximity sensor.",
              ""]
     for name in ("BOMB_FRAME_0_4BPP", "BOMB_FRAME_1_4BPP", "BOMB_FRAME_2_4BPP"):
         lines += fmt_array(name, pack(BOMB[name]))

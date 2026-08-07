@@ -89,6 +89,102 @@ void test_player_walk_down_table_has_3_frames(void) {
     TEST_ASSERT_EQUAL_INT(3, (int)(sizeof(kPlayerWalkRight) / sizeof(Sprite4bpp)));
 }
 
+// --- Stage 4: Death animation tests (T3-TEST-DEATH-01) ---
+
+void test_player_death_table_has_6_frames(void) {
+    TEST_ASSERT_EQUAL_INT(6, (int)(sizeof(kPlayerDeath) / sizeof(Sprite4bpp)));
+}
+
+void test_enemy_death_table_has_4_frames(void) {
+    TEST_ASSERT_EQUAL_INT(4, (int)(sizeof(kEnemySlimeDeath) / sizeof(Sprite4bpp)));
+}
+
+void test_player_start_death_animation_flags_dying(void) {
+    PlayerActor player(1, 1);
+    TEST_ASSERT_FALSE(player.isDying());
+    TEST_ASSERT_FALSE(player.isDeathAnimationDone());
+
+    player.startDeathAnimation();
+    TEST_ASSERT_TRUE(player.isDying());
+    TEST_ASSERT_FALSE(player.isDeathAnimationDone());
+}
+
+void test_player_death_animation_completes_after_duration(void) {
+    PlayerActor player(1, 1);
+    player.startDeathAnimation();
+
+    // Halfway: still dying, not done.
+    player.updateDeathAnimation(kPlayerDeathDurationMs / 2);
+    TEST_ASSERT_TRUE(player.isDying());
+    TEST_ASSERT_FALSE(player.isDeathAnimationDone());
+
+    // Full duration: done.
+    player.updateDeathAnimation(kPlayerDeathDurationMs);
+    TEST_ASSERT_TRUE(player.isDying());
+    TEST_ASSERT_TRUE(player.isDeathAnimationDone());
+}
+
+void test_player_death_animation_is_noop_when_not_dying(void) {
+    PlayerActor player(1, 1);
+    player.updateDeathAnimation(kPlayerDeathDurationMs * 2);
+    TEST_ASSERT_FALSE(player.isDying());
+    TEST_ASSERT_FALSE(player.isDeathAnimationDone());
+}
+
+void test_player_reset_clears_death_animation(void) {
+    PlayerActor player(1, 1);
+    player.startDeathAnimation();
+    player.updateDeathAnimation(kPlayerDeathDurationMs);
+    TEST_ASSERT_TRUE(player.isDeathAnimationDone());
+
+    // A fresh level must clear the dying state entirely.
+    player.resetTo(2, 3);
+    TEST_ASSERT_FALSE(player.isDying());
+    TEST_ASSERT_FALSE(player.isDeathAnimationDone());
+}
+
+void test_enemy_kill_starts_death_animation(void) {
+    EnemyActor enemy(1, 1);
+    TEST_ASSERT_TRUE(enemy.isAlive());
+    TEST_ASSERT_FALSE(enemy.isDying());
+
+    enemy.kill();
+    TEST_ASSERT_FALSE(enemy.isAlive());
+    TEST_ASSERT_TRUE(enemy.isDying());
+    TEST_ASSERT_FALSE(enemy.isDeathAnimationDone());
+}
+
+void test_enemy_death_animation_completes_after_duration(void) {
+    EnemyActor enemy(1, 1);
+    enemy.kill();
+
+    enemy.updateDeathAnimation(kEnemyDeathDurationMs / 2);
+    TEST_ASSERT_FALSE(enemy.isDeathAnimationDone());
+
+    enemy.updateDeathAnimation(kEnemyDeathDurationMs);
+    TEST_ASSERT_TRUE(enemy.isDeathAnimationDone());
+}
+
+void test_enemy_reset_clears_death_animation(void) {
+    EnemyActor enemy(1, 1);
+    enemy.kill();
+    enemy.updateDeathAnimation(kEnemyDeathDurationMs);
+    TEST_ASSERT_TRUE(enemy.isDeathAnimationDone());
+
+    // Re-spawned enemy must be alive and not dying.
+    enemy.resetTo(3, 4);
+    TEST_ASSERT_TRUE(enemy.isAlive());
+    TEST_ASSERT_FALSE(enemy.isDying());
+    TEST_ASSERT_FALSE(enemy.isDeathAnimationDone());
+}
+
+void test_death_duration_constants_are_positive(void) {
+    TEST_ASSERT_TRUE(kPlayerDeathDurationMs > 0);
+    TEST_ASSERT_TRUE(kEnemyDeathDurationMs > 0);
+    TEST_ASSERT_TRUE(kPlayerDeathFrameCount > 0);
+    TEST_ASSERT_TRUE(kEnemyDeathFrameCount > 0);
+}
+
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
     UNITY_BEGIN();
@@ -104,5 +200,15 @@ int main(int argc, char **argv) {
     RUN_TEST(test_enemy_walk_sprite_for_wraps_around_7);
     RUN_TEST(test_slime_walk_has_7_frames);
     RUN_TEST(test_player_walk_down_table_has_3_frames);
+    RUN_TEST(test_player_death_table_has_6_frames);
+    RUN_TEST(test_enemy_death_table_has_4_frames);
+    RUN_TEST(test_player_start_death_animation_flags_dying);
+    RUN_TEST(test_player_death_animation_completes_after_duration);
+    RUN_TEST(test_player_death_animation_is_noop_when_not_dying);
+    RUN_TEST(test_player_reset_clears_death_animation);
+    RUN_TEST(test_enemy_kill_starts_death_animation);
+    RUN_TEST(test_enemy_death_animation_completes_after_duration);
+    RUN_TEST(test_enemy_reset_clears_death_animation);
+    RUN_TEST(test_death_duration_constants_are_positive);
     return UNITY_END();
 }

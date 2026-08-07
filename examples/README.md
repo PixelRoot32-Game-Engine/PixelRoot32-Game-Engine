@@ -32,7 +32,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [tic_tac_toe](tic_tac_toe/) | UI, GPIO vs touch, minimax AI, vector-drawn board, **`MusicPlayer`** / melody data | `native`, `esp32dev`, `esp32cyd` |
 | [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
-| [bomberbot](bomberbot/) | Original **bomber-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
+| [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
 
 
 ## Suggested learning order

@@ -112,6 +112,16 @@ void BomberbotScene::startLevel() {
 void BomberbotScene::update(unsigned long deltaTime) {
     AudioDirector::instance().update(deltaTime);
 
+    // Death animations advance on the real frame clock (visual-only), never
+    // on the fixed logic clock. Advancing here -- outside logicStep()'s
+    // accumulator -- keeps the reproducible 20 ms step untouched by a
+    // purely cosmetic transition, exactly as kPlayerDeathDurationMs'
+    // comment in BomberbotConstants.h requires.
+    player_.updateDeathAnimation(deltaTime);
+    for (int i = 0; i < enemyCount_; ++i) {
+        enemies_[i].updateDeathAnimation(deltaTime);
+    }
+
     // Latch here, at frame scope, while the press edge is still live. The
     // loop below may run no logic step at all this frame. Both button
     // presses this example ever reads (bomb, restart) are latched exactly
@@ -162,6 +172,38 @@ void BomberbotScene::logicStep() {
             startLevel();
         }
         return;
+    }
+
+    if (state_ == LevelState::PlayerDying) {
+        // The player death animation freezes the whole simulation (same
+        // treatment as the terminal states above, but WITHOUT the restart
+        // latch). The life loss and restart/game-over transition are
+        // deferred until the animation finishes, so the player is actually
+        // seen to die instead of the level snapping straight back.
+        // handlePlayerDeath() deferred them into a single completion
+        // branch here to keep the funnel (explosion, enemy contact,
+        // countdown) one call site.
+        if (player_.isDeathAnimationDone()) {
+            --lives_;
+            if (lives_ > 0) {
+                // lives_ lives outside startLevel() entirely, so it carries
+                // the decremented value over instead of resetting.
+                startLevel();
+            } else {
+                state_ = LevelState::GameOver;
+            }
+        }
+        return;
+    }
+
+    // Remove enemies whose death animation has fully played out. They were
+    // NOT removed in killEnemy() -- that would stop them drawing before the
+    // corpse finishes -- so they linger as dying entities here until the
+    // last frame has been shown.
+    for (int i = 0; i < enemyCount_; ++i) {
+        if (enemies_[i].isDying() && enemies_[i].isDeathAnimationDone()) {
+            removeEntity(&enemies_[i]);
+        }
     }
 
     auto& input = engine.getInputManager();
@@ -305,26 +347,28 @@ void BomberbotScene::logicStep() {
 }
 
 void BomberbotScene::killEnemy(int index) {
+    // kill() marks the enemy dead AND starts its death animation. The
+    // entity is deliberately NOT removed here: removal in logicStep() after
+    // the animation finishes keeps the corpse drawing for the full
+    // kEnemyDeathDurationMs. The live count drops immediately so the
+    // victory gate / HUD see the kill the step it happens, independent of
+    // the cosmetic delay.
     enemies_[index].kill();
-    removeEntity(&enemies_[index]);
     --enemiesAlive_;
     AudioDirector::instance().playSfx(SfxId::EnemyDeath);
 }
 
 void BomberbotScene::handlePlayerDeath() {
     // The single funnel for every death cause (explosion contact, enemy
-    // contact, countdown expiry) -- one audio event fires here regardless
-    // of which one triggered it.
+    // contact, countdown expiry). The life loss and restart/game-over are
+    // DEFERRED: this only plays the sound, starts the player death
+    // animation, and switches to PlayerDying, which freezes the simulation
+    // until the animation completes (see logicStep()). Otherwise the level
+    // would restart the instant the player was hit and the 6-frame death
+    // would never be seen.
     AudioDirector::instance().playSfx(SfxId::Death);
-
-    --lives_;
-    if (lives_ > 0) {
-        // lives_ lives outside startLevel() entirely, so it carries the
-        // decremented value over instead of resetting.
-        startLevel();
-    } else {
-        state_ = LevelState::GameOver;
-    }
+    player_.startDeathAnimation();
+    state_ = LevelState::PlayerDying;
 }
 
 void BomberbotScene::draw(gfx::Renderer& renderer) {

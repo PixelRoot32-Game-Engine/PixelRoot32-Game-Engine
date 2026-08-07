@@ -161,11 +161,39 @@ void PlayerActor::updateInterpolatedPosition() {
     position = math::Vector2(x, y);
 }
 
+void PlayerActor::startDeathAnimation() {
+    dying_ = true;
+    deathAnimMs_ = 0;
+}
+
+void PlayerActor::updateDeathAnimation(unsigned long deltaMs) {
+    if (dying_ && deathAnimMs_ < kPlayerDeathDurationMs) {
+        deathAnimMs_ += deltaMs;
+        if (deathAnimMs_ > kPlayerDeathDurationMs) {
+            deathAnimMs_ = kPlayerDeathDurationMs;
+        }
+    }
+}
+
 void PlayerActor::draw(gfx::Renderer& renderer) {
     const int x = static_cast<int>(position.x);
     const int y = static_cast<int>(position.y);
-    const PlayerWalkFrame frame = playerWalkSpriteFor(facing_, mv.progress);
-    renderer.drawSprite(*frame.sprite, x, y, 0, frame.flipX);
+
+    if (dying_) {
+        // Death animation: 6 kPlayerDeath frames spread across
+        // kPlayerDeathDurationMs. index = ms * 6 / 600, clamped to the
+        // last frame so the corpse stays visible until the scene swaps.
+        int frame = static_cast<int>(deathAnimMs_ * kPlayerDeathFrameCount /
+                                     kPlayerDeathDurationMs);
+        if (frame >= kPlayerDeathFrameCount) {
+            frame = kPlayerDeathFrameCount - 1;
+        }
+        renderer.drawSprite(kPlayerDeath[frame], x, y, 0, false);
+        return;
+    }
+
+    const PlayerWalkFrame walk = playerWalkSpriteFor(facing_, mv.progress);
+    renderer.drawSprite(*walk.sprite, x, y, 0, walk.flipX);
 }
 
 core::Rect PlayerActor::getHitBox() {
@@ -187,6 +215,8 @@ void PlayerActor::resetTo(int startCellX, int startCellY) {
     exemptX_ = 0;
     exemptY_ = 0;
     stepStarted_ = false;
+    dying_ = false;
+    deathAnimMs_ = 0;
     updateInterpolatedPosition();
 }
 

@@ -96,6 +96,27 @@ public:
     /// logicStep() call.
     bool stepStarted() const { return stepStarted_; }
 
+    /// Starts the player death animation (kPlayerDeath[6]). The scene calls
+    /// this from the single death funnel (handlePlayerDeath()) and then
+    /// freezes the simulation until isDeathAnimationDone() is true. Does
+    /// not stop the player from being drawn: draw() switches to the death
+    /// frames while dying.
+    void startDeathAnimation();
+
+    /// True once the death animation has played its full duration. The
+    /// scene reads this to know when to apply the deferred life loss /
+    /// level restart.
+    bool isDeathAnimationDone() const { return dying_ && deathAnimMs_ >= kPlayerDeathDurationMs; }
+
+    /// Advances the death animation clock by real wall-clock ms. Called by
+    /// BomberbotScene::update() every frame; a no-op while not dying. This
+    /// deliberately does NOT touch the fixed logic clock.
+    void updateDeathAnimation(unsigned long deltaMs);
+
+    /// True while the death animation is running (started but not yet
+    /// done). draw() renders the death frames in this state.
+    bool isDying() const { return dying_; }
+
     /// Applies a Fire power-up: increases the blast arm length by the fixed
     /// increment. Takes effect on the NEXT bomb placed -- an already-placed
     /// bomb keeps the range it snapshotted at placement (see BomberbotBombs.h).
@@ -122,6 +143,13 @@ private:
     /// direction passes canEnter() while at rest); otherwise false. See
     /// stepStarted().
     bool stepStarted_ = false;
+
+    /// Death animation state. dying_ is latched by startDeathAnimation()
+    /// and cleared by resetTo() (fresh level). deathAnimMs_ accumulates
+    /// wall-clock ms via updateDeathAnimation(); draw() maps it onto the
+    /// 6 kPlayerDeath frames.
+    bool dying_ = false;
+    unsigned long deathAnimMs_ = 0;
     int firePower_ = kDefaultFirePower;
     int maxBombs_ = kDefaultMaxBombs;
 

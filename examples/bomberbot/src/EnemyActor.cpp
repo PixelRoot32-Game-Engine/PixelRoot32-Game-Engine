@@ -116,12 +116,35 @@ void EnemyActor::updateInterpolatedPosition() {
     position = math::Vector2(x, y);
 }
 
+void EnemyActor::updateDeathAnimation(unsigned long deltaMs) {
+    if (dying_ && deathAnimMs_ < kEnemyDeathDurationMs) {
+        deathAnimMs_ += deltaMs;
+        if (deathAnimMs_ > kEnemyDeathDurationMs) {
+            deathAnimMs_ = kEnemyDeathDurationMs;
+        }
+    }
+}
+
 void EnemyActor::draw(gfx::Renderer& renderer) {
-    if (!alive_) {
+    if (!alive_ && !dying_) {
         return;
     }
     const int x = static_cast<int>(position.x);
     const int y = static_cast<int>(position.y);
+
+    if (dying_) {
+        // Death animation: 4 kEnemySlimeDeath frames spread across
+        // kEnemyDeathDurationMs, clamped to the last frame so the corpse
+        // stays visible until the scene removes the entity.
+        int frame = static_cast<int>(deathAnimMs_ * kEnemyDeathFrameCount /
+                                     kEnemyDeathDurationMs);
+        if (frame >= kEnemyDeathFrameCount) {
+            frame = kEnemyDeathFrameCount - 1;
+        }
+        renderer.drawSprite(kEnemySlimeDeath[frame], x, y, 0, false);
+        return;
+    }
+
     const Sprite4bpp* sprite = enemyWalkSpriteFor(mv.progress);
     renderer.drawSprite(*sprite, x, y, 0, facingLeft_);
 }
@@ -145,6 +168,8 @@ void EnemyActor::resetTo(int startCellX, int startCellY) {
     dirX_ = 0;
     dirY_ = 0;
     alive_ = true;
+    dying_ = false;
+    deathAnimMs_ = 0;
     updateInterpolatedPosition();
 }
 

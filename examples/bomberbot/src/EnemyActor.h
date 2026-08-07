@@ -66,17 +66,41 @@ public:
     /// initial direction from the same seeded PRNG as any later redecision).
     void resetTo(int startCellX, int startCellY);
 
-    /// Marks the enemy dead. Movement and collision checks skip a dead
-    /// enemy; BomberbotScene also removes it from the scene's entity list
-    /// so it stops drawing, which is the only other thing a dead enemy
-    /// could still do.
-    void kill() { alive_ = false; }
+    /// Marks the enemy dead and starts the death animation
+    /// (kEnemySlimeDeath[4]). The scene calls this from killEnemy() instead
+    /// of the plain kill() so the death frames are shown before the enemy
+    /// is removed from the entity list.
+    void kill() {
+        alive_ = false;
+        dying_ = true;
+        deathAnimMs_ = 0;
+    }
+
+    /// True while the death animation is running. draw() renders the death
+    /// frames in this state; the scene removes the entity once
+    /// isDeathAnimationDone().
+    bool isDying() const { return dying_; }
+
+    /// True once the death animation has played its full duration. The
+    /// scene reads this to know when the enemy can be removed from the
+    /// entity list (the corpse has finished its 4-frame death).
+    bool isDeathAnimationDone() const { return dying_ && deathAnimMs_ >= kEnemyDeathDurationMs; }
+
+    /// Advances the death animation clock by real wall-clock ms. Called by
+    /// BomberbotScene::update() every frame; a no-op while not dying.
+    void updateDeathAnimation(unsigned long deltaMs);
 
 private:
     GridMove mv;
     int dirX_ = 0;
     int dirY_ = 0;
     bool alive_ = true;
+
+    /// Death animation state. Latch set by kill(); cleared by resetTo().
+    /// deathAnimMs_ accumulates wall-clock ms via updateDeathAnimation();
+    /// draw() maps it onto the 4 kEnemySlimeDeath frames.
+    bool dying_ = false;
+    unsigned long deathAnimMs_ = 0;
 
     /// Whether the enemy currently faces left. Updated in logicStep()
     /// when dirX_ is decided (PRNG draw or continue-straight).

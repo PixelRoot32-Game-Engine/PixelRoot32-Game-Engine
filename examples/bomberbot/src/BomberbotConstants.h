@@ -58,6 +58,19 @@ constexpr int kEnemyStepsPerCell = 20;      // 400ms/cell
 /// 3-frame walk tables in kPlayerWalkDown/Up/Right.
 constexpr int kPlayerAnimStepDiv = 4;
 
+/* Death animation timing (ms, wall-clock). Death is a VISUAL-ONLY freeze:
+ * the actor's updateDeathAnimation() advances on real milliseconds from
+ * Entity::update, never on the fixed logic step, so frame pacing stays
+ * frame-rate independent and the reproducible 20 ms logic clock is never
+ * consumed by a purely cosmetic transition. The player death freezes the
+ * whole simulation until the sequence ends (see LevelState::PlayerDying);
+ * an enemy death only freezes that one actor (it is removed once the last
+ * frame has played). */
+constexpr unsigned long kPlayerDeathDurationMs = 600;
+constexpr int kPlayerDeathFrameCount = 6;
+constexpr unsigned long kEnemyDeathDurationMs = 480;
+constexpr int kEnemyDeathFrameCount = 4;
+
 /// Enemy walk-frame animation divisor. mv.progress / kEnemyAnimStepDiv % 7
 /// yields the walk frame. 20/4 = 5 distinct frames per cell out of the
 /// 7-frame walk table in kEnemySlimeWalk.

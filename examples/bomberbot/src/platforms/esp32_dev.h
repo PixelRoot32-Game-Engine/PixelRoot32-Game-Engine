@@ -7,6 +7,7 @@
 #include <platforms/EngineConfig.h>
 
 #include "BomberbotScene.h"
+#include "TitleScreenScene.h"
 #include "audio/AudioDirector.h"
 
 namespace pr32 = pixelroot32;
@@ -45,14 +46,19 @@ pr32::audio::AudioConfig audioConfig(&audioBackend, audioBackend.getSampleRate()
 pr32::core::Engine engine(config, inputConfig, audioConfig);
 
 bomberbot::BomberbotScene bomberbotScene;
+bomberbot::TitleScreenScene titleScreenScene;
 
 void setup() {
     engine.init();
-    engine.setScene(&bomberbotScene);
 
 #if PIXELROOT32_ENABLE_AUDIO
     bomberbot::AudioDirector::instance().bind(&engine.getAudioEngine());
 #endif
+
+    // Title screen first, then bomberbotScene on START. Wired statically
+    // because the engine is a single global in this example.
+    bomberbot::TitleScreenScene::setNextScene(&bomberbotScene);
+    engine.setScene(&titleScreenScene);
 }
 
 void loop() {

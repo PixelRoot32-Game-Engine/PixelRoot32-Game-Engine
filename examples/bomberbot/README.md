@@ -18,6 +18,10 @@ other grid examples), and every timed rule — movement, bomb fuses,
 explosions, the level clock — runs on a **fixed 20 ms logic step**, decoupled
 from the rendered frame rate.
 
+A NES-style **title screen** ([`src/TitleScreenScene.cpp`](src/TitleScreenScene.cpp))
+runs first; pressing `Start` (Space / Enter on native, A / B on ESP32)
+swaps in the gameplay scene.
+
 ## Requirements (build flags)
 
 Set in [`lib/platformio.ini`](lib/platformio.ini)'s `[base]` template, so
@@ -54,6 +58,7 @@ Pin choices (ST7789 SPI, I2S audio, D-pad + two buttons) are in
 | Move | Arrow keys | D-pad |
 | Place bomb | Space | Button A |
 | Restart (from Game Over / Stage Clear) | Enter | Button B |
+| Start (title screen) | Space or Enter | A or B |
 
 Movement has a fixed priority — **Up > Down > Left > Right** — when more than
 one direction is held at once, so input is never ambiguous and never

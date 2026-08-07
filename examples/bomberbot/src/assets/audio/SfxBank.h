@@ -60,6 +60,21 @@ static constexpr InstrumentPreset INSTR_SFX_SFX_ENV_NOISE_HIT{
 
 using pixelroot32::audio::SfxBreakpoint;
 
+/// Game-owned SFX ids — must match exported SfxBank.cppSymbol cases.
+enum class SfxId : uint8_t {
+    PlaceBomb,
+    Death,
+    CoinBlip,
+    MenuBlip,
+    StageClear,
+    PickupPowerSoft,
+    BombExplosionTiny,
+    EnemyDeath,
+    Footstep,
+    FootstepSoft,
+    Count
+};
+
 struct SfxBank {
     struct SequenceStep {
         float delaySec;
