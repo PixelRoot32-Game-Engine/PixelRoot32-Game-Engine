@@ -1,5 +1,7 @@
 # Bomberman Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 A classic **Bomberman**-style game on a **13×11** grid: place bombs, chain
 explosions, destroy soft walls, dodge four PRNG-driven enemies, collect
 power-ups, and reach the exit once every enemy is dead. Movement is

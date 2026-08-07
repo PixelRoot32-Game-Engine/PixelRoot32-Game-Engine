@@ -1,5 +1,7 @@
 # Camera Demo Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Side-scrolling platformer-style demo that showcases **`Camera2D`** (smoothing and horizontal bounds), **parallax background layers**, **`KinematicActor`** movement with tile-based ground and one-way platforms (`StaticActor`, collision layers), and **directional iris scene transitions** between two scenes. The world is wider than the screen so the camera follows the player.
 
 ## Requirements (build flags)

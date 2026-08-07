@@ -1,6 +1,8 @@
 #include "BombermanScene.h"
 #include "core/Engine.h"
 #include "audio/AudioTypes.h"
+#include "assets/BombermanPalette.h"
+#include "graphics/Color.h"
 #include <cassert>
 #include <cstdio>
 #include <ctime>
@@ -19,8 +21,11 @@ BombermanScene::BombermanScene()
     : board_{},
       bombs_{},
       blastSteps_{},
+      blastShape_{},
+      blastDist_{},
+      blastRange_{},
       hiddenPowerUp_(TileType::PowerUpFire),
-      renderer_(board_, bombs_, blastSteps_),
+      renderer_(board_, bombs_, blastSteps_, blastShape_, blastDist_, blastRange_),
       player_(kPlayerStartCellX, kPlayerStartCellY),
       enemyCount_(0),
       enemiesAlive_(0),
@@ -41,7 +46,13 @@ BombermanScene::BombermanScene()
 }
 
 void BombermanScene::init() {
-    gfx::setPalette(gfx::PaletteType::PR32);
+    // Sprite palette must be registered BEFORE setPalette and BEFORE the
+    // first draw. Phase 1 of the asset migration; see audit §6 + §8.3.
+    // The palette invariants (16 entries, index 0 transparent) are asserted
+    // at runtime by test_bomberman_phase1_wiring / test_bomberman_phase0_assets.
+    // A compile-time static_assert was attempted but the palette array is
+    // static const (not constexpr), so it cannot be evaluated at compile time.
+    gfx::setDualCustomPalette(BOMBERMAN_SPRITE_PALETTE_RGB565, BOMBERMAN_SPRITE_PALETTE_RGB565);
     startLevel();
 }
 
@@ -62,6 +73,9 @@ void BombermanScene::startLevel() {
     for (int i = 0; i < kCells; ++i) {
         board_[i] = layout.board[i];
         blastSteps_[i] = 0;
+        blastShape_[i] = 0;
+        blastDist_[i] = 0;
+        blastRange_[i] = 0;
     }
     hiddenPowerUp_ = layout.hiddenPowerUp;
     for (int i = 0; i < kMaxBombs; ++i) {
@@ -209,7 +223,9 @@ void BombermanScene::logicStep() {
     // resolveDetonations()'s termination comment for why that is
     // guaranteed to happen in at most kMaxBombs iterations.
     const int detonatedCount =
-        resolveDetonations(detonationQueue, queueTail, bombs_, board_, blastSteps_, hiddenPowerUp_);
+        resolveDetonations(detonationQueue, queueTail, bombs_, board_,
+                           blastSteps_, blastShape_, blastDist_, blastRange_,
+                           hiddenPowerUp_);
     if (detonatedCount > 0) {
         audio::AudioEvent explosionSound;
         explosionSound.type = audio::WaveType::NOISE;

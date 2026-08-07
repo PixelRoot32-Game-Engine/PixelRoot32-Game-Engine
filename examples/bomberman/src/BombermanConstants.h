@@ -52,6 +52,16 @@ constexpr int kMaxLogicStepsPerFrame = 4;   // catch-up clamp: 80ms of backlog
 
 constexpr int kPlayerStepsPerCell = 12;     // 240ms/cell
 constexpr int kEnemyStepsPerCell = 20;      // 400ms/cell
+
+/// Player walk-frame animation divisor. mv.progress / kPlayerAnimStepDiv % 3
+/// yields the walk frame. 12/4 = 3 distinct frames per cell, matching the
+/// 3-frame walk tables in kPlayerWalkDown/Up/Right.
+constexpr int kPlayerAnimStepDiv = 4;
+
+/// Enemy walk-frame animation divisor. mv.progress / kEnemyAnimStepDiv % 7
+/// yields the walk frame. 20/4 = 5 distinct frames per cell out of the
+/// 7-frame walk table in kEnemyBallomWalk.
+constexpr int kEnemyAnimStepDiv = 4;
 constexpr int kBombFuseSteps = 150;         // 3.00s
 constexpr int kBombFlashSteps = 50;         // last 1.00s of the fuse
 constexpr int kExplosionSteps = 25;         // 0.50s
@@ -99,6 +109,34 @@ constexpr int kStartingLives = 3;
  * length; a Bomb pickup adds one to the simultaneous-bomb limit (that half
  * has no separate constant -- it is always exactly +1). */
 constexpr int kFirePowerIncrement = 1;
+
+/**
+ * @brief Blast segment type for each exploded cell — written alongside
+ *        blastSteps_ by resolveDetonations() and paintArm(), read by
+ *        BoardRenderer to select the correct directional sprite.
+ *
+ * Direction is encoded in the Arm* values (HL/HR/VU/VD), so the renderer
+ * can pick the right kARMBASE_<dir> / kARNEXT_<dir> / kTIP<dir> sprite
+ * without inferring direction from the cell's coordinates. TipL/R/U/D
+ * remain in the enum for backward compatibility with any soft-wall/chain
+ * caller that historically wrote them, but the renderer's primary path is
+ * now `isTip = (blastDist == blastRange)`; the Tip* values are only used
+ * as a fallback when blastRange is unavailable.
+ *
+ * Observation-only (audit §8.5): never read by rule functions, so
+ * logic determinism is unaffected by the contents of this array.
+ */
+enum class BlastShape : std::uint8_t {
+    Center = 0,  ///< Bomb's own cell.
+    ArmHL  = 1,  ///< Horizontal arm extending left from center.
+    ArmHR  = 2,  ///< Horizontal arm extending right from center.
+    ArmVU  = 3,  ///< Vertical arm extending up from center.
+    ArmVD  = 4,  ///< Vertical arm extending down from center.
+    TipL   = 5,  ///< Leftward-facing tip (legacy/fallback).
+    TipR   = 6,  ///< Rightward-facing tip (legacy/fallback).
+    TipU   = 7,  ///< Upward-facing tip (legacy/fallback).
+    TipD   = 8   ///< Downward-facing tip (legacy/fallback).
+};
 
 /* Level countdown. Ticks once per logic step, inside the same pipeline
  * stage as the bomb fuses (BombermanScene::logicStep()); reaching zero

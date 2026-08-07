@@ -1,5 +1,7 @@
 # Space Invaders Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Classic **Space Invaders** arcade game: alien formation with synchronized movement, player ship with shooting mechanics, bunkers for protection, enemy projectiles, score system, and **procedural audio** through the engine **`AudioEngine`**.
 
 ## Requirements (build flags)

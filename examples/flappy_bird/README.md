@@ -1,5 +1,7 @@
 # Flappy Bird Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 A **Flappy Bird**–style game: bird is a **`RigidActor`** (gravity + flap impulse), pipes are **`KinematicActor`** pairs that scroll and **recycle** when off-screen. Score and game states (**waiting / playing / game over**) are handled in [`FlappyBirdScene`](src/FlappyBirdScene.h), which drives them through the engine's **`gameplay::StateMachine`**.
 
 ## Requirements (build flags)

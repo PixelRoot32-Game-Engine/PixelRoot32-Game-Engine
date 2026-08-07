@@ -1,5 +1,7 @@
 # Physics Demo Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Interactive **physics** sandbox: **`KinematicActor`** player, **`RigidActor`** boxes and circles (AABB and circle shape), **`StaticActor`** floors/walls, **sensors**, and **`ActorTouchController`** for dragging/spawning on touch-capable builds.
 
 When **`PIXELROOT32_ENABLE_UI_SYSTEM`** is on (default in [`PlatformDefaults.h`](../../include/platforms/PlatformDefaults.h)), **`esp32cyd`** builds also expose **touch UI**: **`UITouchButton`** (full reset), **`UITouchSlider`** (dynamic spawn count), **`UITouchCheckbox`**, and horizontal/vertical **layouts** — see [`PhysicsDemoScene.h`](src/PhysicsDemoScene.h).

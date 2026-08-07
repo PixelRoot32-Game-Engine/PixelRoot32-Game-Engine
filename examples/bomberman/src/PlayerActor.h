@@ -6,8 +6,34 @@
 #include "BombermanBombs.h"
 #include "BombermanConstants.h"
 #include "GridMove.h"
+#include "assets/PlayerSprites.h"
 
 namespace bomberman {
+
+/// Return value for playerWalkSpriteFor(): sprite pointer + whether the
+/// renderer should mirror it horizontally (for left-facing).
+struct PlayerWalkFrame {
+    const pixelroot32::graphics::Sprite4bpp* sprite;
+    bool flipX;
+};
+
+/// Maps (facing, progress) → the correct walk-cycle sprite + flipX.
+/// facing: 0=Down, 1=Up, 2=Left (Right sprite mirrored), 3=Right.
+/// progress: mv.progress (0 when at rest).
+inline PlayerWalkFrame playerWalkSpriteFor(uint8_t facing, int progress) {
+    const int frame = (progress / kPlayerAnimStepDiv) % 3;
+    switch (facing) {
+        case 0:  // Down
+            return { &kPlayerWalkDown[frame], false };
+        case 1:  // Up
+            return { &kPlayerWalkUp[frame], false };
+        case 2:  // Left (Right sprite, mirrored)
+            return { &kPlayerWalkRight[frame], true };
+        case 3:  // Right
+        default:
+            return { &kPlayerWalkRight[frame], false };
+    }
+}
 
 /**
  * @class PlayerActor
@@ -73,6 +99,12 @@ public:
 
 private:
     GridMove mv;
+
+    /// Last chosen movement direction. 0=Down, 1=Up, 2=Left, 3=Right.
+    /// Updated in logicStep() when a new step begins (after canEnter()
+    /// succeeds, before mv.progress = 1). Read by draw() to select the
+    /// correct walk-cycle sprite row.
+    uint8_t facing_ = 0;
     int firePower_ = kDefaultFirePower;
     int maxBombs_ = kDefaultMaxBombs;
 

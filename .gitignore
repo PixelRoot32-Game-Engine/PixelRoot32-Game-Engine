@@ -105,3 +105,6 @@ _*
 
 # Ignore all files with .DS_Store
 .DS_Store
+
+# Local-only reference art (ripped sprite sheets, not redistributable)
+docs/audits/

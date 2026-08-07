@@ -1,5 +1,6 @@
 #include "BoardRenderer.h"
 #include "math/Vector2.h"
+#include "assets/BombSprites.h"
 
 namespace pr32 = pixelroot32;
 
@@ -10,9 +11,14 @@ namespace core = pr32::core;
 namespace math = pr32::math;
 
 BoardRenderer::BoardRenderer(const TileType (&board)[kCells], const Bomb (&bombs)[kMaxBombs],
-                              const uint8_t (&blastSteps)[kCells])
+                              const uint8_t (&blastSteps)[kCells],
+                              const uint8_t (&blastShape)[kCells],
+                              const uint8_t (&blastDist)[kCells],
+                              const uint8_t (&blastRange)[kCells])
     : core::Entity(math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, core::EntityType::GENERIC),
-      board_(board), bombs_(bombs), blastSteps_(blastSteps) {
+      board_(board), bombs_(bombs),
+      blastSteps_(blastSteps), blastShape_(blastShape),
+      blastDist_(blastDist), blastRange_(blastRange) {
     setRenderLayer(0);
 }
 
@@ -31,36 +37,40 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
             const int px = gameplay::cellToWorldX(x, kBoardGrid);
             const int py = gameplay::cellToWorldY(y, kBoardGrid);
 
-            if (t == TileType::HardWall) {
-                renderer.drawFilledRectangle(px, py, kCellSize, kCellSize, gfx::Color::Gray);
-                renderer.drawRectangle(px + 1, py + 1, kCellSize - 2, kCellSize - 2, gfx::Color::White);
-            } else if (isSoftWall(t)) {
-                // Load-bearing: all three soft-wall variants (SoftWall,
-                // SoftWallHidingExit, SoftWallHidingPowerUp) share this one
-                // branch and render pixel-identical. Any visible
-                // difference would leak the hidden exit/power-up location
-                // before the wall is destroyed.
-                renderer.drawFilledRectangle(px, py, kCellSize, kCellSize, gfx::Color::Orange);
-                renderer.drawLine(px, py + kCellSize / 2, px + kCellSize - 1, py + kCellSize / 2,
-                                   gfx::Color::DarkRed);
-            } else if (t == TileType::Exit) {
-                renderer.drawRectangle(px, py, kCellSize, kCellSize, gfx::Color::Purple);
-                renderer.drawFilledRectangle(px + 4, py + 4, 8, 8, gfx::Color::Purple);
-            } else if (t == TileType::PowerUpFire) {
-                renderer.drawFilledCircle(px + kCellSize / 2, py + kCellSize / 2, 5, gfx::Color::LightRed);
-                renderer.drawCircle(px + kCellSize / 2, py + kCellSize / 2, 6, gfx::Color::Yellow);
-            } else if (t == TileType::PowerUpBomb) {
-                renderer.drawFilledCircle(px + kCellSize / 2, py + kCellSize / 2, 5, gfx::Color::Blue);
-                renderer.drawCircle(px + kCellSize / 2, py + kCellSize / 2, 6, gfx::Color::Cyan);
+            const Sprite4bpp* sprite = nullptr;
+            switch (t) {
+                case TileType::HardWall:    // sheet cell (3,3)
+                    sprite = &kHardWallSprite;
+                    break;
+                case TileType::SoftWall:
+                case TileType::SoftWallHidingExit:
+                case TileType::SoftWallHidingPowerUp:
+                    // Load-bearing: all three variants resolve to the same
+                    // descriptor via softWallSpriteFor() (audit §8.3).
+                    sprite = softWallSpriteFor(t);
+                    break;
+                case TileType::Exit:        // sheet cell (11,3)
+                    sprite = &kExitSprite;
+                    break;
+                case TileType::PowerUpFire: // sheet cell (1,14)
+                    sprite = &kPowerUpFireSprite;
+                    break;
+                case TileType::PowerUpBomb: // sheet cell (10,14)
+                    sprite = &kPowerUpBombSprite;
+                    break;
+                case TileType::Empty:
+                    break;
             }
-            // TileType::Empty draws nothing.
+            if (sprite != nullptr) {
+                renderer.drawSprite(*sprite, px, py, 0, false);
+            }
         }
     }
 
-    // Explosion cells, drawn before the bomb/actor layers so a player (or,
-    // later, an enemy) dying in a blasted cell shows the explosion for at
-    // least one frame instead of hiding whatever was just eliminated
-    // there.
+    // Explosion cells — range-aware 16x16 sprites from kCENTER / kARMBASE_<dir>
+    // / kARNEXT_<dir> / kTIP<dir>, drawn before the bomb/actor layers so a
+    // player (or enemy) dying in a blasted cell shows the explosion for at
+    // least one frame instead of hiding whatever was just eliminated there.
     for (int i = 0; i < kCells; ++i) {
         if (blastSteps_[i] == 0) {
             continue;
@@ -69,12 +79,16 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
         const int y = i / kCols;
         const int px = gameplay::cellToWorldX(x, kBoardGrid);
         const int py = gameplay::cellToWorldY(y, kBoardGrid);
-        renderer.drawFilledRectangle(px + 2, py + 2, kCellSize - 4, kCellSize - 4, gfx::Color::Yellow);
-        renderer.drawFilledCircle(px + kCellSize / 2, py + kCellSize / 2, 4, gfx::Color::Orange);
+        const Sprite4bpp* sprite = explosionSpriteFor(
+            blastShape_[i], blastDist_[i], blastRange_[i], blastSteps_[i]);
+        if (sprite) {
+            renderer.drawSprite(*sprite, px, py, 0, false);
+        }
     }
 
-    // Bombs: a body that alternates colour every 5 steps during the final
-    // flash window, plus a short fuse line.
+    // Bombs: 3-frame pulse cycle via kBombSprites. During the final
+    // kBombFlashSteps, the pulse cadence speeds up to a 4× faster cycle
+    // (same 3 frames, divisor 2 instead of 8) to convey urgency.
     for (int i = 0; i < kMaxBombs; ++i) {
         const Bomb& b = bombs_[i];
         if (!b.active) {
@@ -82,14 +96,11 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
         }
         const int px = gameplay::cellToWorldX(b.cellX, kBoardGrid);
         const int py = gameplay::cellToWorldY(b.cellY, kBoardGrid);
-        const int cx = px + kCellSize / 2;
-        const int cy = py + kCellSize / 2;
-        bool flash = false;
-        if (b.fuseSteps <= kBombFlashSteps) {
-            flash = ((b.fuseSteps / 5) % 2) == 0;
-        }
-        renderer.drawFilledCircle(cx, cy, 6, flash ? gfx::Color::LightRed : gfx::Color::Black);
-        renderer.drawLine(cx, cy - 6, cx + 3, cy - 10, gfx::Color::White);
+        const bool inFlash = (b.fuseSteps <= kBombFlashSteps);
+        const uint8_t frame = inFlash
+            ? static_cast<uint8_t>((b.fuseSteps / 2) % 3)
+            : static_cast<uint8_t>((b.fuseSteps / 8) % 3);
+        renderer.drawSprite(kBombSprites[frame], px, py, 0, false);
     }
 }
 

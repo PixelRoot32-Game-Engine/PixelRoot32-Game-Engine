@@ -42,6 +42,9 @@ private:
     TileType board_[kCells];
     Bomb bombs_[kMaxBombs];
     uint8_t blastSteps_[kCells];
+    uint8_t blastShape_[kCells] = {};  ///< Observation-only per audit §8.5; written by resolveDetonations alongside blastSteps_.
+    uint8_t blastDist_[kCells]  = {};  ///< Distance from center for each blast cell (0=center, 1..range for arm cells). Observation-only.
+    uint8_t blastRange_[kCells] = {};  ///< Range of the bomb that owns each blast cell. Used with blastDist_ to pick the tip sprite. Observation-only.
     TileType hiddenPowerUp_;
     BoardRenderer renderer_;
     PlayerActor player_;

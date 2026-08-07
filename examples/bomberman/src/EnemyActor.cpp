@@ -49,6 +49,7 @@ void EnemyActor::logicStep(const TileType (&board)[kCells], const Bomb (&bombs)[
         const int sx = mv.cellX + dirX_;
         const int sy = mv.cellY + dirY_;
         if (canEnter(sx, sy, board, bombs)) {
+            facingLeft_ = (dirX_ < 0);  // refresh defensively
             mv.toX = sx;
             mv.toY = sy;
             mv.progress = 1;
@@ -85,6 +86,7 @@ void EnemyActor::logicStep(const TileType (&board)[kCells], const Bomb (&bombs)[
     const int dir = valid[picked];
     dirX_ = kDirX[dir];
     dirY_ = kDirY[dir];
+    facingLeft_ = (dirX_ < 0);
     mv.toX = mv.cellX + dirX_;
     mv.toY = mv.cellY + dirY_;
     mv.progress = 1;
@@ -120,11 +122,8 @@ void EnemyActor::draw(gfx::Renderer& renderer) {
     }
     const int x = static_cast<int>(position.x);
     const int y = static_cast<int>(position.y);
-    const int cx = x + kCellSize / 2;
-    const int cy = y + kCellSize / 2;
-    renderer.drawFilledCircle(cx, cy, 6, gfx::Color::Magenta);
-    renderer.drawFilledCircle(cx - 2, cy - 1, 1, gfx::Color::White);
-    renderer.drawFilledCircle(cx + 2, cy - 1, 1, gfx::Color::White);
+    const Sprite4bpp* sprite = enemyWalkSpriteFor(mv.progress);
+    renderer.drawSprite(*sprite, x, y, 0, facingLeft_);
 }
 
 core::Rect EnemyActor::getHitBox() {
