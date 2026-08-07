@@ -1,5 +1,7 @@
 # Tic-Tac-Toe Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 A **tic-tac-toe** game against an **AI** (minimax-style move search with configurable error chance). The board is drawn with **primitive rendering** (grid, X/O, cursor). **UI** uses **`UILabel`** for status text and either **`UIButton`** or **`UITouchButton`** depending on touch support.
 
 On **`esp32cyd`**, **`PIXELROOT32_ENABLE_TOUCH`** and **`onUnconsumedTouchEvent`** map taps to cells; **`native`** / **`esp32dev`** use cursor + confirm-style input per `GameConstants.h` button IDs.

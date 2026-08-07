@@ -1,5 +1,7 @@
 # Dual Palette Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Demonstrates **dual palette mode**: the **background** and **sprite** paths can use **different color RAM tables**, so the same color **index** maps to **different RGB** on each layer (in this demo, NES-style colors on the background and Game Boy–style colors on sprites, per the scene comments).
 
 Runtime entry point calls **`pixelroot32::graphics::enableDualPaletteMode(true)`** in `DualPaletteTestScene::init()` (see [`src/DualPaletteTestScene.cpp`](src/DualPaletteTestScene.cpp)).

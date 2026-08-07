@@ -1,5 +1,7 @@
 # Snake Game Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Classic **Snake** on a grid: discrete movement (no physics engine), **pre-allocated segment pool** to avoid runtime allocations, food spawning, wall/self collision, score, and **procedural audio** through the engine **`AudioEngine`**.
 
 ## Requirements (build flags)

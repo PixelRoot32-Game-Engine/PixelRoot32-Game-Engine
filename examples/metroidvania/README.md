@@ -1,5 +1,7 @@
 # Metroidvania-Style Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 A compact **platformer** sample with **4bpp tilemap layers**, **`StaticTilemapLayerCache`** for the ESP32 fast path when available, and a **`KinematicActor`**-based player with gravity, climbing, and jump rules tailored to the sample map.
 
 **Requires `PIXELROOT32_ENABLE_4BPP_SPRITES`** — the scene is guarded in [`src/MetroidvaniaScene.h`](src/MetroidvaniaScene.h).

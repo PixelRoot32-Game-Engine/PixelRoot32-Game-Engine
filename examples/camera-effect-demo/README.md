@@ -1,5 +1,7 @@
 # Camera Effect Demo Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Interactive menu-based demo that showcases all **`CameraEffectsSystem`** effects: **shake**, **punch** (4 directions), **offset**, and **cancel all**. Select an effect from the menu, watch it activate for a few seconds, then return to the menu. Built as a visual reference for developers integrating camera effects into their own games.
 
 ## Requirements (build flags)
