@@ -114,7 +114,7 @@ constexpr int kFirePowerIncrement = 1;
  * @brief Blast segment type for each exploded cell — written alongside
  *        blastSteps_ by resolveDetonations() and paintArm(), read by
  *        BoardRenderer to select the correct directional sprite from
- *        kExplosionByShape[shape][flicker].
+ *        kExplosionByShape[shape][frame].
  *
  * Observation-only (audit §8.5): never read by rule functions, so
  * logic determinism is unaffected by the contents of this array.

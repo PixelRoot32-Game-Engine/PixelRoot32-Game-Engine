@@ -38,24 +38,29 @@ private:
 
 /**
  * @brief Returns the explosion sprite for the given blast shape and
- *        blast steps count (flicker frame).
+ *        blast steps count (animation frame).
  *
  * @param shape     BlastShape enum value for this cell (Center/ArmH/.../TipD).
  * @param blastSteps Remaining explosion display steps for the cell.
  * @return Pointer to the correct kExplosionByShape entry, or nullptr if
  *         shape is out of range.
  *
- * Flicker frame index: (blastSteps / 7) % 2. As blastSteps counts down
- * from 25 to 0, the flicker alternates roughly every 7 steps (~3.5 flips
- * across the full 25-step lifetime of an explosion cell).
+ * Animation frame index: 3 - (blastSteps / 7), clamped to 0..3. The new
+ * NES cross grows from thin (frame 0) at the start of the explosion to
+ * thick (frame 3) at the end, replacing the old 2-frame flicker. As
+ * blastSteps counts down from 25 to 0, this yields roughly 7 steps per
+ * frame, with frame 3 (thickest) covering the last ~5 steps so the
+ * cross "lingers" before disappearing.
  *
  * Defined inline in the header (same pattern as softWallSpriteFor) so the
  * Phase 2 unit test can call it without linking against examples/.
  */
 inline const pixelroot32::graphics::Sprite4bpp* explosionSpriteFor(uint8_t shape, uint8_t blastSteps) {
     if (shape > static_cast<uint8_t>(BlastShape::TipD)) return nullptr;
-    const uint8_t flicker = (blastSteps / 7) % 2;
-    return &kExplosionByShape[shape][flicker];
+    int frame = 3 - (blastSteps / 7);
+    if (frame < 0) frame = 0;
+    if (frame > 3) frame = 3;
+    return &kExplosionByShape[shape][frame];
 }
 
 /**

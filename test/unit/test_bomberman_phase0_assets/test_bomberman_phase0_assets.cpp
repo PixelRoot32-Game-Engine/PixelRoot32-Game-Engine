@@ -157,23 +157,28 @@ void test_bomb_sprites_are_16x16(void) {
 // =============================================================================
 
 /**
- * @test kExplosionByShape is a 7x2 array
- * @expected 7 shapes × 2 flicker frames each
+ * @test kExplosionByShape is a 7x4 array
+ * @expected 7 shapes × 4 animation frames each
  */
 void test_explosion_by_shape_dimensions(void) {
     TEST_ASSERT_EQUAL(7, (int)(sizeof(kExplosionByShape) / sizeof(kExplosionByShape[0])));
-    TEST_ASSERT_EQUAL(2, (int)(sizeof(kExplosionByShape[0]) / sizeof(Sprite4bpp)));
+    TEST_ASSERT_EQUAL(4, (int)(sizeof(kExplosionByShape[0]) / sizeof(Sprite4bpp)));
 }
 
 /**
- * @test Each explosion sprite is 16x16 with valid data
- * @expected All 14 sprites (7 shapes × 2 frames) have width==16, height==16, data non-null
+ * @test Each explosion sprite has valid data and the expected mixed
+ *       width/height per shape (Center 16x16; ArmH/TipL/TipR 32x16;
+ *       ArmV/TipU/TipD 16x32).
+ * @expected All 28 sprites (7 shapes × 4 frames) have non-null data and
+ *           their declared width/height matches the BlastShape.
  */
-void test_explosion_sprites_are_16x16(void) {
+void test_explosion_sprites_have_valid_data_and_size(void) {
+    static const uint8_t expectedW[7] = {16, 32, 16, 32, 32, 16, 16};
+    static const uint8_t expectedH[7] = {16, 16, 32, 16, 16, 32, 32};
     for (int shape = 0; shape < 7; shape++) {
-        for (int frame = 0; frame < 2; frame++) {
-            TEST_ASSERT_EQUAL_UINT8(16, kExplosionByShape[shape][frame].width);
-            TEST_ASSERT_EQUAL_UINT8(16, kExplosionByShape[shape][frame].height);
+        for (int frame = 0; frame < 4; frame++) {
+            TEST_ASSERT_EQUAL_UINT8(expectedW[shape], kExplosionByShape[shape][frame].width);
+            TEST_ASSERT_EQUAL_UINT8(expectedH[shape], kExplosionByShape[shape][frame].height);
             TEST_ASSERT_NOT_NULL(kExplosionByShape[shape][frame].data);
         }
     }
@@ -319,7 +324,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_bomb_sprites_has_3_frames);
     RUN_TEST(test_bomb_sprites_are_16x16);
     RUN_TEST(test_explosion_by_shape_dimensions);
-    RUN_TEST(test_explosion_sprites_are_16x16);
+    RUN_TEST(test_explosion_sprites_have_valid_data_and_size);
     RUN_TEST(test_player_walk_tables_3_frames);
     RUN_TEST(test_player_death_6_frames);
     RUN_TEST(test_player_sprites_are_16x16);
