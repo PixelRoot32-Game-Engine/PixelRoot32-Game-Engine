@@ -62,20 +62,37 @@ leaves the player in place; it is never a death.
 
 ## How audio is triggered
 
-`BomberbotScene::logicStep()` builds `pixelroot32::audio::AudioEvent` values
-and calls `engine.getAudioEngine().playEvent(...)`, the same pattern the
-`snake` example uses. Four events, each tied to one exact pipeline moment:
+Audio goes through `bomberbot::AudioDirector` (a game-side singleton in
+[`src/audio/AudioDirector.h`](src/audio/AudioDirector.h)), which owns the
+`SfxId` enum and dispatches every sound from the Tool Suite–generated SFX
+bank in [`src/assets/audio/SfxBank.h`](src/assets/audio/SfxBank.h). This is
+the same structure the `Pixel Leap` sample uses: a game-owned `SfxId`, a
+generated bank header + `.pr32sfx.json` sidecar, and a director that applies
+cooldowns, a global SFX volume, and an ESP32 DAC frequency clamp while
+playing layers at `t=0` and scheduling sequence steps. `BomberbotScene`
+calls `AudioDirector::instance().playSfx(SfxId::…)` — never a raw
+`AudioEvent` — and feeds `update(dtMs)` each frame so delayed steps fire on
+time. Events tied to exact pipeline moments:
 
-- **Bomb placed** — the step a bomb placement actually succeeds (not every
-  press of the bomb button; a press rejected by the bomb limit or an
+- **Bomb placed** — `SfxId::PlaceBomb`, the step a bomb placement actually
+  succeeds (not every press; a press rejected by the bomb limit or an
   already-bombed cell stays silent).
-- **Explosion** — the step any bomb(s) actually detonate, whether from a
-  timer or a chain reaction (one event per step, even if several bombs chain
-  together on that step).
-- **Player death** — one shared event for every death cause: explosion
-  contact, enemy contact, or the countdown reaching zero.
-- **Stage clear** — the step victory is reached (last enemy already dead,
-  player steps onto the revealed exit).
+- **Player footsteps** — `SfxId::Footstep` (horizontal, Left/Right) or
+  `SfxId::FootstepSoft` (vertical, Up/Down), fired exactly once per new step
+  started via `PlayerActor::stepStarted()`.
+- **Explosion** — `SfxId::BombExplosionTiny`, the step any bomb(s) actually
+  detonate, whether from a timer or a chain reaction.
+- **Enemy death** — `SfxId::EnemyDeath`, the step an enemy is removed by a
+  blast.
+- **Power-up pickup** — `SfxId::PickupPowerSoft`, when a Fire/Bomb power-up
+  is consumed.
+- **Player death** — `SfxId::Death`, one shared fanfare for every death
+  cause: explosion contact, enemy contact, or the countdown reaching zero.
+- **Stage clear** — `SfxId::StageClear`, the step victory is reached (last
+  enemy already dead, player steps onto the revealed exit).
+
+The bank also ships `SfxId::CoinBlip` and `SfxId::MenuBlip` for future UI /
+pickup use; they are not currently triggered by the scene.
 
 ## Features
 

@@ -1,6 +1,6 @@
 #include "BomberbotScene.h"
 #include "core/Engine.h"
-#include "audio/AudioTypes.h"
+#include "audio/AudioDirector.h"
 #include "assets/BomberbotPalette.h"
 #include "graphics/Color.h"
 #include <cassert>
@@ -15,7 +15,6 @@ namespace bomberbot {
 
 namespace gfx = pr32::graphics;
 namespace core = pr32::core;
-namespace audio = pr32::audio;
 
 BomberbotScene::BomberbotScene()
     : board_{},
@@ -111,6 +110,8 @@ void BomberbotScene::startLevel() {
 }
 
 void BomberbotScene::update(unsigned long deltaTime) {
+    AudioDirector::instance().update(deltaTime);
+
     // Latch here, at frame scope, while the press edge is still live. The
     // loop below may run no logic step at all this frame. Both button
     // presses this example ever reads (bomb, restart) are latched exactly
@@ -173,13 +174,16 @@ void BomberbotScene::logicStep() {
     const bool bombPressed = bombPressLatched_;
     bombPressLatched_ = false;
     if (player_.logicStep(board_, bombs_, input, bombPressed)) {
-        audio::AudioEvent bombPlacedSound;
-        bombPlacedSound.type = audio::WaveType::PULSE;
-        bombPlacedSound.frequency = 220.0f;
-        bombPlacedSound.duration = 0.08f;
-        bombPlacedSound.volume = 0.5f;
-        bombPlacedSound.duty = 0.5f;
-        engine.getAudioEngine().playEvent(bombPlacedSound);
+        AudioDirector::instance().playSfx(SfxId::PlaceBomb);
+    }
+
+    // Footstep SFX: exactly one per new step started this call (the latch
+    // inside PlayerActor::logicStep), never on an in-flight advance. Vertical
+    // steps (Up/Down) use the "V" footstep, horizontal (Left/Right) the "H".
+    if (player_.stepStarted()) {
+        const uint8_t facing = player_.facing();
+        const bool vertical = (facing == 0 || facing == 1);  // Down/Up
+        AudioDirector::instance().playSfx(vertical ? SfxId::FootstepSoft : SfxId::Footstep);
     }
 
     // Stage 3: enemy movement. Each alive enemy re-decides its own
@@ -227,13 +231,7 @@ void BomberbotScene::logicStep() {
                            blastSteps_, blastShape_, blastDist_, blastRange_,
                            hiddenPowerUp_);
     if (detonatedCount > 0) {
-        audio::AudioEvent explosionSound;
-        explosionSound.type = audio::WaveType::NOISE;
-        explosionSound.frequency = 90.0f;
-        explosionSound.duration = 0.3f;
-        explosionSound.volume = 0.7f;
-        explosionSound.duty = 0.5f;
-        engine.getAudioEngine().playEvent(explosionSound);
+        AudioDirector::instance().playSfx(SfxId::BombExplosionTiny);
     }
 
     // Stage 6: explosion cells count down toward reverting to their
@@ -248,9 +246,11 @@ void BomberbotScene::logicStep() {
     if (board_[playerCell] == TileType::PowerUpFire) {
         player_.applyFirePowerUp();
         board_[playerCell] = TileType::Empty;
+        AudioDirector::instance().playSfx(SfxId::PickupPowerSoft);
     } else if (board_[playerCell] == TileType::PowerUpBomb) {
         player_.applyBombPowerUp();
         board_[playerCell] = TileType::Empty;
+        AudioDirector::instance().playSfx(SfxId::PickupPowerSoft);
     }
 
     // Stage 8a: explosion contact against enemies. Checked before the
@@ -300,13 +300,7 @@ void BomberbotScene::logicStep() {
     }
     if (state_ == LevelState::ExitUnlocked && board_[playerCell] == TileType::Exit) {
         state_ = LevelState::StageClear;
-        audio::AudioEvent stageClearSound;
-        stageClearSound.type = audio::WaveType::TRIANGLE;
-        stageClearSound.frequency = 660.0f;
-        stageClearSound.duration = 0.6f;
-        stageClearSound.volume = 0.7f;
-        stageClearSound.duty = 0.5f;
-        engine.getAudioEngine().playEvent(stageClearSound);
+        AudioDirector::instance().playSfx(SfxId::StageClear);
     }
 }
 
@@ -314,19 +308,14 @@ void BomberbotScene::killEnemy(int index) {
     enemies_[index].kill();
     removeEntity(&enemies_[index]);
     --enemiesAlive_;
+    AudioDirector::instance().playSfx(SfxId::EnemyDeath);
 }
 
 void BomberbotScene::handlePlayerDeath() {
     // The single funnel for every death cause (explosion contact, enemy
     // contact, countdown expiry) -- one audio event fires here regardless
     // of which one triggered it.
-    audio::AudioEvent deathSound;
-    deathSound.type = audio::WaveType::SAW;
-    deathSound.frequency = 300.0f;
-    deathSound.duration = 0.4f;
-    deathSound.volume = 0.7f;
-    deathSound.duty = 0.5f;
-    engine.getAudioEngine().playEvent(deathSound);
+    AudioDirector::instance().playSfx(SfxId::Death);
 
     --lives_;
     if (lives_ > 0) {

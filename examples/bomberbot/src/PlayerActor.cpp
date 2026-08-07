@@ -44,6 +44,11 @@ bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
         bombPlaced = tryPlaceBomb(bombs);
     }
 
+    // Cleared every call; set true only if a NEW step starts below. The
+    // scene reads this right after logicStep() to fire the footstep SFX
+    // exactly once per step start, never on an in-flight advance.
+    stepStarted_ = false;
+
     if (mv.progress > 0) {
         // A step is already in flight: finish it, ignore movement input
         // this step.
@@ -97,6 +102,7 @@ bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
             mv.toX = nx;
             mv.toY = ny;
             mv.progress = 1;
+            stepStarted_ = true;
         }
         // else: stay put. Not a death, not an error, not a retry — holding
         // a direction into a blocked cell is inert.
@@ -180,6 +186,7 @@ void PlayerActor::resetTo(int startCellX, int startCellY) {
     exemptValid_ = false;
     exemptX_ = 0;
     exemptY_ = 0;
+    stepStarted_ = false;
     updateInterpolatedPosition();
 }
 

@@ -8,6 +8,7 @@
 #include <platforms/EngineConfig.h>
 
 #include "BomberbotScene.h"
+#include "audio/AudioDirector.h"
 
 namespace pr32 = pixelroot32;
 
@@ -38,6 +39,10 @@ int main(int argc, char* argv[]) {
 
     engine.init();
     engine.setScene(&bomberbotScene);
+
+#if PIXELROOT32_ENABLE_AUDIO
+    bomberbot::AudioDirector::instance().bind(&engine.getAudioEngine());
+#endif
 
     engine.run();
 

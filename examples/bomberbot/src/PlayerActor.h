@@ -28,10 +28,10 @@ inline PlayerWalkFrame playerWalkSpriteFor(uint8_t facing, int progress) {
         case 1:  // Up
             return { &kPlayerWalkUp[frame], false };
         case 2:  // Left (Right sprite, mirrored)
-            return { &kPlayerWalkRight[frame], true };
+            return { &kPlayerWalkRight[frame], false };
         case 3:  // Right
         default:
-            return { &kPlayerWalkRight[frame], false };
+            return { &kPlayerWalkRight[frame], true };
     }
 }
 
@@ -84,6 +84,18 @@ public:
     int firePower() const { return firePower_; }
     int maxBombs() const { return maxBombs_; }
 
+    /// Last chosen movement direction, refreshed when a new step begins.
+    /// 0=Down, 1=Up, 2=Left, 3=Right. Read by draw() and by the scene to
+    /// pick the correct footstep SFX (vertical vs horizontal).
+    uint8_t facing() const { return facing_; }
+
+    /// True iff logicStep() started a NEW step this call (at-rest → a held
+    /// direction passed canEnter()), as opposed to merely advancing an
+    /// already in-flight step. Read by the scene right after logicStep() to
+    /// fire the footstep exactly once per step start; cleared by the next
+    /// logicStep() call.
+    bool stepStarted() const { return stepStarted_; }
+
     /// Applies a Fire power-up: increases the blast arm length by the fixed
     /// increment. Takes effect on the NEXT bomb placed -- an already-placed
     /// bomb keeps the range it snapshotted at placement (see BomberbotBombs.h).
@@ -105,6 +117,11 @@ private:
     /// succeeds, before mv.progress = 1). Read by draw() to select the
     /// correct walk-cycle sprite row.
     uint8_t facing_ = 0;
+
+    /// Set true by logicStep() at the instant a new step begins (held
+    /// direction passes canEnter() while at rest); otherwise false. See
+    /// stepStarted().
+    bool stepStarted_ = false;
     int firePower_ = kDefaultFirePower;
     int maxBombs_ = kDefaultMaxBombs;
 
