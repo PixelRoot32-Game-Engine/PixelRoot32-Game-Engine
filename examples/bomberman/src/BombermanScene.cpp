@@ -22,8 +22,10 @@ BombermanScene::BombermanScene()
       bombs_{},
       blastSteps_{},
       blastShape_{},
+      blastDist_{},
+      blastRange_{},
       hiddenPowerUp_(TileType::PowerUpFire),
-      renderer_(board_, bombs_, blastSteps_, blastShape_),
+      renderer_(board_, bombs_, blastSteps_, blastShape_, blastDist_, blastRange_),
       player_(kPlayerStartCellX, kPlayerStartCellY),
       enemyCount_(0),
       enemiesAlive_(0),
@@ -72,6 +74,8 @@ void BombermanScene::startLevel() {
         board_[i] = layout.board[i];
         blastSteps_[i] = 0;
         blastShape_[i] = 0;
+        blastDist_[i] = 0;
+        blastRange_[i] = 0;
     }
     hiddenPowerUp_ = layout.hiddenPowerUp;
     for (int i = 0; i < kMaxBombs; ++i) {
@@ -219,7 +223,9 @@ void BombermanScene::logicStep() {
     // resolveDetonations()'s termination comment for why that is
     // guaranteed to happen in at most kMaxBombs iterations.
     const int detonatedCount =
-        resolveDetonations(detonationQueue, queueTail, bombs_, board_, blastSteps_, blastShape_, hiddenPowerUp_);
+        resolveDetonations(detonationQueue, queueTail, bombs_, board_,
+                           blastSteps_, blastShape_, blastDist_, blastRange_,
+                           hiddenPowerUp_);
     if (detonatedCount > 0) {
         audio::AudioEvent explosionSound;
         explosionSound.type = audio::WaveType::NOISE;

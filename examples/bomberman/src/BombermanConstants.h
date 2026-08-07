@@ -113,20 +113,29 @@ constexpr int kFirePowerIncrement = 1;
 /**
  * @brief Blast segment type for each exploded cell — written alongside
  *        blastSteps_ by resolveDetonations() and paintArm(), read by
- *        BoardRenderer to select the correct directional sprite from
- *        kExplosionByShape[shape][frame].
+ *        BoardRenderer to select the correct directional sprite.
+ *
+ * Direction is encoded in the Arm* values (HL/HR/VU/VD), so the renderer
+ * can pick the right kARMBASE_<dir> / kARNEXT_<dir> / kTIP<dir> sprite
+ * without inferring direction from the cell's coordinates. TipL/R/U/D
+ * remain in the enum for backward compatibility with any soft-wall/chain
+ * caller that historically wrote them, but the renderer's primary path is
+ * now `isTip = (blastDist == blastRange)`; the Tip* values are only used
+ * as a fallback when blastRange is unavailable.
  *
  * Observation-only (audit §8.5): never read by rule functions, so
  * logic determinism is unaffected by the contents of this array.
  */
 enum class BlastShape : std::uint8_t {
     Center = 0,  ///< Bomb's own cell.
-    ArmH   = 1,  ///< Horizontal blast arm.
-    ArmV   = 2,  ///< Vertical blast arm.
-    TipL   = 3,  ///< Leftward-facing tip.
-    TipR   = 4,  ///< Rightward-facing tip.
-    TipU   = 5,  ///< Upward-facing tip.
-    TipD   = 6   ///< Downward-facing tip.
+    ArmHL  = 1,  ///< Horizontal arm extending left from center.
+    ArmHR  = 2,  ///< Horizontal arm extending right from center.
+    ArmVU  = 3,  ///< Vertical arm extending up from center.
+    ArmVD  = 4,  ///< Vertical arm extending down from center.
+    TipL   = 5,  ///< Leftward-facing tip (legacy/fallback).
+    TipR   = 6,  ///< Rightward-facing tip (legacy/fallback).
+    TipU   = 7,  ///< Upward-facing tip (legacy/fallback).
+    TipD   = 8   ///< Downward-facing tip (legacy/fallback).
 };
 
 /* Level countdown. Ticks once per logic step, inside the same pipeline

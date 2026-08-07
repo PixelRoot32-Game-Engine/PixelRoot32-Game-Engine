@@ -113,24 +113,34 @@ namespace detail {
 /// propagation rules. `tail` is bounded against kMaxBombs at the write
 /// site — never assumed safe purely because the caller promised it.
 ///
+/// Direction-aware shape (Phase 2+): each painted cell records the
+/// directionally-specific arm shape (ArmHL/HR/VU/VD) and writes its
+/// `blastDist` (distance from center, 1-based for arm cells) and
+/// `blastRange` (the bomb's range). The renderer uses
+/// `isTip = (blastDist == blastRange)` to select the Tip sprite
+/// instead of trusting the blastShape to be TipL/R/U/D.
+///
 /// blastShape (Phase 2): each cell that receives blastSteps also records
-/// its blast segment type (Center, ArmH/V, TipL/R/U/D) so the renderer
+/// its blast segment type (Center, ArmHL/HR/VU/VD, TipL/R/U/D) so the renderer
 /// can select the correct directional explosion sprite. Observation-only
 /// per audit §8.5.
 inline void paintArm(int cx, int cy, int dx, int dy, int range,
                      TileType (&board)[kCells], uint8_t (&blastSteps)[kCells],
                      uint8_t (&blastShape)[kCells],
+                     uint8_t (&blastDist)[kCells],
+                     uint8_t (&blastRange)[kCells],
                      uint8_t (&detonationQueue)[kMaxBombs], int& tail,
                      Bomb (&bombs)[kMaxBombs], TileType hiddenPowerUp) {
     int x = cx;
     int y = cy;
     int lastIdx = -1;
     const uint8_t armShape = (dx == 0)
-        ? static_cast<uint8_t>(BlastShape::ArmV)
-        : static_cast<uint8_t>(BlastShape::ArmH);
+        ? static_cast<uint8_t>(dy < 0 ? BlastShape::ArmVU : BlastShape::ArmVD)
+        : static_cast<uint8_t>(dx < 0 ? BlastShape::ArmHL : BlastShape::ArmHR);
     const uint8_t tipShape = (dx == 0)
         ? static_cast<uint8_t>(dy < 0 ? BlastShape::TipU : BlastShape::TipD)
         : static_cast<uint8_t>(dx < 0 ? BlastShape::TipL : BlastShape::TipR);
+    const uint8_t rangeU8 = static_cast<uint8_t>(range);
 
     for (int step = 0; step < range; ++step) {
         x += dx;
@@ -148,6 +158,8 @@ inline void paintArm(int cx, int cy, int dx, int dy, int range,
             board[idx] = destroyedInto(t, hiddenPowerUp);
             blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
             blastShape[idx] = tipShape;  // soft wall cell IS the tip
+            blastDist[idx] = static_cast<uint8_t>(step + 1);
+            blastRange[idx] = rangeU8;
             return;
         }
 
@@ -164,6 +176,8 @@ inline void paintArm(int cx, int cy, int dx, int dy, int range,
         }
         blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
         blastShape[idx] = chained ? tipShape : armShape;  // chain cell IS the tip
+        blastDist[idx] = static_cast<uint8_t>(step + 1);
+        blastRange[idx] = rangeU8;
         lastIdx = idx;
         if (chained) {
             // The chained bomb produces its own independent cross on a
@@ -176,7 +190,9 @@ inline void paintArm(int cx, int cy, int dx, int dy, int range,
         // in this same drain — paint it and let the arm continue.
     }
     // Out-of-range: upgrade the last painted cell from Arm to Tip.
-    if (lastIdx >= 0) blastShape[lastIdx] = tipShape;
+    if (lastIdx >= 0) {
+        blastShape[lastIdx] = tipShape;
+    }
 }
 
 }  // namespace detail
@@ -187,8 +203,13 @@ inline void paintArm(int cx, int cy, int dx, int dy, int range,
 /// number of bombs that detonated this call.
 ///
 /// blastShape (Phase 2): written alongside blastSteps. Each cell records
-/// its segment type (Center/ArmH/ArmV/TipL/TipR/TipU/TipD). Observation-
-/// only; never read by rule functions (audit §8.5).
+/// its segment type (Center / ArmHL/HR/VU/VD / TipL/R/U/D).
+/// blastDist (Phase 2+): 1-based distance from the bomb cell for arm
+/// cells, 0 for center cells.
+/// blastRange (Phase 2+): the bomb's range, written to every cell the
+/// arm touches so the renderer can compute `isTip = (dist == range)`.
+/// All three arrays are observation-only; never read by rule functions
+/// (audit §8.5).
 ///
 /// TERMINATION ARGUMENT. A pool slot enters detonationQueue in exactly two
 /// places in this file: in tickFuses (a fuse reaching zero) and inside this
@@ -207,6 +228,8 @@ inline int resolveDetonations(uint8_t (&detonationQueue)[kMaxBombs], int queueTa
                                TileType (&board)[kCells],
                                uint8_t (&blastSteps)[kCells],
                                uint8_t (&blastShape)[kCells],
+                               uint8_t (&blastDist)[kCells],
+                               uint8_t (&blastRange)[kCells],
                                TileType hiddenPowerUp) {
     int head = 0;
     int tail = (queueTail < kMaxBombs) ? queueTail : kMaxBombs;  // bounded at the write site
@@ -219,9 +242,12 @@ inline int resolveDetonations(uint8_t (&detonationQueue)[kMaxBombs], int queueTa
         const int idx = cellIndex(b.cellX, b.cellY);
         blastSteps[idx] = static_cast<uint8_t>(kExplosionSteps);
         blastShape[idx] = static_cast<uint8_t>(BlastShape::Center);
+        blastDist[idx] = 0;
+        blastRange[idx] = b.range;
         for (int d = 0; d < 4; ++d) {
             detail::paintArm(b.cellX, b.cellY, kArmDX[d], kArmDY[d], b.range,
                              board, blastSteps, blastShape,
+                             blastDist, blastRange,
                              detonationQueue, tail, bombs, hiddenPowerUp);
         }
     }

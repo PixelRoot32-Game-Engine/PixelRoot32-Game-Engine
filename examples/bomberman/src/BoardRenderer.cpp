@@ -12,9 +12,13 @@ namespace math = pr32::math;
 
 BoardRenderer::BoardRenderer(const TileType (&board)[kCells], const Bomb (&bombs)[kMaxBombs],
                               const uint8_t (&blastSteps)[kCells],
-                              const uint8_t (&blastShape)[kCells])
+                              const uint8_t (&blastShape)[kCells],
+                              const uint8_t (&blastDist)[kCells],
+                              const uint8_t (&blastRange)[kCells])
     : core::Entity(math::Vector2::ZERO(), DISPLAY_WIDTH, DISPLAY_HEIGHT, core::EntityType::GENERIC),
-      board_(board), bombs_(bombs), blastSteps_(blastSteps), blastShape_(blastShape) {
+      board_(board), bombs_(bombs),
+      blastSteps_(blastSteps), blastShape_(blastShape),
+      blastDist_(blastDist), blastRange_(blastRange) {
     setRenderLayer(0);
 }
 
@@ -63,10 +67,10 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
         }
     }
 
-    // Explosion cells — directional sprites from kExplosionByShape, drawn
-    // before the bomb/actor layers so a player (or enemy) dying in a
-    // blasted cell shows the explosion for at least one frame instead of
-    // hiding whatever was just eliminated there.
+    // Explosion cells — range-aware 16x16 sprites from kCENTER / kARMBASE_<dir>
+    // / kARNEXT_<dir> / kTIP<dir>, drawn before the bomb/actor layers so a
+    // player (or enemy) dying in a blasted cell shows the explosion for at
+    // least one frame instead of hiding whatever was just eliminated there.
     for (int i = 0; i < kCells; ++i) {
         if (blastSteps_[i] == 0) {
             continue;
@@ -75,7 +79,8 @@ void BoardRenderer::draw(gfx::Renderer& renderer) {
         const int y = i / kCols;
         const int px = gameplay::cellToWorldX(x, kBoardGrid);
         const int py = gameplay::cellToWorldY(y, kBoardGrid);
-        const Sprite4bpp* sprite = explosionSpriteFor(blastShape_[i], blastSteps_[i]);
+        const Sprite4bpp* sprite = explosionSpriteFor(
+            blastShape_[i], blastDist_[i], blastRange_[i], blastSteps_[i]);
         if (sprite) {
             renderer.drawSprite(*sprite, px, py, 0, false);
         }
