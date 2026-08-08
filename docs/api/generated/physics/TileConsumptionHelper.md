@@ -48,6 +48,21 @@ Consumes a tile using packed userData from collision callback.
 
 **Returns:** true if tile was successfully consumed, false otherwise
 
+### `bool applyHit(pixelroot32::core::Actor* tileActor, uint16_t tileX, uint16_t tileY, uint8_t& remainingHits)`
+
+**Description:**
+
+Apply one hit to a tile without consuming it.
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor (for validation; not mutated)
+- `tileX`: Tile X coordinate
+- `tileY`: Tile Y coordinate
+- `remainingHits`: Out-param: hits remaining after this one (0 = ready to consume)
+
+**Returns:** true on valid hit, false on invalid coordinates or already-consumed tile
+
 ### `bool isTileConsumed(uint16_t tileX, uint16_t tileY) const`
 
 **Description:**
@@ -113,6 +128,40 @@ Convenience function for consuming tiles from collision callbacks.
 - `config`: Optional consumption configuration
 
 **Returns:** true if tile was consumed, false otherwise
+
+### `inline bool applyHitFromUserData(pixelroot32::core::Actor* tileActor, uintptr_t packedUserData, pixelroot32::core::Scene& scene, void* tilemap, uint8_t& remainingHits, const TileConsumptionConfig& config = TileConsumptionConfig())`
+
+**Description:**
+
+Apply one hit to a tile via packed userData (convenience wrapper).
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor
+- `packedUserData`: Packed userData from tileActor
+- `scene`: Reference to the scene
+- `tilemap`: Pointer to the tilemap (TileMapGeneric*)
+- `remainingHits`: Out-param: hits remaining after this one
+- `config`: Optional consumption configuration
+
+**Returns:** true on valid hit, false otherwise
+
+### `inline bool applyHitFromCollision(pixelroot32::core::Actor* tileActor, uintptr_t packedUserData, pixelroot32::core::Scene& scene, void* tilemap, uint8_t& remainingHits, const TileConsumptionConfig& config = TileConsumptionConfig())`
+
+**Description:**
+
+Apply one hit to a tile from a collision context (convenience wrapper).
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor
+- `packedUserData`: Packed userData from tileActor
+- `scene`: Reference to the scene
+- `tilemap`: Pointer to the tilemap (TileMapGeneric*)
+- `remainingHits`: Out-param: hits remaining after this one
+- `config`: Optional consumption configuration
+
+**Returns:** true on valid hit, false otherwise
 
 ### `inline int consumeTilesBatch(pixelroot32::core::Scene& scene, void* tilemap, const uint16_t tiles[][2], int count, const TileConsumptionConfig& config = TileConsumptionConfig())`
 

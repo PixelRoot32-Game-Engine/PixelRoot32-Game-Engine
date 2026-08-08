@@ -39,12 +39,28 @@ Auto-generated API documentation from C++ header files.
 - [TFT_eSPI_Drawer](./drivers/TFT_eSPI_Drawer.md) — Concrete implementation of DrawSurface for ESP32 using the TFT_eSPI library.
 - [U8G2_Drawer](./drivers/U8G2_Drawer.md) — Implementation of DrawSurface using the U8G2 library for monochromatic OLED displays.
 
+## Gameplay
+
+- [GameplayEvent](./gameplay/GameplayEvent.md) — Fixed-size POD carried by the GameplayEventBus.
+- [GameplayEventBus](./gameplay/GameplayEventBus.md) — Fixed-capacity FIFO ring buffer for GameplayEvent, single-instance and Engine-owned.
+- [GameplayEventType](./gameplay/GameplayEventType.md) — Tag identifying the meaning of a GameplayEvent.
+- [GridSpec](./gameplay/GridSpec.md) — Plain six-`int` aggregate describing a grid's origin, per-axis cell
+       size, and extent (columns/rows). No member functions, no
+       per-instance runtime state beyond these fields — a `constexpr
+       GridSpec` costs zero SRAM.
+- [InteractionComponent](./gameplay/InteractionComponent.md) — Opt-in interaction hooks for a game actor — composition, not inheritance.
+- [InteractionTracker](./gameplay/InteractionTracker.md) — Detects enter/exit edges on the per-frame physics contact set and
+       dispatches InteractionComponent callbacks (design.md D3).
+- [ObjectPool](./gameplay/ObjectPool.md) — Fixed-capacity, zero-heap slot pool over aligned raw storage.
+- [StateMachine](./gameplay/StateMachine.md) — Non-template finite state machine over a caller-owned, `const` state table.
+
 ## Graphics
 
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
 - [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
+- [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
 - [DrawSurface](./graphics/DrawSurface.md) — Abstract interface for platform-specific drawing operations.
@@ -78,6 +94,7 @@ Auto-generated API documentation from C++ header files.
 - [TransitionDirection](./graphics/TransitionDirection.md) — Direction of the transition effect.
 - [TransitionEffect](./graphics/TransitionEffect.md) — Manages a single scene transition with zero runtime allocation.
 - [TransitionType](./graphics/TransitionType.md) — Types of scene transitions.
+- [TweenEasing](./graphics/TweenEasing.md) — Easing curves for camera tween interpolation.
 - [UIAnchorLayout](./graphics/UIAnchorLayout.md) — Layout that positions elements at fixed anchor points on the screen.
 - [UIButton](./graphics/UIButton.md) — A clickable button UI element.
 - [UICheckBox](./graphics/UICheckBox.md) — A clickable checkbox UI element.

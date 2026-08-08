@@ -65,3 +65,43 @@ Gets potential colliders for a given actor from the grid.
 - `outArray`: Output array to store potential colliders.
 - `count`: Reference to store the number of colliders found.
 - `maxCount`: Maximum number of colliders to return.
+
+### `int queryRadius(pixelroot32::math::Vector2 center, pixelroot32::math::Scalar radius, pixelroot32::core::Actor** outArray, int maxCount)`
+
+**Description:**
+
+Raw, unfiltered radius query against the grid (static + dynamic cells).
+
+**Parameters:**
+
+- `center`: Query circle center.
+- `radius`: Query circle radius. No range validation happens at
+       this layer; CollisionSystem::queryRadius() enforces
+       SPATIAL_QUERY_MAX_RADIUS before calling this primitive.
+- `outArray`: Output array to store matching actors.
+- `maxCount`: Maximum number of actors to write to outArray.
+
+**Returns:** Number of actors written to outArray.
+
+::: warning
+Cross-scene visibility limitation (accepted, not fixed by
+this capability): `staticCells`/`dynamicCells` are `static` member
+storage shared across ALL `SpatialGrid` instances (see class doc and
+design.md Risks). A query issued against one scene's grid MAY return
+static geometry registered by another simultaneously-alive scene's
+grid. Pre-existing, documented, unguarded.
+:::
+
+### `int queryBox(const pixelroot32::core::Rect& box, pixelroot32::core::Actor** outArray, int maxCount)`
+
+**Description:**
+
+Raw, unfiltered box query against the grid (static + dynamic cells).
+
+**Parameters:**
+
+- `box`: Query rectangle.
+- `outArray`: Output array to store matching actors.
+- `maxCount`: Maximum number of actors to write to outArray.
+
+**Returns:** Number of actors written to outArray.
