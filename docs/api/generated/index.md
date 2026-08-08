@@ -52,6 +52,9 @@ Auto-generated API documentation from C++ header files.
 - [InteractionTracker](./gameplay/InteractionTracker.md) — Detects enter/exit edges on the per-frame physics contact set and
        dispatches InteractionComponent callbacks (design.md D3).
 - [ObjectPool](./gameplay/ObjectPool.md) — Fixed-capacity, zero-heap slot pool over aligned raw storage.
+- [RoomData](./gameplay/RoomData.md) — One exported room: its tile-space rect plus four connection slots.
+- [RoomLayer](./gameplay/RoomLayer.md) — Runtime view over an exported room array — the room-graph analogue
+       of `physics::TileBehaviorLayer`.
 - [StateMachine](./gameplay/StateMachine.md) — Non-template finite state machine over a caller-owned, `const` state table.
 
 ## Graphics

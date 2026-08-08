@@ -4,6 +4,18 @@
 
 Minimal 2-room layout: two adjacent rooms (240×240 each), connected left-to-right. Arrow keys trigger `enterRoom`, which clamps the camera to the target room and fires an `onEnter` callback.
 
+## Where the rooms come from
+
+The graph is not hand-written in C++. `src/assets/RoomScreenRooms.h` holds the room layer in the format the Tilemap Editor exports — tile-space rects plus connection slots — and `Scene::init()` turns it into a `RoomGraph<2>` with one call:
+
+```cpp
+gameplay::buildRoomGraph(ROOM_SCREEN_ROOM_LAYER, rooms_);
+```
+
+That keeps rects and connections in one place instead of spread across `addRoom`/`connect` calls that can drift out of sync with the map. See [Tilemap Editor — Room Layer](../../docs/tools/tilemap-editor/technical-reference.md#room-layer) for the format.
+
+> The asset header is hand-written for now: it stands in for the editor's output until the room metadata emitter ships. The format is the contract.
+
 ## Requirements (build flags)
 
 | Flag | Required | Notes |

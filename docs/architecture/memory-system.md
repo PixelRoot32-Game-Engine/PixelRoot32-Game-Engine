@@ -123,6 +123,18 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 
 Design: #3081 (`sdd/room-screen-abstraction/design`).
 
+**`RoomLayer` byte budget (room authoring):** `gameplay/RoomLayout.h` adds the data contract the Tilemap Editor exports rooms into — `RoomData` (one room's tile rect + 4 connection slots) and `RoomLayer` (the array header) — plus the header-only `buildRoomGraph<N>()` that fills a `RoomGraph<N>` from it. Both structs are trivially copyable, and the editor emits them as `static const` arrays, so a room layer lands in `.rodata`/flash and costs **0 B SRAM**. Sizes are pinned by `static_assert` in `test/unit/test_gameplay_room_layout/`, since the editor writes this layout byte-for-byte:
+
+| Item | ESP32-C3 (32-bit) | native/PC (64-bit) | Notes |
+|------|-------------------|---------------------|-------|
+| `sizeof(RoomData)` | 16 B | 16 B | Four `uint16_t` rect fields + `connections[4]`; 2-byte aligned, no padding between entries |
+| `RoomLayer` header | 8 B in flash | 16 B in flash | One `const RoomData*` + `roomCount` (2 B) + two `uint8_t` tile dimensions |
+| A 2-room layer (`examples/room_screen`) | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
+| `buildRoomGraph<N>()` | 0 B SRAM | 0 B SRAM | Runs once in `Scene::init()`; no state of its own, writes straight into the caller's `RoomGraph<N>` |
+| Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block, gated by the same `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` |
+
+Format reference: [Tilemap Editor — Room Layer](../tools/tilemap-editor/technical-reference.md#room-layer).
+
 **`CameraTween<N>` byte budget:** a Scene-owned fixed-capacity pool of N tween slots, each holding a `from` Vector2, a `to` Vector2, two `uint16_t` counters, an `easing` `uint8_t`, and an `active` bool. Composes with `Camera2D` (no change to Camera2D itself) for room transitions, cinematic pans, and cutscene movement. All easing math in Q16.16 integer arithmetic — no `float`, no `std::function`:
 
 | Component | ESP32-C3 (32-bit) | native (64-bit) | Notes |
