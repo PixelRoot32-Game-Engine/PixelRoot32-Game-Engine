@@ -47,10 +47,11 @@ BomberbotScene::BomberbotScene()
 void BomberbotScene::init() {
     // Sprite palette must be registered BEFORE setPalette and BEFORE the
     // first draw. Phase 1 of the asset migration; see audit §6 + §8.3.
-    // The palette invariants (16 entries, index 0 transparent) are asserted
-    // at runtime by test_bomberbot_phase1_wiring / test_bomberbot_phase0_assets.
-    // A compile-time static_assert was attempted but the palette array is
-    // static const (not constexpr), so it cannot be evaluated at compile time.
+    // The palette must hold exactly 16 entries; index 0 is the transparency
+    // slot and is deliberately floor green rather than 0x0000, so the board
+    // and the sprites' green backing read as one continuous floor. See
+    // assets/BomberbotPalette.h. Not machine-checked: the array is
+    // static const (not constexpr), so a static_assert cannot evaluate it.
     gfx::setDualCustomPalette(BOMBERBOT_SPRITE_PALETTE_RGB565, BOMBERBOT_SPRITE_PALETTE_RGB565);
     startLevel();
 }
