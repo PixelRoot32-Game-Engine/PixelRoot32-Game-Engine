@@ -115,7 +115,8 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 |------|-------------------|---------------------|-------|
 | `RoomGraphBase*` ptr on `Scene` | 4 B per Scene | 8 B per Scene | Type-erased pointer; nullptr when flag=0 or no graph is registered |
 | `RoomGraphBase` vtable | 12–16 B in flash | 12–16 B in flash | One shared vtable per program (not per instance) |
-| `RoomGraph<32>` (max rooms) | ~1292 B (32 × 40 B/room + 12 B bookkeeping) | ~1560 B (32 × 48 B/room + 16 B bookkeeping) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
+| `RoomGraph<N>` vptr (from `RoomGraphBase`) | 4 B per instance | 8 B per instance | Per-instance vtable pointer; one per `RoomGraph<N>` regardless of N |
+| `RoomGraph<32>` (max rooms) | ~1296 B (32 × 40 B/room + 12 B bookkeeping + 4 B vptr) | ~1564 B (32 × 48 B/room + 16 B bookkeeping + 8 B vptr) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
 | `RoomGraph<2>` (typical example) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | The `examples/room_screen/` example ships with N=2 |
 | Per-`Room` size (`sizeof(Room)`) | 40 B | 48 B | Four `Scalar` fields (camera rect, 4×4 B), tile window (8 B + 1 B flag + 1 B pad), `connections_[4]` (16 B), `connectionCount_` (1 B + 3 B pad) |
 | Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block; no code, no data |

@@ -137,12 +137,36 @@ void test_enter_room_updates_camera_bounds(void) {
     graph.addRoom(toScalar(50), toScalar(100), toScalar(200), toScalar(300));
 
     Camera2D camera(240, 240);
-    // enterRoom with a valid camera must NOT crash and must update
-    // currentRoomIndex.  The internal camera bounds update (setBounds /
-    // setVerticalBounds) is verified by the example migration (CU4);
-    // this unit test verifies the no-crash contract and room-index update.
+    // enterRoom must update the camera bounds to match the room's rect.
+    // Camera2D exposes the bounds only indirectly (via setPosition
+    // clamping), so we verify by setting a position outside the room and
+    // asserting the clamp matches the room's min/max values.
     graph.enterRoom(0, &camera);
     TEST_ASSERT_EQUAL_UINT16(0, graph.currentRoomIndex());
+
+    // Position far right/bottom of room 0 — must clamp to maxX/maxY.
+    camera.setPosition(Vector2(toScalar(1000), toScalar(1000)));
+    TEST_ASSERT_EQUAL_INT(200, static_cast<int>(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(300, static_cast<int>(camera.getY()));
+
+    // Position far left/top of room 0 — must clamp to minX/minY.
+    camera.setPosition(Vector2(toScalar(0), toScalar(0)));
+    TEST_ASSERT_EQUAL_INT(50, static_cast<int>(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(100, static_cast<int>(camera.getY()));
+
+    // Add a second room with different bounds and verify the bounds ARE
+    // updated per-room (not stuck at room 0's rect).
+    graph.addRoom(toScalar(400), toScalar(500), toScalar(600), toScalar(700));
+    graph.enterRoom(1, &camera);
+    TEST_ASSERT_EQUAL_UINT16(1, graph.currentRoomIndex());
+
+    camera.setPosition(Vector2(toScalar(0), toScalar(0)));
+    TEST_ASSERT_EQUAL_INT(400, static_cast<int>(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(500, static_cast<int>(camera.getY()));
+
+    camera.setPosition(Vector2(toScalar(1000), toScalar(1000)));
+    TEST_ASSERT_EQUAL_INT(600, static_cast<int>(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(700, static_cast<int>(camera.getY()));
 }
 
 void test_enter_room_invalid_is_noop(void) {
