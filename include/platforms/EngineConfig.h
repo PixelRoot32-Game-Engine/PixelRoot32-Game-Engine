@@ -546,6 +546,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableGameplayGridSpace = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+
+    /** @brief Type-safe access to EnableGameplayRoom configuration. */
+    inline constexpr bool EnableGameplayRoom = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayRoom configuration. */
+    inline constexpr bool EnableGameplayRoom = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }
