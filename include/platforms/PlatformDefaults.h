@@ -106,6 +106,10 @@
 #define PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE 0
 #endif
 
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_ROOM)
+#define PIXELROOT32_ENABLE_GAMEPLAY_ROOM 0
+#endif
+
 // No dependency guard is declared for the three flags above: unlike
 // interaction triggers and spatial queries, none of the state machine, the
 // object pool, or the grid space helper includes any physics-gated header,
