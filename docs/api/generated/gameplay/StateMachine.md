@@ -16,6 +16,8 @@ pointer, so the table must outlive the machine. The convention is a
 `static const` array at namespace or class-static scope, which lands in
 flash/`.rodata` and costs zero SRAM:
 
+
+```cpp
 static const StateMachine::State kPlayerStates[] = {
     { onEnterIdle, onUpdateIdle, nullptr, static_cast<StateId>(PlayerState::IDLE) },
     { onEnterRun,  onUpdateRun,  nullptr, static_cast<StateId>(PlayerState::RUN)  },
@@ -23,6 +25,9 @@ static const StateMachine::State kPlayerStates[] = {
 
 fsm.configure(this, kPlayerStates, kPlayerStateCount);
 fsm.start(static_cast<StateId>(PlayerState::IDLE));
+```
+
+
 Transitions are immediate and synchronous: `requestState()` fully drains
 any chained transition requested from `onEnter`/`onExit` before it
 returns, without recursing (design.md D3). `getTimeInState()` is a

@@ -6,15 +6,15 @@
 
 ## Description
 
-Abstract base class for RoomGraph<N> used by Scene via type erasure.
+Abstract base class for RoomGraph&lt;N> used by Scene via type erasure.
 
 Exposes only the polymorphic API Scene actually needs (enterRoom,
 currentRoomIndex, isValidIdx) so Scene does not need to know the template
-parameter N. RoomGraph<N> publicly inherits from this base and satisfies
+parameter N. RoomGraph&lt;N> publicly inherits from this base and satisfies
 the contract with inline implementations.
 
 Pure-virtual: subclasses MUST implement every method. Bodies live inline
-in the RoomGraph<N> template — no separate .cpp file.
+in the RoomGraph&lt;N> template — no separate .cpp file.
 
 ## Methods
 

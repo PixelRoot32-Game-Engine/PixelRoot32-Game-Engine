@@ -2,6 +2,27 @@
 
 Auto-generated API documentation from C++ header files.
 
+The `apu` module documents PixelRoot32-APU `2.0.0`.
+
+## Apu
+
+- [ApuCore](./apu/ApuCore.md) — Shared NES-style APU core used by every AudioScheduler.
+- [AudioChannel](./apu/AudioChannel.md) — Represents the internal state of a single audio channel.
+- [AudioCommand](./apu/AudioCommand.md) — Internal command to communicate between game and audio threads.
+- [AudioCommandQueue](./apu/AudioCommandQueue.md) — Single-Producer Single-Consumer (SPSC) lock-free ring buffer for AudioCommands.
+- [AudioEvent](./apu/AudioEvent.md) — A fire-and-forget sound event triggered by the game.
+- [EnvelopeState](./apu/EnvelopeState.md) — Holds ADSR envelope state for a single voice.
+- [InstrumentPreset](./apu/InstrumentPreset.md) — Defines instrument characteristics for playback.
+- [LfoState](./apu/LfoState.md) — Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
+- [MusicNote](./apu/MusicNote.md) — Represents a single note in a melody.
+- [NesEnvelope](./apu/NesEnvelope.md) — NES APU envelope unit state for PULSE 1, PULSE 2, and NOISE.
+- [NesFrameCounter](./apu/NesFrameCounter.md) — NES APU frame counter (sequencer) state.
+- [NesLengthCounter](./apu/NesLengthCounter.md) — NES APU length counter state for a single voice.
+- [NesLinearCounter](./apu/NesLinearCounter.md) — NES APU linear counter state for the TRIANGLE channel.
+- [NesSweepUnit](./apu/NesSweepUnit.md) — NES APU sweep unit state for the PULSE channels.
+- [SfxBreakpoint](./apu/SfxBreakpoint.md) — Timed automation point for SFX duty steps or pitch envelope.
+- [VoiceNesOptions](./apu/VoiceNesOptions.md) — Every per-voice NES opt-in in one place (Hito 4 M14).
+
 ## Audio
 
 - [AudioBackend](./audio/AudioBackend.md) — Abstract interface for platform-specific audio drivers.
@@ -61,7 +82,7 @@ Auto-generated API documentation from C++ header files.
 - [RoomData](./gameplay/RoomData.md) — One exported room: its tile-space rect plus four connection slots.
 - [RoomDir](./gameplay/RoomDir.md) — Cardinal direction enum for room connections.
 - [RoomGraph](./gameplay/RoomGraph.md) — Fixed-capacity graph of rooms with camera rects and connections.
-- [RoomGraphBase](./gameplay/RoomGraphBase.md) — Abstract base class for RoomGraph<N> used by Scene via type erasure.
+- [RoomGraphBase](./gameplay/RoomGraphBase.md) — Abstract base class for RoomGraph&lt;N> used by Scene via type erasure.
 - [RoomLayer](./gameplay/RoomLayer.md) — Runtime view over an exported room array — the room-graph analogue
        of `physics::TileBehaviorLayer`.
 - [StateMachine](./gameplay/StateMachine.md) — Non-template finite state machine over a caller-owned, `const` state table.

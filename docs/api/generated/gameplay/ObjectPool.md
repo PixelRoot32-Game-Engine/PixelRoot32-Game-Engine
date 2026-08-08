@@ -18,10 +18,15 @@ portable fallback), and `nextLive()` supports the ascending-index
 iteration pattern both hand-rolled precedents in this codebase already
 use:
 
+
+```cpp
 for (uint16_t i = pool.nextLive(0); i != Pool::kEnd; i = pool.nextLive(i + 1)) {
     T& obj = *pool.at(i);
     // ...
 }
+```
+
+
 Never allocates: no `new`, no `malloc`, no `std::vector`. With
 `-fno-exceptions`, a constructor cannot fail, so there is no
 partially-constructed-slot case to unwind.

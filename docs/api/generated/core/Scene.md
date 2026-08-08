@@ -97,7 +97,7 @@ Register a RoomGraph with this scene, called once during init().
 
 **Parameters:**
 
-- `g`: Pointer to a RoomGraphBase (typically a RoomGraph<N>
+- `g`: Pointer to a RoomGraphBase (typically a RoomGraph&lt;N>
          owned by the subclass). Must outlive this scene.
 
 ### `virtual void update(unsigned long deltaTime)`

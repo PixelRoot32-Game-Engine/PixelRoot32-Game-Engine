@@ -12,7 +12,12 @@ D3's core decision: no new virtual methods and no new members on `Actor`
 itself. A game actor that wants enter/exit/interact semantics holds one of
 these as a member and registers it with an `InteractionTracker`:
 
+
+```cpp
 tracker.registerActor(this, &interaction);   // after Scene::addEntity assigned entityId
+```
+
+
 Every actor that does NOT opt in pays exactly zero bytes for this
 capability — `Actor` (include/core/Actor.h) is untouched by this file.
 
