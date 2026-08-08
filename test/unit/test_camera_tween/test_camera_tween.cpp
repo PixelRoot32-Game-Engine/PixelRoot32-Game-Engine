@@ -11,7 +11,8 @@
  * - cancel() works, isComplete() works, zero-cost when flag off
  *
  * Functional tests compile only when PIXELROOT32_ENABLE_CAMERA_TWEEN is on.
- * The zero-cost property is asserted in BOTH flag states.
+ * With the flag off, this file asserts the stub path instead: the header
+ * compiles, reserves no slots, and runs no easing math.
  */
 
 #include <unity.h>
@@ -24,6 +25,7 @@
 #include "graphics/Camera2D.h"
 #include "math/Scalar.h"
 #include "math/Vector2.h"
+#include "math/MathUtil.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -34,7 +36,24 @@ using pixelroot32::graphics::TweenEasing;
 using pixelroot32::math::Vector2;
 using pixelroot32::math::Scalar;
 using pixelroot32::math::toScalar;
-using pixelroot32::math::toInt;
+
+/// Scalar -> int for assertions: works on both the float and Fixed16 targets.
+using pixelroot32::math::roundToInt;
+
+/**
+ * @brief Build a camera wide enough for a tween to actually move it.
+ *
+ * Camera2D::setPosition() clamps to the camera's bounds, and a freshly
+ * constructed camera starts with minX == maxX == minY == maxY == 0 — every
+ * write would collapse to the origin. Declaring bounds before writing a
+ * position is the same convention test_camera2d.cpp follows.
+ */
+static Camera2D makeBoundedCamera(void) {
+    Camera2D camera(240, 240);
+    camera.setBounds(toScalar(-4000), toScalar(4000));
+    camera.setVerticalBounds(toScalar(-4000), toScalar(4000));
+    return camera;
+}
 
 // =============================================================================
 // Static property checks (compile-time verification)
@@ -102,7 +121,7 @@ void test_start_tween_zero_duration_returns_invalid(void) {
 
 void test_tween_completes_after_duration(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     const uint8_t id = tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(100), toScalar(200)),
@@ -117,21 +136,21 @@ void test_tween_completes_after_duration(void) {
     tweens.update(300, &camera);  // 250 + 300 = 550 > 500
     TEST_ASSERT_EQUAL_UINT8(0, tweens.activeCount());
     TEST_ASSERT_TRUE(tweens.isComplete(id));
-    TEST_ASSERT_EQUAL_INT(100, toInt(camera.getX()));
-    TEST_ASSERT_EQUAL_INT(200, toInt(camera.getY()));
+    TEST_ASSERT_EQUAL_INT(100, roundToInt(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(200, roundToInt(camera.getY()));
 }
 
 void test_tween_midpoint_linear(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(1000), toScalar(1000)),
         1000, TweenEasing::Linear);
     // Exactly halfway: progress=0.5, eased=0.5, position=500.
     tweens.update(500, &camera);
-    TEST_ASSERT_EQUAL_INT(500, toInt(camera.getX()));
-    TEST_ASSERT_EQUAL_INT(500, toInt(camera.getY()));
+    TEST_ASSERT_EQUAL_INT(500, roundToInt(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(500, roundToInt(camera.getY()));
     TEST_ASSERT_EQUAL_UINT8(1, tweens.activeCount());  // not yet complete
 }
 
@@ -141,38 +160,38 @@ void test_tween_midpoint_linear(void) {
 
 void test_tween_midpoint_ease_in_quad(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(1000), toScalar(0)),
         1000, TweenEasing::EaseInQuad);
     // At t=0.5, EaseInQuad returns 0.25 (slow start). x should be ~250.
     tweens.update(500, &camera);
-    TEST_ASSERT_INT_WITHIN(2, 250, toInt(camera.getX()));
+    TEST_ASSERT_INT_WITHIN(2, 250, roundToInt(camera.getX()));
 }
 
 void test_tween_midpoint_ease_out_quad(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(1000), toScalar(0)),
         1000, TweenEasing::EaseOutQuad);
     // At t=0.5, EaseOutQuad returns 0.75 (fast start). x should be ~750.
     tweens.update(500, &camera);
-    TEST_ASSERT_INT_WITHIN(2, 750, toInt(camera.getX()));
+    TEST_ASSERT_INT_WITHIN(2, 750, roundToInt(camera.getX()));
 }
 
 void test_tween_midpoint_ease_in_out_quad(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(1000), toScalar(0)),
         1000, TweenEasing::EaseInOutQuad);
     // At t=0.5, EaseInOutQuad returns exactly 0.5 (linear at the inflection).
     tweens.update(500, &camera);
-    TEST_ASSERT_INT_WITHIN(2, 500, toInt(camera.getX()));
+    TEST_ASSERT_INT_WITHIN(2, 500, roundToInt(camera.getX()));
 }
 
 // =============================================================================
@@ -181,7 +200,7 @@ void test_tween_midpoint_ease_in_out_quad(void) {
 
 void test_multiple_simultaneous_tweens(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     // Slot 0: short, 100ms
     tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
@@ -198,12 +217,12 @@ void test_multiple_simultaneous_tweens(void) {
     tweens.update(100, &camera);
     TEST_ASSERT_EQUAL_UINT8(1, tweens.activeCount());
     // Slot 1 won the last write (10% of 1000 = 100).
-    TEST_ASSERT_INT_WITHIN(2, 100, toInt(camera.getX()));
+    TEST_ASSERT_INT_WITHIN(2, 100, roundToInt(camera.getX()));
 
     // Advance 900ms more — slot 1 completes at `to=1000`.
     tweens.update(900, &camera);
     TEST_ASSERT_EQUAL_UINT8(0, tweens.activeCount());
-    TEST_ASSERT_EQUAL_INT(1000, toInt(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(1000, roundToInt(camera.getX()));
 }
 
 // =============================================================================
@@ -212,7 +231,7 @@ void test_multiple_simultaneous_tweens(void) {
 
 void test_cancel_active_tween(void) {
     CameraTween<4> tweens;
-    Camera2D camera(240, 240);
+    Camera2D camera = makeBoundedCamera();
     const uint8_t id = tweens.startTween(
         Vector2(toScalar(0), toScalar(0)),
         Vector2(toScalar(100), toScalar(0)),
@@ -225,7 +244,7 @@ void test_cancel_active_tween(void) {
 
     // Further update does nothing (slot is inactive).
     tweens.update(500, &camera);
-    TEST_ASSERT_EQUAL_INT(50, toInt(camera.getX()));
+    TEST_ASSERT_EQUAL_INT(50, roundToInt(camera.getX()));
 }
 
 void test_is_complete_for_invalid_slot(void) {
@@ -281,8 +300,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_multiple_simultaneous_tweens);
     RUN_TEST(test_cancel_active_tween);
     RUN_TEST(test_is_complete_for_invalid_slot);
-#endif
+#else
     RUN_TEST(test_camera_tween_zero_cost_when_disabled);
+#endif
 
     return UNITY_END();
 }

@@ -33,6 +33,13 @@
 #include "math/Vector2.h"
 #include "math/Scalar.h"
 #include <cstdint>
+#include <type_traits>
+
+#if PIXELROOT32_ENABLE_CAMERA_TWEEN
+// Must be included at global scope: an #include inside a namespace block would
+// nest Camera2D.h's own `namespace pixelroot32::graphics` inside this one.
+#include "graphics/Camera2D.h"
+#endif
 
 namespace pixelroot32::graphics {
 
@@ -56,13 +63,19 @@ enum class TweenEasing : uint8_t {
 
 #if PIXELROOT32_ENABLE_CAMERA_TWEEN
 
-#include "graphics/Camera2D.h"
-
 namespace detail {
 
-/** @brief Convert a Q16.16 raw progress value (0..65536) to Scalar (0.0..1.0). */
-inline pixelroot32::math::Scalar scalarFromQ16(uint32_t rawProgress) {
-    if constexpr (std::is_same_v<pixelroot32::math::Scalar, float>) {
+/**
+ * @brief Convert a Q16.16 raw progress value (0..65536) to Scalar (0.0..1.0).
+ *
+ * @tparam S The scalar type, defaulted to math::Scalar. This MUST stay a
+ *           template: in a non-template function the discarded branch of
+ *           `if constexpr` is still type-checked, so the Fixed16 branch would
+ *           fail to compile on float targets and vice versa.
+ */
+template <typename S = pixelroot32::math::Scalar>
+inline S scalarFromQ16(uint32_t rawProgress) {
+    if constexpr (std::is_same_v<S, float>) {
         return static_cast<float>(rawProgress) / 65536.0f;
     } else {
         return pixelroot32::math::Fixed16::fromRaw(static_cast<int32_t>(rawProgress));
@@ -101,10 +114,16 @@ public:
      */
     static constexpr uint8_t kInvalidSlotId = 0xFF;
 
-    /** @brief Default constructor — all slots inactive. */
+    /**
+     * @brief Default constructor — all slots inactive and never-started.
+     *
+     * `durationMs` must start at 0, not just `active` at false: isComplete()
+     * distinguishes "finished" from "never started" by durationMs > 0, so a
+     * slot left uninitialised would report a fresh pool as already complete.
+     */
     CameraTween() : activeCount_(0) {
         for (uint8_t i = 0; i < slotCount(); ++i) {
-            slots_[i].active = false;
+            slots_[i] = Slot{};
         }
     }
 
@@ -246,10 +265,10 @@ private:
     struct Slot {
         pixelroot32::math::Vector2 from;          ///< Start position.
         pixelroot32::math::Vector2 to;            ///< End position.
-        uint16_t elapsedMs;                       ///< Milliseconds elapsed.
-        uint16_t durationMs;                      ///< Total duration in ms.
-        uint8_t  easing;                          ///< TweenEasing stored as uint8_t.
-        bool     active;                          ///< Whether this slot is running.
+        uint16_t elapsedMs  = 0;                  ///< Milliseconds elapsed.
+        uint16_t durationMs = 0;                  ///< Total duration in ms.
+        uint8_t  easing     = 0;                  ///< TweenEasing stored as uint8_t.
+        bool     active     = false;              ///< Whether this slot is running.
     };
 
     static constexpr uint32_t ONE_Q16  = 65536;   ///< 1.0 in Q16.16.
