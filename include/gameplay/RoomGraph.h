@@ -67,6 +67,39 @@ struct Room {
 };
 
 /**
+ * @brief Abstract base class for RoomGraph<N> used by Scene via type erasure.
+ *
+ * Exposes only the polymorphic API Scene actually needs (enterRoom,
+ * currentRoomIndex, isValidIdx) so Scene does not need to know the template
+ * parameter N. RoomGraph<N> publicly inherits from this base and satisfies
+ * the contract with inline implementations.
+ *
+ * Pure-virtual: subclasses MUST implement every method. Bodies live inline
+ * in the RoomGraph<N> template — no separate .cpp file.
+ */
+class RoomGraphBase {
+public:
+    virtual ~RoomGraphBase() = default;
+
+    /**
+     * @brief Enter a room by index.
+     * @param idx    Room index (no-op when out of range)
+     * @param camera Camera2D pointer (may be nullptr)
+     */
+    virtual void enterRoom(uint16_t idx, graphics::Camera2D* camera) = 0;
+
+    /**
+     * @brief Get the current room index (0xFFFF if none entered yet).
+     */
+    virtual uint16_t currentRoomIndex() const = 0;
+
+    /**
+     * @brief Check if a room index is valid (idx < roomCount).
+     */
+    virtual bool isValidIdx(uint16_t idx) const = 0;
+};
+
+/**
  * @brief Fixed-capacity graph of rooms with camera rects and connections.
  *
  * @tparam N Max number of rooms (compile-time constant, must be >= 1).
@@ -80,7 +113,7 @@ struct Room {
  * only provides data and camera management.
  */
 template <uint16_t N>
-class RoomGraph {
+class RoomGraph : public RoomGraphBase {
 public:
     static_assert(N >= 1, "RoomGraph must have at least one room");
 
@@ -162,7 +195,7 @@ public:
      *
      * No-op when idx is out of range.
      */
-    void enterRoom(uint16_t idx, graphics::Camera2D* camera) {
+    void enterRoom(uint16_t idx, graphics::Camera2D* camera) override {
         if (idx >= roomCount_) return;
         const uint16_t fromIdx = currentRoomIndex_;
         currentRoomIndex_ = idx;
@@ -195,7 +228,7 @@ public:
      * @brief Get the current room index.
      * @return 0xFFFF if enterRoom() has never been called.
      */
-    uint16_t currentRoomIndex() const {
+    uint16_t currentRoomIndex() const override {
         return currentRoomIndex_;
     }
 
@@ -219,7 +252,7 @@ public:
     /**
      * @brief Check if a room index is valid (idx < roomCount()).
      */
-    bool isValidIdx(uint16_t idx) const {
+    bool isValidIdx(uint16_t idx) const override {
         return idx < roomCount_;
     }
 
