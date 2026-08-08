@@ -123,6 +123,17 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 
 Design: #3081 (`sdd/room-screen-abstraction/design`).
 
+**`CameraTween<N>` byte budget:** a Scene-owned fixed-capacity pool of N tween slots, each holding a `from` Vector2, a `to` Vector2, two `uint16_t` counters, an `easing` `uint8_t`, and an `active` bool. Composes with `Camera2D` (no change to Camera2D itself) for room transitions, cinematic pans, and cutscene movement. All easing math in Q16.16 integer arithmetic — no `float`, no `std::function`:
+
+| Component | ESP32-C3 (32-bit) | native (64-bit) | Notes |
+|------|-------------------|-----------------|-------|
+| `CameraTween<4>` (default N) | ~101 B (4 slots × 24 B + 1 B `activeCount_` + 4 B pad) | ~161 B (4 slots × 40 B + 1 B + padding) | Per Scene that owns one; `Vector2` is 8 B on 32-bit, 16 B on 64-bit |
+| Per-slot (`sizeof(Slot)`) | 24 B | 40 B | Two `Vector2` (16 B + 32 B), two `uint16_t` (4 B), one `uint8_t` (1 B), one `bool` (1 B + 1 B pad on 32-bit, 7 B pad on 64-bit) |
+| `activeCount_` | 1 B | 1 B | Number of currently-running tweens |
+| Flag = 0 | **1 B** (stub) | **1 B** (stub) | When disabled, `CameraTween<N>` is a stub template with no slots, no easing math, and all methods are no-ops. Storage is 1 byte for the stub object. |
+
+A Scene that wants smooth camera transitions declares a `CameraTween<N> tweens_` member and calls `tweens_.startTween(...)` + `tweens_.update(deltaMs, &camera)` from its `update()`. The tween writes positions via the existing `Camera2D::setPosition()` — no new methods on Camera2D. Genre-agnostic; useful for any game with smooth camera movement (top-down, metroidvania, platformer, puzzle, RPG). Design: #3105 (`sdd/camera-tween/design`).
+
 **`ObjectPool<T, N>` byte budget:** `N * sizeof(T)` for the aligned slot storage, plus target-independent bookkeeping (a `uint32_t liveWords_[(N+31)/32]` bitmask plus two `uint16_t` counters, `liveCount_` and `scanHint_`) — identical on ESP32-C3 and native because every bookkeeping field is a fixed-width type:
 
 | `N` (pool capacity) | `liveWords_` | counters (`liveCount_` + `scanHint_`) | **bookkeeping total** | per-slot equivalent |
