@@ -82,6 +82,29 @@ bool TileConsumptionHelper::consumeTileFromUserData(pixelroot32::core::Actor* ti
     return consumeTile(tileActor, tileX, tileY);
 }
 
+bool TileConsumptionHelper::applyHit(pixelroot32::core::Actor* tileActor, uint16_t tileX, uint16_t tileY,
+                                     uint8_t& remainingHits) {
+    (void)tileActor; // accepted for symmetry with consumeTile; not mutated by applyHit itself
+
+    // Validate coordinates if enabled
+    if (config.validateCoordinates && !validateCoordinates(tileX, tileY)) {
+        return false;
+    }
+
+    // Already consumed tiles cannot receive further hits
+    if (isTileConsumed(tileX, tileY)) {
+        return false;
+    }
+
+    // Defensive: do not underflow an already-zero counter.
+    // The game initializes remainingHits to config.requiredHits before the first call.
+    // Each call decrements the caller-owned counter by 1.
+    if (remainingHits > 0) {
+        remainingHits--;
+    }
+    return true;
+}
+
 bool TileConsumptionHelper::isTileConsumed(uint16_t tileX, uint16_t tileY) const {
     if (config.validateCoordinates && !validateCoordinates(tileX, tileY)) {
         return true; // Out of bounds considered consumed
