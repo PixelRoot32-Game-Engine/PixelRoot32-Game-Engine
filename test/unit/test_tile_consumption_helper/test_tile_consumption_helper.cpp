@@ -157,24 +157,79 @@ void test_consume_tile_from_userdata_zero(void) {
     TEST_ASSERT_FALSE(result);
 }
 
-void test_consume_tile_from_userdata_non_collectible(void) {
+// =============================================================================
+// consumeTileFromUserData — generalized flag acceptance tests (CU1)
+// =============================================================================
+
+void test_consume_tile_from_userdata_solid_flag(void) {
     MockScene scene;
-    TileConsumptionHelper helper(scene, nullptr, createDefaultConfig());
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
     
-    // Pack tile data with NO TILE_COLLECTIBLE flag
-    // Format: x (9 bits) | y (9 bits) | flags (upper bits)
-    uint16_t x = 5;
-    uint16_t y = 10;
-    uint16_t flags = 0;  // No collectible flag
-    
-    uintptr_t packed = (static_cast<uintptr_t>(flags) << 18) | 
-                       (static_cast<uintptr_t>(y) << 9) | 
-                       static_cast<uintptr_t>(x);
-    
+    uintptr_t packed = packTileData(5, 10, TILE_SOLID);
     bool result = helper.consumeTileFromUserData(nullptr, packed);
     
-    // Should fail because tile is not collectible
-    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_damage_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_DAMAGE);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_trigger_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_TRIGGER);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_oneway_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_ONEWAY);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_sensor_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_SENSOR);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_combined_flags(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    TileFlags flags = static_cast<TileFlags>(TILE_SOLID | TILE_COLLECTIBLE);
+    uintptr_t packed = packTileData(5, 10, flags);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_no_flags(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_NONE);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
 }
 
 // =============================================================================
@@ -389,7 +444,15 @@ int main(void) {
     
     // consumeTileFromUserData tests
     RUN_TEST(test_consume_tile_from_userdata_zero);
-    RUN_TEST(test_consume_tile_from_userdata_non_collectible);
+    
+    // Generalized flag acceptance (CU1)
+    RUN_TEST(test_consume_tile_from_userdata_solid_flag);
+    RUN_TEST(test_consume_tile_from_userdata_damage_flag);
+    RUN_TEST(test_consume_tile_from_userdata_trigger_flag);
+    RUN_TEST(test_consume_tile_from_userdata_oneway_flag);
+    RUN_TEST(test_consume_tile_from_userdata_sensor_flag);
+    RUN_TEST(test_consume_tile_from_userdata_combined_flags);
+    RUN_TEST(test_consume_tile_from_userdata_no_flags);
     
     // isTileConsumed tests
     RUN_TEST(test_is_tile_consumed_with_nullptr_tilemap);
