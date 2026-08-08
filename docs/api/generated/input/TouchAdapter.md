@@ -1,4 +1,4 @@
-# TouchAdapterBase
+# TouchAdapter
 
 <Badge type="info" text="Class" />
 
