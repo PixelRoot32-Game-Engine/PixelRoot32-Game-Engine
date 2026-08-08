@@ -42,6 +42,31 @@ Moves the body along a vector and stops at the first collision.
 
 **Returns:** true if a collision occurred.
 
+### `pixelroot32::math::Vector2 moveAndSlide( pixelroot32::math::Vector2 velocity, pixelroot32::math::Scalar dt, pixelroot32::math::Vector2 upDirection = {0, -1}, SnapPolicy snapPolicy = SnapPolicy::None, pixelroot32::math::Vector2 snapVector = {}, pixelroot32::core::PhysicsActor** outFloorBody = nullptr)`
+
+**Description:**
+
+Moves the body while sliding along surfaces, with optional floor snap.
+
+**Parameters:**
+
+- `velocity`: World velocity in units/sec (motion = velocity * dt).
+- `dt`: Delta time in seconds. Required — no default.
+- `upDirection`: Up vector for floor/ceiling/wall classification.
+- `snapPolicy`: Snap behavior after slide (default: None).
+- `snapVector`: Max snap distance toward -upDirection; zero disables snap.
+- `outFloorBody`: Optional pointer to receive the floor PhysicsActor if on a KINEMATIC floor.
+
+**Returns:** Resolved velocity after slide (+ snap when Step). Assign to caller velocity.
+
+::: tip
+SnapPolicy::Continuous is reserved; debug builds assert once and behave as None.
+:::
+
+::: tip
+When jumping, pass snapVector=zero explicitly — snap is not auto-disabled on upward velocity.
+:::
+
 ### `inline bool is_on_ceiling() const`
 
 **Description:**

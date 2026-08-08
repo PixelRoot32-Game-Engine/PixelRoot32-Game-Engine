@@ -195,6 +195,14 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
         return None
     if re.match(r'^\{', original_line):  # Opening brace
         return None
+    # A member-initializer-list continuation (`: state(seed), other(x)`) parses
+    # as a plausible signature and used to publish itself as a method.
+    if original_line.startswith(':'):
+        return None
+    # Same for control flow inside an inline body — `if constexpr (...)` reads
+    # as `name(params)` to the pattern below.
+    if re.match(r'^(if|for|while|switch|else|do|catch)\b', original_line):
+        return None
     if '=' in original_line and '(' not in original_line.split('=')[0]:
         # Assignment statement like "int x = 5;" but not "operator="
         return None
@@ -212,6 +220,11 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
             pass
         else:
             sig_part = stripped.split('{')[0].strip()
+
+    # Drop leading attribute specifiers. The return-type group below does not
+    # admit brackets, so a `[[nodiscard]]` prefix made the whole match fail and
+    # the method vanished from the page without a trace.
+    sig_part = re.sub(r'^\s*(?:\[\[[^\]]*\]\]\s*)+', '', sig_part)
 
     # Check for virtual
     is_virtual = 'virtual ' in sig_part
@@ -268,7 +281,11 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
         content = f.read()
     
     classes = []
-    
+    # Byte span of each tagged type's body, parallel to `classes`. None when the
+    # declaration could not be located. Used to keep documented free functions
+    # from being attributed to whichever type happens to precede them.
+    class_spans = []
+
     # Find all doc comments
     doc_pattern = r'/\*\*(.*?)\*/'
     doc_comments = list(re.finditer(doc_pattern, content, re.DOTALL))
@@ -303,7 +320,8 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
             # Look for: class Name { ... };
             class_def_pattern = rf'(class|struct|enum)\s+{re.escape(name)}\b[^{{]*\{{'
             class_def_match = re.search(class_def_pattern, content[doc_end:])
-            
+            class_span = None
+
             if class_def_match:
                 decl_start = doc_end + class_def_match.start()
                 decl_end = doc_end + class_def_match.end() - 1  # exclude '{'
@@ -327,8 +345,10 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
                 
                 # Parse class body for methods and properties
                 parse_class_body(class_body, class_doc)
-            
+                class_span = (start_idx, end_idx)
+
             classes.append(class_doc)
+            class_spans.append(class_span)
         else:
             # Check if this doc comment precedes a method
             # Look for method signature in following lines (support multi-line)
@@ -354,6 +374,25 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
                 # Check for method signature
                 method_info = extract_method_signature(accumulated_line)
                 if method_info and classes:
+                    # Only adopt this signature if the doc comment sits inside
+                    # the most recent type's body. Without the check, every
+                    # documented free function declared after a tagged type was
+                    # attributed to it: LogLevel collected levelToString and
+                    # platformPrint, Segment collected the free intersects
+                    # overloads, and TileBehaviorLayer collected packTileData.
+                    #
+                    # When the span is unknown the tag named something we could
+                    # not locate — `@class TouchAdapterBase` names no type in
+                    # this tree. Fall back to the old unconditional attach
+                    # rather than silently dropping the members: a wrong page is
+                    # bad, an invisible API is worse. Fixing the tag is what
+                    # actually resolves those cases.
+                    enclosing = class_spans[-1]
+                    if enclosing is not None and not (
+                        enclosing[0] < doc_match.start() < enclosing[1]
+                    ):
+                        break
+
                     # Associate with the most recent class
                     name, sig, is_virt, is_static, is_ctor, is_dtor = method_info
                     method = Method(
@@ -436,8 +475,17 @@ def parse_class_body(body: str, class_doc: ClassDoc):
         accumulated_line = ""
         # Track access level within multiline accumulation to avoid picking up private methods
         local_access = current_access
-        for j in range(i, min(i + 5, len(lines))):
+        # Wide enough to span a declaration whose parameters are one per line.
+        # At 5, KinematicActor::moveAndSlide (7 lines) never completed, so the
+        # accumulator ran past it and matched whatever followed instead. Raise
+        # this if a real declaration is longer than 24 lines.
+        for j in range(i, min(i + 24, len(lines))):
             next_line = lines[j].strip()
+            # A declaration that closed without matching is not ours; anything
+            # further belongs to the next one, so stop rather than run them
+            # together.
+            if accumulated_line and re.search(r'[;{]\s*$', accumulated_line):
+                break
             # Track access specifiers even within multiline parsing
             if next_line.startswith('public:'):
                 local_access = "public"

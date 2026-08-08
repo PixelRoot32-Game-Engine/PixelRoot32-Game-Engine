@@ -29,10 +29,6 @@ enemies, and projectiles.
 
 ## Methods
 
-### `: Entity(x, y, w, h, EntityType::ACTOR)`
-
-### `: Entity(pos, w, h, EntityType::ACTOR)`
-
 ### `void setCollisionLayer(pixelroot32::physics::CollisionLayer l)`
 
 **Description:**
