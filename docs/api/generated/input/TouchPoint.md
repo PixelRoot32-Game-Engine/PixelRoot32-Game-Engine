@@ -29,10 +29,6 @@ Invariants:
 
 ## Methods
 
-### `: x(0), y(0), pressed(false), id(0), ts(0)`
-
-### `: x(xPos), y(yPos), pressed(isPressed), id(touchId), ts(timestamp)`
-
 ### `bool isValid(int16_t maxX, int16_t maxY) const`
 
 **Description:**

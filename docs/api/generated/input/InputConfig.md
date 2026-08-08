@@ -22,7 +22,3 @@ pr32::input::InputConfig config(SDL_SCANCODE_UP, SDL_SCANCODE_DOWN);
 // Empty
 pr32::input::InputConfig config{};
 InputManager
-
-## Methods
-
-### `if constexpr(sizeof...(args) > 0)`

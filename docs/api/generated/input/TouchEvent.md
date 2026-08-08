@@ -37,8 +37,6 @@ Invariants:
 
 ## Methods
 
-### `: timestamp(0)`
-
 ### `, x(0)`
 
 ### `, y(0)`
@@ -50,8 +48,6 @@ Invariants:
 ### `, id(0)`
 
 ### `, _padding(0)`
-
-### `: timestamp(ts)`
 
 ### `, x(xPos)`
 

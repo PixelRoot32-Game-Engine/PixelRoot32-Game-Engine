@@ -63,12 +63,6 @@ Sets the render layer.
 
 - `layer`: The layer index (0 to MaxLayers-1). Clamped if exceeded.
 
-### `: position(pos), width(w), height(h), type(t)`
-
-### `: position(x, y), width(w), height(h), type(t)`
-
-### `: position(pixelroot32::math::toScalar(x), pixelroot32::math::toScalar(y)), width(w), height(h), type(t)`
-
 ### `virtual void update(unsigned long deltaTime)`
 
 **Description:**
