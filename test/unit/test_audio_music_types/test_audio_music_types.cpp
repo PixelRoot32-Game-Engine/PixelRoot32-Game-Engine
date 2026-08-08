@@ -185,7 +185,7 @@ void test_instr_pulse_lead_values(void) {
     TEST_ASSERT_EQUAL_FLOAT(5.0f, INSTR_PULSE_LEAD.lfoFrequency);
     TEST_ASSERT_EQUAL_FLOAT(0.025f, INSTR_PULSE_LEAD.lfoDepth);
     TEST_ASSERT_EQUAL_FLOAT(0.15f, INSTR_PULSE_LEAD.lfoDelay);
-    TEST_ASSERT_FALSE(INSTR_PULSE_LEAD.noiseShortMode);
+    TEST_ASSERT_FALSE(INSTR_PULSE_LEAD.noiseLfsrShort);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.dutySweep);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.pitchSweepEndHz);
     TEST_ASSERT_EQUAL_FLOAT(0.0f, INSTR_PULSE_LEAD.pitchSweepDurationSec);
@@ -269,7 +269,7 @@ void test_instr_kick_values(void) {
     TEST_ASSERT_EQUAL_FLOAT(0.10f, INSTR_KICK.decayTime);
     TEST_ASSERT_EQUAL_FLOAT(0.00f, INSTR_KICK.sustainLevel);
     TEST_ASSERT_EQUAL(LfoTarget::NONE, INSTR_KICK.lfoTarget);
-    TEST_ASSERT_FALSE(INSTR_KICK.noiseShortMode);
+    TEST_ASSERT_FALSE(INSTR_KICK.noiseLfsrShort);
 }
 
 void test_instr_snare_values(void) {
@@ -281,7 +281,7 @@ void test_instr_snare_values(void) {
     // LFSR clock = brighter snare crack.
     TEST_ASSERT_EQUAL(15, INSTR_SNARE.noisePeriod);
     TEST_ASSERT_EQUAL_FLOAT(0.08f, INSTR_SNARE.decayTime);
-    TEST_ASSERT_TRUE(INSTR_SNARE.noiseShortMode);            // metallic timbre
+    TEST_ASSERT_TRUE(INSTR_SNARE.noiseLfsrShort);            // metallic timbre
 }
 
 void test_instr_hihat_values(void) {
@@ -292,7 +292,7 @@ void test_instr_hihat_values(void) {
     TEST_ASSERT_EQUAL(12, INSTR_HIHAT.noisePeriod);
     TEST_ASSERT_EQUAL_FLOAT(0.0005f, INSTR_HIHAT.attackTime);
     TEST_ASSERT_EQUAL_FLOAT(0.015f, INSTR_HIHAT.decayTime);
-    TEST_ASSERT_TRUE(INSTR_HIHAT.noiseShortMode);            // metallic timbre
+    TEST_ASSERT_TRUE(INSTR_HIHAT.noiseLfsrShort);            // metallic timbre
 }
 
 // ============================================================================

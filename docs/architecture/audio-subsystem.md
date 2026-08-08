@@ -618,7 +618,7 @@ struct InstrumentPreset {
     float lfoDelay = 0.0f;          // Delay before LFO starts
     
     // Waveform refinements
-    bool noiseShortMode = false;    // Metallic 93-step LFSR for NOISE
+    bool noiseLfsrShort = false;    // Metallic 93-step LFSR for NOISE
     float dutySweep = 0.0f;         // Duty cycle change per second (PWM)
 };
 
