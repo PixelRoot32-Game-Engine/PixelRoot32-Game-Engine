@@ -2,6 +2,8 @@
 #include "core/Engine.h"
 #include "graphics/Color.h"
 #include "math/Scalar.h"
+#include "gameplay/RoomLayout.h"
+#include "assets/RoomScreenRooms.h"
 #include "GameConstants.h"
 
 namespace pr32 = pixelroot32;
@@ -20,14 +22,17 @@ RoomScreenScene::RoomScreenScene()
 void RoomScreenScene::init() {
     Scene::init();
 
-    // Build a 2-room horizontal graph. Room 0 = left, Room 1 = right.
-    rooms_.addRoom(math::toScalar(0), math::toScalar(0),
-                   math::toScalar(kRoomWidth), math::toScalar(kRoomHeight));
-    rooms_.addRoom(math::toScalar(kRoomWidth), math::toScalar(0),
-                   math::toScalar(kRoomWidth * 2), math::toScalar(kRoomHeight));
+    // Build the 2-room horizontal graph straight from the exported room layer.
+    // Rects and connections both come from the data — no hand-written addRoom/
+    // connect calls to drift out of sync with the map.
+    const uint16_t built = gameplay::buildRoomGraph(ROOM_SCREEN_ROOM_LAYER, rooms_);
 
-    rooms_.connect(0, 1, gameplay::RoomDir::Right);
-    rooms_.connect(1, 0, gameplay::RoomDir::Left);
+    // A rejected layer builds nothing, and entering a room on an empty graph is
+    // a silent no-op — the scene would render with no bounds and no current
+    // room. Check the count instead of trusting the data blindly.
+    if (built == 0) {
+        return;
+    }
 
     rooms_.setOnEnter(onRoomEnterCallback, this);
     setRoomGraph(&rooms_);

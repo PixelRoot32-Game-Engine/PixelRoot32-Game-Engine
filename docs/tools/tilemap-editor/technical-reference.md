@@ -212,6 +212,29 @@ void init() {
 }
 ```
 
+#### Room Metadata
+
+Optional. Emitted only when the project defines rooms; a project without them
+exports exactly as before, so this is additive to the format, not a new version.
+
+```cpp
+// level1.h
+static const pixelroot32::gameplay::RoomData LEVEL1_ROOMS[] = {
+    // originCol, originRow, cols, rows, { Up, Down, Left, Right }
+    {  0, 0, 20, 15, { 0xFFFF, 0xFFFF, 0xFFFF,      1 } },
+    { 20, 0, 20, 15, { 0xFFFF, 0xFFFF,      0, 0xFFFF } },
+};
+
+static const pixelroot32::gameplay::RoomLayer LEVEL1_ROOM_LAYER = {
+    LEVEL1_ROOMS, 2, 16, 16   // rooms, roomCount, tileWidth, tileHeight
+};
+```
+
+> Both arrays are `static const` so the linker parks them in flash — a room
+> layer costs **0 bytes of SRAM**. The structs are declared in
+> `include/gameplay/RoomLayout.h`, behind `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`,
+> so the generated header must guard the block with that flag.
+
 ### Engine Integration
 
 **Single Palette**:
@@ -247,6 +270,24 @@ level1::getForegroundAnimManager().step();
 renderer.drawTileMap(level1::layer_foreground, x, y);
 ```
 
+**Rooms**:
+```cpp
+#include "level1.h"
+
+// In Scene::init() — rects and connections both come from the export.
+pixelroot32::gameplay::RoomGraph<8> rooms;
+if (pixelroot32::gameplay::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms) > 0) {
+    setRoomGraph(&rooms);
+    rooms.enterRoom(0, &camera);
+}
+```
+
+> `buildRoomGraph()` returns how many rooms it added. Fewer than `roomCount`
+> means the graph's capacity `N` truncated the layer; `0` means the layer was
+> rejected (see [Room Layer](#room-layer)). Check it — `enterRoom()` on an
+> empty graph is a silent no-op, so a rejected layer otherwise leaves the scene
+> running with no camera bounds and no current room.
+
 > Each animated layer exposes a `<LayerName>AnimManager()`. A legacy `getAnimManager()` alias maps to the Details layer when present.
 
 ---
@@ -271,6 +312,44 @@ renderer.drawTileMap(level1::layer_foreground, x, y);
 
 - 1 byte per cell (`uint8_t`)
 - Value -1 (editor) = Index 0 (export) = Empty
+
+### Room Layer
+
+Optional metadata describing a graph of connected rooms inside a single scene.
+Coordinates are in **tiles**, not world units — the engine multiplies by the
+layer's tile size when it builds the runtime graph.
+
+**`RoomData`** — one room, 16 bytes on every target:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `originCol` / `originRow` | `uint16_t` | Tile coordinates of the room's top-left corner |
+| `cols` / `rows` | `uint16_t` | Room size in tiles |
+| `connections[4]` | `uint16_t` | Target room index per direction, indexed `0=Up, 1=Down, 2=Left, 3=Right`. `0xFFFF` = wall |
+
+**`RoomLayer`** — the array header:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `rooms` | `const RoomData*` | Pointer to the exported array |
+| `roomCount` | `uint16_t` | Number of entries |
+| `tileWidth` / `tileHeight` | `uint8_t` | Tile size in world units, both `>= 1` |
+
+**Emitter rules**:
+
+- Connection targets are indices **into this same array**, so a room may
+  reference one declared after it — the engine resolves connections in a
+  second pass.
+- Connections are directed. A two-way door needs both halves
+  (`A.Right = B` **and** `B.Left = A`).
+- A room's far edge (`(originCol + cols) * tileWidth`, likewise for rows) must
+  stay at or below **32767**. `Scalar` is `Fixed16` on FPU-less targets and
+  would wrap past that. The engine rejects the whole layer if any room
+  exceeds it, rather than building a partially-correct map — including rooms
+  the consuming graph's capacity would have truncated away. A broken export
+  fails closed.
+- Emit at most 4 connections per room. There is one slot per cardinal
+  direction; diagonal or multi-door connections are out of scope for v1.
 
 ### BPP Auto-Detection
 

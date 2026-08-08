@@ -15,6 +15,7 @@
 namespace pixelroot32::gameplay {
 
 /**
+ * @enum RoomDir
  * @brief Cardinal direction enum for room connections.
  *
  * Maps connection slots by array index:
@@ -31,6 +32,7 @@ enum class RoomDir : uint8_t {
 };
 
 /**
+ * @struct Room
  * @brief POD describing a single room: camera rect + optional tile window
  *        + fixed-size connection list.
  *
@@ -67,6 +69,7 @@ struct Room {
 };
 
 /**
+ * @class RoomGraphBase
  * @brief Abstract base class for RoomGraph<N> used by Scene via type erasure.
  *
  * Exposes only the polymorphic API Scene actually needs (enterRoom,
@@ -100,6 +103,7 @@ public:
 };
 
 /**
+ * @class RoomGraph
  * @brief Fixed-capacity graph of rooms with camera rects and connections.
  *
  * @tparam N Max number of rooms (compile-time constant, must be >= 1).
