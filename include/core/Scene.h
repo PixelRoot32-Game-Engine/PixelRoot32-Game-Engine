@@ -28,6 +28,23 @@
 namespace pixelroot32::core {
 
 #include <new> // for placement new
+
+/**
+ * @struct SceneArena
+ * @brief Bump allocator for objects whose lifetime is one scene.
+ *
+ * Hands out aligned slices of a caller-supplied buffer by advancing an offset.
+ * There is no individual free: reset() rewinds the offset to zero and releases
+ * everything at once, which is why allocations must not outlive the scene.
+ * Destructors are never run, so only trivially destructible types are safe.
+ *
+ * allocate() returns nullptr when the request does not fit, and callers must
+ * check. Prefer arenaNew() over calling allocate() directly.
+ *
+ * @note Gated by platforms::config::EnableSceneArena. With the arena
+ *       disabled every allocate() returns nullptr and init()/reset() are
+ *       no-ops, so callers keep their fallback path.
+ */
 struct SceneArena {
     unsigned char* buffer;
     std::size_t capacity;

@@ -318,6 +318,7 @@ inline Scalar rand_sign() {
 }
 
 /**
+ * @struct Random
  * @brief Instance-based random number generator
  * 
  * Provides independent RNG state for scenarios requiring multiple

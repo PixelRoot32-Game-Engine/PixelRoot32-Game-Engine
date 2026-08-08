@@ -9,6 +9,14 @@
 #include <cstdint>
 namespace pixelroot32::graphics {
 
+/**
+ * @enum PaletteType
+ * @brief Selects which built-in 16-color palette the renderer resolves against.
+ *
+ * PR32 is the default and is the palette the Color enumerators are indexed for.
+ * The others are retro presets; the same Color value resolves to a different
+ * RGB565 output under each one.
+ */
 enum class PaletteType {
     NES,
     GB,
@@ -18,7 +26,9 @@ enum class PaletteType {
 };
 
 /**
+ * @enum PaletteContext
  * @brief Context for palette selection in dual palette mode.
+ *
  * Determines which palette (background or sprite) is used for color resolution.
  */
 enum class PaletteContext {
@@ -28,9 +38,23 @@ enum class PaletteContext {
 
 static constexpr uint8_t PALETTE_SIZE = 16;
 
-// Default palette is PR32.
-// The Color enum is mapped to the PR32 palette indices (0-15).
-// Some legacy colors are aliased to the nearest available color in the 16-color palette.
+/**
+ * @enum Color
+ * @brief Named color indices into the active 16-entry palette.
+ *
+ * Enumerator values are the PR32 palette indices 0-15, so a Color is a palette
+ * slot, not an RGB value: the same enumerator resolves differently under each
+ * PaletteType.
+ *
+ * @note Legacy names are aliases, not extra colors. `LightBlue`, `Teal`,
+ *       `Olive`, `Gold` and `Brown` collapse onto the nearest of the 16 slots,
+ *       and every gray name (`MidGray`, `LightGray`, `DarkGray`, `Silver`)
+ *       resolves to the single `Gray` slot. Two aliased names compare equal.
+ *
+ * @warning `Transparent` (255) is a sentinel, not a color. The renderer and
+ *          blitter must intercept it; it must never be resolved against a
+ *          palette, and passing it to a drawing primitive is a no-op.
+ */
 enum class Color : uint8_t {
     // Standard Colors (PR32 indices)
     Black = 0,

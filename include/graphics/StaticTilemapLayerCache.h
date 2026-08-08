@@ -17,6 +17,7 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @struct TileMap4bppDrawSpec
  * @brief One drawable 4bpp tilemap layer with an origin in logical coordinates.
  *
  * Entries with map == nullptr are skipped. Use any number of static layers
@@ -29,6 +30,7 @@ struct TileMap4bppDrawSpec {
 };
 
 /**
+ * @class StaticTilemapLayerCache
  * @brief Centralized framebuffer snapshot for static 4bpp tilemap layers.
  *
  * On drivers that expose a direct logical 8bpp sprite buffer (e.g. TFT_eSPI),

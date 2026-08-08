@@ -9,7 +9,10 @@ Auto-generated API documentation from C++ header files.
 - [AudioEngine](./audio/AudioEngine.md) — Facade class for the NES-style audio subsystem.
 - [AudioScheduler](./audio/AudioScheduler.md) — Abstract interface for the audio execution context.
 - [DefaultAudioScheduler](./audio/DefaultAudioScheduler.md) — Backend-driven scheduler used on platforms without a dedicated audio task.
+- [ImmediateSfxDelayScheduler](./audio/ImmediateSfxDelayScheduler.md) — Plays every scheduled event immediately (ignores delay). Test / stub only.
 - [MusicPlayer](./audio/MusicPlayer.md) — Simple sequencer to play MusicTracks using the AudioEngine.
+- [NullSfxDelayScheduler](./audio/NullSfxDelayScheduler.md) — No-op scheduler for banks that only use simultaneous layers (no delayed steps).
+- [SfxDelayScheduler](./audio/SfxDelayScheduler.md) — Schedules delayed SFX events for `playSfxBank` sequence steps.
 
 ## Core
 
@@ -24,6 +27,7 @@ Auto-generated API documentation from C++ header files.
 - [PhysicsBodyType](./core/PhysicsBodyType.md) — Defines the simulation behavior of a PhysicsActor.
 - [Rect](./core/Rect.md) — Represents a 2D rectangle, typically used for hitboxes or bounds.
 - [Scene](./core/Scene.md) — Represents a game level or screen containing entities.
+- [SceneArena](./core/SceneArena.md) — Bump allocator for objects whose lifetime is one scene.
 - [SceneManager](./core/SceneManager.md) — Manages the stack of active scenes.
 - [TransitionState](./core/TransitionState.md) — State machine for scene transitions.
 - [WorldCollisionInfo](./core/WorldCollisionInfo.md) — Stores flags indicating which world boundaries were hit in the current frame.
@@ -69,7 +73,9 @@ Auto-generated API documentation from C++ header files.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
+- [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
+- [DisplayConfig](./graphics/DisplayConfig.md) — Configuration settings for initializing displays with optional resolution scaling.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
 - [DrawSurface](./graphics/DrawSurface.md) — Abstract interface for platform-specific drawing operations.
 - [EffectSlot](./graphics/EffectSlot.md) — Per-slot state for a single camera effect (20 bytes).
@@ -78,6 +84,8 @@ Auto-generated API documentation from C++ header files.
 - [LayerAttributes](./graphics/LayerAttributes.md) — All tiles with attributes in a single tilemap layer.
 - [LayerType](./graphics/LayerType.md) — Classifies draw layers for dirty-region marking (static backgrounds vs dynamic content).
 - [MultiSprite](./graphics/MultiSprite.md) — Multi-layer, multi-color sprite built from 1bpp layers.
+- [PaletteContext](./graphics/PaletteContext.md) — Context for palette selection in dual palette mode.
+- [PaletteType](./graphics/PaletteType.md) — Selects which built-in 16-color palette the renderer resolves against.
 - [Particle](./graphics/Particle.md) — Represents a single particle in the particle system.
 - [ParticleConfig](./graphics/ParticleConfig.md) — Configuration parameters for a particle emitter.
 - [ParticleEmitter](./graphics/ParticleEmitter.md) — Manages a pool of particles to create visual effects.
@@ -91,10 +99,12 @@ Auto-generated API documentation from C++ header files.
 - [SpriteAnimation](./graphics/SpriteAnimation.md) — Lightweight, step-based sprite animation controller.
 - [SpriteAnimationFrame](./graphics/SpriteAnimationFrame.md) — Single animation frame that can reference either a Sprite or a MultiSprite.
 - [SpriteLayer](./graphics/SpriteLayer.md) — Single monochrome layer used by layered sprites.
+- [StaticTilemapLayerCache](./graphics/StaticTilemapLayerCache.md) — Centralized framebuffer snapshot for static 4bpp tilemap layers.
 - [TileAnimation](./graphics/TileAnimation.md) — Single tile animation definition (compile-time constant).
 - [TileAnimationManager](./graphics/TileAnimationManager.md) — Manages tile animations for a tilemap.
 - [TileAttribute](./graphics/TileAttribute.md) — Single attribute key-value pair for tile metadata.
 - [TileAttributeEntry](./graphics/TileAttributeEntry.md) — All attributes for a single tile at a specific position.
+- [TileMap4bppDrawSpec](./graphics/TileMap4bppDrawSpec.md) — One drawable 4bpp tilemap layer with an origin in logical coordinates.
 - [TileMapGeneric](./graphics/TileMapGeneric.md) — Generic tilemap structure supporting 1bpp, 2bpp, or 4bpp tile graphics.
 - [TilemapSpriteDirtyMode](./graphics/TilemapSpriteDirtyMode.md) — Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
 - [TouchConfig](./graphics/TouchConfig.md) — Configuration for a touch controller (XPT2046 or GT911).
@@ -134,8 +144,9 @@ Auto-generated API documentation from C++ header files.
 - [GT911Adapter](./input/GT911Adapter.md) — GT911 I2C touch controller driver
 - [InputConfig](./input/InputConfig.md) — Configuration structure for the InputManager.
 - [InputManager](./input/InputManager.md) — Handles input from physical buttons, keyboard (on PC), and touch/mouse.
-- [TouchAdapterBase](./input/TouchAdapterBase.md) — Base class requirements for touch adapters (conceptual)
+- [TouchAdapter](./input/TouchAdapter.md) — Base class requirements for touch adapters (conceptual)
 - [TouchCalibration](./input/TouchCalibration.md) — Calibration parameters for coordinate transformation
+- [TouchController](./input/TouchController.md) — Touch controller types
 - [TouchEvent](./input/TouchEvent.md) — Compact touch event structure (12 bytes total, naturally aligned)
 - [TouchEventDispatcher](./input/TouchEventDispatcher.md) — Pull-based touch event dispatcher
 - [TouchEventFlags](./input/TouchEventFlags.md) — Flags for touch events
@@ -155,6 +166,7 @@ Auto-generated API documentation from C++ header files.
 ## Math
 
 - [Fixed16](./math/Fixed16.md) — Fixed-point 16.16 number implementation optimized for RISC-V.
+- [Random](./math/Random.md) — Instance-based random number generator
 - [Vector2](./math/Vector2.md) — 2D vector using the configured Scalar type (float or Fixed16).
 
 ## Physics
@@ -164,6 +176,7 @@ Auto-generated API documentation from C++ header files.
 - [Contact](./physics/Contact.md) — Represents a contact point between two physics bodies.
 - [KinematicActor](./physics/KinematicActor.md) — A physics body moved via script/manual velocity with collision detection.
 - [KinematicCollision](./physics/KinematicCollision.md) — Contains information about a collision involving a KinematicActor.
+- [PhysicsScheduler](./physics/PhysicsScheduler.md) — Fixed-timestep accumulator that decouples physics from frame rate.
 - [RigidActor](./physics/RigidActor.md) — A physics body fully simulated by the engine.
 - [Segment](./physics/Segment.md) — Represents a 2D line segment for collision detection.
 - [SensorActor](./physics/SensorActor.md) — A static body that acts as a trigger: detects overlap but produces no physical response.
