@@ -78,6 +78,8 @@ public:
      * 
      * Convenience method that unpacks userData and calls consumeTile().
      * This is the typical usage pattern from Phase 6 collision callbacks.
+     * Accepts any TileFlags combination — the caller is responsible
+     * for deciding which flags are consumable.
      * 
      * @param tileActor Pointer to the tile physics actor
      * @param packedUserData Packed userData from tileActor->getUserData()
