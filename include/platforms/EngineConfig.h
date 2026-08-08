@@ -556,6 +556,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableGameplayRoom = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_CAMERA_TWEEN
+
+    /** @brief Type-safe access to EnableCameraTween configuration. */
+    inline constexpr bool EnableCameraTween = true;
+    #else
+
+    /** @brief Type-safe access to EnableCameraTween configuration. */
+    inline constexpr bool EnableCameraTween = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }
