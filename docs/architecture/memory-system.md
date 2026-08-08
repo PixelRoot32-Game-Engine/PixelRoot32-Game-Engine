@@ -143,6 +143,8 @@ Total instance size is `N * sizeof(T) + bookkeeping`, plus up to `alignof(T) - 1
 
 **Non-atomic bus contract:** `gameplay::GameplayEventBus` is produced and consumed entirely inside the single-threaded `Scene::update()`/`Scene::draw()` loop driven from `SceneManager::update()`. Its head/tail/count indices are plain `uint16_t`, not `std::atomic` — unlike `AudioCommandQueue`, which bridges the game thread and the audio task. Publishing from an ISR or the audio task is **explicitly unsupported** and will corrupt the ring buffer's indices; it is not a replacement for `AudioCommandQueue`. Overflow policy is drop-newest with a monotonic `getDroppedCount()` diagnostic (preserves enter/exit pairing rather than risking a dangling `TriggerExit` for an evicted `TriggerEnter`). The bus is drained (`clear()`) on every `SceneManager::setCurrentScene()` call (including `SceneSwap` transitions), but **not** on `pushScene()`/`popScene()`, since a paused scene under an overlay never runs and should not lose events it expects to consume on resume.
 
+**`TileConsumptionConfig` byte budget:** the `requiredHits` field (added in `tile-consume-generalization`) adds **+1 byte** per config instance (`uint8_t`, default `1`). Typical call sites construct a stack-local `TileConsumptionConfig` per collision event, so the cost is one `uint8_t` on the stack, amortized per collision — no persistent SRAM cost.
+
 #### Subsystem Compilation Patterns
 
 **File-level guards:**
