@@ -157,8 +157,11 @@ private:
 /**
  * @brief Convenience function for consuming tiles from collision callbacks.
  * 
- * This is the typical usage pattern from Phase 6 onCollision callbacks:
- * ```cpp
+ * This is the typical usage pattern from Phase 6 onCollision callbacks.
+ * Accepts any TileFlags combination — the caller decides which tiles are consumable.
+ * 
+ * @code
+ * // Single-hit (instant consumption): default requiredHits=1
  * void onCollision(Actor* other) override {
  *     if (other->getUserData()) {
  *         uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
@@ -166,12 +169,26 @@ private:
  *         TileFlags flags;
  *         unpackTileData(packed, x, y, flags);
  *         
- *         if (flags & TILE_COLLECTIBLE) {
- *             consumeTileFromCollision(other, packed, scene, tilemap);
+ *         // Caller decides which flags are consumable (e.g. any non-SOLID tile)
+ *         consumeTileFromCollision(other, packed, scene, tilemap);
+ *     }
+ * }
+ * 
+ * // Multi-hit breakable: use applyHit + consumeTile when remainingHits == 0
+ * void onCollision(Actor* other) override {
+ *     if (other->getUserData()) {
+ *         uintptr_t packed = reinterpret_cast<uintptr_t>(other->getUserData());
+ *         if (!breakableHitMap.contains(packed)) breakableHitMap[packed] = config.requiredHits;
+ *         uint8_t& remaining = breakableHitMap[packed];
+ *         if (applyHitFromCollision(other, packed, scene, tilemap, remaining, config)) {
+ *             if (remaining == 0) {
+ *                 consumeTileFromCollision(other, packed, scene, tilemap);
+ *                 breakableHitMap.erase(packed);
+ *             }
  *         }
  *     }
  * }
- * ```
+ * @endcode
  * 
  * @param tileActor Pointer to the tile physics actor
  * @param packedUserData Packed userData from tileActor
