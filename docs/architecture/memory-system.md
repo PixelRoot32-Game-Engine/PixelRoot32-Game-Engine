@@ -109,6 +109,20 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 
 **`GridSpec` byte budget:** every shipped consumer (`examples/snake`, `examples/tic_tac_toe`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
 
+**Gameplay Framework Phase 3 part 2 — Room/Screen (opt-in, default `0`):** `RoomGraph<N>` is a header-only template class under `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`. A `Scene` owns it via a type-erased `RoomGraphBase*` pointer (composition, no inheritance). Entering a room updates camera bounds and fires an optional `onEnter` callback. The flag defaults to `0` — when disabled the entire `#if` block is excluded and the engine contributes zero bytes.
+
+| Item | ESP32-C3 (32-bit) | native/PC (64-bit) | Notes |
+|------|-------------------|---------------------|-------|
+| `RoomGraphBase*` ptr on `Scene` | 4 B per Scene | 8 B per Scene | Type-erased pointer; nullptr when flag=0 or no graph is registered |
+| `RoomGraphBase` vtable | 12–16 B in flash | 12–16 B in flash | One shared vtable per program (not per instance) |
+| `RoomGraph<N>` vptr (from `RoomGraphBase`) | 4 B per instance | 8 B per instance | Per-instance vtable pointer; one per `RoomGraph<N>` regardless of N |
+| `RoomGraph<32>` (max rooms) | ~1296 B (32 × 40 B/room + 12 B bookkeeping + 4 B vptr) | ~1564 B (32 × 48 B/room + 16 B bookkeeping + 8 B vptr) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
+| `RoomGraph<2>` (typical example) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | The `examples/room_screen/` example ships with N=2 |
+| Per-`Room` size (`sizeof(Room)`) | 40 B | 48 B | Four `Scalar` fields (camera rect, 4×4 B), tile window (8 B + 1 B flag + 1 B pad), `connections_[4]` (16 B), `connectionCount_` (1 B + 3 B pad) |
+| Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block; no code, no data |
+
+Design: #3081 (`sdd/room-screen-abstraction/design`).
+
 **`ObjectPool<T, N>` byte budget:** `N * sizeof(T)` for the aligned slot storage, plus target-independent bookkeeping (a `uint32_t liveWords_[(N+31)/32]` bitmask plus two `uint16_t` counters, `liveCount_` and `scanHint_`) — identical on ESP32-C3 and native because every bookkeeping field is a fixed-width type:
 
 | `N` (pool capacity) | `liveWords_` | counters (`liveCount_` + `scanHint_`) | **bookkeeping total** | per-slot equivalent |
