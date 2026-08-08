@@ -21,6 +21,10 @@
 #include "graphics/ui/UIManager.h"
 #endif
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+#include "gameplay/RoomGraph.h"
+#endif
+
 namespace pixelroot32::core {
 
 #include <new> // for placement new
@@ -121,6 +125,45 @@ public:
     virtual void onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) {
         (void)event;
     }
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+    /**
+     * @brief Hook that fires when the scene's RoomGraph enters a new room.
+     *
+     * Override in subclasses to react to room transitions (spawn entities,
+     * play SFX, adjust custom camera bounds). The default implementation
+     * is a no-op that mirrors onUnconsumedTouchEvent.
+     *
+     * @param fromIdx Index of the previous room (0xFFFF if first entry).
+     * @param toIdx   Index of the room being entered.
+     */
+    virtual void onRoomEnter(int fromIdx, int toIdx) {
+        (void)fromIdx;
+        (void)toIdx;
+    }
+
+    /**
+     * @brief Type-erased accessor for the scene's room graph.
+     * @return Pointer to the RoomGraphBase, or nullptr if none set.
+     */
+    pixelroot32::gameplay::RoomGraphBase* getRoomGraph() const {
+        return roomGraph_;
+    }
+
+    /**
+     * @brief Register a RoomGraph with this scene, called once during init().
+     *
+     * Subclasses that own a RoomGraph<N> member call this to wire it into
+     * the base class. The base invokes onRoomEnter via the graph's onEnter
+     * callback whenever enterRoom transitions to a new room.
+     *
+     * @param g Pointer to a RoomGraphBase (typically a RoomGraph<N>
+     *          owned by the subclass). Must outlive this scene.
+     */
+    void setRoomGraph(pixelroot32::gameplay::RoomGraphBase* g) {
+        roomGraph_ = g;
+    }
+#endif // PIXELROOT32_ENABLE_GAMEPLAY_ROOM
 
     /**
      * @brief Updates all entities in the scene and handles collisions.
@@ -253,6 +296,11 @@ protected:
     // Camera Effects
     #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
         pixelroot32::graphics::CameraEffectsSystem cameraEffects; ///< Camera shake/punch/offset effects.
+    #endif
+
+    // Room Graph
+    #if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+        pixelroot32::gameplay::RoomGraphBase* roomGraph_ = nullptr;
     #endif
 
     SceneArena arena;
