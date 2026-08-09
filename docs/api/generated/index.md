@@ -69,6 +69,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [GameplayEvent](./gameplay/GameplayEvent.md) — Fixed-size POD carried by the GameplayEventBus.
 - [GameplayEventBus](./gameplay/GameplayEventBus.md) — Fixed-capacity FIFO ring buffer for GameplayEvent, single-instance and Engine-owned.
 - [GameplayEventType](./gameplay/GameplayEventType.md) — Tag identifying the meaning of a GameplayEvent.
+- [GridMotion](./gameplay/GridMotion.md) — Plain five-`int` aggregate: logical cell, target cell, progress.
 - [GridSpec](./gameplay/GridSpec.md) — Plain six-`int` aggregate describing a grid's origin, per-axis cell
        size, and extent (columns/rows). No member functions, no
        per-instance runtime state beyond these fields — a `constexpr

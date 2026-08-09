@@ -21,22 +21,20 @@ EnemyActor::EnemyActor(int startCellX, int startCellY)
 }
 
 void EnemyActor::logicStep(const TileType (&board)[kCells], const Bomb (&bombs)[kMaxBombs]) {
-    // Duplicated advance loop, deliberately -- see the class doc comment in
-    // EnemyActor.h and PlayerActor::logicStep()'s own doc comment for why
-    // this is not collapsed into one shared function with the player's.
+    // Step mechanics come from gameplay::GridMotion; only the AI policy is
+    // here -- see the class doc comment in EnemyActor.h and
+    // PlayerActor::logicStep()'s for what stays per-actor and why.
     if (!alive_) {
         return;
     }
 
-    if (mv.progress > 0) {
+    if (gameplay::isMoving(mv)) {
         // A step is already in flight: finish it. Direction is never
         // re-decided in here -- only at the instant a step completes, below.
-        ++mv.progress;
-        if (mv.progress >= kEnemyStepsPerCell) {
-            mv.cellX = mv.toX;
-            mv.cellY = mv.toY;
-            mv.progress = 0;
-        }
+        // This actor ignores tickStep()'s arrival edge: arrival is already
+        // observable as "at rest" on the next call, and the direction draw
+        // below runs there.
+        gameplay::tickStep(mv, kEnemyStepsPerCell);
         updateInterpolatedPosition();
         return;
     }
@@ -50,9 +48,7 @@ void EnemyActor::logicStep(const TileType (&board)[kCells], const Bomb (&bombs)[
         const int sy = mv.cellY + dirY_;
         if (canEnter(sx, sy, board, bombs)) {
             facingLeft_ = (dirX_ < 0);  // refresh defensively
-            mv.toX = sx;
-            mv.toY = sy;
-            mv.progress = 1;
+            gameplay::beginStep(mv, sx, sy);
             updateInterpolatedPosition();
             return;
         }
@@ -87,9 +83,7 @@ void EnemyActor::logicStep(const TileType (&board)[kCells], const Bomb (&bombs)[
     dirX_ = kDirX[dir];
     dirY_ = kDirY[dir];
     facingLeft_ = (dirX_ < 0);
-    mv.toX = mv.cellX + dirX_;
-    mv.toY = mv.cellY + dirY_;
-    mv.progress = 1;
+    gameplay::beginStep(mv, mv.cellX + dirX_, mv.cellY + dirY_);
     updateInterpolatedPosition();
 }
 
@@ -107,13 +101,7 @@ bool EnemyActor::canEnter(int nx, int ny, const TileType (&board)[kCells],
 }
 
 void EnemyActor::updateInterpolatedPosition() {
-    const int fromPx = gameplay::cellToWorldX(mv.cellX, kBoardGrid);
-    const int fromPy = gameplay::cellToWorldY(mv.cellY, kBoardGrid);
-    const int toPx = gameplay::cellToWorldX(mv.toX, kBoardGrid);
-    const int toPy = gameplay::cellToWorldY(mv.toY, kBoardGrid);
-    const int x = fromPx + (toPx - fromPx) * mv.progress / kEnemyStepsPerCell;
-    const int y = fromPy + (toPy - fromPy) * mv.progress / kEnemyStepsPerCell;
-    position = math::Vector2(x, y);
+    position = gameplay::interpolatedWorld(mv, kEnemyStepsPerCell, kBoardGrid);
 }
 
 void EnemyActor::updateDeathAnimation(unsigned long deltaMs) {
@@ -162,9 +150,7 @@ void EnemyActor::onCollision(core::Actor* other) {
 }
 
 void EnemyActor::resetTo(int startCellX, int startCellY) {
-    mv.cellX = mv.toX = startCellX;
-    mv.cellY = mv.toY = startCellY;
-    mv.progress = 0;
+    gameplay::placeAt(mv, startCellX, startCellY);
     dirX_ = 0;
     dirY_ = 0;
     alive_ = true;

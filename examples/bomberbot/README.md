@@ -110,13 +110,13 @@ pickup use; they are not currently triggered by the scene.
   The player's start cell and its two adjacent cells are guaranteed free of
   soft walls.
 - **Interpolated grid movement.** The player moves at 12 logic steps per
-  cell, enemies at 20. Both use the same small `GridMove` struct
-  (`src/GridMove.h`) but each actor writes its own advance loop — the
-  player stays put when blocked and reads held input; an enemy re-picks a
-  direction and reads the seeded PRNG. The two loops are deliberately not
-  merged into a shared controller; they disagree on enough policy (blocking
-  behavior, direction source, and the pass-through rule below) that sharing
-  more than the struct would need extra flags for every difference.
+  cell, enemies at 20. Both drive the engine's `gameplay::GridMotion`
+  (`include/gameplay/GridMotion.h`), which owns the logical cell, the
+  in-flight target, the arrival edge and the cell-to-pixel lerp. Movement
+  *policy* stays per-actor and is deliberately not shared: the player stays
+  put when blocked and reads held input; an enemy re-picks a direction and
+  reads the seeded PRNG. Those decisions, plus the pass-through rule below,
+  disagree between the two actors, so `GridMotion` does not model them.
 - **Own-bomb pass-through.** A player can always leave the cell they just
   bombed; that bomb becomes solid again the instant they arrive in a new
   cell. Enemies have no such exemption — every bomb is solid to them.

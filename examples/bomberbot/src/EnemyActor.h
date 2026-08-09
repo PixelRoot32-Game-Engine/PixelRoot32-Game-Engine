@@ -4,7 +4,7 @@
 #include "BomberbotBoard.h"
 #include "BomberbotBombs.h"
 #include "BomberbotConstants.h"
-#include "GridMove.h"
+#include "gameplay/GridMotion.h"
 #include "assets/EnemySprites.h"
 
 namespace bomberbot {
@@ -27,14 +27,14 @@ inline const pixelroot32::graphics::Sprite4bpp* enemyWalkSpriteFor(int progress)
  * has no pointer, reference, or field naming the player anywhere -- the AI
  * below reads only the board and the bomb pool, never player state.
  *
- * Deliberately does NOT share an advance loop with PlayerActor even though
- * both embed a GridMove and both interpolate the same way: the two differ
- * in blocking policy (the player stays put when blocked; this actor
- * re-picks a direction), in direction source (held input vs. seeded PRNG),
- * and the player's own-bomb pass-through exemption has no counterpart here
- * -- an enemy treats every bomb as solid, with no exception. Collapsing the
- * two loops early would remove the very comparison this example exists to
- * produce.
+ * The mechanical half of the movement -- logical cell, in-flight target,
+ * progress counter, arrival edge and the cell-to-pixel lerp -- comes from the
+ * engine's gameplay::GridMotion, shared with PlayerActor. What stays here is
+ * the policy the two actors disagree on: blocking behaviour (the player stays
+ * put when blocked; this actor re-picks a direction), direction source (held
+ * input vs. seeded PRNG), and the player's own-bomb pass-through exemption,
+ * which has no counterpart here -- an enemy treats every bomb as solid, with
+ * no exception.
  */
 class EnemyActor : public pixelroot32::core::Actor {
 public:
@@ -91,7 +91,7 @@ public:
     void updateDeathAnimation(unsigned long deltaMs);
 
 private:
-    GridMove mv;
+    pixelroot32::gameplay::GridMotion mv;
     int dirX_ = 0;
     int dirY_ = 0;
     bool alive_ = true;

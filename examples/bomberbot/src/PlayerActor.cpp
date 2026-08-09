@@ -8,7 +8,6 @@ namespace bomberbot {
 namespace gfx = pr32::graphics;
 namespace core = pr32::core;
 namespace input = pr32::input;
-namespace math = pr32::math;
 
 PlayerActor::PlayerActor(int startCellX, int startCellY)
     : core::Actor(gameplay::cellToWorld(startCellX, startCellY, kBoardGrid), kCellSize, kCellSize) {
@@ -17,15 +16,12 @@ PlayerActor::PlayerActor(int startCellX, int startCellY)
 
 bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxBombs],
                              const input::InputManager& inputManager, bool bombPressed) {
-    // This advance loop is a deliberate, near-duplicate of
-    // EnemyActor::logicStep()'s. They are not merged into one shared
-    // controller: this one stays put when blocked and reads held input,
-    // while the enemy's re-picks a direction and reads the seeded PRNG, and
-    // only this one has the own-bomb pass-through exemption below. Sharing
-    // just the five-field GridMove struct is the entire real overlap; a
-    // controller that also owned blocking policy or the arrival callback
-    // would need three behaviour hooks to configure it back into these two
-    // shapes, which is worse than the loop it would replace.
+    // The step mechanics (advance, arrival edge, cell flip) live in
+    // gameplay::tickStep(); what stays here is the policy the engine
+    // deliberately does not own — this actor stays put when blocked and
+    // reads held input, where EnemyActor re-picks a direction from the
+    // seeded PRNG, and only this one has the own-bomb pass-through
+    // exemption below.
 
     // Bomb placement is handled first, before movement advances below. That
     // guarantees a bomb dropped this step always lands in the cell that
@@ -49,16 +45,11 @@ bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
     // exactly once per step start, never on an in-flight advance.
     stepStarted_ = false;
 
-    if (mv.progress > 0) {
+    if (gameplay::isMoving(mv)) {
         // A step is already in flight: finish it, ignore movement input
-        // this step.
-        ++mv.progress;
-        if (mv.progress >= kPlayerStepsPerCell) {
-            // The LOGICAL cell flips here, and only here.
-            mv.cellX = mv.toX;
-            mv.cellY = mv.toY;
-            mv.progress = 0;
-
+        // this step. tickStep() flips the LOGICAL cell and returns true on
+        // the arrival tick only.
+        if (gameplay::tickStep(mv, kPlayerStepsPerCell)) {
             // onArrive(): the own-bomb exemption is valid only while it
             // names the player's current logical cell. Leaving the bombed
             // cell makes that bomb solid again from this instant. A no-op
@@ -99,9 +90,7 @@ bool PlayerActor::logicStep(const TileType (&board)[kCells], Bomb (&bombs)[kMaxB
             else if (dx == -1)            facing_ = 2;  // Left
             else if (dx == 1)             facing_ = 3;  // Right
             // else: dx=dy=0 (no input); keep current facing
-            mv.toX = nx;
-            mv.toY = ny;
-            mv.progress = 1;
+            gameplay::beginStep(mv, nx, ny);
             stepStarted_ = true;
         }
         // else: stay put. Not a death, not an error, not a retry — holding
@@ -148,17 +137,9 @@ bool PlayerActor::tryPlaceBomb(Bomb (&bombs)[kMaxBombs]) {
 }
 
 void PlayerActor::updateInterpolatedPosition() {
-    // Integer-pixel lerp, exact at both endpoints (progress == 0 or
-    // progress == kPlayerStepsPerCell - 1 followed by the flip above
-    // reproduces cellToWorld exactly) — see GridMove.h and
+    // Integer-pixel lerp, exact at both endpoints — see GridMotion.h and
     // BomberbotConstants.h for why this stays integer-only.
-    const int fromPx = gameplay::cellToWorldX(mv.cellX, kBoardGrid);
-    const int fromPy = gameplay::cellToWorldY(mv.cellY, kBoardGrid);
-    const int toPx = gameplay::cellToWorldX(mv.toX, kBoardGrid);
-    const int toPy = gameplay::cellToWorldY(mv.toY, kBoardGrid);
-    const int x = fromPx + (toPx - fromPx) * mv.progress / kPlayerStepsPerCell;
-    const int y = fromPy + (toPy - fromPy) * mv.progress / kPlayerStepsPerCell;
-    position = math::Vector2(x, y);
+    position = gameplay::interpolatedWorld(mv, kPlayerStepsPerCell, kBoardGrid);
 }
 
 void PlayerActor::startDeathAnimation() {
@@ -208,9 +189,7 @@ void PlayerActor::onCollision(core::Actor* other) {
 }
 
 void PlayerActor::resetTo(int startCellX, int startCellY) {
-    mv.cellX = mv.toX = startCellX;
-    mv.cellY = mv.toY = startCellY;
-    mv.progress = 0;
+    gameplay::placeAt(mv, startCellX, startCellY);
     exemptValid_ = false;
     exemptX_ = 0;
     exemptY_ = 0;

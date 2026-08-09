@@ -5,7 +5,7 @@
 #include "BomberbotBoard.h"
 #include "BomberbotBombs.h"
 #include "BomberbotConstants.h"
-#include "GridMove.h"
+#include "gameplay/GridMotion.h"
 #include "assets/PlayerSprites.h"
 
 namespace bomberbot {
@@ -45,13 +45,13 @@ inline PlayerWalkFrame playerWalkSpriteFor(uint8_t facing, int progress) {
  * which stays the inherited no-op. This keeps deltaTime out of every
  * movement rule (see BomberbotConstants.h's kLogicStepMs comment).
  *
- * Deliberately does NOT share an advance loop with EnemyActor even though
- * both embed a GridMove and both interpolate the same way: the two differ
- * in blocking policy (the player stays put when blocked; the enemy
- * re-picks a direction), in direction source (held input vs. seeded PRNG),
- * and in the pass-through exemption below, which is player-only.
- * Collapsing the two loops early would remove the very comparison this
- * example exists to produce.
+ * The mechanical half of the movement — logical cell, in-flight target,
+ * progress counter, arrival edge and the cell-to-pixel lerp — comes from the
+ * engine's gameplay::GridMotion, shared with EnemyActor. What stays here is
+ * the policy the two actors disagree on: blocking behaviour (the player
+ * stays put when blocked; the enemy re-picks a direction), direction source
+ * (held input vs. seeded PRNG), and the pass-through exemption below, which
+ * is player-only.
  */
 class PlayerActor : public pixelroot32::core::Actor {
 public:
@@ -131,11 +131,11 @@ public:
     void resetTo(int startCellX, int startCellY);
 
 private:
-    GridMove mv;
+    pixelroot32::gameplay::GridMotion mv;
 
     /// Last chosen movement direction. 0=Down, 1=Up, 2=Left, 3=Right.
     /// Updated in logicStep() when a new step begins (after canEnter()
-    /// succeeds, before mv.progress = 1). Read by draw() to select the
+    /// succeeds, before beginStep()). Read by draw() to select the
     /// correct walk-cycle sprite row.
     uint8_t facing_ = 0;
 
