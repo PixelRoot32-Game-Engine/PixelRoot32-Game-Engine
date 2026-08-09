@@ -1,14 +1,14 @@
 #include "PlayerActor.h"
 
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+
 #include "core/Engine.h"
-#include "TileFormat.h"
-#include "assets/LinkSprites.h"
-#include "assets/OverworldMap.h"
+#include "assets/PlayerSprites.h"
 
 namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
 
-namespace zelda_overworld {
+namespace legend_of_clone {
 
 namespace gfx = pr32::graphics;
 namespace math = pr32::math;
@@ -21,7 +21,8 @@ PlayerActor::PlayerActor(int startCol, int startRow)
     , pixelY_(startRow * kTileSize) {
 }
 
-bool PlayerActor::canOccupy(int x, int y) {
+bool PlayerActor::canOccupy(int x, int y) const {
+    if (world_ == nullptr) return false;
     // The box spans from its top-left to its last covered pixel, so the far
     // edge is (x + size - 1). Using (x + size) would test the tile the box
     // stops exactly short of and refuse legal positions flush against a wall.
@@ -32,7 +33,7 @@ bool PlayerActor::canOccupy(int x, int y) {
 
     for (int row = topRow; row <= bottomRow; ++row) {
         for (int col = leftCol; col <= rightCol; ++col) {
-            if (isSolidCell(col, row)) {
+            if (world_->isSolid(col, row)) {
                 return false;
             }
         }
@@ -81,7 +82,10 @@ void PlayerActor::update(unsigned long deltaTime) {
         facing_ = Facing::Down;
     }
 
-    if (deltaX == 0 && deltaY == 0) {
+    const bool directionHeld = (deltaX != 0 || deltaY != 0);
+    advanceWalkCycle(deltaTime, directionHeld);
+
+    if (!directionHeld) {
         // Standing still must not bank travel, or the first step after a pause
         // would fire off several pixels at once.
         travelAccumulator_ = 0;
@@ -98,18 +102,50 @@ void PlayerActor::update(unsigned long deltaTime) {
     }
 }
 
+void PlayerActor::advanceWalkCycle(unsigned long deltaTime, bool directionHeld) {
+    if (!directionHeld) return;
+
+    walkTimer_ += deltaTime;
+    while (walkTimer_ >= kWalkFrameMs) {
+        walkTimer_ -= kWalkFrameMs;
+        walkFrame_ ^= 1;
+    }
+}
+
 void PlayerActor::draw(gfx::Renderer& renderer) {
-    const SceneSprite* sprite = &PLAYER_DOWN;
+    uint8_t frame = PLAYER_DOWN;
     bool flipX = false;
 
+    // The flip bit does two different jobs here, which is the whole trick.
+    // Facing north or south it carries the animation FRAME; facing east or west
+    // it carries the FACING. Which directions can mirror and which cannot is
+    // measured, not assumed — see assets/PlayerSprites.h.
     switch (facing_) {
-        case Facing::Up:    sprite = &PLAYER_UP;   break;
-        case Facing::Down:  sprite = &PLAYER_DOWN; break;
-        case Facing::Right: sprite = &PLAYER_SIDE; break;
-        case Facing::Left:  sprite = &PLAYER_SIDE; flipX = true; break;
+        case Facing::Down:
+        case Facing::Up:
+            // One bitmap each; the mirror is the second frame. The hero holds
+            // nothing in either hand, so a flip has no held object to teleport
+            // across his body — which is the only thing that would force a
+            // second bitmap. Everything but the boots is symmetric, so the
+            // mirror moves the feet and nothing else.
+            frame = (facing_ == Facing::Down) ? PLAYER_DOWN : PLAYER_UP;
+            flipX = (walkFrame_ != 0);
+            break;
+
+        case Facing::Right:
+            frame = walkFrame_ ? PLAYER_SIDE_B : PLAYER_SIDE_A;
+            break;
+
+        case Facing::Left:
+            // Here the flip is the facing, so the walk cycle has to come from
+            // two real bitmaps: mirroring a side-on pose turns him around
+            // instead of animating him.
+            frame = walkFrame_ ? PLAYER_SIDE_B : PLAYER_SIDE_A;
+            flipX = true;
+            break;
     }
 
-    drawSceneSprite(renderer, *sprite, pixelX_, pixelY_, gfx::Color::White, flipX);
+    renderer.drawSprite(PLAYER_FRAMES[frame], pixelX_, pixelY_, flipX);
 }
 
 void PlayerActor::setPixelPosition(int x, int y) {
@@ -123,4 +159,6 @@ void PlayerActor::syncEntityPosition() {
     position = math::Vector2(pixelX_, pixelY_);
 }
 
-} // namespace zelda_overworld
+} // namespace legend_of_clone
+
+#endif // PIXELROOT32_ENABLE_4BPP_SPRITES

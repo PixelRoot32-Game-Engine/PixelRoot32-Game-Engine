@@ -7,7 +7,7 @@
 #include <core/Engine.h>
 #include <platforms/EngineConfig.h>
 
-#include "ZeldaOverworldScene.h"
+#include "Scenes.h"
 
 namespace pr32 = pixelroot32;
 
@@ -30,14 +30,12 @@ pr32::audio::AudioConfig audioConfig(&audioBackend, audioBackend.getSampleRate()
 
 pr32::core::Engine engine(config, inputConfig, audioConfig);
 
-zelda_overworld::ZeldaOverworldScene overworldScene;
-
 int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
     engine.init();
-    engine.setScene(&overworldScene);
+    engine.setScene(&legend_of_clone::overworldScene);
 
     engine.run();
 

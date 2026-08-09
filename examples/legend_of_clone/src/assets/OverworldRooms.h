@@ -31,12 +31,15 @@
  * the room with nowhere to go.
  */
 
-namespace zelda_overworld {
+namespace legend_of_clone {
 
 namespace gameplay = pixelroot32::gameplay;
 
-/// Shorthand for an unconnected direction, so the table below stays readable.
-inline constexpr uint16_t kWall = gameplay::kNoRoomConnection;
+// kWall lives in GameConstants.h so both room tables can use it without either
+// including the other. This is the one place that checks it still means what
+// the engine thinks it means.
+static_assert(kWall == gameplay::kNoRoomConnection,
+              "kWall must match the engine's unconnected-direction sentinel.");
 
 // --- Room Metadata ---
 static const gameplay::RoomData OVERWORLD_ROOMS[] = {
@@ -54,6 +57,6 @@ static const gameplay::RoomLayer OVERWORLD_ROOM_LAYER = {
     kTileSize         // tileHeight
 };
 
-} // namespace zelda_overworld
+} // namespace legend_of_clone
 
 #endif // PIXELROOT32_ENABLE_GAMEPLAY_ROOM

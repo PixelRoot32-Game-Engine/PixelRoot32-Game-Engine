@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-namespace zelda_overworld {
+namespace legend_of_clone {
 
 // ---------------------------------------------------------------------------
 // Screen layout
@@ -50,6 +50,16 @@ inline constexpr int kWorldRows = kRoomRows * kWorldRoomsY;  // 22
 /// Total world cells — the length of every layer index array.
 inline constexpr int kWorldCells = kWorldCols * kWorldRows;  // 660
 
+/**
+ * @brief Shorthand for an unconnected direction in a room table.
+ *
+ * Spelled as a literal here so both room tables can use it without either one
+ * having to include the other. `OverworldRooms.h` static_asserts that it still
+ * matches the engine's own sentinel, so a change on either side breaks the
+ * build instead of silently mis-wiring rooms.
+ */
+inline constexpr uint16_t kWall = 0xFFFF;
+
 /// Room indices, in the order OVERWORLD_ROOMS declares them.
 inline constexpr uint16_t kRoomNorthWest = 0;
 inline constexpr uint16_t kRoomNorthEast = 1;
@@ -76,6 +86,41 @@ inline constexpr int kPlayerStartCol = 7;
 inline constexpr int kPlayerStartRow = 18;
 
 // ---------------------------------------------------------------------------
+// The two maps meet here
+// ---------------------------------------------------------------------------
+// The overworld and the dungeon are separate scenes with separate coordinate
+// spaces, so the two ends of the doorway have to be written down somewhere.
+// This is that somewhere: change a map and these move with it, and the seam
+// checker verifies both cells are what they claim to be.
+
+/// Where the overworld drops the player back after leaving the dungeon —
+/// directly below the cave mouth, so walking up re-enters it.
+inline constexpr int kCaveExitCol = 5;
+inline constexpr int kCaveExitRow = 16;
+
+/// Where the dungeon puts the player on entry: one tile above its stairs.
+inline constexpr int kDungeonEntryCol = 7;
+inline constexpr int kDungeonEntryRow = 18;
+
+/**
+ * Duration of the fade in and out of a dungeon, in milliseconds.
+ *
+ * Each phase runs for this long, so a doorway costs twice this end to end. The
+ * NES holds a plain black screen for roughly a third of a second either side.
+ */
+inline constexpr unsigned long kDoorwayFadeMs = 180;
+
+/**
+ * How long one walk frame is held, in milliseconds.
+ *
+ * The NES reloads Link's animation counter with 6 and toggles the frame when it
+ * hits zero, so a frame lasts 6 video frames — 99.8 ms at the console's 60.0988
+ * Hz. Rounded to 100 ms here, which is the same number in wall-clock terms and
+ * survives a variable frame budget.
+ */
+inline constexpr unsigned long kWalkFrameMs = 100;
+
+// ---------------------------------------------------------------------------
 // Screen transition
 // ---------------------------------------------------------------------------
 
@@ -97,4 +142,4 @@ inline constexpr std::uint8_t BTN_DOWN  = 1;
 inline constexpr std::uint8_t BTN_LEFT  = 2;
 inline constexpr std::uint8_t BTN_RIGHT = 3;
 
-} // namespace zelda_overworld
+} // namespace legend_of_clone
