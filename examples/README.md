@@ -33,6 +33,8 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
 | [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
+| [room_screen](room_screen/) | Smallest possible `RoomGraph` demo: two rooms, `buildRoomGraph()` from exported room data, camera bounds per room | `native`, `esp32dev` |
+| [zelda_overworld](zelda_overworld/) | NES-style **screen-by-screen overworld**: 2x2 room grid, scrolling screen transitions with input lockout, character-map level data, multi-layer 1bpp tilemaps, 4bpp migration seam | `native`, `esp32dev` |
 
 
 ## Suggested learning order
