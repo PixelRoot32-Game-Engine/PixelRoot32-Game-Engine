@@ -1,9 +1,13 @@
 # The Legend of Clone — screen transitions
 
+
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
+
 An 8-bit-style overworld and the dungeon under it. Two scenes, four rooms each,
 and one player who walks between them.
 
-The name is the honest label. This is a **clone**, built to exercise engine
+The name is the honest label. This is a **clone** of The Legend of Zelda, built to exercise engine
 features — room graphs, scrolling screen transitions, scene fades, 4bpp
 tilemaps — against a layout everyone already knows, so the machinery is the
 thing under review and not the level design. It is not a reproduction: the maps
