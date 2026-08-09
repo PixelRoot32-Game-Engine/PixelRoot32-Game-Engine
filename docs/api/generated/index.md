@@ -147,6 +147,12 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [UIManager](./graphics/UIManager.md) — Registry of touch UI elements for event routing (non-owning pointers).
 - [UIPaddingContainer](./graphics/UIPaddingContainer.md) — Container that wraps a single UI element and applies padding.
 - [UIPanel](./graphics/UIPanel.md) — Visual container that draws a background and border around a child element.
+- [UISprite](./graphics/UISprite.md) — A UI leaf that draws a single sprite.
+- [UISpriteFormat](./graphics/UISpriteFormat.md) — Which member of a UISpriteRef's storage is live.
+- [UISpriteRef](./graphics/UISpriteRef.md) — Non-owning, format-tagged pointer to one sprite plus its draw
+       parameters.
+- [UISpriteRow](./graphics/UISpriteRow.md) — A UI leaf that draws a row of repeated icons whose fill is driven by
+       one value — hearts, lives, keys, ammo.
 - [UITouchButton](./graphics/UITouchButton.md) — Touch-optimized button widget.
 - [UITouchCheckbox](./graphics/UITouchCheckbox.md) — Touch-optimized checkbox widget.
 - [UITouchElement](./graphics/UITouchElement.md) — UIElement with embedded UITouchWidget data for touch interaction.
