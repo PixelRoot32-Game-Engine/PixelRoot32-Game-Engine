@@ -346,10 +346,10 @@ instead would make him stutter to a halt against every bush.
 Four bitmaps, not five, and the empty hands are why. A held object cannot be
 mirrored — flipping the sprite would teleport it to the other hand — so a
 character carrying a shield needs a second front-facing bitmap. This one does
-not: everything above the boots is left-right symmetric, so the mirror moves
-the feet and nothing else, which *is* the animation. `check_sprites.py` reports
-`mirror(PLAYER_DOWN)` against the old second frame as **0 differing pixels**;
-dropping it saved 168 bytes of flash.
+not: the head and torso are left-right symmetric while the arms and legs are
+not, so the mirror swings the far arm forward and the near one back, which *is*
+the animation. The second front-facing bitmap measured **0 differing pixels**
+against `mirror(PLAYER_DOWN)`; dropping it saved 168 bytes of flash.
 
 The side pair cannot play the same trick, because there the flip bit is already
 spending itself on the facing. Mirroring a side-on pose turns him around instead
@@ -357,9 +357,19 @@ of animating him — 146 differing pixels, against the front pair's 0.
 
 One trap worth knowing, because it has already cost an afternoon here: a sprite
 that is **perfectly** symmetric makes its own mirrored walk frame invisible, and
-that reads as a broken timer rather than as broken art. `PLAYER_UP` keeps four
-pixels of deliberate asymmetry in the boots for exactly this reason, and
-`check_sprites.py` fails the build of any sprite that loses it.
+that reads as a broken timer rather than as broken art. `check_sprites.py`
+measures every bitmap against its own mirror and fails below a floor:
+
+| Bitmap | Differing pixels vs its own mirror |
+| --- | --- |
+| `PLAYER_DOWN` | 44 |
+| `PLAYER_UP` | 26 |
+| `PLAYER_SIDE_A` | 146 |
+| `PLAYER_SIDE_B` | 142 |
+
+The two vertical numbers are the ones that matter, because those are the only
+frames whose animation *is* the mirror. An earlier `PLAYER_UP` sat at four
+pixels — enough to pass, not enough to see.
 
 Note that the flip bit ends up doing two different jobs: facing north it
 carries the animation *frame*, facing east or west it carries the *facing*.
