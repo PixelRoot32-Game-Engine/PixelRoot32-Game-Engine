@@ -87,12 +87,19 @@ void test_transition_fade_halfway_dims_values(void) {
     uint8_t buffer[4] = {100, 150, 200, 255};
     effect.apply(buffer, 4, 1);
 
-    // At progress=0.5: scaledProgress = 128. LUT[i] = i * (256-128) / 256 = i/2
-    // 100/2 = 50, 150/2 = 75, 200/2 = 100, 255/2 = 127 (integer floor)
-    TEST_ASSERT_EQUAL_UINT8(50,  buffer[0]);
-    TEST_ASSERT_EQUAL_UINT8(75,  buffer[1]);
+    // The 8bpp buffer is RGB332 (RRRGGGBB), not an intensity ramp, so each
+    // channel is scaled on its own. Scaling the packed byte instead would
+    // carry bits across channel boundaries and rotate the hue.
+    //
+    // At progress=0.5 the factor is 128, i.e. half of each channel:
+    //   100 = 011 001 00 -> 001 000 00 =  32
+    //   150 = 100 101 10 -> 010 010 01 =  73
+    //   200 = 110 010 00 -> 011 001 00 = 100
+    //   255 = 111 111 11 -> 011 011 01 = 109
+    TEST_ASSERT_EQUAL_UINT8(32,  buffer[0]);
+    TEST_ASSERT_EQUAL_UINT8(73,  buffer[1]);
     TEST_ASSERT_EQUAL_UINT8(100, buffer[2]);
-    TEST_ASSERT_EQUAL_UINT8(127, buffer[3]);
+    TEST_ASSERT_EQUAL_UINT8(109, buffer[3]);
 }
 
 // =============================================================================
@@ -124,15 +131,16 @@ void test_transition_fade_in_brightens(void) {
     effect.apply(buffer, 4, 1);
     TEST_ASSERT_EQUAL_UINT8(0, buffer[0]);
 
-    // At progress=0.5: 100*128/256=50, 150*128/256=75
+    // At progress=0.5 each RGB332 channel is halved — same values as the
+    // Out direction at the same factor (see TE-03).
     effect.init(TransitionType::Fade, TransitionDirection::In, 500);
     uint8_t buf2[4] = {100, 150, 200, 255};
     effect.update(250);
     effect.apply(buf2, 4, 1);
-    TEST_ASSERT_EQUAL_UINT8(50,  buf2[0]);
-    TEST_ASSERT_EQUAL_UINT8(75,  buf2[1]);
+    TEST_ASSERT_EQUAL_UINT8(32,  buf2[0]);
+    TEST_ASSERT_EQUAL_UINT8(73,  buf2[1]);
     TEST_ASSERT_EQUAL_UINT8(100, buf2[2]);
-    TEST_ASSERT_EQUAL_UINT8(127, buf2[3]);
+    TEST_ASSERT_EQUAL_UINT8(109, buf2[3]);
 
     // At progress=1.0: full brightness
     effect.update(500);
@@ -393,6 +401,87 @@ void test_transition_reinit_resets_state(void) {
 }
 
 // =============================================================================
+// TE-15: Fade must never rotate hue on the 8bpp (RGB332) buffer
+//
+// This is the regression that shipped: the LUT scaled the packed byte as if it
+// were an intensity, so bits carried across channel boundaries and a fading
+// red walked through green. On hardware a brown cave turned blue mid-fade.
+// A pure channel must stay pure at every step of the fade.
+// =============================================================================
+
+void test_transition_fade_8bpp_preserves_hue(void) {
+    // RGB332 primaries: RRRGGGBB.
+    const uint8_t kRed   = 0xE0;  // 111 000 00
+    const uint8_t kGreen = 0x1C;  // 000 111 00
+    const uint8_t kBlue  = 0x03;  // 000 000 11
+
+    for (unsigned long elapsed = 0; elapsed <= 500; elapsed += 50) {
+        TransitionEffect effect;
+        effect.init(TransitionType::Fade, TransitionDirection::Out, 500);
+        if (elapsed > 0) effect.update(elapsed);
+
+        uint8_t buffer[3] = {kRed, kGreen, kBlue};
+        effect.apply(buffer, 3, 1);
+
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[0] & 0x1F,
+            "Fading red must not bleed into the green or blue channels");
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[1] & 0xE3,
+            "Fading green must not bleed into the red or blue channels");
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[2] & 0xFC,
+            "Fading blue must not bleed into the red or green channels");
+    }
+}
+
+// =============================================================================
+// TE-16: Fade darkens monotonically per channel — never brighter than the source
+// =============================================================================
+
+void test_transition_fade_8bpp_never_brightens_a_channel(void) {
+    for (unsigned long elapsed = 0; elapsed <= 500; elapsed += 50) {
+        TransitionEffect effect;
+        effect.init(TransitionType::Fade, TransitionDirection::Out, 500);
+        if (elapsed > 0) effect.update(elapsed);
+
+        uint8_t buffer[1] = {0xFF};  // white
+        effect.apply(buffer, 1, 1);
+
+        const uint8_t r = (uint8_t)((buffer[0] >> 5) & 0x07);
+        const uint8_t g = (uint8_t)((buffer[0] >> 2) & 0x07);
+        const uint8_t b = (uint8_t)(buffer[0] & 0x03);
+
+        // White fades to grey: R and G track each other, B follows at its own
+        // depth. No channel may exceed its source value.
+        TEST_ASSERT_TRUE_MESSAGE(r <= 7, "red channel out of range");
+        TEST_ASSERT_TRUE_MESSAGE(g <= 7, "green channel out of range");
+        TEST_ASSERT_TRUE_MESSAGE(b <= 3, "blue channel out of range");
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(r, g,
+            "White must stay neutral through the fade: R and G share a depth");
+    }
+}
+
+// =============================================================================
+// TE-17: DiagonalWipe feather blends toward black without rotating hue
+// =============================================================================
+
+void test_transition_diagonal_wipe_feather_preserves_hue(void) {
+    TransitionEffect effect;
+    effect.init(TransitionType::DiagonalWipe, TransitionDirection::Out, 500);
+    effect.setWipeDirection(WipeDirection::NW_SE);
+    effect.update(250);  // progress = 0.5
+
+    // NW_SE gives lineValue = x for a single row; front = (4+1)*128/256 = 2,
+    // so x=2 is the one pixel in the feather band.
+    uint8_t buffer[4] = {0xE0, 0xE0, 0xE0, 0xE0};  // pure red
+    effect.apply(buffer, 4, 1);
+
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[0], "behind the front is wiped");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, buffer[1], "behind the front is wiped");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0x60, buffer[2],
+        "feather halves the red channel only: 111 000 00 -> 011 000 00");
+    TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xE0, buffer[3], "ahead of the front is untouched");
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -428,6 +517,11 @@ int main(void) {
     // TE-14B — Sub-step isolation
     RUN_TEST(test_transition_fade_no_substep);
     RUN_TEST(test_transition_iris_no_substep);
+
+    // TE-15, TE-16, TE-17 — RGB332 channel integrity on the 8bpp path
+    RUN_TEST(test_transition_fade_8bpp_preserves_hue);
+    RUN_TEST(test_transition_fade_8bpp_never_brightens_a_channel);
+    RUN_TEST(test_transition_diagonal_wipe_feather_preserves_hue);
 
     return UNITY_END();
 }

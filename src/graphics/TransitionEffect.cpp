@@ -19,6 +19,46 @@ namespace pixelroot32::graphics {
 
 #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
+namespace {
+
+/**
+ * @brief Scale an RGB332 byte toward black, one channel at a time.
+ *
+ * The 8bpp framebuffer byte is a packed colour (RRRGGGBB), not an intensity —
+ * see packRgb565ToTftSprite8() in Renderer.cpp. Multiplying the byte as a
+ * scalar carries bits across the channel boundaries: half of pure red (0xE0)
+ * lands on 0x70, which reads back as R=3, G=4 — more green than red. That is
+ * a hue rotation, not a fade, and it is why a brown cave turned blue mid-fade
+ * on hardware while native (RGB565, scaled per channel) looked correct.
+ *
+ * @param rgb332 Packed source colour.
+ * @param factor Q8.8 scale in [0, 256]; 256 is identity, 0 is black.
+ */
+inline uint8_t scaleRgb332(uint8_t rgb332, uint16_t factor) {
+    const uint16_t r = static_cast<uint16_t>((rgb332 >> 5) & 0x07);
+    const uint16_t g = static_cast<uint16_t>((rgb332 >> 2) & 0x07);
+    const uint16_t b = static_cast<uint16_t>(rgb332 & 0x03);
+    return static_cast<uint8_t>(((((r * factor) >> 8) & 0x07) << 5) |
+                                ((((g * factor) >> 8) & 0x07) << 2) |
+                                (((b * factor) >> 8) & 0x03));
+}
+
+/**
+ * @brief Scale an RGB565 word toward black, one channel at a time.
+ *
+ * Same reasoning as scaleRgb332(): a packed colour is not a scalar.
+ */
+inline uint16_t scaleRgb565(uint16_t rgb565, uint16_t factor) {
+    const uint32_t r = static_cast<uint32_t>((rgb565 >> 11) & 0x1F);
+    const uint32_t g = static_cast<uint32_t>((rgb565 >> 5) & 0x3F);
+    const uint32_t b = static_cast<uint32_t>(rgb565 & 0x1F);
+    return static_cast<uint16_t>(((((r * factor) >> 8) & 0x1F) << 11) |
+                                 ((((g * factor) >> 8) & 0x3F) << 5) |
+                                 (((b * factor) >> 8) & 0x1F));
+}
+
+} // namespace
+
 // =============================================================================
 // smoothstepQ8() — Q8.8 smoothstep easing
 // =============================================================================
@@ -132,20 +172,15 @@ void TransitionEffect::apply(uint8_t* buffer, int width, int height) {
 // =============================================================================
 
 void TransitionEffect::computeFadeLut(uint8_t* lut, uint16_t scaledProgress) const {
-    if (direction_ == TransitionDirection::Out) {
-        // Fade Out:  LUT[i] = i * (256 - p) / 256
-        // Progress=0 → LUT[i] = i   (full brightness)
-        // Progress=1 → LUT[i] = 0   (black)
-        for (int i = 0; i < 256; ++i) {
-            lut[i] = static_cast<uint8_t>((i * (256 - scaledProgress)) >> 8);
-        }
-    } else {
-        // Fade In:   LUT[i] = i * p / 256
-        // Progress=0 → LUT[i] = 0   (black)
-        // Progress=1 → LUT[i] = i   (full brightness)
-        for (int i = 0; i < 256; ++i) {
-            lut[i] = static_cast<uint8_t>((i * scaledProgress) >> 8);
-        }
+    // Out dims to black as progress rises; In brightens from black.
+    const uint16_t factor = (direction_ == TransitionDirection::Out)
+                                ? static_cast<uint16_t>(256 - scaledProgress)
+                                : scaledProgress;
+
+    // Still one 256-entry table built once per frame — the cost is unchanged.
+    // Only how an entry is derived changes: per RGB332 channel, not per byte.
+    for (int i = 0; i < 256; ++i) {
+        lut[i] = scaleRgb332(static_cast<uint8_t>(i), factor);
     }
 }
 
@@ -308,7 +343,8 @@ void TransitionEffect::applyDiagonalWipe(uint8_t* buffer, int width, int height)
             if (useFeather) {
                 // 1-pixel feather band: 50% blend toward black (same for Out
                 // and In — center of a symmetric blend from 0 to pixel).
-                buffer[i] = (uint8_t)((buffer[i] * 128) >> 8);
+                // Per channel: the byte is RGB332, not an intensity.
+                buffer[i] = scaleRgb332(buffer[i], 128);
             } else {
                 // No feather (progress=0 or progress=1): hard boundary.
                 if (direction_ == TransitionDirection::In) {
@@ -394,7 +430,9 @@ void TransitionEffect::applyDiagonalWipeRGB565(uint16_t* buffer, int width, int 
         } else {
             // diff == 0: at the wipe front.
             if (useFeather) {
-                buffer[i] = (uint16_t)((buffer[i] * 128) >> 8);
+                // Per channel: an RGB565 word is not a scalar either. This one
+                // was wrong on every platform, not just the 8bpp path.
+                buffer[i] = scaleRgb565(buffer[i], 128);
             } else if (direction_ == TransitionDirection::In) {
                 buffer[i] = 0;
             }
@@ -468,28 +506,17 @@ void TransitionEffect::applyFadeRGB565(uint16_t* buffer, int width, int height) 
         if (scaledProgress > 256) scaledProgress = 256;
     }
 
+    // Out dims to black as progress rises; In brightens from black. Same rule
+    // the 8bpp path uses in computeFadeLut(), only a wider pixel format.
+    const uint16_t factor = (direction_ == TransitionDirection::Out)
+                                ? static_cast<uint16_t>(256 - scaledProgress)
+                                : scaledProgress;
+
+    // No LUT here: 65536 entries would cost more than the 240x240 buffer it
+    // would serve. Per-pixel channel maths is the cheaper side of that trade.
     int totalPixels = width * height;
     for (int i = 0; i < totalPixels; ++i) {
-        uint16_t pixel = buffer[i];
-        // Extract RGB565 channels.
-        uint8_t r = (pixel >> 11) & 0x1F;
-        uint8_t g = (pixel >> 5) & 0x3F;
-        uint8_t b = pixel & 0x1F;
-
-        if (direction_ == TransitionDirection::Out) {
-            // Darken: scale down by (256 - progress) / 256
-            uint16_t factor = 256 - scaledProgress;
-            r = static_cast<uint8_t>((r * factor) >> 8);
-            g = static_cast<uint8_t>((g * factor) >> 8);
-            b = static_cast<uint8_t>((b * factor) >> 8);
-        } else {
-            // Brighten: scale up by progress / 256
-            r = static_cast<uint8_t>((r * scaledProgress) >> 8);
-            g = static_cast<uint8_t>((g * scaledProgress) >> 8);
-            b = static_cast<uint8_t>((b * scaledProgress) >> 8);
-        }
-
-        buffer[i] = static_cast<uint16_t>((r << 11) | (g << 5) | b);
+        buffer[i] = scaleRgb565(buffer[i], factor);
     }
 }
 
