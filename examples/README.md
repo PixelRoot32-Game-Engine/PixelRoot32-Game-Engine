@@ -34,6 +34,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
 | [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
 | [room_screen](room_screen/) | Smallest possible `RoomGraph` demo: two rooms, `buildRoomGraph()` from exported room data, camera bounds per room | `native`, `esp32dev` |
+| [midway_clone](midway_clone/) | **Clone of Midway** — vertically scrolling shooter: a camera driven **every frame**, `ObjectPool` bullets/enemies/explosions, camera-keyed wave table, sprite-vs-sprite AABB with physics off, and a measured look at what a moving camera costs `StaticTilemapLayerCache` (spoiler: less than the unconditional full-frame SPI push) | `native`, `esp32dev` |
 | [legend_of_clone](legend_of_clone/) | **The Legend of Clone** — 8-bit-style **screen-by-screen overworld and dungeon**: two scenes over a shared room-grid base, scrolling room transitions with input lockout, `triggerTransition` fade between scenes, exported flash-resident 4bpp tilemaps + `StaticTilemapLayerCache`, dual palette mode, per-tile collision tables | `native`, `esp32dev` |
 
 
@@ -43,7 +44,8 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 2. **sprites** or **dual_palette** — graphics and color models.  
 3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
 4. **physics** — bodies, sensors, touch.  
-5. **snake** / **tic_tac_toe** / **2048** / **brick_breaker** / **music_demo** / **space_invaders** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.
+5. **snake** / **tic_tac_toe** / **2048** / **brick_breaker** / **music_demo** / **space_invaders** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.  
+6. **midway_clone** — where the frame budget actually goes on an ESP32. Read it after step 3: it is the counter-example to the tilemap cache, and it shows how to measure rather than guess.
 
 ## Engine documentation
 
