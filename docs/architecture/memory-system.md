@@ -732,6 +732,9 @@ In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINE
 - **Optimized**: 60 lines = ~30KB
 - **Max**: 120 lines = ~60KB (Half frame)
 
+> [!NOTE]
+> Figures above are per buffer, and the driver allocates two. The `60`-line setting was unreachable before `d6dc9ae` (a buffer-selection bug always forced the 30-line fallback); builds from that commit onward get the documented size, falling back only when DMA-capable internal RAM is short. Enabling `PIXELROOT32_TFT_12BIT_COLOR=1` shrinks each buffer by 25% (60 lines at 240 width: ~28.8KB → ~21.6KB) at the cost of a 768-byte pair LUT — see [ESP32 Performance Guide](../guide/performance/esp32-performance.md#12-bit-color-on-the-wire-rgb444).
+
 > [!IMPORTANT]
 > Non-FPU platforms like ESP32-C3 have more limited SRAM. Be cautious when increasing DMA block sizes or logical resolutions.
 

@@ -2,6 +2,24 @@
 
 Branch: `refactor/performace`. Method: full-source audit of every subsystem (core loop, rendering, tilemap, sprites/UI/particles/fonts, physics/collisions, audio/APU, input/touch, ESP32 drivers, memory/allocations). All findings cite `file:line` evidence; anything not measurable from code alone is flagged **requires profiling**.
 
+> **Note on status:** the findings below are the original analysis and are left unchanged. Items that have since been implemented carry a **Status** line with the commit that landed them; everything without one is still open. Line numbers in the citations refer to the code as audited.
+
+## 0. Implementation Status
+
+| Finding | Status | Commit |
+|---|---|---|
+| **C-1 (1)** — deferred final `dmaWait()` | ✅ Implemented, not yet hardware-verified | `d6dc9ae` |
+| **C-2** — 1bpp direct-framebuffer fast path | ✅ Implemented, not yet hardware-verified | `d6dc9ae` |
+| **H-1** — line-buffer fallback bug (60-line block) | ✅ Fixed, not yet hardware-verified | `d6dc9ae` |
+| **C-5** — 12-bit RGB444 on the wire | ⚠️ Implemented behind `PIXELROOT32_TFT_12BIT_COLOR`, **off by default**, hardware spike still pending | `52ed4a0` |
+| **C-1 (2)** — full overlap via core-0 display task | Open | — |
+| **C-3** — `checkCollision` via SpatialGrid | Open | — |
+| **C-4** — partial dirty-region SPI push | Open | — |
+| **C-6** — reduced push area (letterbox) | Open (per-game config, no engine work) | — |
+| All **H-2…H-7**, **M-\***, **L-\*** | Open | — |
+
+The ESP32 driver is not reachable by the native test runner, so nothing in `d6dc9ae` or `52ed4a0` has been measured on a panel yet. The projected numbers in §7 remain projections.
+
 ## 1. Executive Summary
 
 The engine is architecturally disciplined: no per-frame heap allocation anywhere in the game loop, no STL node containers, fixed-size pools, logging compiled out in release, a pre-swapped palette LUT, and a correct intra-frame DMA pipeline. The FPS limiters are therefore *structural*, not hygiene problems. Three bottlenecks dominate:
@@ -64,6 +82,7 @@ Note that **lowering `LOGICAL_WIDTH/HEIGHT` does *not* help the bus** — the sc
   2. Full overlap: display task on core 0 with a completed-frame handoff. Requires a second 57.6 KB framebuffer (double buffer) or a "don't draw while pushing" contract. Difficulty: High. Risk: High. API impact on render loop.
 - **Expected benefit:** (1) closes most of the gap between current FPS and the 43.4 ceiling; (2) hides the transfer entirely, making the frame cost `max(CPU, 23.04 ms)` instead of `CPU + 23.04 ms`. **Neither raises the ceiling** — at a fixed 40 MHz clock, overlap can only get you *to* 43.4 FPS, never past it. See C-4/C-5 for the levers that move the ceiling itself.
 - **Profiling:** the existing `PIXELROOT32_ENABLE_PROFILING` split (scale vs dmaWait, `:520-535`) already measures the wait share — use it before investing in (2).
+- **Status:** ✅ **Solution (1) implemented in `d6dc9ae`.** `sendBufferScaled()` leaves the frame's last block in flight and flushes it at the top of the next call; `waitForPendingDMA()` guards the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`. The per-frame `currentBuffer` reset is gone so the double buffer keeps alternating across frames. Solution (2) (core-0 display task) remains open. Not yet measured on hardware.
 
 #### C-4. Full-frame SPI push is unconditional — dirty regions never reach the bus — **Critical (the ceiling itself)**
 - **Problem:** `sendBuffer()` always calls `sendBufferScaled()`, which opens one address window over the entire physical area (`TFT_eSPI_Drawer.cpp:312`) and pushes every pixel, even when the DirtyGrid knows only a handful of 8×8 cells changed. The dirty system's benefit is confined to framebuffer *clears* (`Renderer.cpp:263-277`). The only bus-level saving available today is the all-or-nothing whole-frame skip (`Engine.cpp:291-305`).
@@ -80,6 +99,7 @@ Note that **lowering `LOGICAL_WIDTH/HEIGHT` does *not* help the bus** — the sc
 - **Solution:** send `COLMOD 0x03` at init; change `paletteLUT` to hold 12-bit values and pack pixel pairs into 3 bytes while filling the line buffers. The pack is a few extra ALU ops per pixel pair — and the CPU is currently *idle* waiting on DMA (C-1), so this trades a free resource for a scarce one.
 - **Trade-offs:** TFT_eSPI does not expose a 12-bit push path natively; the engine already builds its own line buffers and calls `pushPixelsDMA`, so it can pack bytes itself, but the `COLMOD` command and byte-stream format need a hardware spike to confirm on each panel. Odd pixel counts per span need padding handling. Combines multiplicatively with C-4 (25% off whatever partial push already saved).
 - **Difficulty:** Medium. **Regression risk:** Medium (panel-specific; keep RGB565 as a build-flag fallback). **Requires validation:** yes — bench on one ST7789 and one ILI9341 board before committing.
+- **Status:** ⚠️ **Implemented in `52ed4a0` behind `PIXELROOT32_TFT_12BIT_COLOR`, default `0`.** The driver sends `COLMOD 0x03` at init and packs the line buffers as RGB444; a 768-byte pair LUT serves the 2× fast path. The audit's "visually lossless" claim was tightened when the code landed: the RGB332 → RGB444 mapping is **bijective** — all 256 framebuffer colours stay distinguishable, asserted by `test/unit/test_rgb444/test_rgb444.cpp` — but it is *not* bit-exact, since red and green shades shift slightly (blue is exact). Panels whose `PHYSICAL_DISPLAY_WIDTH` is not a multiple of 4 keep RGB565 and log a warning, because `pushPixelsDMA` counts 16-bit words (an even width is not sufficient: 242 → 363 bytes/line). Line buffers shrink 25% (28,800 → 21,600 bytes each at 60 lines, 240-wide), net of the pair LUT. **The hardware spike is still outstanding** — the panel accepting `COLMOD 0x03`, the rendered result and the predicted FPS gain are all unverified, which is why the flag ships off.
 
 #### C-6. Reduced push area is available today with zero engine work — **Critical (immediate lever)**
 - **Opportunity:** `DisplayConfig` already carries `physicalWidth/physicalHeight` and `xOffset/yOffset` (`include/graphics/DisplayConfig.h:64-72`), plumbed to `BaseDrawSurface::setPhysicalSize/setOffset` (`include/graphics/BaseDrawSurface.h:76-83`) and consumed directly by the address window (`TFT_eSPI_Drawer.cpp:312`). A game can therefore push a sub-region of the panel *right now*, with no engine change.
@@ -100,6 +120,7 @@ Note that **lowering `LOGICAL_WIDTH/HEIGHT` does *not* help the bus** — the sc
 - **Problem:** `buildScaleLUTs()` (`TFT_eSPI_Drawer.cpp:205-217`) tests `if (lineBuffer[0] && !lineBuffer[1])` before buffer 1 is ever allocated — always true — so it unconditionally frees buffer 0 and downgrades to the 30-line fallback. The tuning knob `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` does nothing.
 - **Impact:** 2× the DMA sync points/descriptor setups per frame (~0.1–0.3 ms + jitter). Mostly a correctness-of-intent bug.
 - **Solution:** allocate both buffers at optimal size; on failure of either, free both and retry at fallback size. Verify DMA-capable internal RAM headroom (2×28.8 KB) with audio/WiFi active. Difficulty: Low. Risk: Low-Medium.
+- **Status:** ✅ **Fixed in `d6dc9ae`** exactly as proposed — both buffers are allocated at the optimal size and both are freed and retried at the fallback size if either fails. `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` is now reachable, so the documented default finally applies. `52ed4a0` added the missing log line when the fallback does kick in, so hardware frame timings can be read against the block size the board actually got.
 
 #### H-2. Framebuffer may silently land in PSRAM — **High (PSRAM boards only)**
 - **Problem:** `spr.createSprite()` (`TFT_eSPI_Drawer.cpp:82-85`) never calls `spr.setAttribute(PSRAM_ENABLE, false)`; stock TFT_eSPI allocates sprites via `ps_malloc` when PSRAM exists. Every hot loop in the engine (draw, cache memcpy, LUT conversion, transitions) would then read/write PSRAM through the SPI cache — 4–10× slower, defeating all the `MALLOC_CAP_INTERNAL` care taken for line buffers.
@@ -116,6 +137,7 @@ Note that **lowering `LOGICAL_WIDTH/HEIGHT` does *not* help the bus** — the sc
 - **Problem:** `drawSprite` 1bpp (`src/graphics/Renderer.cpp:443-486`), scaled variant (`:680-731`), and 1bpp `drawTileMap` (`:887` calls `drawSprite` per tile) route every set bit through `getDrawSurface().drawPixel()` — virtual dispatch → `TFT_eSprite::drawPixel` (which re-does bounds, rotation and depth branching). The 2bpp (`:545-549`) and 4bpp (`:600-637`) paths already write `logicalFrameBuffer8` directly; 1bpp never got the fast path. Consumers: **all text** (`drawText` → `drawSprite`, `:322-327`), every `MultiSprite` layer (`:669-677`), every 1bpp tile.
 - **Impact:** ~40–100 cycles/pixel vs ~4–8. Full-viewport 1bpp tilemap ≈ 10–19 ms/frame — alone below 60 FPS. Text-heavy HUDs pay ms-scale.
 - **Solution:** replicate the 4bpp fast path: when `fb8 != nullptr`, resolve + `packRgb565ToTftSprite8` once, write rows directly with clipping hoisted out of the inner loop, `if (bits == 0) continue;` per row, iterate set bits with `__builtin_ctz`. Keep the virtual fallback for U8G2/SDL. No API change. Difficulty: Low-Medium. Risk: Low (golden-image test both drivers).
+- **Status:** ✅ **Implemented in `d6dc9ae`** as proposed: the colour pack is hoisted out of both loops (a 1bpp sprite is a single colour), empty rows are skipped, and the virtual path stays as the fallback for surfaces without an 8bpp buffer. `test/unit/test_graphics/test_renderer_sprite1bpp.cpp` asserts both branches produce identical output.
 
 #### H-3. `StaticTilemapLayerCache` is pure overhead while scrolling — **High**
 - **Problem:** cached frames `memcpy` a full framebuffer (57.6 KB, `src/graphics/StaticTilemapLayerCache.cpp:215-229`); any camera-sample change forces redraw **plus** a full `memcpy(cache, fb, …)` snapshot — during continuous scrolling (the shipped scrolling examples) the cache adds a full-frame copy on top of the full redraw, every frame. Cache buffer is plain `std::malloc` (`:81`) — can land in PSRAM.
@@ -234,6 +256,8 @@ Static/persistent buffers (TFT color path, logical = physical):
 | Audio command queue | ~12 KB | ~12 KB | scheduler (shrinkable to ~3 KB) |
 | Touch queue + audio stacks + I2S DMA | ~7.2 KB | ~7.2 KB | internal |
 
+> **Post-`d6dc9ae` correction:** the "30-line fallback active" row above described the H-1 bug, not the intended configuration. With the fallback logic fixed, a board that gets the 60-line blocks carries **2 × 28.8 KB = 57.6 KB** of line buffers at 240×240 (double the row's figure), and the core pipeline is correspondingly ~146 KB. With `PIXELROOT32_TFT_12BIT_COLOR=1` (`52ed4a0`) those buffers shrink 25% to 2 × 21.6 KB = 43.2 KB, plus a 768-byte pair LUT. Boards that still fail the larger allocation fall back to 30 lines and now log that they did.
+
 Core pipeline ≈ **117 KB** @240×240 before game data; + tilemap cache ≈ 175 KB — tight in ~200–300 KB usable SRAM; @320×240 with all features ≈ 165–230 KB (explains the 30-line fallback). No PSRAM tier exists at all (F8) — the tilemap cache snapshot is the best PSRAM candidate on WROVER/S3 boards (~1.4 ms/frame restore penalty vs freeing ~25% of SRAM; **requires profiling**).
 
 Worst-case bytes moved per frame @240×240: full clear 57.6 KB + scene redraw ~58–115 KB + cache restore 115.2 KB + transition pass 115.2 KB + scan-out conversion ~173 KB ≈ **~520–580 KB CPU traffic**, plus the fixed **115.2 KB SPI push** (23 ms @40 MHz — the frame floor).
@@ -279,9 +303,9 @@ The decisive observation: once the deferred wait lands, **the CPU stops being th
 0. **Verify the effective SPI clock** on the ILI9341_2 boards. If 55 MHz is silently resolving to 40 MHz (§2.1), those configs are misleading and their true ceiling is 32.6 FPS, not the 44.8 the config implies. Correct the example configs to state 40 MHz so nobody tunes against a fiction.
 
 ### Priority 1 — Reach the current ceiling (CPU-side; gets you to 43 FPS)
-1. **C-1 (1):** defer final `dmaWait()+endWrite()` to next present, guarding the touch bridge on the shared bus. Low effort — this is what converts `CPU + 23 ms` into `max(CPU, 23 ms)`.
-2. **C-2:** 1bpp direct-fb8 fast path (text, MultiSprite, 1bpp tilemaps). Low-Medium effort, up to 10–19 ms/frame recovered on 1bpp content.
-3. **C-3:** route `checkCollision` through SpatialGrid + cache candidates per `moveAndCollide`. Medium effort, 0.5–2 ms/frame per kinematic actor.
+1. ✅ **C-1 (1)** (`d6dc9ae`)**:** defer final `dmaWait()+endWrite()` to next present, guarding the touch bridge on the shared bus. Low effort — this is what converts `CPU + 23 ms` into `max(CPU, 23 ms)`.
+2. ✅ **C-2** (`d6dc9ae`)**:** 1bpp direct-fb8 fast path (text, MultiSprite, 1bpp tilemaps). Low-Medium effort, up to 10–19 ms/frame recovered on 1bpp content.
+3. **C-3:** route `checkCollision` through SpatialGrid + cache candidates per `moveAndCollide`. Medium effort, 0.5–2 ms/frame per kinematic actor. **Still open.**
 
 *After these three, the engine is bus-bound at 43.4 FPS (ST7789) / 32.6 FPS (ILI9341) and further CPU work does not raise FPS.*
 
@@ -289,12 +313,12 @@ The decisive observation: once the deferred wait lands, **the CPU stops being th
 Pick based on the game's motion profile — these are not all-or-nothing, and C-5 composes with both others:
 
 - **C-6 (letterbox)** — available today, zero engine risk. Use when a specific game needs 60 FPS now. 240×176 → 59.2 FPS.
-- **C-5 (12-bit RGB444)** — flat 25% on every frame including full-screen scrollers, visually lossless given the 8bpp framebuffer. Needs a hardware spike per panel. → 57.9 FPS ceiling at full 240×240.
+- ⚠️ **C-5 (12-bit RGB444)** (`52ed4a0`, opt-in via `PIXELROOT32_TFT_12BIT_COLOR`, default off) — flat 25% on every frame including full-screen scrollers, no colours lost given the 8bpp framebuffer. **The hardware spike per panel is still the gate**: the code exists, the validation does not. → 57.9 FPS ceiling at full 240×240.
 - **C-4 (partial dirty-region push)** — largest win (100+ FPS) but only for localized-motion games; requires H-4's ≥60% cutover first. Measure per-example dirty-cell counts before committing to the effort.
 
 ### Priority 2 — High
 4. **H-2:** `PSRAM_ENABLE(false)` guard on the sprite framebuffer (verify fork default). Trivial.
-5. **H-1:** fix the line-buffer fallback logic (restore 60-line blocks). Low.
+5. ✅ **H-1** (`d6dc9ae`)**:** fix the line-buffer fallback logic (restore 60-line blocks). Low.
 6. **M-1:** `-O2` in `[base_esp32]`, resolve the LTO flag contradiction. Trivial.
 7. **H-5:** tile-run merging + arena allocation for tile bodies. Medium.
 8. **H-6:** SpatialGrid wrap-not-clamp (mandatory before trusting scrolling samples). Low.
@@ -327,15 +351,15 @@ Pick based on the game's motion profile — these are not all-or-nothing, and C-
 4. **Regression protection:** golden-image tests (native SDL2 path — after fixing its `drawTileDirect` palette bug) for every renderer/transition change; golden-PCM tests already pin the APU — any reciprocal/LUT audio change must regenerate goldens deliberately.
 5. **Effective SPI clock check (P0):** read back the configured divider (or scope SCLK) on an ILI9341_2 board configured at 55 MHz to confirm whether it resolves to 40 MHz. No clock sweep upward — 40 MHz is the panel limit and the ESP32 offers no step between 40 and 80.
 6. **Dirty-cell census (gates C-4):** instrument `countPrevMarkedCells()` per frame across `snake`, `2048`, `brick_breaker`, `space_invaders` (localized motion) vs `midway_clone`, `legend_of_clone` (full-screen scroll). The mean and p95 coverage fraction per example is the number that decides whether partial push is worth the High-difficulty effort — and for which games it should be enabled.
-7. **12-bit color spike (gates C-5):** one throwaway branch sending `COLMOD 0x03` + packed RGB444 line buffers on one ST7789 and one ILI9341 board. Confirm the panel accepts it, measure the real transfer time, and eyeball color fidelity against the RGB565 build.
+7. **12-bit color spike (gates C-5):** ⚠️ **still outstanding, but no longer needs a throwaway branch** — build with `-DPIXELROOT32_TFT_12BIT_COLOR=1` (`52ed4a0`) on one ST7789 and one ILI9341 board. Confirm the panel accepts `COLMOD 0x03`, measure the real transfer time, and eyeball color fidelity against the RGB565 build. Until this runs, the flag stays off by default.
 
 ## 10. Final Recommendations
 
 - **Accept the ceiling, then decide how to move it.** With 40 MHz panels, 43.4 FPS (240×240) and 32.6 FPS (240×320) are physical limits at full-frame push. Every CPU optimization in this document is about *reaching* that number, not exceeding it. Do not spend effort on particle lerps or solver divides expecting FPS — they buy headroom and battery, nothing more, until a byte-count lever lands.
-- **Sequence matters:** fix the present-path first (P1.1) — it is what makes the CPU work overlap the bus at all; then the 1bpp path and collision broad phase. Measure again *before* starting any P1B work: the dirty-cell census decides C-4, the hardware spike decides C-5.
+- **Sequence matters:** fix the present-path first (P1.1) — it is what makes the CPU work overlap the bus at all; then the 1bpp path and collision broad phase. Measure again *before* starting any P1B work: the dirty-cell census decides C-4, the hardware spike decides C-5. *(P1.1 and the 1bpp path landed in `d6dc9ae`; the collision broad phase is still open, and no hardware measurement has been taken yet.)*
 - **The pragmatic 60 FPS answer today is C-6.** If a specific game needs 60 FPS on current hardware this month, a letterboxed 240×176 viewport gets there with a config change and zero regression risk. It costs screen area, not correctness — and unlike C-4/C-5 it needs no engine work and no hardware validation.
-- **C-5 is the best engine-wide bet.** A flat 25% bandwidth cut that applies to every game including scrollers, visually lossless because the framebuffer is already 8bpp, and it spends CPU cycles that are currently idle. The only unknown is TFT_eSPI plumbing — resolve that with the spike before scheduling the work.
+- **C-5 is the best engine-wide bet.** A flat 25% bandwidth cut that applies to every game including scrollers, no colours lost because the framebuffer is already 8bpp, and it spends CPU cycles that are currently idle. The TFT_eSPI plumbing unknown is resolved — `52ed4a0` builds the packed line buffers itself behind `PIXELROOT32_TFT_12BIT_COLOR` — but the **panel-side spike is still the gate**, so the flag ships off.
 - **Do the trivial batch in one PR:** PSRAM guard, line-buffer fix, build flags, transition redraw gate, heartbeat guard, phantom-touch fix, `InteractionTracker` sort deletion — near-zero risk, immediate wins.
-- **Guard the shared SPI bus contract** before any deferred-DMA change: touch bridge must `dmaWait` first.
+- **Guard the shared SPI bus contract** before any deferred-DMA change: touch bridge must `dmaWait` first. ✅ Done in `d6dc9ae` via the public `TFT_eSPI_Drawer::waitForPendingDMA()`, wired into the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`. **This is now a standing API contract:** any new user of the shared SPI bus must call it first.
 - **Don't invest in per-widget damage tracking, partial SPI windows, or a core-0 display task until profiling after P1** — their value depends on what P1 leaves on the table.
 - The engine's zero-allocation, fixed-pool architecture is the right foundation; nothing here requires an architectural rewrite. The two API-visible items are optional: incremental scene init hook and a `blockSize` getter plumb. All P1/P2 fixes are internal.
