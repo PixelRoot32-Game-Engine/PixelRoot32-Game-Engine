@@ -16,8 +16,14 @@
 #ifndef PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK
 #define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK 30
 #endif
+#ifndef PIXELROOT32_TFT_12BIT_COLOR
+#define PIXELROOT32_TFT_12BIT_COLOR 0
+#endif
 
 #include "graphics/BaseDrawSurface.h"
+#if PIXELROOT32_TFT_12BIT_COLOR
+#include "graphics/Rgb444.h"
+#endif
 // TFT_eSPI-specific includes
 #include <TFT_eSPI.h>
 #include <stdint.h>
@@ -120,8 +126,22 @@ private:
     bool dmaPending = false;                      ///< True while the last block of a frame is still in flight (transaction still open)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
-    uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp to 16bpp palette LUT
-    
+    uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp palette LUT (byte-swapped RGB565, or 0x0RGB in 12-bit mode)
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+    /// True once the panel has been switched to the 12-bit (RGB444) pixel format.
+    ///
+    /// Decided in buildScaleLUTs() and left false when the physical width makes
+    /// the packed stream unsafe (see the guard there), in which case the driver
+    /// keeps the byte-swapped RGB565 path unchanged.
+    bool use12BitColor = false;
+
+    /// 3-byte RGB444 stream for a horizontally duplicated pixel, one entry per
+    /// palette index. Used by the 2x fast path, which only ever emits pairs of
+    /// identical colours, so the triple is a pure function of the source index.
+    uint8_t (*pairLUT)[3] = nullptr;
+#endif
+
     /**
      * @brief Checks if scaling is needed.
      * @return true if logical != physical resolution.
@@ -149,6 +169,35 @@ private:
      * @brief Scales a single line from 8bpp logical to 16bpp physical.
      */
     void scaleLine(const uint8_t* spriteBase, int srcY, uint16_t* dst);
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+    /**
+     * @brief Converts one block of physical lines into the packed RGB444 stream.
+     *
+     * Mirrors the three RGB565 conversion paths (1:1, 2x, generic scale) but
+     * emits three bytes per pixel pair instead of two bytes per pixel.
+     *
+     * @param spriteBase Base of the 8bpp sprite framebuffer.
+     * @param startY     First physical line of the block.
+     * @param endY       One past the last physical line of the block.
+     * @param is2x       True when the frame is an exact 2x integer upscale.
+     * @param dst        Destination line buffer, viewed as raw bytes.
+     */
+    void convertBlockRgb444(const uint8_t* spriteBase, int startY, int endY, bool is2x, uint8_t* dst);
+
+    /**
+     * @brief Scales a single line from 8bpp logical to packed RGB444 physical.
+     */
+    void scaleLine444(const uint8_t* spriteBase, int srcY, uint8_t* dst);
+
+    /**
+     * @brief Bytes one physical line occupies in the packed RGB444 stream.
+     *
+     * Always even, because 12-bit mode is only enabled for physical widths that
+     * are a multiple of 4 (see buildScaleLUTs).
+     */
+    int bytesPerLine444() const { return (physicalWidth * 3) / 2; }
+#endif
 };
 
 } // namespace pixelroot32::drivers::esp32

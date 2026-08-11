@@ -119,6 +119,20 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     
     // Build scaling lookup tables and palette conversion buffers
     buildScaleLUTs();
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+    // Switch the panel to the 12-bit pixel format only after buildScaleLUTs()
+    // has decided whether the packed stream is usable for this geometry, and
+    // after the fillScreen() above, which still ran in the 16-bit format the
+    // panel boots into. From here on nothing but sendBufferScaled() writes
+    // pixels, so no other code path can emit RGB565 into a 12-bit window.
+    if (use12BitColor) {
+        tft.writecommand(0x3A); // MIPI DCS COLMOD - Interface Pixel Format
+        tft.writedata(0x03);    // 12 bits/pixel (RGB444)
+        log("[TFT_eSPI_Drawer] Panel switched to 12-bit colour (COLMOD 0x03).");
+    }
+#endif
+
     log("[TFT_eSPI_Drawer] Initialization complete.");
 
     pixelroot32::drivers::esp32::registerTftForXpt2046Touch(&tft);
@@ -238,8 +252,53 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     
     // Determine actual lines per block - try optimal first, fallback if IRAM constrained
     int linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK;
+#if PIXELROOT32_TFT_12BIT_COLOR
+    // The packed RGB444 stream is handed to pushPixelsDMA() as 16-bit words, so
+    // every block must be a whole number of words. A block is
+    // bytesPerLine444() * numLines and the LAST block of a frame can carry any
+    // line count, so bytesPerLine444() itself has to be even. physicalWidth *
+    // 3 / 2 is even exactly when physicalWidth is a multiple of 4 - note that
+    // "even width" is not enough (e.g. 242 -> 363 bytes/line, odd).
+    //
+    // Rather than emit a half-word tail (which would shift every following
+    // block by one byte and shear the frame), widths that fail the test simply
+    // keep the RGB565 path. That covers panels such as the 135x240 ST7789.
+    use12BitColor = (physicalWidth % 4) == 0;
+    if (!use12BitColor) {
+        log(LogLevel::Warning,
+            "[TFT_eSPI_Drawer] 12-bit colour requested but physical width %d is not a multiple of 4; keeping RGB565.",
+            physicalWidth);
+    }
+
+    // The pair LUT has to be resolved BEFORE the line buffers are sized. The two
+    // formats need a different number of bytes per line, so a downgrade decided
+    // after the buffers were already allocated would leave the RGB565 path
+    // storing two bytes per pixel into a buffer sized for one and a half - a
+    // silent heap overflow on every line of every frame. Taking the small table
+    // first also keeps it clear of the much larger DMA buffers.
+#ifdef ESP32
+    if (use12BitColor) {
+        pairLUT = (uint8_t(*)[3])heap_caps_malloc(256 * 3, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        if (!pairLUT) {
+            // 768 bytes we could not get: degrade to RGB565 rather than run the
+            // 2x path without its table. The panel is still in its boot format
+            // at this point, so init() simply never sends COLMOD.
+            log(LogLevel::Warning,
+                "[TFT_eSPI_Drawer] Failed to allocate the 768 byte RGB444 pair LUT; keeping RGB565 at %u bytes/line.",
+                static_cast<unsigned>(static_cast<size_t>(physicalWidth) * sizeof(uint16_t)));
+            use12BitColor = false;
+        }
+    }
+#endif
+
+    const size_t lineBytes = use12BitColor
+        ? static_cast<size_t>(bytesPerLine444())
+        : static_cast<size_t>(physicalWidth) * sizeof(uint16_t);
+    size_t blockSize = lineBytes * static_cast<size_t>(linesPerBlock);
+#else
     size_t blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
-    
+#endif
+
     // Allocate double line buffers for DMA
 #ifdef ESP32
     // Try the optimal block size for BOTH buffers first. Only if either allocation
@@ -257,7 +316,19 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
         }
 
         linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK;
+#if PIXELROOT32_TFT_12BIT_COLOR
+        blockSize = lineBytes * static_cast<size_t>(linesPerBlock);
+#else
         blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
+#endif
+
+        // Which block size the board actually got changes the pipelining window,
+        // so it has to be visible when reading hardware frame timings.
+        log(LogLevel::Warning,
+            "[TFT_eSPI_Drawer] DMA block of %d lines did not fit internal RAM; falling back to %d lines/block (%u bytes/buffer).",
+            PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK,
+            linesPerBlock,
+            static_cast<unsigned>(blockSize));
 
         lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -274,13 +345,23 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
         activeLinesPerBlock = linesPerBlock;
     }
 #else
+#if PIXELROOT32_TFT_12BIT_COLOR
+    lineBuffer[0] = new uint16_t[(lineBytes * linesPerBlock + 1) / sizeof(uint16_t)];
+    lineBuffer[1] = new uint16_t[(lineBytes * linesPerBlock + 1) / sizeof(uint16_t)];
+#else
     lineBuffer[0] = new uint16_t[physicalWidth * linesPerBlock];
     lineBuffer[1] = new uint16_t[physicalWidth * linesPerBlock];
+#endif
     paletteLUT = new uint16_t[256];
     xLUT = new uint16_t[physicalWidth];
     yLUT = new uint16_t[physicalHeight];
+#if PIXELROOT32_TFT_12BIT_COLOR
+    if (use12BitColor) {
+        pairLUT = (uint8_t(*)[3])new uint8_t[256 * 3];
+    }
 #endif
-    
+#endif
+
     // Pre-calculate palette LUT (8bpp -> 16bpp)
     // We store the colors in NATIVE endianness to avoid swapping in the inner loop
     // But pushPixelsDMA expects BIG endian (or whatever the display needs)
@@ -290,6 +371,20 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     //
     // Let's assume we want to store the PRE-SWAPPED value in the LUT
     // so the CPU loop does strictly: dst[i] = LUT[src[i]]
+#if PIXELROOT32_TFT_12BIT_COLOR
+    if (use12BitColor) {
+        // 12-bit mode assembles the wire bytes nibble by nibble, so there is no
+        // 16-bit word left to pre-swap: the LUT holds the plain 0x0RGB value.
+        for (int i = 0; i < 256; ++i) {
+            const uint16_t rgb444 = pixelroot32::graphics::packRgb565ToRgb444(spr.color8to16(i));
+            paletteLUT[i] = rgb444;
+            // The 2x fast path only ever emits pairs of IDENTICAL colours, so
+            // its 3-byte output is a pure function of the palette index. Bake
+            // it once here (768 bytes) instead of packing nibbles per pixel.
+            pixelroot32::graphics::packRgb444Pair(pairLUT[i], rgb444, rgb444);
+        }
+    } else
+#endif
     for (int i = 0; i < 256; ++i) {
         uint16_t color16 = spr.color8to16(i);
         // Swap bytes because pushPixelsDMA expects big-endian (TFT order)
@@ -347,6 +442,16 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
 #endif
         yLUT = nullptr;
     }
+#if PIXELROOT32_TFT_12BIT_COLOR
+    if (pairLUT) {
+#ifdef ESP32
+        heap_caps_free(pairLUT);
+#else
+        delete[] reinterpret_cast<uint8_t*>(pairLUT);
+#endif
+        pairLUT = nullptr;
+    }
+#endif
 }
 
 void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
@@ -411,6 +516,11 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         // Scale block 0
         uint16_t* dst = lineBuffer[currentBuffer];
 
+#if PIXELROOT32_TFT_12BIT_COLOR
+        if (use12BitColor) {
+            convertBlockRgb444(spritePtr, startY, endY, is2x, (uint8_t*)dst);
+        } else
+#endif
         if (!needsScaling()) {
              // 1:1 Optimization for the first block
              for (int i = 0; i < numLines; ++i) {
@@ -464,6 +574,16 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_scale);
 #endif
         // Start DMA transfer of block 0
+#if PIXELROOT32_TFT_12BIT_COLOR
+        if (use12BitColor) {
+            // pushPixelsDMA() dumps len 16-bit words verbatim (no byte swap, see
+            // the palette LUT note), so the packed byte stream is sent as
+            // byteCount/2 words. byteCount is even by the physicalWidth % 4
+            // guard in buildScaleLUTs().
+            tft.pushPixelsDMA(lineBuffer[currentBuffer],
+                              (uint32_t)(bytesPerLine444() * numLines) / 2u);
+        } else
+#endif
         tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
 #ifdef PIXELROOT32_ENABLE_PROFILING
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
@@ -486,7 +606,12 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         // 2. CPU calculates the next block in the free buffer
         // (SPI hardware is busy sending the opposite buffer in the background)
         uint16_t* dst = lineBuffer[currentBuffer];
-        
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+        if (use12BitColor) {
+            convertBlockRgb444(spritePtr, startY, endY, is2x, (uint8_t*)dst);
+        } else
+#endif
         // Optimization for 1:1 case (No scaling)
         // We avoid xLUT and yLUT indirection for maximum speed
         if (!needsScaling()) {
@@ -548,6 +673,12 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
 #endif
 
         // 3. Send the new calculated block
+#if PIXELROOT32_TFT_12BIT_COLOR
+        if (use12BitColor) {
+            tft.pushPixelsDMA(lineBuffer[currentBuffer],
+                              (uint32_t)(bytesPerLine444() * numLines) / 2u);
+        } else
+#endif
         tft.pushPixelsDMA(lineBuffer[currentBuffer], physicalWidth * numLines);
 #ifdef PIXELROOT32_ENABLE_PROFILING
         PR32_SEND_BUF_PROFILE_ACC(pr32_acc_push);
@@ -646,6 +777,97 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine(const uint8_t* s
         dst[physX] = pLUT[srcRow[xL[physX]]];
     }
 }
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::convertBlockRgb444(
+    const uint8_t* spriteBase, int startY, int endY, bool is2x, uint8_t* dst) {
+    const int lineBytes = bytesPerLine444();
+
+    if (!needsScaling()) {
+        // 1:1 - two source pixels produce three wire bytes. Unrolled by four
+        // pairs (8 pixels -> 12 bytes) to mirror the RGB565 path's stride.
+        for (int physY = startY; physY < endY; ++physY) {
+            const uint8_t* srcRow = spriteBase + (physY * logicalWidth);
+            const uint16_t* __restrict pLUT = paletteLUT;
+            int x = 0;
+            uint8_t* out = dst;
+
+            for (; x <= physicalWidth - 8; x += 8) {
+                pixelroot32::graphics::packRgb444Pair(out,     pLUT[srcRow[x]],     pLUT[srcRow[x + 1]]);
+                pixelroot32::graphics::packRgb444Pair(out + 3, pLUT[srcRow[x + 2]], pLUT[srcRow[x + 3]]);
+                pixelroot32::graphics::packRgb444Pair(out + 6, pLUT[srcRow[x + 4]], pLUT[srcRow[x + 5]]);
+                pixelroot32::graphics::packRgb444Pair(out + 9, pLUT[srcRow[x + 6]], pLUT[srcRow[x + 7]]);
+                out += 12;
+            }
+            // physicalWidth is a multiple of 4 here, so the tail is whole pairs.
+            for (; x < physicalWidth; x += 2) {
+                pixelroot32::graphics::packRgb444Pair(out, pLUT[srcRow[x]], pLUT[srcRow[x + 1]]);
+                out += 3;
+            }
+            dst += lineBytes;
+        }
+    } else if (is2x) {
+        // 2x fast path: every pixel is duplicated horizontally, so each pair is
+        // two identical colours and its three bytes come straight out of
+        // pairLUT - no nibble maths in the inner loop at all.
+        const uint8_t (* __restrict pairs)[3] = pairLUT;
+        for (int physY = startY; physY < endY; physY += 2) {
+            const int srcY = physY / 2;
+            const uint8_t* srcRow = spriteBase + (srcY * logicalWidth);
+            uint8_t* out = dst;
+
+            for (int lx = 0; lx < logicalWidth; ++lx) {
+                const uint8_t* __restrict triple = pairs[srcRow[lx]];
+                out[0] = triple[0];
+                out[1] = triple[1];
+                out[2] = triple[2];
+                out += 3;
+            }
+            // Duplicate this line for the next physical row (unchanged policy,
+            // just a byte count instead of a pixel count).
+            std::memcpy(dst + lineBytes, dst, lineBytes);
+            dst += lineBytes * 2;
+        }
+    } else {
+        // Generic scaling path.
+        for (int physY = startY; physY < endY; ++physY) {
+            const int srcY = yLUT[physY];
+            scaleLine444(spriteBase, srcY, dst);
+            dst += lineBytes;
+        }
+    }
+}
+
+void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::scaleLine444(
+    const uint8_t* spriteBase, int srcY, uint8_t* dst) {
+    const uint8_t* srcRow = spriteBase + (srcY * logicalWidth);
+
+    const uint16_t* __restrict pLUT = paletteLUT;
+    const uint16_t* __restrict xL = xLUT;
+
+    int physX = 0;
+
+    // Unroll two pairs (4 physical pixels -> 6 bytes) to keep the loop overhead
+    // per emitted byte comparable to the RGB565 scaleLine().
+    for (; physX <= physicalWidth - 4; physX += 4) {
+        pixelroot32::graphics::packRgb444Pair(dst,
+            pLUT[srcRow[xL[physX]]],     pLUT[srcRow[xL[physX + 1]]]);
+        pixelroot32::graphics::packRgb444Pair(dst + 3,
+            pLUT[srcRow[xL[physX + 2]]], pLUT[srcRow[xL[physX + 3]]]);
+        dst += 6;
+    }
+
+    // physicalWidth is a multiple of 4 in 12-bit mode, so nothing is left here;
+    // the loop is kept for symmetry with scaleLine() and costs one test.
+    for (; physX < physicalWidth; physX += 2) {
+        pixelroot32::graphics::packRgb444Pair(dst,
+            pLUT[srcRow[xL[physX]]], pLUT[srcRow[xL[physX + 1]]]);
+        dst += 3;
+    }
+}
+
+#endif // PIXELROOT32_TFT_12BIT_COLOR
 
 bool pr32::drivers::esp32::TFT_eSPI_Drawer::processEvents() {
     return true;

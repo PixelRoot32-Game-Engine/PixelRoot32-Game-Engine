@@ -209,6 +209,7 @@ def main():
         ("Physics-Primitives", "test/unit/test_collision_primitives/test_collision_primitives.cpp", "test_collision_primitives", ["src/physics/CollisionPrimitives.cpp"]),
         ("Physics-System", "test/unit/test_collision_system/test_collision_system.cpp", "test_collision_system", ["src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp", "src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/RigidActor.cpp", "src/physics/SpatialGrid.cpp"]),
         ("Graphics-Color", "test/unit/test_color/test_color.cpp", "test_color", ["src/graphics/Color.cpp"]),
+        ("Graphics-Rgb444", "test/unit/test_rgb444/test_rgb444.cpp", "test_rgb444", None),
         ("Graphics-Camera2D", "test/unit/test_camera2d/test_camera2d.cpp", "test_camera2d", ["src/graphics/Camera2D.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Graphics-FontManager", "test/unit/test_font_manager/test_font_manager.cpp", "test_font_manager", ["src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
         ("Graphics-TileAnimation", "test/unit/test_graphics/test_tile_animation.cpp", "test_tile_animation", ["src/graphics/TileAnimation.cpp"]),
