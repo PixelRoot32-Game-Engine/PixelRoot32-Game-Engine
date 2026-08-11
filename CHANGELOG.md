@@ -4,21 +4,57 @@ All notable changes to this project will be documented in this file.
 
 # Unreleased
 
-### ⚡ Performance & Platform
+This release introduces the **Gameplay Framework**: a set of building blocks for the parts of a game every project used to hand-roll — grid math, state machines, object pools, event dispatch and room-by-room worlds. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them compiles to the same binary as 1.8.0.
+
+### ✨ Added
+
+* **Grid Space (`PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE`)**: `GridSpec` + conversion helpers turn cell indices into world positions and back, with floor semantics that stay correct at negative coordinates and no division on the hot path. `GridMotion` carries an actor from one cell to the next with sub-cell interpolation, so grid games get smooth movement while the gameplay rules keep reading whole cells. A `constexpr GridSpec` costs zero SRAM.
+* **State Machine (`PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE`)**: `StateMachine` runs an actor's states from a `const` table you own, with `onEnter`/`onUpdate`/`onExit` callbacks and immediate, fully drained transitions. The table lives in flash, and a single shared implementation is compiled once no matter how many actor types use it.
+* **Object Pool (`PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL`)**: `ObjectPool<T, N>` provides fixed-capacity, zero-heap acquire/release for bullets, enemies, explosions and other churn-heavy entities.
+* **Gameplay Events & Interaction Triggers (`PIXELROOT32_ENABLE_GAMEPLAY_EVENTS`, `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS`)**: an engine-owned fixed-capacity event bus lets systems talk without direct coupling, and `InteractionTracker` turns the per-frame contact set into `onEnter`/`onExit` edges — trigger volumes, pickups and proximity checks stop needing per-actor bookkeeping.
+* **Room Graphs (`PIXELROOT32_ENABLE_GAMEPLAY_ROOM`)**: `RoomGraph<N>` models a screen-by-screen world as rooms plus cardinal connections, driving camera bounds per room. Rooms authored in the **PixelRoot32 Tilemap Editor** are consumed directly through `buildRoomGraph()` with no parsing and no allocation, and scenes react to movement between them via the new `Scene::onRoomEnter()` hook.
+* **Camera Tweens (`PIXELROOT32_ENABLE_CAMERA_TWEEN`)**: `CameraTween<N>` moves the camera along a sequence of waypoints with Linear and quadratic ease-in/out/in-out curves — cutscenes, room pans and focus pulls without per-frame camera code. Fixed-point throughout, so there is no floating-point cost on ESP32-C3.
+* **Spatial Queries (`PIXELROOT32_ENABLE_SPATIAL_QUERY`)**: `CollisionSystem::queryRadius()` and `queryBox()` answer "what is near this point" with a collision-layer mask, backed by the existing spatial grid — explosion blasts, aggro ranges and area-of-effect abilities no longer need a manual scan over every actor.
+* **Depth Sorting (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: an optional `Scene::DepthComparator` adds secondary ordering *within* a render layer, which is what top-down games need to draw an actor behind or in front of scenery by Y position. Leaving the comparator unset keeps the existing sort behaviour untouched.
+* **UI Sprite Elements**: `UISprite` draws a single sprite (1/2/4 bpp) as a first-class UI element, so icons gain `setVisible()`, layout placement and `setFixedPosition()` instead of being hand-drawn in a `draw()` override. `UISpriteRow` renders a whole value-driven icon row — hearts, lives, keys, ammo — from one element and one entity, including half and quarter steps.
+* **Multi-Hit Tiles**: `TileConsumptionHelper` gains `requiredHits` and `applyHit()`, so a tile can take several hits before it is consumed (breakable blocks, armoured walls) while the caller keeps ownership of the counter.
+
+### 🔧 Changed
+
+* **Shared SPI Bus Contract (API)**: new public `TFT_eSPI_Drawer::waitForPendingDMA()`. **Any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers must call it first.** The engine already wires it for the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`; integrations that add another peripheral to the shared bus (SD card, second display, raw SPI sensor) must add the same call. No-op when nothing is pending.
+
+### 🐛 Fixed
+
+* **Fades and Wipes Shifted Hue on Hardware**: transition blending scaled the packed 8bpp colour byte as a single value, carrying bits across channel boundaries — a fade rotated the hue instead of dimming it (a brown cave turned blue mid-fade). Every blend now scales per channel. The RGB565 wipe feather had the same defect and was wrong on all platforms, native included.
+* **Transitions Requested From `restartState()`**: a scene transition requested from a `restartState()` callback was dropped instead of being applied.
+* **Multi-Hit on Non-Collectible Tiles**: `TileConsumptionHelper` rejected tiles that were not flagged collectible, blocking the breakable-block use case.
+* **DMA Block Size Never Reached Its Default**: `buildScaleLUTs()` tested a line buffer that had not been allocated yet and therefore always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`. `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` is now actually reachable, so the documented default finally applies. The fallback still applies when DMA-capable internal RAM is tight, and now logs when it does.
+* **API Reference Completeness**: the documentation generator no longer misattributes members or drops public types from the generated reference.
+
+### ⚡ Performance
 
 * **Deferred DMA Wait (TFT_eSPI)**: `sendBufferScaled()` now leaves the frame's last DMA block in flight and flushes it at the top of the next call, so the tail of the SPI transfer overlaps the next frame's update and draw work. Frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`. Always on; no build flag.
-* **Shared SPI Bus Contract (API)**: New public `TFT_eSPI_Drawer::waitForPendingDMA()`. **Any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers must call it first.** Already wired for the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`; integrations that add a new peripheral on the shared bus (SD card, second display, raw SPI sensor) must add the same call. No-op when nothing is pending.
 * **1bpp Direct Framebuffer Path**: 1bpp sprites — all text, `MultiSprite` layers and 1bpp tilemaps — now write the 8bpp framebuffer directly instead of issuing a virtual `drawPixel()` per set pixel (~40–100 cycles → ~4–8). The colour pack is hoisted out of both loops and empty rows are skipped. The virtual path remains as the fallback for surfaces without an 8bpp buffer (U8G2, SDL2).
-* **DMA Block Size Fix**: `buildScaleLUTs()` tested a line buffer that had not been allocated yet and therefore always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`. `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` is now actually reachable, so the documented default finally applies. The fallback still applies when DMA-capable internal RAM is tight, and now logs when it does.
-* **12-bit RGB444 Wire Format (opt-in, experimental)**: New `PIXELROOT32_TFT_12BIT_COLOR` (default `0`) sends the frame as 12-bit RGB444, two pixels per three bytes, cutting 25% of the SPI bus time (240×240: 23.04 → 17.28 ms, 43.4 → 57.9 FPS ceiling; 240×320: 32.6 → 43.4 FPS) and shrinking each DMA line buffer by 25% (28,800 → 21,600 bytes at 60 lines on a 240-wide panel) net of a 768-byte pair LUT. No colours are lost: the 8bpp RGB332 framebuffer carries at most 256 distinct colours and all of them survive truncation to 4 bits per channel without a collision — though the absolute shade shifts slightly on red and green (blue is exact), so it is not bit-exact. Only applies when `PHYSICAL_DISPLAY_WIDTH % 4 == 0`; other widths keep RGB565 and log a warning. **Not yet verified on hardware** — the panel accepting `COLMOD 0x03`, the rendered result and the predicted FPS gain are all unvalidated, which is why the flag ships off.
+* **12-bit RGB444 Wire Format (opt-in, experimental)**: new `PIXELROOT32_TFT_12BIT_COLOR` (default `0`) sends the frame as 12-bit RGB444, two pixels per three bytes, cutting 25% of the SPI bus time (240×240: 23.04 → 17.28 ms, 43.4 → 57.9 FPS ceiling; 240×320: 32.6 → 43.4 FPS) and shrinking each DMA line buffer by 25% (28,800 → 21,600 bytes at 60 lines on a 240-wide panel) net of a 768-byte pair LUT. No colours are lost: the 8bpp RGB332 framebuffer carries at most 256 distinct colours and all of them survive truncation to 4 bits per channel without a collision — though the absolute shade shifts slightly on red and green (blue is exact), so it is not bit-exact. Only applies when `PHYSICAL_DISPLAY_WIDTH % 4 == 0`; other widths keep RGB565 and log a warning. **Not yet verified on hardware** — the panel accepting `COLMOD 0x03`, the rendered result and the predicted FPS gain are all unvalidated, which is why the flag ships off.
+* **Tile-to-World Conversion**: `tileToWorldPosition()` no longer round-trips through `float`, removing soft-float work from tile-heavy code on FPU-less targets.
+
+### 🎮 Examples
+
+* **bomberbot**: an original bomberman-style game (all CC0 art) built on the new framework — interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, power-ups, HUD and audio.
+* **midway_clone**: a vertically scrolling shooter with a camera driven every frame and `ObjectPool`-backed bullets, enemies and explosions. Ships with profiling enabled and documents where the ESP32 frame budget actually goes when the camera never stops moving.
+* **legend_of_clone**: an 8-bit-style screen-by-screen overworld and dungeon — two scenes over a shared room-grid base, scrolling room transitions with input lockout, fade between scenes, flash-resident 4bpp tilemaps with static caching, dual palette mode and per-tile collision tables.
+* **room_screen**: the smallest possible `RoomGraph` demo — two rooms, `buildRoomGraph()` from exported room data, camera bounds per room.
+* **Framework Adoption in Existing Examples**: `snake`, `tic_tac_toe` and `2048` now derive their board geometry from `GridSpace`; `flappy_bird` and `metroidvania` run their game and player states through `StateMachine`. Each documents the flag it needs, so they double as adoption references.
 
 ### 📚 Documentation
 
-* **ESP32 Performance Audit** (`docs/performance-audit-esp32.md`): full-source audit behind these changes, with the bandwidth analysis showing the 40 MHz panels cap a full-frame push at 43.4 FPS. Findings C-1 (1), C-2 and H-1 are marked implemented; C-5 is marked implemented-but-unvalidated.
-* **Display Bandwidth Guide**: new section in `docs/guide/performance/esp32-performance.md` covering the per-panel FPS ceilings, the deferred DMA wait, the shared SPI bus contract and the RGB444 flag.
+* **Gameplay Framework Guides**: per-capability pages covering the build flags, byte budgets, the session-state pattern, cell-occupancy recipes and the ordering hazards worth knowing before you wire a state machine into `update()`.
+* **ESP32 Performance Audit** (`docs/performance-audit-esp32.md`) and a new **Display Bandwidth** section in `docs/guide/performance/esp32-performance.md`, covering the per-panel FPS ceilings, the deferred DMA wait, the shared SPI bus contract and the RGB444 flag.
+* **Tool Suite**: documentation now covers the Tool Suite, including the SFX Editor and the Tilemap Editor's room export format.
 
 ### 🧪 Testing & QA
 
+* Unit coverage for every new gameplay capability (grid math, state machine, object pool, event bus, interaction tracker, room graph), the UI sprite elements, camera tweens and layer-aware spatial queries.
 * **1bpp Path Parity**: `test/unit/test_graphics/test_renderer_sprite1bpp.cpp` asserts the direct-framebuffer and virtual branches produce identical output.
 * **RGB332 → RGB444 Bijectivity**: `test/unit/test_rgb444/test_rgb444.cpp` asserts all 256 framebuffer colours stay distinguishable through the 12-bit packing, mirroring TFT_eSPI's colour expansion so the property can be checked without the library.
 

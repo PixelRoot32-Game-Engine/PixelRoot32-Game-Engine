@@ -223,27 +223,40 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.8.0
+## Unreleased
 
-### 🔊 Audio
+Introduces the **Gameplay Framework**. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them is identical to 1.8.0 — no breaking changes.
 
-- **Shared APU Library**: The APU core is now the [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) library (`gperez88/PixelRoot32-APU@^1.0.1`), resolved automatically by PlatformIO. Engine includes and the `pixelroot32::audio` namespace are unchanged — games compile as-is.
-- **Music Transport**: New `MUSIC_SEEK` / `MUSIC_UPDATE_TRACKS` commands with loop-aware sequencer resync and transport tick getters.
-- **Percussion Fix**: `INSTR_KICK` / `INSTR_SNARE` noise periods now match the documented 1.7.0 values (60/15) — 1.7.0 shipped them swapped.
-- **Q15 Correctness**: Master volume applied before the compressor in the fixed-point path; unified FPU detection (`PR32_APU_HAS_FPU`).
-- **Scheduler**: `DefaultAudioScheduler::stop()` now truly silences output until `start()`.
+### 🕹️ Gameplay Framework
 
-## 1.7.0
+- **Grid Space**: Cell ↔ world conversion with correct floor semantics at negative coordinates and no division on the hot path, plus `GridMotion` for sub-cell interpolated movement between cells. A `constexpr GridSpec` costs zero SRAM.
+- **State Machine**: Actor states driven from a flash-resident `const` table with `onEnter`/`onUpdate`/`onExit` callbacks and immediate, fully drained transitions.
+- **Object Pool**: `ObjectPool<T, N>` — fixed-capacity, zero-heap acquire/release for bullets, enemies and explosions.
+- **Events & Interaction Triggers**: Engine-owned fixed-capacity event bus, plus `InteractionTracker` turning the per-frame contact set into `onEnter`/`onExit` edges for trigger volumes and pickups.
+- **Room Graphs**: `RoomGraph<N>` models a screen-by-screen world with per-room camera bounds, consumes Tilemap Editor room exports through `buildRoomGraph()` with no parsing or allocation, and notifies scenes via `Scene::onRoomEnter()`.
 
-### 🔊 Audio
+### 🎨 Graphics & UI
 
-- **4+4 Voice Partition**: Melodic tracks use slots 0–3; percussion and SFX use slots 4–7 with steal limited to the SFX subpool, so effects no longer interrupt long melodic notes.
-- **Sequencer Percussion**: Zero-duration notes stack Kick/Snare/Hi-Hat on the same step; only `Rest + noise preset` counts as a hit. Short notes under `tempoFactor > 1` clamp to 1 tick (no infinite loop).
-- **SFX Synthesis**: Additive `AudioEvent` ABI — noise period sweep, looping SFX + `STOP_CHANNEL`, Linear/Exponential `SweepCurve`, duty/pitch `SfxBreakpoint` tables, and header-only `playSfxBank`.
+- **Camera Tweens**: `CameraTween<N>` moves the camera along waypoints with Linear and quadratic easing, fixed-point throughout (no FPU cost on ESP32-C3).
+- **Depth Sorting**: Optional secondary comparator *within* a render layer — what top-down games need to order actors against scenery by Y.
+- **UI Sprites**: `UISprite` makes an icon a first-class UI element (visibility, layout placement, `setFixedPosition()`); `UISpriteRow` draws a whole value-driven row — hearts, lives, ammo — from one entity, with half and quarter steps.
+- **Transition Color Fix**: Fades and wipes scaled the packed colour byte as a single value, rotating hue instead of dimming on hardware. Now scaled per channel.
 
-### 🧪 Testing & QA
+### 🏀 Physics
 
-- **Audio Regression Coverage**: Unity tests for voice partition, stacked percussion, tempo-factor short notes, duty stepped hold, and multi-breakpoint pitch envelopes.
+- **Spatial Queries**: `queryRadius()` / `queryBox()` with a collision-layer mask for blasts, aggro ranges and area effects — no manual scan over every actor.
+- **Multi-Hit Tiles**: `requiredHits` + `applyHit()` on `TileConsumptionHelper` for breakable and armoured blocks.
+
+### ⚡ Performance
+
+- **Deferred DMA Wait**: The frame's last SPI block stays in flight and flushes at the top of the next call, so frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`. Always on.
+- **1bpp Direct Framebuffer Path**: Text, `MultiSprite` layers and 1bpp tilemaps write the 8bpp framebuffer directly instead of a virtual `drawPixel()` per pixel (~40–100 cycles → ~4–8).
+- **12-bit RGB444 (opt-in, experimental)**: `PIXELROOT32_TFT_12BIT_COLOR` cuts 25% of SPI bus time and DMA buffer size with no colour loss. **Not yet verified on hardware** — ships off.
+
+### 🎮 Examples
+
+- **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon), **room_screen** (minimal `RoomGraph` demo).
+- `snake`, `tic_tac_toe` and `2048` now derive board geometry from Grid Space; `flappy_bird` and `metroidvania` run their states through State Machine.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
