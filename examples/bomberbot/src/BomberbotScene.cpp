@@ -42,7 +42,32 @@ BomberbotScene::BomberbotScene()
     // this level's slots actually play.
     addEntity(&renderer_);
     addEntity(&player_);
+
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+    // Top-down overlap: whoever stands lower on the board must be drawn last,
+    // so an enemy walking in front of the player covers it and one walking
+    // behind does not. The comparator is consulted only between entities on
+    // the SAME render layer, so BoardRenderer (layer 0) stays behind every
+    // actor (layer 1) regardless of its Y.
+    depthComparator = &BomberbotScene::drawLowerLast;
+    // Actors move every frame, so the order has to be recomputed every frame.
+    // Without this, the scene would only re-sort when an entity is added or
+    // removed and the overlap would be wrong as soon as anyone walked.
+    depthSortEnabled = true;
+#endif
 }
+
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+bool BomberbotScene::drawLowerLast(pixelroot32::core::Entity* a,
+                                   pixelroot32::core::Entity* b) {
+    // "a precedes b" == a's feet are higher up the screen than b's.
+    // Feet, not top edge: sprites differ in height and the bottom edge is what
+    // reads as the contact point with the floor.
+    const int footA = static_cast<int>(a->position.y) + a->height;
+    const int footB = static_cast<int>(b->position.y) + b->height;
+    return footA < footB;
+}
+#endif
 
 void BomberbotScene::init() {
     // Sprite palette must be registered BEFORE setPalette and BEFORE the

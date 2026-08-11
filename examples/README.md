@@ -18,21 +18,18 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | Example | What it demonstrates | PlatformIO environments |
 |--------|----------------------|-------------------------|
 | [hello_world](hello_world/) | Minimal `Scene`, `UILabel`, button input, background color cycle | `native`, `esp32dev` , `esp32s3` |
-| [camera](camera/) | `Camera2D`, parallax, tile platforms, `KinematicActor` | `native`, `esp32dev` |
-| [camera-effect-demo](camera-effect-demo) | `Camera Effect Demo` shake, punch, offset, cancel all | `native`, `esp32dev` |
+| [camera](camera/) | `Camera2D` (smoothing, bounds), parallax, tile platforms, `KinematicActor`, **camera effects** (shake / punch / offset) and a scripted **`CameraTween`** pan | `native`, `esp32dev` |
 | [dual_palette](dual_palette/) | Dual palette mode (background vs sprite color tables) | `native`, `esp32dev` |
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
 | [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
 | [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
-| [music_demo](music_demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
-| [space_invaders](space_invaders/) | Classic Space Invaders: alien formation, shooting, bunkers, score system, `AudioEngine` | `native`, `esp32dev` |
-| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD) | `native`, `esp32dev`, `esp32cyd` |
-| [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing | `native`, `esp32dev` |
+| [music-demo](music-demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
+| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay | `native`, `esp32dev`, `esp32cyd` |
+| [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing, **interaction triggers** + **gameplay event bus** on sensor pickups | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
-| [tic_tac_toe](tic_tac_toe/) | UI, GPIO vs touch, minimax AI, vector-drawn board, **`MusicPlayer`** / melody data | `native`, `esp32dev`, `esp32cyd` |
 | [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
-| [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
+| [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, **Y-axis depth sorting**, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
 | [room_screen](room_screen/) | Smallest possible `RoomGraph` demo: two rooms, `buildRoomGraph()` from exported room data, camera bounds per room | `native`, `esp32dev` |
 | [midway_clone](midway_clone/) | **Clone of Midway** — vertically scrolling shooter: a camera driven **every frame**, `ObjectPool` bullets/enemies/explosions, camera-keyed wave table, sprite-vs-sprite AABB with physics off, and a measured look at what a moving camera costs `StaticTilemapLayerCache` (spoiler: less than the unconditional full-frame SPI push) | `native`, `esp32dev` |
 | [legend_of_clone](legend_of_clone/) | **The Legend of Clone** — 8-bit-style **screen-by-screen overworld and dungeon**: two scenes over a shared room-grid base, scrolling room transitions with input lockout, `triggerTransition` fade between scenes, exported flash-resident 4bpp tilemaps + `StaticTilemapLayerCache`, dual palette mode, per-tile collision tables | `native`, `esp32dev` |
@@ -43,9 +40,28 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 1. **hello_world** — engine init, one scene, text and input.  
 2. **sprites** or **dual_palette** — graphics and color models.  
 3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
-4. **physics** — bodies, sensors, touch.  
-5. **snake** / **tic_tac_toe** / **2048** / **brick_breaker** / **music_demo** / **space_invaders** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.  
+4. **physics** — bodies, sensors, touch, area queries.  
+5. **snake** / **2048** / **brick_breaker** / **music-demo** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.  
 6. **midway_clone** — where the frame budget actually goes on an ESP32. Read it after step 3: it is the counter-example to the tilemap cache, and it shows how to measure rather than guess.
+
+## Where each opt-in capability is demonstrated
+
+Every `PIXELROOT32_ENABLE_*` capability that ships off by default has at least
+one example that turns it on. Start here when you want to see one in use:
+
+| Capability | Flag | Example |
+|---|---|---|
+| Grid space / motion | `GAMEPLAY_GRID_SPACE` | [snake](snake/), [2048](2048/), [bomberbot](bomberbot/) |
+| State machine | `GAMEPLAY_STATE_MACHINE` | [flappy_bird](flappy_bird/), [metroidvania](metroidvania/) |
+| Object pool | `GAMEPLAY_OBJECT_POOL` | [midway_clone](midway_clone/) |
+| Room graph | `GAMEPLAY_ROOM` | [room_screen](room_screen/), [legend_of_clone](legend_of_clone/) |
+| Gameplay event bus | `GAMEPLAY_EVENTS` | [metroidvania](metroidvania/) |
+| Interaction triggers | `INTERACTION_TRIGGERS` | [metroidvania](metroidvania/) |
+| Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
+| Depth sorting | `DEPTH_SORT` | [bomberbot](bomberbot/) |
+| Camera effects | `CAMERA_EFFECTS` | [camera](camera/) |
+| Camera tweens | `CAMERA_TWEEN` | [camera](camera/) |
+| 12-bit colour wire format | `TFT_12BIT_COLOR` | [midway_clone](midway_clone/) |
 
 ## Engine documentation
 

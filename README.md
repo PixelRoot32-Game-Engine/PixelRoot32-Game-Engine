@@ -147,7 +147,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvania`, `tic_tac_toe`, `space_invaders`, `brick_breaker`, `physics`, `camera`, `dual_palette`, `sprites`, `music_demo`, `2048`, `bomberbot`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+   Each folder (`hello_world`, `sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `bomberbot`, `room_screen`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -256,7 +256,8 @@ Introduces the **Gameplay Framework**. Every capability is opt-in behind its own
 ### 🎮 Examples
 
 - **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon), **room_screen** (minimal `RoomGraph` demo).
-- `snake`, `tic_tac_toe` and `2048` now derive board geometry from Grid Space; `flappy_bird` and `metroidvania` run their states through State Machine.
+- `snake` and `2048` now derive board geometry from Grid Space; `flappy_bird` and `metroidvania` run their states through State Machine; `physics` shows radius queries, `metroidvania` the triggers and event bus, `bomberbot` depth sorting, and `camera` the effects and tweens.
+- The catalogue is now 16 projects, each covering something no other example covers, with a flag-to-example table in [`examples/README.md`](examples/README.md). `space_invaders` and `tic_tac_toe` were removed as duplicates, and `camera-effect-demo` was folded into `camera`.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

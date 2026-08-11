@@ -10,7 +10,28 @@ When **`PIXELROOT32_ENABLE_UI_SYSTEM`** is on (default in [`PlatformDefaults.h`]
 
 - **`PIXELROOT32_ENABLE_SCENE_ARENA`** — pre-allocated box/circle pools and arena-safe add/remove when the slider changes.
 - **`PIXELROOT32_ENABLE_TOUCH=1`** — set for **`native`** and **`esp32cyd`** in `platformio.ini` so touch APIs compile and mouse/touch can drive the demo.
+- **`PIXELROOT32_ENABLE_SPATIAL_QUERY=1`** — the proximity scan described below.
 - **`esp32cyd`** additionally enables **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, **`PIXELROOT32_DEBUG_MODE`**, **ILI9341** 240×320, and **XPT2046** touch (many tuning `-D`s in `platformio.ini`).
+
+## Proximity scan (spatial queries)
+
+Press **B** (button **5**) to toggle a radius query centred on the player. The
+circle is the query, and every actor it returns is boxed in magenta.
+
+Worth knowing before you use `queryRadius()` in a game:
+
+- **It has no anchor actor, so only your mask applies.** `checkCollision()`
+  tests both sides (`a.mask & b.layer || b.mask & a.layer`) because both sides
+  are actors. An area query has no second actor to ask, so the test is just
+  `(mask & other->layer)`. This is a real behavioural difference, not an
+  oversight.
+- **The player is in its own results.** There is no actor to exclude, so filter
+  it out yourself if the query drives damage or targeting.
+- **Radius is bounded.** Squared-distance terms have to fit Q16.16, so the
+  radius is clamped to `SPATIAL_QUERY_MAX_RADIUS` (default 128). Debug builds
+  assert; release builds clamp. Distances are compared squared — never `sqrt`.
+- **Run it after `Scene::update()`**, as this demo does, or the grid still holds
+  last frame's positions.
 
 See **`platformio.ini`** for **`native`**, **`esp32dev`**, **`esp32cyd`**.
 

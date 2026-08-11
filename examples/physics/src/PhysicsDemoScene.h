@@ -129,6 +129,29 @@ private:
     WallActor* floor = nullptr;     ///< Floor reference
     pixelroot32::input::ActorTouchController touchController;
 
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    /**
+     * @brief Runs the proximity scan and caches this frame's result.
+     *
+     * A radius query asks the collision grid "what is near this point" without
+     * an anchor actor, so only the caller's layer mask is tested — unlike
+     * checkCollision(), which tests both sides' masks. Results are cached for
+     * draw() instead of being queried twice per frame.
+     */
+    void runProximityScan();
+
+    /** Radius of the proximity scan, in pixels. Stays under SPATIAL_QUERY_MAX_RADIUS. */
+    static constexpr int kScanRadius = 40;
+    /** Every demo actor sits on layer 1, so one bit is the whole mask. */
+    static constexpr uint8_t kScanMask = 1;
+    /** Upper bound on reported neighbours; the query never writes past this. */
+    static constexpr int kScanMaxHits = 12;
+
+    bool scanEnabled = false;
+    pixelroot32::core::Actor* scanHits[kScanMaxHits]{};
+    int scanHitCount = 0;
+#endif
+
     /** Slider is 0–100; spawnCountPerType() maps it to [0, kMaxSpawnPerType] per type (boxes and circles). */
     static constexpr int kMaxSpawnPerType = 10;
     /** Default 30 → three boxes and three circles (rounded): (30 * kMaxSpawnPerType + 50) / 100 == 3 */

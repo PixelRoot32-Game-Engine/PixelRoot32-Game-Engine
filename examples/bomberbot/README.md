@@ -32,6 +32,14 @@ every environment inherits them:
   the whole `GridSpace.h` header lives behind this flag (default `0`), so the
   example does not compile without it.
 - **`PIXELROOT32_ENABLE_AUDIO=1`** — needed for the four sound events below.
+- **`PIXELROOT32_ENABLE_DEPTH_SORT=1`** — Y-axis ordering between the player
+  and the enemies, so whoever stands lower on the board is drawn in front.
+  Two details make it work: the comparator is consulted **only between entities
+  on the same render layer**, so `BoardRenderer` (layer 0) stays behind every
+  actor (layer 1) regardless of its Y; and `depthSortEnabled` is set because
+  actors move every frame, whereas the default only re-sorts when an entity is
+  added or removed. The comparator keys on the sprite's **bottom** edge, not its
+  top, because the feet are what read as the contact point with the floor.
 - **`PIXELROOT32_ENABLE_PHYSICS=0`** — the physics system is never used;
   every blocking/collision check here is a board lookup, not a physics query.
 - **`PIXELROOT32_ENABLE_PARTICLES=0`** — not used.

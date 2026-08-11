@@ -26,6 +26,19 @@ public:
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
 private:
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+    /**
+     * @brief Depth comparator: the entity whose feet are higher up the screen
+     *        is drawn first.
+     *
+     * Must be a plain function pointer — Scene::DepthComparator is
+     * `bool (*)(Entity*, Entity*)`, so a capturing lambda or a non-static
+     * member would not convert.
+     */
+    static bool drawLowerLast(pixelroot32::core::Entity* a,
+                              pixelroot32::core::Entity* b);
+#endif
+
     /// Level lifecycle, five states. This is a PLAIN enum, not the engine's
     /// generic per-class state-machine primitive, and that is deliberate:
     /// every transition below is a condition checked in a fixed order once

@@ -14,6 +14,52 @@ A compact **platformer** sample with **4bpp tilemap layers**, **`StaticTilemapLa
 - **`PIXELROOT32_ENABLE_DIRTY_REGIONS`**
 - **`PIXELROOT32_ENABLE_CAMERA_EFFECTS`** — camera shake when player falls into void
 - **`PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE`** — required, not optional. `PlayerActor` holds a `gameplay::StateMachine` member and the whole class lives behind this flag (default `0`), so the actor does not compile without it.
+- **`PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1`** — the collectible orbs.
+- **`PIXELROOT32_ENABLE_GAMEPLAY_EVENTS=1`** — optional companion to the above; with it off the orbs still work, they just stop publishing to the bus.
+
+## Collectible orbs (interaction triggers + event bus)
+
+Three pulsing orbs sit along the player's path; the HUD counts them. They are
+the reference for two capabilities that are usually reached for together.
+
+The orbs are 4bpp sprites (`assets/PickupSprites.h`) drawn from the **player's**
+palette rather than from flat `Color` constants, and that is not a cosmetic
+choice. This scene runs in dual-palette mode, and `Scene::draw()` picks the
+palette context from the entity's render layer — layer 0 gets the Background
+palette, everything else the Sprite one. An orb is an ordinary actor on the
+default layer 1, so its colours resolve through `PLAYER_SPRITE_PALETTE_RGB565`,
+which defines indices 0-7 and leaves 8-15 at `0x0000`. `Color::Yellow` is PR32
+index **8**, so a `drawFilledRectangle(..., Color::Yellow)` here paints solid
+black. Any actor you add to this scene must stay inside indices 1-7 of the
+sprite palette, or pick its own via `setSpriteCustomPalette()`.
+
+`PickupActor` is a **sensor** — the physics step still produces a contact for
+the pair but resolves no response, so the player walks through the orb instead
+of standing on it. A solid pickup would be a wall.
+
+The part that is easy to get wrong is that **contact is not collection**. The
+engine reports a contact on every frame the boxes overlap. `InteractionTracker`
+diffs each frame's contact set against the previous one and calls `onEnter`
+exactly once, on the frame the overlap begins. Without that edge detection the
+callback would fire ten times as the player crossed a single orb.
+
+Two ordering rules the example depends on:
+
+- `registerActor()` keys on `entityId`, which the collision system assigns
+  during `addEntity()`. Register **after** adding, or the orb silently stores
+  id 0 and never dispatches.
+- The orbs use `Layers::ENEMY`, the layer `GameLayers.h` reserves for enemies,
+  projectiles and pickups. The player already carries it in every branch of its
+  mask — including while climbing — so no change to `PlayerActor`'s mask
+  juggling was needed.
+
+Attaching the **event bus** is optional and additive: the component callbacks
+fire either way, and a bus additionally receives a `TriggerEnter`/`TriggerExit`
+event per edge. That is what lets an unrelated system (an achievement tracker, a
+sound director) observe contact without knowing `PickupActor` exists. The bus is
+a fixed-capacity FIFO whose overflow policy is **drop-newest**, so a consumer
+that skips a frame loses the newest events, not the oldest — draining every
+frame is the contract, not an optimisation.
 
 See **`platformio.ini`** for **`native`** and **`esp32dev`** presets (no `esp32cyd` environment in this project).
 

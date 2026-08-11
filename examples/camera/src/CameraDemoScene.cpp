@@ -161,6 +161,11 @@ void CameraDemoScene::init() {
     gfx::setPalette(gfx::PaletteType::PR32);
     initPlatformerTilemap();
     jumpInputReady = false;
+    nextEffect = EffectStep::Shake;
+    activeEffectName = nullptr;
+    tourStage = TourStage::Idle;
+    tourHoldElapsed = 0;
+    wasOnFloor = false;
 
     int groundRow1 = TILEMAP_HEIGHT - 2;
     {
@@ -238,14 +243,14 @@ void CameraDemoScene::update(unsigned long deltaTime) {
     auto& input = engine.getInputManager();
 
     float moveDir = 0.0f;
-    if (input.isButtonDown(3)) {
+    if (input.isButtonDown(BTN_RIGHT)) {
         moveDir += 1.0f;
     }
-    if (input.isButtonDown(2)) {
+    if (input.isButtonDown(BTN_LEFT)) {
         moveDir -= 1.0f;
     }
 
-    bool rawJumpDown = input.isButtonDown(4);
+    bool rawJumpDown = input.isButtonDown(BTN_JUMP);
 
     if (!jumpInputReady) {
         if (!rawJumpDown) {
@@ -254,12 +259,25 @@ void CameraDemoScene::update(unsigned long deltaTime) {
     }
 
     bool jumpPressed = false;
-    if (jumpInputReady && input.isButtonPressed(4)) {
+    if (jumpInputReady && input.isButtonPressed(BTN_JUMP)) {
         jumpPressed = true;
     }
 
     if (player) {
         player->setInput(moveDir, jumpPressed);
+    }
+
+    // Camera effect controls. An effect is an offset applied at draw time, so
+    // firing one never disturbs the follow logic below.
+    if (input.isButtonPressed(BTN_EFFECT)) {
+        fireNextEffect();
+    }
+    if (input.isButtonPressed(BTN_CANCEL)) {
+        cameraEffects.cancelAll();
+        activeEffectName = nullptr;
+    }
+    if (input.isButtonPressed(BTN_TWEEN) && tourStage == TourStage::Idle) {
+        startCameraTour();
     }
 
     // End-of-level detection: player reaches the rightmost edge of the level
@@ -282,18 +300,172 @@ void CameraDemoScene::update(unsigned long deltaTime) {
 
     Scene::update(deltaTime);
 
+    // Punch the camera on landing. The engine reports floor contact per frame,
+    // so the landing edge is "on the floor now, airborne last frame".
     if (player) {
+        bool onFloor = player->is_on_floor();
+        if (onFloor && !wasOnFloor) {
+            cameraEffects.triggerPunch(toScalar(LANDING_PUNCH_AMPLITUDE),
+                                       LANDING_PUNCH_DURATION_MS,
+                                       math::Vector2::DOWN());
+        }
+        wasOnFloor = onFloor;
+    }
+
+    updateCameraTour(deltaTime);
+
+    // A tween owns the camera position while it runs; following it at the same
+    // time would overwrite the interpolated value every frame.
+    if (tourStage == TourStage::Idle && player) {
         Scalar centerX = player->position.x + toScalar(player->width) * toScalar(0.5f);
         Scalar centerY = player->position.y + toScalar(player->height) * toScalar(0.5f);
         camera.followTarget(math::Vector2(centerX, centerY));
     }
 }
 
+// ---------------------------------------------------------------------------
+// Camera effects
+// ---------------------------------------------------------------------------
+
+void CameraDemoScene::fireNextEffect() {
+    switch (nextEffect) {
+        case EffectStep::Shake:
+            cameraEffects.triggerShake(toScalar(SHAKE_AMPLITUDE), SHAKE_DURATION_MS);
+            activeEffectName = "Shake";
+            break;
+        case EffectStep::PunchUp:
+            cameraEffects.triggerPunch(toScalar(PUNCH_AMPLITUDE), PUNCH_DURATION_MS,
+                                       math::Vector2::UP());
+            activeEffectName = "Punch Up";
+            break;
+        case EffectStep::PunchDown:
+            cameraEffects.triggerPunch(toScalar(PUNCH_AMPLITUDE), PUNCH_DURATION_MS,
+                                       math::Vector2::DOWN());
+            activeEffectName = "Punch Down";
+            break;
+        case EffectStep::PunchLeft:
+            cameraEffects.triggerPunch(toScalar(PUNCH_AMPLITUDE), PUNCH_DURATION_MS,
+                                       math::Vector2::LEFT());
+            activeEffectName = "Punch Left";
+            break;
+        case EffectStep::PunchRight:
+            cameraEffects.triggerPunch(toScalar(PUNCH_AMPLITUDE), PUNCH_DURATION_MS,
+                                       math::Vector2::RIGHT());
+            activeEffectName = "Punch Right";
+            break;
+        case EffectStep::Offset:
+            cameraEffects.triggerOffset(toScalar(OFFSET_AMPLITUDE), OFFSET_DURATION_MS);
+            activeEffectName = "Offset";
+            break;
+        default:
+            return;
+    }
+
+    uint8_t step = static_cast<uint8_t>(nextEffect) + 1;
+    if (step >= static_cast<uint8_t>(EffectStep::COUNT)) {
+        step = 0;
+    }
+    nextEffect = static_cast<EffectStep>(step);
+}
+
+// ---------------------------------------------------------------------------
+// Camera tween
+// ---------------------------------------------------------------------------
+
+void CameraDemoScene::startCameraTour() {
+    Scalar targetX = toScalar(static_cast<float>(TWEEN_TARGET_TILE_X * TILE_SIZE
+                                                 - DISPLAY_WIDTH / 2));
+    if (targetX < toScalar(0.0f)) {
+        targetX = toScalar(0.0f);
+    }
+    Scalar maxX = toScalar(levelWidth - static_cast<float>(DISPLAY_WIDTH));
+    if (maxX < toScalar(0.0f)) {
+        maxX = toScalar(0.0f);
+    }
+    if (targetX > maxX) {
+        targetX = maxX;
+    }
+
+    // Vertical bounds are locked at 0 in init(), so the tour is horizontal.
+    tweens.startTween(camera.getPosition(),
+                      math::Vector2(targetX, toScalar(0.0f)),
+                      TWEEN_DURATION_MS,
+                      gfx::TweenEasing::EaseInOutQuad);
+    tourStage = TourStage::Out;
+    tourHoldElapsed = 0;
+}
+
+void CameraDemoScene::updateCameraTour(unsigned long deltaTime) {
+    if (tourStage == TourStage::Idle) {
+        return;
+    }
+
+    // deltaTime is milliseconds; the tween pool takes a 16-bit millisecond step.
+    uint16_t stepMs = deltaTime > 0xFFFFu ? 0xFFFFu
+                                          : static_cast<uint16_t>(deltaTime);
+    tweens.update(stepMs, &camera);
+
+    if (tweens.activeCount() > 0) {
+        return;
+    }
+
+    switch (tourStage) {
+        case TourStage::Out:
+            tourStage = TourStage::Hold;
+            tourHoldElapsed = 0;
+            break;
+
+        case TourStage::Hold:
+            tourHoldElapsed += deltaTime;
+            if (tourHoldElapsed >= TWEEN_HOLD_MS) {
+                // Pan back to wherever the player is NOW, not to where the
+                // camera started — the player is free to move during the tour.
+                math::Vector2 back = camera.getPosition();
+                if (player) {
+                    Scalar centerX = player->position.x
+                                   + toScalar(player->width) * toScalar(0.5f);
+                    Scalar backX = centerX - toScalar(DISPLAY_WIDTH / 2);
+                    if (backX < toScalar(0.0f)) {
+                        backX = toScalar(0.0f);
+                    }
+                    Scalar maxX = toScalar(levelWidth - static_cast<float>(DISPLAY_WIDTH));
+                    if (maxX < toScalar(0.0f)) {
+                        maxX = toScalar(0.0f);
+                    }
+                    if (backX > maxX) {
+                        backX = maxX;
+                    }
+                    back = math::Vector2(backX, toScalar(0.0f));
+                }
+                tweens.startTween(camera.getPosition(), back,
+                                  TWEEN_DURATION_MS,
+                                  gfx::TweenEasing::EaseInOutQuad);
+                tourStage = TourStage::Back;
+            }
+            break;
+
+        case TourStage::Back:
+            tourStage = TourStage::Idle;
+            break;
+
+        default:
+            break;
+    }
+}
+
 void CameraDemoScene::draw(gfx::Renderer& renderer) {
     Scalar camX = camera.getX();
+
+    // The active effect resolves to a single offset for this frame. Adding it
+    // to every layer's display offset shakes the whole world at once; the HUD
+    // below is drawn after the offset is cleared, so it stays rock steady.
+    math::Vector2 fx = getCameraEffectOffset();
+    int fxX = static_cast<int>(fx.x);
+    int fxY = static_cast<int>(fx.y);
+
     Scalar farFactor = toScalar(0.4f);
     int farOffset = static_cast<int>(-camX * farFactor);
-    renderer.setDisplayOffset(farOffset, 0);
+    renderer.setDisplayOffset(farOffset + fxX, fxY);
 
     int horizonY = DISPLAY_HEIGHT / 3;
     int hillHeight = DISPLAY_HEIGHT / 4;
@@ -302,13 +474,13 @@ void CameraDemoScene::draw(gfx::Renderer& renderer) {
     renderer.drawFilledRectangle(DISPLAY_WIDTH / 2, horizonY + 10, DISPLAY_WIDTH, hillHeight + 10, Color::DarkGray);
 
     int midOffset = static_cast<int>(-camX * toScalar(0.7f));
-    renderer.setDisplayOffset(midOffset, 0);
+    renderer.setDisplayOffset(midOffset + fxX, fxY);
 
     int midY = (DISPLAY_HEIGHT * 2) / 3;
     renderer.drawFilledRectangle(-20, midY, DISPLAY_WIDTH + 40, 10, Color::DarkGreen);
 
     int mainOffset = static_cast<int>(-camX);
-    renderer.setDisplayOffset(mainOffset, 0);
+    renderer.setDisplayOffset(mainOffset + fxX, fxY);
 
     renderer.drawTileMap(PLATFORMER_MAP, 0, 0, Color::Brown);
 
@@ -319,6 +491,19 @@ void CameraDemoScene::draw(gfx::Renderer& renderer) {
         if (ownedEntities[i]->isVisible) {
             ownedEntities[i]->draw(renderer);
         }
+    }
+
+    renderer.setDisplayOffset(0, 0);
+    drawHud(renderer);
+}
+
+void CameraDemoScene::drawHud(gfx::Renderer& renderer) {
+    renderer.drawText("B:effect  UP:pan  DOWN:cancel", 4, 4, Color::Cyan, 1);
+
+    if (tourStage != TourStage::Idle) {
+        renderer.drawText("Camera tween", 4, 14, Color::Yellow, 1);
+    } else if (activeEffectName != nullptr) {
+        renderer.drawText(activeEffectName, 4, 14, Color::Yellow, 1);
     }
 }
 
