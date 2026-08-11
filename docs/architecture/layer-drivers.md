@@ -27,8 +27,12 @@ The primary color display driver using the popular TFT_eSPI library.
 - DMA support for fast transfers
 - Resolution scaling (nearest-neighbor)
 - Double-buffering for smooth rendering
+- Deferred DMA wait: the last block of a frame stays in flight and is flushed at the start of the next `sendBuffer()`, so the tail of the SPI transfer overlaps the next frame's update and draw
+- Optional 12-bit RGB444 wire format (`PIXELROOT32_TFT_12BIT_COLOR`, off by default, experimental)
 
-**Future optimization (Opción B — diseño, no implementado):** `sendBufferScaled()` hoy envía el rectángulo completo (**`setAddrWindow`** + bloques DMA). Una variante sería **comparar** el sprite 8 bpp contra una **copia del frame anterior** (o un diff por bandas) y emitir **varias ventanas** SPI solo donde cambiaron píxeles. Mejora el techo SPI cuando el área sucia es pequeña; coste típico **~W×H bytes** RAM y más llamadas a **`setAddrWindow`**. La **Opción A** (omitir `draw`+`present` en el **`Engine`** cuando la escena lo indica) está descrita en [ESP32 rendering](../ARCHITECTURE.md#esp32-rendering-pipeline-and-tilemap-caching).
+**Shared SPI bus contract**: because the last DMA block of a frame is still in flight when `sendBuffer()` returns, **any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers must call `TFT_eSPI_Drawer::waitForPendingDMA()` first**. Otherwise it either corrupts the still-open SPI transaction or reads a buffer DMA is streaming from. The engine already guards the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`; a **new** peripheral on the shared bus (SD card, second display, raw SPI sensor) has to add the same call. It is a no-op when nothing is pending. See [ESP32 Performance Guide](../guide/performance/esp32-performance.md#shared-spi-bus-contract).
+
+**Future optimization (Option B — designed, not implemented):** `sendBufferScaled()` currently pushes the whole rectangle (**`setAddrWindow`** + DMA blocks). A variant would **compare** the 8bpp sprite against a **copy of the previous frame** (or a banded diff) and emit **several** SPI windows only where pixels changed. It raises the SPI ceiling when the dirty area is small; typical cost is **~W×H bytes** of RAM and more `setAddrWindow` calls. **Option A** (skipping `draw` + `present` in the **`Engine`** when the scene says so) is described in [ESP32 rendering](./architecture-index.md#esp32-rendering-pipeline-and-tilemap-caching). See finding **C-4** in the [ESP32 Performance Audit](../performance-audit-esp32.md) for the break-even math.
 
 **Supported Displays**:
 - ST7789 (240x240, 320x240)

@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+# Unreleased
+
+### ⚡ Performance & Platform
+
+* **Deferred DMA Wait (TFT_eSPI)**: `sendBufferScaled()` now leaves the frame's last DMA block in flight and flushes it at the top of the next call, so the tail of the SPI transfer overlaps the next frame's update and draw work. Frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`. Always on; no build flag.
+* **Shared SPI Bus Contract (API)**: New public `TFT_eSPI_Drawer::waitForPendingDMA()`. **Any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers must call it first.** Already wired for the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`; integrations that add a new peripheral on the shared bus (SD card, second display, raw SPI sensor) must add the same call. No-op when nothing is pending.
+* **1bpp Direct Framebuffer Path**: 1bpp sprites — all text, `MultiSprite` layers and 1bpp tilemaps — now write the 8bpp framebuffer directly instead of issuing a virtual `drawPixel()` per set pixel (~40–100 cycles → ~4–8). The colour pack is hoisted out of both loops and empty rows are skipped. The virtual path remains as the fallback for surfaces without an 8bpp buffer (U8G2, SDL2).
+* **DMA Block Size Fix**: `buildScaleLUTs()` tested a line buffer that had not been allocated yet and therefore always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`. `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` is now actually reachable, so the documented default finally applies. The fallback still applies when DMA-capable internal RAM is tight, and now logs when it does.
+* **12-bit RGB444 Wire Format (opt-in, experimental)**: New `PIXELROOT32_TFT_12BIT_COLOR` (default `0`) sends the frame as 12-bit RGB444, two pixels per three bytes, cutting 25% of the SPI bus time (240×240: 23.04 → 17.28 ms, 43.4 → 57.9 FPS ceiling; 240×320: 32.6 → 43.4 FPS) and shrinking each DMA line buffer by 25% (28,800 → 21,600 bytes at 60 lines on a 240-wide panel) net of a 768-byte pair LUT. No colours are lost: the 8bpp RGB332 framebuffer carries at most 256 distinct colours and all of them survive truncation to 4 bits per channel without a collision — though the absolute shade shifts slightly on red and green (blue is exact), so it is not bit-exact. Only applies when `PHYSICAL_DISPLAY_WIDTH % 4 == 0`; other widths keep RGB565 and log a warning. **Not yet verified on hardware** — the panel accepting `COLMOD 0x03`, the rendered result and the predicted FPS gain are all unvalidated, which is why the flag ships off.
+
+### 📚 Documentation
+
+* **ESP32 Performance Audit** (`docs/performance-audit-esp32.md`): full-source audit behind these changes, with the bandwidth analysis showing the 40 MHz panels cap a full-frame push at 43.4 FPS. Findings C-1 (1), C-2 and H-1 are marked implemented; C-5 is marked implemented-but-unvalidated.
+* **Display Bandwidth Guide**: new section in `docs/guide/performance/esp32-performance.md` covering the per-panel FPS ceilings, the deferred DMA wait, the shared SPI bus contract and the RGB444 flag.
+
+### 🧪 Testing & QA
+
+* **1bpp Path Parity**: `test/unit/test_graphics/test_renderer_sprite1bpp.cpp` asserts the direct-framebuffer and virtual branches produce identical output.
+* **RGB332 → RGB444 Bijectivity**: `test/unit/test_rgb444/test_rgb444.cpp` asserts all 256 framebuffer colours stay distinguishable through the 12-bit packing, mirroring TFT_eSPI's colour expansion so the property can be checked without the library.
+
 # 1.8.0
 
 ### 🔊 Audio — Shared APU Library (extract-apu)

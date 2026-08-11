@@ -176,6 +176,23 @@
 #if !defined(PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK)
 #define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK 30
 #endif
+
+// 12-bit (RGB444) colour on the wire. Off by default.
+//
+// The display SPI clock is capped at 40 MHz by hardware, so a full-frame push
+// is bus bound: 240x240 RGB565 is 115,200 bytes = 23.04 ms = a 43.4 FPS
+// ceiling. The framebuffer is 8bpp RGB332, so a frame carries at most 256
+// distinct colours and all of them survive RGB444 without a collision (see
+// include/graphics/Rgb444.h). Sending 12 bits instead of 16 removes 25% of the
+// bus time (17.28 ms = 57.9 FPS) and shrinks each DMA line buffer by 25%.
+//
+// Set to 1 per board once the panel is known to accept MIPI DCS COLMOD 0x03.
+// The driver silently keeps RGB565 when the physical width is not a multiple
+// of 4, because the packed stream would then not end on a whole 16-bit DMA
+// word for every block.
+#if !defined(PIXELROOT32_TFT_12BIT_COLOR)
+#define PIXELROOT32_TFT_12BIT_COLOR 0
+#endif
 #endif
 
 // -----------------------------------------------------------------------------

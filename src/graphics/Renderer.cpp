@@ -450,8 +450,19 @@ namespace pixelroot32::graphics {
         PaletteContext context = (currentRenderContext != nullptr) ? *currentRenderContext : PaletteContext::Sprite;
         const uint16_t resolvedColor = resolveColor(color, context);
 
+        // A 1bpp sprite is drawn with a single colour, so the 8bpp packing is hoisted
+        // out of both loops. This is the main win over the 4bpp path, which has to
+        // pack per pixel because every pixel may pick a different palette entry.
+        const uint8_t packedColor = packRgb565ToTftSprite8(resolvedColor);
+
         int startX = offsetBypass ? x : xOffset + x;
         int startY = offsetBypass ? y : yOffset + y;
+
+        uint8_t* const fb8 = logicalFrameBuffer8;
+
+        // Mask of the leftmost column; shifting it right walks bits MSB -> LSB,
+        // i.e. bit (width-1) = leftmost pixel, bit 0 = rightmost pixel.
+        const uint16_t firstColMask = static_cast<uint16_t>(static_cast<uint16_t>(1u) << (sprite.width - 1));
 
         for (int row = 0; row < sprite.height; ++row) {
             const int logicalY = startY + row;
@@ -462,24 +473,49 @@ namespace pixelroot32::graphics {
             }
 
             const uint16_t bits = sprite.data[row];
+            // Empty rows are very common in glyphs and 1bpp tiles; skip the column scan.
+            if (bits == 0) {
+                continue;
+            }
 
-            for (int col = 0; col < sprite.width; ++col) {
-                // Read bits from MSB to LSB (bit (width-1) = leftmost, bit 0 = rightmost)
-                const int bitIndex = sprite.width - 1 - col;
-                const bool bitSet = (bits & (static_cast<uint16_t>(1u) << bitIndex)) != 0;
-                if (!bitSet) {
-                    continue;
+            if (fb8 && !flipX) {
+                uint8_t* dstRow = fb8 + logicalY * screenW;
+                uint16_t mask = firstColMask;
+                for (int col = 0; col < sprite.width; ++col, mask >>= 1) {
+                    if ((bits & mask) == 0) continue;
+                    const int lx = startX + col;
+                    if (lx < 0 || lx >= screenW) continue;
+                    dstRow[lx] = packedColor;
                 }
-
-                int logicalX = flipX
-                    ? startX + (sprite.width - 1 - col)
-                    : startX + col;
-
-                if (logicalX < 0 || logicalX >= screenW) {
-                    continue;
+            } else if (fb8) {
+                uint8_t* dstRow = fb8 + logicalY * screenW;
+                uint16_t mask = firstColMask;
+                for (int col = 0; col < sprite.width; ++col, mask >>= 1) {
+                    if ((bits & mask) == 0) continue;
+                    const int lx = startX + (sprite.width - 1 - col);
+                    if (lx < 0 || lx >= screenW) continue;
+                    dstRow[lx] = packedColor;
                 }
+            } else {
+                // Fallback for surfaces without an 8bpp framebuffer (U8G2/SDL/mock).
+                for (int col = 0; col < sprite.width; ++col) {
+                    // Read bits from MSB to LSB (bit (width-1) = leftmost, bit 0 = rightmost)
+                    const int bitIndex = sprite.width - 1 - col;
+                    const bool bitSet = (bits & (static_cast<uint16_t>(1u) << bitIndex)) != 0;
+                    if (!bitSet) {
+                        continue;
+                    }
 
-                getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
+                    int logicalX = flipX
+                        ? startX + (sprite.width - 1 - col)
+                        : startX + col;
+
+                    if (logicalX < 0 || logicalX >= screenW) {
+                        continue;
+                    }
+
+                    getDrawSurface().drawPixel(logicalX, logicalY, resolvedColor);
+                }
             }
         }
         markDirtyLogicalRect(startX, startY, sprite.width, sprite.height);
