@@ -158,7 +158,7 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
     
     # Add SDL libraries for tests that need them
     linker_flags = []
-    if test_name in ["Engine-Integration", "Game-Loop", "Core-Engine"]:
+    if test_name in ["Engine-Integration", "Game-Loop", "Core-Engine", "Graphics-Renderer1bpp"]:
         linker_flags.extend(["-lSDL2", "-lSDL2main"])
     
     cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + linker_flags + ["-o", str(output_path)]
@@ -213,6 +213,7 @@ def main():
         ("Graphics-FontManager", "test/unit/test_font_manager/test_font_manager.cpp", "test_font_manager", ["src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
         ("Graphics-TileAnimation", "test/unit/test_graphics/test_tile_animation.cpp", "test_tile_animation", ["src/graphics/TileAnimation.cpp"]),
         ("Graphics-TileAnimationRender", "test/unit/test_graphics/test_tile_animation_render.cpp", "test_tile_animation_render", ["src/graphics/TileAnimation.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Graphics-Renderer1bpp", "test/unit/test_graphics/test_renderer_sprite1bpp.cpp", "test_renderer_sprite1bpp", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/DirtyGrid.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Input-Config", "test/unit/test_input_config/test_input_config.cpp", "test_input_config", None),
         ("Input-Manager", "test/unit/test_input_manager/test_input_manager.cpp", "test_input_manager", ["src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp"]),
         ("Audio-Queue", "test/unit/test_audio_command_queue/test_audio_command_queue.cpp", "test_audio_command_queue", None),

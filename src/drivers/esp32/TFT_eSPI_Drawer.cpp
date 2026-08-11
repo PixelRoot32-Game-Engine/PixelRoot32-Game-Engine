@@ -47,18 +47,48 @@ using logging::LogLevel;
 
 #endif
 
+namespace {
+
+/// Drawer currently owning the SPI bus, so the touch bridge can flush its
+/// deferred DMA before running a transaction on the same bus. Mirrors the
+/// gTftForTouch global registered by the touch bridge itself.
+pr32::drivers::esp32::TFT_eSPI_Drawer* gDrawerForTouchFlush = nullptr;
+
+void flushDrawerDmaBeforeTouch() {
+    if (gDrawerForTouchFlush != nullptr) {
+        gDrawerForTouchFlush->waitForPendingDMA();
+    }
+}
+
+} // namespace
+
 // --------------------------------------------------
 // Constructor / Destructor
 // --------------------------------------------------
 
 pr32::drivers::esp32::TFT_eSPI_Drawer::TFT_eSPI_Drawer()
     : tft()
-    , spr(&tft) 
+    , spr(&tft)
 {
 }
 
 pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
+    // Teardown touches tft and destroys the sprite: nothing may still be in flight.
+    waitForPendingDMA();
+    if (gDrawerForTouchFlush == this) {
+        gDrawerForTouchFlush = nullptr;
+        pixelroot32::drivers::esp32::registerTouchBusFlushHook(nullptr);
+    }
     freeScalingBuffers();
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::waitForPendingDMA() {
+    // Keep in sync with the profiled flush at the top of sendBufferScaled().
+    if (dmaPending) {
+        tft.dmaWait();
+        tft.endWrite();
+        dmaPending = false;
+    }
 }
 
 // --------------------------------------------------
@@ -66,6 +96,9 @@ pr32::drivers::esp32::TFT_eSPI_Drawer::~TFT_eSPI_Drawer() {
 // --------------------------------------------------
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
+    // Re-init on a live drawer would reprogram the bus under an in-flight transfer.
+    waitForPendingDMA();
+
     log("[TFT_eSPI_Drawer] Initializing TFT...");
     tft.init();
     tft.setRotation(rotation);
@@ -89,6 +122,11 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
     log("[TFT_eSPI_Drawer] Initialization complete.");
 
     pixelroot32::drivers::esp32::registerTftForXpt2046Touch(&tft);
+
+    // Touch reads share the SPI bus with the display, so the bridge must be able
+    // to flush the frame transfer we intentionally leave in flight.
+    gDrawerForTouchFlush = this;
+    pixelroot32::drivers::esp32::registerTouchBusFlushHook(&flushDrawerDmaBeforeTouch);
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
@@ -104,6 +142,8 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
     }
 
     if (tft.getRotation() != rotation) {
+        // Talks to the panel over SPI: the deferred frame transfer must land first.
+        waitForPendingDMA();
         tft.setRotation(rotation);
     }
 }
@@ -202,20 +242,27 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     
     // Allocate double line buffers for DMA
 #ifdef ESP32
+    // Try the optimal block size for BOTH buffers first. Only if either allocation
+    // fails do we drop to the fallback size: on boards with tight DMA-capable RAM
+    // the smaller blocks still work, they just halve the pipelining window.
     lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    
-    // If first buffer succeeded but second failed, try fallback size
-    if (lineBuffer[0] && !lineBuffer[1]) {
-        heap_caps_free(lineBuffer[0]);
-        
+    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+
+    if (!lineBuffer[0] || !lineBuffer[1]) {
+        for (int i = 0; i < 2; ++i) {
+            if (lineBuffer[i]) {
+                heap_caps_free(lineBuffer[i]);
+                lineBuffer[i] = nullptr;
+            }
+        }
+
         linesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK;
         blockSize = physicalWidth * linesPerBlock * sizeof(uint16_t);
-        
+
         lineBuffer[0] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     }
-    
-    lineBuffer[1] = (uint16_t*)heap_caps_malloc(blockSize, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    
+
     // Force LUTs to Internal RAM for speed
     paletteLUT = (uint16_t*)heap_caps_malloc(256 * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     xLUT = (uint16_t*)heap_caps_malloc(physicalWidth * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -262,6 +309,10 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
+    // DMA reads straight out of lineBuffer[]; freeing it mid-transfer is a
+    // use-after-free that corrupts whatever the allocator hands out next.
+    waitForPendingDMA();
+
     for (int i = 0; i < 2; ++i) {
         if (lineBuffer[i]) {
 #ifdef ESP32
@@ -299,14 +350,34 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {
 }
 
 void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
+#ifdef PIXELROOT32_ENABLE_PROFILING
+    PR32_SEND_BUF_PROFILE_VARS();
+#endif
+
+    // Flush the transfer deferred by the previous frame before reopening the bus.
+    // Its DMA ran while the game did its update/draw work, so this normally
+    // returns immediately - that overlap is the whole point of the deferral.
+    //
+    // Profiling note: pr32_acc_wait and pr32_acc_end are still accumulated here,
+    // but they now measure the PREVIOUS frame's tail, charged to the frame that
+    // flushes it. Over a steady-state run the per-frame averages stay comparable;
+    // for a single frame the wait/endWrite figures belong to its predecessor.
+    if (dmaPending) {
+        tft.dmaWait();
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_wait);
+#endif
+        tft.endWrite();
+#ifdef PIXELROOT32_ENABLE_PROFILING
+        PR32_SEND_BUF_PROFILE_ACC(pr32_acc_end);
+#endif
+        dmaPending = false;
+    }
+
     uint8_t* spritePtr = (uint8_t*)spr.getPointer();
     if (!spritePtr) {
         return;
     }
-
-#ifdef PIXELROOT32_ENABLE_PROFILING
-    PR32_SEND_BUF_PROFILE_VARS();
-#endif
 
     tft.startWrite();
     tft.setAddrWindow(xOffset, yOffset, physicalWidth, physicalHeight);
@@ -314,7 +385,17 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
     PR32_SEND_BUF_PROFILE_ACC(pr32_acc_setup);
 #endif
 
-    currentBuffer = 0;
+    // INVARIANT - do NOT reset currentBuffer to 0 here.
+    //
+    // The index alternates continuously ACROSS frames. Each block is pushed from
+    // lineBuffer[currentBuffer] and the index is swapped immediately afterwards,
+    // so when the loop ends currentBuffer already points AWAY from the block left
+    // in flight. Starting the next frame from that value guarantees the first
+    // block is scaled into the buffer DMA is not reading.
+    //
+    // Resetting to 0 breaks that guarantee whenever the frame has an odd number of
+    // blocks (e.g. 320 physical lines at 30 lines/block = 11 blocks), because the
+    // in-flight buffer is then index 0 - exactly the one the reset would reuse.
     int startY = 0;
 
     // ---------------------------------------------------------
@@ -477,14 +558,12 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
         startY += activeLinesPerBlock;
     }
     
-    // Wait for the last pending transfer to finish
-    tft.dmaWait();
+    // Leave the last block in flight and return with the write transaction still
+    // open. It is flushed at the top of the next sendBufferScaled(), so its SPI
+    // time overlaps the next frame's update + draw work instead of blocking here.
+    // waitForPendingDMA() closes it for any other bus user in the meantime.
+    dmaPending = true;
 #ifdef PIXELROOT32_ENABLE_PROFILING
-    PR32_SEND_BUF_PROFILE_ACC(pr32_acc_wait);
-#endif
-    tft.endWrite();
-#ifdef PIXELROOT32_ENABLE_PROFILING
-    PR32_SEND_BUF_PROFILE_ACC(pr32_acc_end);
 
     {
         const uint32_t totalUs = static_cast<uint32_t>(micros() - pr32_sendbuf_t0);
@@ -518,7 +597,9 @@ void IRAM_ATTR pr32::drivers::esp32::TFT_eSPI_Drawer::sendBufferScaled() {
                 const int delta = static_cast<int>(avgTotal) - static_cast<int>(sumParts);
 
                 log(LogLevel::Profiling,
-                    "[TFT sendBufferScaled avg/%u fr] total %uu | setup %uu | scale %uu | dmaWait %uu | pushDMA %uu | endWrite %uu | Σparts %uu (Δ %d) | %u FPS",
+                    // dmaWait/endWrite include the deferred tail of the previous frame,
+                    // flushed at the top of this call (see sendBufferScaled entry).
+                    "[TFT sendBufferScaled avg/%u fr] total %uu | setup %uu | scale %uu | dmaWait* %uu | pushDMA %uu | endWrite* %uu | Σparts %uu (Δ %d) | %u FPS (* = deferred tail of previous frame)",
                     static_cast<unsigned>(n),
                     static_cast<unsigned>(avgTotal),
                     static_cast<unsigned>(avgSetup),

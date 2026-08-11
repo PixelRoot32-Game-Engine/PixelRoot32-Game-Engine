@@ -96,6 +96,19 @@ public:
      */
     bool processEvents() override;
 
+    /**
+     * @brief Blocks until the DMA transfer deferred by sendBufferScaled() completes.
+     *
+     * sendBufferScaled() leaves the last block of the frame in flight so its SPI
+     * time overlaps the next frame's update/draw work. Every other user of the SPI
+     * bus - and anything that frees or reallocates lineBuffer[] - MUST call this
+     * first, otherwise it either corrupts the transaction or triggers a
+     * use-after-free on the buffer DMA is still reading.
+     *
+     * Safe to call when nothing is pending (no-op).
+     */
+    void waitForPendingDMA();
+
 private:
     TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
     TFT_eSprite spr; ///< The sprite used as a framebuffer.
@@ -103,7 +116,8 @@ private:
     // Scaling support (batch sizes: PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK in PlatformDefaults.h)
     int activeLinesPerBlock = PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK; ///< Set during init from buildScaleLUTs()
     uint16_t* lineBuffer[2] = {nullptr, nullptr}; ///< Double buffer for DMA line transfer
-    uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1)
+    uint8_t currentBuffer = 0;                    ///< Current buffer index (0 or 1); alternates ACROSS frames, never reset
+    bool dmaPending = false;                      ///< True while the last block of a frame is still in flight (transaction still open)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
     uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp to 16bpp palette LUT
