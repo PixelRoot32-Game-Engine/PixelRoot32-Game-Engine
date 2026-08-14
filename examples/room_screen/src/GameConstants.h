@@ -6,8 +6,8 @@ namespace room_screen {
 /// Display size in pixels (square 240x240).
 inline constexpr int kDisplaySize = 240;
 
-// Room geometry is NOT declared here — it lives in the exported room layer
-// (assets/RoomScreenRooms.h) so there is a single source of truth for it.
+// Room geometry is NOT declared here — it lives in the exported scene asset
+// (assets/main_scene.h) so there is a single source of truth for it.
 
 /// Button indices matching the InputConfig order (Up, Down, Left, Right, A, B).
 inline constexpr std::uint8_t BTN_UP    = 0;
