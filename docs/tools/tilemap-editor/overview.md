@@ -24,6 +24,8 @@ The Tilemap Editor is part of the **Tool Suite**. Licensing and downloads: [pixe
 - **Layers** — up to **8 layers** per scene, **palette slots P0-P7** for multi-palette
 - **Tile animations** with live preview
 - **Tile attributes** — collision metadata and export rules
+- **Player spawn** — optional per-scene start tile
+- **Rooms** — optional per-scene room layer with connections between rooms
 - **Export** — C++ code ready for ESP32
 
 ## Key Features (Summary)
@@ -31,7 +33,7 @@ The Tilemap Editor is part of the **Tool Suite**. Licensing and downloads: [pixe
 | Area | Highlights |
 |------|------------|
 | Tools | Brush, eraser, rectangle, pipette, attribute, animation, live preview |
-| Scenes | Multiple maps, onion skin, per-scene size |
+| Scenes | Multiple maps, onion skin, per-scene size, optional player spawn and rooms |
 | Layers | Up to 8, visibility, reorder, palette slot per layer |
 | Tilesets | Multi-tileset, zoom, auto tile size |
 | Export | Scene `.h`/`.cpp`, animations, `setBackgroundCustomPaletteSlot()` |
@@ -58,7 +60,8 @@ The documentation is organized in **4 guide levels**:
 ### Exported C++
 
 - Scene pair: `scene_name.h` / `scene_name.cpp`
-- Optional: `scene_name_animations.h` / `.cpp`
+- Shared palette header: `{namespace}_tilemap_palette.h`
+- Tile animations are embedded in the scene header, not emitted as separate files
 - Multi-palette uses per-layer slot setup
 
 ## Getting started
