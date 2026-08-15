@@ -1,6 +1,7 @@
 #include "Player.h"
 #include "core/Engine.h"
 #include "physics/TileAttributes.h"
+#include "physics/TilePixelCollision.h"
 #include "assets/roomscreen_main_scene.h"
 #include "assets/PlayerSprites.h"
 
@@ -21,25 +22,68 @@ Player::Player(int startX, int startY)
 }
 
 bool Player::canOccupy(int x, int y) const {
-    // The box spans from its top-left to its last covered pixel, so the far
-    // edge is (x + size - 1). Using (x + size) would test the tile the box
-    // stops exactly short of and refuse legal positions flush against a wall.
-    const int leftCol   = x / scene::TILE_SIZE;
-    const int rightCol  = (x + kPlayerSize - 1) / scene::TILE_SIZE;
-    const int topRow    = y / scene::TILE_SIZE;
-    const int bottomRow = (y + kPlayerSize - 1) / scene::TILE_SIZE;
+    if constexpr (kCollisionMode == CollisionMode::WholeTile) {
+        // Original whole-tile check: any overlapped tile flagged TILE_SOLID
+        // blocks the box, its bitmap ignored. The far edge is (x + size - 1)
+        // so a box flush against a wall does not test the tile it stops short
+        // of.
+        const int leftCol   = x / scene::TILE_SIZE;
+        const int rightCol  = (x + kPlayerSize - 1) / scene::TILE_SIZE;
+        const int topRow    = y / scene::TILE_SIZE;
+        const int bottomRow = (y + kPlayerSize - 1) / scene::TILE_SIZE;
 
-    // The edge of the map is a wall, independent of the tile data. getTileFlags
-    // returns TILE_NONE for out-of-bounds, so without this check the player
-    // would walk off the world.
-    if (leftCol < 0 || rightCol >= scene::MAP_WIDTH ||
-        topRow < 0 || bottomRow >= scene::MAP_HEIGHT) {
+        // The edge of the map is a wall, independent of the tile data.
+        // getTileFlags returns TILE_NONE out-of-bounds, so without this check
+        // the player would walk off the world.
+        if (leftCol < 0 || rightCol >= scene::MAP_WIDTH ||
+            topRow < 0 || bottomRow >= scene::MAP_HEIGHT) {
+            return false;
+        }
+
+        for (int row = topRow; row <= bottomRow; ++row) {
+            for (int col = leftCol; col <= rightCol; ++col) {
+                if (scene::getTileFlags(kItemsBehaviorLayer, col, row) & pr32::physics::TILE_SOLID) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Per-pixel path. Erosion is applied to the *object*, not the player, so
+    // the full 16x16 hitbox slides past thin branches and stray pixels instead
+    // of penetrating into the object and snagging on irregular silhouettes
+    // (plants, tree canopies).
+    constexpr int erosion = (kCollisionMode == CollisionMode::PerPixelEroded)
+                                ? kTileSolidErosionPx
+                                : 0;
+
+    // The edge of the map is a wall, independent of the tile data. Without
+    // this explicit guard isWorldPixelSolid would treat OOB as non-solid
+    // (walkable) and the player could walk off the world.
+    if (x < 0 || y < 0 ||
+        x + kPlayerSize > scene::MAP_WIDTH  * scene::TILE_SIZE ||
+        y + kPlayerSize > scene::MAP_HEIGHT * scene::TILE_SIZE) {
         return false;
     }
 
-    for (int row = topRow; row <= bottomRow; ++row) {
-        for (int col = leftCol; col <= rightCol; ++col) {
-            if (scene::getTileFlags(kItemsBehaviorLayer, col, row) & pr32::physics::TILE_SOLID) {
+    // isWorldPixelSolid short-circuits on TILE_NONE so non-solid tiles pay
+    // only a flag lookup.
+    for (int py = 0; py < kPlayerSize; ++py) {
+        for (int px = 0; px < kPlayerSize; ++px) {
+            const int worldX = x + px;
+            const int worldY = y + py;
+            const int tileX  = worldX / scene::TILE_SIZE;
+            const int tileY  = worldY / scene::TILE_SIZE;
+            const int localX = worldX % scene::TILE_SIZE;
+            const int localY = worldY % scene::TILE_SIZE;
+            if (pr32::physics::isWorldPixelSolid(
+                    &scene::items,
+                    scene::behavior_layers[kItemsBehaviorLayer],
+                    tileX, tileY,
+                    localX, localY,
+                    pr32::physics::TILE_SOLID,
+                    erosion)) {
                 return false;
             }
         }

@@ -25,6 +25,22 @@ That keeps rects and connections in one place instead of spread across `addRoom`
 
 - **Up/Down/Left/Right arrow keys**: move the player. Walking into a wall stops you; walking across an open room boundary transitions to the connected room.
 
+## Collision
+
+The exported **Items** layer is the collision layer: its tiles carry `TILE_SOLID` where the player cannot walk. The player resolves that layer with the engine helper `pixelroot32::physics::isWorldPixelSolid`, which decodes the tile's 4bpp bitmap so a solid tile only blocks where its pixels are actually opaque — a tile whose bitmap has transparent "dead pixels" (palette index 0) lets the player walk through the gaps instead of treating the whole 16×16 cell as a wall.
+
+The strategy is a **compile-time toggle** in `src/GameConstants.h`:
+
+| `kCollisionMode` | Behaviour |
+|------------------|-----------|
+| `CollisionMode::WholeTile` | Original behaviour: a `TILE_SOLID` tile blocks its entire cell; the bitmap is ignored. |
+| `CollisionMode::PerPixel` | Per-pixel test: transparent pixels are walkable, no erosion. |
+| `CollisionMode::PerPixelEroded` *(default)* | Per-pixel test with morphological erosion, so thin branches, dangling 1px protrusions and stray opaque pixels on irregular tiles (plants, tree canopies) don't snag the player. |
+
+`PerPixelEroded` uses `kTileSolidErosionPx` (default `1`) as the erosion radius: a pixel counts as solid only if the whole `(2*r+1)²` square around it is opaque.
+
+`Player::canOccupy` branches on `kCollisionMode` with `if constexpr`, so the unselected branches are discarded at compile time (zero runtime cost, and on ESP32 the unused helper is stripped by `--gc-sections`). The helper is stateless — no per-tile masks, no allocations — so RAM cost is 0 in every mode.
+
 ## Build
 
 From `examples/room_screen`:

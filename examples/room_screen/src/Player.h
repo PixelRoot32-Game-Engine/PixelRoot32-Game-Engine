@@ -18,10 +18,11 @@ enum class Facing : uint8_t { Down = 0, Up, Left, Right };
  * stays float-free on FPU-less targets. A travel accumulator carries the
  * sub-pixel remainder between frames, keeping the speed exact without a float.
  *
- * The player only knows how to walk and collide against the exported Items
- * behavior layer (TILE_SOLID). Room transitions are the scene's job: the
- * scene detects a boundary crossing and rewrites the position via
- * setPixelPosition().
+ * The player collides against the exported Items behavior layer (TILE_SOLID).
+ * The collision strategy is selectable at compile time via kCollisionMode in
+ * GameConstants.h: whole-tile, per-pixel, or per-pixel with morphological
+ * erosion (the default). Room transitions are the scene's job: the scene
+ * detects a boundary crossing and rewrites the position via setPixelPosition().
  */
 class Player : public pixelroot32::core::Entity {
 public:
