@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="300"/>
+  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="256"/>
 </p>
 
 <h1 align="center">PixelRoot32 Game Engine</h1>
@@ -14,11 +14,6 @@
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
-</p>
-
-<p align="center">
-  <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
-  <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
 
 <p align="center">
@@ -87,6 +82,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **NES-Style Audio**: Dynamic 8-voice subsystem with a fixed **4+4 partition** (melodic tracks vs percussion/SFX), advanced SFX synthesis (loops, sweeps, breakpoint envelopes, `playSfxBank`), and fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
+- **Gameplay Framework**: Opt-in building blocks — grid space, state machines, object pools, an event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — each behind its own `PIXELROOT32_ENABLE_*` flag, all default `0`.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
@@ -96,7 +92,9 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🧰 Tool Suite
 
-The **PixelRoot32 Tool Suite** is now available — a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
+The **PixelRoot32 Tool Suite** is a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
+
+The **engine itself remains 100% free and open source**. These tools are optional power-ups designed to streamline your workflow and support the project: each grants a **lifetime license** (one-time purchase, yours forever, free lifetime updates).
 
 | Module | Status |
 |--------|--------|
@@ -106,6 +104,19 @@ The **PixelRoot32 Tool Suite** is now available — a native desktop app (C++17 
 | **SFX Editor** | 🔜 Coming soon — sound effect synthesis |
 
 👉 [Get the Tool Suite](https://pixelroot32.com) · [Detailed docs](docs/tools/index.md)
+
+---
+
+## 💛 Support this project
+
+The best way to support PixelRoot32 is getting the **Tool Suite** above — a lifetime license that funds the project.
+
+If that's not for you, a tip is always welcome:
+
+<p align="left">
+  <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
+  <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
+</p>
 
 ---
 
@@ -133,7 +144,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.8.0
+    gperez88/PixelRoot32-Game-Engine@^1.9.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -194,36 +205,14 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
-- ⚙️ **Gameplay Framework**: Generic gameplay systems for interactions, triggers, events, state machines, and reusable gameplay components.
 
-### Completed Features ✅
-
-- ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
-- ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
-- ✅ **Moving Platform Support**: Kinematic floor velocity inheritance and platform-aware character movement.
-- ✅ **Custom Hitboxes**: Independent hitbox sizing and offsets for gameplay collision tuning.
-- ✅ **Scene Transition System**: Fade, Iris, and Diagonal Wipe transitions with configurable animation behavior.
-- ✅ **Camera Effects System**: Deterministic shake, punch, and offset effects optimized for ESP32.
-- ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
-- ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
-- ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
-- ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
-- ✅ **Tile Animation System**: O(1) frame resolution for tile-based animations with zero-allocation policy.
-- ✅ **Multi-Palette Graphics**: Per-cell palette indexing for tilemaps and sprites.
-- ✅ **One-Way Platform Collision**: Jump-through platforms with spatial crossing detection.
-- ✅ **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
-- ✅ **Unified Logging System**: Cross-platform `log()` abstraction with `PIXELROOT32_DEBUG_MODE`.
-- ✅ **Touch Screen Support**: `UITouchButton`, `UITouchCheckbox`, and `UITouchSlider`.
-- ✅ **4+4 Audio Voice Partition**: Melodic sequencer tracks (slots 0–3) isolated from percussion/SFX (slots 4–7) with subpool-limited voice stealing.
-- ✅ **Advanced SFX Synthesis**: Looping SFX, noise period sweep, Linear/Exponential curves, duty/pitch breakpoint envelopes, and header-only `playSfxBank` (additive `AudioEvent` ABI).
-- ✅ **Shared APU Library**: The synthesis core lives in [PixelRoot32-APU](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-APU), shared with the PixelRoot32 Tool Suite — one ABI source, byte-identical preview/export audio.
-- ✅ **TileMap Editor**: Specialized tool to design environments with C++ export. [PixelRoot32 Tool Suite](https://pixelroot32.com).
+👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
 ---
 
 ## 🕒 Changelog
 
-## Unreleased
+## 1.9.0
 
 Introduces the **Gameplay Framework**. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them is identical to 1.8.0 — no breaking changes.
 
@@ -246,6 +235,7 @@ Introduces the **Gameplay Framework**. Every capability is opt-in behind its own
 
 - **Spatial Queries**: `queryRadius()` / `queryBox()` with a collision-layer mask for blasts, aggro ranges and area effects — no manual scan over every actor.
 - **Multi-Hit Tiles**: `requiredHits` + `applyHit()` on `TileConsumptionHelper` for breakable and armoured blocks.
+- **Per-Pixel Tile Collision**: `isTilePixelSolid()` / `isWorldPixelSolid()` decode a tile's 4bpp bitmap so transparent "dead" pixels don't block movement, with an optional morphological erosion radius — no physics simulation required.
 
 ### ⚡ Performance
 

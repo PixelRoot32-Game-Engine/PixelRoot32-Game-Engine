@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 # Unreleased
 
+# 1.9.0
+
 This release introduces the **Gameplay Framework**: a set of building blocks for the parts of a game every project used to hand-roll — grid math, state machines, object pools, event dispatch and room-by-room worlds. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them compiles to the same binary as 1.8.0.
 
 ### ✨ Added
@@ -18,10 +20,12 @@ This release introduces the **Gameplay Framework**: a set of building blocks for
 * **Depth Sorting (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: an optional `Scene::DepthComparator` adds secondary ordering *within* a render layer, which is what top-down games need to draw an actor behind or in front of scenery by Y position. Leaving the comparator unset keeps the existing sort behaviour untouched.
 * **UI Sprite Elements**: `UISprite` draws a single sprite (1/2/4 bpp) as a first-class UI element, so icons gain `setVisible()`, layout placement and `setFixedPosition()` instead of being hand-drawn in a `draw()` override. `UISpriteRow` renders a whole value-driven icon row — hearts, lives, keys, ammo — from one element and one entity, including half and quarter steps.
 * **Multi-Hit Tiles**: `TileConsumptionHelper` gains `requiredHits` and `applyHit()`, so a tile can take several hits before it is consumed (breakable blocks, armoured walls) while the caller keeps ownership of the counter.
+* **Per-Pixel Tile Collision**: new `TilePixelCollision` helper answers per-pixel solidity by decoding a 4bpp tile bitmap — `isTilePixelSolid()` / `isWorldPixelSolid()` with an optional morphological erosion radius, so top-down games ignore transparent "dead" pixels without enabling the physics simulation. Stateless and allocation-free.
 
 ### 🔧 Changed
 
 * **Shared SPI Bus Contract (API)**: new public `TFT_eSPI_Drawer::waitForPendingDMA()`. **Any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers must call it first.** The engine already wires it for the touch bridge, `freeScalingBuffers()`, the destructor, `init()` and `setRotation()`; integrations that add another peripheral to the shared bus (SD card, second display, raw SPI sensor) must add the same call. No-op when nothing is pending.
+* **Shared APU 2.0.0**: the engine now consumes `gperez88/PixelRoot32-APU@^2.0.0` (up from `^1.0.1`), which brings NES-accurate APU emulation (frame counter, length/linear counters, sweep and envelope units, configurable soft-clip and HPF). Three breaking points for direct consumers, all on the audio side: TRIANGLE is quantised to 4-bit NES levels by default (`voice.triangleQuantize4Bit = false` to opt out), the integer/Q15 render path is ~4.4× louder on no-FPU targets (ESP32-C3), and the NOISE LFSR now seeds to `0x7FFF`. All engine-facing audio APIs are unchanged.
 
 ### 🐛 Fixed
 
