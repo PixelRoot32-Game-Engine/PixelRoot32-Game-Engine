@@ -1,10 +1,13 @@
 # Flappy Bird Example
 
-A **Flappy Bird**–style game: bird is a **`RigidActor`** (gravity + flap impulse), pipes are **`KinematicActor`** pairs that scroll and **recycle** when off-screen. Score and game states (**waiting / playing / game over**) are handled in [`FlappyBirdScene`](src/FlappyBirdScene.h).
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
+A **Flappy Bird**–style game: bird is a **`RigidActor`** (gravity + flap impulse), pipes are **`KinematicActor`** pairs that scroll and **recycle** when off-screen. Score and game states (**waiting / playing / game over**) are handled in [`FlappyBirdScene`](src/FlappyBirdScene.h), which drives them through the engine's **`gameplay::StateMachine`**.
 
 ## Requirements (build flags)
 
 - **`PIXELROOT32_ENABLE_PHYSICS=1`** — required on **`esp32c3`** in `platformio.ini`.
+- **`PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE=1`** — required on **every** environment. The scene's `WAITING` / `RUNNING` / `GAME_OVER` machine is a `gameplay::StateMachine` member, and the whole class lives behind this flag (default `0`), so the scene does not compile without it.
 - **`PIXELROOT32_ENABLE_PROFILING`** — enabled on the **`esp32c3`** environment in this project (optional for learning builds).
 - **U8g2 path (hardware)**: **`PIXELROOT32_USE_U8G2`**, **`PIXELROOT32_NO_TFT_ESPI`** on **`esp32c3`**.
 
@@ -29,12 +32,17 @@ This example does **not** ship an `esp32dev` TFT environment — only **`native`
 - **Physics** actors for bird and pipes
 - **Object pool–style** pipe reuse
 - **Small-resolution** rendering path suited for **128×64 OLED** via U8g2
+- **`gameplay::StateMachine`** for the `WAITING` → `RUNNING` → `GAME_OVER` cycle, with the per-state entry work in `onEnter` callbacks: entering `WAITING` resets bird, pipes and score; entering `RUNNING` fires the first flap and reveals the pipes. `GAME_OVER` has no entry side effect — its text is drawn per frame from the current state.
+
+  Transitions are requested directly from `update()` rather than from an `onUpdate` callback. This is deliberate: the frame that leaves `WAITING` must still run the pipe-scroll and scoring block, and `StateMachine::update()` does not cascade `onUpdate` into a newly entered state within the same call. See the comment at the call site in [`FlappyBirdScene.cpp`](src/FlappyBirdScene.cpp).
 
 ## Documentation links
 
 - [Physics API](../../docs/api/physics.md)
 - [Core API](../../docs/api/core.md)
 - [Platform / drivers](../../docs/api/platform.md)
+- [Memory system — gameplay flags and byte budgets](../../docs/architecture/memory-system.md) — RAM cost of `PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE`
+- [`gameplay/StateMachine.h`](../../include/gameplay/StateMachine.h) — the full contract, including the time-in-state ordering warning on `update()`
 
 ## Build
 

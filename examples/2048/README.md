@@ -1,5 +1,7 @@
 # 2048 Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 A **2048** puzzle game where you slide tiles to combine them and reach **2048**. The game features **grid rendering**, **tile values**, **score tracking**, and **game over / win states**.
 
 On **`esp32cyd`**, swipes are detected via **`onUnconsumedTouchEvent`** to slide tiles in the swipe direction. On **`native`**, use D-pad controls per `Game2048Constants.h` button IDs.

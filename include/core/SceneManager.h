@@ -15,6 +15,10 @@
 #include "graphics/TransitionEffect.h"
 #include "platforms/EngineConfig.h"
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+#include "gameplay/GameplayEventBus.h"
+#endif
+
 #include <optional>
 
 namespace pixelroot32::core {
@@ -165,6 +169,19 @@ public:
         transitionEffect_ = effect;
     }
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    /**
+     * @brief Provide a pointer to the Engine-owned GameplayEventBus instance.
+     * @param bus Non-owning pointer to the GameplayEventBus.
+     *
+     * Called by Engine::init(). The Engine owns the bus; SceneManager only
+     * drains it (clear()) on every SceneSwap — see setCurrentScene().
+     */
+    void setGameplayEventBus(pixelroot32::gameplay::GameplayEventBus* bus) {
+        eventBus_ = bus;
+    }
+#endif
+
 private:
     Scene* sceneStack[pixelroot32::platforms::config::MaxScenes] = {nullptr};  ///< Fixed-size stack for scenes.
     int sceneCount = 0; ///< Current number of scenes in the stack.
@@ -175,6 +192,10 @@ private:
     TransitionState transitionState_ = TransitionState::Idle;   ///< Current transition phase.
     Scene* transitionTargetScene_ = nullptr;                     ///< Scene to swap to (set by transitionToScene).
     pixelroot32::graphics::TransitionEffect* transitionEffect_ = nullptr; ///< Engine-owned effect (non-owning ptr).
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    pixelroot32::gameplay::GameplayEventBus* eventBus_ = nullptr; ///< Engine-owned bus (non-owning ptr). Drained on SceneSwap.
+#endif
     pixelroot32::graphics::TransitionType transitionType_ = pixelroot32::graphics::TransitionType::Fade; ///< Cached effect type.
     unsigned long transitionDuration_ = 0;                       ///< Cached effect duration per phase.
 

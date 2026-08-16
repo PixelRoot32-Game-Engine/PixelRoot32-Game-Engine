@@ -15,6 +15,10 @@
 #include "audio/MusicPlayer.h"
 #include "platforms/PlatformCapabilities.h"
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+#include "gameplay/GameplayEventBus.h"
+#endif
+
 #if PIXELROOT32_ENABLE_TOUCH
 #include "input/TouchEventDispatcher.h"
 #include "input/TouchEvent.h"
@@ -250,6 +254,18 @@ public:
      */
     const PlatformCapabilities& getPlatformCapabilities() const { return capabilities; }
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    /**
+     * @brief Provides access to the Engine-owned GameplayEventBus.
+     * @return Reference to the GameplayEventBus.
+     *
+     * The bus is a single Engine-owned instance, wired into SceneManager by
+     * Engine::init() (mirrors setTransitionEffect()). It is drained on every
+     * scene swap; see gameplay::GameplayEventBus for the full contract.
+     */
+    pixelroot32::gameplay::GameplayEventBus& getGameplayEventBus() { return gameplayEventBus_; }
+#endif
+
 protected:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
     pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
@@ -273,6 +289,10 @@ protected:
 
     // Transition effect subsystem (always declared; stub when feature disabled)
     pixelroot32::graphics::TransitionEffect transitionEffect_; ///< Scene transition effect (Fade/Iris).
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    pixelroot32::gameplay::GameplayEventBus gameplayEventBus_; ///< Engine-owned single instance, wired to SceneManager in init().
+#endif
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.
     unsigned long deltaTime;      ///< Calculated time difference between frames.

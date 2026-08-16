@@ -494,13 +494,24 @@ namespace pixelroot32::physics {
     }
 
     void CollisionSystem::triggerCallbacks() {
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->beginFrame();
+#endif
         for (int i = 0; i < contactCount; ++i) {
             const Contact& contact = contacts[i];
             if (contact.bodyA && contact.bodyB) {
                 contact.bodyA->onCollision(static_cast<Actor*>(contact.bodyB));
                 contact.bodyB->onCollision(static_cast<Actor*>(contact.bodyA));
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+                if (interactionTracker_) {
+                    interactionTracker_->recordPair(static_cast<Actor*>(contact.bodyA), static_cast<Actor*>(contact.bodyB));
+                }
+#endif
             }
         }
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->endFrame();   // diff → enter/exit dispatch
+#endif
     }
 
     bool CollisionSystem::checkCollision(Actor* actor, Actor** outArray, int& count, int maxCount) {
@@ -542,6 +553,63 @@ namespace pixelroot32::physics {
         }
         return count > 0;
     }
+
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    int CollisionSystem::queryRadius(Vector2 center, Scalar radius, CollisionLayer mask,
+                                      Actor** outArray, int maxCount) {
+        assert(outArray != nullptr && "queryRadius: outArray is null");
+        assert(maxCount > 0 && "queryRadius: maxCount must be > 0");
+
+        // Q16.16 overflow guard (design.md D4 / Risks): the grid's cell-range
+        // clamp bounds candidate separation to roughly radius + kCellSize, so
+        // radius <= SPATIAL_QUERY_MAX_RADIUS keeps dx^2 <= 160^2 = 25600,
+        // inside the +-32768 Q16.16 range. Debug builds assert on misuse;
+        // release builds (NDEBUG, assert compiled out) clamp instead.
+        Scalar maxRadius = toScalar(pixelroot32::platforms::config::SpatialQueryMaxRadius);
+        assert(radius <= maxRadius &&
+               "queryRadius: radius exceeds SPATIAL_QUERY_MAX_RADIUS (Q16.16 "
+               "squared-distance overflow guard, see design.md D4)");
+        Scalar clampedRadius = (radius > maxRadius) ? maxRadius : radius;
+
+        // Raw grid candidates are unfiltered and un-narrow-phased; kMaxEntities
+        // is a safe fixed-size upper bound since the grid's queryId dedup pass
+        // reports each actor at most once. Zero heap allocation.
+        Actor* candidates[kMaxEntities];
+        int candidateCount = grid.queryRadius(center, clampedRadius, candidates, kMaxEntities);
+
+        int count = 0;
+        for (int i = 0; i < candidateCount && count < maxCount; ++i) {
+            Actor* other = candidates[i];
+            if ((mask & other->layer) == 0) continue;
+
+            Circle queryCircle = {center.x, center.y, clampedRadius};
+            if (intersects(queryCircle, other->getHitBox())) {
+                outArray[count++] = other;
+            }
+        }
+        return count;
+    }
+
+    int CollisionSystem::queryBox(const Rect& box, CollisionLayer mask,
+                                   Actor** outArray, int maxCount) {
+        assert(outArray != nullptr && "queryBox: outArray is null");
+        assert(maxCount > 0 && "queryBox: maxCount must be > 0");
+
+        Actor* candidates[kMaxEntities];
+        int candidateCount = grid.queryBox(box, candidates, kMaxEntities);
+
+        int count = 0;
+        for (int i = 0; i < candidateCount && count < maxCount; ++i) {
+            Actor* other = candidates[i];
+            if ((mask & other->layer) == 0) continue;
+
+            if (box.intersects(other->getHitBox())) {
+                outArray[count++] = other;
+            }
+        }
+        return count;
+    }
+#endif
 
     bool CollisionSystem::needsCCD(PhysicsActor* body) const {
         if (body->getShape() != CollisionShape::CIRCLE) return false;

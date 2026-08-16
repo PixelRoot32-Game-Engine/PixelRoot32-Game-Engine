@@ -5,9 +5,10 @@
 #pragma once
 #include <cstdint>
 #include "math/Scalar.h"
+#include "math/Vector2.h"
 #include "platforms/EngineConfig.h"
 
-namespace pixelroot32::core { class Actor; class Entity; }
+namespace pixelroot32::core { class Actor; class Entity; struct Rect; }
 
 namespace pixelroot32::physics {
 
@@ -63,6 +64,54 @@ public:
      * @param maxCount Maximum number of colliders to return.
      */
     void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
+
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    /**
+     * @brief Raw, unfiltered radius query against the grid (static + dynamic cells).
+     *
+     * Sweeps the same cell range (derived from the circle's bounding box) and
+     * reuses the same `queryId` dedup pass as getPotentialColliders(), so an
+     * actor spanning several cells is reported once. Unlike
+     * getPotentialColliders(), this has no anchor actor to exclude — every
+     * actor found in the overlapped cells is a candidate. This is a coarse,
+     * cell-level result: it is NOT itself the circle-vs-hitbox test. Callers
+     * needing layer filtering and the exact narrow-phase test should use
+     * CollisionSystem::queryRadius(), which wraps this primitive.
+     *
+     * @warning Cross-scene visibility limitation (accepted, not fixed by
+     * this capability): `staticCells`/`dynamicCells` are `static` member
+     * storage shared across ALL `SpatialGrid` instances (see class doc and
+     * design.md Risks). A query issued against one scene's grid MAY return
+     * static geometry registered by another simultaneously-alive scene's
+     * grid. Pre-existing, documented, unguarded.
+     *
+     * @param center Query circle center.
+     * @param radius Query circle radius. No range validation happens at
+     *        this layer; CollisionSystem::queryRadius() enforces
+     *        SPATIAL_QUERY_MAX_RADIUS before calling this primitive.
+     * @param outArray Output array to store matching actors.
+     * @param maxCount Maximum number of actors to write to outArray.
+     * @return Number of actors written to outArray.
+     */
+    int queryRadius(pixelroot32::math::Vector2 center, pixelroot32::math::Scalar radius,
+                     pixelroot32::core::Actor** outArray, int maxCount);
+
+    /**
+     * @brief Raw, unfiltered box query against the grid (static + dynamic cells).
+     *
+     * Sweeps the cell range covered by @p box using the same cell-range
+     * clamping math and `queryId` dedup pass as getPotentialColliders() and
+     * queryRadius(). See queryRadius() for the cross-scene visibility
+     * limitation, which applies identically here.
+     *
+     * @param box Query rectangle.
+     * @param outArray Output array to store matching actors.
+     * @param maxCount Maximum number of actors to write to outArray.
+     * @return Number of actors written to outArray.
+     */
+    int queryBox(const pixelroot32::core::Rect& box,
+                 pixelroot32::core::Actor** outArray, int maxCount);
+#endif
 
 private:
     static pixelroot32::core::Actor* staticCells[kMaxCells][kMaxStaticPerCell];

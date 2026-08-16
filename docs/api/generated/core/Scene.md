@@ -70,6 +70,36 @@ Hook for scene-specific handling of unconsumed touch events.
 
 - `event`: The touch event (not consumed by UI).
 
+### `virtual void onRoomEnter(int fromIdx, int toIdx)`
+
+**Description:**
+
+Hook that fires when the scene's RoomGraph enters a new room.
+
+**Parameters:**
+
+- `fromIdx`: Index of the previous room (0xFFFF if first entry).
+- `toIdx`: Index of the room being entered.
+
+### `pixelroot32::gameplay::RoomGraphBase* getRoomGraph() const`
+
+**Description:**
+
+Type-erased accessor for the scene's room graph.
+
+**Returns:** Pointer to the RoomGraphBase, or nullptr if none set.
+
+### `void setRoomGraph(pixelroot32::gameplay::RoomGraphBase* g)`
+
+**Description:**
+
+Register a RoomGraph with this scene, called once during init().
+
+**Parameters:**
+
+- `g`: Pointer to a RoomGraphBase (typically a RoomGraph&lt;N>
+         owned by the subclass). Must outlive this scene.
+
 ### `virtual void update(unsigned long deltaTime)`
 
 **Description:**
@@ -144,8 +174,9 @@ Removes an entity from the scene.
 
 Removes all entities from the scene.
 
-### `virtual void resetState() noexcept; Entity* entities[pixelroot32::platforms::config::MaxEntities]; ///< Array of entities in the scene. int entityCount;            ///< Current number of entities. bool needsSorting = false;      ///< Flag to trigger sorting by layer. void sortEntities();            ///< Sorts entities by render layer. bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer)`
+### `inline bool shouldPrecede(Entity* key, Entity* at) const`
 
 **Description:**
 
-Resets the scene to a clean initial state.
+Insertion-sort predicate used by sortEntities(): whether `key`
+must be placed before `at`.

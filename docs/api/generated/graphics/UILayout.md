@@ -20,10 +20,6 @@ that can be added to scenes.
 
 ## Methods
 
-### `: UIElement(x, y, w, h, UIElementType::LAYOUT)`
-
-### `: UIElement(position, w, h, UIElementType::LAYOUT)`
-
 ### `virtual void addElement(UIElement* element)`
 
 **Description:**

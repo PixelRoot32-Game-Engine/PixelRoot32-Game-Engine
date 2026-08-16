@@ -9,12 +9,15 @@
 #include "../../test_config.h"
 #include "graphics/Renderer.h"
 #include "graphics/DisplayConfig.h"
+#include "graphics/Font5x7.h"
+#include "graphics/FontManager.h"
 #include "mocks/MockDrawSurface.h"
 
 // Include test headers from parent directory
 #include "test_graphics_primitives.h"
 #include "test_renderer_draw.h"
 #include "test_graphics_ownership.h"
+#include "test_renderer_sprite1bpp.h"
 
 using namespace pixelroot32::graphics;
 
@@ -46,6 +49,8 @@ void setUp(void) {
     renderer->setDisplaySize(240, 240);
     // Update counter for ownership tests reference
     mock_surface_instances = MockDrawSurface::instances;
+    // Default font required by the 1bpp text-rendering parity test.
+    FontManager::setDefaultFont(&FONT_5X7);
 }
 
 void tearDown(void) {
@@ -114,6 +119,28 @@ int main() {
     RUN_TEST(test_renderer_set_contrast);
     RUN_TEST(test_renderer_draw_bitmap);
     RUN_TEST(test_renderer_draw_filled_rectangle_w);
+
+    // 1bpp Sprite Fast Path Tests
+    RUN_TEST(test_sprite1bpp_fast_path_writes_framebuffer);
+    RUN_TEST(test_sprite1bpp_fast_path_bypasses_draw_pixel);
+    RUN_TEST(test_sprite1bpp_fast_path_flip_x);
+    RUN_TEST(test_sprite1bpp_fast_path_skips_empty_rows);
+    RUN_TEST(test_sprite1bpp_fast_path_respects_display_offset);
+    RUN_TEST(test_sprite1bpp_fast_path_honours_offset_bypass);
+
+    RUN_TEST(test_sprite1bpp_clips_left_edge);
+    RUN_TEST(test_sprite1bpp_clips_right_edge);
+    RUN_TEST(test_sprite1bpp_clips_top_edge);
+    RUN_TEST(test_sprite1bpp_clips_bottom_edge);
+    RUN_TEST(test_sprite1bpp_fully_offscreen_writes_nothing);
+
+    RUN_TEST(test_sprite1bpp_fallback_uses_draw_pixel);
+    RUN_TEST(test_sprite1bpp_branches_match_basic);
+    RUN_TEST(test_sprite1bpp_branches_match_flip_x);
+    RUN_TEST(test_sprite1bpp_branches_match_empty_rows);
+    RUN_TEST(test_sprite1bpp_branches_match_all_edges);
+    RUN_TEST(test_sprite1bpp_branches_match_wide_sprite);
+    RUN_TEST(test_sprite1bpp_branches_match_text_rendering);
 
     return UNITY_END();
 }

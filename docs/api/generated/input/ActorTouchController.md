@@ -16,6 +16,8 @@ It implements:
 - Fixed pool (no dynamic memory allocation)
 
 Usage:
+
+```cpp
 ActorTouchController controller;
 controller.registerActor(&myActor);
 // In game loop:
@@ -24,7 +26,7 @@ uint8_t count = dispatcher.getEvents(events, 16);
 for (uint8_t i = 0; i < count; i++) {
     controller.handleTouch(events[i]);
 }
-@endcode
+```
 
 ## Methods
 

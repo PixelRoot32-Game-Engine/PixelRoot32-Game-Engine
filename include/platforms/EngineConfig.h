@@ -203,6 +203,18 @@
     #define PHYSICS_MAX_PAIRS 128
 #endif
 
+#ifndef GAMEPLAY_EVENT_QUEUE_CAPACITY
+    #define GAMEPLAY_EVENT_QUEUE_CAPACITY 32
+#endif
+
+#ifndef GAMEPLAY_MAX_INTERACTIVE_ACTORS
+    #define GAMEPLAY_MAX_INTERACTIVE_ACTORS 16
+#endif
+
+#ifndef SPATIAL_QUERY_MAX_RADIUS
+    #define SPATIAL_QUERY_MAX_RADIUS 128
+#endif
+
 #ifndef PIXELROOT32_VELOCITY_ITERATIONS
     #define PIXELROOT32_VELOCITY_ITERATIONS 2
 #endif
@@ -325,7 +337,18 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to VelocityIterations configuration. */
     inline constexpr int VelocityIterations = PIXELROOT32_VELOCITY_ITERATIONS;
-    
+
+    // Gameplay Framework
+
+    /** @brief Type-safe access to GameplayEventQueueCapacity configuration. */
+    inline constexpr int GameplayEventQueueCapacity = GAMEPLAY_EVENT_QUEUE_CAPACITY;
+
+    /** @brief Type-safe access to GameplayMaxInteractiveActors configuration. */
+    inline constexpr int GameplayMaxInteractiveActors = GAMEPLAY_MAX_INTERACTIVE_ACTORS;
+
+    /** @brief Type-safe access to SpatialQueryMaxRadius configuration. */
+    inline constexpr int SpatialQueryMaxRadius = SPATIAL_QUERY_MAX_RADIUS;
+
     // Deprecated for backward compatibility
 
     /** @brief Type-safe access to PhysicsRelaxationIterations configuration. */
@@ -451,6 +474,96 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to EnableSceneTransitions configuration. */
     inline constexpr bool EnableSceneTransitions = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+
+    /** @brief Type-safe access to EnableGameplayEvents configuration. */
+    inline constexpr bool EnableGameplayEvents = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayEvents configuration. */
+    inline constexpr bool EnableGameplayEvents = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+
+    /** @brief Type-safe access to EnableInteractionTriggers configuration. */
+    inline constexpr bool EnableInteractionTriggers = true;
+    #else
+
+    /** @brief Type-safe access to EnableInteractionTriggers configuration. */
+    inline constexpr bool EnableInteractionTriggers = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_SPATIAL_QUERY
+
+    /** @brief Type-safe access to EnableSpatialQuery configuration. */
+    inline constexpr bool EnableSpatialQuery = true;
+    #else
+
+    /** @brief Type-safe access to EnableSpatialQuery configuration. */
+    inline constexpr bool EnableSpatialQuery = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_DEPTH_SORT
+
+    /** @brief Type-safe access to EnableDepthSort configuration. */
+    inline constexpr bool EnableDepthSort = true;
+    #else
+
+    /** @brief Type-safe access to EnableDepthSort configuration. */
+    inline constexpr bool EnableDepthSort = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE
+
+    /** @brief Type-safe access to EnableGameplayStateMachine configuration. */
+    inline constexpr bool EnableGameplayStateMachine = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayStateMachine configuration. */
+    inline constexpr bool EnableGameplayStateMachine = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL
+
+    /** @brief Type-safe access to EnableGameplayObjectPool configuration. */
+    inline constexpr bool EnableGameplayObjectPool = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayObjectPool configuration. */
+    inline constexpr bool EnableGameplayObjectPool = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE
+
+    /** @brief Type-safe access to EnableGameplayGridSpace configuration. */
+    inline constexpr bool EnableGameplayGridSpace = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayGridSpace configuration. */
+    inline constexpr bool EnableGameplayGridSpace = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+
+    /** @brief Type-safe access to EnableGameplayRoom configuration. */
+    inline constexpr bool EnableGameplayRoom = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayRoom configuration. */
+    inline constexpr bool EnableGameplayRoom = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_CAMERA_TWEEN
+
+    /** @brief Type-safe access to EnableCameraTween configuration. */
+    inline constexpr bool EnableCameraTween = true;
+    #else
+
+    /** @brief Type-safe access to EnableCameraTween configuration. */
+    inline constexpr bool EnableCameraTween = false;
     #endif
 
     inline unsigned long profilerMicros() {

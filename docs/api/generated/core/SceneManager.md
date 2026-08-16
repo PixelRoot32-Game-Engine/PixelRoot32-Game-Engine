@@ -157,3 +157,16 @@ Provide a pointer to the Engine-owned TransitionEffect instance.
 
 Called by Engine::init(). The Engine owns the TransitionEffect;
 SceneManager only drives it (init, update) during transitions.
+
+### `void setGameplayEventBus(pixelroot32::gameplay::GameplayEventBus* bus)`
+
+**Description:**
+
+Provide a pointer to the Engine-owned GameplayEventBus instance.
+
+**Parameters:**
+
+- `bus`: Non-owning pointer to the GameplayEventBus.
+
+Called by Engine::init(). The Engine owns the bus; SceneManager only
+drains it (clear()) on every SceneSwap — see setCurrentScene().

@@ -307,6 +307,29 @@ void PhysicsDemoScene::processTouchEvents(TouchEvent* events, uint8_t count) {
 void PhysicsDemoScene::draw(Renderer& renderer) {
     Scene::draw(renderer);
 
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    if (scanEnabled && player != nullptr) {
+        const int cx = static_cast<int>(player->position.x) + player->width / 2;
+        const int cy = static_cast<int>(player->position.y) + player->height / 2;
+
+        renderer.drawCircle(cx, cy, kScanRadius, Color::Magenta);
+
+        // Box every actor the query returned. The player is inside its own
+        // radius, so it is reported too — an area query has no anchor actor
+        // to exclude.
+        for (int i = 0; i < scanHitCount; ++i) {
+            pr32::core::Actor* hit = scanHits[i];
+            if (hit == nullptr) continue;
+            renderer.drawRectangle(static_cast<int>(hit->position.x) - 1,
+                                   static_cast<int>(hit->position.y) - 1,
+                                   hit->width + 2, hit->height + 2,
+                                   Color::Magenta);
+        }
+    }
+    renderer.drawText(scanEnabled ? "B: scan ON" : "B: scan OFF",
+                      2, 2, Color::Magenta, 1);
+#endif
+
 #if PIXELROOT32_ENABLE_DEBUG_OVERLAY
     if (gTouchDebugOverlay.active) {
         constexpr int kMarkW = 12;
@@ -345,6 +368,31 @@ void PhysicsDemoScene::update(unsigned long deltaTime) {
     }
 
     Scene::update(deltaTime);
+
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    if (input.isButtonPressed(5)) {
+        scanEnabled = !scanEnabled;
+    }
+    runProximityScan();
+#endif
 }
+
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+void PhysicsDemoScene::runProximityScan() {
+    scanHitCount = 0;
+    if (!scanEnabled || player == nullptr) {
+        return;
+    }
+
+    // Query from the player's centre, not its top-left corner.
+    Vector2 centre{player->position.x + toScalar(player->width) * toScalar(0.5f),
+                   player->position.y + toScalar(player->height) * toScalar(0.5f)};
+
+    // The query runs after Scene::update(), so the grid already holds this
+    // frame's positions. Distances are compared squared — no sqrt on the path.
+    scanHitCount = collisionSystem.queryRadius(centre, toScalar(kScanRadius),
+                                               kScanMask, scanHits, kScanMaxHits);
+}
+#endif
 
 } // namespace physicsdemo

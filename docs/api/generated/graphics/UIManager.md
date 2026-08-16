@@ -22,6 +22,8 @@ Ownership Rules
 - Failure to unregister results in dangling pointers and potential crashes
 
 Safe Destruction Sequence
+
+```cpp
 // CORRECTO: Desregistrar antes de destruir
 uiManager.removeElement(myButton.get());
 myButton.reset();  // or delete myButton;
@@ -29,6 +31,9 @@ myButton.reset();  // or delete myButton;
 // INCORRECTO: Destruir sin desregistrar
 myButton.reset();  // Widget destruido
 // UIManager::capturedWidget o hoverWidget ahora son dangling!
+```
+
+
 Captured Widget Safety
 UIManager automatically clears capturedWidget when removeElement() is called.
 However, if a widget is deleted directly without removeElement(), the caller

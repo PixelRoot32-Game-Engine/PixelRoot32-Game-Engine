@@ -1,10 +1,14 @@
 #pragma once
 #include <cstdint>
+#include "platforms/EngineConfig.h"
+#include "gameplay/GridSpace.h"
 
 // Debug mode: Enable AI debugging - uncomment to use
 // #define GAME2048_DEBUG_SPAWN 1
 
 namespace game2048 {
+
+namespace gameplay = pixelroot32::gameplay;
 
 /**
  * @file Game2048Constants.h
@@ -53,5 +57,16 @@ constexpr int TILE_CORNER_RADIUS = 4;
 
 // Maximum tile value that can be displayed
 constexpr uint16_t MAX_DISPLAYED_TILE = 2048;
+
+/// Cell<->world grid for the 2048 board. The origin centres the board on the
+/// display and is compile-time derivable, so kGame2048Grid is constexpr and
+/// costs no SRAM. Tiles are drawn inset by TILE_SPACING from their cell
+/// origin, so drawing code adds that offset to the converted position.
+inline constexpr gameplay::GridSpec kGame2048Grid{
+    (DISPLAY_WIDTH - GRID_SIZE * CELL_SIZE) / 2,
+    (DISPLAY_HEIGHT - GRID_SIZE * CELL_SIZE) / 2,
+    CELL_SIZE, CELL_SIZE, GRID_SIZE, GRID_SIZE};
+static_assert(gameplay::gridSpecIsValid(kGame2048Grid),
+              "kGame2048Grid exceeds Scalar's range or has an invalid cell size.");
 
 } // namespace game2048

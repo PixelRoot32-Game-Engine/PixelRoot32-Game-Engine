@@ -14,6 +14,7 @@
 namespace pixelroot32::input {
 
 /**
+ * @enum TouchController
  * @brief Touch controller types
  */
 enum class TouchController {
@@ -138,7 +139,7 @@ private:
 using TouchCalibrationData = TouchCalibration;
 
 /**
- * @class TouchAdapterBase
+ * @class TouchAdapter
  * @brief Base class requirements for touch adapters (conceptual)
  *
  * This defines the interface that ALL touch adapters must implement.

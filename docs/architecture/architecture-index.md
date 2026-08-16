@@ -95,8 +95,8 @@ graph TD
 On ESP32 with **TFT_eSPI** (`TFT_eSPI_Drawer`), the logical framebuffer is typically an **8-bit color-depth sprite** (`TFT_eSprite`). Each frame:
 
 1. **`Renderer::beginFrame()`** obtains a pointer to that buffer via **`DrawSurface::getSpriteBuffer()`** (when the driver supports it), clears the buffer, then draws the scene.
-2. **2bpp / 4bpp tilemaps and sprites** can write **directly into that buffer** (matching TFT_eSPI's 8bpp packing for RGB565), avoiding a virtual `drawPixel` per pixel where possible.
-3. **`present()` / `sendBuffer()`** converts logical 8bpp rows to **RGB565** using a LUT and pushes pixels to the panel via **DMA**.
+2. **1bpp / 2bpp / 4bpp tilemaps and sprites** write **directly into that buffer** (matching TFT_eSPI's 8bpp packing for RGB565), avoiding a virtual `drawPixel` per pixel. The 1bpp path — all text, `MultiSprite` layers and 1bpp tilemaps — joined the direct path in `d6dc9ae`; the virtual route remains as the fallback for surfaces without an 8bpp buffer (U8G2, SDL2).
+3. **`present()` / `sendBuffer()`** converts logical 8bpp rows to **RGB565** — or to packed **RGB444** when `PIXELROOT32_TFT_12BIT_COLOR=1` — using a LUT and pushes pixels to the panel via **DMA**. The last block of the frame is left in flight and flushed at the start of the next `sendBuffer()`, so its SPI time overlaps the next frame's work; see the **shared SPI bus contract** in [Driver Layer](./layer-drivers.md#tft_espi-driver).
 
 ### Static Tilemap Layer Cache
 

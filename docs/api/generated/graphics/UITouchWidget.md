@@ -23,8 +23,6 @@ Base touch widget structure
 
 ## Methods
 
-### `: type(UIWidgetType::Generic)`
-
 ### `, state(UIWidgetState::Idle)`
 
 ### `, flags(UIWidgetFlags::None)`
@@ -38,8 +36,6 @@ Base touch widget structure
 ### `, width(0)`
 
 ### `, height(0)`
-
-### `: type(widgetType)`
 
 ### `, flags(static_cast<UIWidgetFlags>(static_cast<uint8_t>(UIWidgetFlags::Enabled) | static_cast<uint8_t>(UIWidgetFlags::Visible)))`
 

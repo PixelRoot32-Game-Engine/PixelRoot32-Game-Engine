@@ -12,6 +12,7 @@
 namespace pixelroot32::audio {
 
 /**
+ * @class SfxDelayScheduler
  * @brief Schedules delayed SFX events for `playSfxBank` sequence steps.
  *
  * Games implement this with a scene timer / command queue. The helper does not
@@ -34,6 +35,7 @@ public:
 };
 
 /**
+ * @class NullSfxDelayScheduler
  * @brief No-op scheduler for banks that only use simultaneous layers (no delayed steps).
  */
 class NullSfxDelayScheduler final : public SfxDelayScheduler {
@@ -42,6 +44,7 @@ public:
 };
 
 /**
+ * @class ImmediateSfxDelayScheduler
  * @brief Plays every scheduled event immediately (ignores delay). Test / stub only.
  */
 class ImmediateSfxDelayScheduler final : public SfxDelayScheduler {

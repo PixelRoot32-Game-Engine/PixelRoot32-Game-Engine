@@ -86,9 +86,15 @@ void TileCollisionBuilder::configureTileBody(pixelroot32::core::PhysicsActor* bo
 }
 
 pixelroot32::math::Vector2 TileCollisionBuilder::tileToWorldPosition(uint16_t x, uint16_t y) const {
-    pixelroot32::math::Scalar wx = pixelroot32::math::toScalar(static_cast<float>(x * config.tileWidth));
-    pixelroot32::math::Scalar wy = pixelroot32::math::toScalar(static_cast<float>(y * config.tileHeight));
-    return pixelroot32::math::Vector2{ wx, wy };
+    // Integer multiply-add only. The previous form routed through
+    // static_cast<float>, which selects toScalar()'s floating-point branch and
+    // so builds each Scalar with Fixed16(float) -- a multiply, an add and a
+    // float-to-int conversion, all in software on the FPU-less ESP32-C3. The
+    // integer branch is a single shift. Same result either way; this one just
+    // does not pay for a round trip through a type it never needed.
+    return pixelroot32::math::Vector2(
+        static_cast<int>(x) * static_cast<int>(config.tileWidth),
+        static_cast<int>(y) * static_cast<int>(config.tileHeight));
 }
 
 } // namespace pixelroot32::physics
