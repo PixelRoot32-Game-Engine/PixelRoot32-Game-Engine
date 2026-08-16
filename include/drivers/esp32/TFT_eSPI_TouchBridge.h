@@ -27,6 +27,19 @@ void registerTftForXpt2046Touch(TFT_eSPI* tft);
 bool touchBridgeHasTft();
 
 /**
+ * @brief Callback that drains any display transfer still owning the SPI bus.
+ */
+using TouchBusFlushFn = void (*)();
+
+/**
+ * @brief Register a hook run before every touch read (pass nullptr to clear).
+ *
+ * The display driver leaves the last DMA block of a frame in flight with the SPI
+ * write transaction still open. Touch shares that bus, so it must flush first.
+ */
+void registerTouchBusFlushHook(TouchBusFlushFn fn);
+
+/**
  * @brief Read one touch point via TFT_eSPI::getTouch (panel coordinates).
  * @param points Out; only index 0 used for single-touch XPT2046.
  * @param count Out; 0 if not pressed, 1 if pressed.

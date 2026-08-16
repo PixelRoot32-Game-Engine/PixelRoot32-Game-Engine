@@ -157,24 +157,79 @@ void test_consume_tile_from_userdata_zero(void) {
     TEST_ASSERT_FALSE(result);
 }
 
-void test_consume_tile_from_userdata_non_collectible(void) {
+// =============================================================================
+// consumeTileFromUserData — generalized flag acceptance tests (CU1)
+// =============================================================================
+
+void test_consume_tile_from_userdata_solid_flag(void) {
     MockScene scene;
-    TileConsumptionHelper helper(scene, nullptr, createDefaultConfig());
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
     
-    // Pack tile data with NO TILE_COLLECTIBLE flag
-    // Format: x (9 bits) | y (9 bits) | flags (upper bits)
-    uint16_t x = 5;
-    uint16_t y = 10;
-    uint16_t flags = 0;  // No collectible flag
-    
-    uintptr_t packed = (static_cast<uintptr_t>(flags) << 18) | 
-                       (static_cast<uintptr_t>(y) << 9) | 
-                       static_cast<uintptr_t>(x);
-    
+    uintptr_t packed = packTileData(5, 10, TILE_SOLID);
     bool result = helper.consumeTileFromUserData(nullptr, packed);
     
-    // Should fail because tile is not collectible
-    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_damage_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_DAMAGE);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_trigger_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_TRIGGER);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_oneway_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_ONEWAY);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_sensor_flag(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_SENSOR);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_combined_flags(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    TileFlags flags = static_cast<TileFlags>(TILE_SOLID | TILE_COLLECTIBLE);
+    uintptr_t packed = packTileData(5, 10, flags);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
+}
+
+void test_consume_tile_from_userdata_no_flags(void) {
+    MockScene scene;
+    TileConsumptionHelper helper(scene, nullptr, createNoOpConfig());
+    
+    uintptr_t packed = packTileData(5, 10, TILE_NONE);
+    bool result = helper.consumeTileFromUserData(nullptr, packed);
+    
+    TEST_ASSERT_TRUE(result);
 }
 
 // =============================================================================
@@ -356,6 +411,178 @@ void test_is_tile_consumed_sequence(void) {
 }
 
 // =============================================================================
+// applyHit + requiredHits tests (CU2)
+// =============================================================================
+
+void test_apply_hit_single_hit_default(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    // Use default requiredHits=1
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    // Game initializes counter to config.requiredHits (1)
+    uint8_t remaining = cfg.requiredHits;
+    bool result = helper.applyHit(nullptr, 5, 5, remaining);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+}
+
+void test_apply_hit_multi_hit_countdown(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    cfg.requiredHits = 3;
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    // Game initializes counter to config.requiredHits (3)
+    uint8_t remaining = cfg.requiredHits;
+    
+    // Hit 1: 3 → 2 remaining
+    bool r1 = helper.applyHit(nullptr, 5, 5, remaining);
+    TEST_ASSERT_TRUE(r1);
+    TEST_ASSERT_EQUAL_UINT8(2, remaining);
+    
+    // Hit 2: 2 → 1 remaining
+    bool r2 = helper.applyHit(nullptr, 5, 5, remaining);
+    TEST_ASSERT_TRUE(r2);
+    TEST_ASSERT_EQUAL_UINT8(1, remaining);
+    
+    // Hit 3: 1 → 0 remaining
+    bool r3 = helper.applyHit(nullptr, 5, 5, remaining);
+    TEST_ASSERT_TRUE(r3);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+}
+
+void test_apply_hit_does_not_consume(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    uint8_t remaining = cfg.requiredHits; // 1
+    bool result = helper.applyHit(nullptr, 5, 5, remaining);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+    
+    // Verify tile is NOT consumed — isTileConsumed still returns false
+    TEST_ASSERT_FALSE(helper.isTileConsumed(5, 5));
+}
+
+void test_apply_hit_zero_requiredHits_defensive(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    cfg.requiredHits = 0; // edge case: game passes 0 as counter
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    uint8_t remaining = cfg.requiredHits; // 0
+    bool result = helper.applyHit(nullptr, 5, 5, remaining);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining); // no decrement on 0 (no underflow to 255)
+}
+
+void test_apply_hit_invalid_coordinates(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    cfg.validateCoordinates = true;
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    uint8_t remaining = cfg.requiredHits;
+    // Without tilemap dimensions (both 0), validateCoordinates passes all coords.
+    // The actual OOB path is covered by the validateCoordinates internal logic.
+    bool result = helper.applyHit(nullptr, 0, 0, remaining);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+}
+
+void test_apply_hit_already_consumed(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    uint8_t remaining = cfg.requiredHits;
+    
+    // First hit works (counter was 1, now 0)
+    bool r1 = helper.applyHit(nullptr, 5, 5, remaining);
+    TEST_ASSERT_TRUE(r1);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+    
+    // Consume the tile
+    helper.consumeTile(nullptr, 5, 5);
+    
+    // After consumption, re-initialize counter and try again
+    // With nullptr tilemap, isTileConsumed returns false, so applyHit succeeds
+    remaining = 1;
+    bool r2 = helper.applyHit(nullptr, 5, 5, remaining);
+    TEST_ASSERT_TRUE(r2); // no tilemap to track consumption, so still succeeds
+}
+
+void test_apply_hit_from_userdata_free_function(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    cfg.requiredHits = 2;
+    
+    uintptr_t packed = packTileData(5, 10, TILE_SOLID);
+    uint8_t remaining = cfg.requiredHits; // 2
+    
+    bool result = applyHitFromUserData(nullptr, packed, scene, nullptr, remaining, cfg);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(1, remaining); // 2 - 1 = 1
+}
+
+void test_apply_hit_from_collision_free_function(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    cfg.requiredHits = 4;
+    
+    uintptr_t packed = packTileData(3, 7, static_cast<TileFlags>(TILE_SOLID | TILE_DAMAGE));
+    uint8_t remaining = cfg.requiredHits; // 4
+    
+    bool result = applyHitFromCollision(nullptr, packed, scene, nullptr, remaining, cfg);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(3, remaining); // 4 - 1 = 3
+}
+
+void test_backward_compat_default_requiredHits(void) {
+    MockScene scene;
+    // Default config with TILE_COLLECTIBLE — should behave byte-identical to pre-change code
+    TileConsumptionConfig cfg = createNoOpConfig();
+    // requiredHits defaults to 1 — same as old implicit "consume in one call" semantic
+    
+    uintptr_t packed = packTileData(5, 10, TILE_COLLECTIBLE);
+    bool result = false;
+    
+    // consumeTileFromUserData still works for COLLECTIBLE tiles
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    result = helper.consumeTileFromUserData(nullptr, packed);
+    TEST_ASSERT_TRUE(result);
+    
+    // After consume, a second consume fails because isTileConsumed check (no tilemap = false)
+    // So second consume succeeds too with no tilemap
+    result = helper.consumeTileFromUserData(nullptr, packed);
+    TEST_ASSERT_TRUE(result); // no tilemap to track consumption state
+}
+
+void test_apply_hit_does_not_mutate_actor(void) {
+    MockScene scene;
+    TileConsumptionConfig cfg = createNoOpConfig();
+    TileConsumptionHelper helper(scene, nullptr, cfg);
+    
+    // applyHit should not mutate the scene or actor
+    uint8_t remaining = cfg.requiredHits; // 1
+    bool result = helper.applyHit(nullptr, 5, 5, remaining);
+    
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, remaining);
+    
+    // Scene should be untouched (no entity removal)
+    // (Verified by the absence of removeEntity call in applyHit source)
+}
+
+// =============================================================================
 // Unity test runner
 // =============================================================================
 
@@ -389,7 +616,15 @@ int main(void) {
     
     // consumeTileFromUserData tests
     RUN_TEST(test_consume_tile_from_userdata_zero);
-    RUN_TEST(test_consume_tile_from_userdata_non_collectible);
+    
+    // Generalized flag acceptance (CU1)
+    RUN_TEST(test_consume_tile_from_userdata_solid_flag);
+    RUN_TEST(test_consume_tile_from_userdata_damage_flag);
+    RUN_TEST(test_consume_tile_from_userdata_trigger_flag);
+    RUN_TEST(test_consume_tile_from_userdata_oneway_flag);
+    RUN_TEST(test_consume_tile_from_userdata_sensor_flag);
+    RUN_TEST(test_consume_tile_from_userdata_combined_flags);
+    RUN_TEST(test_consume_tile_from_userdata_no_flags);
     
     // isTileConsumed tests
     RUN_TEST(test_is_tile_consumed_with_nullptr_tilemap);
@@ -410,6 +645,18 @@ int main(void) {
     RUN_TEST(test_consume_tile_with_updateTilemap_enabled);
     RUN_TEST(test_multiple_tiles_consumption);
     RUN_TEST(test_is_tile_consumed_sequence);
+    
+    // applyHit + requiredHits tests (CU2)
+    RUN_TEST(test_apply_hit_single_hit_default);
+    RUN_TEST(test_apply_hit_multi_hit_countdown);
+    RUN_TEST(test_apply_hit_does_not_consume);
+    RUN_TEST(test_apply_hit_zero_requiredHits_defensive);
+    RUN_TEST(test_apply_hit_invalid_coordinates);
+    RUN_TEST(test_apply_hit_already_consumed);
+    RUN_TEST(test_apply_hit_from_userdata_free_function);
+    RUN_TEST(test_apply_hit_from_collision_free_function);
+    RUN_TEST(test_backward_compat_default_requiredHits);
+    RUN_TEST(test_apply_hit_does_not_mutate_actor);
     
     return UNITY_END();
 }

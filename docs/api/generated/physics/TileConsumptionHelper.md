@@ -48,6 +48,21 @@ Consumes a tile using packed userData from collision callback.
 
 **Returns:** true if tile was successfully consumed, false otherwise
 
+### `bool applyHit(pixelroot32::core::Actor* tileActor, uint16_t tileX, uint16_t tileY, uint8_t& remainingHits)`
+
+**Description:**
+
+Apply one hit to a tile without consuming it.
+
+**Parameters:**
+
+- `tileActor`: Pointer to the tile physics actor (for validation; not mutated)
+- `tileX`: Tile X coordinate
+- `tileY`: Tile Y coordinate
+- `remainingHits`: Out-param: hits remaining after this one (0 = ready to consume)
+
+**Returns:** true on valid hit, false on invalid coordinates or already-consumed tile
+
 ### `bool isTileConsumed(uint16_t tileX, uint16_t tileY) const`
 
 **Description:**
@@ -97,35 +112,3 @@ Template method to check tilemap runtimeMask state.
 **Description:**
 
 Validate tile coordinates against tilemap dimensions.
-
-### `inline bool consumeTileFromCollision(pixelroot32::core::Actor* tileActor, uintptr_t packedUserData, pixelroot32::core::Scene& scene, void* tilemap, const TileConsumptionConfig& config = TileConsumptionConfig())`
-
-**Description:**
-
-Convenience function for consuming tiles from collision callbacks.
-
-**Parameters:**
-
-- `tileActor`: Pointer to the tile physics actor
-- `packedUserData`: Packed userData from tileActor
-- `scene`: Reference to the scene
-- `tilemap`: Pointer to the tilemap (TileMapGeneric*)
-- `config`: Optional consumption configuration
-
-**Returns:** true if tile was consumed, false otherwise
-
-### `inline int consumeTilesBatch(pixelroot32::core::Scene& scene, void* tilemap, const uint16_t tiles[][2], int count, const TileConsumptionConfig& config = TileConsumptionConfig())`
-
-**Description:**
-
-Batch consumption helper for multiple tiles.
-
-**Parameters:**
-
-- `scene`: Reference to the scene
-- `tilemap`: Pointer to the tilemap
-- `tiles`: Array of tile coordinates to consume
-- `count`: Number of tiles in the array
-- `config`: Optional consumption configuration
-
-**Returns:** Number of tiles successfully consumed

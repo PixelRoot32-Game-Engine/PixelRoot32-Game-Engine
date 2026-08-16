@@ -20,6 +20,7 @@ namespace pixelroot32::drivers::esp32 {
 
 static TFT_eSPI* gTftForTouch = nullptr;
 static bool gCalibrationApplied = false;
+static TouchBusFlushFn gTouchBusFlush = nullptr;
 
 void registerTftForXpt2046Touch(TFT_eSPI* tft) {
     gTftForTouch = tft;
@@ -34,10 +35,20 @@ bool touchBridgeHasTft() {
     return gTftForTouch != nullptr;
 }
 
+void registerTouchBusFlushHook(TouchBusFlushFn fn) {
+    gTouchBusFlush = fn;
+}
+
 void readTouchFromTftEspi(pixelroot32::input::TouchPoint* points, uint8_t& count) {
     count = 0;
     if (points == nullptr || gTftForTouch == nullptr) {
         return;
+    }
+
+    // setTouch/getTouch run their own transactions on the display SPI bus, so the
+    // frame transfer the drawer left in flight has to complete first.
+    if (gTouchBusFlush != nullptr) {
+        gTouchBusFlush();
     }
 
 #if PIXELROOT32_TOUCH_ENABLED

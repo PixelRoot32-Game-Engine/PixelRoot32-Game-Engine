@@ -91,6 +91,12 @@ Get pointer to sprite buffer for direct manipulation.
 
 Processes system events. Always true for embedded.
 
+### `void waitForPendingDMA()`
+
+**Description:**
+
+Blocks until the DMA transfer deferred by sendBufferScaled() completes.
+
 ### `bool needsScaling() const`
 
 **Description:**
@@ -122,3 +128,29 @@ Sends the buffer using hardware DMA and software scaling.
 **Description:**
 
 Scales a single line from 8bpp logical to 16bpp physical.
+
+### `void convertBlockRgb444(const uint8_t* spriteBase, int startY, int endY, bool is2x, uint8_t* dst)`
+
+**Description:**
+
+Converts one block of physical lines into the packed RGB444 stream.
+
+**Parameters:**
+
+- `spriteBase`: Base of the 8bpp sprite framebuffer.
+- `startY`: First physical line of the block.
+- `endY`: One past the last physical line of the block.
+- `is2x`: True when the frame is an exact 2x integer upscale.
+- `dst`: Destination line buffer, viewed as raw bytes.
+
+### `void scaleLine444(const uint8_t* spriteBase, int srcY, uint8_t* dst)`
+
+**Description:**
+
+Scales a single line from 8bpp logical to packed RGB444 physical.
+
+### `int bytesPerLine444() const`
+
+**Description:**
+
+Bytes one physical line occupies in the packed RGB444 stream.

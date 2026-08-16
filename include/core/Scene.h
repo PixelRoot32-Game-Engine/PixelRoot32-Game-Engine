@@ -21,9 +21,30 @@
 #include "graphics/ui/UIManager.h"
 #endif
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+#include "gameplay/RoomGraph.h"
+#endif
+
 namespace pixelroot32::core {
 
 #include <new> // for placement new
+
+/**
+ * @struct SceneArena
+ * @brief Bump allocator for objects whose lifetime is one scene.
+ *
+ * Hands out aligned slices of a caller-supplied buffer by advancing an offset.
+ * There is no individual free: reset() rewinds the offset to zero and releases
+ * everything at once, which is why allocations must not outlive the scene.
+ * Destructors are never run, so only trivially destructible types are safe.
+ *
+ * allocate() returns nullptr when the request does not fit, and callers must
+ * check. Prefer arenaNew() over calling allocate() directly.
+ *
+ * @note Gated by platforms::config::EnableSceneArena. With the arena
+ *       disabled every allocate() returns nullptr and init()/reset() are
+ *       no-ops, so callers keep their fallback path.
+ */
 struct SceneArena {
     unsigned char* buffer;
     std::size_t capacity;
@@ -122,6 +143,45 @@ public:
         (void)event;
     }
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+    /**
+     * @brief Hook that fires when the scene's RoomGraph enters a new room.
+     *
+     * Override in subclasses to react to room transitions (spawn entities,
+     * play SFX, adjust custom camera bounds). The default implementation
+     * is a no-op that mirrors onUnconsumedTouchEvent.
+     *
+     * @param fromIdx Index of the previous room (0xFFFF if first entry).
+     * @param toIdx   Index of the room being entered.
+     */
+    virtual void onRoomEnter(int fromIdx, int toIdx) {
+        (void)fromIdx;
+        (void)toIdx;
+    }
+
+    /**
+     * @brief Type-erased accessor for the scene's room graph.
+     * @return Pointer to the RoomGraphBase, or nullptr if none set.
+     */
+    pixelroot32::gameplay::RoomGraphBase* getRoomGraph() const {
+        return roomGraph_;
+    }
+
+    /**
+     * @brief Register a RoomGraph with this scene, called once during init().
+     *
+     * Subclasses that own a RoomGraph<N> member call this to wire it into
+     * the base class. The base invokes onRoomEnter via the graph's onEnter
+     * callback whenever enterRoom transitions to a new room.
+     *
+     * @param g Pointer to a RoomGraphBase (typically a RoomGraph<N>
+     *          owned by the subclass). Must outlive this scene.
+     */
+    void setRoomGraph(pixelroot32::gameplay::RoomGraphBase* g) {
+        roomGraph_ = g;
+    }
+#endif // PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+
     /**
      * @brief Updates all entities in the scene and handles collisions.
      * @param deltaTime Time elapsed in ms.
@@ -206,8 +266,38 @@ protected:
     int entityCount = 0;            ///< Current number of entities.
     bool needsSorting = false;      ///< Flag to trigger sorting by layer.
 
+    /**
+     * @brief Function-pointer comparator for secondary ordering within a render layer.
+     *
+     * `true` when `a` must be drawn before `b`. Consulted by shouldPrecede()
+     * only when both entities share the same renderLayer; `nullptr` (the
+     * default) means "no secondary ordering", which keeps sortEntities()
+     * byte-identical to its pre-capability behavior (see design.md D5).
+     */
+    using DepthComparator = bool (*)(Entity* a, Entity* b);
+
+    DepthComparator depthComparator = nullptr;  ///< Optional secondary comparator (nullptr = today's behavior).
+    bool depthSortEnabled = false;              ///< When true, draw() re-sorts every frame regardless of needsSorting.
+
     void sortEntities();            ///< Sorts entities by render layer.
     bool isVisibleInViewport(Entity* entity, pixelroot32::graphics::Renderer& renderer);
+
+    /**
+     * @brief Insertion-sort predicate used by sortEntities(): whether `key`
+     * must be placed before `at`.
+     *
+     * Primary comparison is renderLayer, identical to today's behavior. Only
+     * when both entities share the same renderLayer does the comparator get
+     * consulted; with no comparator set this falls through to `false`,
+     * matching today's stable-insertion behavior for equal layers exactly.
+     */
+    inline bool shouldPrecede(Entity* key, Entity* at) const {
+        const unsigned char la = at->getRenderLayer();
+        const unsigned char lk = key->getRenderLayer();
+        if (la != lk) return la > lk;               // identical to today
+        if (depthComparator == nullptr) return false; // identical to today
+        return depthComparator(key, at);
+    }
 
     // Physics 
     #if PIXELROOT32_ENABLE_PHYSICS
@@ -223,6 +313,11 @@ protected:
     // Camera Effects
     #if PIXELROOT32_ENABLE_CAMERA_EFFECTS
         pixelroot32::graphics::CameraEffectsSystem cameraEffects; ///< Camera shake/punch/offset effects.
+    #endif
+
+    // Room Graph
+    #if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+        pixelroot32::gameplay::RoomGraphBase* roomGraph_ = nullptr;
     #endif
 
     SceneArena arena;

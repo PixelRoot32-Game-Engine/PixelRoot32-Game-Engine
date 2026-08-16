@@ -41,9 +41,16 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING` | Enable dirty region profiling metrics. | `0` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` | TFT_eSPI DMA line batch size. | `60` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK` | Fallback DMA batch size if memory fails. | `30` |
+| `PIXELROOT32_TFT_12BIT_COLOR` | Send frames as 12-bit RGB444 (2 pixels per 3 bytes) instead of RGB565. Experimental. | `0` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 | `PIXELROOT32_VELOCITY_DAMPING` | Per-frame velocity damping factor (0.0-1.0). | `0.999` |
 | `PIXELROOT32_MAX_VELOCITY` | Maximum velocity cap in units/s. | `500` |
+
+### TFT_eSPI Display Flags
+
+> **Note:** `PIXELROOT32_TFT_12BIT_COLOR=1` is **experimental and not yet verified on hardware**. It cuts 25% of the SPI bus time per frame and shrinks each DMA line buffer by 25%, and the driver silently keeps RGB565 when `PHYSICAL_DISPLAY_WIDTH` is not a multiple of 4. See [12-bit Color on the Wire (RGB444)](../guide/performance/esp32-performance.md#12-bit-color-on-the-wire-rgb444) for the bandwidth math, the width constraint and the memory trade-off.
+
+> **Note:** `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` only became reachable in `d6dc9ae`. Earlier builds hit a buffer-selection bug in `buildScaleLUTs()` that always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`, so the documented `60` default never applied. The fallback still applies when DMA-capable internal RAM is tight.
 
 ## Memory Savings by Subsystem
 

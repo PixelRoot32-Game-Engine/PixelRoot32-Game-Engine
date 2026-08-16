@@ -351,4 +351,4 @@ void onUnconsumedTouchEvent(const input::TouchEvent& event) override {
 - **[Samples index](../../examples/README.md)** — Real folders under `examples/`
 - **[Physics (`physics`)](../../examples/physics/README.md)** — Collision and actors
 - **[Sprites (`sprites`)](../../examples/sprites/README.md)** — Sprite graphics
-- **Audio** — See [`snake`](../../examples/snake/README.md), [`tic_tac_toe`](../../examples/tic_tac_toe/README.md), [`music_demo`](../../examples/music_demo/README.md)
+- **Audio** — See [`snake`](../../examples/snake/README.md), [`brick_breaker`](../../examples/brick_breaker/README.md), [`music-demo`](../../examples/music-demo/README.md)

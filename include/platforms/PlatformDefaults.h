@@ -73,6 +73,61 @@
 #define PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE 1
 #endif
 
+// -----------------------------------------------------------------------------
+// Gameplay Framework Feature Defaults
+// -----------------------------------------------------------------------------
+// By default, the gameplay framework capabilities are disabled. No existing
+// example uses them, so games that do not opt in pay zero RAM/flash cost.
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_EVENTS)
+#define PIXELROOT32_ENABLE_GAMEPLAY_EVENTS 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_INTERACTION_TRIGGERS)
+#define PIXELROOT32_ENABLE_INTERACTION_TRIGGERS 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_SPATIAL_QUERY)
+#define PIXELROOT32_ENABLE_SPATIAL_QUERY 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_DEPTH_SORT)
+#define PIXELROOT32_ENABLE_DEPTH_SORT 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE)
+#define PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL)
+#define PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE)
+#define PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_ROOM)
+#define PIXELROOT32_ENABLE_GAMEPLAY_ROOM 0
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_CAMERA_TWEEN)
+#define PIXELROOT32_ENABLE_CAMERA_TWEEN 0
+#endif
+
+// No dependency guard is declared for the three flags above: unlike
+// interaction triggers and spatial queries, none of the state machine, the
+// object pool, or the grid space helper includes any physics-gated header,
+// so all three are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are
+// independent of each other.
+
+// Interaction triggers and spatial queries are built on top of CollisionSystem
+// and SpatialGrid, which only exist when physics is enabled (see
+// include/core/Scene.h:213-216). Fail the build loudly instead of silently
+// disabling the flag.
+#if (PIXELROOT32_ENABLE_INTERACTION_TRIGGERS || PIXELROOT32_ENABLE_SPATIAL_QUERY) && !PIXELROOT32_ENABLE_PHYSICS
+#error "PIXELROOT32_ENABLE_INTERACTION_TRIGGERS and PIXELROOT32_ENABLE_SPATIAL_QUERY require PIXELROOT32_ENABLE_PHYSICS=1 (CollisionSystem and SpatialGrid only exist when physics is enabled)"
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================
@@ -120,6 +175,23 @@
 #endif
 #if !defined(PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK)
 #define PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK 30
+#endif
+
+// 12-bit (RGB444) colour on the wire. Off by default.
+//
+// The display SPI clock is capped at 40 MHz by hardware, so a full-frame push
+// is bus bound: 240x240 RGB565 is 115,200 bytes = 23.04 ms = a 43.4 FPS
+// ceiling. The framebuffer is 8bpp RGB332, so a frame carries at most 256
+// distinct colours and all of them survive RGB444 without a collision (see
+// include/graphics/Rgb444.h). Sending 12 bits instead of 16 removes 25% of the
+// bus time (17.28 ms = 57.9 FPS) and shrinks each DMA line buffer by 25%.
+//
+// Set to 1 per board once the panel is known to accept MIPI DCS COLMOD 0x03.
+// The driver silently keeps RGB565 when the physical width is not a multiple
+// of 4, because the packed stream would then not end on a whole 16-bit DMA
+// word for every block.
+#if !defined(PIXELROOT32_TFT_12BIT_COLOR)
+#define PIXELROOT32_TFT_12BIT_COLOR 0
 #endif
 #endif
 

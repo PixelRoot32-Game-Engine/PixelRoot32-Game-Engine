@@ -130,7 +130,7 @@ size_t count = musicPlayer.getActiveTrackCount(); // Returns 3
 
 ## Manual arpeggios (extra voice)
 
-There is **no separate arpeggiator API**. To get a rapid broken-chord line under a lead, add a **`MusicTrack`** hooked via **`secondVoice`** or **`thirdVoice`** whose **`MusicNote`** entries use **short `duration` values** (in **beats**, same grid as the rest of the sequencer). You can use **`WaveType::SINE`** / **`SAW`** directly on that layer. See **Melody 4** in `examples/music_demo/src/assets/melodies.h`.
+There is **no separate arpeggiator API**. To get a rapid broken-chord line under a lead, add a **`MusicTrack`** hooked via **`secondVoice`** or **`thirdVoice`** whose **`MusicNote`** entries use **short `duration` values** (in **beats**, same grid as the rest of the sequencer). You can use **`WaveType::SINE`** / **`SAW`** directly on that layer. See **Melody 4** in `examples/music-demo/src/assets/melodies.h`.
 
 ### MusicNote Definition
 

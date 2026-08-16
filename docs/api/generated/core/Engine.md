@@ -221,6 +221,18 @@ Gets the capabilities of the current hardware platform.
 
 **Returns:** Reference to the PlatformCapabilities.
 
+### `pixelroot32::gameplay::GameplayEventBus& getGameplayEventBus()`
+
+**Description:**
+
+Provides access to the Engine-owned GameplayEventBus.
+
+**Returns:** Reference to the GameplayEventBus.
+
+The bus is a single Engine-owned instance, wired into SceneManager by
+Engine::init() (mirrors setTransitionEffect()). It is drained on every
+scene swap; see gameplay::GameplayEventBus for the full contract.
+
 ### `void update()`
 
 **Description:**

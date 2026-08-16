@@ -202,8 +202,10 @@ Fill a 256-byte LUT for the current fade direction and progress.
 
 - `scaledProgress`: Progress in Q8.8 format (0..256, where 256 = 1.0).
 
-Out: lut[i] = i * (256-p) / 256 — dims to black.
-In:  lut[i] = i * p     / 256 — brightens from black.
+Out scales by (256-p), In scales by p — but the scale is applied to each
+RGB332 channel of the index, never to the packed byte. The byte is a
+colour, not an intensity: scaling it whole carries bits between channels
+and rotates the hue instead of dimming it.
 
 ### `void applyFade(uint8_t* buffer, int width, int height)`
 

@@ -1,5 +1,7 @@
 # Animated Tilemap Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Demonstrates **4bpp** animated tilemaps, multi-palette setup (`ColorPaletteManager`), optional **scene arena**, and the engine **`StaticTilemapLayerCache`** when the driver exposes a direct logical 8bpp sprite buffer (typical **ESP32 + TFT_eSPI**).
 
 ## Requirements (build flags)

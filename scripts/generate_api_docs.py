@@ -5,22 +5,49 @@ PixelRoot32 API Documentation Generator
 Parses C++ header files and generates Markdown API documentation for VitePress.
 Output goes to docs/api/generated/ (isolated from conceptual docs).
 
+Two header roots are scanned: the engine's own include/, and the public headers of
+the PixelRoot32-APU dependency, which lives in a separate repository and is emitted
+as the `apu` module. The APU root is discovered from PIXELROOT32_APU_ROOT, then
+PlatformIO's .pio/libdeps, then a sibling checkout; generation fails loudly when
+none is found.
+
 Public inheritance (`class Derived : public Base`) is read from the declaration and
 rendered as **Inherits from** / ## Inheritance; Doxygen "Inherits from …" lines in
 the body are omitted when the base was detected from code to avoid duplication.
 
 Usage:
     python scripts/generate_api_docs.py
+    PIXELROOT32_APU_ROOT=/path/to/PixelRoot32-APU python scripts/generate_api_docs.py
 """
 
 import os
 import re
+import sys
 import json
 import shutil
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Mapping, Optional, Tuple
 from collections import defaultdict
+
+
+# The APU was split into its own repository (PixelRoot32-APU). What remains under
+# include/audio/ are re-export shims with no Doxygen comments, so scanning only the
+# engine tree silently drops every APU type from the generated site.
+APU_LIBRARY_NAME = 'PixelRoot32-APU'
+APU_MODULE = 'apu'
+# Present in every APU release; used to tell a real header tree from an empty directory.
+APU_MARKER_HEADER = 'ApuCore.h'
+# How far up from the engine root to look for a sibling APU checkout. The deepest
+# real layout is Game-Samples/lib/PixelRoot32-Game-Engine, three levels down.
+APU_SIBLING_SEARCH_DEPTH = 5
+
+# Placeholders used while @code blocks are held aside during doc-comment parsing.
+# The token keeps a leading '@' so the Doxygen tag regexes still treat it as a
+# boundary; the placeholder deliberately does not, so the generic tag strip that
+# builds the description leaves it alone.
+CODE_TOKEN_PREFIX = '@__CODE'
+CODE_PLACEHOLDER = '\x00'
 
 
 @dataclass
@@ -84,7 +111,30 @@ def parse_doc_comment(comment_text: str) -> DocComment:
         cleaned_lines.append(line)
     
     text = '\n'.join(cleaned_lines).strip()
-    
+
+    # Doxygen @code blocks have to survive as fenced Markdown. VitePress compiles
+    # every page as a Vue SFC, so a snippet left as a bare paragraph turns
+    # `static_cast<StateId>` into an unclosed HTML tag and fails the whole docs
+    # build. Stash each block behind an @-prefixed token so the tag regexes below
+    # still see a boundary, then restore the fences into the description.
+    code_blocks: List[str] = []
+
+    def stash_code_block(match) -> str:
+        code_blocks.append("```cpp\n" + match.group(1).rstrip() + "\n```")
+        return f"{CODE_TOKEN_PREFIX}{len(code_blocks) - 1}__"
+
+    def restore_code_blocks(value: str) -> str:
+        for idx, block in enumerate(code_blocks):
+            value = value.replace(f"{CODE_PLACEHOLDER}{idx}{CODE_PLACEHOLDER}", f"\n{block}\n")
+        return value
+
+    text = re.sub(
+        r'@code(?:\{[^}]*\})?[ \t]*\n(.*?)\n[ \t]*@endcode',
+        stash_code_block,
+        text,
+        flags=re.DOTALL,
+    )
+
     # Remove @class, @struct, @enum tags first
     text = re.sub(r'@class\s+\w+', '', text)
     text = re.sub(r'@struct\s+\w+', '', text)
@@ -121,14 +171,22 @@ def parse_doc_comment(comment_text: str) -> DocComment:
     doc.warnings = [w.strip() for w in warning_matches]
     
     # Any text before first @ tag (excluding @brief content and tags) is extra description
-    # Remove all @ tags and their content to get the description text
-    desc_text = re.sub(r'@\w+\s+', '', text)
+    # Remove all @ tags and their content to get the description text.
+    # The code tokens are swapped to a non-@ placeholder first so the tag strip
+    # below does not eat them along with the real tags.
+    desc_source = text
+    for idx in range(len(code_blocks)):
+        desc_source = desc_source.replace(
+            f"{CODE_TOKEN_PREFIX}{idx}__", f"{CODE_PLACEHOLDER}{idx}{CODE_PLACEHOLDER}"
+        )
+    desc_text = re.sub(r'@\w+\s+', '', desc_source)
     # Remove brief content from description
     if brief_match:
         desc_text = desc_text.replace(brief_match.group(1).strip(), '')
     desc_text = desc_text.strip()
     # Filter out common leftover artifacts
     desc_text = re.sub(r'^(In\s+)?Phase\s+\d+.*$', '', desc_text, flags=re.MULTILINE).strip()
+    desc_text = restore_code_blocks(desc_text).strip()
     if desc_text:
         doc.description = desc_text
     
@@ -159,6 +217,40 @@ def strip_redundant_inherit_comment(description: str, has_code_derived_base: boo
         return description
     cleaned = re.sub(r"(?m)^\s*Inherits from\s+[\w:]+\.?\s*\n?", "", description)
     return cleaned.strip()
+
+
+def _escape_outside_inline_code(line: str) -> str:
+    """Escape tag-opening '<' in a single line, leaving `inline code` spans intact."""
+    parts = re.split(r'(`+[^`]*`+)', line)
+    return ''.join(
+        part if part.startswith('`') else re.sub(r'<(?=[A-Za-z_/!])', '&lt;', part)
+        for part in parts
+    )
+
+
+def escape_html_in_prose(text: str) -> str:
+    """
+    Escape '<' where VitePress would read it as an HTML tag.
+
+    Every page is compiled as a Vue SFC, so a template name written in plain
+    prose — `RoomGraph<N>`, `Handle<T>` — parses as an unclosed element and takes
+    the whole docs build down with it. Fenced blocks and inline code are left
+    byte-for-byte alone: escaping there would render the entity literally.
+    A bare '<' followed by whitespace or a digit is a comparison, not a tag.
+    """
+    if not text or '<' not in text:
+        return text
+
+    escaped_lines = []
+    in_fence = False
+    for line in text.split('\n'):
+        if line.strip().startswith('```'):
+            in_fence = not in_fence
+            escaped_lines.append(line)
+            continue
+        escaped_lines.append(line if in_fence else _escape_outside_inline_code(line))
+
+    return '\n'.join(escaped_lines)
 
 
 def build_class_index(modules: Dict[str, List[ClassDoc]]) -> Dict[str, Tuple[str, str]]:
@@ -195,6 +287,14 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
         return None
     if re.match(r'^\{', original_line):  # Opening brace
         return None
+    # A member-initializer-list continuation (`: state(seed), other(x)`) parses
+    # as a plausible signature and used to publish itself as a method.
+    if original_line.startswith(':'):
+        return None
+    # Same for control flow inside an inline body — `if constexpr (...)` reads
+    # as `name(params)` to the pattern below.
+    if re.match(r'^(if|for|while|switch|else|do|catch)\b', original_line):
+        return None
     if '=' in original_line and '(' not in original_line.split('=')[0]:
         # Assignment statement like "int x = 5;" but not "operator="
         return None
@@ -212,6 +312,11 @@ def extract_method_signature(line: str) -> Optional[Tuple[str, str, bool, bool, 
             pass
         else:
             sig_part = stripped.split('{')[0].strip()
+
+    # Drop leading attribute specifiers. The return-type group below does not
+    # admit brackets, so a `[[nodiscard]]` prefix made the whole match fail and
+    # the method vanished from the page without a trace.
+    sig_part = re.sub(r'^\s*(?:\[\[[^\]]*\]\]\s*)+', '', sig_part)
 
     # Check for virtual
     is_virtual = 'virtual ' in sig_part
@@ -268,7 +373,11 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
         content = f.read()
     
     classes = []
-    
+    # Byte span of each tagged type's body, parallel to `classes`. None when the
+    # declaration could not be located. Used to keep documented free functions
+    # from being attributed to whichever type happens to precede them.
+    class_spans = []
+
     # Find all doc comments
     doc_pattern = r'/\*\*(.*?)\*/'
     doc_comments = list(re.finditer(doc_pattern, content, re.DOTALL))
@@ -303,7 +412,8 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
             # Look for: class Name { ... };
             class_def_pattern = rf'(class|struct|enum)\s+{re.escape(name)}\b[^{{]*\{{'
             class_def_match = re.search(class_def_pattern, content[doc_end:])
-            
+            class_span = None
+
             if class_def_match:
                 decl_start = doc_end + class_def_match.start()
                 decl_end = doc_end + class_def_match.end() - 1  # exclude '{'
@@ -327,8 +437,10 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
                 
                 # Parse class body for methods and properties
                 parse_class_body(class_body, class_doc)
-            
+                class_span = (start_idx, end_idx)
+
             classes.append(class_doc)
+            class_spans.append(class_span)
         else:
             # Check if this doc comment precedes a method
             # Look for method signature in following lines (support multi-line)
@@ -354,6 +466,25 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
                 # Check for method signature
                 method_info = extract_method_signature(accumulated_line)
                 if method_info and classes:
+                    # Only adopt this signature if the doc comment sits inside
+                    # the most recent type's body. Without the check, every
+                    # documented free function declared after a tagged type was
+                    # attributed to it: LogLevel collected levelToString and
+                    # platformPrint, Segment collected the free intersects
+                    # overloads, and TileBehaviorLayer collected packTileData.
+                    #
+                    # When the span is unknown the tag named something we could
+                    # not locate — `@class TouchAdapterBase` names no type in
+                    # this tree. Fall back to the old unconditional attach
+                    # rather than silently dropping the members: a wrong page is
+                    # bad, an invisible API is worse. Fixing the tag is what
+                    # actually resolves those cases.
+                    enclosing = class_spans[-1]
+                    if enclosing is not None and not (
+                        enclosing[0] < doc_match.start() < enclosing[1]
+                    ):
+                        break
+
                     # Associate with the most recent class
                     name, sig, is_virt, is_static, is_ctor, is_dtor = method_info
                     method = Method(
@@ -436,8 +567,17 @@ def parse_class_body(body: str, class_doc: ClassDoc):
         accumulated_line = ""
         # Track access level within multiline accumulation to avoid picking up private methods
         local_access = current_access
-        for j in range(i, min(i + 5, len(lines))):
+        # Wide enough to span a declaration whose parameters are one per line.
+        # At 5, KinematicActor::moveAndSlide (7 lines) never completed, so the
+        # accumulator ran past it and matched whatever followed instead. Raise
+        # this if a real declaration is longer than 24 lines.
+        for j in range(i, min(i + 24, len(lines))):
             next_line = lines[j].strip()
+            # A declaration that closed without matching is not ours; anything
+            # further belongs to the next one, so stop rather than run them
+            # together.
+            if accumulated_line and re.search(r'[;{]\s*$', accumulated_line):
+                break
             # Track access specifiers even within multiline parsing
             if next_line.startswith('public:'):
                 local_access = "public"
@@ -509,6 +649,18 @@ def deduplicate_methods(methods: List[Method]) -> List[Method]:
     return [m for m, _ in seen.values()]
 
 
+def escape_doc_comment(doc: DocComment) -> DocComment:
+    """Render-safe copy of a doc comment, with tag-like prose escaped."""
+    return DocComment(
+        brief=escape_html_in_prose(doc.brief),
+        params={name: escape_html_in_prose(desc) for name, desc in doc.params.items()},
+        return_doc=escape_html_in_prose(doc.return_doc),
+        notes=[escape_html_in_prose(note) for note in doc.notes],
+        warnings=[escape_html_in_prose(warning) for warning in doc.warnings],
+        description=escape_html_in_prose(doc.description),
+    )
+
+
 def generate_class_markdown(
     class_doc: ClassDoc,
     class_index: Dict[str, Tuple[str, str]],
@@ -517,6 +669,7 @@ def generate_class_markdown(
     # Deduplicate methods before generating
     class_doc.methods = deduplicate_methods(class_doc.methods)
 
+    doc = escape_doc_comment(class_doc.doc)
     from_module = class_doc.namespace
 
     lines = []
@@ -540,14 +693,14 @@ def generate_class_markdown(
         lines.append("")
 
     extra_description = strip_redundant_inherit_comment(
-        class_doc.doc.description, bool(class_doc.base_class)
+        doc.description, bool(class_doc.base_class)
     )
 
     # Description
-    if class_doc.doc.brief:
+    if doc.brief:
         lines.append("## Description")
         lines.append("")
-        lines.append(class_doc.doc.brief)
+        lines.append(doc.brief)
         lines.append("")
 
     if extra_description:
@@ -564,14 +717,14 @@ def generate_class_markdown(
         lines.append("")
     
     # Warnings
-    for warning in class_doc.doc.warnings:
+    for warning in doc.warnings:
         lines.append(f"::: warning")
         lines.append(warning)
         lines.append(":::")
         lines.append("")
-    
+
     # Notes
-    for note in class_doc.doc.notes:
+    for note in doc.notes:
         lines.append(f"::: tip")
         lines.append(note)
         lines.append(":::")
@@ -586,7 +739,8 @@ def generate_class_markdown(
         for prop in class_doc.properties:
             # Escape pipe characters in type
             safe_type = prop.type.replace('|', '\\|')
-            lines.append(f"| `{prop.name}` | `{safe_type}` | {prop.doc} |")
+            safe_doc = escape_html_in_prose(prop.doc).replace('|', '\\|')
+            lines.append(f"| `{prop.name}` | `{safe_type}` | {safe_doc} |")
         lines.append("")
     
     # Methods
@@ -598,7 +752,9 @@ def generate_class_markdown(
             # Skip destructor display
             if method.is_destructor:
                 continue
-            
+
+            method_doc = escape_doc_comment(method.doc)
+
             # Method signature as heading
             sig_display = method.signature
             if method.is_virtual:
@@ -610,34 +766,34 @@ def generate_class_markdown(
             lines.append("")
             
             # Description
-            if method.doc.brief:
+            if method_doc.brief:
                 lines.append("**Description:**")
                 lines.append("")
-                lines.append(method.doc.brief)
+                lines.append(method_doc.brief)
                 lines.append("")
-            
+
             # Parameters
-            if method.doc.params:
+            if method_doc.params:
                 lines.append("**Parameters:**")
                 lines.append("")
-                for param_name, param_desc in method.doc.params.items():
+                for param_name, param_desc in method_doc.params.items():
                     lines.append(f"- `{param_name}`: {param_desc}")
                 lines.append("")
-            
+
             # Return value
-            if method.doc.return_doc:
-                lines.append(f"**Returns:** {method.doc.return_doc}")
+            if method_doc.return_doc:
+                lines.append(f"**Returns:** {method_doc.return_doc}")
                 lines.append("")
-            
+
             # Notes
-            for note in method.doc.notes:
+            for note in method_doc.notes:
                 lines.append(f"::: tip")
                 lines.append(note)
                 lines.append(":::")
                 lines.append("")
-            
+
             # Warnings
-            for warning in method.doc.warnings:
+            for warning in method_doc.warnings:
                 lines.append(f"::: warning")
                 lines.append(warning)
                 lines.append(":::")
@@ -646,15 +802,96 @@ def generate_class_markdown(
     return '\n'.join(lines)
 
 
-def scan_include_directory(include_dir: str) -> Dict[str, List[ClassDoc]]:
-    """Scan include directory and parse all header files."""
+def _apu_headers_dir(candidate: Path) -> Optional[Path]:
+    """
+    Resolve a candidate path to the APU public-header directory, or None.
+
+    Accepts either a repository root (<root>/include/pixelroot32/apu), an include
+    root (<include>/pixelroot32/apu), or the header directory itself, so the
+    PIXELROOT32_APU_ROOT override does not have to guess the layout.
+    """
+    for suffix in (Path('include') / 'pixelroot32' / 'apu', Path('pixelroot32') / 'apu', Path('.')):
+        headers = candidate / suffix
+        if (headers / APU_MARKER_HEADER).is_file():
+            return headers.resolve()
+    return None
+
+
+def find_apu_include_dir(
+    engine_root: Path,
+    env: Optional[Mapping[str, str]] = None,
+) -> Optional[Path]:
+    """
+    Locate the PixelRoot32-APU public headers, in order of trustworthiness:
+
+    1. PIXELROOT32_APU_ROOT — explicit override, for CI or an unusual layout.
+    2. .pio/libdeps/<env>/PixelRoot32-APU — resolved by PlatformIO, so it matches
+       the version library.json pins. This is the normal path.
+    3. A sibling checkout in a parent directory — the local workspace layout.
+
+    Returns None when the APU cannot be found; callers must treat that as an error
+    rather than generating a site that is quietly missing its audio core.
+    """
+    environment = os.environ if env is None else env
+    engine_root = Path(engine_root)
+
+    override = environment.get('PIXELROOT32_APU_ROOT')
+    if override:
+        return _apu_headers_dir(Path(override))
+
+    for libdep in sorted((engine_root / '.pio' / 'libdeps').glob(f'*/{APU_LIBRARY_NAME}')):
+        headers = _apu_headers_dir(libdep)
+        if headers:
+            return headers
+
+    for ancestor in list(engine_root.parents)[:APU_SIBLING_SEARCH_DEPTH]:
+        headers = _apu_headers_dir(ancestor / APU_LIBRARY_NAME)
+        if headers:
+            return headers
+
+    return None
+
+
+def read_apu_version(apu_headers_dir: Path) -> Optional[str]:
+    """
+    Read the APU version from the library.json that ships beside its headers.
+
+    Stamped into the generated index so readers know which APU release the pages
+    describe — the engine and the APU now version independently.
+    """
+    for ancestor in list(Path(apu_headers_dir).parents)[:APU_SIBLING_SEARCH_DEPTH]:
+        manifest = ancestor / 'library.json'
+        if not manifest.is_file():
+            continue
+        try:
+            with open(manifest, 'r', encoding='utf-8') as f:
+                return json.load(f).get('version')
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Warning: could not read APU version from {manifest}: {e}")
+            return None
+    return None
+
+
+def scan_include_directory(
+    include_dir: str,
+    module_override: Optional[str] = None,
+) -> Dict[str, List[ClassDoc]]:
+    """
+    Scan include directory and parse all header files.
+
+    module_override forces every type found into a single module, used for
+    dependency trees whose directory layout does not match the engine's
+    one-directory-per-module convention (the APU nests under pixelroot32/apu).
+    """
     modules = defaultdict(list)
-    
+
     for root, dirs, files in os.walk(include_dir):
         # Determine module name from directory
         rel_path = os.path.relpath(root, include_dir)
         module = rel_path.split(os.sep)[0] if rel_path != '.' else 'core'
-        
+        if module_override:
+            module = module_override
+
         for file in files:
             if file.endswith('.h'):
                 file_path = os.path.join(root, file)
@@ -669,15 +906,25 @@ def scan_include_directory(include_dir: str) -> Dict[str, List[ClassDoc]]:
     return dict(modules)
 
 
-def generate_index_markdown(modules: Dict[str, List[ClassDoc]], output_dir: str) -> str:
+def generate_index_markdown(
+    modules: Dict[str, List[ClassDoc]],
+    output_dir: str,
+    apu_version: Optional[str] = None,
+) -> str:
     """Generate index.md with table of contents."""
     lines = []
-    
+
     lines.append("# API Reference (Generated)")
     lines.append("")
     lines.append("Auto-generated API documentation from C++ header files.")
     lines.append("")
-    
+
+    # The APU ships from its own repository on its own release cadence, so the
+    # version it was generated against is not implied by the engine version.
+    if apu_version:
+        lines.append(f"The `apu` module documents PixelRoot32-APU `{apu_version}`.")
+        lines.append("")
+
     # Table of contents by module
     for module in sorted(modules.keys()):
         classes = modules[module]
@@ -690,7 +937,8 @@ def generate_index_markdown(modules: Dict[str, List[ClassDoc]], output_dir: str)
         # List classes with links
         for cls in sorted(classes, key=lambda c: c.name):
             rel_path = f"./{module}/{cls.name}.md"
-            lines.append(f"- [{cls.name}]({rel_path}) — {cls.doc.brief or 'No description'}")
+            brief = escape_html_in_prose(cls.doc.brief) or 'No description'
+            lines.append(f"- [{cls.name}]({rel_path}) — {brief}")
         
         lines.append("")
     
@@ -704,20 +952,40 @@ def main():
     include_dir = engine_root / 'include'
     output_dir = engine_root / 'docs' / 'api' / 'generated'
     
+    apu_include_dir = find_apu_include_dir(engine_root)
+    if apu_include_dir is None:
+        print("ERROR: could not locate the PixelRoot32-APU headers.")
+        print()
+        print("The APU lives in its own repository; include/audio/ only holds re-export")
+        print("shims, so generating without it would publish a site missing ApuCore,")
+        print("AudioTypes, AudioCommandQueue and the rest of the audio core.")
+        print()
+        print("Fix one of these, then re-run:")
+        print("  - run `pio pkg install` so PlatformIO resolves the dependency, or")
+        print("  - set PIXELROOT32_APU_ROOT to a PixelRoot32-APU checkout.")
+        sys.exit(1)
+
+    apu_version = read_apu_version(apu_include_dir)
+
     print(f"PixelRoot32 API Documentation Generator")
     print(f"======================================")
     print(f"Input:  {include_dir}")
+    print(f"APU:    {apu_include_dir}" + (f" (v{apu_version})" if apu_version else ""))
     print(f"Output: {output_dir}")
     print()
-    
+
     # Clean and recreate output directory
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Scan and parse headers
     print("Scanning header files...")
     modules = scan_include_directory(str(include_dir))
+    for module, classes in scan_include_directory(
+        str(apu_include_dir), module_override=APU_MODULE
+    ).items():
+        modules.setdefault(module, []).extend(classes)
 
     class_index = build_class_index(modules)
 
@@ -746,7 +1014,7 @@ def main():
     # Generate index
     print()
     print("Generating index...")
-    index_content = generate_index_markdown(modules, str(output_dir))
+    index_content = generate_index_markdown(modules, str(output_dir), apu_version)
     index_file = output_dir / 'index.md'
     
     with open(index_file, 'w', encoding='utf-8') as f:

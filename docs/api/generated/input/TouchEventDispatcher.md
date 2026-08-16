@@ -12,18 +12,25 @@ This is the main API for consumers to receive touch events.
 It combines the state machine and event queue into a unified interface.
 
 Usage pattern (pull-based):
+
+```cpp
 TouchEvent events[16];
 uint8_t count = dispatcher.getEvents(events, 16);
 for (uint8_t i = 0; i < count; i++) {
     handleEvent(events[i]);
 }
+```
+
+
 Or for checking without consuming:
+
+```cpp
 if (dispatcher.hasEvents()) {
     TouchEvent event;
     dispatcher.peek(event);
     // inspect without removing
 }
-@endcode
+```
 
 ## Methods
 

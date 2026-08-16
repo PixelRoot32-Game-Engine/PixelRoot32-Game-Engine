@@ -145,7 +145,12 @@ namespace pixelroot32::core {
         
         // Wire the transition effect so SceneManager can drive it.
         sceneManager.setTransitionEffect(&transitionEffect_);
-        
+
+        #if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+        // Wire the Engine-owned GameplayEventBus so SceneManager can drain it on SceneSwap.
+        sceneManager.setGameplayEventBus(&gameplayEventBus_);
+        #endif
+
         // Set default font (5x7 bitmap font)
         FontManager::setDefaultFont(&FONT_5X7);
         

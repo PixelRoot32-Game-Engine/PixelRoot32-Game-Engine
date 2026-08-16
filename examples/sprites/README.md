@@ -1,5 +1,7 @@
 # Sprites Demo Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Demonstrates **2BPP** (4 colors) and **4BPP** (16 colors) **sprites** on the same scene, including **animation** and popup assets under `src/assets/`. Entities are owned by the scene and updated/drawn through the usual **`Scene`** pipeline.
 
 ## Requirements (build flags)

@@ -1,5 +1,7 @@
 # Music Demo Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Interactive **audio** demo showcasing the **PixelRoot32 audio subsystem** with **instrument presets** and **pre-composed multi-part music**. Features a **UI-based interface** for testing sound presets and playing layered `MusicTrack` arrangements.
 
 When **`PIXELROOT32_ENABLE_UI_SYSTEM`** is on (default in [`PlatformDefaults.h`](../../include/platforms/PlatformDefaults.h)), the demo exposes **touch UI**: **`UIButton`** for instrument preset selection and melody playback, **`UILabel`** for navigation hints, and **`UIVerticalLayout`** for organized button placement — see [`MusicDemoScene.h`](src/MusicDemoScene.h).

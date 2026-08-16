@@ -234,8 +234,6 @@ Sets the logical display size (rendering resolution).
 - `w`: Logical width.
 - `h`: Logical height.
 
-### `if constexpr(pixelroot32::platforms::config::EnableDirtyRegions)`
-
 ### `int getLogicalWidth() const`
 
 ### `int getLogicalHeight() const`

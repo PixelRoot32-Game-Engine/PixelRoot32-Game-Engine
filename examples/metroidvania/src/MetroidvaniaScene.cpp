@@ -15,6 +15,7 @@
 #include "physics/StaticActor.h"
 #include "GameLayers.h"
 #include <cstdint>
+#include <cstdio>
 
 #include "platforms/PlatformMemory.h"
 
@@ -56,6 +57,25 @@ void MetroidvaniaScene::init() {
     // Create and add the player.
     player = std::make_unique<PlayerActor>(pixelroot32::math::Vector2(PLAYER_START_X, PLAYER_START_Y));
     addEntity(player.get());
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    // The collision system holds a NON-owning pointer; the tracker is a member
+    // of this scene, so its lifetime already covers every frame the system
+    // runs. It is also reset from CollisionSystem::clear(), which is what
+    // keeps stale contact pairs from dispatching through dangling pointers
+    // after a scene reset.
+    collisionSystem.setInteractionTracker(&interactionTracker);
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    // Optional second output. With no bus attached the component callbacks
+    // still fire; attaching one ALSO publishes a TriggerEnter/TriggerExit per
+    // edge, which is what lets unrelated systems observe contact without
+    // knowing about PickupActor at all.
+    interactionTracker.setEventBus(&engine.getGameplayEventBus());
+    lastTriggerEnterCount = 0;
+    lastTriggerExitCount = 0;
+#endif
+    spawnPickups();
+#endif
 
     // Pass stairs layer data to the player for internal logic.
     player->setStairs(metroidvania::stairs.indices, 
@@ -128,7 +148,66 @@ void MetroidvaniaScene::update(unsigned long deltaTime) {
     if (player && player->consumeRespawnFlag()) {
         cameraEffects.triggerShake(pixelroot32::math::toScalar(4.0f), 200);
     }
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    // Read the collected count off the orbs themselves. The callback already
+    // ran during the physics step inside Scene::update() above.
+    pickupsCollected = 0;
+    for (int i = 0; i < kPickupCount; ++i) {
+        if (pickups[i] && pickups[i]->isCollected()) {
+            ++pickupsCollected;
+        }
+    }
+#endif
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+    drainGameplayEvents();
+#endif
 }
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+void MetroidvaniaScene::spawnPickups() {
+    // Three orbs along the player's path, spaced far enough apart that each
+    // one produces a distinct enter edge.
+    static const float kOffsetsX[kPickupCount] = { 60.0f, 100.0f, 140.0f };
+
+    for (int i = 0; i < kPickupCount; ++i) {
+        pickups[i] = std::make_unique<PickupActor>(
+            pixelroot32::math::toScalar(kOffsetsX[i]),
+            pixelroot32::math::toScalar(PLAYER_START_Y));
+        addEntity(pickups[i].get());
+        // MUST come after addEntity: registerActor() keys on entityId, which
+        // the collision system assigns during registration. Registering first
+        // would silently store id 0 and the orb would never dispatch.
+        interactionTracker.registerActor(pickups[i].get(), &pickups[i]->interaction);
+    }
+    pickupsCollected = 0;
+}
+#endif
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
+void MetroidvaniaScene::drainGameplayEvents() {
+    lastTriggerEnterCount = 0;
+    lastTriggerExitCount = 0;
+
+    // The bus is a fixed-capacity FIFO with a drop-newest overflow policy, so
+    // a consumer that skips a frame loses the NEWEST events, not the oldest —
+    // draining every frame is the contract, not an optimisation.
+    pr32::gameplay::GameplayEvent event;
+    while (engine.getGameplayEventBus().consume(event)) {
+        switch (event.type) {
+            case pr32::gameplay::GameplayEventType::TriggerEnter:
+                ++lastTriggerEnterCount;
+                break;
+            case pr32::gameplay::GameplayEventType::TriggerExit:
+                ++lastTriggerExitCount;
+                break;
+            default:
+                break;
+        }
+    }
+}
+#endif
 
 void MetroidvaniaScene::adviseFramebufferBeforeBeginFrame(pr32::graphics::Renderer& renderer) {
 #if PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE
@@ -178,6 +257,12 @@ void MetroidvaniaScene::draw(pr32::graphics::Renderer& renderer) {
 
     // Reset offset
     renderer.setDisplayOffset(0, 0);
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    char hud[24];
+    std::snprintf(hud, sizeof(hud), "ORBS %d/%d", pickupsCollected, kPickupCount);
+    renderer.drawText(hud, 4, 4, Color::Yellow, 1);
+#endif
 }
 
 } // namespace metroidvania

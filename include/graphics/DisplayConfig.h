@@ -45,6 +45,7 @@ enum DisplayType {
 }; 
 
 /**
+ * @struct DisplayConfig
  * @brief Configuration settings for initializing displays with optional resolution scaling.
  * 
  * Supports both physical (hardware) and logical (rendering) resolutions.

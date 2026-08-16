@@ -22,9 +22,9 @@ void SnakeBackground::draw(gfx::Renderer& renderer) {
     renderer.drawFilledRectangle(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, gfx::Color::Black);
 
     int playAreaX = 0;
-    int playAreaY = TOP_UI_GRID_ROWS * CELL_SIZE;
-    int playAreaW = GRID_WIDTH * CELL_SIZE - 1;
-    int playAreaH = (GRID_HEIGHT - TOP_UI_GRID_ROWS) * CELL_SIZE - 1;
+    int playAreaY = gameplay::cellToWorldY(TOP_UI_GRID_ROWS, kSnakeGrid);
+    int playAreaW = gameplay::cellToWorldX(GRID_WIDTH, kSnakeGrid) - 1;
+    int playAreaH = gameplay::cellToWorldY(GRID_HEIGHT - TOP_UI_GRID_ROWS, kSnakeGrid) - 1;
     renderer.drawRectangle(playAreaX, playAreaY, playAreaW, playAreaH, gfx::Color::Red);
 }
 

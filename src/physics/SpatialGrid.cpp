@@ -173,4 +173,90 @@ namespace pixelroot32::physics {
         }
     }
 
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    int IRAM_ATTR SpatialGrid::queryRadius(Vector2 center, Scalar radius, Actor** outArray, int maxCount) {
+        int minCol = static_cast<int>(center.x - radius) / kCellSize;
+        int minRow = static_cast<int>(center.y - radius) / kCellSize;
+        int maxCol = static_cast<int>(center.x + radius) / kCellSize;
+        int maxRow = static_cast<int>(center.y + radius) / kCellSize;
+        int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
+        int rows = pixelroot32::platforms::config::LogicalHeight / kCellSize + 1;
+        if (minCol < 0) minCol = 0;
+        if (minCol >= cols) minCol = cols - 1;
+        if (maxCol < 0) maxCol = 0;
+        if (maxCol >= cols) maxCol = cols - 1;
+        if (minRow < 0) minRow = 0;
+        if (minRow >= rows) minRow = rows - 1;
+        if (maxRow < 0) maxRow = 0;
+        if (maxRow >= rows) maxRow = rows - 1;
+
+        int count = 0;
+        queryId++;
+        if (queryId < 0) queryId = 0;
+
+        for (int r = minRow; r <= maxRow; ++r) {
+            for (int c = minCol; c <= maxCol; ++c) {
+                int idx = r * cols + c;
+                for (int i = 0; i < staticCellCounts[idx] && count < maxCount; ++i) {
+                    Actor* other = staticCells[idx][i];
+                    if (other->queryId != queryId) {
+                        other->queryId = queryId;
+                        outArray[count++] = other;
+                    }
+                }
+                for (int i = 0; i < dynamicCellCounts[idx] && count < maxCount; ++i) {
+                    Actor* other = dynamicCells[idx][i];
+                    if (other->queryId != queryId) {
+                        other->queryId = queryId;
+                        outArray[count++] = other;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    int IRAM_ATTR SpatialGrid::queryBox(const Rect& box, Actor** outArray, int maxCount) {
+        int minCol = static_cast<int>(box.position.x) / kCellSize;
+        int minRow = static_cast<int>(box.position.y) / kCellSize;
+        int maxCol = static_cast<int>(box.position.x + toScalar(box.width)) / kCellSize;
+        int maxRow = static_cast<int>(box.position.y + toScalar(box.height)) / kCellSize;
+        int cols = pixelroot32::platforms::config::LogicalWidth / kCellSize + 1;
+        int rows = pixelroot32::platforms::config::LogicalHeight / kCellSize + 1;
+        if (minCol < 0) minCol = 0;
+        if (minCol >= cols) minCol = cols - 1;
+        if (maxCol < 0) maxCol = 0;
+        if (maxCol >= cols) maxCol = cols - 1;
+        if (minRow < 0) minRow = 0;
+        if (minRow >= rows) minRow = rows - 1;
+        if (maxRow < 0) maxRow = 0;
+        if (maxRow >= rows) maxRow = rows - 1;
+
+        int count = 0;
+        queryId++;
+        if (queryId < 0) queryId = 0;
+
+        for (int r = minRow; r <= maxRow; ++r) {
+            for (int c = minCol; c <= maxCol; ++c) {
+                int idx = r * cols + c;
+                for (int i = 0; i < staticCellCounts[idx] && count < maxCount; ++i) {
+                    Actor* other = staticCells[idx][i];
+                    if (other->queryId != queryId) {
+                        other->queryId = queryId;
+                        outArray[count++] = other;
+                    }
+                }
+                for (int i = 0; i < dynamicCellCounts[idx] && count < maxCount; ++i) {
+                    Actor* other = dynamicCells[idx][i];
+                    if (other->queryId != queryId) {
+                        other->queryId = queryId;
+                        outArray[count++] = other;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+#endif
+
 } // namespace pixelroot32::physics

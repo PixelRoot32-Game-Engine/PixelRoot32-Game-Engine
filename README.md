@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="300"/>
+  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="256"/>
 </p>
 
 <h1 align="center">PixelRoot32 Game Engine</h1>
@@ -14,11 +14,6 @@
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine"><img src="https://img.shields.io/github/stars/Gperez88/PixelRoot32-Game-Engine?style=social" alt="GitHub stars"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/issues"><img src="https://img.shields.io/github/issues/Gperez88/PixelRoot32-Game-Engine" alt="GitHub issues"></a>
   <a href="https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/pulls"><img src="https://img.shields.io/github/issues-pr/Gperez88/PixelRoot32-Game-Engine" alt="GitHub pull requests"></a>
-</p>
-
-<p align="center">
-  <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
-  <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
 </p>
 
 <p align="center">
@@ -87,6 +82,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **NES-Style Audio**: Dynamic 8-voice subsystem with a fixed **4+4 partition** (melodic tracks vs percussion/SFX), advanced SFX synthesis (loops, sweeps, breakpoint envelopes, `playSfxBank`), and fixed-point No-FPU optimizations (Pulse, Triangle, Noise, Sine, Saw).
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
+- **Gameplay Framework**: Opt-in building blocks — grid space, state machines, object pools, an event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — each behind its own `PIXELROOT32_ENABLE_*` flag, all default `0`.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
@@ -96,7 +92,9 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ## 🧰 Tool Suite
 
-The **PixelRoot32 Tool Suite** is now available — a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
+The **PixelRoot32 Tool Suite** is a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
+
+The **engine itself remains 100% free and open source**. These tools are optional power-ups designed to streamline your workflow and support the project: each grants a **lifetime license** (one-time purchase, yours forever, free lifetime updates).
 
 | Module | Status |
 |--------|--------|
@@ -106,6 +104,19 @@ The **PixelRoot32 Tool Suite** is now available — a native desktop app (C++17 
 | **SFX Editor** | 🔜 Coming soon — sound effect synthesis |
 
 👉 [Get the Tool Suite](https://pixelroot32.com) · [Detailed docs](docs/tools/index.md)
+
+---
+
+## 💛 Support this project
+
+The best way to support PixelRoot32 is getting the **Tool Suite** above — a lifetime license that funds the project.
+
+If that's not for you, a tip is always welcome:
+
+<p align="left">
+  <a href="https://ko-fi.com/gperez88"><img src="https://img.shields.io/badge/Support%20me%20on%20Ko--fi-29ABE0?style=flat&logo=ko-fi&logoColor=ffffff" alt="Support on Ko-fi"></a>
+  <a href="https://www.paypal.com/ncp/payment/THC3PDSRQKZW6"><img src="https://img.shields.io/badge/Support%20me%20on%20PayPal-0070BA?style=flat&logo=paypal&logoColor=ffffff" alt="Support on PayPal"></a>
+</p>
 
 ---
 
@@ -133,7 +144,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.8.0
+    gperez88/PixelRoot32-Game-Engine@^1.9.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -147,7 +158,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-   Each folder (`hello_world`, `animated_tilemap`, `snake`, `flappy_bird`, `metroidvania`, `tic_tac_toe`, `space_invaders`, `brick_breaker`, `physics`, `camera`, `dual_palette`, `sprites`, `music_demo`, `2048`) is a **standalone PlatformIO project** with its own `platformio.ini`.
+   Each folder (`hello_world`, `sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `bomberbot`, `room_screen`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -194,56 +205,49 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
-- ⚙️ **Gameplay Framework**: Generic gameplay systems for interactions, triggers, events, state machines, and reusable gameplay components.
 
-### Completed Features ✅
-
-- ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
-- ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
-- ✅ **Moving Platform Support**: Kinematic floor velocity inheritance and platform-aware character movement.
-- ✅ **Custom Hitboxes**: Independent hitbox sizing and offsets for gameplay collision tuning.
-- ✅ **Scene Transition System**: Fade, Iris, and Diagonal Wipe transitions with configurable animation behavior.
-- ✅ **Camera Effects System**: Deterministic shake, punch, and offset effects optimized for ESP32.
-- ✅ **Dual Numeric Backend (Float / Fixed-Point)**: Support for ESP32 variants without FPU (C3, C2, C6).
-- ✅ **u8g2 Support**: Support for monochrome OLEDs (SSD1306, SH1106).
-- ✅ **Native Bitmap Font System**: Font system based on 1bpp sprites.
-- ✅ **UI Layout System**: Automatic layouts (Vertical, Horizontal, Grid, Panel, Anchor, Padding).
-- ✅ **Tile Animation System**: O(1) frame resolution for tile-based animations with zero-allocation policy.
-- ✅ **Multi-Palette Graphics**: Per-cell palette indexing for tilemaps and sprites.
-- ✅ **One-Way Platform Collision**: Jump-through platforms with spatial crossing detection.
-- ✅ **Modular Compilation**: `PIXELROOT32_ENABLE_*` flags for conditional subsystem inclusion.
-- ✅ **Unified Logging System**: Cross-platform `log()` abstraction with `PIXELROOT32_DEBUG_MODE`.
-- ✅ **Touch Screen Support**: `UITouchButton`, `UITouchCheckbox`, and `UITouchSlider`.
-- ✅ **4+4 Audio Voice Partition**: Melodic sequencer tracks (slots 0–3) isolated from percussion/SFX (slots 4–7) with subpool-limited voice stealing.
-- ✅ **Advanced SFX Synthesis**: Looping SFX, noise period sweep, Linear/Exponential curves, duty/pitch breakpoint envelopes, and header-only `playSfxBank` (additive `AudioEvent` ABI).
-- ✅ **Shared APU Library**: The synthesis core lives in [PixelRoot32-APU](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-APU), shared with the PixelRoot32 Tool Suite — one ABI source, byte-identical preview/export audio.
-- ✅ **TileMap Editor**: Specialized tool to design environments with C++ export. [PixelRoot32 Tool Suite](https://pixelroot32.com).
+👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
 ---
 
 ## 🕒 Changelog
 
-## 1.8.0
+## 1.9.0
 
-### 🔊 Audio
+Introduces the **Gameplay Framework**. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them is identical to 1.8.0 — no breaking changes.
 
-- **Shared APU Library**: The APU core is now the [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) library (`gperez88/PixelRoot32-APU@^1.0.1`), resolved automatically by PlatformIO. Engine includes and the `pixelroot32::audio` namespace are unchanged — games compile as-is.
-- **Music Transport**: New `MUSIC_SEEK` / `MUSIC_UPDATE_TRACKS` commands with loop-aware sequencer resync and transport tick getters.
-- **Percussion Fix**: `INSTR_KICK` / `INSTR_SNARE` noise periods now match the documented 1.7.0 values (60/15) — 1.7.0 shipped them swapped.
-- **Q15 Correctness**: Master volume applied before the compressor in the fixed-point path; unified FPU detection (`PR32_APU_HAS_FPU`).
-- **Scheduler**: `DefaultAudioScheduler::stop()` now truly silences output until `start()`.
+### 🕹️ Gameplay Framework
 
-## 1.7.0
+- **Grid Space**: Cell ↔ world conversion with correct floor semantics at negative coordinates and no division on the hot path, plus `GridMotion` for sub-cell interpolated movement between cells. A `constexpr GridSpec` costs zero SRAM.
+- **State Machine**: Actor states driven from a flash-resident `const` table with `onEnter`/`onUpdate`/`onExit` callbacks and immediate, fully drained transitions.
+- **Object Pool**: `ObjectPool<T, N>` — fixed-capacity, zero-heap acquire/release for bullets, enemies and explosions.
+- **Events & Interaction Triggers**: Engine-owned fixed-capacity event bus, plus `InteractionTracker` turning the per-frame contact set into `onEnter`/`onExit` edges for trigger volumes and pickups.
+- **Room Graphs**: `RoomGraph<N>` models a screen-by-screen world with per-room camera bounds, consumes Tilemap Editor room exports through `buildRoomGraph()` with no parsing or allocation, and notifies scenes via `Scene::onRoomEnter()`.
 
-### 🔊 Audio
+### 🎨 Graphics & UI
 
-- **4+4 Voice Partition**: Melodic tracks use slots 0–3; percussion and SFX use slots 4–7 with steal limited to the SFX subpool, so effects no longer interrupt long melodic notes.
-- **Sequencer Percussion**: Zero-duration notes stack Kick/Snare/Hi-Hat on the same step; only `Rest + noise preset` counts as a hit. Short notes under `tempoFactor > 1` clamp to 1 tick (no infinite loop).
-- **SFX Synthesis**: Additive `AudioEvent` ABI — noise period sweep, looping SFX + `STOP_CHANNEL`, Linear/Exponential `SweepCurve`, duty/pitch `SfxBreakpoint` tables, and header-only `playSfxBank`.
+- **Camera Tweens**: `CameraTween<N>` moves the camera along waypoints with Linear and quadratic easing, fixed-point throughout (no FPU cost on ESP32-C3).
+- **Depth Sorting**: Optional secondary comparator *within* a render layer — what top-down games need to order actors against scenery by Y.
+- **UI Sprites**: `UISprite` makes an icon a first-class UI element (visibility, layout placement, `setFixedPosition()`); `UISpriteRow` draws a whole value-driven row — hearts, lives, ammo — from one entity, with half and quarter steps.
+- **Transition Color Fix**: Fades and wipes scaled the packed colour byte as a single value, rotating hue instead of dimming on hardware. Now scaled per channel.
 
-### 🧪 Testing & QA
+### 🏀 Physics
 
-- **Audio Regression Coverage**: Unity tests for voice partition, stacked percussion, tempo-factor short notes, duty stepped hold, and multi-breakpoint pitch envelopes.
+- **Spatial Queries**: `queryRadius()` / `queryBox()` with a collision-layer mask for blasts, aggro ranges and area effects — no manual scan over every actor.
+- **Multi-Hit Tiles**: `requiredHits` + `applyHit()` on `TileConsumptionHelper` for breakable and armoured blocks.
+- **Per-Pixel Tile Collision**: `isTilePixelSolid()` / `isWorldPixelSolid()` decode a tile's 4bpp bitmap so transparent "dead" pixels don't block movement, with an optional morphological erosion radius — no physics simulation required.
+
+### ⚡ Performance
+
+- **Deferred DMA Wait**: The frame's last SPI block stays in flight and flushes at the top of the next call, so frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`. Always on.
+- **1bpp Direct Framebuffer Path**: Text, `MultiSprite` layers and 1bpp tilemaps write the 8bpp framebuffer directly instead of a virtual `drawPixel()` per pixel (~40–100 cycles → ~4–8).
+- **12-bit RGB444 (opt-in, experimental)**: `PIXELROOT32_TFT_12BIT_COLOR` cuts 25% of SPI bus time and DMA buffer size with no colour loss. **Not yet verified on hardware** — ships off.
+
+### 🎮 Examples
+
+- **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon), **room_screen** (minimal `RoomGraph` demo).
+- `snake` and `2048` now derive board geometry from Grid Space; `flappy_bird` and `metroidvania` run their states through State Machine; `physics` shows radius queries, `metroidvania` the triggers and event bus, `bomberbot` depth sorting, and `camera` the effects and tweens.
+- The catalogue is now 16 projects, each covering something no other example covers, with a flag-to-example table in [`examples/README.md`](examples/README.md). `space_invaders` and `tic_tac_toe` were removed as duplicates, and `camera-effect-demo` was folded into `camera`.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

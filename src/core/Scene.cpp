@@ -108,7 +108,7 @@ namespace pixelroot32::core {
             Entity* key = entities[i];
             int j = i - 1;
 
-            while (j >= 0 && entities[j]->getRenderLayer() > key->getRenderLayer()) {
+            while (j >= 0 && shouldPrecede(key, entities[j])) {
                 entities[j + 1] = entities[j];
                 j--;
             }
@@ -132,7 +132,7 @@ namespace pixelroot32::core {
     }
 
     void Scene::draw(Renderer& renderer) {
-        if (needsSorting) {
+        if (needsSorting || depthSortEnabled) {
             sortEntities();
         }
 
@@ -201,6 +201,12 @@ namespace pixelroot32::core {
         #if PIXELROOT32_ENABLE_PHYSICS
             collisionSystem.clear();
         #endif
+        // CollisionSystem::clear() already resets the InteractionTracker (if
+        // one is set) when PIXELROOT32_ENABLE_INTERACTION_TRIGGERS is on, so
+        // no additional call is needed here. This comment documents that the
+        // "stale contact pairs / dangling Actor* after scene reset" risk
+        // (design.md Risks section) is covered by the collisionSystem.clear()
+        // call above.
     }
 
     void Scene::clearEntities() {

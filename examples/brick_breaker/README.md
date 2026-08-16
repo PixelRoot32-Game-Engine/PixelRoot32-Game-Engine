@@ -1,5 +1,7 @@
 # Brick Breaker Example
 
+> **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
+
 Classic **Breakout** arcade game: paddle with ball physics, destructible brick grid, particle effects on destruction, multiple lives, progressive levels, and **procedural audio** through the engine **`AudioEngine`** and **`MusicPlayer`**.
 
 ## Requirements (build flags)

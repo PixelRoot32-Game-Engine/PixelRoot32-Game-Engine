@@ -15,6 +15,10 @@
 #include "core/Entity.h"
 #include "platforms/EngineConfig.h"
 
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+#include "gameplay/InteractionTracker.h"
+#endif
+
 namespace pixelroot32::core { class Actor; class PhysicsActor; }
 
 namespace pixelroot32::physics {
@@ -114,6 +118,21 @@ public:
      */
     void triggerCallbacks();
 
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    /**
+     * @brief Sets the (optional, non-owning) interaction tracker that
+     *        observes trigger enter/exit edges from triggerCallbacks().
+     *
+     * With no tracker set, triggerCallbacks() behaves exactly as it does
+     * with the flag off (design.md D3). CollisionSystem does not own the
+     * tracker; the caller (game or Scene::init()) is responsible for its
+     * lifetime, mirroring SceneManager::setTransitionEffect().
+     */
+    void setInteractionTracker(pixelroot32::gameplay::InteractionTracker* tracker) {
+        interactionTracker_ = tracker;
+    }
+#endif
+
     /**
      * @brief Gets the total number of registered entities.
      * @return Number of entities.
@@ -123,7 +142,14 @@ public:
     /**
      * @brief Clears the collision system state.
      */
-    void clear() { entityCount = 0; contactCount = 0; grid.clear(); }
+    void clear() {
+        entityCount = 0;
+        contactCount = 0;
+        grid.clear();
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+        if (interactionTracker_) interactionTracker_->reset();
+#endif
+    }
 
     /**
      * @brief Checks for collisions with a specific actor.
@@ -133,9 +159,74 @@ public:
      * @param maxCount Maximum number of collisions to return.
      * @return True if any collisions were found.
      */
-    bool checkCollision(pixelroot32::core::Actor* actor, 
-                       pixelroot32::core::Actor** outArray, 
+    bool checkCollision(pixelroot32::core::Actor* actor,
+                       pixelroot32::core::Actor** outArray,
                        int& count, int maxCount);
+
+#if PIXELROOT32_ENABLE_SPATIAL_QUERY
+    /**
+     * @brief Layer-aware radius query, backed by SpatialGrid::queryRadius().
+     *
+     * Returns every actor whose hitbox intersects the query circle AND whose
+     * collision `layer` matches the caller-supplied @p mask.
+     *
+     * **Deliberate asymmetry vs. checkCollision().** checkCollision() tests
+     * `(actor->mask & other->layer) || (other->mask & actor->layer)` because
+     * both sides are actors with their own mask. An area query has no
+     * anchor actor, so only the caller-supplied mask applies:
+     * `(mask & other->layer) != 0`. This is a genuine behavioural
+     * difference from checkCollision(), not an oversight (design.md D4).
+     *
+     * **Radius is clamped to prevent Q16.16 overflow.** In Q16.16,
+     * squared-distance terms must fit the ±32768 range. The grid's cell-range
+     * restriction bounds candidate separation to roughly
+     * `radius + kCellSize`, so a radius up to `SPATIAL_QUERY_MAX_RADIUS`
+     * (default 128, mirror `config::SpatialQueryMaxRadius`) keeps
+     * `dx^2 <= (radius + kCellSize)^2 = 160^2 = 25600 < 32768`. Debug builds
+     * `assert` on a radius above the limit; release builds clamp instead of
+     * asserting. Distance comparisons are squared throughout — never `sqrt`.
+     *
+     * @warning Cross-scene visibility limitation (accepted, not fixed by
+     * this capability): see SpatialGrid::queryRadius(). A query issued
+     * against this CollisionSystem's grid MAY return static geometry
+     * registered by another simultaneously-alive scene's
+     * CollisionSystem/SpatialGrid. Pre-existing, documented, unguarded.
+     *
+     * @param center Query circle center.
+     * @param radius Query circle radius (clamped/asserted, see above).
+     * @param mask Caller-supplied layer mask; only `other->layer` is tested.
+     * @param outArray Output array to store matching actors.
+     * @param maxCount Maximum number of actors to write to outArray.
+     * @return Number of actors written to outArray.
+     */
+    int queryRadius(pixelroot32::math::Vector2 center,
+                    pixelroot32::math::Scalar radius,
+                    CollisionLayer mask,
+                    pixelroot32::core::Actor** outArray,
+                    int maxCount);
+
+    /**
+     * @brief Layer-aware box query, backed by SpatialGrid::queryBox().
+     *
+     * Returns every actor whose hitbox intersects the query axis-aligned
+     * rectangle AND whose collision `layer` matches the caller-supplied
+     * @p mask. See queryRadius() for the deliberate asymmetry vs.
+     * checkCollision() (only the caller-supplied mask is tested, not a
+     * bidirectional actor/actor mask test) and for the cross-scene
+     * static-geometry visibility limitation, both of which apply identically
+     * here.
+     *
+     * @param box Query rectangle.
+     * @param mask Caller-supplied layer mask; only `other->layer` is tested.
+     * @param outArray Output array to store matching actors.
+     * @param maxCount Maximum number of actors to write to outArray.
+     * @return Number of actors written to outArray.
+     */
+    int queryBox(const pixelroot32::core::Rect& box,
+                CollisionLayer mask,
+                pixelroot32::core::Actor** outArray,
+                int maxCount);
+#endif
 
     /**
      * @brief Checks if a body requires continuous collision detection (CCD).
@@ -191,7 +282,11 @@ private:
     int contactCount = 0;
     SpatialGrid grid;
     uint16_t nextEntityId = 1;  ///< Next id to assign on addEntity; 0 is reserved for "unregistered".
-    
+
+#if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
+    pixelroot32::gameplay::InteractionTracker* interactionTracker_ = nullptr; ///< Non-owning; set via setInteractionTracker().
+#endif
+
     bool generateContact(pixelroot32::core::PhysicsActor* a, 
                          pixelroot32::core::PhysicsActor* b);
     bool generateCircleVsCircleContact(Contact& contact);

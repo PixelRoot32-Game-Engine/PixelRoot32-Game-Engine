@@ -51,6 +51,9 @@ Understanding the engine's memory limits is crucial for developing stable games 
 | **Max Static Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Static layer capacity per cell |
 | **Max Dynamic Per Cell** | 12 | ✅ via `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Dynamic layer capacity per cell |
 | **Velocity Iterations** | 2 | ✅ via `PIXELROOT32_VELOCITY_ITERATIONS` | Physics solver iterations |
+| **Gameplay Event Queue Capacity** | 32 | ✅ via `GAMEPLAY_EVENT_QUEUE_CAPACITY` | Ring buffer slots for `gameplay::GameplayEventBus` (Gameplay Framework Phase 1) |
+| **Max Interactive Actors** | 16 | ✅ via `GAMEPLAY_MAX_INTERACTIVE_ACTORS` | Registry size for `gameplay::InteractionTracker` (Gameplay Framework Phase 1) |
+| **Spatial Query Max Radius** | 128 | ✅ via `SPATIAL_QUERY_MAX_RADIUS` | Clamp for `queryRadius()` to avoid Q16.16 squared-distance overflow (Gameplay Framework Phase 1) |
 
 **Modular Compilation Impact:**
 
@@ -60,9 +63,128 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 |------|-------------|--------------|-------------------|
 | `PIXELROOT32_ENABLE_AUDIO=0` | ~8 KB | ~15 KB | AudioEngine, MusicPlayer, audio buffers |
 | `PIXELROOT32_ENABLE_PHYSICS=0` | ~12 KB | ~25 KB | CollisionSystem, spatial grid, physics actors |
-| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB | UIElement, all layouts, UI containers |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | ~4 KB | ~20 KB | UIElement, all layouts, UI containers, sprite elements |
 | `PIXELROOT32_ENABLE_PARTICLES=0` | ~6 KB | ~10 KB | ParticleEmitter, particle pools |
 | **All disabled** | **~30 KB** | **~70 KB** | Maximum savings |
+
+**Gameplay Framework Phase 1 flags (opt-in, default `0`):** unlike the flags above — which default to `1` because audio/physics/UI/particles are load-bearing for existing examples — these four capabilities are purely additive and default **off**, so none of the 15 existing examples pays their cost unless explicitly enabled:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_EVENTS=1` | `0` | ~512 B (ESP32-C3) / ~768 B (native) | `gameplay::GameplayEventBus` — single-threaded, `Engine`-owned event ring buffer |
+| `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` | `0` | ~704 B (ESP32, `PHYSICS_MAX_CONTACTS=64`) / ~1.2 KB (native default 128) | `gameplay::InteractionTracker` — enter/exit edge detection over `CollisionSystem` contacts. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
+| `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` | `0` | 0 B extra static storage (adds methods only) | `SpatialGrid::queryRadius/queryBox` + `CollisionSystem::queryRadius/queryBox`. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
+| `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `0` | ~8 B per `Scene` (comparator pointer + bool) | `Scene::depthComparator` / `depthSortEnabled` secondary sort key, used by `Scene::sortEntities()` |
+
+`PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` or `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` combined with `PIXELROOT32_ENABLE_PHYSICS=0` fails the build at compile time via an `#error` in `PlatformDefaults.h` (`CollisionSystem` and `SpatialGrid` only exist when physics is enabled), rather than silently disabling the feature.
+
+**Gameplay Framework Phase 2 flags (opt-in, default `0`):** two more capabilities in `pixelroot32::gameplay`, each pure composition with zero engine-side wiring — no new member, virtual, or hook on `Scene`, `Actor`, or `Entity`. Unlike Phase 1's `INTERACTION_TRIGGERS`/`SPATIAL_QUERY`, **neither depends on `PIXELROOT32_ENABLE_PHYSICS` or any other flag** — neither header includes `core/`, `physics/`, `math/`, or any other capability's header, so no `#error` guard exists or is needed:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_STATE_MACHINE=1` | `0` | 20 B/instance (ESP32-C3) / 32 B/instance (native), plus one shared table in flash per class | `gameplay::StateMachine` — non-template FSM over a caller-owned `const` state table |
+| `PIXELROOT32_ENABLE_GAMEPLAY_OBJECT_POOL=1` | `0` | `N * sizeof(T)` + 8-12 B bookkeeping per pool instantiation (see table below) | `gameplay::ObjectPool<T, N>` — fixed-capacity, zero-heap slot pool with placement-new storage |
+
+**`StateMachine::State` byte budget (one table row — flash/`.rodata`, shared per class, not per instance):**
+
+| Target | 3 function pointers | `id` (`StateId`/`uint8_t`) | padding | `sizeof(State)` |
+|--------|----------------------|----------------------------|---------|-------------------|
+| ESP32-C3 (32-bit) | 3 × 4 = 12 B | 1 B | 3 B | **16 B** |
+| native/PC (64-bit) | 3 × 8 = 24 B | 1 B | 7 B | **32 B** |
+
+**`StateMachine` instance byte budget (SRAM, one per stateful actor):**
+
+| Target | `owner_` + `states_` (2 pointers) | `timeInStateMs_` | 6 × 1 B fields (`current_`, `previous_`, `pending_`, `stateCount_`, `inTransition_`, `transitionOverflows_`) | padding | `sizeof(StateMachine)` |
+|--------|-----------------------------------|-------------------|----------------------------------------------------------------------------------------------------------|---------|--------------------------|
+| ESP32-C3 (32-bit) | 8 B | 4 B | 6 B | 2 B | **20 B** |
+| native/PC (64-bit) | 16 B | 4 B | 6 B | 6 B | **32 B** |
+
+Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field order is `owner_`, `states_`, `timeInStateMs_`, then the six 1-byte fields, exactly as budgeted; no drift from the design.
+
+**Gameplay Framework Phase 3 flag (opt-in, default `0`):** one capability in `pixelroot32::gameplay`, header-only with no `.cpp` file, so there is no additional code cost when the flag is off. It depends on `math/` (`Vector2`, `MathUtil`) but carries **no `#error` guard**, on the same terms as `DepthCompare.h` and `GameplayEvent.h`, which already depend on `math/Scalar.h`: `math/` is always available regardless of `PIXELROOT32_ENABLE_PHYSICS` or any other flag:
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 0 B SRAM | `gameplay::GridSpace.h` — grid-to-world/world-to-grid coordinate conversion (`GridSpec`, `cellToWorldX/Y`, `cellToWorld`, `worldToCellX/Y`, `containsCell`) |
+| `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 20 B SRAM **per moving actor** | `gameplay::GridMotion.h` — per-actor cell-to-cell step state (`GridMotion`, `isMoving`, `placeAt`, `beginStep`, `tickStep`, `interpolatedWorld`) |
+
+**`GridSpec` byte budget:** every shipped consumer (`examples/snake`, `examples/2048`, `examples/bomberbot`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
+
+**`GridMotion` byte budget:** unlike `GridSpec`, a `GridMotion` is inherently per-actor runtime state, so it does land in `.bss`. `sizeof(GridMotion) == 20 B` (five `int`s, identical on ILP32 and LP64). Worst case is one instance per grid-moving actor: `examples/bomberbot` embeds one in `PlayerActor` and one in each of its `kMaxEnemies` pool slots. Against the ESP32-C3 ceiling of 24 entities that is **480 B** if every entity moves on the grid — comfortably inside budget, and typically far lower since static actors (walls, bombs, pickups) need none. `GridMotion` shares `GridSpace`'s flag rather than taking its own: `interpolatedWorld()` takes a `GridSpec`, so "motion without space" is not a reachable configuration.
+
+**`GridMotion` scope, and what it deliberately excludes:** it owns the logical cell, the in-flight target, the arrival edge and the cell-to-pixel lerp — the mechanics. Cell-enterability tests, direction selection, arrival reactions and input buffering stay in game code, because every shipped consumer answers them differently: `bomberbot`'s player treats the bomb it just dropped as passable while its enemies treat every bomb as solid, and neither buffers direction input (both sample direction only at rest and ignore it in flight). Modelling those as engine callbacks would cost more configuration than the ~17 lines of mechanics it replaces.
+
+**Sprite UI elements (`UISprite` / `UISpriteRow`, under `PIXELROOT32_ENABLE_UI_SYSTEM`):** the UI system drew text and rectangles only, so any icon — an item slot, a dialog portrait, a button glyph, a resource HUD — had to be drawn by hand in a `Scene::draw()` override, outside the entity tree. `UISpriteRef` (`include/graphics/ui/UISpriteRef.h`) is the tagged union that lets one element handle all three sprite descriptors (`Sprite`, `Sprite2bpp`, `Sprite4bpp`), each of which has a different draw signature. The format switch exists in exactly one place, `drawUISpriteRef()` — type erasure over templating, the same trade the gameplay framework made, for the same reason: one copy in flash instead of one per instantiation.
+
+| Type | native/PC (64-bit) | Notes |
+|---|---|---|
+| `UIElement` (base) | 40 B | For reference |
+| `UISpriteRef` | 16 B | Pointer + format tag + tint/palette slot |
+| `UISprite` | 64 B | Base + one ref + flip flag. **Smaller than `UILabel` (80 B)**, which carries a `std::string` |
+| `UISpriteRow` | 136 B | Base + `kMaxStates` (5) refs + value/capacity/spacing scalars |
+
+With `PIXELROOT32_ENABLE_UI_SYSTEM=0` all three translation units compile to an empty object (434 B of container headers, zero code) — verified, not assumed.
+
+**Why `UISpriteRow` is one element and not a layout of N `UISprite`:** the obvious composition — `UIHorizontalLayout` holding one `UISprite` per icon — costs one scene entity per icon. A 16-heart bar would take two thirds of the 24-entity budget recommended for the ESP32-C3 (see the variant table above), and every one of those entities re-enters `Scene::sortEntities()` — an insertion sort that runs each frame once depth sorting is on — to produce an order that never changes. `UISpriteRow` draws N icons from one entity and 136 B instead. Its `capacity` is a plain `uint8_t` counter, not a per-icon array, so growing the row at runtime (a heart container) costs no additional storage.
+
+**Gameplay Framework Phase 3 part 2 — Room/Screen (opt-in, default `0`):** `RoomGraph<N>` is a header-only template class under `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`. A `Scene` owns it via a type-erased `RoomGraphBase*` pointer (composition, no inheritance). Entering a room updates camera bounds and fires an optional `onEnter` callback. The flag defaults to `0` — when disabled the entire `#if` block is excluded and the engine contributes zero bytes.
+
+| Item | ESP32-C3 (32-bit) | native/PC (64-bit) | Notes |
+|------|-------------------|---------------------|-------|
+| `RoomGraphBase*` ptr on `Scene` | 4 B per Scene | 8 B per Scene | Type-erased pointer; nullptr when flag=0 or no graph is registered |
+| `RoomGraphBase` vtable | 12–16 B in flash | 12–16 B in flash | One shared vtable per program (not per instance) |
+| `RoomGraph<N>` vptr (from `RoomGraphBase`) | 4 B per instance | 8 B per instance | Per-instance vtable pointer; one per `RoomGraph<N>` regardless of N |
+| `RoomGraph<32>` (max rooms) | ~1296 B (32 × 40 B/room + 12 B bookkeeping + 4 B vptr) | ~1564 B (32 × 48 B/room + 16 B bookkeeping + 8 B vptr) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
+| `RoomGraph<2>` (typical example) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | The `examples/room_screen/` example ships with N=2 |
+| Per-`Room` size (`sizeof(Room)`) | 40 B | 48 B | Four `Scalar` fields (camera rect, 4×4 B), tile window (8 B + 1 B flag + 1 B pad), `connections_[4]` (16 B), `connectionCount_` (1 B + 3 B pad) |
+| Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block; no code, no data |
+
+Design: #3081 (`sdd/room-screen-abstraction/design`).
+
+**`RoomLayer` byte budget (room authoring):** `gameplay/RoomLayout.h` adds the data contract the Tilemap Editor exports rooms into — `RoomData` (one room's tile rect + 4 connection slots) and `RoomLayer` (the array header) — plus the header-only `buildRoomGraph<N>()` that fills a `RoomGraph<N>` from it. Both structs are trivially copyable, and the editor emits them as `static const` arrays, so a room layer lands in `.rodata`/flash and costs **0 B SRAM**. Sizes are pinned by `static_assert` in `test/unit/test_gameplay_room_layout/`, since the editor writes this layout byte-for-byte:
+
+| Item | ESP32-C3 (32-bit) | native/PC (64-bit) | Notes |
+|------|-------------------|---------------------|-------|
+| `sizeof(RoomData)` | 16 B | 16 B | Four `uint16_t` rect fields + `connections[4]`; 2-byte aligned, no padding between entries |
+| `RoomLayer` header | 8 B in flash | 16 B in flash | One `const RoomData*` + `roomCount` (2 B) + two `uint8_t` tile dimensions |
+| A 2-room layer (`examples/room_screen`) | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
+| `buildRoomGraph<N>()` | 0 B SRAM | 0 B SRAM | Runs once in `Scene::init()`; no state of its own, writes straight into the caller's `RoomGraph<N>` |
+| Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block, gated by the same `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` |
+
+Format reference: [Tilemap Editor — Room Layer](../tools/tilemap-editor/technical-reference.md#room-layer).
+
+**`CameraTween<N>` byte budget:** a Scene-owned fixed-capacity pool of N tween slots, each holding a `from` Vector2, a `to` Vector2, two `uint16_t` counters, an `easing` `uint8_t`, and an `active` bool. Composes with `Camera2D` (no change to Camera2D itself) for room transitions, cinematic pans, and cutscene movement. All easing math in Q16.16 integer arithmetic — no `float`, no `std::function`:
+
+| Component | ESP32-C3 (32-bit) | native (64-bit) | Notes |
+|------|-------------------|-----------------|-------|
+| `CameraTween<4>` (default N) | ~101 B (4 slots × 24 B + 1 B `activeCount_` + 4 B pad) | ~161 B (4 slots × 40 B + 1 B + padding) | Per Scene that owns one; `Vector2` is 8 B on 32-bit, 16 B on 64-bit |
+| Per-slot (`sizeof(Slot)`) | 24 B | 40 B | Two `Vector2` (16 B + 32 B), two `uint16_t` (4 B), one `uint8_t` (1 B), one `bool` (1 B + 1 B pad on 32-bit, 7 B pad on 64-bit) |
+| `activeCount_` | 1 B | 1 B | Number of currently-running tweens |
+| Flag = 0 | **1 B** (stub) | **1 B** (stub) | When disabled, `CameraTween<N>` is a stub template with no slots, no easing math, and all methods are no-ops. Storage is 1 byte for the stub object. |
+
+A Scene that wants smooth camera transitions declares a `CameraTween<N> tweens_` member and calls `tweens_.startTween(...)` + `tweens_.update(deltaMs, &camera)` from its `update()`. The tween writes positions via the existing `Camera2D::setPosition()` — no new methods on Camera2D. Genre-agnostic; useful for any game with smooth camera movement (top-down, metroidvania, platformer, puzzle, RPG). Design: #3105 (`sdd/camera-tween/design`).
+
+**`ObjectPool<T, N>` byte budget:** `N * sizeof(T)` for the aligned slot storage, plus target-independent bookkeeping (a `uint32_t liveWords_[(N+31)/32]` bitmask plus two `uint16_t` counters, `liveCount_` and `scanHint_`) — identical on ESP32-C3 and native because every bookkeeping field is a fixed-width type:
+
+| `N` (pool capacity) | `liveWords_` | counters (`liveCount_` + `scanHint_`) | **bookkeeping total** | per-slot equivalent |
+|---|---|---|---|---|
+| 8 | 1 × 4 B | 4 B | **8 B** | 1.00 B/slot |
+| 16 | 1 × 4 B | 4 B | **8 B** | 0.50 B/slot |
+| 32 | 1 × 4 B | 4 B | **8 B** | 0.25 B/slot |
+| 64 | 2 × 4 B | 4 B | **12 B** | 0.19 B/slot |
+
+Total instance size is `N * sizeof(T) + bookkeeping`, plus up to `alignof(T) - 1` bytes of tail padding for an over-aligned `T`. Since it is a template, only the `(T, N)` pairs a game actually instantiates emit any code or data — an unused instantiation costs nothing.
+
+**`GameplayEvent` byte budget (`GAMEPLAY_EVENT_QUEUE_CAPACITY` slots, default 32):**
+
+| Target | `void*` | `Scalar` | ids (2× `uint16_t`) | type tag | padding | `sizeof(GameplayEvent)` | Queue total |
+|--------|---------|----------|----------------------|----------|---------|--------------------------|-------------|
+| ESP32-C3 (32-bit, `Scalar` = `Fixed16`) | 4 B | 4 B | 4 B | 1 B | 3 B | **16 B** | **512 B** |
+| native/PC (64-bit, `Scalar` = `float`) | 8 B | 4 B | 4 B | 1 B | 7 B | **24 B** | **768 B** |
+
+**Non-atomic bus contract:** `gameplay::GameplayEventBus` is produced and consumed entirely inside the single-threaded `Scene::update()`/`Scene::draw()` loop driven from `SceneManager::update()`. Its head/tail/count indices are plain `uint16_t`, not `std::atomic` — unlike `AudioCommandQueue`, which bridges the game thread and the audio task. Publishing from an ISR or the audio task is **explicitly unsupported** and will corrupt the ring buffer's indices; it is not a replacement for `AudioCommandQueue`. Overflow policy is drop-newest with a monotonic `getDroppedCount()` diagnostic (preserves enter/exit pairing rather than risking a dangling `TriggerExit` for an evicted `TriggerEnter`). The bus is drained (`clear()`) on every `SceneManager::setCurrentScene()` call (including `SceneSwap` transitions), but **not** on `pushScene()`/`popScene()`, since a paused scene under an overlay never runs and should not lose events it expects to consume on resume.
+
+**`TileConsumptionConfig` byte budget:** the `requiredHits` field (added in `tile-consume-generalization`) adds **+1 byte** per config instance (`uint8_t`, default `1`). Typical call sites construct a stack-local `TileConsumptionConfig` per collision event, so the cost is one `uint8_t` on the stack, amortized per collision — no persistent SRAM cost.
 
 #### Subsystem Compilation Patterns
 
@@ -609,6 +731,9 @@ In v1.0.0, the `TFT_eSPI_Drawer` uses double-buffering for DMA. Increasing `LINE
 - **Baseline**: 20 lines = ~10KB (at 240 width)
 - **Optimized**: 60 lines = ~30KB
 - **Max**: 120 lines = ~60KB (Half frame)
+
+> [!NOTE]
+> Figures above are per buffer, and the driver allocates two. The `60`-line setting was unreachable before `d6dc9ae` (a buffer-selection bug always forced the 30-line fallback); builds from that commit onward get the documented size, falling back only when DMA-capable internal RAM is short. Enabling `PIXELROOT32_TFT_12BIT_COLOR=1` shrinks each buffer by 25% (60 lines at 240 width: ~28.8KB → ~21.6KB) at the cost of a 768-byte pair LUT — see [ESP32 Performance Guide](../guide/performance/esp32-performance.md#12-bit-color-on-the-wire-rgb444).
 
 > [!IMPORTANT]
 > Non-FPU platforms like ESP32-C3 have more limited SRAM. Be cautious when increasing DMA block sizes or logical resolutions.

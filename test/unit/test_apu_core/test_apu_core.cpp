@@ -1246,7 +1246,7 @@ void test_apu_core_melodic_zero_release_leaves_gate_unchanged(void) {
         0.0f,     // lfoFrequency
         0.0f,     // lfoDepth
         0.0f,     // lfoDelay
-        false,    // noiseShortMode
+        false,    // noiseLfsrShort
         0.0f      // dutySweep
     };
 

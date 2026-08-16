@@ -66,6 +66,13 @@ Solves penetration to separate overlapping bodies.
 
 Triggers collision callbacks for all valid contacts.
 
+### `void setInteractionTracker(pixelroot32::gameplay::InteractionTracker* tracker)`
+
+**Description:**
+
+Sets the (optional, non-owning) interaction tracker that
+       observes trigger enter/exit edges from triggerCallbacks().
+
 ### `size_t getEntityCount() const`
 
 **Description:**
@@ -94,6 +101,45 @@ Checks for collisions with a specific actor.
 - `maxCount`: Maximum number of collisions to return.
 
 **Returns:** True if any collisions were found.
+
+### `int queryRadius(pixelroot32::math::Vector2 center, pixelroot32::math::Scalar radius, CollisionLayer mask, pixelroot32::core::Actor** outArray, int maxCount)`
+
+**Description:**
+
+Layer-aware radius query, backed by SpatialGrid::queryRadius().
+
+**Parameters:**
+
+- `center`: Query circle center.
+- `radius`: Query circle radius (clamped/asserted, see above).
+- `mask`: Caller-supplied layer mask; only `other->layer` is tested.
+- `outArray`: Output array to store matching actors.
+- `maxCount`: Maximum number of actors to write to outArray.
+
+**Returns:** Number of actors written to outArray.
+
+::: warning
+Cross-scene visibility limitation (accepted, not fixed by
+this capability): see SpatialGrid::queryRadius(). A query issued
+against this CollisionSystem's grid MAY return static geometry
+registered by another simultaneously-alive scene's
+CollisionSystem/SpatialGrid. Pre-existing, documented, unguarded.
+:::
+
+### `int queryBox(const pixelroot32::core::Rect& box, CollisionLayer mask, pixelroot32::core::Actor** outArray, int maxCount)`
+
+**Description:**
+
+Layer-aware box query, backed by SpatialGrid::queryBox().
+
+**Parameters:**
+
+- `box`: Query rectangle.
+- `mask`: Caller-supplied layer mask; only `other->layer` is tested.
+- `outArray`: Output array to store matching actors.
+- `maxCount`: Maximum number of actors to write to outArray.
+
+**Returns:** Number of actors written to outArray.
 
 ### `bool needsCCD(pixelroot32::core::PhysicsActor* body) const`
 

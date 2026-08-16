@@ -64,6 +64,67 @@ Single-core architectures (like the ESP32-C3) run the game logic, display transf
 
 ---
 
+## 📺 Display Bandwidth (TFT_eSPI)
+
+The SPI panels in use do not run reliably above **40 MHz**, so a full-frame push is **bus-bound**: no CPU optimization can cross the transfer time. This fixes a hard FPS ceiling per panel and per wire format.
+
+| Panel | Format | Bytes/frame | Transfer @40 MHz | Hard ceiling |
+|-------|--------|-------------|------------------|--------------|
+| 240×240 | RGB565 | 115,200 | 23.04 ms | 43.4 FPS |
+| 240×240 | RGB444 | 86,400 | 17.28 ms | 57.9 FPS |
+| 240×320 | RGB565 | 153,600 | 30.72 ms | 32.6 FPS |
+| 240×320 | RGB444 | 115,200 | 23.04 ms | 43.4 FPS |
+
+> **Tip:** Lowering `LOGICAL_WIDTH`/`LOGICAL_HEIGHT` buys CPU time but **not** bus time — the scaler upscales to physical during scan-out, so the same number of bytes still goes out. Only `PHYSICAL_DISPLAY_WIDTH`/`HEIGHT` (letterboxing) or a narrower wire format shrink the transfer.
+
+### Deferred DMA Wait
+
+`sendBufferScaled()` leaves the frame's **last DMA block in flight** and flushes it at the top of the next call, so the tail of the SPI transfer overlaps the next frame's `update()` and `draw()` work. The frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`.
+
+- **Always on** for the TFT_eSPI driver — there is no flag to enable or disable it.
+- **Benefit**: closes most of the gap between measured FPS and the bus ceiling above; it does not raise the ceiling itself.
+- **Contract**: anything else that touches the SPI bus, the panel, or the line buffers must synchronize first — see [Shared SPI Bus Contract](#shared-spi-bus-contract).
+
+### Shared SPI Bus Contract
+
+**Any code that touches the SPI bus, the TFT, or frees/reallocates the DMA line buffers MUST call `TFT_eSPI_Drawer::waitForPendingDMA()` first.** Skipping it either corrupts the open SPI transaction or reads a buffer that DMA is still streaming. The call is a no-op when nothing is pending.
+
+Already wired inside the engine:
+
+| Call site | Why |
+|-----------|-----|
+| `TFT_eSPI_TouchBridge` reads | Touch controller shares the display SPI bus |
+| `freeScalingBuffers()` | Line buffers are freed while DMA may still read them |
+| `~TFT_eSPI_Drawer()` | Same, at teardown |
+| `init()` / `setRotation()` | Panel commands must not interleave with a pixel stream |
+
+Add the same guard when you introduce a **new peripheral on the shared bus** — an SD card, a second display, or a raw SPI sensor:
+
+```cpp
+// Before ANY other transaction on the shared SPI bus
+drawer.waitForPendingDMA();
+sdCard.read(block, buffer);
+```
+
+### 12-bit Color on the Wire (RGB444)
+
+> ⚠️ **Experimental — not yet verified on hardware.** The flag ships **off**. The panel accepting `COLMOD 0x03`, the rendered result and the predicted FPS gain are all still unvalidated. Enable it only on a board you can look at.
+
+`PIXELROOT32_TFT_12BIT_COLOR=1` sends the frame as **12-bit RGB444, two pixels per three bytes**, instead of RGB565. That is a flat **25% reduction in bus time on every frame**, independent of scene content — the only lever here that also helps full-screen scrollers.
+
+```ini
+; Enable in platformio.ini (per board)
+build_flags =
+    -DPIXELROOT32_TFT_12BIT_COLOR=1
+```
+
+- **No colors are lost.** The framebuffer is 8bpp RGB332, so a frame carries at most 256 distinct colors. TFT_eSPI expands RGB332 into 8 red levels, 8 green levels and 4 blue levels, and all 256 combinations survive truncation to 4 bits per channel **without a single collision**. The bijection is asserted by `test/unit/test_rgb444/test_rgb444.cpp`, not assumed.
+- **It is not bit-exact.** The absolute shade shifts slightly on red and green (blue is exact); what is preserved is the full set of 256 *distinguishable* colors, which is everything the 8bpp framebuffer can express.
+- **Width constraint**: only applies when `PHYSICAL_DISPLAY_WIDTH % 4 == 0`. Other widths keep RGB565 and log a warning at init. `pushPixelsDMA()` counts 16-bit words, so bytes-per-line must be even — and an even width is *not* sufficient (242 px → 363 bytes/line). This excludes panels such as the 135×240 ST7789.
+- **Memory effect**: each DMA line buffer shrinks 25% (28,800 → 21,600 bytes at 60 lines on a 240-wide panel), minus a 768-byte pair LUT. Net gain in DMA-capable internal RAM.
+
+---
+
 ## 💾 Memory & Resources
 
 **📖 For comprehensive C++17 memory management guide, see [Memory Management Guide](../../architecture/memory-system.md)**
@@ -190,3 +251,6 @@ See [DisplayConfig / Engine](../../api/core.md#engine) and the architecture deep
 | [Platform Compatibility](../platform-compatibility.md) | Hardware matrix and feature support |
 | [Architecture Index](../../architecture/architecture-index.md) | Layer architecture and subsystem navigation |
 | [Rendering Guide](../rendering.md) | Core rendering pipeline |
+| [Configuration Reference](../../api/config.md) | Every build flag, including the TFT_eSPI display flags |
+| [Driver Layer](../../architecture/layer-drivers.md) | TFT_eSPI driver internals and the shared SPI bus contract |
+| [ESP32 Performance Audit](../../performance-audit-esp32.md) | Full source audit with the bandwidth analysis behind these numbers |

@@ -158,7 +158,7 @@ def compile_and_run(test_name, test_file, output_name, source_files=None):
     
     # Add SDL libraries for tests that need them
     linker_flags = []
-    if test_name in ["Engine-Integration", "Game-Loop", "Core-Engine"]:
+    if test_name in ["Engine-Integration", "Game-Loop", "Core-Engine", "Graphics-Renderer1bpp"]:
         linker_flags.extend(["-lSDL2", "-lSDL2main"])
     
     cmd = [CXX] + CXXFLAGS + [f"-I{UNITY_DIR}"] + files + linker_flags + ["-o", str(output_path)]
@@ -209,10 +209,12 @@ def main():
         ("Physics-Primitives", "test/unit/test_collision_primitives/test_collision_primitives.cpp", "test_collision_primitives", ["src/physics/CollisionPrimitives.cpp"]),
         ("Physics-System", "test/unit/test_collision_system/test_collision_system.cpp", "test_collision_system", ["src/physics/CollisionSystem.cpp", "src/physics/CollisionPrimitives.cpp", "src/core/PhysicsActor.cpp", "src/physics/StaticActor.cpp", "src/physics/RigidActor.cpp", "src/physics/SpatialGrid.cpp"]),
         ("Graphics-Color", "test/unit/test_color/test_color.cpp", "test_color", ["src/graphics/Color.cpp"]),
+        ("Graphics-Rgb444", "test/unit/test_rgb444/test_rgb444.cpp", "test_rgb444", None),
         ("Graphics-Camera2D", "test/unit/test_camera2d/test_camera2d.cpp", "test_camera2d", ["src/graphics/Camera2D.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Graphics-FontManager", "test/unit/test_font_manager/test_font_manager.cpp", "test_font_manager", ["src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp"]),
         ("Graphics-TileAnimation", "test/unit/test_graphics/test_tile_animation.cpp", "test_tile_animation", ["src/graphics/TileAnimation.cpp"]),
         ("Graphics-TileAnimationRender", "test/unit/test_graphics/test_tile_animation_render.cpp", "test_tile_animation_render", ["src/graphics/TileAnimation.cpp", "src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp"]),
+        ("Graphics-Renderer1bpp", "test/unit/test_graphics/test_renderer_sprite1bpp.cpp", "test_renderer_sprite1bpp", ["src/graphics/Renderer.cpp", "src/graphics/Color.cpp", "src/graphics/FontManager.cpp", "src/graphics/Font5x7.cpp", "src/graphics/DisplayConfig.cpp", "src/graphics/DirtyGrid.cpp", "src/graphics/TileAnimation.cpp"]),
         ("Input-Config", "test/unit/test_input_config/test_input_config.cpp", "test_input_config", None),
         ("Input-Manager", "test/unit/test_input_manager/test_input_manager.cpp", "test_input_manager", ["src/input/InputManager.cpp", "src/platforms/mock/MockArduino.cpp"]),
         ("Audio-Queue", "test/unit/test_audio_command_queue/test_audio_command_queue.cpp", "test_audio_command_queue", None),

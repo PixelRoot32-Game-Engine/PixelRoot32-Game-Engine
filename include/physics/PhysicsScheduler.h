@@ -14,6 +14,21 @@
 
 namespace pixelroot32::physics {
 
+/**
+ * @class PhysicsScheduler
+ * @brief Fixed-timestep accumulator that decouples physics from frame rate.
+ *
+ * Banks real elapsed time and spends it in fixed 60 Hz slices, so collision
+ * results stay identical regardless of how fast or unevenly frames arrive.
+ *
+ * Normally at most one step runs per frame. When the accumulator falls more
+ * than 2.5 frames behind, up to MAX_STEPS_BACKLOG steps run to catch up; that
+ * ceiling is what stops a long stall from cascading into a spiral of death.
+ * Time beyond the ceiling is kept in the accumulator, not discarded.
+ *
+ * Zero-heap and zero-allocation: the whole state is an accumulator and a step
+ * counter.
+ */
 class PhysicsScheduler {
 public:
     /// Fixed timestep in microseconds (60 Hz)
