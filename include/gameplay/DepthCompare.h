@@ -6,6 +6,7 @@
 
 #include "core/Entity.h"
 #include "math/Scalar.h"
+#include "platforms/PlatformDefaults.h"
 
 namespace pixelroot32::gameplay {
 
@@ -30,5 +31,37 @@ inline bool compareByBottomY(core::Entity* a, core::Entity* b) {
     const math::Scalar bottomB = b->position.y + math::toScalar(b->height);
     return bottomA < bottomB;
 }
+
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+
+/**
+ * @brief Ready-made depth comparator: orders entities by the `depthKey` the
+ * game wrote on them, ascending.
+ *
+ * The projection-agnostic counterpart to compareByBottomY(). That comparator
+ * orders by world Y, which is the correct paint order only while screen depth
+ * is a monotone function of world Y — true for an axis-aligned top-down game,
+ * false under any non-identity projection. An isometric game writes
+ * `depthKey` from its projected anchor (e.g. `cellToScreenY()`) and uses this
+ * comparator instead; the engine never interprets the value.
+ *
+ * Matches `core::Scene::DepthComparator`'s signature
+ * (`bool (*)(Entity*, Entity*)`), so it can be assigned directly to a
+ * `Scene`-derived class's `depthComparator` member. No allocation, no virtual
+ * dispatch, inlinable — which matters because `Scene::sortEntities()` is an
+ * insertion sort and calls this O(n^2) times in the worst case.
+ *
+ * Equal keys compare `false`, so entities that share a key keep their
+ * insertion-relative order, exactly like the layer-only path.
+ *
+ * @param a First entity.
+ * @param b Second entity.
+ * @return true when `a`'s key is lower (`a` must draw before `b`).
+ */
+inline bool compareByDepthKey(core::Entity* a, core::Entity* b) {
+    return a->depthKey < b->depthKey;
+}
+
+#endif  // PIXELROOT32_ENABLE_DEPTH_SORT
 
 }  // namespace pixelroot32::gameplay

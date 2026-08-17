@@ -11,6 +11,10 @@
 #include "gameplay/GridSpace.h"
 #include "math/Vector2.h"
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#include "gameplay/Projection.h"
+#endif
+
 /**
  * @file GridMotion.h
  * @brief One actor's position while it travels from one grid cell to the next.
@@ -34,9 +38,18 @@
  *   be state nobody reads.
  *
  * Shares `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE` with GridSpace rather than
- * taking a flag of its own: interpolatedWorld() takes a `GridSpec`, so
- * "motion without space" is not a reachable configuration and a second flag
- * would only widen the build matrix.
+ * taking a flag of its own, and still does — but the original reason no longer
+ * holds and is corrected here rather than left standing. That reason was
+ * "interpolatedWorld() takes a `GridSpec`, so motion without space is not a
+ * reachable configuration". Since the `ProjectionSpec` overload landed, motion
+ * under a projection with no `GridSpec` in sight IS reachable in principle.
+ *
+ * The flag is deliberately not split anyway: a separate
+ * `..._GAMEPLAY_GRID_MOTION` would widen the build matrix for a configuration
+ * no consumer has asked for. The consequence is stated plainly instead — the
+ * `ProjectionSpec` overload below is guarded on BOTH flags, so an isometric
+ * game that wants `GridMotion` must enable the grid flag even if it never
+ * declares a `GridSpec`.
  *
  * @code
  * // Per logic step, in the actor:
@@ -164,6 +177,48 @@ inline math::Vector2 interpolatedWorld(const GridMotion& motion, int stepsPerCel
 
     return math::Vector2(x, y);
 }
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+
+/**
+ * @brief Same interpolation, under an arbitrary projection instead of an
+ *        axis-aligned grid.
+ *
+ * Projects both endpoints through the `ProjectionSpec` and lerps between them.
+ * The `GridMotion` state is used unchanged — `placeAt`, `beginStep`,
+ * `tickStep` and `isMoving` know nothing about projections and need no
+ * variant. This is the whole reason an isometric game does not reimplement
+ * cell-to-cell navigation.
+ *
+ * Under a non-identity basis a step along one cell axis moves BOTH screen
+ * axes, which the `GridSpec` overload cannot express.
+ *
+ * The lerp truncates toward zero, exactly like the `GridSpec` overload above,
+ * and for exactly the same reason: the drawn position lags the exact position
+ * by under one pixel *symmetrically* in both directions of travel. That is
+ * deliberate and projection-independent — do NOT "fix" it to the flooring
+ * division `Projection.h` uses for its inverse mapping. Those solve different
+ * problems.
+ *
+ * Costs one integer division per axis per call, same as the `GridSpec`
+ * overload (`stepsPerCell` is a runtime value and cannot be strength-reduced).
+ *
+ * @pre `stepsPerCell >= 1` and `spec` satisfies projectionSpecIsValid().
+ */
+inline math::Vector2 interpolatedWorld(const GridMotion& motion, int stepsPerCell,
+                                       const ProjectionSpec& spec) {
+    const int fromPx = cellToScreenX(motion.cellX, motion.cellY, spec);
+    const int fromPy = cellToScreenY(motion.cellX, motion.cellY, spec);
+    const int toPx = cellToScreenX(motion.toX, motion.toY, spec);
+    const int toPy = cellToScreenY(motion.toX, motion.toY, spec);
+
+    const int x = fromPx + (toPx - fromPx) * motion.progress / stepsPerCell;
+    const int y = fromPy + (toPy - fromPy) * motion.progress / stepsPerCell;
+
+    return math::Vector2(x, y);
+}
+
+#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
 
 }  // namespace pixelroot32::gameplay
 

@@ -240,6 +240,189 @@ void test_disabled_preserves_existing_behavior_and_cost(void) {
 }
 
 // =============================================================================
+// Requirement: Entity Carries A Game-Written Depth Key That The Engine Only
+//              Compares  /  compareByDepthKey Orders Entities By Their Key
+//
+// Unlike Scene's depth-sort surface above, Entity::depthKey IS gated behind
+// PIXELROOT32_ENABLE_DEPTH_SORT, and the asymmetry is deliberate: Scene's
+// members cost ~8 B once per scene (design.md D5's rationale for leaving them
+// unconditional), while a per-entity field costs 4 B x MAX_ENTITIES = 256 B
+// and scales with the entity budget. A game that does not depth-sort must not
+// pay it, so these tests live inside the flag.
+// =============================================================================
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+
+void test_depth_key_is_two_bytes_and_defaults_to_zero(void) {
+    MockEntity e(0, 0, 10, 10);
+
+    // int16_t: a projected screen Y fits Scalar's +/-32767 range.
+    TEST_ASSERT_EQUAL_UINT32(2u, static_cast<uint32_t>(sizeof(e.depthKey)));
+
+    // Defaulting to 0 is what makes the field safe to add: a game that never
+    // writes it gets stable layer-only ordering, not a wrong inherited answer.
+    // (This is the concrete advantage over a virtual getter, whose only
+    // possible base default would be the world-Y expression.)
+    TEST_ASSERT_EQUAL_INT(0, e.depthKey);
+}
+
+void test_engine_never_writes_the_depth_key(void) {
+    DepthSortTestScene scene;
+    DisplayConfig config(DisplayType::NONE, 0, 240, 240);
+    Renderer renderer(config);
+
+    MockEntity e(0, 0, 10, 10);
+    e.setRenderLayer(1);
+    e.depthKey = 1234;
+
+    scene.addEntity(&e);
+    scene.setComparator(&pixelroot32::gameplay::compareByDepthKey);
+    scene.enableDepthSort(true);
+
+    // Sort and draw repeatedly: the engine reads the key, never assigns it.
+    scene.forceSort();
+    scene.draw(renderer);
+    scene.forceSort();
+    scene.draw(renderer);
+
+    TEST_ASSERT_EQUAL_INT(1234, e.depthKey);
+}
+
+void test_compare_by_depth_key_orders_ascending_within_a_layer(void) {
+    DepthSortTestScene scene;
+
+    // Added in descending key order so a layer-only sort would leave them
+    // untouched — any reordering observed comes from the comparator.
+    MockEntity a(0, 0, 10, 10);  // key 30, added 1st
+    MockEntity b(0, 0, 10, 10);  // key 10, added 2nd
+    MockEntity c(0, 0, 10, 10);  // key 20, added 3rd
+
+    a.setRenderLayer(1); a.depthKey = 30;
+    b.setRenderLayer(1); b.depthKey = 10;
+    c.setRenderLayer(1); c.depthKey = 20;
+
+    scene.addEntity(&a);
+    scene.addEntity(&b);
+    scene.addEntity(&c);
+
+    scene.setComparator(&pixelroot32::gameplay::compareByDepthKey);
+    scene.enableDepthSort(true);
+    scene.forceSort();
+
+    Entity** sorted = scene.getEntities();
+    TEST_ASSERT_EQUAL_PTR(&b, sorted[0]);
+    TEST_ASSERT_EQUAL_PTR(&c, sorted[1]);
+    TEST_ASSERT_EQUAL_PTR(&a, sorted[2]);
+}
+
+void test_compare_by_depth_key_render_layer_still_dominates(void) {
+    DepthSortTestScene scene;
+
+    // The entity on the HIGHER layer carries the LOWER key. Layer must win.
+    MockEntity high(0, 0, 10, 10);
+    MockEntity low(0, 0, 10, 10);
+
+    high.setRenderLayer(2); high.depthKey = 1;
+    low.setRenderLayer(0);  low.depthKey = 999;
+
+    scene.addEntity(&high);
+    scene.addEntity(&low);
+
+    scene.setComparator(&pixelroot32::gameplay::compareByDepthKey);
+    scene.enableDepthSort(true);
+    scene.forceSort();
+
+    Entity** sorted = scene.getEntities();
+    TEST_ASSERT_EQUAL_PTR(&low, sorted[0]);   // layer 0 first, despite key 999
+    TEST_ASSERT_EQUAL_PTR(&high, sorted[1]);
+}
+
+void test_compare_by_depth_key_keeps_insertion_order_for_equal_keys(void) {
+    DepthSortTestScene scene;
+
+    MockEntity first(0, 0, 10, 10);
+    MockEntity second(0, 0, 10, 10);
+
+    first.setRenderLayer(1);  first.depthKey = 7;
+    second.setRenderLayer(1); second.depthKey = 7;
+
+    scene.addEntity(&first);
+    scene.addEntity(&second);
+
+    scene.setComparator(&pixelroot32::gameplay::compareByDepthKey);
+    scene.enableDepthSort(true);
+    scene.forceSort();
+
+    // `a->depthKey < b->depthKey` is false for equal keys, so the insertion
+    // sort leaves them alone — the same stability the layer-only path has.
+    Entity** sorted = scene.getEntities();
+    TEST_ASSERT_EQUAL_PTR(&first, sorted[0]);
+    TEST_ASSERT_EQUAL_PTR(&second, sorted[1]);
+}
+
+void test_depth_key_succeeds_where_bottom_y_ordering_fails(void) {
+    // THE reason this capability exists. Two actors on an isometric map whose
+    // gameplay positions are stored in WORLD/cell space, not screen space:
+    //
+    //   actor A at cell (2, 0) -> world (32,  0), projected screen Y = 16
+    //   actor B at cell (0, 1) -> world ( 0, 16), projected screen Y =  8
+    //
+    // (Projected values under the isometric 2:1 basis {0,0,16,8,-16,8}; the
+    // projection suite proves cellToScreenY(2,0) == 16 and cellToScreenY(0,1)
+    // == 8. Hardcoded here so this file stays independent of the projection
+    // flag.)
+    //
+    // Correct painter's order is by projected screen Y, so B (8) must draw
+    // before A (16). Ordering by world bottom-Y gives the opposite answer,
+    // because world Y is not a monotone function of projected Y.
+    const int kBottomA = 0 + 16;   // A: position.y 0,  height 16
+    const int kBottomB = 16 + 16;  // B: position.y 16, height 16
+    TEST_ASSERT_TRUE_MESSAGE(kBottomA < kBottomB,
+        "fixture check: world bottom-Y orders A before B");
+
+    // --- compareByBottomY: draws A first. Wrong for this projection. ---
+    {
+        DepthSortTestScene scene;
+        MockEntity a(32, 0, 16, 16);
+        MockEntity b(0, 16, 16, 16);
+        a.setRenderLayer(1);
+        b.setRenderLayer(1);
+        scene.addEntity(&a);
+        scene.addEntity(&b);
+        scene.setComparator(&pixelroot32::gameplay::compareByBottomY);
+        scene.enableDepthSort(true);
+        scene.forceSort();
+
+        Entity** sorted = scene.getEntities();
+        TEST_ASSERT_EQUAL_PTR_MESSAGE(&a, sorted[0],
+            "compareByBottomY must order by world Y — which is the wrong "
+            "answer under a non-identity projection");
+    }
+
+    // --- compareByDepthKey: draws B first. Correct. ---
+    {
+        DepthSortTestScene scene;
+        MockEntity a(32, 0, 16, 16);
+        MockEntity b(0, 16, 16, 16);
+        a.setRenderLayer(1);
+        b.setRenderLayer(1);
+        a.depthKey = 16;  // cellToScreenY(2, 0, iso2to1)
+        b.depthKey = 8;   // cellToScreenY(0, 1, iso2to1)
+        scene.addEntity(&a);
+        scene.addEntity(&b);
+        scene.setComparator(&pixelroot32::gameplay::compareByDepthKey);
+        scene.enableDepthSort(true);
+        scene.forceSort();
+
+        Entity** sorted = scene.getEntities();
+        TEST_ASSERT_EQUAL_PTR_MESSAGE(&b, sorted[0],
+            "compareByDepthKey must order by the projected key, drawing the "
+            "screen-higher actor first");
+    }
+}
+
+#endif  // PIXELROOT32_ENABLE_DEPTH_SORT
+
+// =============================================================================
 // Requirement: Feature-Gated And Zero-Cost When Disabled
 // (functional half: no dynamic allocation at MAX_ENTITIES capacity)
 //
@@ -343,6 +526,14 @@ int main(int argc, char** argv) {
     RUN_TEST(test_comparator_orders_entities_within_same_layer);
     RUN_TEST(test_scene_resorts_every_frame_when_depth_sort_enabled);
     RUN_TEST(test_disabled_preserves_existing_behavior_and_cost);
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+    RUN_TEST(test_depth_key_is_two_bytes_and_defaults_to_zero);
+    RUN_TEST(test_engine_never_writes_the_depth_key);
+    RUN_TEST(test_compare_by_depth_key_orders_ascending_within_a_layer);
+    RUN_TEST(test_compare_by_depth_key_render_layer_still_dominates);
+    RUN_TEST(test_compare_by_depth_key_keeps_insertion_order_for_equal_keys);
+    RUN_TEST(test_depth_key_succeeds_where_bottom_y_ordering_fails);
+#endif
     RUN_TEST(test_depth_sort_zero_cost_when_disabled_and_no_heap_allocation);
 
     return UNITY_END();

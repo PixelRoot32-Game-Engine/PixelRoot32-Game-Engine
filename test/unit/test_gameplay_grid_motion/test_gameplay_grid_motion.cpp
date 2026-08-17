@@ -398,6 +398,123 @@ void test_interpolated_world_agrees_with_grid_space_round_trip_after_arrival(voi
     TEST_ASSERT_TRUE(containsCell(m.cellX, m.cellY, kSquareGrid));
 }
 
+// --- Under a projection ----------------------------------------------------
+//
+// The ProjectionSpec overload of interpolatedWorld() exists so an isometric
+// game reuses GridMotion's stepping state instead of reimplementing cell-to-
+// cell navigation. It is guarded on BOTH flags: the function lives in this
+// header (so it needs GRID_SPACE) and its body needs PROJECTION.
+
+#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+
+namespace {
+
+/// Isometric 2:1 with 32x16 diamond tiles. Both screen axes move for a step
+/// along either cell axis, which is the property an axis-aligned GridSpec
+/// cannot express.
+constexpr ProjectionSpec kIso2to1{0, 0, 16, 8, -16, 8};
+static_assert(projectionSpecIsValid(kIso2to1, 32, 32), "kIso2to1 must be a valid spec.");
+
+int screenX(const GridMotion& m, int stepsPerCell, const ProjectionSpec& spec) {
+    return pixelroot32::math::floorToInt(interpolatedWorld(m, stepsPerCell, spec).x);
+}
+
+int screenY(const GridMotion& m, int stepsPerCell, const ProjectionSpec& spec) {
+    return pixelroot32::math::floorToInt(interpolatedWorld(m, stepsPerCell, spec).y);
+}
+
+}  // namespace
+
+void test_interpolated_world_projection_endpoints_match_cell_to_screen(void) {
+    GridMotion m;
+    placeAt(m, 1, 1);
+
+    // At rest: exactly the projected anchor of the logical cell.
+    TEST_ASSERT_EQUAL_INT(cellToScreenX(1, 1, kIso2to1), screenX(m, kSteps, kIso2to1));
+    TEST_ASSERT_EQUAL_INT(cellToScreenY(1, 1, kIso2to1), screenY(m, kSteps, kIso2to1));
+
+    beginStep(m, 2, 1);
+    while (isMoving(m)) {
+        tickStep(m, kSteps);
+    }
+
+    // After the commit: exactly the destination anchor, no fractional residue.
+    TEST_ASSERT_EQUAL_INT(cellToScreenX(2, 1, kIso2to1), screenX(m, kSteps, kIso2to1));
+    TEST_ASSERT_EQUAL_INT(cellToScreenY(2, 1, kIso2to1), screenY(m, kSteps, kIso2to1));
+}
+
+void test_interpolated_world_projection_moves_on_both_screen_axes(void) {
+    // A step along cell X moves the sprite right AND down under an isometric
+    // basis. With a GridSpec the Y would not move at all — this is the whole
+    // reason the overload exists.
+    GridMotion m;
+    placeAt(m, 1, 1);
+    beginStep(m, 2, 1);
+
+    const int fromX = cellToScreenX(1, 1, kIso2to1);  // 0
+    const int fromY = cellToScreenY(1, 1, kIso2to1);  // 16
+    const int toX = cellToScreenX(2, 1, kIso2to1);    // 16
+    const int toY = cellToScreenY(2, 1, kIso2to1);    // 24
+
+    int previousX = fromX;
+    int previousY = fromY;
+
+    while (isMoving(m)) {
+        tickStep(m, kSteps);
+        const int x = screenX(m, kSteps, kIso2to1);
+        const int y = screenY(m, kSteps, kIso2to1);
+
+        // Monotone on both axes, never past either endpoint.
+        TEST_ASSERT_TRUE(x >= previousX);
+        TEST_ASSERT_TRUE(y >= previousY);
+        TEST_ASSERT_TRUE(x >= fromX && x <= toX);
+        TEST_ASSERT_TRUE(y >= fromY && y <= toY);
+
+        previousX = x;
+        previousY = y;
+    }
+
+    TEST_ASSERT_EQUAL_INT(toX, previousX);
+    TEST_ASSERT_EQUAL_INT(toY, previousY);
+}
+
+void test_interpolated_world_projection_handles_negative_cells(void) {
+    GridMotion m;
+    placeAt(m, -2, -3);
+
+    TEST_ASSERT_EQUAL_INT(cellToScreenX(-2, -3, kIso2to1), screenX(m, kSteps, kIso2to1));
+    TEST_ASSERT_EQUAL_INT(cellToScreenY(-2, -3, kIso2to1), screenY(m, kSteps, kIso2to1));
+
+    beginStep(m, -1, -3);
+    while (isMoving(m)) {
+        tickStep(m, kSteps);
+    }
+
+    TEST_ASSERT_EQUAL_INT(cellToScreenX(-1, -3, kIso2to1), screenX(m, kSteps, kIso2to1));
+    TEST_ASSERT_EQUAL_INT(cellToScreenY(-1, -3, kIso2to1), screenY(m, kSteps, kIso2to1));
+}
+
+void test_interpolated_world_grid_spec_overload_is_unaffected(void) {
+    // The new overload must not change which one an existing GridSpec call
+    // resolves to, nor what it returns. Same motion, same steps, both specs:
+    // the GridSpec call keeps producing GridSpace's axis-aligned answer.
+    GridMotion m;
+    placeAt(m, 1, 1);
+    beginStep(m, 2, 1);
+    tickStep(m, kSteps);
+
+    TEST_ASSERT_EQUAL_INT(cellToWorldX(1, kSquareGrid) +
+                              (cellToWorldX(2, kSquareGrid) - cellToWorldX(1, kSquareGrid)) *
+                                  m.progress / kSteps,
+                          worldX(m, kSteps, kSquareGrid));
+
+    // A step along cell X leaves world Y untouched under a GridSpec — the
+    // behaviour that must survive the addition of the projection overload.
+    TEST_ASSERT_EQUAL_INT(cellToWorldY(1, kSquareGrid), worldY(m, kSteps, kSquareGrid));
+}
+
+#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+
 #endif  // PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE
 
 void test_gameplay_grid_motion_zero_cost_when_disabled(void) {
@@ -452,6 +569,12 @@ int main(int argc, char** argv) {
     RUN_TEST(test_interpolated_world_respects_a_non_zero_grid_origin);
     RUN_TEST(test_interpolated_world_scales_each_axis_by_its_own_cell_size);
     RUN_TEST(test_interpolated_world_agrees_with_grid_space_round_trip_after_arrival);
+#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+    RUN_TEST(test_interpolated_world_projection_endpoints_match_cell_to_screen);
+    RUN_TEST(test_interpolated_world_projection_moves_on_both_screen_axes);
+    RUN_TEST(test_interpolated_world_projection_handles_negative_cells);
+    RUN_TEST(test_interpolated_world_grid_spec_overload_is_unaffected);
+#endif
 #endif
     RUN_TEST(test_gameplay_grid_motion_zero_cost_when_disabled);
 
