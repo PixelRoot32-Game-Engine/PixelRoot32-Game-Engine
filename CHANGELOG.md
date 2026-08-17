@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 # Unreleased
 
+### ✨ Added
+
+* **Cell-to-Screen Projection (`PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION`)**: `ProjectionSpec` describes where cell (0,0) lands on screen and how far one step along each cell axis moves — an origin plus a 2×2 integer basis. `cellToScreenX/Y` place a cell, `screenToCellX/Y` invert the mapping for touch picking. Orthogonal, isometric 2:1, isometric 1:1 and oblique layouts are all *values* of the one type, so isometric games stop hand-rolling diamond math without the engine gaining an isometric mode. Forward mapping never divides; the inverse floors toward negative infinity, so a touch one pixel outside the map lands in the cell outside it rather than being clamped into cell (0,0). A `constexpr ProjectionSpec` costs zero SRAM.
+* **Projection-Agnostic Depth Keys (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: `Entity::depthKey` plus `gameplay::compareByDepthKey` let a game state paint order directly instead of having it inferred from world Y. Ordering by `position.y + height` is correct only while screen depth tracks world Y — true for axis-aligned top-down games, false under any non-identity projection, where two cells can share a screen row at different world Ys. `compareByBottomY` is unchanged and stays the right choice for orthogonal games.
+* **`GridMotion` under a projection**: `interpolatedWorld()` gains a `ProjectionSpec` overload, so an isometric actor reuses the same cell-to-cell stepping state an orthogonal one uses — including the property that one cell-axis step moves *both* screen axes.
+
+### 🔧 Changed
+
+* **`Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`** (28 → 32; 8 bytes on 64-bit native), because `depthKey` cannot fit in the single existing pad byte. At `MAX_ENTITIES = 64` that is 256 B worst case. With the flag at its default `0` the field is not declared and `sizeof(Entity)` is unchanged.
+
 # 1.9.0
 
 This release introduces the **Gameplay Framework**: a set of building blocks for the parts of a game every project used to hand-roll — grid math, state machines, object pools, event dispatch and room-by-room worlds. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them compiles to the same binary as 1.8.0.

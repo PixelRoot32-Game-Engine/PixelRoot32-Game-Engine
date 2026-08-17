@@ -78,6 +78,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [InteractionTracker](./gameplay/InteractionTracker.md) — Detects enter/exit edges on the per-frame physics contact set and
        dispatches InteractionComponent callbacks (design.md D3).
 - [ObjectPool](./gameplay/ObjectPool.md) — Fixed-capacity, zero-heap slot pool over aligned raw storage.
+- [ProjectionSpec](./gameplay/ProjectionSpec.md) — Plain six-`int` aggregate: the screen anchor of cell (0, 0) plus the
+       two screen-space axis vectors of the cell grid.
 - [Room](./gameplay/Room.md) — POD describing a single room: camera rect + optional tile window
        + fixed-size connection list.
 - [RoomData](./gameplay/RoomData.md) — One exported room: its tile-space rect plus four connection slots.
