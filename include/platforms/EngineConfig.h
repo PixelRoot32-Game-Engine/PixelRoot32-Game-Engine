@@ -566,6 +566,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableCameraTween = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+
+    /** @brief Type-safe access to EnableGameplayProjection configuration. */
+    inline constexpr bool EnableGameplayProjection = true;
+    #else
+
+    /** @brief Type-safe access to EnableGameplayProjection configuration. */
+    inline constexpr bool EnableGameplayProjection = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }

@@ -114,11 +114,23 @@
 #define PIXELROOT32_ENABLE_CAMERA_TWEEN 0
 #endif
 
-// No dependency guard is declared for the three flags above: unlike
-// interaction triggers and spatial queries, none of the state machine, the
-// object pool, or the grid space helper includes any physics-gated header,
-// so all three are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are
-// independent of each other.
+#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION)
+#define PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION 0
+#endif
+
+// No dependency guard is declared for the state machine, the object pool, the
+// grid space helper or the projection helper: unlike interaction triggers and
+// spatial queries, none of them includes any physics-gated header, so all four
+// are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are independent of each
+// other.
+//
+// The projection helper is the strictest case: include/gameplay/Projection.h
+// includes nothing but this file, because every one of its functions is pure
+// int arithmetic. In particular it does NOT depend on
+// PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE — a game may project without ever
+// declaring a GridSpec. The single place the two capabilities meet is the
+// ProjectionSpec overload of interpolatedWorld(), which lives in
+// include/gameplay/GridMotion.h and is guarded on both flags there.
 
 // Interaction triggers and spatial queries are built on top of CollisionSystem
 // and SpatialGrid, which only exist when physics is enabled (see
