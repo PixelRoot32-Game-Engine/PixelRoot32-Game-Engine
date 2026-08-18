@@ -228,6 +228,22 @@ public:
      * @brief Swaps buffers (for double-buffered systems like SDL).
      */
     virtual void present() = 0;
+
+    /**
+     * @brief Settles any transfer a previous present() deliberately left in
+     *        flight. No-op by default.
+     *
+     * Exists for drivers that defer the tail of a frame so its bus time
+     * overlaps the next frame's work (see TFT_eSPI_Drawer::sendBufferScaled).
+     * That deferral assumes a present() follows to close the transaction. A
+     * scene that reports `shouldRedrawFramebuffer() == false` breaks the
+     * assumption: without this call the bus stays claimed for as long as the
+     * scene stays still, locking out every other device on it.
+     *
+     * Engine calls this on exactly the frames it skips presenting, so drivers
+     * that transfer synchronously simply do nothing here.
+     */
+    virtual void flushPendingTransfers() {}
 };
 
 }

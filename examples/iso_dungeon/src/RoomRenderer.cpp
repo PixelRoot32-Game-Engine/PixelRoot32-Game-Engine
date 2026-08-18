@@ -23,7 +23,17 @@ void RoomRenderer::update(unsigned long deltaTime) {
 }
 
 void RoomRenderer::draw(gfx::Renderer& renderer) {
-    renderer.drawFilledRectangle(0, 0, kDisplaySize, kDisplaySize, kVoidColor);
+    // No backdrop fill. `Renderer::beginFrame` has already cleared the
+    // framebuffer to black, and under this example's palette kVoidColor
+    // (index 1) IS 0x0000 -- so painting it would write 57,600 identical
+    // bytes over 57,600 identical bytes. On the ESP32 that is a second
+    // full-screen pass per frame for no visible pixel.
+    //
+    // The backdrop is still deliberate, not dropped: the room simply does not
+    // cover the whole display, and everything it does not cover reads as the
+    // drop beyond the floor. Change the palette so index 1 stops being black
+    // and this needs a fill again -- kVoidColor stays in
+    // IsoDungeonConstants.h naming that intent.
 
     // Row-major iteration IS the isometric painter's order here, and not by
     // luck: screen depth under kTileProjection is 8 * (x + y), so a tile is

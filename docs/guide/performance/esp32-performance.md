@@ -97,6 +97,9 @@ Already wired inside the engine:
 | `freeScalingBuffers()` | Line buffers are freed while DMA may still read them |
 | `~TFT_eSPI_Drawer()` | Same, at teardown |
 | `init()` / `setRotation()` | Panel commands must not interleave with a pixel stream |
+| `Engine` on a skipped frame, via `DrawSurface::flushPendingTransfers()` | A scene reporting `shouldRedrawFramebuffer() == false` skips `present()`, so nothing else would close the open transaction |
+
+> **Why not just flush in `processEvents()`?** It runs *before* `draw()`, so it would wait out the DMA ahead of the work that block's SPI time exists to overlap — cancelling the deferral outright.
 
 Add the same guard when you introduce a **new peripheral on the shared bus** — an SD card, a second display, or a raw SPI sensor:
 

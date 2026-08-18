@@ -115,6 +115,36 @@ public:
      */
     void waitForPendingDMA();
 
+    /**
+     * @brief Settles the deferred transfer on a frame the engine chose not to
+     *        present. Implements the DrawSurface hook in terms of
+     *        waitForPendingDMA().
+     *
+     * This driver's present() deliberately returns with the frame's last block
+     * still in flight and the SPI write transaction still OPEN, so that block's
+     * bus time overlaps the next frame's update/draw work. The design assumes
+     * another present() follows to close it, which is true only while every
+     * frame is drawn.
+     *
+     * A scene that reports `shouldRedrawFramebuffer() == false` breaks that
+     * assumption: Engine skips both draw() and present(), so nothing closes the
+     * transaction and the bus stays claimed for as long as the scene holds
+     * still. Engine therefore calls this on exactly the frames it skips. The
+     * pixels already on the panel are unaffected - the transfer completes
+     * either way; what this reclaims is the bus and the open transaction.
+     *
+     * @note Do NOT move this into processEvents() to "always be safe".
+     *       Engine runs processEvents() BEFORE draw(), so flushing there would
+     *       wait out the DMA before the CPU does the work meant to overlap it,
+     *       destroying the deferral this exists to protect.
+     *
+     * Safe to call when nothing is pending (no-op), so drivers that transfer
+     * synchronously simply inherit the base no-op instead of overriding.
+     *
+     * @see waitForPendingDMA() for the shared-bus contract this reuses.
+     */
+    void flushPendingTransfers() override { waitForPendingDMA(); }
+
 private:
     TFT_eSPI tft;   ///< The underlying TFT_eSPI driver instance.
     TFT_eSprite spr; ///< The sprite used as a framebuffer.

@@ -99,6 +99,33 @@ void HeroActor::update(unsigned long deltaTime) {
         logicStep();
     }
     updateProjectedPosition();
+    refreshVisualDirty();
+}
+
+uint8_t HeroActor::spriteFrame() const {
+    // The walk cycle is driven by step progress rather than by a timer of its
+    // own: one full stride per tile, in sync with the movement by
+    // construction. A separate animation clock would drift against the logic
+    // clock and land the hero on a cell mid-stride.
+    const uint8_t phase =
+        static_cast<uint8_t>((motion_.progress * 2 / kStepsPerCell) & 1);
+    return static_cast<uint8_t>((facingAway_ ? HERO_AWAY_0 : HERO_TOWARD_0) + phase);
+}
+
+void HeroActor::refreshVisualDirty() {
+    // Compared in the same integer screen coordinates drawAtCell() receives,
+    // not in Scalar: two positions that round to the same pixel produce the
+    // same frame, and re-sending it would cost a full SPI push to change
+    // nothing.
+    if (visualDirty_) {
+        return;
+    }
+    if (static_cast<int>(position.x) != drawnX_ ||
+        static_cast<int>(position.y) != drawnY_ ||
+        spriteFrame() != drawnFrame_ ||
+        flipX_ != drawnFlipX_) {
+        visualDirty_ = true;
+    }
 }
 
 void HeroActor::updateProjectedPosition() {
@@ -123,17 +150,20 @@ void HeroActor::updateProjectedPosition() {
 }
 
 void HeroActor::draw(gfx::Renderer& renderer) {
-    // The walk cycle is driven by step progress rather than by a timer of its
-    // own: one full stride per tile, in sync with the movement by
-    // construction. A separate animation clock would drift against the logic
-    // clock and land the hero on a cell mid-stride.
-    const uint8_t phase =
-        static_cast<uint8_t>((motion_.progress * 2 / kStepsPerCell) & 1);
-    const uint8_t frame =
-        static_cast<uint8_t>((facingAway_ ? HERO_AWAY_0 : HERO_TOWARD_0) + phase);
+    const uint8_t frame = spriteFrame();
+    const int screenX = static_cast<int>(position.x);
+    const int screenY = static_cast<int>(position.y);
 
-    drawAtCell(renderer, HERO_FRAMES[frame], HERO_FOOT_Y,
-               static_cast<int>(position.x), static_cast<int>(position.y), flipX_);
+    drawAtCell(renderer, HERO_FRAMES[frame], HERO_FOOT_Y, screenX, screenY, flipX_);
+
+    // Record what was actually put on screen. Clearing the flag here rather
+    // than in update() is what makes a skipped frame safe: if the engine never
+    // called this, the flag is still standing next frame.
+    drawnX_ = screenX;
+    drawnY_ = screenY;
+    drawnFrame_ = frame;
+    drawnFlipX_ = flipX_;
+    visualDirty_ = false;
 }
 
 }  // namespace iso_dungeon

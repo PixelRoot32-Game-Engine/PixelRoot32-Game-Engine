@@ -40,6 +40,20 @@ public:
 
     void init() override;
 
+    /**
+     * @brief Lets the engine skip draw() and present() while the room looks
+     *        identical to the frame already on the panel.
+     *
+     * The room, the altar and both pillars never move, so the hero is the only
+     * entity whose appearance can change -- which makes this a one-line
+     * question rather than a per-entity sweep. It matters far more than the
+     * CPU it saves: `present()` pushes all 240x240 pixels over SPI every time
+     * it is called, about 23 ms at 40 MHz, and the ST7789 holds the last frame
+     * on its own memory in the meantime. Standing still therefore costs
+     * nothing instead of costing the entire frame budget.
+     */
+    bool shouldRedrawFramebuffer() const override { return hero_.needsRedraw(); }
+
 private:
     RoomRenderer room_;
     HeroActor    hero_{kSpawnTileX, kSpawnTileY};

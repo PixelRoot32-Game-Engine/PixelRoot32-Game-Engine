@@ -117,17 +117,25 @@ own, so an isometric game that wants cell-to-cell navigation must enable the
 grid flag even though it never declares a `GridSpec`. `GridMotion.h` states
 this outright. The cost is one unused header, not one unused byte.
 
-**The tilemap renderer is orthogonal-only.** `drawTileMap` and
-`StaticTilemapLayerCache` assume axis-aligned cells, so the floor here is drawn
-sprite-per-cell every frame — 49 `drawSprite` calls. At this room size that is
-comfortably inside budget; a large isometric map would want the
-projection-aware layer cache, which is a separate, still-unclaimed follow-up.
+
+
+
+**Standing still costs nothing.** `shouldRedrawFramebuffer()` reports whether
+the hero would draw differently from the frame already on the panel, and the
+engine skips both `draw()` and `present()` when it would not. That is not a CPU
+optimisation: `present()` pushes 240×240 RGB565 over SPI, about 23 ms at
+40 MHz, which is the frame budget. The hero is the only entity that can move,
+so one flag answers for the whole room — a scene with several movers would
+need to OR their answers together.
 
 **`graphics::Color` is a palette INDEX here, and its name lies.** This example
 installs a custom 16-colour palette, so `Color::Black` is index 0, which the
 renderer treats as transparent, and index 1 — spelled `Color::White` — is where
-the palette puts pure black. The backdrop uses the named `kVoidColor` constant
-so that trap lives in exactly one place.
+the palette puts pure black. `kVoidColor` names that index so the trap lives in
+exactly one place. Nothing paints it today: it is already the colour
+`beginFrame()` clears to, so `RoomRenderer` skips the backdrop fill rather than
+writing 57,600 identical bytes over 57,600 identical bytes. Repalette the room
+and that fill comes back.
 
 ## Art
 
