@@ -19,8 +19,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 |--------|----------------------|-------------------------|
 | [hello_world](hello_world/) | Minimal `Scene`, `UILabel`, button input, background color cycle | `native`, `esp32dev` , `esp32s3` |
 | [camera](camera/) | `Camera2D` (smoothing, bounds), parallax, tile platforms, `KinematicActor`, **camera effects** (shake / punch / offset) and a scripted **`CameraTween`** pan | `native`, `esp32dev` |
-| [dual_palette](dual_palette/) | Dual palette mode (background vs sprite color tables) | `native`, `esp32dev` |
-| [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
+| [sprites](sprites/) | 2bpp / 4bpp sprites and animation over a drawn background scene, cycling **single / dual / dual-inverted palette mode** with **A**, with the live background table shown as a 16-entry ramp | `native`, `esp32dev` |
 | [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
 | [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
 | [music-demo](music-demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
@@ -39,7 +38,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 ## Suggested learning order
 
 1. **hello_world** — engine init, one scene, text and input.  
-2. **sprites** or **dual_palette** — graphics and color models.  
+2. **sprites** — graphics and colour models (single, dual and dual-inverted palette).  
 3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
 4. **physics** — bodies, sensors, touch, area queries.  
 5. **snake** / **2048** / **brick_breaker** / **music-demo** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.  

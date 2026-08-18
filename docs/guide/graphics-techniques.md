@@ -51,7 +51,7 @@ Built-in palette presets (PR32, NES, Game Boy, PICO-8, etc.) are described in th
 
 ### Example Project
 
-The `examples/dual_palette` sample in the engine repository demonstrates switching palettes in a real scene.
+The `examples/sprites` sample in the engine repository demonstrates switching between single and dual palette mode in a real scene, at runtime.
 
 ---
 
