@@ -382,7 +382,7 @@ On ESP32 (e.g. `esp32dev`), the linker places static and global data in **`.dram
 | **Logical resolution** | `-D LOGICAL_WIDTH=128 -D LOGICAL_HEIGHT=128` (keep `PHYSICAL_DISPLAY_*` at 240) | Smaller SpatialGrid and tilemap indices; rendering scales to physical size. |
 | **Spatial grid per cell** | `-D SPATIAL_GRID_MAX_STATIC_PER_CELL=4 -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4` | Less static RAM for grid (default 12). |
 | **Contact pool** | `-D PHYSICS_MAX_CONTACTS=64 -D PHYSICS_MAX_PAIRS=64` | Smaller contact array per scene (default 128). |
-| **Scene arena / buffers** | Reduce scene static buffers (e.g. `SPACE_INVADERS_SCENE_ARENA_BUFFER`, demo `sceneBuffer`) in scene `.cpp` | Fewer bytes in `.dram0.bss`. |
+| **Scene arena / buffers** | Reduce scene static buffers in scene `.cpp` (e.g. `sceneArenaBuffer[8192]` in `examples/animated_tilemap/src/AnimatedTilemapScene.cpp:65`, `sceneBuffer[12288]` in `examples/physics/src/PhysicsDemoScene.cpp:89`) | Fewer bytes in `.dram0.bss`. |
 
 **Recommended for ESP32 when linking fails (240×240 physical):**
 

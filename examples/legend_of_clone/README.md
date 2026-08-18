@@ -241,6 +241,35 @@ at **75,187** — about 7% more room, which is the fringe of tree crowns and bus
 edges no longer catching the player. Per-pixel collision pays off against art
 with real transparency; erosion pays off against art with ragged edges.
 
+### Reproducing those numbers
+
+They come from [`tools/collision_survey.cpp`](tools/collision_survey.cpp),
+which links this example's own `TileWorld` and exported maps against the
+engine's `isTilePixelSolid`. It prints the three counts and asserts the
+properties they depend on — all four map edges blocked in every mode, spawn
+and both doorway cells reachable, and each mode a superset of the one before
+it. It exits non-zero if any of that stops holding.
+
+```bash
+cd examples/legend_of_clone
+g++ -O2 -std=gnu++17 -fno-exceptions -DPLATFORM_NATIVE -DSDL_MAIN_HANDLED \
+    -DPIXELROOT32_ENABLE_4BPP_SPRITES=1 -DPIXELROOT32_ENABLE_2BPP_SPRITES=0 \
+    -DPIXELROOT32_ENABLE_GAMEPLAY_ROOM=1 -DPIXELROOT32_ENABLE_AUDIO=0 \
+    -DPIXELROOT32_ENABLE_PHYSICS=0 -DPIXELROOT32_ENABLE_UI_SYSTEM=0 \
+    -DPIXELROOT32_ENABLE_PARTICLES=0 \
+    -DPHYSICAL_DISPLAY_WIDTH=240 -DPHYSICAL_DISPLAY_HEIGHT=240 \
+    -I../../include -I../../src -Isrc \
+    -o collision_survey tools/collision_survey.cpp src/TileWorld.cpp \
+    src/assets/OverworldTileMap.cpp src/assets/DungeonTileMap.cpp \
+    ../../src/physics/TilePixelCollision.cpp
+./collision_survey
+```
+
+The tool mirrors `PlayerActor::canOccupy` rather than including it, so it needs
+no `Entity`/`Engine` graph and builds as a plain host binary. That mirroring is
+the one thing to keep in step: change `canOccupy`'s shape and the tool's two
+helpers have to change with it.
+
 ## Map data
 
 Both maps are authored as **22 rows of 30 characters**, one per tile, and

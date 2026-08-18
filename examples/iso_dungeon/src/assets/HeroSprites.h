@@ -17,7 +17,7 @@
  * The four isometric facings are not four drawings. Screen-wise the grid axes
  * point down-right, down-left, up-right and up-left, which is two poses (toward
  * the camera and away from it) plus a horizontal flip. Halving the bitmap count
- * this way is the same trade room_screen makes for its side-on walk frames.
+ * this way is the same trade legend_of_clone makes for its side-on walk frames.
  *
  * HERO_FOOT_Y is the sprite's full height: the hero's feet sit ON the cell
  * centre, unlike a block whose base diamond covers the whole tile footprint.
