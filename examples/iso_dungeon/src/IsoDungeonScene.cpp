@@ -159,6 +159,30 @@ void IsoDungeonScene::update(unsigned long deltaTime) {
     // Only the at-rest reading counts. In flight, tileX()/tileY() still name
     // the cell being LEFT, so acting on it would fire the transition a whole
     // step early, from the tile before the door.
+    //
+    // Polling once per frame is enough, and that deserves a proof rather than
+    // a shrug, because it is not obvious: HeroActor::update drains a fixed
+    // logic clock with a `while`, so a long frame runs SEVERAL steps, and a
+    // hero that stepped onto a door and off it between two polls would take
+    // the door with it. Three facts rule that out.
+    //
+    // 1. Engine calls inputManager.update() once per frame, before
+    //    sceneManager.update(), and isButtonDown() only reads the cached
+    //    buttonState[]. Every logicStep in one drain therefore sees the SAME
+    //    held direction -- input cannot change mid-frame.
+    // 2. logicStep only reads input on its at-rest branch, and a step's
+    //    direction is fixed at beginStep, so the direction that reached the
+    //    door is the direction still being held.
+    // 3. everyDoorIsADeadEnd asserts that the tile beyond a door, in the
+    //    direction that reaches it, is solid.
+    //
+    // So the step that would carry the hero off the door is exactly the one
+    // isSolidTile refuses. Leaving requires reversing, which needs a direction
+    // that cannot arrive until the next frame's inputManager.update(). The
+    // hero always ends the frame at rest ON the door, and this poll sees it.
+    //
+    // Fact 3 is the one a future edit can break -- and it fails loudly, at the
+    // static_assert, rather than as a door that works except on slow frames.
     if (hero_.isMoving()) {
         return;
     }

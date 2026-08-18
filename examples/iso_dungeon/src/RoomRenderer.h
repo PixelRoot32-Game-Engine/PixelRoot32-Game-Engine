@@ -58,8 +58,8 @@ public:
      * it forever, since restore() succeeds and drawTiles() never runs again.
      *
      * Reclaiming the framebuffer is the caller's job and is NOT done here: see
-     * IsoDungeonScene::enterRoom for why forceFullRedraw() has to accompany
-     * this call.
+     * IsoDungeonScene::onRoomEnter, the only caller, for why forceFullRedraw()
+     * has to accompany this call.
      *
      * @param room Room to draw from now on. Must outlive this renderer, which
      *             every `kRooms` entry does -- they are constexpr statics.

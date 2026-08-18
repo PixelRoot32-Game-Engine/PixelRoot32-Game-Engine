@@ -400,6 +400,41 @@ constexpr bool everyArrivalFacesInward(const RoomSpec& room) {
     return true;
 }
 
+/// No door can be walked straight off in the direction that reaches it.
+///
+/// This is load-bearing, not a tidiness check. IsoDungeonScene polls for the
+/// hero standing on a door once per frame, and HeroActor runs several logic
+/// steps on a long frame -- so a hero able to step onto a door and off it
+/// between two polls would walk through it without the room changing.
+///
+/// This assert is what makes that impossible: the step that would carry the
+/// hero off the door is the one isSolidTile refuses, and input is frame-cached
+/// so no other direction is available until the next frame. See the proof at
+/// the poll in IsoDungeonScene::update. Delete this assert and that poll
+/// silently becomes wrong on slow frames only.
+///
+/// Every shipped door already satisfies it -- they all sit on a room edge, so
+/// the step beyond leaves the room and isSolidTile() rejects it. That was true
+/// by coincidence of the layouts until this assert; now it is a rule, and a
+/// door placed mid-wall with floor behind it fails the build.
+constexpr bool everyDoorIsADeadEnd(const RoomSpec& room) {
+    for (uint8_t i = 0; i < room.doorCount; ++i) {
+        const DoorSpec& d = room.doors[i];
+        // The step that reaches a door continues in the same direction; a door
+        // on a back wall means that direction is -x or -y.
+        const int dx = d.tileX == 0 ? -1 : (d.tileX == kRoomTiles - 1 ? 1 : 0);
+        const int dy = d.tileY == 0 ? -1 : (d.tileY == kRoomTiles - 1 ? 1 : 0);
+        if (!isSolidTile(room, d.tileX + dx, d.tileY + dy)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static_assert(everyDoorIsADeadEnd(kRooms[0]), "Room 0 has a door the hero can walk straight through.");
+static_assert(everyDoorIsADeadEnd(kRooms[1]), "Room 1 has a door the hero can walk straight through.");
+static_assert(everyDoorIsADeadEnd(kRooms[2]), "Room 2 has a door the hero can walk straight through.");
+
 static_assert(everyArrivalFacesInward(kRooms[0]), "Room 0 lands the hero with no door beside it.");
 static_assert(everyArrivalFacesInward(kRooms[1]), "Room 1 lands the hero with no door beside it.");
 static_assert(everyArrivalFacesInward(kRooms[2]), "Room 2 lands the hero with no door beside it.");
