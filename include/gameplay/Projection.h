@@ -6,7 +6,7 @@
 
 #include "platforms/PlatformDefaults.h"
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
 
 /**
  * @file Projection.h
@@ -269,4 +269,4 @@ constexpr bool projectionSpecIsValid(const ProjectionSpec& spec, int cols, int r
 
 }  // namespace pixelroot32::gameplay
 
-#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#endif  // PIXELROOT32_ENABLE_PROJECTION

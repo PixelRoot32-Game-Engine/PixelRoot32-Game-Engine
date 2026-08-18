@@ -29,7 +29,7 @@ top-down board game with no other edit.
 
 | Flag | Why |
 |---|---|
-| `PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION=1` | `Projection.h`. Without it the header compiles to nothing and the room has no geometry at all. |
+| `PIXELROOT32_ENABLE_PROJECTION=1` | `Projection.h`. Without it the header compiles to nothing and the room has no geometry at all. |
 | `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `Entity::depthKey` and `gameplay::compareByDepthKey`. Off, entities draw in insertion order and the occlusion is simply wrong half the time. |
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `gameplay::GridMotion`. This example declares no `GridSpec` at all, but `GridMotion` shares the grid flag rather than taking one of its own — see below. |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES=1` | The art is 4bpp on a custom 16-colour palette. Not cosmetic: the engine gates its 4bpp draw paths with `if constexpr`, so building without it is not an error, it is a black screen. |
