@@ -245,7 +245,7 @@ that refusal is what makes the movement read as a board rather than a walk.
 
 ## Documentation links
 
-- [`gameplay/Projection.h`](../../include/gameplay/Projection.h) — the projection math
+- [`math/Projection.h`](../../include/math/Projection.h) — the projection math (`gameplay/Projection.h` forwards to it)
 - [`gameplay/GridMotion.h`](../../include/gameplay/GridMotion.h) — cell-to-cell step state
 - [`gameplay/DepthCompare.h`](../../include/gameplay/DepthCompare.h) — `compareByDepthKey`
 - [Memory system](../../docs/architecture/memory-system.md) — per-capability budgets
