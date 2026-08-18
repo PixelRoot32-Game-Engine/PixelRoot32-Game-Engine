@@ -533,10 +533,16 @@ namespace pixelroot32::graphics {
 
             const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
             
+            // All 4 entries are filled, not just the sprite's paletteSize: see
+            // the 4bpp overload below for why the tail cannot be left
+            // uninitialised.
             uint16_t paletteLUT[4];
             uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
             for (uint8_t i = 0; i < paletteCount; ++i) {
                 paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
+            }
+            for (uint8_t i = paletteCount; i < 4; ++i) {
+                paletteLUT[i] = 0;
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
@@ -560,6 +566,15 @@ namespace pixelroot32::graphics {
 
             uint8_t* const fb8 = logicalFrameBuffer8;
 
+            // Pack the palette once per sprite instead of once per pixel; see
+            // the 4bpp blit for the full rationale. Four entries here.
+            uint8_t packedLUT[4];
+            if (fb8) {
+                for (int i = 0; i < 4; ++i) {
+                    packedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                }
+            }
+
             // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
@@ -579,7 +594,7 @@ namespace pixelroot32::graphics {
                     if (logicalX < 0 || logicalX >= screenW) continue;
 
                     if (dstRow) {
-                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                        dstRow[logicalX] = packedLUT[val];
                     } else {
                         getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
                     }
@@ -600,11 +615,21 @@ namespace pixelroot32::graphics {
                                    currentSpritePaletteSlot : paletteSlot;
 
             const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
-            
+
+            // All 16 entries are filled, not just the sprite's paletteSize: a
+            // 4bpp pixel can name any index 0..15 regardless of what the
+            // descriptor declares, and drawSpriteInternal reads the table
+            // without a range check (see its packing loop). Leaving the tail
+            // uninitialised put a stack value on screen for such a pixel.
+            // Black matches what resolveColorWithPalette returns for an index
+            // it cannot map.
             uint16_t paletteLUT[16];
             uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
             for (uint8_t i = 0; i < paletteCount; ++i) {
                 paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
+            }
+            for (uint8_t i = paletteCount; i < 16; ++i) {
+                paletteLUT[i] = 0;
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
@@ -627,6 +652,24 @@ namespace pixelroot32::graphics {
 
             uint8_t* const fb8 = logicalFrameBuffer8;
 
+            // Pack the palette ONCE per sprite rather than once per pixel.
+            //
+            // The framebuffer stores TFT_eSprite 8bpp, so every written pixel
+            // needs its RGB565 narrowed to RRRGGGBB. Doing that inside the
+            // pixel loop repeats the same 16 conversions thousands of times: a
+            // 7x7 isometric room pushes ~37k source pixels through here per
+            // frame against 16 distinct colours. Hoisting it trades ~37k
+            // conversions for 16 and turns the inner loop into a table read.
+            //
+            // Only the direct-framebuffer paths use this; the drawPixel
+            // fallback below takes RGB565 and keeps reading paletteLUT.
+            uint8_t packedLUT[16];
+            if (fb8) {
+                for (int i = 0; i < 16; ++i) {
+                    packedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                }
+            }
+
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
                 if (logicalY < 0 || logicalY >= screenH) continue;
@@ -643,10 +686,10 @@ namespace pixelroot32::graphics {
                         const int lx0 = startX + col;
                         const int lx1 = startX + col + 1;
                         if (v0 != 0 && lx0 >= 0 && lx0 < screenW) {
-                            dstRow[lx0] = packRgb565ToTftSprite8(paletteLUT[v0]);
+                            dstRow[lx0] = packedLUT[v0];
                         }
                         if (v1 != 0 && lx1 >= 0 && lx1 < screenW) {
-                            dstRow[lx1] = packRgb565ToTftSprite8(paletteLUT[v1]);
+                            dstRow[lx1] = packedLUT[v1];
                         }
                     }
                     if (col < sprite.width) {
@@ -656,7 +699,7 @@ namespace pixelroot32::graphics {
                         if (val != 0) {
                             const int lx = startX + col;
                             if (lx >= 0 && lx < screenW) {
-                                dstRow[lx] = packRgb565ToTftSprite8(paletteLUT[val]);
+                                dstRow[lx] = packedLUT[val];
                             }
                         }
                     }
@@ -669,7 +712,7 @@ namespace pixelroot32::graphics {
                         if (val == 0) continue;
                         const int logicalX = startX + (sprite.width - 1 - col);
                         if (logicalX < 0 || logicalX >= screenW) continue;
-                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                        dstRow[logicalX] = packedLUT[val];
                     }
                 } else {
                     for (int col = 0; col < sprite.width; ++col) {
@@ -1004,6 +1047,10 @@ namespace pixelroot32::graphics {
                     for (uint8_t i = 0; i < paletteCount; ++i) {
                         cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                     }
+                    // Fill the tail: drawSpriteInternal indexes all 4 slots.
+                    for (uint8_t i = paletteCount; i < 4; ++i) {
+                        cachedLUT[i] = 0;
+                    }
                     lastTilePalettePtr = tile.palette;
                     lastBackgroundPalettePtr = palettePtr;
                 }
@@ -1093,6 +1140,11 @@ namespace pixelroot32::graphics {
                         uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
                         for (uint8_t i = 0; i < paletteCount; ++i) {
                             cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        // Fill the tail for the same reason drawSprite() does:
+                        // drawSpriteInternal indexes all 16 slots.
+                        for (uint8_t i = paletteCount; i < 16; ++i) {
+                            cachedLUT[i] = 0;
                         }
                         lastTilePalettePtr = tile.palette;
                         lastBackgroundPalettePtr = palettePtr;

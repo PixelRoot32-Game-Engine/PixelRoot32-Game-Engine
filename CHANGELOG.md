@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 ### 🔧 Changed
 
 * **`Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`** (28 → 32; 8 bytes on 64-bit native), because `depthKey` cannot fit in the single existing pad byte. At `MAX_ENTITIES = 64` that is 256 B worst case. With the flag at its default `0` the field is not declared and `sizeof(Entity)` is unchanged.
+* **4bpp and 2bpp sprite blits pack the palette once per sprite instead of once per pixel.** Writing to the 8bpp logical framebuffer requires narrowing each RGB565 palette entry to `RRRGGGBB`; that conversion now runs 16 times (4 for 2bpp) at the top of the blit rather than once per written pixel. A sprite-per-cell isometric room pushes ~37,000 source pixels per frame through this loop against 16 distinct colours, so the inner loop becomes a table read. No pixel changes.
+* **A 4bpp/2bpp pixel naming an index beyond its sprite's `paletteSize` now resolves to black.** The blits index all 16 (or 4) palette slots, but only `paletteSize` of them were ever filled, so such a pixel read an uninitialised stack slot — an arbitrary colour that could differ between builds. All four LUT fill sites (`drawSprite` and `drawTileMap`, 2bpp and 4bpp) now zero the tail, matching what `resolveColorWithPalette` already returns for an index it cannot map. Sprites whose data stays inside their declared `paletteSize` are unaffected.
 
 # 1.9.0
 
