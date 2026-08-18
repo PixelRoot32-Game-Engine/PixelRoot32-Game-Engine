@@ -1289,35 +1289,6 @@ private:
     void drawDebugDirtyCellOverlay();
     void clearDirtyCellsFramebuffer8();
 
-    /// Shared state for tilemap dirty-tracking preamble/postamble (F6 dedup).
-    struct TilemapDirtyContext {
-        PaletteContext              bgContext;
-        PaletteContext*             oldRenderContext;
-        TilemapSpriteDirtyMode      savedMode;
-        AnimDynTrackEntry*          animSlot;
-        bool                        mapOrOriginMovedAnim;
-        int                         viewOriginX;
-        int                         viewOriginY;
-        int                         startCol;
-        int                         endCol;
-        int                         startRow;
-        int                         endRow;
-    };
-
-    /// Common preamble for all drawTileMap overloads. Returns false if the map is degenerate.
-    template <typename TMap>
-    bool beginTilemapDirty(const TMap& map, int originX, int originY,
-                           LayerType layerType, TilemapDirtyContext& ctx);
-
-    /// Common postamble for all drawTileMap overloads.
-    void endTilemapDirty(const void* mapIndices, TilemapDirtyContext& ctx);
-
-    /// Per-tile dirty cell marking decision (shared by all overloads).
-    bool shouldMarkDirtyCell(const TilemapDirtyContext& ctx,
-                             LayerType layerType,
-TileAnimationManager* animMgr,
-                              uint8_t rawIndex) const;
-
     /// Helper struct to deduplicate dirty-tracking preamble/postamble across
     /// drawTileMap overloads. Computes common state: viewport origin, animation
     /// tracking, dirty mode, and viewport culling bounds.
