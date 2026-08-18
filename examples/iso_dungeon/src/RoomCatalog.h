@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "gameplay/RoomGraph.h"
+#include "gameplay/RoomLayout.h"
 #include "graphics/Renderer.h"
 
 #include "IsoDungeonConstants.h"
@@ -39,9 +40,14 @@
  *
  * `RoomGraph::addRoom` takes a camera rect because its usual job is clamping a
  * scrolling camera (see examples/legend_of_clone). One room of this dungeon is
- * 224 px wide inside a 240 px display, so nothing scrolls and every rect is
- * the full screen. The graph still earns its place: the connections, the
+ * 224 px wide inside a 240 px display, so nothing scrolls, this scene passes
+ * `camera = nullptr` to every `enterRoom()`, and no code here ever reads the
+ * rect back. The graph still earns its place: the connections, the
  * current-room index and the onEnter callback are what drive the transition.
+ *
+ * The rect is nonetheless filled in with something true rather than zeroed --
+ * see kCellWorldWidth for which true thing, and why an isometric room cannot
+ * have both an exact rect and an exact tile window.
  */
 
 namespace iso_dungeon {
@@ -282,6 +288,32 @@ constexpr CellStep inwardStepFromDoor(const RoomSpec& room, int arriveTileX, int
     return {0, 0};
 }
 
+/**
+ * @brief The step that carries the hero ONTO a door and would carry it out of
+ *        the room.
+ *
+ * A door always sits on a room edge, so the step that reaches it points from
+ * the interior outward, and continues outward past it. One expression answers
+ * two questions that must never diverge: which `RoomDir` slot the connection
+ * to the next room occupies, and which tile has to be solid for the door to
+ * be a dead end. It was written out twice before, in two files, and the second
+ * copy is the one that would have been missed when a wall moved.
+ *
+ * Two placements would make the answer meaningless, and each is rejected
+ * elsewhere rather than papered over here:
+ *
+ * - A door NOT on an edge returns `{0, 0}`, which names no direction at all.
+ *   `everyDoorIsADeadEnd()` rejects it: the tile "beyond" such a door is the
+ *   door itself, and a door is walkable.
+ * - A door on a CORNER returns a diagonal, and `dirFromCellStep` resolves that
+ *   by dropping the x component -- so a corner door would quietly be filed as
+ *   Up or Down. `doorsAreWellFormed()` rejects it.
+ */
+constexpr CellStep outwardStepFromDoor(const DoorSpec& door) {
+    return {door.tileX == 0 ? -1 : (door.tileX == kRoomTiles - 1 ? 1 : 0),
+            door.tileY == 0 ? -1 : (door.tileY == kRoomTiles - 1 ? 1 : 0)};
+}
+
 /// How many tiles of a room carry a given layout char.
 constexpr int countTiles(const RoomSpec& room, char kind) {
     int n = 0;
@@ -335,6 +367,15 @@ constexpr bool doorsAreWellFormed(const RoomSpec& room) {
         }
         const char c = room.layout[d.tileY][d.tileX];
         if (c != 'D' && c != 'E') {
+            return false;
+        }
+        // A corner door leaves in two directions at once, and RoomDir has one
+        // slot per direction -- so `dirFromCellStep` would have to pick, and it
+        // picks the y axis. The connection would be filed under Up or Down with
+        // nothing recording that Left or Right was equally true. Rejected here
+        // rather than resolved, because there is no correct answer to give.
+        const CellStep step = outwardStepFromDoor(d);
+        if (step.dx != 0 && step.dy != 0) {
             return false;
         }
         if (d.targetRoom >= kRoomCount) {
@@ -420,11 +461,8 @@ constexpr bool everyArrivalFacesInward(const RoomSpec& room) {
 constexpr bool everyDoorIsADeadEnd(const RoomSpec& room) {
     for (uint8_t i = 0; i < room.doorCount; ++i) {
         const DoorSpec& d = room.doors[i];
-        // The step that reaches a door continues in the same direction; a door
-        // on a back wall means that direction is -x or -y.
-        const int dx = d.tileX == 0 ? -1 : (d.tileX == kRoomTiles - 1 ? 1 : 0);
-        const int dy = d.tileY == 0 ? -1 : (d.tileY == kRoomTiles - 1 ? 1 : 0);
-        if (!isSolidTile(room, d.tileX + dx, d.tileY + dy)) {
+        const CellStep step = outwardStepFromDoor(d);
+        if (!isSolidTile(room, d.tileX + step.dx, d.tileY + step.dy)) {
             return false;
         }
     }
@@ -465,5 +503,117 @@ static_assert(!isSolidTile(kRooms[0], kSpawnTileX, kSpawnTileY),
               "The hero spawns inside a wall.");
 static_assert(doorAt(kRooms[0], kSpawnTileX, kSpawnTileY) == nullptr,
               "The hero spawns on a door and would leave the room immediately.");
+
+// --- Room graph export -------------------------------------------------------
+//
+// Everything below turns the catalog above into `gameplay::RoomLayer`, the
+// shape the PixelRoot32 Tilemap Editor emits and `gameplay::buildRoomGraph()`
+// consumes. The scene then builds its RoomGraph with one call instead of two
+// hand-written loops.
+//
+// The point is not the loops. It is that the topology now has an EXPORTED
+// shape: a dungeon authored in the editor drops in by replacing this block
+// with the generated header, and IsoDungeonScene::init() does not change.
+//
+// It is derived at compile time from kRooms rather than written out a second
+// time, and that is the whole reason it is safe. A hand-written RoomData table
+// would be a fourth copy of the door topology -- one the layouts, the doors
+// and the renderer could all drift away from silently. Deriving it means the
+// only way to change the graph is to change the doors the player walks
+// through.
+
+/**
+ * @brief World size of one cell, for the camera rect `buildRoomGraph` derives.
+ *
+ * `RoomLayer` assumes what every rectangular tilemap assumes: that a room's
+ * world rect is its tile rect times a tile size. An isometric room does not
+ * satisfy that -- its cells are diamonds sheared by kTileProjection, so there
+ * is no single (w, h) that reproduces where the room actually lands on screen.
+ *
+ * So the rect and the tile window cannot both be exact, and this picks the
+ * tile window. `cols`/`rows` are the true 7x7 cell extent, and 32x16 is the
+ * full width and height of one floor diamond, which makes the derived rect
+ * 224x112 -- the exact size of the room's floor bounding box, though anchored
+ * at the origin rather than at the (8, 80) where it is drawn. `originCol` and
+ * `originRow` cannot express that offset: 8 is not a multiple of 32.
+ *
+ * That inexactness is affordable here for one reason, and it is worth stating
+ * because it would NOT be affordable in a scrolling game: this scene passes
+ * `camera = nullptr` to every `enterRoom()` and never reads the rect back. A
+ * scrolling isometric dungeon would have to clamp its camera from the
+ * projection instead -- `RoomLayer` cannot describe it.
+ */
+inline constexpr uint8_t kCellWorldWidth  = kTileHalfWidth * 2;   // 32
+inline constexpr uint8_t kCellWorldHeight = kTileHalfHeight * 2;  // 16
+
+/// Two doors of one room must leave in two different directions.
+///
+/// `RoomData` has exactly four connection slots, keyed by direction, so two
+/// doors sharing a direction cannot both be stored -- the second would
+/// overwrite the first and the dungeon would quietly lose an exit.
+///
+/// This is stricter than the code it replaces, on purpose. `RoomGraph::connect`
+/// keeps the FIRST connection written to a slot and ignores later ones, so the
+/// old hand-written loop had the same collision and resolved it silently the
+/// other way. Neither resolution is right; the data being ambiguous is the
+/// actual problem, and this is where it stops being tolerated.
+constexpr bool doorsLeaveInDistinctDirections(const RoomSpec& room) {
+    for (uint8_t i = 0; i < room.doorCount; ++i) {
+        const CellStep a = outwardStepFromDoor(room.doors[i]);
+        for (uint8_t j = static_cast<uint8_t>(i + 1); j < room.doorCount; ++j) {
+            const CellStep b = outwardStepFromDoor(room.doors[j]);
+            if (dirFromCellStep(a.dx, a.dy) == dirFromCellStep(b.dx, b.dy)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static_assert(doorsLeaveInDistinctDirections(kRooms[0]),
+              "Room 0 has two doors leaving in the same direction; one would be lost.");
+static_assert(doorsLeaveInDistinctDirections(kRooms[1]),
+              "Room 1 has two doors leaving in the same direction; one would be lost.");
+static_assert(doorsLeaveInDistinctDirections(kRooms[2]),
+              "Room 2 has two doors leaving in the same direction; one would be lost.");
+
+/// One room's doors, in the four-slot form RoomLayer stores them in.
+constexpr gameplay::RoomData makeRoomData(const RoomSpec& room) {
+    gameplay::RoomData data{0, 0, kRoomTiles, kRoomTiles,
+                            {gameplay::kNoRoomConnection, gameplay::kNoRoomConnection,
+                             gameplay::kNoRoomConnection, gameplay::kNoRoomConnection}};
+    for (uint8_t i = 0; i < room.doorCount; ++i) {
+        const DoorSpec& door = room.doors[i];
+        const CellStep step = outwardStepFromDoor(door);
+        data.connections[static_cast<uint8_t>(dirFromCellStep(step.dx, step.dy))] =
+            door.targetRoom;
+    }
+    return data;
+}
+
+/// Wraps the array so the whole thing is built by one loop over kRooms.
+///
+/// A plain `RoomData kExport[] = {makeRoomData(kRooms[0]), ...}` would need one
+/// initializer per room, and a fourth room added to kRooms but forgotten here
+/// would NOT fail to compile -- the missing entry would value-initialize, and
+/// `connections` of all zeroes means "connected to room 0 in all four
+/// directions". Silently. Looping is what makes that impossible.
+struct RoomGraphExport {
+    gameplay::RoomData rooms[kRoomCount];
+};
+
+constexpr RoomGraphExport makeRoomGraphExport() {
+    RoomGraphExport out{};
+    for (uint16_t i = 0; i < kRoomCount; ++i) {
+        out.rooms[i] = makeRoomData(kRooms[i]);
+    }
+    return out;
+}
+
+inline constexpr RoomGraphExport kRoomGraphExport = makeRoomGraphExport();
+
+/// What IsoDungeonScene::init() hands to `gameplay::buildRoomGraph()`.
+inline constexpr gameplay::RoomLayer kRoomLayer{
+    kRoomGraphExport.rooms, kRoomCount, kCellWorldWidth, kCellWorldHeight};
 
 }  // namespace iso_dungeon

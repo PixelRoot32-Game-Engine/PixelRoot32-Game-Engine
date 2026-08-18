@@ -43,39 +43,24 @@ void IsoDungeonScene::init() {
     // [[nodiscard]] so that choice is never made by omission.
     (void)room_.reserveSnapshot(engine.getRenderer());
 
-    // Every room is one screen, so nothing scrolls and every camera rect is
-    // the whole display. The rects are still filled in honestly rather than
-    // zeroed: a later camera would clamp to them, and a zero rect would pin it
-    // to the top-left corner in a way that looks like a camera bug rather than
-    // like missing data.
-    for (uint16_t i = 0; i < kRoomCount; ++i) {
-        const uint16_t idx = rooms_.addRoom(pr32::math::toScalar(0),
-                                            pr32::math::toScalar(0),
-                                            pr32::math::toScalar(kDisplaySize),
-                                            pr32::math::toScalar(kDisplaySize));
-        // addRoom returns 0xFFFF when full. RoomGraph<kRoomCount> is sized from
-        // the same constant this loop runs to, so a mismatch is a bug in the
-        // catalog rather than a runtime condition -- but a silent 0xFFFF would
-        // desynchronise every index below, so it is worth not assuming.
-        if (idx != i) {
-            return;
-        }
-    }
-
-    // Connections mirror the doors, in both directions. `dirFromCellStep`
-    // derives the slot from the step the player takes to reach the door, so
-    // the graph and the layout cannot disagree about which way is Up.
-    for (uint16_t from = 0; from < kRoomCount; ++from) {
-        const RoomSpec& spec = kRooms[from];
-        for (uint8_t d = 0; d < spec.doorCount; ++d) {
-            const DoorSpec& door = spec.doors[d];
-            // A door sits ON the room's edge, so the step that reaches it
-            // points from the room's interior outward -- which is the
-            // direction the connection describes.
-            const int dx = door.tileX == 0 ? -1 : (door.tileX == kRoomTiles - 1 ? 1 : 0);
-            const int dy = door.tileY == 0 ? -1 : (door.tileY == kRoomTiles - 1 ? 1 : 0);
-            rooms_.connect(from, door.targetRoom, dirFromCellStep(dx, dy));
-        }
+    // Rooms and connections both come from kRoomLayer, which RoomCatalog.h
+    // derives from the door table at compile time. This is the same call a
+    // dungeon authored in the PixelRoot32 Tilemap Editor would make -- the
+    // editor emits `RoomData` and `RoomLayer`, and nothing here would change.
+    //
+    // A short count has two possible causes, and neither is survivable here.
+    // A rejected layer builds nothing at all. A layer larger than the graph's
+    // capacity builds a PARTIAL graph -- which is a normal outcome for
+    // buildRoomGraph, but not for this scene: RoomGraph<kRoomCount> is sized
+    // from the same constant kRooms is, so truncation would mean the two have
+    // drifted apart, and the rooms that survived would be indexed against a
+    // catalog that no longer matches.
+    //
+    // Bailing out leaves currentRoomIndex() at 0xFFFF and the scene with no
+    // entities. update() checks isValidIdx() before polling doors, so it runs
+    // empty rather than indexing kRooms with a sentinel.
+    if (gameplay::buildRoomGraph(kRoomLayer, rooms_) != kRoomCount) {
+        return;
     }
 
     rooms_.setOnEnter(onRoomEnterCallback, this);
