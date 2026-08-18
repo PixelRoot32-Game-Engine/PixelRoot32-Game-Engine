@@ -54,22 +54,24 @@ bool TileWorld::isSolidAtPixel(int worldX, int worldY, int erodePx) const {
     const int col = worldX / tileW;
     const int row = worldY / tileH;
 
-    // Off the far edge is a wall, tested here rather than inherited from
-    // isSolid(). isSolid() returns true for out-of-bounds cells, but a true
-    // from it only means "do not return false yet" -- control would fall
-    // through to the bitmap test below, where tileAt() answers 0 for this same
-    // out-of-range cell and the empty tile's fully transparent bitmap reports
-    // "not solid". That is how the player walks off the right or bottom edge.
+    // Everything below needs a real, in-range cell holding a real, in-range
+    // tile. isSolid() cannot establish that on its own: it answers true for
+    // FOUR different reasons -- unattached view, cell out of range, tile id
+    // past the tileset, and genuinely solid -- so a true from it means only
+    // "do not return false yet". Refining it per pixel means re-testing each
+    // of the first three here, because falling through on any of them reaches
+    // tileAt(), which answers 0 for a bad cell, and then indexes tiles[] with
+    // an id nothing has bounded.
     if (col >= map_->width || row >= map_->height) return true;
+    if (map_->tiles == nullptr || solid_ == nullptr) return true;
 
-    // Cheap gate: a cell the export never called solid cannot be solid at any
-    // pixel, and this keeps walkable ground off the bitmap path entirely.
-    if (!isSolid(col, row)) return false;
-
-    // isSolid() already rejected out-of-range tile ids, so this indexes the
-    // tileset in range.
     const uint8_t tile = tileAt(col, row);
-    if (map_->tiles == nullptr) return true;
+    if (tile >= tileCount_) return true;
+
+    // Only now is the cheap gate meaningful: reaching here, a false from
+    // isSolid() can only mean the export flagged this tile walkable, which no
+    // pixel of it can contradict. This keeps open ground off the bitmap path.
+    if (!solid_[tile]) return false;
 
     return pixelroot32::physics::isTilePixelSolid(
         &map_->tiles[tile],

@@ -15,7 +15,7 @@ placeholder for "not yet".
 
 At first glance several examples look like they repeat the same trio — `int
 score; int lives; bool gameOver;` — which reads as an obvious candidate for a
-small reusable class. Checked against all 15 examples under `examples/`, that
+small reusable class. Checked against all 13 examples under `examples/`, that
 impression does not survive: the overlap is much thinner than it looks, and
 the shapes that do exist are actively incompatible with each other.
 
@@ -23,23 +23,23 @@ the shapes that do exist are actively incompatible with each other.
 
 | Field | Examples that have it | Count |
 |---|---|---|
-| `score` | `space_invaders`, `brick_breaker`, `2048`, `snake`, `flappy_bird` | 5 of 15 |
-| `lives` | `brick_breaker`, `space_invaders` | **2 of 15** |
-| Full triad (`score` + `lives` + `gameOver`) | `brick_breaker`, `space_invaders` | **2 of 15** |
+| `score` | `2048`, `flappy_bird`, `midway_clone` | 3 of 13 |
+| `lives` | `bomberbot`, `midway_clone` | **2 of 13** |
+| Full triad (`score` + `lives` + `gameOver`) | none | **0 of 13** |
 
-Two examples out of fifteen is not a pattern worth an engine class — it is
-two examples of the same genre (a breakout clone and a shoot-'em-up) that
-happen to both be "you have N chances, lose one per mistake."
+Two examples out of thirteen is not a pattern worth an engine class — and
+those two (`bomberbot`, a bomberman-style game, and `midway_clone`, a
+shoot-'em-up) share only `lives`, not the trio. No example at all carries the
+full triad.
 `metroidvania`, the platformer with the most gameplay logic of any example,
 has **none** of the three fields: no `score`, no `lives`, no `gameOver`.
 A health/lives concept doesn't even apply the same way to every genre.
 
 ### `gameOver` itself has three mutually incompatible shapes
 
-1. **A bare `bool`.** `brick_breaker/src/BrickBreakerScene.h`,
-   `space_invaders/src/SpaceInvadersScene.h`, `snake/src/SnakeScene.h`, and
-   `2048/src/Game2048Logic.h` all declare `bool gameOver = false;` (or
-   equivalent) directly. Binary: the game either has ended or it hasn't.
+1. **A bare `bool`.** `2048/src/Game2048Logic.h` declares
+   `bool gameOver = false;` directly. Binary: the game either has ended or it
+   hasn't.
 
 2. **One value inside a 3-state flow enum.** `flappy_bird` has no bare
    `gameOver` field at all. Instead, `GameState` in
@@ -56,28 +56,32 @@ A health/lives concept doesn't even apply the same way to every genre.
    Game-over here is one of three *mutually exclusive session phases*, not a
    flag layered on top of "playing."
 
-3. **A 4-value enum answering a different question entirely.**
-   `tic_tac_toe/src/TicTacToeScene.h:24-29` declares:
+3. **Two distinct endings flattened into one predicate.**
+   `examples/midway_clone/src/MidwayScene.h:149` declares:
 
    ```cpp
-   enum class GameState {
-       Playing,
-       WinX,
-       WinO,
-       Draw
-   };
+   bool isTerminal() const { return lives_ <= 0 || stageComplete_; }
    ```
 
-   This isn't "did the player die" — it's "who won the round," a
-   three-way outcome (X, O, or nobody) that has no `lives` concept at all.
-   Notably, the same header *also* declares a separate, redundant
-   `bool gameOver;` field (line 67) alongside `GameState gameState;` — even
-   within one example, two independent representations of "is this over"
-   coexist unreconciled. That is itself evidence against a single shared
-   type: if a shared `GameState`/`ScoreTracker` class had existed when this
-   example was written, would it have modeled "who won" or "is it over"?
-   There is no single correct answer, because the two questions are not the
-   same question.
+   Died and finished-the-stage are opposite outcomes, and this collapses them
+   into a single bool because nothing downstream needs to tell them apart yet.
+   A shared type would have had to choose: expose one terminal flag, or expose
+   the outcome. Either choice is wrong for one of the games above.
+
+   The same tension shows up *inside* a single example.
+   `examples/2048/src/Game2048Logic.h:43-44` declares both:
+
+   ```cpp
+   bool gameOver = false;
+   bool won = false;
+   ```
+
+   Two independent representations of "is this session over" coexisting
+   unreconciled in one header — a board can be won and still playable, or over
+   and unwon. That is itself the argument against a single shared type: had a
+   `GameState`/`ScoreTracker` class existed when this was written, would it
+   have modeled "is it over" or "how did it end"? There is no single correct
+   answer, because they are not the same question.
 
 None of these three shapes is more "correct" than the others — each is
 correct **for its own game**. A shared type would have to pick one shape,
@@ -200,7 +204,7 @@ have anticipated.
 
 **For a flow-state game** (a title screen, a running phase, a game-over
 screen, maybe a win screen), model the flow explicitly as your own enum —
-as `flappy_bird` and `tic_tac_toe` already do — rather than layering a
+as `flappy_bird` already does — rather than layering a
 `bool` on top of a `Scene` that's also trying to represent "not started
 yet." If your game already needs a state machine for player or enemy
 behavior, Gameplay Framework Phase 2's `pixelroot32::gameplay::StateMachine`
@@ -226,9 +230,10 @@ not something the engine should decide on your behalf.
 ## Summary
 
 - §5.9's premise — that games under this engine duplicate `score`/`lives`/
-  `gameOver` handling — is real but overstated: only 2 of 15 examples share
-  the full triad, and the `gameOver` concept alone takes three structurally
-  incompatible shapes across the examples that have it at all.
+  `gameOver` handling — is real but overstated: no example shares the full
+  triad, only two share even `lives`, and the `gameOver` concept alone takes
+  three structurally incompatible shapes across the examples that have it at
+  all.
 - Unity, Godot, and Bevy ship no such type; Unreal's `Score` is a side
   effect of network-replication infrastructure this engine doesn't have;
   GameMaker shipped one and deprecated it once it proved to fit the wrong
