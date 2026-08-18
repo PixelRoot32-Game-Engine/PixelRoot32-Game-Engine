@@ -24,9 +24,18 @@ void IsoDungeonScene::init() {
     depthSortEnabled = true;
 
     // Reserved here, off the game loop, because it allocates one logical
-    // framebuffer (57,600 B at 240x240) -- see ARCH_MEMORY_SYSTEM.md. A false
-    // return is not handled and does not need to be: the room falls back to
-    // redrawing its 49 tiles every frame, which is what it did before.
+    // framebuffer (57,600 B at 240x240) -- see ARCH_MEMORY_SYSTEM.md.
+    //
+    // Discarded deliberately, and this cast is the record of that decision:
+    // the room falls back to redrawing its 49 tiles every frame, which is
+    // exactly what it did before the snapshot existed, so there is nothing for
+    // THIS game to do about it. StaticLayerSnapshot has already logged the
+    // size it could not get, which is the part a developer needs -- a second
+    // message here would only repeat it.
+    //
+    // A game with a real recovery (drop to a smaller room, free another cache,
+    // warn the player) reads the bool instead; reserveSnapshot() is
+    // [[nodiscard]] so that choice is never made by omission.
     (void)room_.reserveSnapshot(engine.getRenderer());
 
     // Layer 0: the static room. Layer 1: everything the sort has to order.

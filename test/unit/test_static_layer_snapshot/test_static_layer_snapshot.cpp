@@ -99,6 +99,40 @@ void test_allocate_rejects_non_positive_dimensions(void) {
     TEST_ASSERT_FALSE(snapshot.allocateForLogicalSize(16, -1));
 }
 
+/// A re-allocation that runs out of memory must not leave the snapshot
+/// claiming to hold something.
+///
+/// The failure path drops the old buffer BEFORE asking the allocator for the
+/// new one, so on OOM the object owns nothing -- but `snapshotValid` was left
+/// standing from the previous capture(), and isValid() reads exactly that
+/// field. A caller that trusts isValid() to mean "restore() will work" then
+/// gets false from restore() with no way to tell why.
+///
+/// restore() itself was already safe (usable() catches the null buffer), and
+/// adviseFramebufferBeforeBeginFrame() already re-checked the pointer by hand
+/// rather than trusting the flag -- which is the tell that the two could
+/// disagree.
+void test_failed_reallocation_reports_invalid(void) {
+    Harness h;
+    StaticLayerSnapshot snapshot;
+
+    TEST_ASSERT_TRUE(snapshot.allocateForLogicalSize(kFbWidth, kFbHeight));
+    fillPositional(gFrameBuffer, 7);
+    TEST_ASSERT_TRUE(snapshot.capture(*h.renderer));
+    TEST_ASSERT_TRUE(snapshot.isValid());
+
+    // A different size, chosen so the product is far past anything an
+    // allocator hands out (2^40 bytes on a 64-bit host). Different from the
+    // current size on purpose: the same-size early return keeps the buffer and
+    // never reaches the allocator.
+    constexpr int kUnservable = 1 << 20;
+    TEST_ASSERT_FALSE(snapshot.allocateForLogicalSize(kUnservable, kUnservable));
+
+    // The buffer is gone, so the snapshot holds nothing -- and must say so.
+    TEST_ASSERT_FALSE(snapshot.isValid());
+    TEST_ASSERT_FALSE(snapshot.restore(*h.renderer));
+}
+
 /// A driver with no 8bpp framebuffer (SDL2/native) must degrade, not crash.
 void test_capture_without_sprite_buffer_reports_unavailable(void) {
     Harness h(/*exposeSpriteBuffer=*/false);
@@ -249,6 +283,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_unallocated_snapshot_reports_cold);
     RUN_TEST(test_allocate_for_renderer_reports_success);
     RUN_TEST(test_allocate_rejects_non_positive_dimensions);
+    RUN_TEST(test_failed_reallocation_reports_invalid);
     RUN_TEST(test_capture_without_sprite_buffer_reports_unavailable);
     RUN_TEST(test_capture_then_full_restore_round_trips);
     RUN_TEST(test_invalidate_forces_a_cold_restore);

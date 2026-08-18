@@ -89,6 +89,18 @@ public:
      * @return false if the dimensions are invalid or the allocation failed. A
      *         false return is not fatal: every other method then reports
      *         "unavailable" and the caller draws normally.
+     *
+     * @note A failed allocation also drops any previously captured contents --
+     *       the old buffer is released before the new one is requested, so on
+     *       failure the object owns nothing and isValid() says so. Re-check
+     *       isValid() after any re-allocation rather than assuming a capture
+     *       survived it.
+     *
+     * @note The out-of-memory case is logged at LogLevel::Error with the byte
+     *       count, because the alternative is a game that quietly runs at its
+     *       pre-cache speed forever and still looks correct. That log is
+     *       compiled out without PIXELROOT32_DEBUG_MODE, which is why this
+     *       function is `[[nodiscard]]` as well.
      */
     [[nodiscard]] bool allocateForLogicalSize(int width, int height);
 

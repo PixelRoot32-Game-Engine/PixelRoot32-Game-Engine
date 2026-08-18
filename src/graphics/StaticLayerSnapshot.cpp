@@ -6,6 +6,7 @@
 
 #include <cstring>
 
+#include "core/Log.h"
 #include "platforms/EngineConfig.h"
 
 namespace pixelroot32::graphics {
@@ -38,12 +39,34 @@ bool StaticLayerSnapshot::allocateForLogicalSize(int width, int height) {
         return true;
     }
 
+    // The old buffer goes back to the allocator BEFORE the new request, so a
+    // heap too fragmented to serve both sizes at once still has a chance. The
+    // cost is that on failure the object owns nothing -- so the validity flag
+    // has to fall with the buffer it describes.
     snapshotBytes.reset();
     snapshotByteCount = 0;
+    snapshotValid = false;
 
     // malloc (not operator new per STYLE_GUIDE); nullptr on OOM without abort.
     uint8_t* raw = static_cast<uint8_t*>(std::malloc(n));
     if (!raw) {
+        // Logged rather than returned-and-forgotten. Every method below now
+        // reports "unavailable" and the caller draws normally, so the game
+        // still looks right -- it just silently runs at the speed it had
+        // before the cache existed, which is exactly the kind of regression
+        // that survives a play-test. Same level and shape as the driver's
+        // buffer allocation failures.
+        //
+        // NOTE: core::logging::log compiles to nothing without
+        // PIXELROOT32_DEBUG_MODE, so a release build stays silent. The
+        // [[nodiscard]] on this function is what covers that case: a caller
+        // that discards the result has to say so in writing.
+        pixelroot32::core::logging::log(
+            pixelroot32::core::logging::LogLevel::Error,
+            "[StaticLayerSnapshot] Could not reserve %ux%u (%u bytes) for the static "
+            "layer cache; falling back to redrawing it every frame.",
+            static_cast<unsigned>(width), static_cast<unsigned>(height),
+            static_cast<unsigned>(n));
         return false;
     }
     snapshotBytes.reset(raw);

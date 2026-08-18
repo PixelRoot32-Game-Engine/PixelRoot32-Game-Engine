@@ -36,8 +36,14 @@ public:
      * logical size is not known until the engine has initialised. A false
      * return is not an error the game has to handle: the room simply draws its
      * 49 tiles every frame, exactly as it did before the snapshot existed.
+     *
+     * `[[nodiscard]]` because that fallback is invisible from the outside --
+     * the room still looks right, it just costs what it used to. A caller that
+     * genuinely does not care has to write the cast and say why, which is the
+     * only difference between an accepted trade-off and an unnoticed
+     * regression. StaticLayerSnapshot logs the byte count it could not get.
      */
-    bool reserveSnapshot(pixelroot32::graphics::Renderer& renderer);
+    [[nodiscard]] bool reserveSnapshot(pixelroot32::graphics::Renderer& renderer);
 
     /// Forwards the scene's pre-beginFrame hook to the snapshot.
     void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) const;
