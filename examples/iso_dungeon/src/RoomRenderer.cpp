@@ -86,6 +86,10 @@ void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // luck: screen depth under kTileProjection is 8 * (x + y), so a tile is
     // always drawn after both (x-1, y) and (x, y-1) -- exactly the two
     // neighbours whose extruded blocks can overlap it from behind. No sort.
+    //
+    // `rowMajorIsPainterOrder` in IsoDungeonConstants.h asserts the property
+    // this depends on, so editing the projection breaks the build here rather
+    // than producing walls that paint over the hero.
     for (int y = 0; y < kRoomTiles; ++y) {
         for (int x = 0; x < kRoomTiles; ++x) {
             const char cell = room_->layout[y][x];

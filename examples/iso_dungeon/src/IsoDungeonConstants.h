@@ -69,6 +69,40 @@ static_assert(gameplay::projectionDet(kTileProjection) == 256,
               "kTileProjection's determinant is no longer a power of two; "
               "screenToCell would stop strength-reducing to a shift.");
 
+/**
+ * @brief True when plain row-major cell iteration is already a correct
+ *        back-to-front paint order under this projection.
+ *
+ * `RoomRenderer::drawTiles` walks the room `for y, for x` and draws 49
+ * overlapping blocks with no depth sort at all. That is not a shortcut, and it
+ * is not luck either -- but it does rest on a property of the projection that
+ * nothing checked until this predicate.
+ *
+ * The proof is two lines. Row-major always draws `(x-1, y)` and `(x, y-1)`
+ * before `(x, y)`, and those two are the only neighbours whose blocks a tile at
+ * `(x, y)` can overlap. So if a `+1` step along EITHER cell axis moves a tile
+ * strictly FORWARD on screen, every tile is drawn after everything it can cover.
+ *
+ * Strict, not `>= 0`, and the difference is the whole point. A zero component
+ * puts two neighbours at EQUAL screen depth, and row-major then resolves that
+ * tie by array order rather than by geometry. Harmless for a tileset whose
+ * sprites fill exactly one cell and never overlap -- and wrong for extruded
+ * blocks, which is every sprite this example draws. A 40 px wall on a 16 px
+ * cell stride has no correct arbitrary order.
+ *
+ * Flip either sign and the room paints back to front: walls behind the hero
+ * would cover it, which reads as a sprite bug rather than as a projection one.
+ * That is the failure this catches at build time instead.
+ */
+constexpr bool rowMajorIsPainterOrder(const gameplay::ProjectionSpec& spec) {
+    return spec.axisXy > 0 && spec.axisYy > 0;
+}
+
+static_assert(rowMajorIsPainterOrder(kTileProjection),
+              "kTileProjection no longer makes row-major iteration a back-to-front "
+              "paint order. RoomRenderer::drawTiles has no depth sort and relies "
+              "on it; see rowMajorIsPainterOrder above.");
+
 // --- Room layout ------------------------------------------------------------
 
 /// Room extent is fixed for every room in the dungeon, so a single constant
