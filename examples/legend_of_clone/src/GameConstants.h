@@ -85,6 +85,47 @@ inline constexpr int kPlayerSpeedPxPerSec = 90;
 inline constexpr int kPlayerStartCol = 7;
 inline constexpr int kPlayerStartRow = 18;
 
+/**
+ * @brief Collision strategy used against the map (see PlayerActor::canOccupy).
+ *
+ * WholeTile:      a tile the export flags solid blocks its whole 16x16 cell;
+ *                 the tile's bitmap is ignored. Cheapest, and correct for
+ *                 rectangular masonry like TILE_ROCK.
+ * PerPixel:       the cell must be flagged solid AND the tile's bitmap must be
+ *                 opaque at that pixel (palette index 0 is walkable). The
+ *                 transparent corners of a round TILE_BUSH stop blocking.
+ * PerPixelEroded: per-pixel with morphological erosion, so a tree crown's
+ *                 outermost fringe of pixels does not snag the player.
+ *
+ * Compile-time: canOccupy branches with `if constexpr`, so the unselected
+ * branches are discarded and cost nothing at runtime. On ESP32 the unused
+ * engine helper is then stripped by --gc-sections.
+ */
+enum class CollisionMode : uint8_t {
+    WholeTile,
+    PerPixel,
+    PerPixelEroded,
+};
+
+/// Selects the collision mode. WholeTile restores the pre-per-pixel behaviour.
+inline constexpr CollisionMode kCollisionMode = CollisionMode::PerPixelEroded;
+
+/**
+ * @brief Erosion radius applied to the tile bitmap, in pixels. Only read when
+ *        kCollisionMode == CollisionMode::PerPixelEroded.
+ *
+ * The player hitbox stays at the full kPlayerSize; it is the *object's* solid
+ * silhouette that shrinks by this many pixels on every side before it is
+ * tested. A solid pixel counts only if the whole (2*erodePx+1)^2 square around
+ * it is opaque, so a tree's 1px fringe stops blocking while its trunk stays
+ * solid.
+ *
+ * Eroding the object rather than the body avoids the penetration problem of a
+ * shrunken hitbox: the player never ends up caught inside a concavity, because
+ * what shrank is the thing being walked into, not the thing walking.
+ */
+inline constexpr int kTileSolidErosionPx = 1;
+
 // ---------------------------------------------------------------------------
 // The two maps meet here
 // ---------------------------------------------------------------------------

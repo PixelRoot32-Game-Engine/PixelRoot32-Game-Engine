@@ -23,22 +23,41 @@ PlayerActor::PlayerActor(int startCol, int startRow)
 
 bool PlayerActor::canOccupy(int x, int y) const {
     if (world_ == nullptr) return false;
-    // The box spans from its top-left to its last covered pixel, so the far
-    // edge is (x + size - 1). Using (x + size) would test the tile the box
-    // stops exactly short of and refuse legal positions flush against a wall.
-    const int leftCol   = x / kTileSize;
-    const int rightCol  = (x + kPlayerSize - 1) / kTileSize;
-    const int topRow    = y / kTileSize;
-    const int bottomRow = (y + kPlayerSize - 1) / kTileSize;
 
-    for (int row = topRow; row <= bottomRow; ++row) {
-        for (int col = leftCol; col <= rightCol; ++col) {
-            if (world_->isSolid(col, row)) {
-                return false;
+    if constexpr (kCollisionMode == CollisionMode::WholeTile) {
+        // The box spans from its top-left to its last covered pixel, so the far
+        // edge is (x + size - 1). Using (x + size) would test the tile the box
+        // stops exactly short of and refuse legal positions flush against a wall.
+        const int leftCol   = x / kTileSize;
+        const int rightCol  = (x + kPlayerSize - 1) / kTileSize;
+        const int topRow    = y / kTileSize;
+        const int bottomRow = (y + kPlayerSize - 1) / kTileSize;
+
+        for (int row = topRow; row <= bottomRow; ++row) {
+            for (int col = leftCol; col <= rightCol; ++col) {
+                if (world_->isSolid(col, row)) {
+                    return false;
+                }
             }
         }
+        return true;
+    } else {
+        // Per-pixel path. The erosion applies to the tile's silhouette, not to
+        // this hitbox, so the full 16x16 body slides past a tree's fringe
+        // instead of catching on it.
+        constexpr int erosion = (kCollisionMode == CollisionMode::PerPixelEroded)
+                                    ? kTileSolidErosionPx
+                                    : 0;
+
+        for (int py = 0; py < kPlayerSize; ++py) {
+            for (int px = 0; px < kPlayerSize; ++px) {
+                if (world_->isSolidAtPixel(x + px, y + py, erosion)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
-    return true;
 }
 
 void PlayerActor::stepAxis(int steps, int deltaX, int deltaY) {

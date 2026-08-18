@@ -3,6 +3,7 @@
 #ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "platforms/PlatformMemory.h"
+#include "physics/TilePixelCollision.h"
 
 namespace legend_of_clone {
 
@@ -36,6 +37,38 @@ bool TileWorld::isSolid(int col, int row) const {
     if (tile >= tileCount_) return true;
 
     return solid_[tile];
+}
+
+bool TileWorld::isSolidAtPixel(int worldX, int worldY, int erodePx) const {
+    if (map_ == nullptr) return true;
+
+    const int tileW = map_->tileWidth;
+    const int tileH = map_->tileHeight;
+    if (tileW <= 0 || tileH <= 0) return true;
+
+    // Integer division truncates toward zero, so a negative world pixel would
+    // land on col/row 0 and read a legal cell. Reject it before the divide, or
+    // the player walks off the top-left edge of the world.
+    if (worldX < 0 || worldY < 0) return true;
+
+    const int col = worldX / tileW;
+    const int row = worldY / tileH;
+
+    // Cheap gate first: a cell the export never called solid can't be solid at
+    // any pixel, and this keeps walkable ground off the bitmap path entirely.
+    // It also carries the out-of-bounds and unattached cases for us.
+    if (!isSolid(col, row)) return false;
+
+    // isSolid() already rejected out-of-range ids, so this indexes the tileset
+    // in range.
+    const uint8_t tile = tileAt(col, row);
+    if (map_->tiles == nullptr) return true;
+
+    return pixelroot32::physics::isTilePixelSolid(
+        &map_->tiles[tile],
+        worldX % tileW,
+        worldY % tileH,
+        erodePx);
 }
 
 } // namespace legend_of_clone

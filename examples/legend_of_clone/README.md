@@ -55,6 +55,7 @@ putting you below the cave rather than at the start of the game.
 | `StaticTilemapLayerCache` on a pinned camera | `TopDownScene::draw()` |
 | Sprite flipping as animation, NES-style | `PlayerActor::draw()` |
 | Offset bypass for a non-scrolling HUD strip | `drawStatusBar()` |
+| Per-pixel tile collision via `isTilePixelSolid` | `TileWorld::isSolidAtPixel()` |
 
 The asset shapes here follow **[metroidvania](../metroidvania/)**, which is the
 reference for how this engine expects tilemaps and sprites to be fed to it:
@@ -202,6 +203,35 @@ and the doorway constants — a border declaring a connection the tiles wall off
 an edge opening the room graph knows nothing about, a spawn cell sitting on the
 very tile that triggers a scene change. Each of those produces a game that runs
 and misbehaves, which no compiler will catch.
+
+## Tile collision
+
+Collision is a property of the **tile id**, exported next to the art as
+`TILE_SOLID[]` so it cannot drift away from it. How that flag is applied is
+selectable at compile time with `kCollisionMode` in `GameConstants.h`:
+
+| Mode | What it tests |
+| --- | --- |
+| `WholeTile` | A solid tile blocks its whole 16×16 cell; the bitmap is ignored. |
+| `PerPixel` | The cell must be solid **and** the tile's 4bpp bitmap opaque at that pixel (palette index 0 is walkable). |
+| `PerPixelEroded` | Per-pixel, with the tile's silhouette eroded by `kTileSolidErosionPx` first. **Default.** |
+
+`canOccupy()` branches with `if constexpr`, so the unselected modes are
+discarded at compile time and the unused engine helper is stripped by
+`--gc-sections` on ESP32.
+
+Erosion shrinks the **object**, not the player. A shrunken hitbox lets the body
+penetrate a concavity and snag inside it; shrinking the thing being walked into
+cannot. The cell flag is checked before any pixel read, so walkable ground never
+touches bitmap data.
+
+Worth knowing on *this* map: `PerPixel` and `WholeTile` behave identically,
+because these terrain tiles are fully opaque — a bush is drawn over its own
+background, not on transparency. Sweeping the overworld one pixel at a time,
+both allow **70,299** of 156,705 body positions. Only `PerPixelEroded` differs,
+at **75,187** — about 7% more room, which is the fringe of tree crowns and bush
+edges no longer catching the player. Per-pixel collision pays off against art
+with real transparency; erosion pays off against art with ragged edges.
 
 ## Map data
 

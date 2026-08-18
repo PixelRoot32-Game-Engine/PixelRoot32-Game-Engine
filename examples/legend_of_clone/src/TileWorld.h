@@ -60,6 +60,25 @@ public:
     bool isSolid(int col, int row) const;
 
     /**
+     * @brief Whether one world pixel is solid, refining isSolid() by the tile's
+     *        own bitmap.
+     * @param worldX  X in world pixels.
+     * @param worldY  Y in world pixels.
+     * @param erodePx Erosion radius forwarded to the engine helper; 0 disables it.
+     * @return true when the cell is flagged solid AND the tile's 4bpp bitmap is
+     *         opaque at that pixel. Out-of-bounds stays true, same as isSolid().
+     *
+     * The cell flag is checked first and short-circuits, so walkable ground
+     * still costs one table lookup and never touches pixel data. Only cells the
+     * export already calls solid pay for the bitmap read.
+     *
+     * This is what makes a round bush passable at its transparent corners while
+     * a rectangular rock face stays a flat wall — without a second collision
+     * table to keep in sync with the art.
+     */
+    bool isSolidAtPixel(int worldX, int worldY, int erodePx) const;
+
+    /**
      * @brief Tile id at (col, row), or 0 outside the map.
      *
      * Exposed so a scene can ask what the player is standing on — a cave mouth,
