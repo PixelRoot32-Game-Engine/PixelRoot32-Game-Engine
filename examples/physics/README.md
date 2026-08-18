@@ -11,7 +11,16 @@ When **`PIXELROOT32_ENABLE_UI_SYSTEM`** is on (default in [`PlatformDefaults.h`]
 - **`PIXELROOT32_ENABLE_SCENE_ARENA`** — pre-allocated box/circle pools and arena-safe add/remove when the slider changes.
 - **`PIXELROOT32_ENABLE_TOUCH=1`** — set for **`native`** and **`esp32cyd`** in `platformio.ini` so touch APIs compile and mouse/touch can drive the demo.
 - **`PIXELROOT32_ENABLE_SPATIAL_QUERY=1`** — the proximity scan described below.
+- **`PIXELROOT32_ENABLE_PARTICLES=1`** — the landing dust burst described below.
 - **`esp32cyd`** additionally enables **`PIXELROOT32_ENABLE_DEBUG_OVERLAY`**, **`PIXELROOT32_DEBUG_MODE`**, **ILI9341** 240×320, and **XPT2046** touch (many tuning `-D`s in `platformio.ini`).
+
+## Landing dust (particles)
+
+A **`ParticleEmitter`** using the **`ParticlePresets::Dust`** preset fires a burst
+at the player's feet on the frame the player touches down. The trigger reads
+**`is_on_floor()`**, which **`moveAndSlide()`** refreshes, so the effect is driven
+by the resolved collision state rather than by input — and it is edge-triggered,
+so resting on the floor does not re-emit every frame.
 
 ## Proximity scan (spatial queries)
 
@@ -53,6 +62,7 @@ See **`platformio.ini`** for **`native`**, **`esp32dev`**, **`esp32cyd`**.
 - **Rigid** dynamics (restitution, friction), **circle vs AABB** collision shape
 - **Static** scenery with bounce flag on walls
 - **Sensor-style** regions (as wired in the demo scene)
+- **Particle burst** driven by collision state (`ParticleEmitter` + `ParticlePresets::Dust`)
 - **Optional touch HUD** (slider adjusts how many boxes/circles are registered without re-running `init()` from scratch)
 
 ## Documentation links

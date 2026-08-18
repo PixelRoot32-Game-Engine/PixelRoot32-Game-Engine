@@ -17,10 +17,13 @@
 #include <graphics/ui/UIHorizontalLayout.h>
 #include <graphics/ui/UIVerticalLayout.h>
 #endif
+#if PIXELROOT32_ENABLE_PARTICLES
+#include <graphics/particles/ParticleEmitter.h>
+#endif
 
 /**
  * @file PhysicsDemoScene.h
- * @brief Physics demo: RigidActor, KinematicActor, StaticActor.
+ * @brief Physics demo: RigidActor, KinematicActor, StaticActor, particle burst on landing.
  */
 
 namespace physicsdemo {
@@ -128,6 +131,28 @@ private:
     PlayerActor* player = nullptr;  ///< Player entity
     WallActor* floor = nullptr;     ///< Floor reference
     pixelroot32::input::ActorTouchController touchController;
+
+#if PIXELROOT32_ENABLE_PARTICLES
+    /**
+     * @brief Fires one dust burst on the frame the player touches down.
+     *
+     * Reads is_on_floor(), which moveAndSlide() refreshes, so the effect is
+     * driven by the resolved collision state rather than by input.
+     */
+    void emitLandingDust();
+
+    /**
+     * Owned outside the scene arena: init() re-inits the arena on every reset,
+     * and the emitter has no per-reset state worth rebuilding.
+     */
+    std::unique_ptr<pixelroot32::graphics::particles::ParticleEmitter> landingDust;
+
+    /** Previous frame's floor contact; the burst fires on the false → true edge. */
+    bool playerWasOnFloor = false;
+
+    /** Particles per landing. MAX_PARTICLES_PER_EMITTER caps the pool at 50. */
+    static constexpr int kLandingDustCount = 12;
+#endif
 
 #if PIXELROOT32_ENABLE_SPATIAL_QUERY
     /**

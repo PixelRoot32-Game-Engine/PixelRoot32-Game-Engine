@@ -23,7 +23,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
 | [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
 | [music-demo](music-demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
-| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay | `native`, `esp32dev`, `esp32cyd` |
+| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
 | [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing, **interaction triggers** + **gameplay event bus** on sensor pickups | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
 | [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
@@ -60,6 +60,7 @@ one example that turns it on. Start here when you want to see one in use:
 | Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
 | Depth sorting | `DEPTH_SORT` | [bomberbot](bomberbot/), [iso_dungeon](iso_dungeon/) |
 | Cell-to-screen projection | `GAMEPLAY_PROJECTION` | [iso_dungeon](iso_dungeon/) |
+| Particles | `PARTICLES` | [physics](physics/), [brick_breaker](brick_breaker/) |
 | Camera effects | `CAMERA_EFFECTS` | [camera](camera/) |
 | Camera tweens | `CAMERA_TWEEN` | [camera](camera/) |
 | 12-bit colour wire format | `TFT_12BIT_COLOR` | [midway_clone](midway_clone/) |
