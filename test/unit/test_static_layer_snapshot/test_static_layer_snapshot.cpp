@@ -23,6 +23,7 @@
 #include "graphics/DisplayConfig.h"
 #include "../../mocks/MockDrawSurface.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -121,11 +122,30 @@ void test_failed_reallocation_reports_invalid(void) {
     TEST_ASSERT_TRUE(snapshot.capture(*h.renderer));
     TEST_ASSERT_TRUE(snapshot.isValid());
 
-    // A different size, chosen so the product is far past anything an
-    // allocator hands out (2^40 bytes on a 64-bit host). Different from the
-    // current size on purpose: the same-size early return keeps the buffer and
-    // never reaches the allocator.
-    constexpr int kUnservable = 1 << 20;
+    // Forcing the allocator to fail without an injection seam means asking for
+    // a size it cannot serve. "Bigger than RAM" is NOT enough: Linux with
+    // vm.overcommit_memory=1 hands back a pointer for a request it has no
+    // memory to honour, and the test would fail against a correct fix.
+    //
+    // 2^60 bytes is unservable for a reason overcommit cannot reach. Overcommit
+    // governs whether the kernel promises physical backing; it does not widen
+    // the address space, and 1 EiB does not fit in one. x86-64 gives user code
+    // a 47-bit space by default (128 TiB) and 57-bit under LA57 (128 PiB), so
+    // 2^60 overruns even the larger of the two by 8x and the default by ~8000x.
+    // The mapping fails on address space before any accounting policy is
+    // consulted, which is what makes this deterministic rather than tuned.
+    //
+    // The request also stays under PTRDIFF_MAX (2^60 < 2^63-1), so glibc goes
+    // to mmap and fails there instead of rejecting the size up front. Both are
+    // failures, but this keeps the failure on the path the fix is about.
+    //
+    // The size must DIFFER from the current one: the same-size early return
+    // keeps the buffer and never reaches the allocator.
+    static_assert(sizeof(std::size_t) >= 8,
+                  "kUnservable assumes a 64-bit size_t. On a 32-bit host the "
+                  "product wraps to a servable size and this test would pass "
+                  "for the wrong reason.");
+    constexpr int kUnservable = 1 << 30;
     TEST_ASSERT_FALSE(snapshot.allocateForLogicalSize(kUnservable, kUnservable));
 
     // The buffer is gone, so the snapshot holds nothing -- and must say so.
