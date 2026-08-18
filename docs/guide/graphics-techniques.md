@@ -25,7 +25,7 @@ Tilemaps are efficient for backgrounds and level geometry: the engine stores com
 
 - `examples/animated_tilemap` — animated tiles
 - `examples/metroidvania` — larger scrollable maps
-- `examples/snake` — minimal grid usage
+- `examples/iso_dungeon` — minimal grid usage
 
 ---
 

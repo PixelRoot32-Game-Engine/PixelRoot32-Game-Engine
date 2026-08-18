@@ -158,7 +158,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/hello_world
    ```
 
-   Each folder (`hello_world`, `sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `bomberbot`, `room_screen`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
+   Each folder (`hello_world`, `sprites`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `2048`, `music-demo`, `flappy_bird`, `bomberbot`, `iso_dungeon`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
