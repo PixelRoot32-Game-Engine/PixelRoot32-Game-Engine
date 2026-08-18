@@ -5,6 +5,7 @@
 #include "graphics/StaticLayerSnapshot.h"
 
 #include "IsoDungeonConstants.h"
+#include "RoomCatalog.h"
 
 namespace iso_dungeon {
 
@@ -48,9 +49,29 @@ public:
     /// Forwards the scene's pre-beginFrame hook to the snapshot.
     void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) const;
 
+    /**
+     * @brief Switches which room this renderer draws.
+     *
+     * Invalidates the snapshot, because the snapshot holds a picture of the
+     * room that was on screen a moment ago and every pixel of it is now wrong.
+     * Skipping this would not merely draw the old room -- it would keep drawing
+     * it forever, since restore() succeeds and drawTiles() never runs again.
+     *
+     * Reclaiming the framebuffer is the caller's job and is NOT done here: see
+     * IsoDungeonScene::enterRoom for why forceFullRedraw() has to accompany
+     * this call.
+     *
+     * @param room Room to draw from now on. Must outlive this renderer, which
+     *             every `kRooms` entry does -- they are constexpr statics.
+     */
+    void setRoom(const RoomSpec& room);
+
 private:
     /// Draws the 49 floor and wall tiles. The slow path the snapshot replaces.
     void drawTiles(pixelroot32::graphics::Renderer& renderer);
+
+    /// The room currently on screen. Never null after the scene's init().
+    const RoomSpec* room_ = nullptr;
 
     pixelroot32::graphics::StaticLayerSnapshot snapshot_;
 };

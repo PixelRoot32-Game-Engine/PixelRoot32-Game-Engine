@@ -4,6 +4,7 @@
 #include "graphics/Renderer.h"
 
 #include "IsoDungeonConstants.h"
+#include "RoomCatalog.h"
 
 namespace iso_dungeon {
 
@@ -26,19 +27,38 @@ namespace iso_dungeon {
  */
 class PropEntity : public pixelroot32::core::Entity {
 public:
-    /// @param sprite Block bitmap.
-    /// @param footY  Its `*_FOOT_Y` (see IsoDraw.h).
-    PropEntity(const pixelroot32::graphics::Sprite4bpp& sprite, int footY,
-               int tileX, int tileY);
+    /// Starts empty and hidden. A prop only becomes real when a room claims a
+    /// slot for it, which is what lets one fixed pool serve every room.
+    PropEntity();
 
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
 
+    /**
+     * @brief Points this slot at one of the entering room's props.
+     *
+     * Re-pointing beats destroying and re-creating entities on every door: the
+     * scene's entity list, its render layers and its sort order all stay
+     * exactly as they were, so a room change cannot leave a dangling pointer
+     * in `Scene::entities` -- which is the failure mode that would show up as
+     * a crash three rooms later rather than at the transition that caused it.
+     *
+     * @param spec Prop to become. Its sprite must outlive this entity, which
+     *             every `RoomCatalog.h` sprite does -- they are all statics.
+     */
+    void configure(const PropSpec& spec);
+
+    /// Empties the slot: hidden, drawn by nobody, sorted harmlessly last.
+    void release();
+
 private:
-    const pixelroot32::graphics::Sprite4bpp& sprite_;
-    int footY_;
-    int centreX_;
-    int centreY_;
+    /// nullptr while the slot is unused. A pointer rather than the reference
+    /// this class used to hold, because a reference cannot be re-seated and
+    /// re-seating is the whole point of the pool.
+    const pixelroot32::graphics::Sprite4bpp* sprite_ = nullptr;
+    int footY_ = 0;
+    int centreX_ = 0;
+    int centreY_ = 0;
 };
 
 }  // namespace iso_dungeon

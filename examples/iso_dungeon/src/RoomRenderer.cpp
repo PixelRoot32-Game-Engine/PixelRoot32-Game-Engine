@@ -30,6 +30,16 @@ void RoomRenderer::adviseFramebufferBeforeBeginFrame(gfx::Renderer& renderer) co
     snapshot_.adviseFramebufferBeforeBeginFrame(renderer);
 }
 
+void RoomRenderer::setRoom(const RoomSpec& room) {
+    room_ = &room;
+
+    // The cached picture is of the room being left. Dropping it is what makes
+    // the next draw() take the drawTiles() path and re-capture; without it the
+    // snapshot would keep restoring the previous room over the new one, and it
+    // would never self-correct because that path never redraws.
+    snapshot_.invalidate();
+}
+
 void RoomRenderer::draw(gfx::Renderer& renderer) {
     // No backdrop fill. `Renderer::beginFrame` has already cleared the
     // framebuffer to black, and under this example's palette kVoidColor
@@ -43,8 +53,9 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // and this needs a fill again -- kVoidColor stays in
     // IsoDungeonConstants.h naming that intent.
 
-    // The room never changes, so it is worth drawing exactly once. On every
-    // later frame the snapshot puts it back -- and with dirty regions on, only
+    // A room never changes while the hero is standing in it, so it is worth
+    // drawing exactly once per visit. On every later frame the snapshot puts
+    // it back -- and with dirty regions on, only
     // over the cells the hero and props disturbed last frame, which is a few
     // hundred bytes against 35,072 pixels of 4bpp decode.
     //
@@ -52,6 +63,10 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // `drawTileMap` assumes axis-aligned cells, so there is no TileMap4bpp to
     // hand it. StaticLayerSnapshot caches the RESULT instead of the source, so
     // it does not care that these tiles are diamonds.
+    if (room_ == nullptr) {
+        return;  // before the scene's init() has chosen a room
+    }
+
     if (snapshot_.restore(renderer)) {
         return;
     }
@@ -73,7 +88,7 @@ void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // neighbours whose extruded blocks can overlap it from behind. No sort.
     for (int y = 0; y < kRoomTiles; ++y) {
         for (int x = 0; x < kRoomTiles; ++x) {
-            const char cell = kRoomLayout[y][x];
+            const char cell = room_->layout[y][x];
             const int cx = gameplay::cellToScreenX(x, y, kTileProjection);
             const int cy = gameplay::cellToScreenY(x, y, kTileProjection);
 

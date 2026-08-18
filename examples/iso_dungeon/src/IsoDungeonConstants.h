@@ -71,13 +71,18 @@ static_assert(gameplay::projectionDet(kTileProjection) == 256,
 
 // --- Room layout ------------------------------------------------------------
 
-/// Tile roles. Indexed `kRoomLayout[tileY][tileX]`.
+/// Room extent is fixed for every room in the dungeon, so a single constant
+/// sizes every layout array and every bounds check. The layouts themselves,
+/// and the doors between them, live in RoomCatalog.h -- this header stays the
+/// geometry and hero tuning it started as.
+///
+/// Tile roles, indexed `layout[tileY][tileX]`:
 ///
 /// | Char | Meaning                                    | Walkable |
 /// |------|--------------------------------------------|----------|
 /// | `W`  | stone wall                                 | no       |
-/// | `D`  | doorway in the wall running along +x       | no       |
-/// | `E`  | doorway in the wall running along +y       | no       |
+/// | `D`  | doorway in the wall running along +x       | yes      |
+/// | `E`  | doorway in the wall running along +y       | yes      |
 /// | `.`  | plain floor                                | yes      |
 /// | `a`  | accent floor (the ritual square)           | yes      |
 /// | `A`  | altar, standing on accent floor            | no       |
@@ -85,22 +90,16 @@ static_assert(gameplay::projectionDet(kTileProjection) == 256,
 ///
 /// The two back edges (tileY == 0 and tileX == 0) are walls; the two front
 /// edges are open, with the black backdrop reading as the drop beyond them.
-/// That is the framing both reference rooms use.
+/// That framing is not decoration -- see RoomCatalog.h for why the front edges
+/// can never carry a wall, and what that costs the dungeon's topology.
 ///
 /// The doorways are two chars rather than one because which face a doorway is
 /// carved into depends on which wall it sits in, and inferring that from the
 /// coordinates would silently do the wrong thing the first time a wall moves.
-inline constexpr char kRoomLayout[kRoomTiles][kRoomTiles + 1] = {
-    "WWWDWWW",  // y = 0
-    "W......",  // y = 1
-    "W.aaa..",  // y = 2
-    "E.aAaP.",  // y = 3
-    "W.aaa..",  // y = 4
-    "W..P...",  // y = 5
-    "W......",  // y = 6
-};
+///
+/// Doorways are walkable: standing on one is what triggers the room change.
 
-/// Where the hero starts, in tiles.
+/// Where the hero starts, in tiles, in room 0.
 inline constexpr int kSpawnTileX = 2;
 inline constexpr int kSpawnTileY = 5;
 
@@ -137,35 +136,6 @@ inline constexpr pixelroot32::graphics::Color kVoidColor =
 /// True when a tile coordinate pair is inside the room.
 constexpr bool containsTile(int tileX, int tileY) {
     return tileX >= 0 && tileY >= 0 && tileX < kRoomTiles && tileY < kRoomTiles;
-}
-
-/// True when the hero cannot stand on this tile. Outside the room counts as
-/// solid, so the room's own edge is a wall without needing a border of blocks.
-constexpr bool isSolidTile(int tileX, int tileY) {
-    if (!containsTile(tileX, tileY)) {
-        return true;
-    }
-    const char c = kRoomLayout[tileY][tileX];
-    return c == 'W' || c == 'D' || c == 'E' || c == 'A' || c == 'P';
-}
-
-/// How many tiles carry a given layout char.
-///
-/// Exists so the scene can prove at compile time that its hand-written list of
-/// prop entities matches the layout exactly -- not just that each prop it names
-/// is really there, but that the layout holds no prop it forgot. Editing the
-/// layout without editing the entity list then fails the build instead of
-/// silently dropping a pillar from the depth sort.
-constexpr int countTiles(char kind) {
-    int n = 0;
-    for (int y = 0; y < kRoomTiles; ++y) {
-        for (int x = 0; x < kRoomTiles; ++x) {
-            if (kRoomLayout[y][x] == kind) {
-                ++n;
-            }
-        }
-    }
-    return n;
 }
 
 }  // namespace iso_dungeon

@@ -5,6 +5,7 @@
 #include "gameplay/GridMotion.h"
 
 #include "IsoDungeonConstants.h"
+#include "RoomCatalog.h"
 
 namespace iso_dungeon {
 
@@ -38,6 +39,34 @@ public:
     int tileX() const { return motion_.cellX; }
     int tileY() const { return motion_.cellY; }
 
+    /// True while a step is in flight, i.e. the hero sits between two cells.
+    ///
+    /// The scene needs this to decide whether tileX()/tileY() name where the
+    /// hero IS or merely where it came from. Only the at-rest reading may fire
+    /// a door: acting on the in-flight one would trigger the transition on the
+    /// frame the hero LEAVES the tile before the door, a whole step early.
+    bool isMoving() const { return pixelroot32::gameplay::isMoving(motion_); }
+
+    /**
+     * @brief Moves the hero into a room, at rest on a named tile.
+     *
+     * Used for the initial spawn and for every door. `placeAt` cancels any
+     * step in flight, which matters here: the hero reaches a door by
+     * completing a step, and leaving `progress` non-zero would strand it
+     * walking toward a tile in a room it is no longer in.
+     *
+     * The hero is turned to FACE INTO the room, never left holding the facing
+     * it walked into the door with. That facing is always "away" -- doors sit
+     * on the back walls, so reaching one means walking up-left or up-right --
+     * and carrying it through the door would stand the hero in the new room
+     * with its back to the camera, looking like it arrived walking backwards.
+     *
+     * @param room       Room whose layout governs movement from now on.
+     * @param startTileX Cell to stand on.
+     * @param startTileY Ditto.
+     */
+    void enterRoom(const RoomSpec& room, int startTileX, int startTileY);
+
     /**
      * @brief True when the hero would not draw identically to the last frame
      *        that was actually presented.
@@ -59,6 +88,11 @@ private:
     /// One fixed-clock movement step: finish a step in flight, or start one.
     void logicStep();
 
+    /// Points the hero along a cell step. Shared by walking and by arriving
+    /// through a door, so the two can never disagree about which way `+x`
+    /// faces -- the bug that puts a mirrored sprite on one path only.
+    void setFacingFromStep(int dx, int dy);
+
     void updateProjectedPosition();
 
     /// Index into HERO_FRAMES for the current pose. Pure function of the
@@ -67,6 +101,10 @@ private:
 
     /// Raises visualDirty_ when the drawn appearance would differ.
     void refreshVisualDirty();
+
+    /// The room whose layout answers "may I step there". Never null after the
+    /// constructor, which enters the starting room.
+    const RoomSpec* room_ = nullptr;
 
     pixelroot32::gameplay::GridMotion motion_;
 

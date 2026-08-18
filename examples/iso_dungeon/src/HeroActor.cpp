@@ -18,8 +18,41 @@ HeroActor::HeroActor(int startTileX, int startTileY)
     : core::Entity(math::Vector2::ZERO(), HERO_WIDTH, HERO_HEIGHT,
                    core::EntityType::GENERIC) {
     setRenderLayer(1);
+    enterRoom(kRooms[0], startTileX, startTileY);
+}
+
+void HeroActor::enterRoom(const RoomSpec& room, int startTileX, int startTileY) {
+    room_ = &room;
     gameplay::placeAt(motion_, startTileX, startTileY);
+
+    // Turn to face into the room. The step from the door to the tile the hero
+    // is standing on is exactly the direction it just walked, so reusing the
+    // walking rule gets both the pose and the mirror right without a second
+    // table of facings to keep in sync.
+    //
+    // Doors only exist on the two back walls, so this step is always +x or +y
+    // and the resulting pose always faces the camera -- which is the whole
+    // point. `everyArrivalFacesInward` asserts at compile time that no arrival
+    // tile falls back to {0, 0} here.
+    // The one caller that legitimately gets {0, 0} is the constructor: the
+    // spawn tile sits in the middle of room 0, nowhere near a door. It keeps
+    // the member default, which already faces down-right toward the camera --
+    // so the "always arrive facing forward" rule holds on that path too,
+    // without a special case.
+    const CellStep inward = inwardStepFromDoor(room, startTileX, startTileY);
+    if (inward.dx != 0 || inward.dy != 0) {
+        setFacingFromStep(inward.dx, inward.dy);
+    }
+
     updateProjectedPosition();
+
+    // The hero has jumped across the screen, so whatever drawn-appearance
+    // record it was carrying describes a frame from another room. Raising the
+    // flag by hand rather than letting refreshVisualDirty() notice is not
+    // belt-and-braces: a door can land the hero on a cell that projects to the
+    // SAME pixel and pose it left from, and then nothing would look different
+    // to compare -- on a frame where the entire background changed.
+    visualDirty_ = true;
 }
 
 void HeroActor::logicStep() {
@@ -63,6 +96,21 @@ void HeroActor::logicStep() {
     // Facing is updated even when the step is refused, so holding a direction
     // into a wall turns the hero to face it instead of leaving it pointing the
     // way it last managed to move.
+    setFacingFromStep(dx, dy);
+
+    const int nextX = motion_.cellX + dx;
+    const int nextY = motion_.cellY + dy;
+
+    // isSolidTile() reports out-of-room as solid, so the room's edge holds
+    // without a ring of blocker tiles around the layout.
+    if (!isSolidTile(*room_, nextX, nextY)) {
+        gameplay::beginStep(motion_, nextX, nextY);
+    }
+    // else: stay put. Holding a direction into a wall is inert -- not a
+    // collision event, not a retry, not an error.
+}
+
+void HeroActor::setFacingFromStep(int dx, int dy) {
     if (dx > 0) {
         facingAway_ = false;
         flipX_ = false;   // down-right
@@ -76,17 +124,6 @@ void HeroActor::logicStep() {
         facingAway_ = true;
         flipX_ = false;   // up-right
     }
-
-    const int nextX = motion_.cellX + dx;
-    const int nextY = motion_.cellY + dy;
-
-    // isSolidTile() reports out-of-room as solid, so the room's edge holds
-    // without a ring of blocker tiles around the layout.
-    if (!isSolidTile(nextX, nextY)) {
-        gameplay::beginStep(motion_, nextX, nextY);
-    }
-    // else: stay put. Holding a direction into a wall is inert -- not a
-    // collision event, not a retry, not an error.
 }
 
 void HeroActor::update(unsigned long deltaTime) {

@@ -27,7 +27,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
 | [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
 | [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, **Y-axis depth sorting**, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
-| [iso_dungeon](iso_dungeon/) | **Isometric dungeon room** built on a generic `ProjectionSpec`: exact tile-to-tile movement via `GridMotion` + the projection overload of `interpolatedWorld`, **projection-aware depth sorting** (`compareByDepthKey`) so the hero passes behind and in front of the altar, row-major painter's order with no sort, programmatically generated 4bpp iso art | `native`, `esp32dev` |
+| [iso_dungeon](iso_dungeon/) | **Isometric dungeon** built on a generic `ProjectionSpec`: exact tile-to-tile movement via `GridMotion` + the projection overload of `interpolatedWorld`, **projection-aware depth sorting** (`compareByDepthKey`) so the hero passes behind and in front of the altar, row-major painter's order with no sort, **three rooms connected by a `RoomGraph`** whose catalog validates itself with `static_assert`, programmatically generated 4bpp iso art | `native`, `esp32dev` |
 | [midway_clone](midway_clone/) | **Clone of Midway** — vertically scrolling shooter: a camera driven **every frame**, `ObjectPool` bullets/enemies/explosions, camera-keyed wave table, sprite-vs-sprite AABB with physics off, and a measured look at what a moving camera costs `StaticTilemapLayerCache` (spoiler: less than the unconditional full-frame SPI push) | `native`, `esp32dev` |
 | [legend_of_clone](legend_of_clone/) | **The Legend of Clone** — 8-bit-style **screen-by-screen overworld and dungeon**: two scenes over a shared room-grid base, scrolling room transitions with input lockout, `triggerTransition` fade between scenes, exported flash-resident 4bpp tilemaps + `StaticTilemapLayerCache`, dual palette mode, and **selectable tile collision** — whole-tile, per-pixel, or per-pixel with erosion via `isTilePixelSolid` | `native`, `esp32dev` |
 
@@ -51,7 +51,7 @@ one example that turns it on. Start here when you want to see one in use:
 | Grid space / motion | `GAMEPLAY_GRID_SPACE` | [iso_dungeon](iso_dungeon/), [2048](2048/), [bomberbot](bomberbot/) |
 | State machine | `GAMEPLAY_STATE_MACHINE` | [flappy_bird](flappy_bird/), [metroidvania](metroidvania/) |
 | Object pool | `GAMEPLAY_OBJECT_POOL` | [midway_clone](midway_clone/) |
-| Room graph | `GAMEPLAY_ROOM` | [legend_of_clone](legend_of_clone/) |
+| Room graph | `GAMEPLAY_ROOM` | [legend_of_clone](legend_of_clone/), [iso_dungeon](iso_dungeon/) |
 | Per-pixel tile collision | *(always on)* | [legend_of_clone](legend_of_clone/) |
 | Gameplay event bus | `GAMEPLAY_EVENTS` | [metroidvania](metroidvania/) |
 | Interaction triggers | `INTERACTION_TRIGGERS` | [metroidvania](metroidvania/) |

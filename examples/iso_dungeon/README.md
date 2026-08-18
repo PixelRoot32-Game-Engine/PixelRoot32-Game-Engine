@@ -1,8 +1,9 @@
-# iso_dungeon — an isometric room on a generic projection
+# iso_dungeon — an isometric dungeon on a generic projection
 
-A single dungeon chamber drawn in 2:1 isometric, with a hero that walks it
-tile by tile. Two stone walls along the back edges, a doorway in each, an altar
-on a ritual square, and two pillars flanking it.
+Three dungeon rooms drawn in 2:1 isometric, with a hero that walks them tile by
+tile and passes between them through doorways. The opening room has two stone
+walls along its back edges with a doorway in each, an altar on a ritual square,
+and two pillars flanking it; the doors lead to a pillar hall and a shrine.
 
 The point of the example is not the dungeon. It is that **PixelRoot32 has no
 isometric mode**. The view here is one `gameplay::ProjectionSpec` — six
@@ -32,6 +33,9 @@ top-down board game with no other edit.
 | `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `Entity::depthKey` and `gameplay::compareByDepthKey`. Off, entities draw in insertion order and the occlusion is simply wrong half the time. |
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `gameplay::GridMotion`. This example declares no `GridSpec` at all, but `GridMotion` shares the grid flag rather than taking one of its own — see below. |
 | `PIXELROOT32_ENABLE_4BPP_SPRITES=1` | The art is 4bpp on a custom 16-colour palette. Not cosmetic: the engine gates its 4bpp draw paths with `if constexpr`, so building without it is not an error, it is a black screen. |
+| `PIXELROOT32_ENABLE_GAMEPLAY_ROOM=1` | `gameplay::RoomGraph`. Holds which door leads where, the current room index, and the `onEnter` callback the whole transition hangs off. |
+| `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` | Caches the drawn room so a static floor costs one memcpy per frame instead of 49 sprite blits. |
+| `PIXELROOT32_ENABLE_DIRTY_REGIONS=1` | Narrows that restore to the cells last frame's movers disturbed. Without it the snapshot still works, it just restores the whole 57,600 B buffer. |
 
 ## What the example actually demonstrates
 
@@ -102,6 +106,57 @@ Screen Y happens to **be** the isometric depth for this spec, because
 vertical component. That identity is a property of this basis, not of
 projections in general — which is exactly why the engine takes the key as data
 instead of deriving it.
+
+### The dungeon is a graph, not a map
+
+`RoomGraph` stores topology — which room a door opens onto — and nothing else:
+no tiles, no sprites, no spawn points, because those differ for every game with
+rooms. `RoomCatalog.h` supplies them, and the two are joined by using the same
+room index for both.
+
+The doors do **not** line up on a plane, and that is forced by the art rather
+than chosen. Doorway sprites exist only for the two back walls, because a wall
+drawn along a room's front edge has a *higher* screen depth than the tiles
+behind it and would paint straight over the hero standing there. That is the
+isometric front-wall problem. So every door is carved into a back wall, you
+leave room 0 walking up-right and arrive beside room 1's up-left door, and the
+connection is topological.
+
+`RoomGraph` models exactly that — its `RoomDir` slots are keys, not geometry —
+which is why an example with no spatial room grid can still use it unchanged.
+The camera rects it also stores are degenerate here: one room is one screen, so
+nothing scrolls.
+
+### Arriving through a door always faces you forward
+
+You reach a door by walking *into* a back wall, so the hero's pose at that
+moment is its back. Carrying that facing through the door would stand you in
+the new room looking like you arrived walking backwards.
+
+`HeroActor::enterRoom` turns the hero along the step from the door to the tile
+it lands on, reusing the same facing rule walking uses so the two cannot
+disagree about which way `+x` faces. Because doors only ever sit on back walls,
+that step is always `+x` or `+y` — both of which project toward the camera. The
+forward-facing arrival is therefore a consequence of where doors can be, not a
+rule bolted on top, and `everyArrivalFacesInward` asserts at compile time that
+no arrival tile escapes it.
+
+### The catalog checks itself at compile time
+
+`RoomCatalog.h` is hand-written in four places that have to agree — layout
+chars, prop list, door list, arrival tiles — and every disagreement is silent
+at runtime: a prop drawn with nothing under it, a door leading nowhere, a hero
+spawned inside a wall, a player bounced between two rooms forever. Each is a
+`static_assert` instead:
+
+| Assert | Catches |
+|---|---|
+| `propsMatchLayout` | a prop on a tile the layout does not declare, or an `A`/`P` tile with no prop |
+| `doorsAreWellFormed` | a door off a doorway char, a target room that does not exist, an arrival inside a wall, or an arrival **on** a door — which would re-trigger the transition and bounce the player straight back |
+| `everyDoorIsTwoWay` | a one-way room, and an arrival that does not land beside the door you came out of |
+| `everyArrivalFacesInward` | an arrival with no door beside it, which would leave the hero facing whatever way it last walked |
+
+Move a pillar in a layout and the build stops at the line that caused it.
 
 ## Decisions worth knowing about
 
@@ -180,6 +235,9 @@ Y offset at each call site, is how isometric art quietly goes crooked.
 | Down | `+cellY` | down-left |
 | Left | `-cellX` | up-left |
 | Right | `+cellX` | down-right |
+
+Walk onto a doorway to change rooms. Doorways are walkable for exactly that
+reason — standing on one is what the scene watches for.
 
 One axis at a time, fixed priority Up > Down > Left > Right. Diagonals are
 unrepresentable by construction, and a step in flight cannot be redirected —
