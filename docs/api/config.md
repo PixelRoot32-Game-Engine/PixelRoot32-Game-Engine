@@ -37,6 +37,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |
+| `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Enable **`StaticLayerSnapshot`** (FB snapshot of game-drawn static layers). Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240). | `0` |
 | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Enable dirty-cell selective framebuffer clear (`DirtyGrid`). Requires 64–226 B RAM. | `0` |
 | `PIXELROOT32_ENABLE_DIRTY_REGION_PROFILING` | Enable dirty region profiling metrics. | `0` |
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK` | TFT_eSPI DMA line batch size. | `60` |
@@ -49,6 +50,8 @@ This document covers global configuration options, build flags, and compile-time
 ### TFT_eSPI Display Flags
 
 > **Note:** `PIXELROOT32_TFT_12BIT_COLOR=1` is **experimental and not yet verified on hardware**. It cuts 25% of the SPI bus time per frame and shrinks each DMA line buffer by 25%, and the driver silently keeps RGB565 when `PHYSICAL_DISPLAY_WIDTH` is not a multiple of 4. See [12-bit Color on the Wire (RGB444)](../guide/performance/esp32-performance.md#12-bit-color-on-the-wire-rgb444) for the bandwidth math, the width constraint and the memory trade-off.
+
+> **Note:** The two framebuffer caches solve the same problem from opposite ends, and a given static layer wants one or the other, never both. `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` covers layers the engine can redraw itself — it owns the `TileMap4bpp` and repaints it when the cache goes cold. `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` covers layers **game code** draws, caching the resulting framebuffer instead of any source; that is what an isometric or oblique floor needs, since `drawTileMap` assumes axis-aligned cells and has no diamond to redraw. Pair the snapshot with `PIXELROOT32_ENABLE_DIRTY_REGIONS` to restore only the cells last frame's movers touched rather than the whole buffer.
 
 > **Note:** `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` only became reachable in `d6dc9ae`. Earlier builds hit a buffer-selection bug in `buildScaleLUTs()` that always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`, so the documented `60` default never applied. The fallback still applies when DMA-capable internal RAM is tight.
 

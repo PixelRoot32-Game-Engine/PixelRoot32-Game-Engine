@@ -2,6 +2,7 @@
 
 #include "core/Entity.h"
 #include "graphics/Renderer.h"
+#include "graphics/StaticLayerSnapshot.h"
 
 #include "IsoDungeonConstants.h"
 
@@ -27,6 +28,25 @@ public:
 
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
+
+    /**
+     * @brief Reserves the snapshot buffer. Call from the scene's init().
+     *
+     * Separate from the constructor because it allocates and the renderer's
+     * logical size is not known until the engine has initialised. A false
+     * return is not an error the game has to handle: the room simply draws its
+     * 49 tiles every frame, exactly as it did before the snapshot existed.
+     */
+    bool reserveSnapshot(pixelroot32::graphics::Renderer& renderer);
+
+    /// Forwards the scene's pre-beginFrame hook to the snapshot.
+    void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) const;
+
+private:
+    /// Draws the 49 floor and wall tiles. The slow path the snapshot replaces.
+    void drawTiles(pixelroot32::graphics::Renderer& renderer);
+
+    pixelroot32::graphics::StaticLayerSnapshot snapshot_;
 };
 
 }  // namespace iso_dungeon

@@ -310,6 +310,10 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 
 **Optional `StaticTilemapLayerCache` (4bpp tilemap snapshot):** when enabled (`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`, default `1`), scenes may allocate a **second** logical **W×H** byte buffer (same order as one fullscreen 8bpp logical surface) via **`allocateForRenderer` / `allocateForLogicalSize`** during **`Scene::init()`** only—no heap traffic in **`draw`/`update`**. Budget an extra **~57 KB** at **240×240** if you use the fast path; set the flag to **`0`** or skip **`allocate*`** to avoid that cost (full redraw fallback).
 
+**Optional `StaticLayerSnapshot` (projection-agnostic snapshot):** same **W×H** byte cost and the same allocate-in-**`Scene::init()`** rule as the tilemap cache above, but gated on **`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`**, default **`0`**. Use it when the static layer is drawn by game code rather than by **`drawTileMap`**—an isometric or oblique floor, for instance, which has no **`TileMap4bpp`** to hand the tilemap cache. Budget the same **~57 KB** at **240×240**. A scene that never calls **`allocate*`** pays nothing, and with **`-ffunction-sections`/`--gc-sections`** a build that never instantiates the class links none of it in.
+
+> The two caches solve the same problem from opposite ends and there is no reason to allocate both for one layer: **`StaticTilemapLayerCache`** owns and redraws the tilemaps it caches, while **`StaticLayerSnapshot`** never draws anything and caches whatever the framebuffer already holds.
+
 ### Per-Entity Memory Costs
 
 | Component | Memory Cost |

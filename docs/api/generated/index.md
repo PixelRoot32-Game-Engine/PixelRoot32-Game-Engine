@@ -123,6 +123,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [SpriteAnimation](./graphics/SpriteAnimation.md) — Lightweight, step-based sprite animation controller.
 - [SpriteAnimationFrame](./graphics/SpriteAnimationFrame.md) — Single animation frame that can reference either a Sprite or a MultiSprite.
 - [SpriteLayer](./graphics/SpriteLayer.md) — Single monochrome layer used by layered sprites.
+- [StaticLayerSnapshot](./graphics/StaticLayerSnapshot.md) — Framebuffer cache for static layers a game draws ITSELF.
 - [StaticTilemapLayerCache](./graphics/StaticTilemapLayerCache.md) — Centralized framebuffer snapshot for static 4bpp tilemap layers.
 - [TileAnimation](./graphics/TileAnimation.md) — Single tile animation definition (compile-time constant).
 - [TileAnimationManager](./graphics/TileAnimationManager.md) — Manages tile animations for a tilemap.

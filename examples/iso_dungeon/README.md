@@ -117,8 +117,23 @@ own, so an isometric game that wants cell-to-cell navigation must enable the
 grid flag even though it never declares a `GridSpec`. `GridMotion.h` states
 this outright. The cost is one unused header, not one unused byte.
 
+**The tilemap renderer is orthogonal-only, and the room routes around it.**
+`drawTileMap` assumes axis-aligned cells and cannot express a diamond, so the
+floor is drawn sprite-per-cell — 49 `drawSprite` calls. That also rules out
+`StaticTilemapLayerCache`, which caches a `TileMap4bpp` by redrawing it and so
+needs one to exist.
 
+`graphics::StaticLayerSnapshot` inverts that: it caches what the room *drew*,
+never drawing anything itself, which is what makes it indifferent to the
+projection. The 49 tiles are painted once; every later frame restores them, and
+with `PIXELROOT32_ENABLE_DIRTY_REGIONS` on it restores only the cells the hero
+and props disturbed last frame — a few hundred bytes against 35,072 pixels of
+4bpp decode. The price is one logical framebuffer of heap (57,600 B), which is
+why both flags are opt-in and set per example rather than defaulted on.
 
+The props stay outside the snapshot on purpose. They are captured neither with
+the room nor after it: the hero walks both behind and in front of the altar, so
+they have to keep taking part in the per-frame depth sort.
 
 **Standing still costs nothing.** `shouldRedrawFramebuffer()` reports whether
 the hero would draw differently from the frame already on the panel, and the

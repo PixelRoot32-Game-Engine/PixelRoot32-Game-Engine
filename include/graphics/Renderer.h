@@ -777,6 +777,11 @@ public:
             }
             debugDirtyCellOverlay_ = other.debugDirtyCellOverlay_;
             suppressFramebufferClearBeforeStaticMemcpy_ = other.suppressFramebufferClearBeforeStaticMemcpy_;
+            // Not carried over, and deliberately so: it describes a clear that
+            // happened to a framebuffer this renderer no longer points at.
+            // false is the safe answer — it only costs a full restore.
+            selectiveRestoreValidThisFrame_ = false;
+            other.selectiveRestoreValidThisFrame_ = false;
             other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
             other.debugDirtyCellOverlay_ = false;
             other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
@@ -822,6 +827,29 @@ public:
      * @param skipClearDueToMemcpyRestore True if the scene will restore framebuffer via memcpy
      */
     void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore);
+
+    /**
+     * @brief Repaints only the cells dirtied by the PREVIOUS frame, taking
+     *        their pixels from a static-layer snapshot.
+     *
+     * The counterpart to the selective clear `beginFrame()` performs: instead
+     * of blanking the cells last frame's movers touched, this puts the static
+     * background back under them, so a scene whose static layers hold still
+     * never redraws them. Intended for StaticLayerSnapshot, which owns the
+     * buffer and the validity rules; games normally go through that rather
+     * than calling this directly.
+     *
+     * Requires dirty regions AND a driver that exposes an 8bpp logical
+     * framebuffer. Returns false when either is missing, so the caller can
+     * fall back to a full restore rather than silently leaving a stale frame.
+     *
+     * Call after `beginFrame()` and before drawing anything dynamic. `snapshot`
+     * must hold `getLogicalWidth() * getLogicalHeight()` bytes.
+     *
+     * @param snapshot Framebuffer-sized image of the static layers alone.
+     * @return true when the selective restore ran.
+     */
+    [[nodiscard]] bool restoreDirtyCellsFromSnapshot(const uint8_t* snapshot);
 
     /**
      * @brief Finalizes the frame and sends the buffer to the display.
@@ -1236,6 +1264,18 @@ private:
 
     /** When dirty regions enabled: omit selective/full framebuffer clear — StaticTilemapLayerCache overwrites FB. */
     bool suppressFramebufferClearBeforeStaticMemcpy_ = false;
+
+    /**
+     * Set by beginFrame(): true when this frame's clear left every pixel
+     * OUTSIDE the prev-dirty cells standing (it either skipped the clear or
+     * blanked only those cells), false when it wiped the whole framebuffer.
+     *
+     * restoreDirtyCellsFromSnapshot() reads it to decide whether a per-cell
+     * restore is sound. It cannot be derived after the fact: beginFrame()
+     * clears `fullDirty` on the way through, so the condition that forced the
+     * full wipe is gone by the time anyone could ask.
+     */
+    bool selectiveRestoreValidThisFrame_ = false;
 
     // Sprite palette slot context for multi-palette sprites
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;

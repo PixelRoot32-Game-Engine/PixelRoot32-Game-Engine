@@ -54,6 +54,26 @@ build_flags =
 
 > **Tip:** If `dirty_ratio` > 0.8, disable dirty regions and use full clear—it avoids the tracking overhead.
 
+### Static Layer Snapshot (`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`)
+
+Stops a static layer being redrawn at all, where dirty regions only make the *clear* cheaper.
+
+- **What it is for**: static layers that **game code** draws. `StaticTilemapLayerCache` already covers layers the engine can redraw itself, but it owns the `TileMap4bpp` and repaints it — so it needs one to exist. An isometric or oblique floor has none, because `drawTileMap` assumes axis-aligned cells; such a floor is drawn sprite-per-cell.
+- **Benefit**: the layer is drawn once. Later frames restore it — and with dirty regions on, only over the cells the previous frame's movers touched. A 7×7 isometric room drops from 49 `drawSprite` calls (~35,000 pixels of 4bpp decode) to a few hundred bytes copied.
+- **RAM cost**: one logical framebuffer of **heap** per allocating scene — ~57 KB at 240×240. This is the whole trade, and it is why the flag defaults to `0`.
+- **When it pays off**: when the static layer is expensive to draw and rarely changes, and the DRAM is there to spend. Allocate in `Scene::init()`, never in the loop.
+- **When it does not**: a layer that changes every frame. Each `invalidate()` costs a full redraw *plus* a capture.
+
+```ini
+build_flags =
+    -DPIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1
+    -DPIXELROOT32_ENABLE_DIRTY_REGIONS=1   ; per-cell restore instead of a full copy
+```
+
+> **Reality check:** on a 240×240 panel at `SPI_FREQUENCY=40000000`, pushing one frame costs ~23 ms — the frame budget. CPU saved here does not become frame rate on its own; it becomes headroom to raise the SPI clock, enable 12-bit colour, or spend on game logic. Measure the bus before optimising the draw — see the **Display Bandwidth (TFT_eSPI)** section below, and [12-bit Color on the Wire](#12-bit-color-on-the-wire-rgb444) for the cheapest way to cut that 23 ms.
+
+See `examples/iso_dungeon` for a working consumer.
+
 ### Single-Core Resource Contention (ESP32-C3)
 
 Single-core architectures (like the ESP32-C3) run the game logic, display transfers, and audio synthesis on a single core.

@@ -22,6 +22,14 @@ void RoomRenderer::update(unsigned long deltaTime) {
     (void)deltaTime;
 }
 
+bool RoomRenderer::reserveSnapshot(gfx::Renderer& renderer) {
+    return snapshot_.allocateForRenderer(renderer);
+}
+
+void RoomRenderer::adviseFramebufferBeforeBeginFrame(gfx::Renderer& renderer) const {
+    snapshot_.adviseFramebufferBeforeBeginFrame(renderer);
+}
+
 void RoomRenderer::draw(gfx::Renderer& renderer) {
     // No backdrop fill. `Renderer::beginFrame` has already cleared the
     // framebuffer to black, and under this example's palette kVoidColor
@@ -35,6 +43,30 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // and this needs a fill again -- kVoidColor stays in
     // IsoDungeonConstants.h naming that intent.
 
+    // The room never changes, so it is worth drawing exactly once. On every
+    // later frame the snapshot puts it back -- and with dirty regions on, only
+    // over the cells the hero and props disturbed last frame, which is a few
+    // hundred bytes against 35,072 pixels of 4bpp decode.
+    //
+    // This is what the tilemap cache cannot do for an isometric room:
+    // `drawTileMap` assumes axis-aligned cells, so there is no TileMap4bpp to
+    // hand it. StaticLayerSnapshot caches the RESULT instead of the source, so
+    // it does not care that these tiles are diamonds.
+    if (snapshot_.restore(renderer)) {
+        return;
+    }
+
+    drawTiles(renderer);
+
+    // Captured here rather than in the scene: this is the exact moment the
+    // framebuffer holds the static room and nothing else. The props and the
+    // hero are separate entities drawn after this one (layer 1), so they are
+    // correctly absent from the snapshot -- they have to stay in the per-frame
+    // depth sort, since the hero passes both behind and in front of them.
+    (void)snapshot_.capture(renderer);
+}
+
+void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // Row-major iteration IS the isometric painter's order here, and not by
     // luck: screen depth under kTileProjection is 8 * (x + y), so a tile is
     // always drawn after both (x-1, y) and (x, y-1) -- exactly the two

@@ -114,6 +114,25 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 - **Scroll:** cache rebuilds when the camera sample changes; no extra invalidation solely for scroll
 - **Dirty Regions Interaction:** When both the static cache and Dirty Regions are enabled, the cache advises `beginFrame()` to skip its selective or full clear if a cache `memcpy` will entirely overwrite the framebuffer anyway.
 
+
+### Static Layer Snapshot
+
+The engine also provides **`pixelroot32::graphics::StaticLayerSnapshot`** (`include/graphics/StaticLayerSnapshot.h`) for static layers the cache above cannot reach. `StaticTilemapLayerCache` **owns** the tilemaps it caches and redraws them when the cache goes cold, which presupposes a `TileMap4bpp` exists. An isometric or oblique floor has none — `drawTileMap` assumes axis-aligned cells and cannot express a diamond — so game code draws it sprite-per-cell.
+
+`StaticLayerSnapshot` inverts that relationship and **never draws anything**: the game calls **`capture()`** when the framebuffer holds its static layers and **`restore()`** on later frames. What those layers are, and how they were drawn, is not the cache's concern — which is precisely what makes it projection-agnostic.
+
+- **Allocation:** `allocateForLogicalSize` / `allocateForRenderer` in `Scene::init()`
+- **Opt-in:** build flag `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` (default `0`)
+- **Cost:** one logical framebuffer of heap per allocating scene (~57 KB at 240×240)
+- **Example:** `examples/iso_dungeon` — `RoomRenderer`
+
+**Game / scene developer contract:**
+
+- Call **`capture()`** after the static layers and **before** anything dynamic — whatever is on the framebuffer at that instant is what every later `restore()` reproduces
+- Call **`invalidate()`** when the static layers would draw differently; the snapshot cannot detect this and deliberately does not try
+- Entities that must be depth-sorted against a mover stay **outside** the snapshot, in the per-frame sort
+- **Dirty Regions Interaction:** with dirty regions enabled `restore()` repaints only the previously-dirtied cells; without them it copies the whole buffer. When `beginFrame()` wipes the entire framebuffer — a fully-dirty grid, or nothing moved last frame — a per-cell restore would be unsound, so `Renderer` records what its clear did and the snapshot falls back to a full copy.
+
 ---
 
 ## Related Documentation

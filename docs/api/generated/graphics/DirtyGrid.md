@@ -151,3 +151,9 @@ True when the curr buffer has this cell marked for the current frame.
 **Parameters:**
 
 - `framebufferWidth`: Row stride in bytes (typically logical width).
+
+### `void restoreFramebuffer8FromPrev(uint8_t* fb, const uint8_t* snapshot, int framebufferWidth, int framebufferHeight) const`
+
+**Parameters:**
+
+- `framebufferWidth`: Row stride in bytes (typically logical width).

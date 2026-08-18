@@ -251,6 +251,7 @@ Static/persistent buffers (TFT color path, logical = physical):
 | DMA line buffers ×2 (30-line fallback active) | 28.8 KB | 38.4 KB | internal + DMA-capable |
 | palette/x/y LUTs | ~1.5 KB | ~1.7 KB | internal |
 | StaticTilemapLayerCache (optional) | 57.6 KB | 76.8 KB | default heap |
+| StaticLayerSnapshot (optional, default off) | 57.6 KB | 76.8 KB | default heap — one per allocating scene; alternative to the row above, not an addition |
 | SpatialGrid static tables | ~7.5 KB | ~9.5 KB | .bss (resident even if physics unused — F9) |
 | CollisionSystem (contacts + ptrs) | ~5.4 KB | ~5.4 KB | scene |
 | Audio command queue | ~12 KB | ~12 KB | scheduler (shrinkable to ~3 KB) |

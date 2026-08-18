@@ -225,8 +225,31 @@ namespace pixelroot32::graphics {
         dirtyGrid.clearFramebuffer8FromPrev(logicalFrameBuffer8, logicalWidth, logicalHeight, kClear8bpp);
     }
 
+    bool Renderer::restoreDirtyCellsFromSnapshot(const uint8_t* snapshot) {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            (void)snapshot;
+            return false;
+        }
+        if (snapshot == nullptr || logicalFrameBuffer8 == nullptr) {
+            return false;
+        }
+        if (!selectiveRestoreValidThisFrame_) {
+            // beginFrame() wiped the whole framebuffer this frame, so the cells
+            // outside prev-dirty no longer hold the static layers and repainting
+            // only prev-dirty would leave them black.
+            return false;
+        }
+        dirtyGrid.restoreFramebuffer8FromPrev(logicalFrameBuffer8, snapshot,
+                                              logicalWidth, logicalHeight);
+        return true;
+    }
+
     void Renderer::beginFrame() {
         logicalFrameBuffer8 = getDrawSurface().getSpriteBuffer();
+
+        // Whatever path this frame takes below, assume it wipes everything until
+        // proven otherwise. Only the two selective outcomes set this true.
+        selectiveRestoreValidThisFrame_ = false;
 
         if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
             suppressFramebufferClearBeforeStaticMemcpy_ = false;
@@ -267,13 +290,20 @@ namespace pixelroot32::graphics {
 
         if (skipClearForMemcpy) {
             // Full framebuffer will be restored from StaticTilemapLayerCache before dynamic draws.
+            // Nothing was touched, so pixels outside prev-dirty are still last frame's.
+            selectiveRestoreValidThisFrame_ = true;
         } else if (!dirtyGrid.isFullDirty() && (dirtyGrid.countPrevMarkedCells() > 0)) {
             clearDirtyCellsFramebuffer8();
+            // Only prev-dirty cells were blanked; everything else survived.
+            selectiveRestoreValidThisFrame_ = true;
         } else {
             getDrawSurface().clearBuffer();
             if (dirtyGrid.isFullDirty()) {
                 dirtyGrid.setFullDirty(false);
             }
+            // The whole buffer is gone: a per-cell restore would leave the
+            // static layers black outside prev-dirty. selectiveRestoreValidThisFrame_
+            // stays false so StaticLayerSnapshot falls back to a full copy.
         }
     }
 

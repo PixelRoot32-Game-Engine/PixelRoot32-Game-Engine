@@ -58,6 +58,8 @@ one example that turns it on. Start here when you want to see one in use:
 | Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
 | Depth sorting | `DEPTH_SORT` | [bomberbot](bomberbot/), [iso_dungeon](iso_dungeon/) |
 | Cell-to-screen projection | `GAMEPLAY_PROJECTION` | [iso_dungeon](iso_dungeon/) |
+| Static layer snapshot | `STATIC_LAYER_SNAPSHOT` | [iso_dungeon](iso_dungeon/) |
+| Dirty regions (selective clear) | `DIRTY_REGIONS` | [iso_dungeon](iso_dungeon/), [metroidvania](metroidvania/), [animated_tilemap](animated_tilemap/) |
 | Particles | `PARTICLES` | [physics](physics/) |
 | Camera effects | `CAMERA_EFFECTS` | [camera](camera/) |
 | Camera tweens | `CAMERA_TWEEN` | [camera](camera/) |

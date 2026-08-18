@@ -129,6 +129,25 @@ public:
      */
     void clearFramebuffer8FromPrev(uint8_t* fb, int framebufferWidth, int framebufferHeight, uint8_t fillByte) const;
 
+    /**
+     * The same sweep as clearFramebuffer8FromPrev(), copying from a snapshot
+     * instead of filling with a constant.
+     *
+     * Restores each `prev`-marked 8×8 region of `fb` from the matching region
+     * of `snapshot`, which must be a framebuffer-sized image of the static
+     * layers alone. Where clearing gives back a blank cell, this gives back the
+     * background that was underneath the moving thing — so a scene whose static
+     * layers hold still never redraws them, and pays only for the cells last
+     * frame's movers actually touched.
+     *
+     * `snapshot` must be exactly `framebufferWidth * framebufferHeight` bytes
+     * and must not alias `fb`. No-op if either pointer is null.
+     *
+     * @param framebufferWidth Row stride in bytes (typically logical width).
+     */
+    void restoreFramebuffer8FromPrev(uint8_t* fb, const uint8_t* snapshot,
+                                     int framebufferWidth, int framebufferHeight) const;
+
 private:
     uint8_t  cols = 0;
     uint8_t  rows = 0;

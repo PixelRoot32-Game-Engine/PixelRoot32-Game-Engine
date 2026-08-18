@@ -44,6 +44,19 @@ Accumulate framebuffer clear suppression advice from a scene.
 
 - `skipClearDueToMemcpyRestore`: True if the scene will restore framebuffer via memcpy
 
+### `bool restoreDirtyCellsFromSnapshot(const uint8_t* snapshot)`
+
+**Description:**
+
+Repaints only the cells dirtied by the PREVIOUS frame, taking
+       their pixels from a static-layer snapshot.
+
+**Parameters:**
+
+- `snapshot`: Framebuffer-sized image of the static layers alone.
+
+**Returns:** true when the selective restore ran.
+
 ### `void endFrame()`
 
 **Description:**

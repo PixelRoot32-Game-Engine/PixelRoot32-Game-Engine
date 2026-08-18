@@ -54,6 +54,17 @@ public:
      */
     bool shouldRedrawFramebuffer() const override { return hero_.needsRedraw(); }
 
+    /**
+     * @brief Runs before `Renderer::beginFrame` and lets the room's snapshot
+     *        tell the renderer its clear is about to be redone anyway.
+     *
+     * Purely an optimisation handshake: skipping it costs one redundant clear
+     * per frame, never a wrong frame.
+     */
+    void adviseFramebufferBeforeBeginFrame(pixelroot32::graphics::Renderer& renderer) override {
+        room_.adviseFramebufferBeforeBeginFrame(renderer);
+    }
+
 private:
     RoomRenderer room_;
     HeroActor    hero_{kSpawnTileX, kSpawnTileY};

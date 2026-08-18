@@ -7,6 +7,7 @@
 > - `include/graphics/Color.h`
 > - `include/graphics/Font.h`, `include/graphics/FontManager.h`
 > - `include/graphics/StaticTilemapLayerCache.h`
+> - `include/graphics/StaticLayerSnapshot.h`
 > - `include/graphics/DirtyGrid.h`
 > - `include/graphics/TileAnimation.h`
 > - `include/graphics/DrawSurface.h`, `include/graphics/BaseDrawSurface.h`
@@ -33,6 +34,29 @@ The engine includes several low-level optimizations for the ESP32 platform to ma
 Avoids redrawing "static" **4bpp** tilemaps every frame. It caches the static group of tiles into an internal buffer and restores it via `memcpy` each frame, so only dynamic elements need redrawing until the camera moves.
 
 > **Dirty Regions Interaction:** When both the static cache and Dirty Regions are enabled, the cache advises `beginFrame()` to skip its selective or full clear if a cache `memcpy` will entirely overwrite the framebuffer anyway.
+
+### Projection-agnostic static layer snapshot (`StaticLayerSnapshot`)
+
+Requires `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` (default `0`).
+
+Solves the same problem as `StaticTilemapLayerCache` for layers it cannot reach. That cache **owns** the `TileMap4bpp` it caches and redraws it when the cache goes cold — which presupposes a tilemap exists. An isometric or oblique floor has none: `drawTileMap` assumes axis-aligned cells and cannot express a diamond, so such a floor is drawn sprite-per-cell by game code.
+
+`StaticLayerSnapshot` inverts the relationship and never draws anything. The game calls `capture(renderer)` at the moment the framebuffer holds its static layers, and `restore(renderer)` on later frames; what those layers are is not its concern, which is what makes it indifferent to the projection.
+
+Two restore speeds:
+
+| Dirty regions | What `restore()` does | Cost |
+|---|---|---|
+| Enabled | Repaints only the cells the previous frame's movers dirtied | Proportional to what moved |
+| Disabled | Copies the whole buffer | One framebuffer `memcpy` |
+
+Allocate with `allocateForRenderer()` in `Scene::init()` — never in the game loop — and call `invalidate()` whenever the static layers would draw differently (palette swap, camera move, a door opening). The class cannot detect that itself and deliberately does not try.
+
+Every entry point degrades to "unavailable" rather than failing: no buffer, a failed allocation, a driver with no 8bpp framebuffer, or a resolution change since allocation all make `restore()` report cold, and the caller simply draws its static layers as before.
+
+> **Correctness note:** `beginFrame()` sometimes clears the *entire* framebuffer — when the dirty grid is fully dirty, or when nothing moved on the previous frame. A per-cell restore after that would leave the static layers black outside the dirtied cells, so `Renderer` records whether its clear was selective and the snapshot falls back to a full copy when it was not.
+
+Reference consumer: `examples/iso_dungeon`.
 
 ## Key Concepts
 
