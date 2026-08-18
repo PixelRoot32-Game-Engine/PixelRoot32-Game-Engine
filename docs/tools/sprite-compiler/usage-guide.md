@@ -413,5 +413,5 @@ Shows all available options and usage.
 
 ## See Also
 
-- [Code Examples - Sprites](/examples/sprite-animation) - Sprite usage examples
+- [Code Examples - Sprites](/examples/sprites) - Sprite usage examples
 - [Testing](/guide/testing) — engine test / dev workflow
