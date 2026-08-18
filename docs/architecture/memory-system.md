@@ -108,7 +108,7 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 0 B SRAM | `gameplay::GridSpace.h` — grid-to-world/world-to-grid coordinate conversion (`GridSpec`, `cellToWorldX/Y`, `cellToWorld`, `worldToCellX/Y`, `containsCell`) |
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 20 B SRAM **per moving actor** | `gameplay::GridMotion.h` — per-actor cell-to-cell step state (`GridMotion`, `isMoving`, `placeAt`, `beginStep`, `tickStep`, `interpolatedWorld`) |
 
-**`GridSpec` byte budget:** every shipped consumer (`examples/snake`, `examples/2048`, `examples/bomberbot`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
+**`GridSpec` byte budget:** every shipped consumer (`examples/2048`, `examples/bomberbot`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
 
 **`GridMotion` byte budget:** unlike `GridSpec`, a `GridMotion` is inherently per-actor runtime state, so it does land in `.bss`. `sizeof(GridMotion) == 20 B` (five `int`s, identical on ILP32 and LP64). Worst case is one instance per grid-moving actor: `examples/bomberbot` embeds one in `PlayerActor` and one in each of its `kMaxEnemies` pool slots. Against the ESP32-C3 ceiling of 24 entities that is **480 B** if every entity moves on the grid — comfortably inside budget, and typically far lower since static actors (walls, bombs, pickups) need none. `GridMotion` shares `GridSpace`'s flag rather than taking its own. The original reason — "`interpolatedWorld()` takes a `GridSpec`, so motion without space is not a reachable configuration" — stopped being true when the `ProjectionSpec` overload landed (see the projection section below); the flag is still not split because a separate one would widen the build matrix for a configuration no consumer has asked for. The consequence is that an isometric game wanting `GridMotion` must enable `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE` even if it never declares a `GridSpec`.
 
@@ -165,7 +165,7 @@ With `PIXELROOT32_ENABLE_UI_SYSTEM=0` all three translation units compile to an 
 | `RoomGraphBase` vtable | 12–16 B in flash | 12–16 B in flash | One shared vtable per program (not per instance) |
 | `RoomGraph<N>` vptr (from `RoomGraphBase`) | 4 B per instance | 8 B per instance | Per-instance vtable pointer; one per `RoomGraph<N>` regardless of N |
 | `RoomGraph<32>` (max rooms) | ~1296 B (32 × 40 B/room + 12 B bookkeeping + 4 B vptr) | ~1564 B (32 × 48 B/room + 16 B bookkeeping + 8 B vptr) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
-| `RoomGraph<2>` (typical example) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | The `examples/room_screen/` example ships with N=2 |
+| `RoomGraph<2>` (smallest useful graph) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | Sizing shown for N=2; `examples/legend_of_clone` ships `RoomGraph<4>` |
 | Per-`Room` size (`sizeof(Room)`) | 40 B | 48 B | Four `Scalar` fields (camera rect, 4×4 B), tile window (8 B + 1 B flag + 1 B pad), `connections_[4]` (16 B), `connectionCount_` (1 B + 3 B pad) |
 | Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block; no code, no data |
 
@@ -177,7 +177,7 @@ Design: #3081 (`sdd/room-screen-abstraction/design`).
 |------|-------------------|---------------------|-------|
 | `sizeof(RoomData)` | 16 B | 16 B | Four `uint16_t` rect fields + `connections[4]`; 2-byte aligned, no padding between entries |
 | `RoomLayer` header | 8 B in flash | 16 B in flash | One `const RoomData*` + `roomCount` (2 B) + two `uint8_t` tile dimensions |
-| A 2-room layer (`examples/room_screen`) | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
+| A 2-room layer | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
 | `buildRoomGraph<N>()` | 0 B SRAM | 0 B SRAM | Runs once in `Scene::init()`; no state of its own, writes straight into the caller's `RoomGraph<N>` |
 | Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block, gated by the same `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` |
 

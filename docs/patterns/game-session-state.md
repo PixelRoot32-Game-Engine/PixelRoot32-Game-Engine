@@ -160,8 +160,8 @@ public:
 };
 ```
 
-This is exactly what `examples/brick_breaker/src/BrickBreakerScene.h` and
-`examples/space_invaders/src/SpaceInvadersScene.h` already do. Nothing about
+This is exactly what `examples/midway_clone/src/MidwayScene.h` already does,
+with its `score_`, `lives_` and `isTerminal()` sitting directly on the scene. Nothing about
 this is a workaround — it is the right amount of structure for two fields
 and a flag that are meaningful only to that one game.
 

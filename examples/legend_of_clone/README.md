@@ -220,6 +220,14 @@ selectable at compile time with `kCollisionMode` in `GameConstants.h`:
 discarded at compile time and the unused engine helper is stripped by
 `--gc-sections` on ESP32.
 
+Both bounds are checked in `isSolidAtPixel` itself, and that is deliberate:
+`isSolid()` returning true for an out-of-range cell is **not** enough to stand
+in for the bounds check here. A true from it only means "do not return false
+yet", so control would fall through to the bitmap test, where `tileAt()` answers
+`0` for that same out-of-range cell and the empty tile's fully transparent
+bitmap reports "not solid" -- and the player walks off the right or bottom edge.
+The negative and the far edge need their own explicit returns.
+
 Erosion shrinks the **object**, not the player. A shrunken hitbox lets the body
 penetrate a concavity and snag inside it; shrinking the thing being walked into
 cannot. The cell flag is checked before any pixel read, so walkable ground never

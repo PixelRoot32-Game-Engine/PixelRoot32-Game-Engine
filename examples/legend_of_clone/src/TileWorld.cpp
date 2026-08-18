@@ -54,13 +54,20 @@ bool TileWorld::isSolidAtPixel(int worldX, int worldY, int erodePx) const {
     const int col = worldX / tileW;
     const int row = worldY / tileH;
 
-    // Cheap gate first: a cell the export never called solid can't be solid at
-    // any pixel, and this keeps walkable ground off the bitmap path entirely.
-    // It also carries the out-of-bounds and unattached cases for us.
+    // Off the far edge is a wall, tested here rather than inherited from
+    // isSolid(). isSolid() returns true for out-of-bounds cells, but a true
+    // from it only means "do not return false yet" -- control would fall
+    // through to the bitmap test below, where tileAt() answers 0 for this same
+    // out-of-range cell and the empty tile's fully transparent bitmap reports
+    // "not solid". That is how the player walks off the right or bottom edge.
+    if (col >= map_->width || row >= map_->height) return true;
+
+    // Cheap gate: a cell the export never called solid cannot be solid at any
+    // pixel, and this keeps walkable ground off the bitmap path entirely.
     if (!isSolid(col, row)) return false;
 
-    // isSolid() already rejected out-of-range ids, so this indexes the tileset
-    // in range.
+    // isSolid() already rejected out-of-range tile ids, so this indexes the
+    // tileset in range.
     const uint8_t tile = tileAt(col, row);
     if (map_->tiles == nullptr) return true;
 

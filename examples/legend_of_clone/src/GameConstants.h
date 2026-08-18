@@ -92,8 +92,12 @@ inline constexpr int kPlayerStartRow = 18;
  *                 the tile's bitmap is ignored. Cheapest, and correct for
  *                 rectangular masonry like TILE_ROCK.
  * PerPixel:       the cell must be flagged solid AND the tile's bitmap must be
- *                 opaque at that pixel (palette index 0 is walkable). The
- *                 transparent corners of a round TILE_BUSH stop blocking.
+ *                 opaque at that pixel (palette index 0 is walkable). Note
+ *                 that none of THIS map's terrain tiles have an index-0 pixel
+ *                 -- a bush is drawn over its own background, not on
+ *                 transparency -- so on this art PerPixel is indistinguishable
+ *                 from WholeTile. It is here for maps whose tiles do carry
+ *                 real transparency. See the README for the measured counts.
  * PerPixelEroded: per-pixel with morphological erosion, so a tree crown's
  *                 outermost fringe of pixels does not snag the player.
  *
