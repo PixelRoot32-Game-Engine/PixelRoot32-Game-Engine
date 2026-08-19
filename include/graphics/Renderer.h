@@ -136,6 +136,38 @@ struct TileMapGeneric {
     const uint8_t*  paletteIndices = nullptr;
 
     /**
+     * Optional per-tile foot row, parallel to `tiles[]`, `tileCount` entries.
+     * `nullptr` means anchor at top-left, i.e. current behaviour. Typically
+     * filled by editor/export tools. Encodes the shipped anchoring
+     * convention already used in game code: `examples/iso_dungeon/src/IsoDraw.h:28-29`
+     * draws a sprite at `(centreX - sprite.width / 2, centreY - footY)`.
+     */
+    const uint8_t*  tileFootY = nullptr;
+
+    /**
+     * @brief Resolve the foot-anchor row for a tile index.
+     *
+     * @param index Tile index into `tiles[]`.
+     * @return `tileFootY[index]` when a table is present and `index` is in
+     *         range; 0 otherwise (current top-left behaviour).
+     * @note `index >= tileCount` returns 0. `drawTileMap` already guards
+     *       `index >= map.tileCount` (src/graphics/Renderer.cpp:892), so this
+     *       is defence in depth against a caller that does not, not a
+     *       load-bearing branch.
+     * @note `footYFor(0)` reads the table with no special case, even though
+     *       index 0 is the empty-tile sentinel `drawTileMap` skips. The table
+     *       is parallel to `tiles[]`, so slot 0 exists; special-casing it
+     *       would bind the asset format's meaning to a renderer policy that
+     *       is free to change.
+     */
+    inline uint8_t footYFor(uint16_t index) const {
+        if (!tileFootY || index >= tileCount) {
+            return 0;
+        }
+        return tileFootY[index];
+    }
+
+    /**
      * @brief Initialize runtime mask buffer for tile activation control.
      * 
      * Allocates memory for tracking tile activation state. All tiles start as active.
