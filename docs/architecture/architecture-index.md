@@ -25,6 +25,7 @@
 | **Memory** | [Memory System](./memory-system.md) | Smart pointers, RAII, ESP32 DRAM |
 | **Resolution Scaling** | [Resolution Scaling](./resolution-scaling.md) | Logical vs physical resolution |
 | **Tile Animation** | [Tile Animation](./tile-animation.md) | Lookup tables, O(1) resolve |
+| **Projected Tilemap Producer Obligations** | [Projected Tilemap: Producer Obligations](./projected-tilemap-producer-obligations.md) | What a `TileMapGeneric<T>` must emit for `drawTileMap`'s projected path (engine-facing, not an editor contract) |
 | **Touch Input** | [Touch Input](./touch-input.md) | Pipeline, XPT2046, calibration |
 | **Extensibility** | [Extending PixelRoot32](../guide/extending-pixelroot32.md) | Custom drivers, configuration |
 

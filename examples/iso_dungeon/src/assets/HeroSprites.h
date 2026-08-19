@@ -7,7 +7,7 @@
 #if PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "graphics/Renderer.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include <stdint.h>
 
 /**
@@ -91,10 +91,10 @@ namespace iso_dungeon {
     };
 
     static const pixelroot32::graphics::Sprite4bpp HERO_FRAMES[] = {
-        { reinterpret_cast<const uint8_t*>(HERO_S_0_4BPP), DUNGEON_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
-        { reinterpret_cast<const uint8_t*>(HERO_S_1_4BPP), DUNGEON_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
-        { reinterpret_cast<const uint8_t*>(HERO_N_0_4BPP), DUNGEON_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
-        { reinterpret_cast<const uint8_t*>(HERO_N_1_4BPP), DUNGEON_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
+        { reinterpret_cast<const uint8_t*>(HERO_S_0_4BPP), TILEMAP_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
+        { reinterpret_cast<const uint8_t*>(HERO_S_1_4BPP), TILEMAP_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
+        { reinterpret_cast<const uint8_t*>(HERO_N_0_4BPP), TILEMAP_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
+        { reinterpret_cast<const uint8_t*>(HERO_N_1_4BPP), TILEMAP_PALETTE_MAPPING, HERO_WIDTH, HERO_HEIGHT, 16 },
     };
 
     enum HeroFrame : uint8_t {

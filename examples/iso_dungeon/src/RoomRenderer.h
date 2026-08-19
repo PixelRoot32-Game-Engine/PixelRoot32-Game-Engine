@@ -69,11 +69,20 @@ public:
     void setRoom(const RoomSpec& room);
 
 private:
-    /// Draws the 49 floor and wall tiles. The slow path the snapshot replaces.
+    /// Issues the one projected drawTileMap call. The slow path the snapshot
+    /// replaces.
     void drawTiles(pixelroot32::graphics::Renderer& renderer);
 
     /// The room currently on screen. Never null after the scene's init().
     const RoomSpec* room_ = nullptr;
+
+    /// The exported map for room_, selected by setRoom() out of ROOM_LAYERS.
+    ///
+    /// A pointer into flash-resident export data, not a buffer this renderer
+    /// owns and fills. Switching rooms is now one assignment: there is no
+    /// per-room index grid to rebuild, because the indices were resolved at
+    /// export time (see assets/IsoDungeonRoomTileMap.h).
+    const pixelroot32::graphics::TileMap4bpp* map_ = nullptr;
 
     pixelroot32::graphics::StaticLayerSnapshot snapshot_;
 };

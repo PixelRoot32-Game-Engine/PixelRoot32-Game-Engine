@@ -1,8 +1,7 @@
 #include "RoomRenderer.h"
 
 #include "math/Vector2.h"
-#include "IsoDraw.h"
-#include "assets/DungeonTiles.h"
+#include "assets/IsoDungeonRoomTileMap.h"
 
 namespace pr32 = pixelroot32;
 
@@ -16,6 +15,11 @@ RoomRenderer::RoomRenderer()
     : core::Entity(math::Vector2::ZERO(), kDisplaySize, kDisplaySize,
                    core::EntityType::GENERIC) {
     setRenderLayer(0);
+
+    // Nothing to wire. Every field the renderer used to fill in here --
+    // geometry, tileset, tile count, foot table -- is set by the export's
+    // init(), which the scene calls before the first draw. setRoom() only has
+    // to choose which of the exported maps to point at.
 }
 
 void RoomRenderer::update(unsigned long deltaTime) {
@@ -32,6 +36,13 @@ void RoomRenderer::adviseFramebufferBeforeBeginFrame(gfx::Renderer& renderer) co
 
 void RoomRenderer::setRoom(const RoomSpec& room) {
     room_ = &room;
+
+    // kRooms and ROOM_LAYERS are indexed alike by construction -- the export
+    // emits one map per catalog entry, in catalog order -- so the room's
+    // position in the catalog IS its layer index. Deriving it here rather
+    // than storing it keeps setRoom()'s signature as it was.
+    const auto index = static_cast<std::size_t>(&room - &kRooms[0]);
+    map_ = ROOM_LAYERS[index];
 
     // The cached picture is of the room being left. Dropping it is what makes
     // the next draw() take the drawTiles() path and re-capture; without it the
@@ -59,13 +70,13 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // over the cells the hero and props disturbed last frame, which is a few
     // hundred bytes against 35,072 pixels of 4bpp decode.
     //
-    // This is what the tilemap cache cannot do for an isometric room:
-    // `drawTileMap` assumes axis-aligned cells unless given a projection
-    // (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, not enabled in this example), so
-    // there is no TileMap4bpp to hand it here. StaticLayerSnapshot caches the
-    // RESULT instead of the source, so it does not care that these tiles are
-    // diamonds.
-    if (room_ == nullptr) {
+    // drawTiles() hands the tile layer to `drawTileMap` through a projection
+    // (PIXELROOT32_ENABLE_TILEMAP_PROJECTION), so the diamonds are placed by
+    // the engine's projected path rather than by a hand-rolled sprite loop.
+    // The snapshot still earns its keep on top of that: it removes the whole
+    // draw call on a hit -- 49 cells of 4bpp decode plus the tileset's
+    // cull-padding scan -- not just the loop that used to build it.
+    if (map_ == nullptr) {
         return;  // before the scene's init() has chosen a room
     }
 
@@ -92,43 +103,14 @@ void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // `gameplay::rowMajorIsPainterOrder` (include/math/Projection.h) is
     // asserted against `kTileProjection` in IsoDungeonConstants.h, so editing
     // the projection breaks the build here rather than producing walls that
-    // paint over the hero.
-    for (int y = 0; y < kRoomTiles; ++y) {
-        for (int x = 0; x < kRoomTiles; ++x) {
-            const char cell = room_->layout[y][x];
-            const int cx = gameplay::cellToScreenX(x, y, kTileProjection);
-            const int cy = gameplay::cellToScreenY(x, y, kTileProjection);
-
-            switch (cell) {
-                case 'W':
-                    drawAtCell(renderer, WALL_SPRITE, WALL_FOOT_Y, cx, cy);
-                    break;
-                case 'D':
-                    drawAtCell(renderer, DOOR_NE_SPRITE, DOOR_NE_FOOT_Y, cx, cy);
-                    break;
-                case 'E':
-                    drawAtCell(renderer, DOOR_NW_SPRITE, DOOR_NW_FOOT_Y, cx, cy);
-                    break;
-                default: {
-                    // Floor. An isometric room has to draw its ground
-                    // explicitly -- there is no rectangular frame underneath to
-                    // fall back on the way an axis-aligned board has.
-                    //
-                    // The checkerboard is not decoration either: a single flat
-                    // tone gives the eye nothing to judge which cell the hero
-                    // is standing on, which is the one thing a player of an
-                    // isometric game constantly needs to know.
-                    const bool accent = (cell == 'a' || cell == 'A');
-                    const gfx::Sprite4bpp& floor =
-                        accent            ? FLOOR_ACCENT_SPRITE
-                        : ((x + y) & 1)   ? FLOOR_B_SPRITE
-                                          : FLOOR_A_SPRITE;
-                    drawAtCell(renderer, floor, FLOOR_A_FOOT_Y, cx, cy);
-                    break;
-                }
-            }
-        }
-    }
+    // paint over the hero. `drawTileMap`'s projected path iterates row-major
+    // too and never sorts, so that guarantee still governs draw order here.
+    //
+    // map_ is exported data. The checkerboard rule that used to pick FLOOR_A
+    // or FLOOR_B per cell at runtime was resolved at export time and is not
+    // reproduced anywhere in this example any more -- see
+    // assets/IsoDungeonRoomTileMap.cpp's ROOMn_INDICES.
+    renderer.drawTileMap(*map_, 0, 0, gfx::LayerType::Static, ISO_PROJECTION);
 }
 
 }  // namespace iso_dungeon
