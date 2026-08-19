@@ -30,9 +30,15 @@
  *
  *     renderer.drawSprite(S, centreX - S.width / 2, centreY - S_FOOT_Y);
  *
- * Both props are the same 32x16 floor diamond extruded upward -- the altar by
- * 14 px, the pillar from a narrower 16x8 diamond by 40 -- which is why they
- * stack against the walls in DungeonTiles.h without a seam.
+ * Both props are the same floor diamond extruded upward: the altar 32x16 by
+ * 14 px (ALTAR_HEIGHT 30), the pillar a narrower 16x8 by 26 (PILLAR_HEIGHT
+ * 34). That shared geometry is why they stack against the walls in
+ * DungeonTiles.h without a seam.
+ *
+ * The extrusion figures are height minus the diamond's own height, and they
+ * are stated here rather than left implicit because the tileset header this
+ * art came from had the pillar's wrong -- it said 40, which is the WALL's
+ * total height, not the pillar's extrusion.
  */
 
 namespace iso_dungeon {
