@@ -15,7 +15,9 @@ namespace iso_dungeon {
  *
  * Lives on render layer 0, below every actor and prop. Its whole job is a
  * single row-major sweep over the layout, which is already the correct
- * isometric paint order (see the implementation for why).
+ * isometric paint order -- see `gameplay::rowMajorIsPainterOrder`
+ * (include/math/Projection.h) for why, and IsoDungeonConstants.h for the
+ * `static_assert` that pins it against `kTileProjection`.
  *
  * The walls are drawn here rather than as depth-sorted entities on purpose,
  * and it is not a shortcut: both walls hug the two BACK edges of the room, so

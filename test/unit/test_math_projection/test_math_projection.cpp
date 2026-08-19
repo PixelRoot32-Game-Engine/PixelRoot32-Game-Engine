@@ -132,6 +132,87 @@ void test_gameplay_detail_projection_floor_div_is_the_same_function_as_math(void
     TEST_ASSERT_EQUAL_PTR(reinterpret_cast<void*>(mathFn), reinterpret_cast<void*>(gameplayFn));
 }
 
+// ===========================================================================
+// rowMajorIsPainterOrder — sufficient-not-necessary paint-order predicate
+// ===========================================================================
+
+namespace {
+
+constexpr math::ProjectionSpec kIso1to1{0, 0, 16, 16, -16, 16};
+
+// AC-3: constexpr-usable. Only the TRUE case is pinned here — a FALSE
+// static_assert against a stub would be a build break indistinguishable from
+// compile-red, voiding the two-stage TDD requirement (see this file's
+// strict-TDD rationale in the header comment).
+static_assert(math::rowMajorIsPainterOrder(kIso2to1),
+              "kIso2to1 must make row-major iteration a back-to-front paint order.");
+
+}  // namespace
+
+// AC-1: all four ProjectionSpec doc-table layouts, asserted explicitly —
+// including the two that are false, so the truth table lives in the test
+// file rather than only in prose.
+void test_math_row_major_is_painter_order_orthogonal_layout_is_false(void) {
+    constexpr math::ProjectionSpec kOrthogonal{0, 0, 16, 0, 0, 16};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kOrthogonal));
+}
+
+void test_math_row_major_is_painter_order_iso_2to1_layout_is_true(void) {
+    TEST_ASSERT_TRUE(math::rowMajorIsPainterOrder(kIso2to1));
+}
+
+void test_math_row_major_is_painter_order_iso_1to1_layout_is_true(void) {
+    TEST_ASSERT_TRUE(math::rowMajorIsPainterOrder(kIso1to1));
+}
+
+void test_math_row_major_is_painter_order_oblique_layout_is_false(void) {
+    constexpr math::ProjectionSpec kOblique{0, 0, 16, 0, 8, 16};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kOblique));
+}
+
+// A negative axis component moves a tile BACKWARD on screen and must never
+// read as painter-correct, regardless of the other axis's sign.
+void test_math_row_major_is_painter_order_flipped_axis_yy_is_false(void) {
+    constexpr math::ProjectionSpec kFlippedYy{0, 0, 16, 8, -16, -8};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kFlippedYy));
+}
+
+void test_math_row_major_is_painter_order_flipped_axis_xy_is_false(void) {
+    constexpr math::ProjectionSpec kFlippedXy{0, 0, 16, -8, -16, 8};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kFlippedXy));
+}
+
+// AC-1's both-zero case, doubling as AC-2's named pin against the `>= 0`
+// mistake: a non-negative predicate would wrongly accept a basis whose axes
+// carry zero screen-Y motion (0 >= 0 && 0 >= 0), collapsing every row and
+// every column onto the same screen depth with no correct tie-break.
+void test_math_row_major_is_painter_order_both_axes_zero_rejects_the_ge_zero_mistake(void) {
+    constexpr math::ProjectionSpec kBothZero{0, 0, 16, 0, 0, 0};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kBothZero));
+}
+
+// AC-2: axisXy == 0 alone (axisYy stays positive) must still be false.
+void test_math_row_major_is_painter_order_axis_xy_zero_alone_is_false(void) {
+    constexpr math::ProjectionSpec kAxisXyZero{0, 0, 16, 0, -16, 8};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kAxisXyZero));
+}
+
+// AC-2: axisYy == 0 alone (axisXy stays positive) must still be false.
+void test_math_row_major_is_painter_order_axis_yy_zero_alone_is_false(void) {
+    constexpr math::ProjectionSpec kAxisYyZero{0, 0, 0, 16, 16, 0};
+    TEST_ASSERT_FALSE(math::rowMajorIsPainterOrder(kAxisYyZero));
+}
+
+// AC-4: gameplay::rowMajorIsPainterOrder is the SAME function as
+// math::rowMajorIsPainterOrder, not a duplicate — proved by function-ADDRESS
+// identity, the idiom this file already uses for the other six forwarded names.
+void test_gameplay_row_major_is_painter_order_is_the_same_function_as_math(void) {
+    using Fn = bool (*)(const math::ProjectionSpec&);
+    const Fn mathFn = &math::rowMajorIsPainterOrder;
+    const Fn gameplayFn = &gameplay::rowMajorIsPainterOrder;
+    TEST_ASSERT_EQUAL_PTR(reinterpret_cast<void*>(mathFn), reinterpret_cast<void*>(gameplayFn));
+}
+
 void test_math_projection_zero_cost_when_disabled(void) {
     // Flag ON: the capability is a constexpr aggregate plus free functions, so
     // a constexpr consumer pays zero runtime footprint. The mirror of this
@@ -472,6 +553,16 @@ int main(int argc, char** argv) {
     RUN_TEST(test_gameplay_projection_det_is_the_same_function_as_math);
     RUN_TEST(test_gameplay_projection_spec_is_valid_is_the_same_function_as_math);
     RUN_TEST(test_gameplay_detail_projection_floor_div_is_the_same_function_as_math);
+    RUN_TEST(test_math_row_major_is_painter_order_orthogonal_layout_is_false);
+    RUN_TEST(test_math_row_major_is_painter_order_iso_2to1_layout_is_true);
+    RUN_TEST(test_math_row_major_is_painter_order_iso_1to1_layout_is_true);
+    RUN_TEST(test_math_row_major_is_painter_order_oblique_layout_is_false);
+    RUN_TEST(test_math_row_major_is_painter_order_flipped_axis_yy_is_false);
+    RUN_TEST(test_math_row_major_is_painter_order_flipped_axis_xy_is_false);
+    RUN_TEST(test_math_row_major_is_painter_order_both_axes_zero_rejects_the_ge_zero_mistake);
+    RUN_TEST(test_math_row_major_is_painter_order_axis_xy_zero_alone_is_false);
+    RUN_TEST(test_math_row_major_is_painter_order_axis_yy_zero_alone_is_false);
+    RUN_TEST(test_gameplay_row_major_is_painter_order_is_the_same_function_as_math);
     RUN_TEST(test_math_cell_range_for_screen_rect_matches_the_shipped_orthogonal_culling);
     RUN_TEST(test_math_cell_range_for_screen_rect_orthogonal_edge_uses_inclusive_last_pixel);
     RUN_TEST(test_math_cell_range_for_screen_rect_end_col_diverges_from_oracle_but_both_stay_empty);
