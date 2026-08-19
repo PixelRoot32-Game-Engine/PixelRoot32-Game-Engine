@@ -51,6 +51,18 @@ orthogonal generator already satisfies and must keep satisfying:
   isometric convention, for the reason obligation 2 gives: a full-size empty
   tile would still render correctly if the index-0 skip regressed.
 
+## Free-standing props are not tiles, and layers do not change that
+
+A producer converting an isometric scene will reach for a second tile layer to hold props -- the way an orthogonal map layers background, platforms and stairs. It does not work, and the reason is worth stating because the failure is intermittent rather than obvious.
+
+**Every tile layer is drawn before every entity.** `examples/metroidvania` draws its three layers and only then calls `Scene::draw`. That is sufficient for an orthogonal game, where a mover is in front of a whole plane or behind a whole plane.
+
+Under a projection, depth is per **cell**, not per layer. In `examples/iso_dungeon`'s room 1, screen depth is `8 * (x + y)`, and the shipped pillars at `(2, 2)` and `(4, 4)` have depths 32 and 64 with the hero at `(3, 3)` sitting at 48 -- strictly between them. The hero must paint after one pillar and before the other, and both would be in the same layer. A `drawTileMap` call is atomic, so no layer arrangement expresses it.
+
+**Obligation: art a mover can pass behind must be drawn as a depth-sorted entity, not as a tile.** The test is not size. `iso_dungeon`'s 40 px `WALL` is legitimately a tile because both walls hug the back edges and nothing reachable is ever behind them; its 30 px altar is not, because the hero walks past both sides of it.
+
+This constrains *rendering* only. Whether such props should nonetheless be authored and exported as map data is a separate question with a different answer, and one this page does not settle.
+
 ## Open: the behaviour layer is not covered
 
 The editor also emits per-tile behaviour flags — `TILE_BEHAVIOR_LAYER_<NAME>[]`,
