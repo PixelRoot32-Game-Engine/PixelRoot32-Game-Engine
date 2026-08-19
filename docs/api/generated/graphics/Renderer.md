@@ -500,6 +500,40 @@ Draws a tilemap of 4bpp sprites through a projection basis.
       separate change.
 :::
 
+### `void drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
+
+**Description:**
+
+Draws a tilemap of 2bpp sprites through a projection basis.
+
+**Parameters:**
+
+- `projection`: Places, culls and marks cells through this basis
+       instead of the axis-aligned grid.
+
+### `void drawTileMap(const TileMap& map, int originX, int originY, Color color, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
+
+**Description:**
+
+Draws a tilemap of 1bpp sprites through a projection basis.
+
+**Parameters:**
+
+- `color`: Single fill colour used for every tile in the map.
+- `projection`: Places, culls and marks cells through this basis
+       instead of the axis-aligned grid.
+
+::: tip
+Art constraint, not a defect: `Sprite::data` is one `uint16_t`
+      per row and `drawSprite()` builds `1u << (width - 1)`
+      (Renderer.cpp:495), undefined above 16 -- so `Sprite::width` is
+      capped at 16 px and a 2:1 isometric diamond therefore caps at
+      16x8. `color` is also a single value for the whole map, so a
+      solid-diamond floor renders as a flat monochrome region with no
+      depth cue: outlined/wireframe 1bpp diamonds work, shaded ones
+      cannot exist at this bit depth.
+:::
+
 ### `void setOffsetBypass(bool bypass)`
 
 **Description:**
