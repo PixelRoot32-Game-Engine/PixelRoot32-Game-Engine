@@ -69,11 +69,24 @@ public:
     void setRoom(const RoomSpec& room);
 
 private:
-    /// Draws the 49 floor and wall tiles. The slow path the snapshot replaces.
+    /// Issues the one projected drawTileMap call. The slow path the snapshot
+    /// replaces.
     void drawTiles(pixelroot32::graphics::Renderer& renderer);
 
     /// The room currently on screen. Never null after the scene's init().
     const RoomSpec* room_ = nullptr;
+
+    /// Runtime-baked tile-layer index grid for room_, rebuilt by
+    /// buildRoomTileIndices() every time setRoom() changes rooms.
+    /// uint8_t*, not const uint8_t* -- matching TileMapGeneric::indices --
+    /// which is why this is a runtime buffer rather than a constexpr
+    /// per-room table (see RoomTileMap.h).
+    uint8_t indices_[kRoomTiles * kRoomTiles] = {};
+
+    /// The tile layer's TileMap4bpp control struct. Tileset and foot table
+    /// point at RoomTileMap.h's flash-resident tables; indices_ and geometry
+    /// are wired once in the constructor.
+    pixelroot32::graphics::TileMap4bpp map_{};
 
     pixelroot32::graphics::StaticLayerSnapshot snapshot_;
 };

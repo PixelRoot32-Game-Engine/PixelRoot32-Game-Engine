@@ -172,17 +172,19 @@ own, so an isometric game that wants cell-to-cell navigation must enable the
 grid flag even though it never declares a `GridSpec`. `GridMotion.h` states
 this outright. The cost is one unused header, not one unused byte.
 
-**This room does not opt into the projected tilemap path, so it routes around it.**
-`drawTileMap` assumes axis-aligned cells and cannot express a diamond unless
-given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`, not
-enabled here), so the floor is drawn sprite-per-cell — 49 `drawSprite` calls.
-That also rules out
-`StaticTilemapLayerCache`, which caches a `TileMap4bpp` by redrawing it and so
-needs one to exist.
+**This room draws through the projected tilemap path.** `drawTileMap` places,
+culls and marks cells through a `math::ProjectionSpec`
+(`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`), so the floor's diamonds are placed
+by one projected `drawTileMap` call instead of 49 hand-rolled `drawSprite`
+calls. `StaticTilemapLayerCache` is still not usable here: its layer-list
+entry (a `TileMap4bpp*` plus an origin) carries no projection field, so it
+cannot express this room's basis even though a `TileMap4bpp` now exists to
+hand it.
 
-`graphics::StaticLayerSnapshot` inverts that: it caches what the room *drew*,
-never drawing anything itself, which is what makes it indifferent to the
-projection. The 49 tiles are painted once; every later frame restores them, and
+`graphics::StaticLayerSnapshot` is the piece that already worked here: it
+caches what the room *drew*, never drawing anything itself, so it does not
+care whether that draw was 49 sprite calls or one projected `drawTileMap`
+call. The 49 tiles are painted once; every later frame restores them, and
 with `PIXELROOT32_ENABLE_DIRTY_REGIONS` on it restores only the cells the hero
 and props disturbed last frame — a few hundred bytes against 35,072 pixels of
 4bpp decode. The price is one logical framebuffer of heap (57,600 B), which is
