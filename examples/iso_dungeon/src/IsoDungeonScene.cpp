@@ -3,7 +3,8 @@
 #include "core/Engine.h"
 #include "gameplay/DepthCompare.h"
 #include "graphics/Color.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMap.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 
 namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
@@ -16,10 +17,21 @@ namespace gameplay = pr32::gameplay;
 void IsoDungeonScene::init() {
     Scene::init();
 
+    // Wires the exported TileMap4bpp objects to their flash-resident tileset,
+    // foot table and index arrays. Must run before RoomRenderer::setRoom()
+    // hands one of them to the renderer, which is why it is the first thing
+    // here -- an exported map is inert until its init() has run.
+    iso_dungeon::init();
+
     // One palette for tiles and sprites alike: this dungeon has a single colour
     // scheme, so splitting it across background and sprite tables would buy
     // nothing and cost a second 16-entry lookup to keep in sync.
-    gfx::setDualCustomPalette(DUNGEON_PALETTE_RGB565, DUNGEON_PALETTE_RGB565);
+    //
+    // setDualCustomPalette, NOT setBackgroundCustomPalette: the exported
+    // mapping is shared by the hero and the props, and sprites resolve through
+    // a different palette bank than tilemaps do. Loading only the background
+    // bank would leave every sprite reading a stale table.
+    gfx::setDualCustomPalette(TILEMAP_PALETTE_DATA, TILEMAP_PALETTE_DATA);
 
     depthComparator = &gameplay::compareByDepthKey;
     depthSortEnabled = true;

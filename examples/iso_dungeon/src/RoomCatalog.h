@@ -7,7 +7,7 @@
 #include "graphics/Renderer.h"
 
 #include "IsoDungeonConstants.h"
-#include "assets/DungeonTiles.h"
+#include "assets/DungeonProps.h"
 
 /**
  * @file RoomCatalog.h
@@ -543,8 +543,8 @@ static_assert(doorAt(kRooms[0], kSpawnTileX, kSpawnTileY) == nullptr,
  * scrolling isometric dungeon would have to clamp its camera from the
  * projection instead -- `RoomLayer` cannot describe it.
  */
-inline constexpr uint8_t kCellWorldWidth  = kTileHalfWidth * 2;   // 32
-inline constexpr uint8_t kCellWorldHeight = kTileHalfHeight * 2;  // 16
+inline constexpr uint8_t kCellWorldWidth  = TILE_WIDTH;   // 32
+inline constexpr uint8_t kCellWorldHeight = TILE_HEIGHT;  // 16
 
 /// Two doors of one room must leave in two different directions.
 ///

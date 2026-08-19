@@ -1,17 +1,32 @@
 // GENERATED - do not edit by hand.
-#ifndef ISO_DUNGEON_PALETTE_H
-#define ISO_DUNGEON_PALETTE_H
+#ifndef ISODUNGEONROOMTILEMAP_TILEMAP_PALETTE_H
+#define ISODUNGEONROOMTILEMAP_TILEMAP_PALETTE_H
 
 #include "graphics/Renderer.h"
 #include <stdint.h>
 
 /**
- * @file DungeonPalette.h
- * @brief The example's single 16-colour RGB565 palette.
+ * @file IsoDungeonRoomTileMapPalette.h
+ * @brief The room tilemap's 16-colour RGB565 palette, in the shape the
+ *        Tilemap Editor emits alongside a map.
  *
- * Installed with setDualCustomPalette(PAL, PAL) so tiles and sprites resolve
- * through the same table -- this dungeon has one coherent colour scheme and no
- * reason to split it across palette slots.
+ * Same three symbols and the same roles as the orthogonal reference export in
+ * examples/metroidvania (MetroidvaniaSceneOneTileMapPalette.h): the RGB565
+ * table an engine palette slot is loaded with, and the pixel-value -> Color
+ * mapping every exported Sprite4bpp points at. Nothing about a palette changes
+ * when the map is isometric, which is why this file is a plain rename rather
+ * than a new shape.
+ *
+ * This game installs it with setDualCustomPalette(PAL, PAL) rather than with
+ * setBackgroundCustomPalette() alone, so tiles AND sprites resolve through the
+ * same table -- one coherent colour scheme, and no reason to split it across
+ * slots. That is why the hero and the props include this header too despite
+ * its tilemap name, and it is not incidental: drawSprite() resolves through
+ * getSpritePaletteSlot() while drawTileMap() resolves through
+ * getBackgroundPaletteSlot(), which are backed by separate arrays. A game that
+ * loads only the background slot and then draws a sprite from this mapping
+ * gets silently wrong colours. See
+ * docs/architecture/projected-tilemap-producer-obligations.md.
  *
  * CAUTION: under a custom palette a graphics::Color is a palette INDEX and its
  * name says nothing about what it renders as. Color::White is index 1, which
@@ -20,14 +35,14 @@
  * directly, or you will paint the backdrop teal.
  *
  * The pixel-value -> Color mapping is deliberately the identity, so
- * DUNGEON_PALETTE_RGB565[v] IS the colour of 4bpp pixel value v. Value 0 maps
+ * TILEMAP_PALETTE_DATA[v] IS the colour of 4bpp pixel value v. Value 0 maps
  * to Color::Black, which the renderer treats as transparent.
  */
 
 namespace iso_dungeon {
 
     // --- RGB565 by engine Color slot ---
-    static const uint16_t DUNGEON_PALETTE_RGB565[16] = {
+    static const uint16_t TILEMAP_PALETTE_DATA[16] = {
         0x0000, //  0 Black      - transparent - never drawn
         0x0000, //  1 White      - void / backdrop
         0x0862, //  2 Navy       - outline
@@ -47,7 +62,7 @@ namespace iso_dungeon {
     };
 
     // --- 4bpp pixel value to engine Color slot (identity) ---
-    static const pixelroot32::graphics::Color DUNGEON_PALETTE_MAPPING[16] = {
+    static const pixelroot32::graphics::Color TILEMAP_PALETTE_MAPPING[16] = {
         pixelroot32::graphics::Color::Black,       //  0 transparent - never drawn
         pixelroot32::graphics::Color::White,       //  1 void / backdrop
         pixelroot32::graphics::Color::Navy,        //  2 outline
@@ -68,4 +83,4 @@ namespace iso_dungeon {
 
 } // namespace iso_dungeon
 
-#endif // ISO_DUNGEON_PALETTE_H
+#endif // ISODUNGEONROOMTILEMAP_TILEMAP_PALETTE_H
