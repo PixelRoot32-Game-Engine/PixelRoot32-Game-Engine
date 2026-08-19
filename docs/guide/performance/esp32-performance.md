@@ -58,7 +58,7 @@ build_flags =
 
 Stops a static layer being redrawn at all, where dirty regions only make the *clear* cheaper.
 
-- **What it is for**: static layers that **game code** draws. `StaticTilemapLayerCache` already covers layers the engine can redraw itself, but it owns the `TileMap4bpp` and repaints it — so it needs one to exist. An isometric or oblique floor has none, because `drawTileMap` assumes axis-aligned cells; such a floor is drawn sprite-per-cell.
+- **What it is for**: static layers that **game code** draws. `StaticTilemapLayerCache` already covers layers the engine can redraw itself, but it owns the `TileMap4bpp` and repaints it — so it needs one to exist. An isometric or oblique floor has none by default, because `drawTileMap` assumes axis-aligned cells unless given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`); such a floor is drawn sprite-per-cell in the default build.
 - **Benefit**: the layer is drawn once. Later frames restore it — and with dirty regions on, only over the cells the previous frame's movers touched. A 7×7 isometric room drops from 49 `drawSprite` calls (~35,000 pixels of 4bpp decode) to a few hundred bytes copied.
 - **RAM cost**: one logical framebuffer of **heap** per allocating scene — ~57 KB at 240×240. This is the whole trade, and it is why the flag defaults to `0`.
 - **When it pays off**: when the static layer is expensive to draw and rarely changes, and the DRAM is there to spend. Allocate in `Scene::init()`, never in the loop.

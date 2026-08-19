@@ -1120,6 +1120,208 @@ namespace pixelroot32::graphics {
         }
     }
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    template<typename TileT>
+    void Renderer::drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
+                                             int originX,
+                                             int originY,
+                                             LayerType layerType,
+                                             const pixelroot32::math::ProjectionSpec& projection,
+                                             Color color) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        auto h = computeTilemapDirtyTracking(map, originX, originY, layerType);
+
+        pixelroot32::math::ProjectionSpec drawSpec = projection;
+        drawSpec.originX += originX;
+        drawSpec.originY += originY;
+
+        pixelroot32::math::ProjectionSpec cullSpec = projection;
+        cullSpec.originX += h.viewOriginX;
+        cullSpec.originY += h.viewOriginY;
+
+        // Bounded per-call scan (see decision 5 in the design record):
+        // worst case is the largest tileCount shipped anywhere in this
+        // repo (46, examples/animated_tilemap), so this is ~46 flash
+        // reads per draw call, per layer, per frame -- not per tile,
+        // and it does not grow with map size.
+        uint8_t maxWidth = 0;
+        uint8_t maxFootY = 0;
+        uint8_t maxBelow = 0;
+        for (uint16_t i = 0; i < map.tileCount; ++i) {
+            const TileT& scanTile = map.tiles[i];
+            if (scanTile.width > maxWidth) {
+                maxWidth = scanTile.width;
+            }
+            const uint8_t footY = map.footYFor(i);
+            if (footY > maxFootY) {
+                maxFootY = footY;
+            }
+            const uint8_t below =
+                (scanTile.height > footY) ? static_cast<uint8_t>(scanTile.height - footY) : 0;
+            if (below > maxBelow) {
+                maxBelow = below;
+            }
+        }
+
+        // Pad the cull rect by the tileset's own worst-case sprite
+        // extent so a tile whose CELL sits outside the window but
+        // whose SPRITE still overlaps it is not culled away (AC-5).
+        const pixelroot32::math::CellRange range = pixelroot32::math::cellRangeForScreenRect(
+            cullSpec,
+            -static_cast<int>(maxWidth), -static_cast<int>(maxBelow),
+            logicalWidth + 2 * static_cast<int>(maxWidth),
+            logicalHeight + static_cast<int>(maxBelow) + static_cast<int>(maxFootY),
+            map.width, map.height);
+        h.startCol = range.startCol;
+        h.endCol   = range.endCol;
+        h.startRow = range.startRow;
+        h.endRow   = range.endRow;
+
+        // Palette Caching (tile palette + background palette slot). Sized for
+        // the widest per-format LUT this function currently serves (4bpp,
+        // 16 entries); the format-specific tail below is what actually reads
+        // and writes it.
+        uint16_t cachedLUT[16];
+        const Color* lastTilePalettePtr = nullptr;
+        const uint16_t* lastBackgroundPalettePtr = nullptr;
+
+        for (int ty = h.startRow; ty < h.endRow; ++ty) {
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = h.startCol; tx < h.endCol; ++tx) {
+                int cellIndex = rowIndexBase + tx;
+                uint8_t rawIndex = map.indices[cellIndex];
+                uint8_t index    = rawIndex;
+
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(rawIndex);
+                }
+
+                if (index == 0 || index >= map.tileCount) {
+                    continue;
+                }
+
+                if (map.runtimeMask) {
+                    if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                        continue;
+                    }
+                }
+
+                const TileT& tile = map.tiles[index];
+                const int centreX = pixelroot32::math::cellToScreenX(tx, ty, drawSpec);
+                const int centreY = pixelroot32::math::cellToScreenY(tx, ty, drawSpec);
+                const int drawX = centreX - tile.width / 2;
+                const int drawY = centreY - map.footYFor(index);
+
+                if (layerType == LayerType::Dynamic) {
+                    bool markCell = true;
+                    if (map.animManager != nullptr) {
+                        markCell = h.mapOrOriginMovedAnim ||
+                                   map.animManager->animatedTileAppearanceChanged(rawIndex);
+                    }
+                    if (markCell) {
+                        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                            const int pixelX = offsetBypass ? drawX : xOffset + drawX;
+                            const int pixelY = offsetBypass ? drawY : yOffset + drawY;
+                            dirtyGrid.markRect(pixelX, pixelY, tile.width, tile.height);
+                        }
+                    }
+                }
+
+                // Per-format tail: which palette LUT to build and which blit
+                // to call, selected per TileT with `if constexpr`. 4bpp and
+                // 2bpp build a palette LUT and blit through
+                // drawSpriteInternal; 1bpp has no per-tile palette and blits
+                // through drawSprite() with the map's single Color instead.
+                if constexpr (std::is_same_v<TileT, Sprite4bpp>) {
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        for (uint8_t i = paletteCount; i < 16; ++i) {
+                            cachedLUT[i] = 0;
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
+                }
+
+                if constexpr (std::is_same_v<TileT, Sprite2bpp>) {
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        for (uint8_t i = paletteCount; i < 4; ++i) {
+                            cachedLUT[i] = 0;
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
+                }
+
+                if constexpr (std::is_same_v<TileT, Sprite>) {
+                    drawSprite(tile, drawX, drawY, color, false);
+                }
+            }
+        }
+
+        if (h.animSlot) {
+            h.animSlot->primed = true;
+            h.animSlot->mapKey = map.indices;
+            h.animSlot->ox     = h.viewOriginX;
+            h.animSlot->oy     = h.viewOriginY;
+        }
+
+        tilemapSpriteDirtyMode_ = h.savedMode;
+        setRenderContext(h.oldContext);
+    }
+
+    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+            // Color is ignored on this path: the 4bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite4bpp>(map, originX, originY, layerType, projection, Color::Black);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+            // Color is ignored on this path: the 2bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite2bpp>(map, originX, originY, layerType, projection, Color::Black);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        // No feature-flag gate, matching the orthogonal 1bpp overload above:
+        // 1bpp sprites have no build-time enable flag.
+        drawTileMapProjectedImpl<Sprite>(map, originX, originY, layerType, projection, color);
+    }
+#endif
+
     void Renderer::setSpritePaletteSlotContext(uint8_t slot) {
         currentSpritePaletteSlot = slot;
     }

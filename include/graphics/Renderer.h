@@ -20,6 +20,11 @@
 #include "Font.h"
 #include "TileAnimation.h"
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#include "math/Projection.h"
+#include <type_traits>
+#endif
+
 #include <memory>
 #include <string_view>
 
@@ -1230,6 +1235,90 @@ public:
                      int originY,
                      LayerType layerType = LayerType::Dynamic);
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /**
+     * @brief Draws a tilemap of 4bpp sprites through a projection basis.
+     *
+     * Places, culls and marks cells through `projection` instead of the
+     * axis-aligned grid (see math/Projection.h): each tile is anchored at
+     * `(centreX - tile.width / 2, centreY - map.footYFor(index))`, the same
+     * formula already shipped by hand in `examples/iso_dungeon/src/IsoDraw.h:28-29`.
+     *
+     * @note `map.tileFootY` is what this path anchors from. The PixelRoot32
+     *       Tilemap Editor does not export a foot-anchor table today, so an
+     *       editor-exported map has `tileFootY == nullptr` and every tile
+     *       anchors at its top-left corner (`footYFor()` returns 0
+     *       uniformly) -- correct for a uniform-height tileset, wrong for
+     *       one with mixed tile heights. Closing that export gap is a later,
+     *       separate change.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     *
+     *        Draw order is the caller's responsibility: this path iterates
+     *        cells row-major and never sorts. Row-major is a correct
+     *        back-to-front paint order only when `math::rowMajorIsPainterOrder(projection)`
+     *        holds -- i.e. a `+1` step along either cell axis moves a tile
+     *        strictly forward on screen (`axisXy > 0 && axisYy > 0`). It does
+     *        NOT hold for every valid spec: an orthogonal or oblique basis
+     *        (`axisXy == 0`) returns `false` from that predicate and is still
+     *        painted correctly here whenever its art fills its cell and
+     *        never overhangs it. The predicate is sufficient, not necessary --
+     *        assert it at the spec's declaration site when tiles can overhang
+     *        their cell, not unconditionally.
+     */
+    void drawTileMap(const TileMap4bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 2bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract (row-major iteration, `math::rowMajorIsPainterOrder`) and the
+     * `tileFootY` anchoring note. This overload differs only in its
+     * per-tile blit: a 4-entry palette LUT instead of a 16-entry one.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap2bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 1bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract and the `tileFootY` anchoring note.
+     *
+     * @note Art constraint, not a defect: `Sprite::data` is one `uint16_t`
+     *       per row and `drawSprite()` builds `1u << (width - 1)`
+     *       (Renderer.cpp:495), undefined above 16 -- so `Sprite::width` is
+     *       capped at 16 px and a 2:1 isometric diamond therefore caps at
+     *       16x8. `color` is also a single value for the whole map, so a
+     *       solid-diamond floor renders as a flat monochrome region with no
+     *       depth cue: outlined/wireframe 1bpp diamonds work, shaded ones
+     *       cannot exist at this bit depth.
+     *
+     * @param color Single fill colour used for every tile in the map.
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap& map,
+                     int originX,
+                     int originY,
+                     Color color,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+#endif
+
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
      * 
@@ -1394,6 +1483,33 @@ private:
 
         return h;
     }
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /// Shared geometry for every projected drawTileMap overload: derives the
+    /// draw/cull specs, runs the bounded tileset scan, computes the padded
+    /// cull window, and places/culls/marks cells row-major through
+    /// `projection`. The per-format tail (blit call, palette LUT size) is
+    /// selected with `if constexpr`, so this function exists exactly once
+    /// per tile type that instantiates it, and the projected path itself
+    /// exists exactly once regardless of how many types call in.
+    /// @tparam TileT Tile sprite type (Sprite, Sprite2bpp, or Sprite4bpp).
+    /// @param color Required, not defaulted: this is a private function with
+    ///        exactly three call sites in this translation unit, all of
+    ///        which must pass it explicitly. Only the `Sprite` tail reads
+    ///        it (the single map-wide fill colour); the `Sprite2bpp`/
+    ///        `Sprite4bpp` tails ignore it, since they blit through their
+    ///        own per-tile palette LUT instead. A default here would let a
+    ///        1bpp forwarder silently forget to thread the caller's colour
+    ///        through and draw the whole map black -- a mistake that is not
+    ///        obviously wrong on screen when the colour itself is dark.
+    template<typename TileT>
+    void drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
+                                   int originX,
+                                   int originY,
+                                   LayerType layerType,
+                                   const pixelroot32::math::ProjectionSpec& projection,
+                                   Color color);
+#endif
 
     /// Restore dirty-tracking state after tilemap rendering.
     void restoreTilemapDirtyTracking(TilemapDirtyTrackingHelper& h) {

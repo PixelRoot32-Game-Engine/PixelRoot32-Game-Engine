@@ -80,7 +80,9 @@
 // with the tilemap taken out of it: StaticLayerSnapshot caches whatever the
 // game DREW, not a TileMap4bpp it re-draws itself. That is the difference that
 // matters for an isometric or oblique room, whose floor is drawn sprite-per-cell
-// because drawTileMap() assumes axis-aligned cells and cannot express a diamond.
+// by default because drawTileMap() assumes axis-aligned cells and cannot
+// express a diamond unless given a projection
+// (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, default 0).
 //
 // Defaults to 0, unlike the tilemap cache: the snapshot costs one full logical
 // framebuffer of heap (57,600 B at 240x240), which is a real bite out of ESP32
@@ -140,11 +142,17 @@
 #define PIXELROOT32_ENABLE_PROJECTION 0
 #endif
 
+#if !defined(PIXELROOT32_ENABLE_TILEMAP_PROJECTION)
+#define PIXELROOT32_ENABLE_TILEMAP_PROJECTION 0
+#endif
+
 // No dependency guard is declared for the state machine, the object pool, the
 // grid space helper or the projection helper: unlike interaction triggers and
 // spatial queries, none of them includes any physics-gated header, so all four
 // are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are independent of each
-// other.
+// other. Tilemap projection is not part of this group: it is guarded below,
+// below the interaction-triggers/spatial-query guard, because unlike these
+// four it genuinely cannot compile without its own dependency.
 //
 // The projection helper is the strictest case: include/math/Projection.h
 // includes nothing but this file, because every one of its functions is pure
@@ -162,6 +170,13 @@
 // disabling the flag.
 #if (PIXELROOT32_ENABLE_INTERACTION_TRIGGERS || PIXELROOT32_ENABLE_SPATIAL_QUERY) && !PIXELROOT32_ENABLE_PHYSICS
 #error "PIXELROOT32_ENABLE_INTERACTION_TRIGGERS and PIXELROOT32_ENABLE_SPATIAL_QUERY require PIXELROOT32_ENABLE_PHYSICS=1 (CollisionSystem and SpatialGrid only exist when physics is enabled)"
+#endif
+
+// Tilemap projection places cells through math::ProjectionSpec
+// (include/math/Projection.h), which only exists when PIXELROOT32_ENABLE_PROJECTION
+// is on. Fail the build loudly instead of silently disabling the flag.
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION && !PIXELROOT32_ENABLE_PROJECTION
+#error "PIXELROOT32_ENABLE_TILEMAP_PROJECTION requires PIXELROOT32_ENABLE_PROJECTION=1 (math::ProjectionSpec only exists when projection is enabled)"
 #endif
 
 // =============================================================================

@@ -172,9 +172,11 @@ own, so an isometric game that wants cell-to-cell navigation must enable the
 grid flag even though it never declares a `GridSpec`. `GridMotion.h` states
 this outright. The cost is one unused header, not one unused byte.
 
-**The tilemap renderer is orthogonal-only, and the room routes around it.**
-`drawTileMap` assumes axis-aligned cells and cannot express a diamond, so the
-floor is drawn sprite-per-cell — 49 `drawSprite` calls. That also rules out
+**This room does not opt into the projected tilemap path, so it routes around it.**
+`drawTileMap` assumes axis-aligned cells and cannot express a diamond unless
+given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`, not
+enabled here), so the floor is drawn sprite-per-cell — 49 `drawSprite` calls.
+That also rules out
 `StaticTilemapLayerCache`, which caches a `TileMap4bpp` by redrawing it and so
 needs one to exist.
 

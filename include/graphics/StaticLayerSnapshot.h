@@ -25,9 +25,11 @@ namespace pixelroot32::graphics {
  * `StaticTilemapLayerCache` solves the same problem for games whose background
  * is a `TileMap4bpp`: it owns the tilemaps, redraws them when the cache goes
  * cold, and snapshots the result. That ownership is exactly what an isometric
- * or oblique room cannot satisfy -- `drawTileMap()` assumes axis-aligned cells
- * and cannot express a diamond, so such a room is drawn sprite-per-cell by game
- * code and there is no `TileMap4bpp` to hand over.
+ * or oblique room cannot satisfy by default -- `drawTileMap()` assumes
+ * axis-aligned cells and cannot express a diamond unless given a projection
+ * (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, default 0), so in the default build
+ * such a room is drawn sprite-per-cell by game code and there is no
+ * `TileMap4bpp` to hand over.
  *
  * This class inverts the relationship: it never draws anything. The game says
  * "the framebuffer now holds my static layers" (capture()) and, on later

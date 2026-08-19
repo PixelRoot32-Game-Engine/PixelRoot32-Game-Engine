@@ -26,6 +26,34 @@ T The sprite type used for tiles (Sprite, Sprite2bpp, or Sprite4bpp).
 
 ## Methods
 
+### `inline uint8_t footYFor(uint16_t index) const`
+
+**Description:**
+
+Resolve the foot-anchor row for a tile index.
+
+**Parameters:**
+
+- `index`: Tile index into `tiles[]`.
+
+**Returns:** `tileFootY[index]` when a table is present and `index` is in
+        range; 0 otherwise (current top-left behaviour).
+
+::: tip
+`index >= tileCount` returns 0. `drawTileMap` already guards
+      `index >= map.tileCount` (src/graphics/Renderer.cpp:892), so this
+      is defence in depth against a caller that does not, not a
+      load-bearing branch.
+:::
+
+::: tip
+`footYFor(0)` reads the table with no special case, even though
+      index 0 is the empty-tile sentinel `drawTileMap` skips. The table
+      is parallel to `tiles[]`, so slot 0 exists; special-casing it
+      would bind the asset format's meaning to a renderer policy that
+      is free to change.
+:::
+
 ### `inline void initRuntimeMask()`
 
 **Description:**
