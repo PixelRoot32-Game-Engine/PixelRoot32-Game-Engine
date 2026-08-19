@@ -7,16 +7,20 @@
 #if PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "graphics/Renderer.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include <stdint.h>
 
 /**
  * @file DungeonTiles.h
- * @brief Floor diamonds and extruded stone blocks for the dungeon room.
+ * @brief The tile layer's art: floor diamonds and extruded stone blocks.
  *
- * Every block here is the SAME 32x16 diamond extruded by a different amount:
- * a wall is 24px tall, an altar 14, and a pillar is a narrower 16x8 diamond
- * extruded 40. The shared geometry is why they stack without seams.
+ * Every block here is the SAME 32x16 diamond extruded by a different amount --
+ * a floor not at all, a wall by 24px. The shared geometry is why they stack
+ * without seams, and it is shared with the props in DungeonProps.h too.
+ *
+ * Only tiles live here. The altar and the pillar are props, drawn as
+ * depth-sorted sprites rather than as cells of the tile layer, and they are in
+ * DungeonProps.h -- see that file for why the split is not cosmetic.
  *
  * Each sprite carries a FOOT_Y: the row of the bitmap that must land on the
  * target cell's diamond CENTRE. Draw with
@@ -221,65 +225,12 @@ namespace iso_dungeon {
         0x0000, 0x0000, 0x0000, 0x7722, 0x0288, 0x0000, 0x0000, 0x0000,
     };
 
-    static const uint16_t ALTAR_4BPP[] = {
-        0x0000, 0x0000, 0x0000, 0xDD22, 0x22DD, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x2200, 0xDDDD, 0xDDDD, 0x0022, 0x0000, 0x0000,
-        0x0000, 0x0000, 0xDD22, 0xDDDD, 0xDDDD, 0x22DD, 0x0000, 0x0000,
-        0x0000, 0x2200, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x0022, 0x0000,
-        0x0000, 0xDD22, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x22DD, 0x0000,
-        0x2200, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x0022,
-        0xDD22, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x22DD,
-        0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD,
-        0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD,
-        0xDD88, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x99DD,
-        0x8888, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x9999,
-        0x8888, 0xDD88, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x99DD, 0x9999,
-        0x8888, 0x8888, 0xDDDD, 0xDDDD, 0xDDDD, 0xDDDD, 0x9999, 0x9999,
-        0x8877, 0x8888, 0xDD88, 0xDDDD, 0xDDDD, 0x99DD, 0x9999, 0x7799,
-        0x7788, 0x8888, 0x8888, 0xDDDD, 0xDDDD, 0x9999, 0x9999, 0x9977,
-        0x8888, 0x8877, 0x8888, 0x7D88, 0x99D7, 0x9999, 0x7799, 0x9999,
-        0x8888, 0x7788, 0x8888, 0x7888, 0x9997, 0x9999, 0x9977, 0x9999,
-        0x8888, 0x8888, 0x8877, 0x7888, 0x9997, 0x7799, 0x9999, 0x9999,
-        0x8877, 0x8888, 0x7788, 0x7888, 0x9997, 0x9977, 0x9999, 0x7799,
-        0x7788, 0x8888, 0x8888, 0x7877, 0x7797, 0x9999, 0x9999, 0x9977,
-        0x8888, 0x8877, 0x8888, 0x7788, 0x9977, 0x9999, 0x7799, 0x9999,
-        0x8888, 0x7788, 0x8888, 0x7888, 0x9997, 0x9999, 0x9977, 0x9999,
-        0x8888, 0x8888, 0x8877, 0x7888, 0x9997, 0x7799, 0x9999, 0x9999,
-        0x8822, 0x8888, 0x7788, 0x7888, 0x9997, 0x9977, 0x9999, 0x2299,
-        0x2200, 0x8888, 0x8888, 0x7877, 0x7797, 0x9999, 0x9999, 0x0022,
-        0x0000, 0x8822, 0x8888, 0x7788, 0x9977, 0x9999, 0x2299, 0x0000,
-        0x0000, 0x2200, 0x8888, 0x7888, 0x9997, 0x9999, 0x0022, 0x0000,
-        0x0000, 0x0000, 0x8822, 0x7888, 0x9997, 0x2299, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x2200, 0x7888, 0x9997, 0x0022, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x8822, 0x2299, 0x0000, 0x0000, 0x0000,
-    };
-
-    static const uint16_t PILLAR_4BPP[] = {
-        0x0000, 0x9922, 0x2299, 0x0000, 0x2200, 0x9999, 0x9999, 0x0022,
-        0x9922, 0x9999, 0x9999, 0x2299, 0x9999, 0x9999, 0x9999, 0x9999,
-        0x9999, 0x9999, 0x9999, 0x9999, 0x9977, 0x9999, 0x9999, 0x8899,
-        0x7777, 0x9999, 0x9999, 0x8888, 0x7777, 0x6977, 0x8896, 0x8888,
-        0x7777, 0x6777, 0x8886, 0x8888, 0x7777, 0x6777, 0x8886, 0x8888,
-        0x7766, 0x6777, 0x8886, 0x6688, 0x6677, 0x6777, 0x8886, 0x8866,
-        0x7777, 0x6766, 0x6686, 0x8888, 0x7777, 0x6677, 0x8866, 0x8888,
-        0x7777, 0x6777, 0x8886, 0x8888, 0x7777, 0x6777, 0x8886, 0x8888,
-        0x7766, 0x6777, 0x8886, 0x6688, 0x6677, 0x6777, 0x8886, 0x8866,
-        0x7777, 0x6766, 0x6686, 0x8888, 0x7777, 0x6677, 0x8866, 0x8888,
-        0x7777, 0x6777, 0x8886, 0x8888, 0x7777, 0x6777, 0x8886, 0x8888,
-        0x7766, 0x6777, 0x8886, 0x6688, 0x6677, 0x6777, 0x8886, 0x8866,
-        0x7777, 0x6766, 0x6686, 0x8888, 0x7777, 0x6677, 0x8866, 0x8888,
-        0x7777, 0x6777, 0x8886, 0x8888, 0x7777, 0x6777, 0x8886, 0x8888,
-        0x7766, 0x6777, 0x8886, 0x6688, 0x6677, 0x6777, 0x8886, 0x8866,
-        0x7777, 0x6766, 0x6686, 0x8888, 0x7722, 0x6677, 0x8866, 0x2288,
-        0x2200, 0x6777, 0x8886, 0x0022, 0x0000, 0x7722, 0x2288, 0x0000,
-    };
-
     static const uint8_t FLOOR_A_WIDTH  = 32;
     static const uint8_t FLOOR_A_HEIGHT = 16;
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_A_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_A_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_A_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_A_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_A_WIDTH, FLOOR_A_HEIGHT, 16
     };
 
@@ -288,7 +239,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_B_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_B_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_B_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_B_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_B_WIDTH, FLOOR_B_HEIGHT, 16
     };
 
@@ -297,7 +248,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_ACCENT_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_ACCENT_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_ACCENT_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_ACCENT_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_ACCENT_WIDTH, FLOOR_ACCENT_HEIGHT, 16
     };
 
@@ -306,7 +257,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int WALL_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp WALL_SPRITE = {
-        reinterpret_cast<const uint8_t*>(WALL_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(WALL_4BPP), TILEMAP_PALETTE_MAPPING,
         WALL_WIDTH, WALL_HEIGHT, 16
     };
 
@@ -315,7 +266,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int DOOR_NE_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp DOOR_NE_SPRITE = {
-        reinterpret_cast<const uint8_t*>(DOOR_NE_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(DOOR_NE_4BPP), TILEMAP_PALETTE_MAPPING,
         DOOR_NE_WIDTH, DOOR_NE_HEIGHT, 16
     };
 
@@ -324,26 +275,8 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int DOOR_NW_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp DOOR_NW_SPRITE = {
-        reinterpret_cast<const uint8_t*>(DOOR_NW_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(DOOR_NW_4BPP), TILEMAP_PALETTE_MAPPING,
         DOOR_NW_WIDTH, DOOR_NW_HEIGHT, 16
-    };
-
-    static const uint8_t ALTAR_WIDTH  = 32;
-    static const uint8_t ALTAR_HEIGHT = 30;
-    /// Sprite row that lands on the cell's diamond centre.
-    static const int ALTAR_FOOT_Y = 22;
-    static const pixelroot32::graphics::Sprite4bpp ALTAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(ALTAR_4BPP), DUNGEON_PALETTE_MAPPING,
-        ALTAR_WIDTH, ALTAR_HEIGHT, 16
-    };
-
-    static const uint8_t PILLAR_WIDTH  = 16;
-    static const uint8_t PILLAR_HEIGHT = 34;
-    /// Sprite row that lands on the cell's diamond centre.
-    static const int PILLAR_FOOT_Y = 30;
-    static const pixelroot32::graphics::Sprite4bpp PILLAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(PILLAR_4BPP), DUNGEON_PALETTE_MAPPING,
-        PILLAR_WIDTH, PILLAR_HEIGHT, 16
     };
 
 } // namespace iso_dungeon

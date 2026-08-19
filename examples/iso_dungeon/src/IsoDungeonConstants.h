@@ -5,15 +5,25 @@
 #include "gameplay/Projection.h"
 #include "graphics/Color.h"
 
+#include "assets/IsoDungeonRoomTileMap.h"
+
 /**
  * @file IsoDungeonConstants.h
- * @brief Room layout and the projection everything in this example is placed
- *        with.
+ * @brief Hero tuning, colours, and the game-side names for the geometry the
+ *        tilemap export owns.
  *
  * The whole isometric view of this game is six integers. There is no isometric
  * mode, no diamond-specific renderer and no coordinate class: a
  * `ProjectionSpec` says where cell (0, 0) lands and how far one step along each
  * cell axis moves on screen, and that is the entire model.
+ *
+ * Those six integers, and the room's extent in tiles, are no longer authored
+ * here. They come from assets/IsoDungeonRoomTileMap.h, which is the generated
+ * export, and this file only gives them the names the gameplay code already
+ * uses. That direction is deliberate: an export is the single source of truth
+ * for a map's geometry, and duplicating it here would let the two drift with
+ * nothing to catch it. Edit the export, and every static_assert below runs
+ * against the new value.
  */
 
 namespace iso_dungeon {
@@ -31,38 +41,39 @@ inline constexpr std::uint8_t BTN_RIGHT = 3;
 
 // --- Geometry ---------------------------------------------------------------
 
-/// Room extent in tiles, both axes.
-inline constexpr int kRoomTiles = 7;
-
-/// Half the width and half the height of one floor diamond, in pixels.
+/// Room extent in tiles, both axes. Owned by the export; named here.
 ///
-/// 32x16 is the classic 2:1 isometric tile. It is not an arbitrary choice
-/// here: at 7 tiles per side the room's diamond is (7 + 7) * 16 = 224 px wide,
-/// which is the largest 2:1 tile that keeps the whole room inside a 240 px
-/// display without scrolling. A 48x24 tile would need 336 px.
-inline constexpr int kTileHalfWidth  = 16;
-inline constexpr int kTileHalfHeight = 8;
-
-/// Screen position of tile (0, 0)'s diamond CENTRE.
-///
-/// The origin is the centre rather than the sprite's top-left corner because
-/// every sprite in this example is anchored by a FOOT_Y measured to the same
-/// point (see DungeonTiles.h). One anchor convention, one subtraction, no
-/// per-sprite fudge factors.
-inline constexpr int kIsoOriginX = 120;
-inline constexpr int kIsoOriginY = 88;
+/// The room is square, and the layouts in RoomCatalog.h are sized by this one
+/// constant, so the export's two dimensions have to agree before the game can
+/// use a single name for them.
+static_assert(MAP_WIDTH == MAP_HEIGHT,
+              "This game assumes a square room. Export a square map, or give "
+              "RoomCatalog.h separate width and height constants.");
+inline constexpr int kRoomTiles = MAP_WIDTH;
 
 /**
  * @brief Tile grid: +1 tileX steps down-right, +1 tileY steps down-left.
  *
- * det = 256, a power of two, so `screenToCell`'s single division is
- * strength-reduced to a shift for this `constexpr` spec.
+ * Owned by the export as ISO_PROJECTION; named here because every gameplay
+ * call site -- hero interpolation, prop placement, screen-to-cell picking --
+ * already reads `kTileProjection`, and none of them care that the value now
+ * arrives from a generated file.
+ *
+ * 32x16 is the classic 2:1 isometric tile, and at 7 tiles per side it is not
+ * an arbitrary choice: the room's diamond is (7 + 7) * 16 = 224 px wide, the
+ * largest 2:1 tile that keeps the whole room inside a 240 px display without
+ * scrolling. A 48x24 tile would need 336 px.
+ *
+ * The origin is the diamond CENTRE rather than a sprite's top-left corner
+ * because every sprite in this example is anchored by a FOOT_Y measured to
+ * that same point. One anchor convention, one subtraction, no per-sprite fudge
+ * factors.
  */
-inline constexpr gameplay::ProjectionSpec kTileProjection{
-    kIsoOriginX, kIsoOriginY,
-     kTileHalfWidth, kTileHalfHeight,   // +1 tileX -> right and down
-    -kTileHalfWidth, kTileHalfHeight};  // +1 tileY -> left  and down
+inline constexpr gameplay::ProjectionSpec kTileProjection = ISO_PROJECTION;
 
+// The export asserts its own validity and its paint order at its declaration
+// site. What it cannot know is the room size the game will use it at, which is
+// what this re-check covers.
 static_assert(gameplay::projectionSpecIsValid(kTileProjection, kRoomTiles, kRoomTiles),
               "kTileProjection exceeds Scalar's fixed-point range.");
 static_assert(gameplay::projectionDet(kTileProjection) == 256,

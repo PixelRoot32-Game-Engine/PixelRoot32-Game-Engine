@@ -11,7 +11,7 @@
  * formula, copied verbatim rather than re-derived:
  *   drawSprite(sprite, centreX - sprite.width / 2, centreY - footY, 0, flipX)
  * Fixtures use the real measured values from
- * examples/iso_dungeon/src/assets/DungeonTiles.h (foot rows: floors 8, altar
+ * examples/iso_dungeon/src/assets/ (foot rows: floors 8, altar
  * 22, pillar 30, wall/doors 32) and the basis from
  * examples/iso_dungeon/src/IsoDungeonConstants.h, following the same
  * "real numbers, synthetic bitmap data" idiom as
