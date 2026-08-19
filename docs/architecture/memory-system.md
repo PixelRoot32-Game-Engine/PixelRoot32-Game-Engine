@@ -119,6 +119,7 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 | Flag | Default | RAM Cost When Enabled | Subsystem Added |
 |------|---------|------------------------|------------------|
 | `PIXELROOT32_ENABLE_PROJECTION=1` | `0` | 0 B SRAM | `math/Projection.h` — cell-to-screen mapping for an arbitrary integer 2×2 basis (`ProjectionSpec`, `cellToScreenX/Y`, `screenToCellX/Y`, `projectionDet`, `projectionSpecIsValid`); `gameplay/Projection.h` forwards to it |
+| `PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1` | `0` | 0 B SRAM | Guarded overload parameter on `Renderer::drawTileMap` (`TileMap4bpp` only) plus the projected placement/culling/marking branch behind it. The `const ProjectionSpec*` is a stack argument, not a field, so no per-instance SRAM is added; requires `PIXELROOT32_ENABLE_PROJECTION=1` (`#error` otherwise). Measured flash delta on `esp32dev`: **+16 B** with the flag on; the flag-off preprocessed translation unit is unchanged. |
 
 **`ProjectionSpec` byte budget:** `sizeof(ProjectionSpec) == 24 B` — six `int`s, identical on ILP32 and LP64, the same shape and the same reasoning as `GridSpec`. A `constexpr` spec is `const`, so it lands in `.rodata`/flash, never `.data`/`.bss`: **0 B SRAM at every optimization level**. The determinant is deliberately *not* a seventh field — it is computed by `projectionDet()`, because a derived field could be set inconsistently by an aggregate initializer and there is no constructor in which to maintain the invariant.
 

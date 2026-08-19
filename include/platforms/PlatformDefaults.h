@@ -80,7 +80,9 @@
 // with the tilemap taken out of it: StaticLayerSnapshot caches whatever the
 // game DREW, not a TileMap4bpp it re-draws itself. That is the difference that
 // matters for an isometric or oblique room, whose floor is drawn sprite-per-cell
-// because drawTileMap() assumes axis-aligned cells and cannot express a diamond.
+// by default because drawTileMap() assumes axis-aligned cells and cannot
+// express a diamond unless given a projection
+// (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, default 0).
 //
 // Defaults to 0, unlike the tilemap cache: the snapshot costs one full logical
 // framebuffer of heap (57,600 B at 240x240), which is a real bite out of ESP32

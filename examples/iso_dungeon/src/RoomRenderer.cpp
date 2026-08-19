@@ -60,9 +60,11 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // hundred bytes against 35,072 pixels of 4bpp decode.
     //
     // This is what the tilemap cache cannot do for an isometric room:
-    // `drawTileMap` assumes axis-aligned cells, so there is no TileMap4bpp to
-    // hand it. StaticLayerSnapshot caches the RESULT instead of the source, so
-    // it does not care that these tiles are diamonds.
+    // `drawTileMap` assumes axis-aligned cells unless given a projection
+    // (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, not enabled in this example), so
+    // there is no TileMap4bpp to hand it here. StaticLayerSnapshot caches the
+    // RESULT instead of the source, so it does not care that these tiles are
+    // diamonds.
     if (room_ == nullptr) {
         return;  // before the scene's init() has chosen a room
     }

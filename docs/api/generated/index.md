@@ -196,6 +196,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 
 ## Math
 
+- [CellRange](./math/CellRange.md) — Half-open cell-space window `[startCol, endCol) x [startRow, endRow)`
+       covering a screen rectangle, under a given ProjectionSpec.
 - [Fixed16](./math/Fixed16.md) — Fixed-point 16.16 number implementation optimized for RISC-V.
 - [Random](./math/Random.md) — Instance-based random number generator
 - [Vector2](./math/Vector2.md) — 2D vector using the configured Scalar type (float or Fixed16).

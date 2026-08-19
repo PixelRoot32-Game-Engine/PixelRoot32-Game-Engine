@@ -117,7 +117,7 @@ The engine provides **`pixelroot32::graphics::StaticTilemapLayerCache`** (`inclu
 
 ### Static Layer Snapshot
 
-The engine also provides **`pixelroot32::graphics::StaticLayerSnapshot`** (`include/graphics/StaticLayerSnapshot.h`) for static layers the cache above cannot reach. `StaticTilemapLayerCache` **owns** the tilemaps it caches and redraws them when the cache goes cold, which presupposes a `TileMap4bpp` exists. An isometric or oblique floor has none — `drawTileMap` assumes axis-aligned cells and cannot express a diamond — so game code draws it sprite-per-cell.
+The engine also provides **`pixelroot32::graphics::StaticLayerSnapshot`** (`include/graphics/StaticLayerSnapshot.h`) for static layers the cache above cannot reach. `StaticTilemapLayerCache` **owns** the tilemaps it caches and redraws them when the cache goes cold, which presupposes a `TileMap4bpp` exists. An isometric or oblique floor has none in the default build — `drawTileMap` assumes axis-aligned cells and cannot express a diamond unless given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`) — so game code draws it sprite-per-cell.
 
 `StaticLayerSnapshot` inverts that relationship and **never draws anything**: the game calls **`capture()`** when the framebuffer holds its static layers and **`restore()`** on later frames. What those layers are, and how they were drawn, is not the cache's concern — which is precisely what makes it projection-agnostic.
 

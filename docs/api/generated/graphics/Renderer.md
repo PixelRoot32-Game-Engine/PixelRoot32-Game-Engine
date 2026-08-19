@@ -461,11 +461,18 @@ Draws a tilemap of 1bpp sprites.
 
 Draws a tilemap of 2bpp sprites.
 
-### `void drawTileMap(const TileMap4bpp& map, int originX, int originY, LayerType layerType = LayerType::Dynamic)`
+### `void drawTileMap(const TileMap4bpp& map, int originX, int originY, LayerType layerType = LayerType::Dynamic PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL)`
 
 **Description:**
 
 Draws a tilemap of 4bpp sprites.
+
+**Parameters:**
+
+- `projection`: When PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1 and non-null,
+       places, culls and marks cells through this basis instead of the
+       axis-aligned grid (see math/Projection.h). Null reproduces the
+       axis-aligned path unchanged.
 
 ### `void setOffsetBypass(bool bypass)`
 
