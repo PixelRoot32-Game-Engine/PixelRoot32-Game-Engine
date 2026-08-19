@@ -7,7 +7,7 @@
 #if PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "graphics/Renderer.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include <stdint.h>
 
 /**
@@ -30,9 +30,15 @@
  *
  *     renderer.drawSprite(S, centreX - S.width / 2, centreY - S_FOOT_Y);
  *
- * Both props are the same 32x16 floor diamond extruded upward -- the altar by
- * 14 px, the pillar from a narrower 16x8 diamond by 40 -- which is why they
- * stack against the walls in DungeonTiles.h without a seam.
+ * Both props are the same floor diamond extruded upward: the altar 32x16 by
+ * 14 px (ALTAR_HEIGHT 30), the pillar a narrower 16x8 by 26 (PILLAR_HEIGHT
+ * 34). That shared geometry is why they stack against the walls in
+ * DungeonTiles.h without a seam.
+ *
+ * The extrusion figures are height minus the diamond's own height, and they
+ * are stated here rather than left implicit because the tileset header this
+ * art came from had the pillar's wrong -- it said 40, which is the WALL's
+ * total height, not the pillar's extrusion.
  */
 
 namespace iso_dungeon {
@@ -95,7 +101,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int ALTAR_FOOT_Y = 22;
     static const pixelroot32::graphics::Sprite4bpp ALTAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(ALTAR_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(ALTAR_4BPP), TILEMAP_PALETTE_MAPPING,
         ALTAR_WIDTH, ALTAR_HEIGHT, 16
     };
 
@@ -104,7 +110,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int PILLAR_FOOT_Y = 30;
     static const pixelroot32::graphics::Sprite4bpp PILLAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(PILLAR_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(PILLAR_4BPP), TILEMAP_PALETTE_MAPPING,
         PILLAR_WIDTH, PILLAR_HEIGHT, 16
     };
 } // namespace iso_dungeon

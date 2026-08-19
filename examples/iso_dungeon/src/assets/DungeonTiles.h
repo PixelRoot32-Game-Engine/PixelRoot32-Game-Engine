@@ -7,7 +7,7 @@
 #if PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "graphics/Renderer.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include <stdint.h>
 
 /**
@@ -230,7 +230,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_A_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_A_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_A_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_A_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_A_WIDTH, FLOOR_A_HEIGHT, 16
     };
 
@@ -239,7 +239,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_B_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_B_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_B_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_B_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_B_WIDTH, FLOOR_B_HEIGHT, 16
     };
 
@@ -248,7 +248,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int FLOOR_ACCENT_FOOT_Y = 8;
     static const pixelroot32::graphics::Sprite4bpp FLOOR_ACCENT_SPRITE = {
-        reinterpret_cast<const uint8_t*>(FLOOR_ACCENT_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(FLOOR_ACCENT_4BPP), TILEMAP_PALETTE_MAPPING,
         FLOOR_ACCENT_WIDTH, FLOOR_ACCENT_HEIGHT, 16
     };
 
@@ -257,7 +257,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int WALL_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp WALL_SPRITE = {
-        reinterpret_cast<const uint8_t*>(WALL_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(WALL_4BPP), TILEMAP_PALETTE_MAPPING,
         WALL_WIDTH, WALL_HEIGHT, 16
     };
 
@@ -266,7 +266,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int DOOR_NE_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp DOOR_NE_SPRITE = {
-        reinterpret_cast<const uint8_t*>(DOOR_NE_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(DOOR_NE_4BPP), TILEMAP_PALETTE_MAPPING,
         DOOR_NE_WIDTH, DOOR_NE_HEIGHT, 16
     };
 
@@ -275,7 +275,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int DOOR_NW_FOOT_Y = 32;
     static const pixelroot32::graphics::Sprite4bpp DOOR_NW_SPRITE = {
-        reinterpret_cast<const uint8_t*>(DOOR_NW_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(DOOR_NW_4BPP), TILEMAP_PALETTE_MAPPING,
         DOOR_NW_WIDTH, DOOR_NW_HEIGHT, 16
     };
 
