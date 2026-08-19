@@ -81,7 +81,7 @@ void tearDown(void) {
 // drawTileMap suite itself.
 #include "math/Projection.h"
 #include "graphics/StaticLayerSnapshot.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include "assets/DungeonTiles.h"
 #include "IsoDungeonConstants.h"
 #include "RoomCatalog.h"

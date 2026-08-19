@@ -3,7 +3,7 @@
 #include "core/Engine.h"
 #include "gameplay/DepthCompare.h"
 #include "graphics/Color.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 
 namespace pr32 = pixelroot32;
 extern pr32::core::Engine engine;
@@ -19,7 +19,7 @@ void IsoDungeonScene::init() {
     // One palette for tiles and sprites alike: this dungeon has a single colour
     // scheme, so splitting it across background and sprite tables would buy
     // nothing and cost a second 16-entry lookup to keep in sync.
-    gfx::setDualCustomPalette(DUNGEON_PALETTE_RGB565, DUNGEON_PALETTE_RGB565);
+    gfx::setDualCustomPalette(TILEMAP_PALETTE_DATA, TILEMAP_PALETTE_DATA);
 
     depthComparator = &gameplay::compareByDepthKey;
     depthSortEnabled = true;

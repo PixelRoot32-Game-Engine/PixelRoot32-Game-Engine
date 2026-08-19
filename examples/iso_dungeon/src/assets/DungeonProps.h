@@ -7,7 +7,7 @@
 #if PIXELROOT32_ENABLE_4BPP_SPRITES
 
 #include "graphics/Renderer.h"
-#include "assets/DungeonPalette.h"
+#include "assets/IsoDungeonRoomTileMapPalette.h"
 #include <stdint.h>
 
 /**
@@ -95,7 +95,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int ALTAR_FOOT_Y = 22;
     static const pixelroot32::graphics::Sprite4bpp ALTAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(ALTAR_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(ALTAR_4BPP), TILEMAP_PALETTE_MAPPING,
         ALTAR_WIDTH, ALTAR_HEIGHT, 16
     };
 
@@ -104,7 +104,7 @@ namespace iso_dungeon {
     /// Sprite row that lands on the cell's diamond centre.
     static const int PILLAR_FOOT_Y = 30;
     static const pixelroot32::graphics::Sprite4bpp PILLAR_SPRITE = {
-        reinterpret_cast<const uint8_t*>(PILLAR_4BPP), DUNGEON_PALETTE_MAPPING,
+        reinterpret_cast<const uint8_t*>(PILLAR_4BPP), TILEMAP_PALETTE_MAPPING,
         PILLAR_WIDTH, PILLAR_HEIGHT, 16
     };
 } // namespace iso_dungeon
