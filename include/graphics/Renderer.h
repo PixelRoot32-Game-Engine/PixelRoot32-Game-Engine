@@ -20,6 +20,10 @@
 #include "Font.h"
 #include "TileAnimation.h"
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#include "math/Projection.h"
+#endif
+
 #include <memory>
 #include <string_view>
 
@@ -1222,13 +1226,34 @@ public:
                      int originY,
                      LayerType layerType = LayerType::Dynamic);
 
+// Macros rather than an interleaved #if in the parameter list itself: the
+// parameter list of both the declaration below and its Renderer.cpp
+// definition stays on ONE physical source line either way, so the flag-off
+// preprocessed translation unit is byte-identical to before this parameter
+// existed -- not merely token-equivalent modulo a line break (AC-9). Two
+// macros, not one, because a default argument may only be specified once
+// across a declaration and its definition.
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL \
+    , const pixelroot32::math::ProjectionSpec* projection = nullptr
+#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DEF \
+    , const pixelroot32::math::ProjectionSpec* projection
+#else
+#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL
+#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DEF
+#endif
+
     /**
      * @brief Draws a tilemap of 4bpp sprites.
+     * @param projection When PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1 and non-null,
+     *        places, culls and marks cells through this basis instead of the
+     *        axis-aligned grid (see math/Projection.h). Null reproduces the
+     *        axis-aligned path unchanged.
      */
     void drawTileMap(const TileMap4bpp& map,
                      int originX,
                      int originY,
-                     LayerType layerType = LayerType::Dynamic);
+                     LayerType layerType = LayerType::Dynamic PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL);
 
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
