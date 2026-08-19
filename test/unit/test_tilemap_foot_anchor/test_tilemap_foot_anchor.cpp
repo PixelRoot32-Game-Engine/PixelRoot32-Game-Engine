@@ -17,8 +17,9 @@ void tearDown(void) {
     test_teardown();
 }
 
-// Real measured anchors from examples/iso_dungeon/src/assets/DungeonTiles.h:
-// FLOOR_A, FLOOR_B, FLOOR_ACCENT, WALL, DOOR_NE, DOOR_NW, ALTAR, PILLAR.
+// Real measured anchors from examples/iso_dungeon/src/assets/: FLOOR_A,
+// FLOOR_B, FLOOR_ACCENT, WALL, DOOR_NE, DOOR_NW (DungeonTiles.h) and
+// ALTAR, PILLAR (DungeonProps.h).
 // Five distinct heights (8, 8, 8, 32, 32, 32, 22, 30) over the SAME 32x16
 // diamond footprint are the concrete evidence that the rejected alternative
 // `footY = tileHeight / 2` cannot work: WALL/DOOR_NE/DOOR_NW share the same

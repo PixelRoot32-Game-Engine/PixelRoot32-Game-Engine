@@ -7,7 +7,7 @@
 #include "graphics/Renderer.h"
 
 #include "IsoDungeonConstants.h"
-#include "assets/DungeonTiles.h"
+#include "assets/DungeonProps.h"
 
 /**
  * @file RoomCatalog.h

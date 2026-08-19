@@ -15,7 +15,8 @@
  * Six real tiles, not eight: `RoomRenderer::drawTiles` switches only on `'W'`,
  * `'D'`, `'E'` and `default` (floor). `'A'` (altar) and `'P'` (pillar) fall
  * into `default`, where they resolve to accent/plain floor exactly like their
- * neighbours -- ALTAR_SPRITE and PILLAR_SPRITE are PropEntity sprites drawn
+ * neighbours -- ALTAR_SPRITE and PILLAR_SPRITE live in assets/DungeonProps.h,
+ * are PropEntity sprites drawn
  * on layer 1 and never appear on this tile layer.
  */
 
