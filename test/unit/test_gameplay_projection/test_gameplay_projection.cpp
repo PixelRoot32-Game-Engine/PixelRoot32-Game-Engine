@@ -18,7 +18,7 @@
  * isometric 2:1, isometric 1:1 and oblique — because the capability's whole
  * claim is that one type and one code path serve all of them (design D1).
  *
- * The functional tests only compile when PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+ * The functional tests only compile when PIXELROOT32_ENABLE_PROJECTION
  * is enabled, since Projection.h is entirely guarded behind that flag. This
  * file therefore compiles cleanly in BOTH the default (flag off) and opt-in
  * (flag on) configurations, matching the flags-off / flags-on CI matrix.
@@ -34,7 +34,7 @@
 #include "../../test_config.h"
 #include "platforms/PlatformDefaults.h"
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
 
 #include "gameplay/Projection.h"
 
@@ -365,27 +365,27 @@ void test_gameplay_projection_zero_cost_when_disabled(void) {
     static_assert(screenToCellX(-1, 0, kProbe) == -1, "the inverse must floor at compile time too");
 
     TEST_PASS_MESSAGE(
-        "PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION=1: ProjectionSpec stays a plain "
+        "PIXELROOT32_ENABLE_PROJECTION=1: ProjectionSpec stays a plain "
         "six-int aggregate and every free function is constexpr-evaluable, "
         "so a constexpr consumer pays zero runtime footprint.");
 }
 
-#else  // !PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#else  // !PIXELROOT32_ENABLE_PROJECTION
 
 void test_gameplay_projection_zero_cost_when_disabled(void) {
     // With the flag off, ProjectionSpec/projectionDet/projectionSpecIsValid/
     // cellToScreen*/screenToCell* are not compiled at all — their entire
-    // declaration lives inside the #if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+    // declaration lives inside the #if PIXELROOT32_ENABLE_PROJECTION
     // guard in include/gameplay/Projection.h. This translation unit compiling
     // and passing without referencing any of them IS the "zero bytes reserved"
     // property required by the spec's "Feature-Gated And Zero-Cost When
     // Disabled" requirement.
     TEST_PASS_MESSAGE(
-        "PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION=0: ProjectionSpec/cellToScreen/"
+        "PIXELROOT32_ENABLE_PROJECTION=0: ProjectionSpec/cellToScreen/"
         "screenToCell/projectionSpecIsValid are not compiled, zero bytes reserved.");
 }
 
-#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#endif  // PIXELROOT32_ENABLE_PROJECTION
 
 void setUp(void) {
     test_setup();
@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
     (void)argv;
     UNITY_BEGIN();
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
     RUN_TEST(test_projection_spec_is_a_plain_six_int_aggregate);
     RUN_TEST(test_projection_spec_defaults_to_the_identity_basis);
     RUN_TEST(test_one_type_serves_orthogonal_isometric_and_oblique_layouts);

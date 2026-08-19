@@ -405,7 +405,7 @@ void test_interpolated_world_agrees_with_grid_space_round_trip_after_arrival(voi
 // cell navigation. It is guarded on BOTH flags: the function lives in this
 // header (so it needs GRID_SPACE) and its body needs PROJECTION.
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
 
 namespace {
 
@@ -513,7 +513,7 @@ void test_interpolated_world_grid_spec_overload_is_unaffected(void) {
     TEST_ASSERT_EQUAL_INT(cellToWorldY(1, kSquareGrid), worldY(m, kSteps, kSquareGrid));
 }
 
-#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#endif  // PIXELROOT32_ENABLE_PROJECTION
 
 #endif  // PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE
 
@@ -569,7 +569,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_interpolated_world_respects_a_non_zero_grid_origin);
     RUN_TEST(test_interpolated_world_scales_each_axis_by_its_own_cell_size);
     RUN_TEST(test_interpolated_world_agrees_with_grid_space_round_trip_after_arrival);
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
     RUN_TEST(test_interpolated_world_projection_endpoints_match_cell_to_screen);
     RUN_TEST(test_interpolated_world_projection_moves_on_both_screen_axes);
     RUN_TEST(test_interpolated_world_projection_handles_negative_cells);

@@ -132,8 +132,12 @@
 #define PIXELROOT32_ENABLE_CAMERA_TWEEN 0
 #endif
 
-#if !defined(PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION)
-#define PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION 0
+#ifdef PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#error "PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION was renamed to PIXELROOT32_ENABLE_PROJECTION."
+#endif
+
+#if !defined(PIXELROOT32_ENABLE_PROJECTION)
+#define PIXELROOT32_ENABLE_PROJECTION 0
 #endif
 
 // No dependency guard is declared for the state machine, the object pool, the
@@ -142,9 +146,11 @@
 // are usable with PIXELROOT32_ENABLE_PHYSICS=0 and are independent of each
 // other.
 //
-// The projection helper is the strictest case: include/gameplay/Projection.h
+// The projection helper is the strictest case: include/math/Projection.h
 // includes nothing but this file, because every one of its functions is pure
-// int arithmetic. In particular it does NOT depend on
+// int arithmetic. include/gameplay/Projection.h forwards to it via
+// using-declarations, so gameplay:: callers keep compiling unchanged. In
+// particular the capability does NOT depend on
 // PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE — a game may project without ever
 // declaring a GridSpec. The single place the two capabilities meet is the
 // ProjectionSpec overload of interpolatedWorld(), which lives in
