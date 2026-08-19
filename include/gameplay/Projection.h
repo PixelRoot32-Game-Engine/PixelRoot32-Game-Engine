@@ -52,6 +52,7 @@ using pixelroot32::math::cellToScreenY;   // carries the deleted double overload
 using pixelroot32::math::screenToCellX;   // carries the deleted double overload
 using pixelroot32::math::screenToCellY;   // carries the deleted double overload
 using pixelroot32::math::projectionSpecIsValid;
+using pixelroot32::math::rowMajorIsPainterOrder;
 
 namespace detail {
 using pixelroot32::math::detail::projectionFloorDiv;

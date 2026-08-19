@@ -474,6 +474,18 @@ Draws a tilemap of 4bpp sprites.
        axis-aligned grid (see math/Projection.h). Null reproduces the
        axis-aligned path unchanged.
 
+       Draw order is the caller's responsibility: this path iterates
+       cells row-major and never sorts. Row-major is a correct
+       back-to-front paint order only when `math::rowMajorIsPainterOrder(*projection)`
+       holds -- i.e. a `+1` step along either cell axis moves a tile
+       strictly forward on screen (`axisXy > 0 && axisYy > 0`). It does
+       NOT hold for every valid spec: an orthogonal or oblique basis
+       (`axisXy == 0`) returns `false` from that predicate and is still
+       painted correctly here whenever its art fills its cell and
+       never overhangs it. The predicate is sufficient, not necessary --
+       assert it at the spec's declaration site when tiles can overhang
+       their cell, not unconditionally.
+
 ### `void setOffsetBypass(bool bypass)`
 
 **Description:**
