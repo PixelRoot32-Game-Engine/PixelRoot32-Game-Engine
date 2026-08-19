@@ -22,6 +22,7 @@
 
 #if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
 #include "math/Projection.h"
+#include <type_traits>
 #endif
 
 #include <memory>
@@ -1226,33 +1227,37 @@ public:
                      int originY,
                      LayerType layerType = LayerType::Dynamic);
 
-// Macros rather than an interleaved #if in the parameter list itself: the
-// parameter list of both the declaration below and its Renderer.cpp
-// definition stays on ONE physical source line either way, so the flag-off
-// preprocessed translation unit is byte-identical to before this parameter
-// existed -- not merely token-equivalent modulo a line break (AC-9). Two
-// macros, not one, because a default argument may only be specified once
-// across a declaration and its definition.
-#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
-#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL \
-    , const pixelroot32::math::ProjectionSpec* projection = nullptr
-#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DEF \
-    , const pixelroot32::math::ProjectionSpec* projection
-#else
-#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL
-#define PIXELROOT32_TILEMAP_PROJECTION_PARAM_DEF
-#endif
-
     /**
      * @brief Draws a tilemap of 4bpp sprites.
-     * @param projection When PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1 and non-null,
-     *        places, culls and marks cells through this basis instead of the
-     *        axis-aligned grid (see math/Projection.h). Null reproduces the
-     *        axis-aligned path unchanged.
+     */
+    void drawTileMap(const TileMap4bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType = LayerType::Dynamic);
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /**
+     * @brief Draws a tilemap of 4bpp sprites through a projection basis.
+     *
+     * Places, culls and marks cells through `projection` instead of the
+     * axis-aligned grid (see math/Projection.h): each tile is anchored at
+     * `(centreX - tile.width / 2, centreY - map.footYFor(index))`, the same
+     * formula already shipped by hand in `examples/iso_dungeon/src/IsoDraw.h:28-29`.
+     *
+     * @note `map.tileFootY` is what this path anchors from. The PixelRoot32
+     *       Tilemap Editor does not export a foot-anchor table today, so an
+     *       editor-exported map has `tileFootY == nullptr` and every tile
+     *       anchors at its top-left corner (`footYFor()` returns 0
+     *       uniformly) -- correct for a uniform-height tileset, wrong for
+     *       one with mixed tile heights. Closing that export gap is a later,
+     *       separate change.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
      *
      *        Draw order is the caller's responsibility: this path iterates
      *        cells row-major and never sorts. Row-major is a correct
-     *        back-to-front paint order only when `math::rowMajorIsPainterOrder(*projection)`
+     *        back-to-front paint order only when `math::rowMajorIsPainterOrder(projection)`
      *        holds -- i.e. a `+1` step along either cell axis moves a tile
      *        strictly forward on screen (`axisXy > 0 && axisYy > 0`). It does
      *        NOT hold for every valid spec: an orthogonal or oblique basis
@@ -1265,7 +1270,9 @@ public:
     void drawTileMap(const TileMap4bpp& map,
                      int originX,
                      int originY,
-                     LayerType layerType = LayerType::Dynamic PIXELROOT32_TILEMAP_PROJECTION_PARAM_DECL);
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+#endif
 
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
@@ -1431,6 +1438,23 @@ private:
 
         return h;
     }
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /// Shared geometry for every projected drawTileMap overload: derives the
+    /// draw/cull specs, runs the bounded tileset scan, computes the padded
+    /// cull window, and places/culls/marks cells row-major through
+    /// `projection`. The per-format tail (blit call, palette LUT size) is
+    /// selected with `if constexpr`, so this function exists exactly once
+    /// per tile type that instantiates it, and the projected path itself
+    /// exists exactly once regardless of how many types call in.
+    /// @tparam TileT Tile sprite type (Sprite, Sprite2bpp, or Sprite4bpp).
+    template<typename TileT>
+    void drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
+                                   int originX,
+                                   int originY,
+                                   LayerType layerType,
+                                   const pixelroot32::math::ProjectionSpec& projection);
+#endif
 
     /// Restore dirty-tracking state after tilemap rendering.
     void restoreTilemapDirtyTracking(TilemapDirtyTrackingHelper& h) {

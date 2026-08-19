@@ -177,7 +177,7 @@ void test_tilemap_projected_draw_matches_oracle_formula_for_distinct_tiles(void)
     {
         indices[0] = 1;
         Harness h;
-        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, &kIsoSpec);
+        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, kIsoSpec);
         TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(104, 80));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(103, 80));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 79));
@@ -186,7 +186,7 @@ void test_tilemap_projected_draw_matches_oracle_formula_for_distinct_tiles(void)
     {
         indices[0] = 2;
         Harness h;
-        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, &kIsoSpec);
+        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, kIsoSpec);
         TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(104, 66));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(103, 66));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 65));
@@ -195,7 +195,7 @@ void test_tilemap_projected_draw_matches_oracle_formula_for_distinct_tiles(void)
     {
         indices[0] = 3;
         Harness h;
-        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, &kIsoSpec);
+        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, kIsoSpec);
         TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(112, 58));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(111, 58));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(112, 57));
@@ -204,7 +204,7 @@ void test_tilemap_projected_draw_matches_oracle_formula_for_distinct_tiles(void)
     {
         indices[0] = 4;
         Harness h;
-        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, &kIsoSpec);
+        h.renderer->drawTileMap(map, 0, 0, LayerType::Static, kIsoSpec);
         TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(104, 56));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(103, 56));
         TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 55));
@@ -232,7 +232,9 @@ void test_tilemap_projected_draw_null_projection_matches_orthogonal_static(void)
     std::memcpy(legacyFb, gFrameBuffer, sizeof(legacyFb));
 
     Harness projected;
-    projected.renderer->drawTileMap(map, 10, 20, LayerType::Static, nullptr);
+    // A reference has no null form: the collapsed 4-arg call is the plain
+    // orthogonal overload, not the projected one passed a null projection.
+    projected.renderer->drawTileMap(map, 10, 20, LayerType::Static);
 
     TEST_ASSERT_EQUAL_UINT8_ARRAY(legacyFb, gFrameBuffer, kFbWidth * kFbHeight);
 }
@@ -253,7 +255,9 @@ void test_tilemap_projected_draw_null_projection_matches_orthogonal_dynamic_mark
     map.tileFootY = kTileFootY;
 
     Harness h;
-    h.renderer->drawTileMap(map, 10, 20, LayerType::Dynamic, nullptr);
+    // A reference has no null form: the collapsed 4-arg call is the plain
+    // orthogonal overload, not the projected one passed a null projection.
+    h.renderer->drawTileMap(map, 10, 20, LayerType::Dynamic);
     h.renderer->beginFrame();
 
     // Orthogonal mark rect is (10, 20, 32, 16): pixels x=[10,41], y=[20,35].
@@ -282,7 +286,7 @@ void test_tilemap_projected_draw_sprite_extent_marks_overhang_dirty_cells(void) 
     map.tileFootY = kTileFootY;
 
     Harness h;
-    h.renderer->drawTileMap(map, 0, 0, LayerType::Dynamic, &kGridSpec);
+    h.renderer->drawTileMap(map, 0, 0, LayerType::Dynamic, kGridSpec);
     h.renderer->beginFrame();
 
     // Correct sprite-extent mark rect is (0, -16, 32, 40) -> clipped pixels
@@ -316,7 +320,7 @@ void test_tilemap_projected_draw_cull_window_padding_includes_tall_tile_anchored
     map.tileFootY = localFootY;
 
     Harness h;
-    h.renderer->drawTileMap(map, 0, -20, LayerType::Static, &kGridSpec);
+    h.renderer->drawTileMap(map, 0, -20, LayerType::Static, kGridSpec);
 
     TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(0, 10));
 }
@@ -339,7 +343,7 @@ void test_tilemap_projected_draw_runtime_mask_skip_unchanged_under_projection(vo
     activeMap.tileFootY = kTileFootY;
 
     Harness active;
-    active.renderer->drawTileMap(activeMap, 0, 0, LayerType::Static, &kIsoSpec);
+    active.renderer->drawTileMap(activeMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(104, 80));
 
     uint8_t maskedIndices[1] = {1};
@@ -356,7 +360,7 @@ void test_tilemap_projected_draw_runtime_mask_skip_unchanged_under_projection(vo
     maskedMap.setTileActive(0, 0, false);
 
     Harness masked;
-    masked.renderer->drawTileMap(maskedMap, 0, 0, LayerType::Static, &kIsoSpec);
+    masked.renderer->drawTileMap(maskedMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 80));
 
     maskedMap.cleanupRuntimeMask();
@@ -384,7 +388,7 @@ void test_tilemap_projected_draw_index_skip_unchanged_under_projection(void) {
     validMap.tileFootY = localFootY;
 
     Harness valid;
-    valid.renderer->drawTileMap(validMap, 0, 0, LayerType::Static, &kIsoSpec);
+    valid.renderer->drawTileMap(validMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(104, 80));
 
     uint8_t sentinelIndices[1] = {0};  // drawable data at slot 0, but always skipped
@@ -392,7 +396,7 @@ void test_tilemap_projected_draw_index_skip_unchanged_under_projection(void) {
     sentinelMap.indices = sentinelIndices;
 
     Harness sentinelSkip;
-    sentinelSkip.renderer->drawTileMap(sentinelMap, 0, 0, LayerType::Static, &kIsoSpec);
+    sentinelSkip.renderer->drawTileMap(sentinelMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 80));
 
     uint8_t oobIndices[1] = {99};
@@ -400,7 +404,7 @@ void test_tilemap_projected_draw_index_skip_unchanged_under_projection(void) {
     oobMap.indices = oobIndices;
 
     Harness oobSkip;
-    oobSkip.renderer->drawTileMap(oobMap, 0, 0, LayerType::Static, &kIsoSpec);
+    oobSkip.renderer->drawTileMap(oobMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(104, 80));
 }
 
@@ -423,7 +427,7 @@ void test_tilemap_projected_draw_degenerate_inputs_draw_nothing(void) {
     map.tileFootY = kTileFootY;
 
     Harness degenerate;
-    degenerate.renderer->drawTileMap(map, 0, 0, LayerType::Static, &kDegenerateSpec);
+    degenerate.renderer->drawTileMap(map, 0, 0, LayerType::Static, kDegenerateSpec);
     for (int y = 0; y < kFbHeight; y += 37) {
         for (int x = 0; x < kFbWidth; x += 37) {
             TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(x, y));
@@ -442,7 +446,7 @@ void test_tilemap_projected_draw_degenerate_inputs_draw_nothing(void) {
     emptyMap.tileCount = 5;
 
     Harness zeroSize;
-    zeroSize.renderer->drawTileMap(emptyMap, 0, 0, LayerType::Static, &kIsoSpec);
+    zeroSize.renderer->drawTileMap(emptyMap, 0, 0, LayerType::Static, kIsoSpec);
     TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(0, 0));
 }
 
