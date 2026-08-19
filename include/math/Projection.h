@@ -325,8 +325,9 @@ struct CellRange {
  * intersects the rectangle, not the window of cells whose *sprite* overlaps
  * it. Orthogonal tiles exactly fill their cell, so the shipped code needs no
  * padding; isometric tile art commonly overhangs its cell (a tall wall or
- * tree sprite drawn from a half-height diamond footprint), so a caller that
- * pads by sprite extent is a WU-5 concern, deliberately not addressed here.
+ * tree sprite drawn from a half-height diamond footprint). Padding the range
+ * by the sprite extent is therefore the caller's responsibility, deliberately
+ * not addressed here.
  *
  * @param spec Projection basis. The caller composes the effective origin
  *        (e.g. `spec.originX + viewOriginX`) before calling — this function
