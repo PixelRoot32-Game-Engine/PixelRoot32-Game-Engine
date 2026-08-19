@@ -60,9 +60,11 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // hundred bytes against 35,072 pixels of 4bpp decode.
     //
     // This is what the tilemap cache cannot do for an isometric room:
-    // `drawTileMap` assumes axis-aligned cells, so there is no TileMap4bpp to
-    // hand it. StaticLayerSnapshot caches the RESULT instead of the source, so
-    // it does not care that these tiles are diamonds.
+    // `drawTileMap` assumes axis-aligned cells unless given a projection
+    // (PIXELROOT32_ENABLE_TILEMAP_PROJECTION, not enabled in this example), so
+    // there is no TileMap4bpp to hand it here. StaticLayerSnapshot caches the
+    // RESULT instead of the source, so it does not care that these tiles are
+    // diamonds.
     if (room_ == nullptr) {
         return;  // before the scene's init() has chosen a room
     }
@@ -87,9 +89,10 @@ void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // always drawn after both (x-1, y) and (x, y-1) -- exactly the two
     // neighbours whose extruded blocks can overlap it from behind. No sort.
     //
-    // `rowMajorIsPainterOrder` in IsoDungeonConstants.h asserts the property
-    // this depends on, so editing the projection breaks the build here rather
-    // than producing walls that paint over the hero.
+    // `gameplay::rowMajorIsPainterOrder` (include/math/Projection.h) is
+    // asserted against `kTileProjection` in IsoDungeonConstants.h, so editing
+    // the projection breaks the build here rather than producing walls that
+    // paint over the hero.
     for (int y = 0; y < kRoomTiles; ++y) {
         for (int x = 0; x < kRoomTiles; ++x) {
             const char cell = room_->layout[y][x];

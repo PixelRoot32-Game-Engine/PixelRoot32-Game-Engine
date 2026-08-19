@@ -268,6 +268,49 @@ constexpr bool projectionSpecIsValid(const ProjectionSpec& spec, int cols, int r
 }
 
 /**
+ * @brief True when plain row-major cell iteration is already a correct
+ *        back-to-front paint order under this projection.
+ *
+ * A caller that walks cells `for y, for x` and draws them with no depth sort
+ * at all is not taking a shortcut -- but it does rest on a property of the
+ * projection that nothing checks unless it asks this predicate.
+ *
+ * The proof is two lines. Row-major always draws `(x-1, y)` and `(x, y-1)`
+ * before `(x, y)`, and those two are the only neighbours whose sprites a tile
+ * at `(x, y)` can overlap. So if a `+1` step along EITHER cell axis moves a
+ * tile strictly FORWARD on screen, every tile is drawn after everything it
+ * can cover.
+ *
+ * Strict, not `>= 0`, and the difference is the whole point. A zero
+ * component puts two neighbours at EQUAL screen depth, and row-major then
+ * resolves that tie by array order rather than by geometry. Harmless for a
+ * tileset whose sprites fill exactly one cell and never overlap -- and wrong
+ * for extruded blocks. A 40 px wall on a 16 px cell stride has no correct
+ * arbitrary order. Flip either sign and row-major paints back to front: a
+ * tile that should be covered ends up drawn last, which reads as a sprite
+ * bug rather than as a projection one.
+ *
+ * **Sufficient, not necessary.** `false` does not mean the order is wrong --
+ * only that it is unproven. Two of the four layouts in this header's own
+ * `ProjectionSpec` doc table return `false` here: Orthogonal `{0, 0, 16, 0, 0,
+ * 16}` and Oblique `{0, 0, 16, 0, 8, 16}`, both because `axisXy == 0`. Both
+ * are correct row-major in practice, because their art fills its cell and
+ * overlaps nothing. A reader who takes `false` to mean "invalid spec" and
+ * adds a guard that refuses those two layouts has misread this predicate.
+ *
+ * Enforcement is caller-side, the same shape as projectionSpecIsValid():
+ *
+ * @code
+ * inline constexpr ProjectionSpec kIso{0, 0, 16, 8, -16, 8};
+ * static_assert(rowMajorIsPainterOrder(kIso),
+ *               "kIso no longer makes row-major a back-to-front order.");
+ * @endcode
+ */
+constexpr bool rowMajorIsPainterOrder(const ProjectionSpec& spec) {
+    return spec.axisXy > 0 && spec.axisYy > 0;
+}
+
+/**
  * @struct CellRange
  * @brief Half-open cell-space window `[startCol, endCol) x [startRow, endRow)`
  *        covering a screen rectangle, under a given ProjectionSpec.

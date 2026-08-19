@@ -39,7 +39,7 @@ Avoids redrawing "static" **4bpp** tilemaps every frame. It caches the static gr
 
 Requires `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` (default `0`).
 
-Solves the same problem as `StaticTilemapLayerCache` for layers it cannot reach. That cache **owns** the `TileMap4bpp` it caches and redraws it when the cache goes cold — which presupposes a tilemap exists. An isometric or oblique floor has none: `drawTileMap` assumes axis-aligned cells and cannot express a diamond, so such a floor is drawn sprite-per-cell by game code.
+Solves the same problem as `StaticTilemapLayerCache` for layers it cannot reach. That cache **owns** the `TileMap4bpp` it caches and redraws it when the cache goes cold — which presupposes a tilemap exists. An isometric or oblique floor has none by default: `drawTileMap` assumes axis-aligned cells and cannot express a diamond unless given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`), so in the default build such a floor is drawn sprite-per-cell by game code.
 
 `StaticLayerSnapshot` inverts the relationship and never draws anything. The game calls `capture(renderer)` at the moment the framebuffer holds its static layers, and `restore(renderer)` on later frames; what those layers are is not its concern, which is what makes it indifferent to the projection.
 

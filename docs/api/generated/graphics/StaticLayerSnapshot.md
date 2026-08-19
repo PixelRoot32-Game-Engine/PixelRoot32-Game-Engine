@@ -11,9 +11,11 @@ Framebuffer cache for static layers a game draws ITSELF.
 `StaticTilemapLayerCache` solves the same problem for games whose background
 is a `TileMap4bpp`: it owns the tilemaps, redraws them when the cache goes
 cold, and snapshots the result. That ownership is exactly what an isometric
-or oblique room cannot satisfy -- `drawTileMap()` assumes axis-aligned cells
-and cannot express a diamond, so such a room is drawn sprite-per-cell by game
-code and there is no `TileMap4bpp` to hand over.
+or oblique room cannot satisfy by default -- `drawTileMap()` assumes
+axis-aligned cells and cannot express a diamond unless given a projection
+(PIXELROOT32_ENABLE_TILEMAP_PROJECTION, default 0), so in the default build
+such a room is drawn sprite-per-cell by game code and there is no
+`TileMap4bpp` to hand over.
 
 This class inverts the relationship: it never draws anything. The game says
 "the framebuffer now holds my static layers" (capture()) and, on later
@@ -74,6 +76,22 @@ Pre-allocates a buffer of width * height bytes.
 **Returns:** false if the dimensions are invalid or the allocation failed. A
         false return is not fatal: every other method then reports
         "unavailable" and the caller draws normally.
+
+::: tip
+A failed allocation also drops any previously captured contents --
+      the old buffer is released before the new one is requested, so on
+      failure the object owns nothing and isValid() says so. Re-check
+      isValid() after any re-allocation rather than assuming a capture
+      survived it.
+:::
+
+::: tip
+The out-of-memory case is logged at LogLevel::Error with the byte
+      count, because the alternative is a game that quietly runs at its
+      pre-cache speed forever and still looks correct. That log is
+      compiled out without PIXELROOT32_DEBUG_MODE, which is why this
+      function is `[[nodiscard]]` as well.
+:::
 
 ### `bool allocateForRenderer(const Renderer& renderer)`
 
