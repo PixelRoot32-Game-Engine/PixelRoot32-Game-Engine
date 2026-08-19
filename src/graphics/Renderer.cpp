@@ -1126,7 +1126,8 @@ namespace pixelroot32::graphics {
                                              int originX,
                                              int originY,
                                              LayerType layerType,
-                                             const pixelroot32::math::ProjectionSpec& projection) {
+                                             const pixelroot32::math::ProjectionSpec& projection,
+                                             Color color) {
         if (map.indices == nullptr || map.tiles == nullptr ||
             map.width == 0 || map.height == 0 ||
             map.tileWidth == 0 || map.tileHeight == 0 ||
@@ -1234,9 +1235,10 @@ namespace pixelroot32::graphics {
                 }
 
                 // Per-format tail: which palette LUT to build and which blit
-                // to call. Only Sprite4bpp is wired up so far; a future tail
-                // for Sprite2bpp/Sprite is an additional `if constexpr`
-                // branch here, not a new function.
+                // to call, selected per TileT with `if constexpr`. 4bpp and
+                // 2bpp build a palette LUT and blit through
+                // drawSpriteInternal; 1bpp has no per-tile palette and blits
+                // through drawSprite() with the map's single Color instead.
                 if constexpr (std::is_same_v<TileT, Sprite4bpp>) {
                     const uint16_t* palettePtr = (map.paletteIndices != nullptr)
                         ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
@@ -1256,6 +1258,30 @@ namespace pixelroot32::graphics {
 
                     drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
                 }
+
+                if constexpr (std::is_same_v<TileT, Sprite2bpp>) {
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        for (uint8_t i = paletteCount; i < 4; ++i) {
+                            cachedLUT[i] = 0;
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
+                }
+
+                if constexpr (std::is_same_v<TileT, Sprite>) {
+                    drawSprite(tile, drawX, drawY, color, false);
+                }
             }
         }
 
@@ -1273,8 +1299,26 @@ namespace pixelroot32::graphics {
     void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY,
                                 LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
-            drawTileMapProjectedImpl<Sprite4bpp>(map, originX, originY, layerType, projection);
+            // Color is ignored on this path: the 4bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite4bpp>(map, originX, originY, layerType, projection, Color::Black);
         }
+    }
+
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+            // Color is ignored on this path: the 2bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite2bpp>(map, originX, originY, layerType, projection, Color::Black);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        // No feature-flag gate, matching the orthogonal 1bpp overload above:
+        // 1bpp sprites have no build-time enable flag.
+        drawTileMapProjectedImpl<Sprite>(map, originX, originY, layerType, projection, color);
     }
 #endif
 

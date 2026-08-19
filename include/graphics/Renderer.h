@@ -1272,6 +1272,51 @@ public:
                      int originY,
                      LayerType layerType,
                      const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 2bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract (row-major iteration, `math::rowMajorIsPainterOrder`) and the
+     * `tileFootY` anchoring note. This overload differs only in its
+     * per-tile blit: a 4-entry palette LUT instead of a 16-entry one.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap2bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 1bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract and the `tileFootY` anchoring note.
+     *
+     * @note Art constraint, not a defect: `Sprite::data` is one `uint16_t`
+     *       per row and `drawSprite()` builds `1u << (width - 1)`
+     *       (Renderer.cpp:495), undefined above 16 -- so `Sprite::width` is
+     *       capped at 16 px and a 2:1 isometric diamond therefore caps at
+     *       16x8. `color` is also a single value for the whole map, so a
+     *       solid-diamond floor renders as a flat monochrome region with no
+     *       depth cue: outlined/wireframe 1bpp diamonds work, shaded ones
+     *       cannot exist at this bit depth.
+     *
+     * @param color Single fill colour used for every tile in the map.
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap& map,
+                     int originX,
+                     int originY,
+                     Color color,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
 #endif
 
     /**
@@ -1448,12 +1493,22 @@ private:
     /// per tile type that instantiates it, and the projected path itself
     /// exists exactly once regardless of how many types call in.
     /// @tparam TileT Tile sprite type (Sprite, Sprite2bpp, or Sprite4bpp).
+    /// @param color Required, not defaulted: this is a private function with
+    ///        exactly three call sites in this translation unit, all of
+    ///        which must pass it explicitly. Only the `Sprite` tail reads
+    ///        it (the single map-wide fill colour); the `Sprite2bpp`/
+    ///        `Sprite4bpp` tails ignore it, since they blit through their
+    ///        own per-tile palette LUT instead. A default here would let a
+    ///        1bpp forwarder silently forget to thread the caller's colour
+    ///        through and draw the whole map black -- a mistake that is not
+    ///        obviously wrong on screen when the colour itself is dark.
     template<typename TileT>
     void drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
                                    int originX,
                                    int originY,
                                    LayerType layerType,
-                                   const pixelroot32::math::ProjectionSpec& projection);
+                                   const pixelroot32::math::ProjectionSpec& projection,
+                                   Color color);
 #endif
 
     /// Restore dirty-tracking state after tilemap rendering.
