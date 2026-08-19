@@ -231,6 +231,59 @@ cell's diamond centre. One anchoring rule (`IsoDraw.h`) for the 16px floor, the
 40px wall, the 34px pillar and the 24px hero alike — the alternative, an ad-hoc
 Y offset at each call site, is how isometric art quietly goes crooked.
 
+## The tilemap export contract
+
+The room's tile layer is not authored in this example. It is **exported data**,
+in the shape the PixelRoot32 Tilemap Editor emits:
+
+| File | Holds |
+|---|---|
+| `src/assets/IsoDungeonRoomTileMap.h` | dimensions, `ISO_PROJECTION`, the tileset and foot-table declarations, `init()` |
+| `src/assets/IsoDungeonRoomTileMap.cpp` | `TILESET_DATA_POOL`, `TILESET_SPRITES`, `TILESET_FOOT_Y`, `ROOM0/1/2_INDICES`, `init()` |
+| `src/assets/IsoDungeonRoomTileMapPalette.h` | `TILEMAP_PALETTE_DATA`, `TILEMAP_PALETTE_MAPPING` |
+
+That is the same three-file shape as the real editor output in
+[`examples/metroidvania`](../metroidvania/src/assets/), which is orthogonal.
+Read the two side by side: this example exists to make the difference concrete,
+because **the generator cannot emit an isometric map today**. It writes one
+`TILE_SIZE` into both `tileWidth` and `tileHeight`, has no foot table, and has
+no projection.
+
+Four things an isometric export needs that the orthogonal one does not:
+
+1. **A rectangular cell stride.** `TILE_HEIGHT` here is 16 — the vertical
+   distance between neighbouring cell centres — while a `WALL` bitmap is 40 px
+   tall. Isometric tiles overhang their cells; that overhang *is* the extrusion.
+2. **`TILESET_FOOT_Y`.** An orthogonal tile fills its cell, so its corner is its
+   position. An isometric tile is anchored: the renderer places it at
+   `centreY - footY`. Without the table every tile would need the same height.
+3. **`ISO_PROJECTION`, outside the 4bpp guard.** The tileset is 4bpp data and is
+   correctly gated. The projection is not: gameplay places the hero and the
+   props at cells where it draws no tile at all, so gating the geometry on a
+   sprite-format flag breaks a game that turns 4bpp off.
+4. **`inline constexpr`, not `static const`.** The orthogonal export's constants
+   are read only by its own `.cpp`, so internal linkage is harmless there. Here
+   they cross translation units and initialise the game's own constants, which
+   an internal-linkage constant cannot legally do.
+
+### A rule cannot be exported — only its result
+
+Worth stating plainly, because it is the change most likely to be undone by
+someone trying to be helpful. This room's floor used to be a checkerboard
+*computed at runtime*: the same `.` in the layout became `FLOOR_A` or `FLOOR_B`
+depending on `(x + y) & 1`. An editor has no way to emit that. It emits the
+resolved indices, and so does this example — the rule exists nowhere in the
+shipped code any more.
+
+The layout chars did not go away, because they carry things rendering does not:
+which cells are walkable, where the doors are, where the props stand. So the
+split is **chars for gameplay, exported indices for rendering**, and the
+differential test in
+`test/unit/test_iso_dungeon_projected_conversion/` is what stops them drifting:
+its oracle still walks the chars and draws sprite-by-sprite, and it is compared
+against the exported map with a full-frame `memcmp`. Flip a single exported
+index and it reports 224 differing pixels.
+
 ## Controls
 
 | Button | Cell direction | On screen |
