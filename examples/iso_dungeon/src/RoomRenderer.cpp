@@ -1,7 +1,7 @@
 #include "RoomRenderer.h"
 
 #include "math/Vector2.h"
-#include "RoomTileMap.h"
+#include "assets/IsoDungeonRoomTileMap.h"
 
 namespace pr32 = pixelroot32;
 
@@ -16,16 +16,10 @@ RoomRenderer::RoomRenderer()
                    core::EntityType::GENERIC) {
     setRenderLayer(0);
 
-    // Geometry and flash-resident tables are fixed for the lifetime of this
-    // renderer; only indices_ (rebuilt per room by setRoom()) changes.
-    map_.indices = indices_;
-    map_.width = kRoomTiles;
-    map_.height = kRoomTiles;
-    map_.tiles = kRoomTileset;
-    map_.tileWidth = 32;
-    map_.tileHeight = 16;
-    map_.tileCount = kTileLayerTileCount;
-    map_.tileFootY = kRoomTileFootY;
+    // Nothing to wire. Every field the renderer used to fill in here --
+    // geometry, tileset, tile count, foot table -- is set by the export's
+    // init(), which the scene calls before the first draw. setRoom() only has
+    // to choose which of the exported maps to point at.
 }
 
 void RoomRenderer::update(unsigned long deltaTime) {
@@ -43,10 +37,12 @@ void RoomRenderer::adviseFramebufferBeforeBeginFrame(gfx::Renderer& renderer) co
 void RoomRenderer::setRoom(const RoomSpec& room) {
     room_ = &room;
 
-    // Rebuilds indices_ from the new room's layout -- the same point the
-    // pre-conversion code invalidated the snapshot at, and for the same
-    // reason: the room just changed, so everything derived from it is stale.
-    buildRoomTileIndices(room, indices_);
+    // kRooms and ROOM_LAYERS are indexed alike by construction -- the export
+    // emits one map per catalog entry, in catalog order -- so the room's
+    // position in the catalog IS its layer index. Deriving it here rather
+    // than storing it keeps setRoom()'s signature as it was.
+    const auto index = static_cast<std::size_t>(&room - &kRooms[0]);
+    map_ = ROOM_LAYERS[index];
 
     // The cached picture is of the room being left. Dropping it is what makes
     // the next draw() take the drawTiles() path and re-capture; without it the
@@ -80,7 +76,7 @@ void RoomRenderer::draw(gfx::Renderer& renderer) {
     // The snapshot still earns its keep on top of that: it removes the whole
     // draw call on a hit -- 49 cells of 4bpp decode plus the tileset's
     // cull-padding scan -- not just the loop that used to build it.
-    if (room_ == nullptr) {
+    if (map_ == nullptr) {
         return;  // before the scene's init() has chosen a room
     }
 
@@ -110,10 +106,11 @@ void RoomRenderer::drawTiles(gfx::Renderer& renderer) {
     // paint over the hero. `drawTileMap`'s projected path iterates row-major
     // too and never sorts, so that guarantee still governs draw order here.
     //
-    // indices_ was baked from room_->layout by setRoom(); the checkerboard
-    // rule and the char-to-tile mapping now live in buildRoomTileIndices()
-    // (RoomTileMap.h), not here.
-    renderer.drawTileMap(map_, 0, 0, gfx::LayerType::Static, kTileProjection);
+    // map_ is exported data. The checkerboard rule that used to pick FLOOR_A
+    // or FLOOR_B per cell at runtime was resolved at export time and is not
+    // reproduced anywhere in this example any more -- see
+    // assets/IsoDungeonRoomTileMap.cpp's ROOMn_INDICES.
+    renderer.drawTileMap(*map_, 0, 0, gfx::LayerType::Static, ISO_PROJECTION);
 }
 
 }  // namespace iso_dungeon
