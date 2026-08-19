@@ -11,7 +11,7 @@
 #include "gameplay/GridSpace.h"
 #include "math/Vector2.h"
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
 #include "gameplay/Projection.h"
 #endif
 
@@ -178,7 +178,7 @@ inline math::Vector2 interpolatedWorld(const GridMotion& motion, int stepsPerCel
     return math::Vector2(x, y);
 }
 
-#if PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#if PIXELROOT32_ENABLE_PROJECTION
 
 /**
  * @brief Same interpolation, under an arbitrary projection instead of an
@@ -218,7 +218,7 @@ inline math::Vector2 interpolatedWorld(const GridMotion& motion, int stepsPerCel
     return math::Vector2(x, y);
 }
 
-#endif  // PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+#endif  // PIXELROOT32_ENABLE_PROJECTION
 
 }  // namespace pixelroot32::gameplay
 
