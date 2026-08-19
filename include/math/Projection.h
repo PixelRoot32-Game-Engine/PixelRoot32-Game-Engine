@@ -267,6 +267,154 @@ constexpr bool projectionSpecIsValid(const ProjectionSpec& spec, int cols, int r
     return true;
 }
 
+/**
+ * @struct CellRange
+ * @brief Half-open cell-space window `[startCol, endCol) x [startRow, endRow)`
+ *        covering a screen rectangle, under a given ProjectionSpec.
+ *
+ * Field names are deliberately identical to
+ * `TilemapDirtyTrackingHelper`'s (`include/graphics/Renderer.h`), so the
+ * eventual renderer wiring is a rename-free assignment rather than a mapping.
+ * A default-constructed `CellRange` is empty (`start == end == 0` on both
+ * axes), matching "nothing to draw".
+ */
+struct CellRange {
+    int startCol = 0;
+    int endCol   = 0;
+    int startRow = 0;
+    int endRow   = 0;
+};
+
+/**
+ * @brief Cell-space window covering a screen rectangle, for any
+ *        ProjectionSpec (orthogonal, isometric, or oblique).
+ *
+ * The rectangle is given half-open as `(screenX, screenY, screenW, screenH)`
+ * and inverted at its FOUR corners using its inclusive last pixel
+ * (`screenX + screenW - 1`, `screenY + screenH - 1`), never the exclusive
+ * edge. This is not a rounding nicety: the correct question is "which cells
+ * contain a pixel of this rectangle", and the last pixel is the last pixel.
+ * For an orthogonal spec whose screen extent is an exact multiple of the tile
+ * size, the exclusive-edge form overcounts by one cell on that edge (see the
+ * `endCol == 15` regression case for a 240px-wide, 16px-tile map: the
+ * exclusive form yields 16). This exactly reproduces the shipped culling in
+ * `computeTilemapDirtyTracking()` (`include/graphics/Renderer.h`), including
+ * its `+ tileWidth - 1` ceiling term, once expressed through
+ * `screenToCellX`/`screenToCellY` instead of a hand-derived orthogonal
+ * formula.
+ *
+ * The four-corner min/max is not a heuristic: each of `screenToCellX`/
+ * `screenToCellY` is affine in the screen coordinates (Cramer's rule), so it
+ * is a linear functional; a linear functional over a convex polygon attains
+ * its extrema at a vertex, and the rectangle's four corners are exactly the
+ * vertices bounding its interior. `floor` (see `detail::projectionFloorDiv`)
+ * is monotone non-decreasing, so composing it with a linear functional
+ * preserves "extrema at the vertices". The min/max of the four corner
+ * inversions therefore equals the min/max over every point in the rectangle:
+ * the returned window is exact and tight, never a loose over-approximation.
+ *
+ * Under a non-orthogonal basis the set of cells whose parallelogram touches
+ * the rectangle is itself a parallelogram, not a rectangle, so an
+ * axis-aligned bounding box in cell space necessarily includes cells that
+ * are not actually on screen. This is intended overdraw, not a defect: for
+ * the documented 2:1 isometric layout on a 240x240 screen the measured
+ * factor is about 2.25x (see the AC-5 test), and each rejected cell costs one
+ * screen-bounds compare, far cheaper than a sprite decode.
+ *
+ * **Documented limitation**: this is the window of cells whose parallelogram
+ * intersects the rectangle, not the window of cells whose *sprite* overlaps
+ * it. Orthogonal tiles exactly fill their cell, so the shipped code needs no
+ * padding; isometric tile art commonly overhangs its cell (a tall wall or
+ * tree sprite drawn from a half-height diamond footprint). Padding the range
+ * by the sprite extent is therefore the caller's responsibility, deliberately
+ * not addressed here.
+ *
+ * @param spec Projection basis. The caller composes the effective origin
+ *        (e.g. `spec.originX + viewOriginX`) before calling — this function
+ *        takes no separate camera/view origin, so there is exactly one
+ *        origin to reason about (see the header's `ProjectionSpec` docs).
+ * @param screenX Left edge of the screen rectangle, in pixels.
+ * @param screenY Top edge of the screen rectangle, in pixels.
+ * @param screenW Width of the screen rectangle, in pixels.
+ * @param screenH Height of the screen rectangle, in pixels.
+ * @param cols Map width in cells. `endCol` is clamped high to this; `startCol`
+ *        has no upper clamp (matches the shipped asymmetry: a start past the
+ *        map only makes the range empty once compared against `endCol`).
+ * @param rows Map height in cells. Same asymmetric clamp as `cols`/`endCol`.
+ * @return An empty `CellRange{}` for any degenerate input (see the table
+ *         below), otherwise the half-open window `[startCol, endCol) x
+ *         [startRow, endRow)`.
+ *
+ * | Input | Result |
+ * |---|---|
+ * | `projectionDet(spec) < 1` | Empty. Never divides — see `projectionFloorDiv`'s precondition. |
+ * | `cols <= 0` or `rows <= 0` | Empty. |
+ * | `screenW <= 0` or `screenH <= 0` | Empty. |
+ * | Rectangle entirely off the map | Empty, after clamping. |
+ */
+[[nodiscard]] constexpr CellRange cellRangeForScreenRect(const ProjectionSpec& spec,
+                                                          int screenX, int screenY,
+                                                          int screenW, int screenH,
+                                                          int cols, int rows) {
+    if (projectionDet(spec) < 1 || cols <= 0 || rows <= 0 || screenW <= 0 || screenH <= 0) {
+        return CellRange{};
+    }
+
+    const int leftX   = screenX;
+    const int rightX  = screenX + screenW - 1;  // Inclusive last pixel.
+    const int topY    = screenY;
+    const int bottomY = screenY + screenH - 1;  // Inclusive last pixel.
+
+    const int cellX0 = screenToCellX(leftX, topY, spec);
+    const int cellX1 = screenToCellX(rightX, topY, spec);
+    const int cellX2 = screenToCellX(leftX, bottomY, spec);
+    const int cellX3 = screenToCellX(rightX, bottomY, spec);
+
+    const int cellY0 = screenToCellY(leftX, topY, spec);
+    const int cellY1 = screenToCellY(rightX, topY, spec);
+    const int cellY2 = screenToCellY(leftX, bottomY, spec);
+    const int cellY3 = screenToCellY(rightX, bottomY, spec);
+
+    int minCol = cellX0;
+    if (cellX1 < minCol) minCol = cellX1;
+    if (cellX2 < minCol) minCol = cellX2;
+    if (cellX3 < minCol) minCol = cellX3;
+
+    int maxCol = cellX0;
+    if (cellX1 > maxCol) maxCol = cellX1;
+    if (cellX2 > maxCol) maxCol = cellX2;
+    if (cellX3 > maxCol) maxCol = cellX3;
+
+    int minRow = cellY0;
+    if (cellY1 < minRow) minRow = cellY1;
+    if (cellY2 < minRow) minRow = cellY2;
+    if (cellY3 < minRow) minRow = cellY3;
+
+    int maxRow = cellY0;
+    if (cellY1 > maxRow) maxRow = cellY1;
+    if (cellY2 > maxRow) maxRow = cellY2;
+    if (cellY3 > maxRow) maxRow = cellY3;
+
+    CellRange range{};
+    range.startCol = minCol;
+    range.endCol   = maxCol + 1;  // Half-open.
+    range.startRow = minRow;
+    range.endRow   = maxRow + 1;  // Half-open.
+
+    // Clamp asymmetrically, mirroring the shipped culling exactly: start
+    // clamps low only, end clamps high only. No upper clamp on start, no
+    // lower clamp on end — both remain sufficient to make the range empty
+    // when the rectangle sits fully off the map (e.g. an unclamped start far
+    // above `cols`/`rows` still yields an empty `[start, end)` once `end`
+    // stays at its clamped value).
+    if (range.startCol < 0) range.startCol = 0;
+    if (range.endCol > cols) range.endCol = cols;
+    if (range.startRow < 0) range.startRow = 0;
+    if (range.endRow > rows) range.endRow = rows;
+
+    return range;
+}
+
 }  // namespace pixelroot32::math
 
 #endif  // PIXELROOT32_ENABLE_PROJECTION
