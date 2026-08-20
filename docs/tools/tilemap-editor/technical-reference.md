@@ -1,6 +1,6 @@
 ---
 title: "Technical Reference"
-description: "Engine limits, binary format v6, project structure, C++ export, data formats, and compatibility"
+description: "Engine limits, binary format v9, project structure, C++ export, data formats, and compatibility"
 ---
 
 # Tilemap Editor - Technical Reference
@@ -59,31 +59,74 @@ description: "Engine limits, binary format v6, project structure, C++ export, da
 
 ### Project File
 
-The editor stores projects in a **single binary format** (`.pr32scene.bin`, version **6**). There is **no human-readable JSON writer**; the JSON object used inside the serializer only carries project metadata and per-tile attributes embedded in the binary container.
+The editor stores projects in a **single binary format** (`.pr32scene.bin`, version **9**). There is **no human-readable JSON writer**; the JSON object used inside the serializer only carries project metadata and per-tile attributes embedded in the binary container.
 
-The **"Use Binary Format"** preference in **File → Preferences** only affects the **file extension** written to disk (`.pr32scene.bin` vs `.pr32scene`). The on-disk content is the same binary v6 container either way.
+The **"Use Binary Format"** preference in **File → Preferences** only affects the **file extension** written to disk (`.pr32scene.bin` vs `.pr32scene`). The on-disk content is the same binary v9 container either way.
 
 | Extension | Content |
 |-----------|---------|
-| `.pr32scene.bin` | Binary v6 container (default) |
-| `.pr32scene` | Legacy extension accepted for open; still binary v6 when saved |
+| `.pr32scene.bin` | Binary v9 container (default) |
+| `.pr32scene` | Legacy extension accepted for open; still binary v9 when saved |
 
 ### Binary Format
 
-The `.pr32scene.bin` format is a **big-endian** binary container (current version **6**). Layout:
+The `.pr32scene.bin` format is a **big-endian** binary container (current version **9**). Layout:
 
 | Field | Size | Notes |
 |-------|------|-------|
 | **MAGIC** | 4 B | `PR32` (big-endian `0x50523332`) |
-| **VERSION** | u16 | Current: **6** |
+| **VERSION** | u16 | Current: **9** |
 | **FLAGS** | u16 | Bit 0: `COMPRESSION_ZLIB` |
-| **tileSize** | u8 | Tile size in px |
+| **tileSize** | u8 | Project default tile size in px |
 | **reserved** | 3 B | Padding |
 | **Metadata** | u32 len + JSON | Project metadata (JSON embedded) |
-| **Tilesets** | u16 count + entries | Per-tileset data |
-| **Scenes** | u16 count + entries | Per-scene data; optional zlib-compressed layers; v6+: player spawn `x/y` |
+| **Tilesets** | u16 count + entries | Per-tileset data, including each sheet's own `tileWidth`/`tileHeight` |
+| **Scenes** | u16 count + entries | Per-scene data; optional zlib-compressed layers |
 
 The serializer targets byte-for-byte compatibility with the engine's binary project format (big-endian layout). Layer payloads can be zlib-compressed (flag bit 0).
+
+#### Scene record, by version
+
+Every block below sits **inside** a scene entry, after `width`/`height` and
+**before** `layerCount`. Each version appends to the previous one, so the order
+is the order they were added:
+
+| Version | Block | Size |
+|---------|-------|------|
+| **v6+** | `hasSpawn` u8 + optional player spawn `x`/`y` u16 | 1 or 5 B |
+| **v7+** | `roomCount` u16 + `roomCount` × 16-byte room records | 2 + 16·n B |
+| **v8+** | `projection` u8 + `cellWidth` u16 + `cellHeight` u16 | 5 B, fixed |
+| **v9+** | `originAuthored` u8 + `originX` i16 + `originY` i16 | 5 B, fixed |
+
+A room record is `originCol`, `originRow`, `cols`, `rows` (u16 each) followed by
+four u16 connection targets in `Up, Down, Left, Right` order, where `0xFFFF`
+means "no connection".
+
+::: warning Reading these blocks is not optional
+
+A reader that skips an unknown block **desynchronizes the stream**. `layerCount`
+and the compressed layer payload that follow would then be parsed from the wrong
+offset, which does not reliably fail — it can produce a plausible, corrupt
+project. The editor refuses the whole file instead. Any third-party parser
+should do the same.
+
+:::
+
+#### Why projection is per scene
+
+`projection`, `cellWidth` and `cellHeight` live in the **scene** record rather
+than in the header, even though the header still has three spare reserved bytes
+that would have held them for less. One project can pair an isometric dungeon
+with an orthogonal menu, and a header field would have made that impossible.
+
+`cellWidth` and `cellHeight` of `0` mean **inherit the project's `tileSize`**,
+which is what every pre-v8 file meant implicitly. That is why legacy files load
+correctly: their defaults — orthogonal, both extents inheriting — are exactly
+what they always were.
+
+An unrecognized `projection` ordinal comes from a file written by a **newer**
+editor. It falls back to orthogonal, which keeps the scene loadable and visibly
+wrong rather than rejecting a file whose tiles are all still readable.
 
 ### Size & Performance
 
@@ -97,7 +140,7 @@ The binary format keeps projects compact and fast to load (single-format; there 
 
 ```
 my_project/
-├── my_project.pr32scene.bin  # Project file (binary v6, default)
+├── my_project.pr32scene.bin  # Project file (binary v9, default)
 ├── tile_flag_rules.json   # Custom rules (optional)
 └── assets/
     └── tilesets/
@@ -105,7 +148,7 @@ my_project/
         └── tileset2.png
 ```
 
-> The file is stored as `.pr32scene.bin` by default. With **"Use Binary Format"** disabled it is written as `.pr32scene` instead (still binary v6 content). Only the extension changes.
+> The file is stored as `.pr32scene.bin` by default. With **"Use Binary Format"** disabled it is written as `.pr32scene` instead (still binary v9 content). Only the extension changes.
 
 ### Exported Files
 
@@ -131,7 +174,7 @@ The editor's logic is organized into the following internal services (C++):
 | Service | File (source) | Responsibility |
 |---------|---------------|----------------|
 | **ProjectService** | `tools/tilemap_module/project_service.{h,cpp}` | Create / load / save projects, validate project name, manage tile flag rules |
-| **BinarySerializer** | `tools/tilemap_module/binary_serializer.{h,cpp}` | Read/write `.pr32scene.bin` (v6, big-endian, optional zlib compression) |
+| **BinarySerializer** | `tools/tilemap_module/binary_serializer.{h,cpp}` | Read/write `.pr32scene.bin` (v9, big-endian, optional zlib compression) |
 | **HistoryManager** | `tools/tilemap_module/history_manager.{h,cpp}` | Bounded (100 entries) undo/redo stack with optional compression |
 | **AnimationValidator** | `tools/tilemap_module/core/animation_validator.{h,cpp}` | Validate animations against engine limits (bounds, overlap, count, duration) |
 | **ExporterService** | `tools/tilemap_module/exporter_service.{h,cpp}` | Gate C++ export behind a valid license; coordinate the native export pipeline |
@@ -211,6 +254,58 @@ void init() {
     setBackgroundCustomPaletteSlot(2, STAIRS_PALETTE);
 }
 ```
+
+#### Isometric Projection
+
+Emitted only when the scene's projection is isometric. An orthogonal scene's
+projection is the identity, so naming one would be dead weight in flash on
+every existing target — an orthogonal export is byte-for-byte what it always
+was.
+
+```cpp
+// level1.h
+#include <math/Projection.h>
+
+inline constexpr uint8_t TILE_WIDTH  = 32;
+inline constexpr uint8_t TILE_HEIGHT = 16;
+
+inline constexpr pixelroot32::math::ProjectionSpec ISO_PROJECTION{
+    120, 88,    // where cell (0,0)'s diamond CENTRE lands
+     16,  8,    // +1 cellX steps right and down
+    -16,  8};   // +1 cellY steps left and down
+
+extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
+```
+
+::: warning TILE_WIDTH and TILE_HEIGHT are the cell STRIDE
+
+They are not the tileset's bitmap extents. An isometric tile is usually
+**taller** than its cell — a 32×40 wall standing on a 32×16 diamond — and the
+difference is exactly what `TILESET_FOOT_Y` records.
+
+In an orthogonal export the two happen to coincide, which is why the
+distinction never came up before.
+
+:::
+
+`TILESET_FOOT_Y[i]` is the bitmap row of tile `i` that lands on its cell's
+diamond centre. It is parallel to `TILESET_SPRITES`, and it is what lets the
+renderer stand a tall sprite on a short cell. The orthogonal export has no
+analogue: its art fills its cell, so there is no anchor to record.
+
+##### The four static_asserts
+
+The header states its own invariants rather than trusting the exporter, because
+a plain aggregate cannot assert its own initializers under `-fno-exceptions`:
+
+| Assert | What breaks if it fails |
+|--------|-------------------------|
+| `projectionSpecIsValid(ISO_PROJECTION, MAP_WIDTH, MAP_HEIGHT)` | The basis exceeds `Scalar`'s fixed-point range for this map size |
+| `projectionDet(ISO_PROJECTION) == N` | The determinant stopped being a power of two, so `screenToCell` loses its strength reduction to a shift |
+| `rowMajorIsPainterOrder(ISO_PROJECTION)` | Row-major iteration is no longer back-to-front, and the projected `drawTileMap` has **no depth sort** — walls would draw in front of what stands behind them |
+
+These fire at **your** compile, not at export time. That is deliberate: a
+projection the engine cannot use should stop the build that would ship it.
 
 #### Room Metadata
 
@@ -406,3 +501,4 @@ The Tilemap Editor is distributed as a **pre-built native binary** (part of the 
 - [Quick Start](/tools/tilemap-editor/quick-start) - 5 minute guide
 - [Usage Guide](/tools/tilemap-editor/usage-guide) - Essential features
 - [Advanced Guide](/tools/tilemap-editor/advanced-guide) - Advanced features
+- [Isometric Guide](/tools/tilemap-editor/isometric-guide) - Projection, cell stride, isometric export

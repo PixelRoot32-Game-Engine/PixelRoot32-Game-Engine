@@ -74,7 +74,7 @@ description: "Day-to-day PixelRoot32 Tilemap Editor reference - layers, projects
 |-------|-------------|----------|
 | **Name** | Project name | "New Scene" |
 | **Description** | Optional | - |
-| **Tile Size** | Pixels | 8 |
+| **Tile Size** | Pixels; the default new tilesets and scenes inherit | 8 |
 | **Map Width** | Tiles | 40 |
 | **Map Height** | Tiles | 30 |
 | **Orientation** | Landscape/Portrait | Landscape |
@@ -93,7 +93,11 @@ description: "Day-to-day PixelRoot32 Tilemap Editor reference - layers, projects
 3. Modify values
 4. Click **OK**
 
-> ⚠️ **Important**: Changing tile size affects all existing tilesets.
+> ⚠️ **Important**: The project's **Tile Size** is a *default*, not a global.
+> Each imported tileset carries its own `tileWidth`/`tileHeight`, so a project
+> can pair a 32×16 floor sheet with a 32×40 wall sheet — which is what makes
+> isometric art possible. Changing the project default does not rewrite sheets
+> you have already imported.
 
 ### ⭐ Save & Load
 
@@ -532,6 +536,29 @@ Mouse over canvas:
 
 ---
 
+## Scene Projection
+
+### ⭐⭐ Orthogonal or isometric
+
+Projection is a property of the **scene**, so one project can hold an isometric
+dungeon and an orthogonal menu.
+
+1. In the **SCENES** panel, click the **cubes** icon on the scene's row
+2. Choose `Orthogonal` or `Isometric`
+3. Set the **Cell** — the *stride*, not your tile bitmap size
+4. **Apply**
+
+The icon shows green on any scene that is isometric.
+
+> ⚠️ **Important**: Changing a painted scene's projection or cell
+> **reinterprets every tile in it**. The indices survive; what they mean in
+> space does not. The dialog requires an explicit confirmation and there is no
+> automatic migration — set this before you paint.
+
+📖 **Full walkthrough**: [Isometric Guide](/tools/tilemap-editor/isometric-guide)
+
+---
+
 ## Preferences
 
 ### ⭐ Access
@@ -542,6 +569,7 @@ Mouse over canvas:
 - **Grid Background Color**: Color of the canvas background behind the grid
 - **Canvas Grid Intensity**: Grid opacity on the canvas (0-255, default 40)
 - **Tileset Grid Intensity**: Grid opacity in the tileset panel (0-255, default 120)
+- **Show device screen overlay**: Draws the project's screen on the canvas (on by default). On a map larger than one screen it is a reference for how much is visible at once, not a limit — the editor exports the whole map and the game scrolls a camera over it
 - **Attribute Indicator Opacity**: Marker opacity for tile attributes (0-255, default 200)
 - **Animation Indicator Opacity**: Marker opacity for animated tiles (0-255, default 180)
 
@@ -633,4 +661,5 @@ Mouse over canvas:
 
 - [Quick Start](/tools/tilemap-editor/quick-start) - 5 minute guide
 - [Advanced Guide](/tools/tilemap-editor/advanced-guide) - Advanced features
+- [Isometric Guide](/tools/tilemap-editor/isometric-guide) - Projection, cell stride, isometric export
 - [Technical Reference](/tools/tilemap-editor/technical-reference) - Technical specs

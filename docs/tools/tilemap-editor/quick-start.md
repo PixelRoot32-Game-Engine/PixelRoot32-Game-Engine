@@ -154,4 +154,5 @@ Once you've completed your first map:
 
 - [Usage Guide](/tools/tilemap-editor/usage-guide) - Essential features
 - [Advanced Guide](/tools/tilemap-editor/advanced-guide) - Advanced features
+- [Isometric Guide](/tools/tilemap-editor/isometric-guide) - Projection, cell stride, isometric export
 - [Technical Reference](/tools/tilemap-editor/technical-reference) - Technical specs
