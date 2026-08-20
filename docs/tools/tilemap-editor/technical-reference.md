@@ -325,6 +325,37 @@ against. A third-party writer of these headers has to do the same remapping.
 
 :::
 
+##### Each sprite carries its own extents
+
+`Tileset` records its **own** `tileWidth` and `tileHeight`, and a project may
+mix them: 32×16 floors and 32×40 walls in one scene is the ordinary isometric
+case, and the two sheets pack to 256 and 640 bytes at 4bpp.
+
+So `TILESET_DATA_POOL` is **not** a fixed-stride array. Each entry occupies
+exactly the bytes its own extents need, laid end to end, and each sprite
+records where its own bytes begin:
+
+```cpp
+static const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[] = {
+    { &TILESET_DATA_POOL[0],    PALETTE, 32, 32, 16 },  // blank sentinel
+    { &TILESET_DATA_POOL[512],  PALETTE, 32, 16, 16 },  // floor
+    { &TILESET_DATA_POOL[768],  PALETTE, 32, 40, 16 },  // wall
+};
+```
+
+Index 0 is the blank tile the export reserves for erased cells. `drawTileMap`
+skips it, so it is never read; it is sized by the project's own tile size and
+declares those extents so the offsets after it still add up.
+
+::: warning Do not index the pool by `TILE_WIDTH * TILE_HEIGHT`
+
+A third-party writer of these headers has to accumulate the offsets, not
+compute them. A stride is right only while every tile in the project is the
+same size — and the moment a wall sheet is taller than a floor sheet, it is
+right for no tile but the first.
+
+:::
+
 ##### The four static_asserts
 
 The header states its own invariants rather than trusting the exporter, because
