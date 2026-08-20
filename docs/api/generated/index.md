@@ -78,8 +78,6 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [InteractionTracker](./gameplay/InteractionTracker.md) — Detects enter/exit edges on the per-frame physics contact set and
        dispatches InteractionComponent callbacks (design.md D3).
 - [ObjectPool](./gameplay/ObjectPool.md) — Fixed-capacity, zero-heap slot pool over aligned raw storage.
-- [ProjectionSpec](./gameplay/ProjectionSpec.md) — Plain six-`int` aggregate: the screen anchor of cell (0, 0) plus the
-       two screen-space axis vectors of the cell grid.
 - [Room](./gameplay/Room.md) — POD describing a single room: camera rect + optional tile window
        + fixed-size connection list.
 - [RoomData](./gameplay/RoomData.md) — One exported room: its tile-space rect plus four connection slots.
@@ -116,6 +114,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Renderer](./graphics/Renderer.md) — High-level graphics rendering system.
 - [ResolutionPreset](./graphics/ResolutionPreset.md) — Logical resolution choices for memory-constrained targets.
 - [ResolutionPresets](./graphics/ResolutionPresets.md) — Factory for creating DisplayConfig from resolution presets.
+- [ScreenBounds](./graphics/ScreenBounds.md) — Half-open screen-space bounding box accumulated across one or more
+       `expandProjectedMapBounds` calls.
 - [ScrollBehavior](./graphics/ScrollBehavior.md) — Defines how scrolling behaves in layouts.
 - [Sprite](./graphics/Sprite.md) — Compact sprite descriptor for monochrome bitmapped sprites.
 - [Sprite2bpp](./graphics/Sprite2bpp.md) — Sprite descriptor for 2bpp (4-color) multi-color sprites.
@@ -199,6 +199,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [CellRange](./math/CellRange.md) — Half-open cell-space window `[startCol, endCol) x [startRow, endRow)`
        covering a screen rectangle, under a given ProjectionSpec.
 - [Fixed16](./math/Fixed16.md) — Fixed-point 16.16 number implementation optimized for RISC-V.
+- [ProjectionSpec](./math/ProjectionSpec.md) — Plain six-`int` aggregate: the screen anchor of cell (0, 0) plus the
+       two screen-space axis vectors of the cell grid.
 - [Random](./math/Random.md) — Instance-based random number generator
 - [Vector2](./math/Vector2.md) — 2D vector using the configured Scalar type (float or Fixed16).
 
