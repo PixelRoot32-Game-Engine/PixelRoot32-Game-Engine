@@ -150,6 +150,44 @@ void expandProjectedMapBounds(ScreenBounds& bounds, const TileMap4bpp& map,
     expandProjectedMapBoundsImpl<Sprite4bpp>(bounds, map, projection);
 }
 
+CameraBounds cameraRangeFor(const ScreenBounds& world, int viewWidth, int viewHeight) {
+    if (!world.valid) {
+        return CameraBounds{};
+    }
+
+    // Per axis: `hi` is exactly the max legal camera position (the
+    // half-open `right`/`bottom` already accounts for the viewport's own
+    // extent, so no separate -1). When the world is narrower than the
+    // viewport the naive (lo, hi) pair is inverted -- collapse it to its
+    // own midpoint instead of returning it inverted. See the header's
+    // Doxygen for why this is CRITICAL (Camera2D::setPosition's clamp
+    // order) and why the midpoint deliberately truncates toward zero
+    // rather than floors.
+    int minX = world.left;
+    int maxX = world.right - viewWidth;
+    if (minX > maxX) {
+        const int centreX = (minX + maxX) / 2;
+        minX = centreX;
+        maxX = centreX;
+    }
+
+    int minY = world.top;
+    int maxY = world.bottom - viewHeight;
+    if (minY > maxY) {
+        const int centreY = (minY + maxY) / 2;
+        minY = centreY;
+        maxY = centreY;
+    }
+
+    CameraBounds range{};
+    range.minX = minX;
+    range.maxX = maxX;
+    range.minY = minY;
+    range.maxY = maxY;
+    range.valid = true;
+    return range;
+}
+
 }  // namespace pixelroot32::graphics
 
 #endif  // PIXELROOT32_ENABLE_TILEMAP_PROJECTION

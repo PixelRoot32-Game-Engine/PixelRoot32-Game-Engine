@@ -93,6 +93,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
 - [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
+- [CameraBounds](./graphics/CameraBounds.md) — Closed-interval camera-position range produced by `cameraRangeFor`.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
 - [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
