@@ -21,7 +21,10 @@
  * (`src/graphics/Renderer.cpp:1146-1220`, `drawTileMapProjectedImpl`) --
  * and unions it into a caller-owned `ScreenBounds`. A game calls it once per
  * layer at scene init, never per frame, to obtain the world extent a camera
- * should be allowed to scroll across.
+ * should be allowed to scroll across. `cameraRangeFor` then converts that
+ * extent into a `CameraBounds` -- a camera-position range, closed rather
+ * than half-open (see `CameraBounds`'s own doc for why the two interval
+ * kinds must not be conflated).
  *
  * Two things this header deliberately does NOT do:
  * - It does not read `TileMapGeneric::tileWidth` / `tileHeight` for
@@ -123,6 +126,86 @@ void expandProjectedMapBounds(ScreenBounds& bounds, const TileMap2bpp& map,
  */
 void expandProjectedMapBounds(ScreenBounds& bounds, const TileMap4bpp& map,
                                const pixelroot32::math::ProjectionSpec& projection);
+
+/**
+ * @struct CameraBounds
+ * @brief Closed-interval camera-position range produced by `cameraRangeFor`.
+ *
+ * **Deliberately NOT `ScreenBounds`.** Every field here -- `minX`, `maxX`,
+ * `minY`, `maxY` -- is a camera position the camera may actually occupy, so
+ * the interval is CLOSED: `[minX, maxX]`, both ends inclusive. `ScreenBounds`
+ * is HALF-OPEN (`right`/`bottom` are one past the last covered pixel)
+ * because it measures a run of covered pixels, not a set of legal camera
+ * positions. Reusing `ScreenBounds` as this return type -- feeding a
+ * `right` that means "one past the edge" into code that reads it as "the
+ * maximum legal position" -- is an off-by-one that stays invisible until the
+ * camera scrolls all the way to a map edge, which is exactly the kind of bug
+ * a short play session will not surface. The two structs share a field
+ * count and nothing else; do not conflate them.
+ *
+ * `valid` mirrors `ScreenBounds::valid`: `false` when the source
+ * `ScreenBounds` passed to `cameraRangeFor` was itself never seeded (see
+ * `expandProjectedMapBounds`'s union-across-calls contract), in which case
+ * no camera range exists and `minX`/`maxX`/`minY`/`maxY` are left at their
+ * defaults rather than computed from garbage input.
+ */
+struct CameraBounds {
+    int minX = 0;    ///< Minimum camera X position the camera may occupy.
+    int maxX = 0;    ///< Maximum camera X position the camera may occupy.
+    int minY = 0;    ///< Minimum camera Y position the camera may occupy.
+    int maxY = 0;    ///< Maximum camera Y position the camera may occupy.
+    bool valid = false;  ///< `false` when `world.valid` was `false`; see above.
+};
+
+/**
+ * @brief Converts an accumulated `ScreenBounds` world extent into a
+ *        `CameraBounds` camera-position range, one axis at a time.
+ *
+ * For each axis the naive range is `[world.left, world.right - viewWidth]`
+ * (Y analogously): `world.right` is one past the last covered pixel, so
+ * `world.right - viewWidth` is exactly the maximum camera position that
+ * still keeps the viewport's right edge within the world -- no separate
+ * `-1` needed, because the half-open convention already accounts for it.
+ *
+ * **Centre-collapse (CRITICAL).** When the world is SMALLER than the
+ * viewport on an axis -- `world.right - viewWidth < world.left` (Y:
+ * `world.bottom - viewHeight < world.top`) -- that naive range is INVERTED
+ * (`lo > hi`), and this function does not return it inverted. Instead the
+ * axis collapses to a single point: `minX == maxX == (world.left +
+ * (world.right - viewWidth)) / 2` (Y analogously). This is not optional
+ * polish; it is required because `Camera2D::setPosition`
+ * (`src/graphics/Camera2D.cpp:35-42`) applies the min clamp and THEN the
+ * max clamp, unconditionally, in that order. Fed an inverted range, the max
+ * clamp always fires last and wins, jamming the camera against `maxX`
+ * (`maxY`) with every pixel of slack piled on the opposite side instead of
+ * the world being centred in the viewport -- silently, with no error and no
+ * assertion, because nothing about `Camera2D` itself is broken. Each axis
+ * collapses independently: a world narrower than the viewport on X only
+ * collapses `minX`/`maxX` and leaves `minY`/`maxY` at the normal range.
+ *
+ * **Rounding contract (deliberate, pin this if you touch it).** The
+ * collapse midpoint uses plain C++ integer division, `(lo + hi) / 2`, which
+ * TRUNCATES TOWARD ZERO -- copied verbatim from the reference
+ * `IsoCamera::clampOrCentre` this capability matches pixel-for-pixel. This
+ * is a deliberate DIVERGENCE from `math::detail::projectionFloorDiv`'s
+ * floor rule used elsewhere in this same subsystem: floor is a correctness
+ * requirement there (cell picking), whereas here both truncation and floor
+ * land inside `[hi, lo]` and the choice is only a <=1px cosmetic bias whose
+ * direction flips with the sign of `lo + hi`. Negative `left`/`top` are the
+ * NORMAL case under an isometric basis (`axisYx` is negative), not an edge
+ * case -- do not "fix" this to floor division; that would silently shift
+ * the camera by a pixel and break parity with the reference implementation.
+ *
+ * @param world Accumulated world extent, normally the union of every
+ *              layer's `expandProjectedMapBounds` call for the scene.
+ * @param viewWidth Viewport width, in pixels.
+ * @param viewHeight Viewport height, in pixels.
+ * @return A `CameraBounds` with `valid == world.valid`. When `world.valid`
+ *         is `false` the returned range is default-constructed (all zero)
+ *         and must not be applied to a camera.
+ * @pre `viewWidth > 0 && viewHeight > 0`.
+ */
+[[nodiscard]] CameraBounds cameraRangeFor(const ScreenBounds& world, int viewWidth, int viewHeight);
 
 }  // namespace pixelroot32::graphics
 

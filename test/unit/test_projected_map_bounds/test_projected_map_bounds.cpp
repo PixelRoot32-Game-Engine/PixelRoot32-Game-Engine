@@ -244,6 +244,14 @@ void assertBounds(const ScreenBounds& b, int left, int top, int right, int botto
     TEST_ASSERT_EQUAL_INT(static_cast<int>(valid), static_cast<int>(b.valid));
 }
 
+void assertCameraBounds(const CameraBounds& c, int minX, int maxX, int minY, int maxY, bool valid) {
+    TEST_ASSERT_EQUAL_INT(minX, c.minX);
+    TEST_ASSERT_EQUAL_INT(maxX, c.maxX);
+    TEST_ASSERT_EQUAL_INT(minY, c.minY);
+    TEST_ASSERT_EQUAL_INT(maxY, c.maxY);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(valid), static_cast<int>(c.valid));
+}
+
 }  // namespace
 
 /// Req: Corner-based extent + Per-tile overhang. A 10x20 map on kIso with
@@ -478,6 +486,105 @@ void test_projected_map_bounds_orthogonal_basis(void) {
     assertBounds(bounds, -8, 0, 40, 32, true);
 }
 
+/// Req: Centre-collapse on undersized world -- the no-collapse boundary
+/// case. World #1 (test 1's own bounds, {-320,-8,160,232}) against a
+/// 240x240 viewport: X is a normal (non-collapsed) range because the world
+/// (480 wide) exceeds the viewport. Y is the exact-equality edge --
+/// world height is exactly 240, so `hi == lo` (not `hi < lo`) and the axis
+/// must NOT collapse; it must simply resolve to the single value both ends
+/// already share. This pins the half-open subtraction having no off-by-one:
+/// a `right - viewWidth` that were one pixel wrong would flip this case
+/// into either a spurious collapse or a range that excludes a legal
+/// position.
+void test_projected_map_bounds_camera_range_no_collapse(void) {
+    const ScreenBounds world{-320, -8, 160, 232, true};
+
+    const CameraBounds range = cameraRangeFor(world, 240, 240);
+
+    assertCameraBounds(range, -320, -80, -8, -8, true);
+}
+
+/// Req: Centre-collapse on undersized world (CRITICAL). A 2x2 map on kIso
+/// with tileset A produces world {-32,-8,32,24} (hand-derived: corner
+/// anchors {minX=-16,maxX=16,minY=0,maxY=16} widened by tileset A's
+/// reach 16/16/8/8). Against a 240x240 viewport BOTH axes are narrower
+/// than the viewport, so both must collapse independently to their own
+/// midpoint: X to (-32 + (32-240))/2 = -240/2 = -120, Y to
+/// (-8 + (24-240))/2 = -224/2 = -112. Without the collapse,
+/// Camera2D::setPosition's min-then-max clamp order would jam the camera
+/// at maxX/maxY with all the slack on one side -- this test's expected
+/// values are the CENTRED point, not the raw (possibly inverted) range.
+void test_projected_map_bounds_camera_range_centre_collapse(void) {
+    uint8_t indices[2 * 2];
+    for (auto& idx : indices) idx = 1;
+    TileMap4bpp map = make10x20MapA4bpp(indices);
+    map.width = 2;
+    map.height = 2;
+
+    ScreenBounds world{};
+    expandProjectedMapBounds(world, map, kIso);
+    assertBounds(world, -32, -8, 32, 24, true);
+
+    const CameraBounds range = cameraRangeFor(world, 240, 240);
+
+    assertCameraBounds(range, -120, -120, -112, -112, true);
+}
+
+/// Req: Centre-collapse on undersized world -- axes collapse
+/// INDEPENDENTLY. A world narrower than the viewport on Y only (X stays
+/// comfortably wider) must collapse minY/maxY while leaving minX/maxX at
+/// the normal, non-collapsed range. Reuses world #1's X extent
+/// ({-320,160}, 480 wide) against a taller synthetic Y extent narrower
+/// than a 500px-tall viewport.
+void test_projected_map_bounds_camera_range_axes_collapse_independently(void) {
+    const ScreenBounds world{-320, -8, 160, 92, true};  // Y extent: 100px tall.
+
+    const CameraBounds range = cameraRangeFor(world, 240, 500);
+
+    // X: 480 wide vs 240 viewport -- normal range, not collapsed.
+    TEST_ASSERT_EQUAL_INT(-320, range.minX);
+    TEST_ASSERT_EQUAL_INT(-80, range.maxX);
+    // Y: 100 tall vs 500 viewport -- collapses to (-8 + (92-500))/2 = -208.
+    TEST_ASSERT_EQUAL_INT(-208, range.minY);
+    TEST_ASSERT_EQUAL_INT(-208, range.maxY);
+    TEST_ASSERT_TRUE(range.valid);
+}
+
+/// Req: Centre-collapse rounding contract (deliberate). `(lo + hi) / 2`
+/// truncates toward zero in C++, not floor -- pinned here because negative
+/// `left`/`top` are the NORMAL case under an isometric basis (`axisYx` is
+/// negative), not an edge case. `{left=-5, right=6}`, `viewW=12`:
+/// `lo=-5, hi=6-12=-6`, inverted (`lo > hi`), collapse midpoint
+/// `(-5 + -6)/2 = -11/2 = -5` under truncation (floor would give -6 -- if
+/// this test ever asserts -6, someone "fixed" this to floor division and
+/// silently shifted the camera by a pixel). The mirrored positive case,
+/// `{left=5, right=16}`, `viewW=12`: `lo=5, hi=4`, midpoint `9/2=4`, pinning
+/// that the bias direction is sign-dependent (toward `hi` for a negative
+/// sum, toward `lo` for a positive one), not a fixed rounding direction.
+void test_projected_map_bounds_camera_range_rounding_negative_odd(void) {
+    const ScreenBounds negative{-5, -5, 6, 6, true};
+    const CameraBounds negativeRange = cameraRangeFor(negative, 12, 12);
+    assertCameraBounds(negativeRange, -5, -5, -5, -5, true);
+
+    const ScreenBounds positive{5, 5, 16, 16, true};
+    const CameraBounds positiveRange = cameraRangeFor(positive, 12, 12);
+    assertCameraBounds(positiveRange, 4, 4, 4, 4, true);
+}
+
+/// Req: Centre-collapse on undersized world -- `valid` propagation. A
+/// never-seeded `ScreenBounds{}` (`valid == false`) must produce a
+/// `CameraBounds` with `valid == false` and no computed range: nothing
+/// about `lo`/`hi`/collapse is meaningful when the source world was never
+/// accumulated from any layer.
+void test_projected_map_bounds_camera_range_invalid_passthrough(void) {
+    const ScreenBounds world{};
+    TEST_ASSERT_FALSE(world.valid);
+
+    const CameraBounds range = cameraRangeFor(world, 240, 240);
+
+    TEST_ASSERT_FALSE(range.valid);
+}
+
 void test_projected_map_bounds_zero_cost_when_disabled(void) {
     TEST_PASS_MESSAGE(
         "PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1: ScreenBounds and "
@@ -513,6 +620,11 @@ int main(int argc, char** argv) {
     RUN_TEST(test_projected_map_bounds_degenerate_inputs_are_no_ops);
     RUN_TEST(test_projected_map_bounds_identical_across_1bpp_2bpp_4bpp);
     RUN_TEST(test_projected_map_bounds_orthogonal_basis);
+    RUN_TEST(test_projected_map_bounds_camera_range_no_collapse);
+    RUN_TEST(test_projected_map_bounds_camera_range_centre_collapse);
+    RUN_TEST(test_projected_map_bounds_camera_range_axes_collapse_independently);
+    RUN_TEST(test_projected_map_bounds_camera_range_rounding_negative_odd);
+    RUN_TEST(test_projected_map_bounds_camera_range_invalid_passthrough);
 #endif
     RUN_TEST(test_projected_map_bounds_zero_cost_when_disabled);
 
