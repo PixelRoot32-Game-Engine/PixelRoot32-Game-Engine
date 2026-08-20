@@ -253,6 +253,11 @@ extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
 - **`TILE_WIDTH` / `TILE_HEIGHT`** — the **cell stride**, which for a tall tile
   is smaller than its bitmap
 
+The export's `init()` wires the foot table onto every layer, so a game calls
+`init()`, draws through `ISO_PROJECTION`, and is done. If your scene gives each
+layer its own palette slot, each layer gets its own tileset and therefore its
+own table — `BACKGROUND_TILESET_FOOT_Y`, `LAYER_1_TILESET_FOOT_Y`, and so on.
+
 The header states its own invariants with `static_assert`. They fire at **your**
 compile, which is deliberate: a projection the engine cannot use should stop the
 build that would ship it.

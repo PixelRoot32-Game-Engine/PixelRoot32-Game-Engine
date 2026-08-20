@@ -293,6 +293,38 @@ diamond centre. It is parallel to `TILESET_SPRITES`, and it is what lets the
 renderer stand a tall sprite on a short cell. The orthogonal export has no
 analogue: its art fills its cell, so there is no anchor to record.
 
+`init()` assigns it — `background.tileFootY = TILESET_FOOT_Y;` — so a consumer
+that calls `init()` and then draws through `ISO_PROJECTION` needs to wire
+nothing by hand.
+
+##### One table per layer in multi-palette mode
+
+A scene that gives each layer its own palette slot also gives each layer its
+own **tileset**, so the export names one table per layer instead of one shared
+table:
+
+```cpp
+inline constexpr uint16_t BACKGROUND_TILESET_TILE_COUNT = 13;
+inline constexpr uint16_t LAYER_1_TILESET_TILE_COUNT = 4;
+
+extern const uint8_t BACKGROUND_TILESET_FOOT_Y[BACKGROUND_TILESET_TILE_COUNT];
+extern const uint8_t LAYER_1_TILESET_FOOT_Y[LAYER_1_TILESET_TILE_COUNT];
+```
+
+`tileFootY` must be parallel to the `tiles[]` array it anchors, and those are
+three different arrays of three different lengths. A single flat table could
+not be parallel to more than one of them.
+
+::: warning The count is the deduplicated pool's, not the tilesheet's
+
+The exporter collapses identical tiles, so the tileset you imported and the
+`TILESET_SPRITES` array it becomes have different lengths and a different
+order. Every count and every table above is sized to the **pool** — the same
+number `init()` writes to `tileCount`, which `footYFor()` bounds-checks
+against. A third-party writer of these headers has to do the same remapping.
+
+:::
+
 ##### The four static_asserts
 
 The header states its own invariants rather than trusting the exporter, because
