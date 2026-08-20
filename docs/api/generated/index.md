@@ -114,6 +114,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Renderer](./graphics/Renderer.md) — High-level graphics rendering system.
 - [ResolutionPreset](./graphics/ResolutionPreset.md) — Logical resolution choices for memory-constrained targets.
 - [ResolutionPresets](./graphics/ResolutionPresets.md) — Factory for creating DisplayConfig from resolution presets.
+- [ScreenBounds](./graphics/ScreenBounds.md) — Half-open screen-space bounding box accumulated across one or more
+       `expandProjectedMapBounds` calls.
 - [ScrollBehavior](./graphics/ScrollBehavior.md) — Defines how scrolling behaves in layouts.
 - [Sprite](./graphics/Sprite.md) — Compact sprite descriptor for monochrome bitmapped sprites.
 - [Sprite2bpp](./graphics/Sprite2bpp.md) — Sprite descriptor for 2bpp (4-color) multi-color sprites.
