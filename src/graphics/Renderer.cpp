@@ -1225,6 +1225,25 @@ namespace pixelroot32::graphics {
                 const int drawX = centreX - tile.width / 2;
                 const int drawY = centreY - map.footYFor(index);
 
+                // Per-tile dirty-skip (projected path): when dirty regions are
+                // enabled, the layer is Dynamic, the framebuffer still holds
+                // last frame's pixels outside the prev-dirty cells, and the
+                // camera has not scrolled since the previous endFrame(), skip
+                // blitting a tile whose screen rect intersects no prev-dirty
+                // cell — its pixels are already correct from last frame.
+                // Compiled out when PIXELROOT32_ENABLE_DIRTY_REGIONS=0.
+                if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                    if (layerType == LayerType::Dynamic &&
+                        selectiveRestoreValidThisFrame_ &&
+                        xOffset == prevXOffset_ && yOffset == prevYOffset_) {
+                        const int pixelX = offsetBypass ? drawX : xOffset + drawX;
+                        const int pixelY = offsetBypass ? drawY : yOffset + drawY;
+                        if (!dirtyGrid.intersectsPrevDirty(pixelX, pixelY, tile.width, tile.height)) {
+                            continue;
+                        }
+                    }
+                }
+
                 if (layerType == LayerType::Dynamic) {
                     bool markCell = true;
                     if (map.animManager != nullptr) {
