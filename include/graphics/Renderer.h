@@ -1062,6 +1062,23 @@ public:
     void setFont(const uint8_t* font);
 
     /**
+     * @brief Marks a single 8x8 dirty cell in the current (this-frame) dirty grid.
+     *
+     * Test-only helper: lets unit tests populate the dirty grid deterministically
+     * so they can drive the per-tile dirty-skip predicate in
+     * drawTileMapProjectedImpl through known states. Production code MUST NOT
+     * call this; entity draw paths and tilemap draws already mark their own cells.
+     *
+     * @param cx Cell X coordinate (in 8x8 cell units).
+     * @param cy Cell Y coordinate (in 8x8 cell units).
+     */
+    void markCellDirtyForTest(uint8_t cx, uint8_t cy) {
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            dirtyGrid.markCell(cx, cy);
+        }
+    }
+
+    /**
      * @brief Gets the current global X offset.
      * @return The X offset.
      */
