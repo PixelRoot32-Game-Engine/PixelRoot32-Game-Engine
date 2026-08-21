@@ -1357,6 +1357,12 @@ private:
     int logicalHeight = 240;
     int xOffset = 0;
     int yOffset = 0;
+    /// Camera offset as of the previous frame's endFrame(); powers the
+    /// projected-tilemap dirty-skip gate (camera-stationary check). Snapshot
+    /// is taken in endFrame() after beginFrame()'s swapAndClear(), before
+    /// sendBuffer(), so it matches the offset used for that frame's prev marks.
+    int prevXOffset_ = 0;
+    int prevYOffset_ = 0;
     bool offsetBypass = false;
 
     PaletteContext* currentRenderContext = nullptr;

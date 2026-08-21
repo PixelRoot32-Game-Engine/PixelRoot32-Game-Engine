@@ -311,6 +311,12 @@ namespace pixelroot32::graphics {
 #if defined(PIXELROOT32_DEBUG_MODE)
         drawDebugDirtyCellOverlay();
 #endif
+        // Snapshot the camera offset for the projected-tilemap dirty-skip
+        // gate. Taken here — after beginFrame()'s swapAndClear() and before
+        // sendBuffer() — so prevXOffset_/prevYOffset_ match the offset used
+        // for this frame's prev-buffer dirty marks.
+        prevXOffset_ = xOffset;
+        prevYOffset_ = yOffset;
         getDrawSurface().sendBuffer();
     }
 
