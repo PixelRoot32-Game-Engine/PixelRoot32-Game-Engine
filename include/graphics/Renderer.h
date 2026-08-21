@@ -62,6 +62,10 @@ struct Sprite2bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 /**
@@ -74,6 +78,10 @@ struct Sprite4bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 // Multi-palette background (2bpp/4bpp tilemaps): per-cell palette index
