@@ -63,6 +63,23 @@ Checks if a cell was marked dirty in the previous frame.
 
 **Returns:** true if the cell was dirty in the previous frame, false otherwise.
 
+### `bool intersectsPrevDirty(int x, int y, int w, int h) const`
+
+**Description:**
+
+Checks whether any 8×8 cell covered by a pixel rectangle was
+       marked dirty in the previous frame.
+
+**Parameters:**
+
+- `x`: Top-left X coordinate in pixels.
+- `y`: Top-left Y coordinate in pixels.
+- `w`: Width of the rectangle in pixels.
+- `h`: Height of the rectangle in pixels.
+
+**Returns:** true if any covered cell was dirty in the previous frame, false
+        otherwise.
+
 ### `void swapAndClear()`
 
 **Description:**

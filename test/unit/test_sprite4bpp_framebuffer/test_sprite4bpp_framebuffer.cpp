@@ -242,6 +242,128 @@ void test_index_beyond_palette_size_resolves_to_black_when_flipped(void) {
     TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(1, 0));
 }
 
+// =============================================================================
+// Span-limited blit tests (change iso-perf-blit-fastpath, T4)
+// =============================================================================
+//
+// drawSpriteInternal reads sprite.rowMinX/rowMaxX when both are non-null AND
+// flipX is false. The span metadata lets the inner column loop skip leading
+// and trailing transparent nibbles. These tests verify that:
+//   - When span pointers reflect the actual opaque region, output matches a
+//     full-bbox draw (no visible regression).
+//   - flipX=true with span pointers bypasses the span limits (output mirrors
+//     the same as without span pointers).
+//   - nullptr span pointers produce byte-identical output to a pre-change
+//     baseline (the regression pin).
+
+/// Diamond sprite with explicit span metadata: opaque only in cols 2..5 of an
+/// 8-wide row. The expected visible pixels are identical to a full-bbox draw
+/// of a sprite whose transparent padding has the SAME nibble pattern, so the
+/// span path must agree byte-for-byte with the null-span path.
+void test_span_limits_produce_identical_visible_pixels(void) {
+    // 8x1 sprite, opaque cols 2..5 (palette indices 1,2,3,4). Cols 0,1,6,7 are
+    // value 0 (transparent). rowMinX[0]=2, rowMaxX[0]=6.
+    const uint8_t data[] = {nibblePair(0, 0), nibblePair(1, 2),
+                            nibblePair(3, 4), nibblePair(0, 0)};
+    const Sprite4bpp sprite = {data, kIdentityMapping, 8, 1, 16};
+
+    uint8_t rowMinX[1] = {2};
+    uint8_t rowMaxX[1] = {6};
+    Sprite4bpp spriteWithSpan = sprite;
+    spriteWithSpan.rowMinX = rowMinX;
+    spriteWithSpan.rowMaxX = rowMaxX;
+
+    Harness h;
+    h.renderer->drawSprite(spriteWithSpan, 0, 0, false);
+
+    // Opaque cols 2..5 packed to expected colours.
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(2, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[2]), fbAt(3, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[3]), fbAt(4, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[4]), fbAt(5, 0));
+    // Transparent cols 0,1,6,7: sentinel survives because the span-limited
+    // loop never visited them (or visited and saw val==0).
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(0, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(1, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(6, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(7, 0));
+}
+
+/// When span pointers are null, drawSpriteInternal iterates the full bbox.
+/// A diamond sprite drawn via the null-span path must produce the SAME visible
+/// pixels as the span-limited path -- proves the optimisation is a refactor,
+/// not a behavioural change.
+void test_null_span_matches_full_bbox_draw(void) {
+    const uint8_t data[] = {nibblePair(0, 0), nibblePair(1, 2),
+                            nibblePair(3, 4), nibblePair(0, 0)};
+    const Sprite4bpp sprite = {data, kIdentityMapping, 8, 1, 16};
+    // rowMinX/rowMaxX default to nullptr per the Sprite4bpp default member
+    // initializers; this asserts the baseline that the span path agrees with.
+
+    Harness h;
+    h.renderer->drawSprite(sprite, 0, 0, false);
+
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(2, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[2]), fbAt(3, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[3]), fbAt(4, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[4]), fbAt(5, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(0, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(1, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(6, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(7, 0));
+}
+
+/// flipX=true MUST bypass span limits (the mirrored layout invalidates the
+/// precomputed min/max). Output should equal the null-span flipX output.
+void test_flip_x_bypasses_span_limits(void) {
+    const uint8_t data[] = {nibblePair(0, 0), nibblePair(1, 2),
+                            nibblePair(3, 4), nibblePair(0, 0)};
+    const Sprite4bpp sprite = {data, kIdentityMapping, 8, 1, 16};
+
+    uint8_t rowMinX[1] = {2};
+    uint8_t rowMaxX[1] = {6};
+    Sprite4bpp spriteWithSpan = sprite;
+    spriteWithSpan.rowMinX = rowMinX;
+    spriteWithSpan.rowMaxX = rowMaxX;
+
+    Harness h;
+    h.renderer->drawSprite(spriteWithSpan, 0, 0, true);
+
+    // flipX mirrors: opaque cols were 2..5, so on screen they land at 2..5
+    // (mirror within 8-wide row puts col 2 at lx 5, col 5 at lx 2). Just
+    // confirm the opaque pixels are present at the expected mirrored cols.
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[4]), fbAt(2, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[3]), fbAt(3, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[2]), fbAt(4, 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedPack(kPalette[1]), fbAt(5, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(0, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(1, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(6, 0));
+    TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(7, 0));
+}
+
+/// An empty span (minX > maxX) is the convention computeSpanTable uses for
+/// fully transparent rows. drawSpriteInternal must not write anything and
+/// must not crash.
+void test_empty_span_row_writes_nothing(void) {
+    const uint8_t data[] = {nibblePair(1, 2), nibblePair(3, 4)};
+    const Sprite4bpp sprite = {data, kIdentityMapping, 4, 1, 16};
+
+    uint8_t rowMinX[1] = {5};  // past maxX -> empty range
+    uint8_t rowMaxX[1] = {3};
+    Sprite4bpp spriteWithSpan = sprite;
+    spriteWithSpan.rowMinX = rowMinX;
+    spriteWithSpan.rowMaxX = rowMaxX;
+
+    Harness h;
+    h.renderer->drawSprite(spriteWithSpan, 0, 0, false);
+
+    // Sentinel survives everywhere on this row.
+    for (int x = 0; x < 4; ++x) {
+        TEST_ASSERT_EQUAL_UINT8(kSentinel, fbAt(x, 0));
+    }
+}
+
 #else
 
 void test_four_bpp_disabled(void) {
@@ -264,6 +386,10 @@ int main(int argc, char** argv) {
     RUN_TEST(test_rows_outside_the_framebuffer_are_skipped);
     RUN_TEST(test_index_beyond_palette_size_resolves_to_black);
     RUN_TEST(test_index_beyond_palette_size_resolves_to_black_when_flipped);
+    RUN_TEST(test_span_limits_produce_identical_visible_pixels);
+    RUN_TEST(test_null_span_matches_full_bbox_draw);
+    RUN_TEST(test_flip_x_bypasses_span_limits);
+    RUN_TEST(test_empty_span_row_writes_nothing);
 #else
     RUN_TEST(test_four_bpp_disabled);
 #endif

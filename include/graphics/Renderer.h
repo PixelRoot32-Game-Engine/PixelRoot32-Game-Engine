@@ -62,6 +62,10 @@ struct Sprite2bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 /**
@@ -74,6 +78,10 @@ struct Sprite4bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 // Multi-palette background (2bpp/4bpp tilemaps): per-cell palette index
@@ -1062,6 +1070,23 @@ public:
     void setFont(const uint8_t* font);
 
     /**
+     * @brief Marks a single 8x8 dirty cell in the current (this-frame) dirty grid.
+     *
+     * Test-only helper: lets unit tests populate the dirty grid deterministically
+     * so they can drive the per-tile dirty-skip predicate in
+     * drawTileMapProjectedImpl through known states. Production code MUST NOT
+     * call this; entity draw paths and tilemap draws already mark their own cells.
+     *
+     * @param cx Cell X coordinate (in 8x8 cell units).
+     * @param cy Cell Y coordinate (in 8x8 cell units).
+     */
+    void markCellDirtyForTest(uint8_t cx, uint8_t cy) {
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            dirtyGrid.markCell(cx, cy);
+        }
+    }
+
+    /**
      * @brief Gets the current global X offset.
      * @return The X offset.
      */
@@ -1357,6 +1382,12 @@ private:
     int logicalHeight = 240;
     int xOffset = 0;
     int yOffset = 0;
+    /// Camera offset as of the previous frame's endFrame(); powers the
+    /// projected-tilemap dirty-skip gate (camera-stationary check). Snapshot
+    /// is taken in endFrame() after beginFrame()'s swapAndClear(), before
+    /// sendBuffer(), so it matches the offset used for that frame's prev marks.
+    int prevXOffset_ = 0;
+    int prevYOffset_ = 0;
     bool offsetBypass = false;
 
     PaletteContext* currentRenderContext = nullptr;
@@ -1402,8 +1433,8 @@ private:
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
     uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive;
 
-    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
-    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
+    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
 
     void ensureDirtyGridSized();
     void markDirtyLogicalRect(int x, int y, int w, int h);

@@ -63,6 +63,27 @@ public:
     bool isPrevDirty(uint8_t cx, uint8_t cy) const;
 
     /**
+     * @brief Checks whether any 8×8 cell covered by a pixel rectangle was
+     *        marked dirty in the previous frame.
+     *
+     * Iterates the integer cells covered by the half-open rectangle
+     * `[x, x+w) × [y, y+h)`, returning true if any such cell has
+     * `isPrevDirty(cx, cy) == true`. Returns true immediately when the grid
+     * is fully dirty. The rectangle is clipped to the valid cell range, so a
+     * rectangle entirely outside the grid bounds, or with `w <= 0` or
+     * `h <= 0`, returns false. Safe on a freshly constructed grid (prev and
+     * curr zeroed, fullDirty false), in which case it returns false.
+     *
+     * @param x Top-left X coordinate in pixels.
+     * @param y Top-left Y coordinate in pixels.
+     * @param w Width of the rectangle in pixels.
+     * @param h Height of the rectangle in pixels.
+     * @return true if any covered cell was dirty in the previous frame, false
+     *         otherwise.
+     */
+    bool intersectsPrevDirty(int x, int y, int w, int h) const;
+
+    /**
      * @brief Swaps the current and previous buffers, clearing the new current buffer.
      */
     void swapAndClear();

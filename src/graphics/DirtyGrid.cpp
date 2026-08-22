@@ -148,6 +148,36 @@ bool DirtyGrid::isPrevDirty(uint8_t cx, uint8_t cy) const {
     return getBit(prev, cx, cy);
 }
 
+bool DirtyGrid::intersectsPrevDirty(int x, int y, int w, int h) const {
+    if (fullDirty) {
+        return true;
+    }
+    if (w <= 0 || h <= 0 || !prev || cols == 0 || rows == 0) {
+        return false;
+    }
+    const int maxPxX = static_cast<int>(cols) * static_cast<int>(CELL_W) - 1;
+    const int maxPxY = static_cast<int>(rows) * static_cast<int>(CELL_H) - 1;
+    const int x1     = std::max(0, x);
+    const int y1     = std::max(0, y);
+    const int x2     = std::min(maxPxX, x + w - 1);
+    const int y2     = std::min(maxPxY, y + h - 1);
+    if (x1 > x2 || y1 > y2) {
+        return false;
+    }
+    const uint8_t cx0 = static_cast<uint8_t>(divFloorNonneg(x1, static_cast<int>(CELL_W)));
+    const uint8_t cy0 = static_cast<uint8_t>(divFloorNonneg(y1, static_cast<int>(CELL_H)));
+    const uint8_t cx1 = static_cast<uint8_t>(divFloorNonneg(x2, static_cast<int>(CELL_W)));
+    const uint8_t cy1 = static_cast<uint8_t>(divFloorNonneg(y2, static_cast<int>(CELL_H)));
+    for (uint8_t cy = cy0; cy <= cy1; ++cy) {
+        for (uint8_t cx = cx0; cx <= cx1; ++cx) {
+            if (getBit(prev, cx, cy)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void DirtyGrid::swapAndClear() {
     if (!prev || !curr) {
         return;

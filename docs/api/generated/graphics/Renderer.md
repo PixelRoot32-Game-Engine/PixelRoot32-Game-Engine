@@ -282,6 +282,17 @@ Sets the font for text rendering.
 
 - `font`: Pointer to the font data array.
 
+### `void markCellDirtyForTest(uint8_t cx, uint8_t cy)`
+
+**Description:**
+
+Marks a single 8x8 dirty cell in the current (this-frame) dirty grid.
+
+**Parameters:**
+
+- `cx`: Cell X coordinate (in 8x8 cell units).
+- `cy`: Cell Y coordinate (in 8x8 cell units).
+
 ### `int getXOffset() const`
 
 **Description:**
