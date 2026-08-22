@@ -4,6 +4,7 @@
 #include "gameplay/DepthCompare.h"
 #include "graphics/Color.h"
 #include "graphics/SpanTable.h"
+#include "platforms/PlatformMemory.h"
 #include "assets/DungeonTiles.h"
 #include "assets/IsoDungeonRoomTileMap.h"
 #include "assets/IsoDungeonRoomTileMapPalette.h"
@@ -27,11 +28,21 @@ void IsoDungeonScene::init() {
 
     // Build per-row opaque span metadata for each tile so drawSpriteInternal
     // can skip leading/trailing transparent nibbles inside the projected
-    // tilemap loop (change iso-perf-blit-fastpath). Buffers are static so the
-    // sprite pointers stay valid for the lifetime of the program.
-    // const_cast is required because DungeonTiles.h declares the sprites
-    // static const for flash placement; we only write the optional pointers
-    // at init time, which does not modify the pixel data or palette contents.
+    // tilemap loop (change iso-perf-blit-fastpath).
+    //
+    // Native (PC/SDL2): the Sprite4bpp descriptors live in writable RAM, so
+    // we can const_cast and assign the span pointers in place.
+    //
+    // ESP32: the Sprite4bpp descriptors in DungeonTiles.h may be placed in
+    // flash by the linker. Writing rowMinX/rowMaxX back to them is UB and
+    // triggers a LoadStoreError panic on first draw. The optimization is
+    // therefore gated off on ESP32. To re-enable it, change `static const`
+    // to `static` in DungeonTiles.h's Sprite4bpp declarations (the linker
+    // then places them in RAM).
+    //
+    // computeSpanTable reads pixel data via PIXELROOT32_READ_BYTE_P which
+    // expands to pgm_read_byte on ESP32, so reading is safe on both targets.
+#if !defined(ESP32)
     {
         static uint8_t sFloorAMinX[iso_dungeon::FLOOR_A_HEIGHT];
         static uint8_t sFloorAMaxX[iso_dungeon::FLOOR_A_HEIGHT];
@@ -66,6 +77,7 @@ void IsoDungeonScene::init() {
         const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMinX      = sDoorNwMinX;
         const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMaxX      = sDoorNwMaxX;
     }
+#endif  // !ESP32
 
     // One palette for tiles and sprites alike: this dungeon has a single colour
     // scheme, so splitting it across background and sprite tables would buy
