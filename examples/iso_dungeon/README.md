@@ -194,6 +194,28 @@ The props stay outside the snapshot on purpose. They are captured neither with
 the room nor after it: the hero walks both behind and in front of the altar, so
 they have to keep taking part in the per-frame depth sort.
 
+**The span-limited blit is native-only for now.** The tiles are diamond-shaped:
+a 32×16 floor bitmap whose top and bottom rows are almost entirely transparent
+padding, yet `drawSpriteInternal` decodes every one of the 512 nibbles. `init()`
+builds a per-row opaque span for each of the six tiles via `computeSpanTable`,
+which records the first and last opaque column of every row so the blit can
+skip the leading and trailing transparent nibbles. The span buffers are
+`static` so the `rowMinX`/`rowMaxX` pointers they feed stay valid for the
+program's lifetime, and `computeSpanTable` reads the pixel data through
+`PIXELROOT32_READ_BYTE_P` (`pgm_read_byte` on ESP32), so reading flash-resident
+art is safe on every target.
+
+The `#if !defined(ESP32)` around that wiring is the price of the export
+contract, not a shortcut. `DungeonTiles.h` declares the sprites `static const`,
+which the linker may place in flash on ESP32, and writing `rowMinX`/`rowMaxX`
+back through a `const_cast` is undefined behaviour there — a LoadStoreError on
+the first draw. On native the descriptors live in writable RAM, so the cast is
+well-defined and the optimisation runs; on ESP32 it is simply skipped and the
+full-bbox blit is preserved, which is correct, not a fallback. Re-enabling it
+on ESP32 means changing the six `static const Sprite4bpp` declarations in
+`DungeonTiles.h` to `static Sprite4bpp`, which moves the descriptors into RAM —
+an asset-header change, not an engine one.
+
 **Standing still costs nothing.** `shouldRedrawFramebuffer()` reports whether
 the hero would draw differently from the frame already on the panel, and the
 engine skips both `draw()` and `present()` when it would not. That is not a CPU
