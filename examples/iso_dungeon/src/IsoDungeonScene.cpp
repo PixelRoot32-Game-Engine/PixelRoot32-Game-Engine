@@ -3,6 +3,8 @@
 #include "core/Engine.h"
 #include "gameplay/DepthCompare.h"
 #include "graphics/Color.h"
+#include "graphics/SpanTable.h"
+#include "assets/DungeonTiles.h"
 #include "assets/IsoDungeonRoomTileMap.h"
 #include "assets/IsoDungeonRoomTileMapPalette.h"
 
@@ -22,6 +24,48 @@ void IsoDungeonScene::init() {
     // hands one of them to the renderer, which is why it is the first thing
     // here -- an exported map is inert until its init() has run.
     iso_dungeon::init();
+
+    // Build per-row opaque span metadata for each tile so drawSpriteInternal
+    // can skip leading/trailing transparent nibbles inside the projected
+    // tilemap loop (change iso-perf-blit-fastpath). Buffers are static so the
+    // sprite pointers stay valid for the lifetime of the program.
+    // const_cast is required because DungeonTiles.h declares the sprites
+    // static const for flash placement; we only write the optional pointers
+    // at init time, which does not modify the pixel data or palette contents.
+    {
+        static uint8_t sFloorAMinX[iso_dungeon::FLOOR_A_HEIGHT];
+        static uint8_t sFloorAMaxX[iso_dungeon::FLOOR_A_HEIGHT];
+        static uint8_t sFloorBMinX[iso_dungeon::FLOOR_B_HEIGHT];
+        static uint8_t sFloorBMaxX[iso_dungeon::FLOOR_B_HEIGHT];
+        static uint8_t sFloorAccentMinX[iso_dungeon::FLOOR_ACCENT_HEIGHT];
+        static uint8_t sFloorAccentMaxX[iso_dungeon::FLOOR_ACCENT_HEIGHT];
+        static uint8_t sWallMinX[iso_dungeon::WALL_HEIGHT];
+        static uint8_t sWallMaxX[iso_dungeon::WALL_HEIGHT];
+        static uint8_t sDoorNeMinX[iso_dungeon::DOOR_NE_HEIGHT];
+        static uint8_t sDoorNeMaxX[iso_dungeon::DOOR_NE_HEIGHT];
+        static uint8_t sDoorNwMinX[iso_dungeon::DOOR_NW_HEIGHT];
+        static uint8_t sDoorNwMaxX[iso_dungeon::DOOR_NW_HEIGHT];
+
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE),       sFloorAMinX,     sFloorAMaxX);
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE),       sFloorBMinX,     sFloorBMaxX);
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE),  sFloorAccentMinX,sFloorAccentMaxX);
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE),         sWallMinX,       sWallMaxX);
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE),       sDoorNeMinX,     sDoorNeMaxX);
+        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE),       sDoorNwMinX,     sDoorNwMaxX);
+
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE).rowMinX      = sFloorAMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE).rowMaxX      = sFloorAMaxX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE).rowMinX      = sFloorBMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE).rowMaxX      = sFloorBMaxX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE).rowMinX = sFloorAccentMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE).rowMaxX = sFloorAccentMaxX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE).rowMinX        = sWallMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE).rowMaxX        = sWallMaxX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE).rowMinX      = sDoorNeMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE).rowMaxX      = sDoorNeMaxX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMinX      = sDoorNwMinX;
+        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMaxX      = sDoorNwMaxX;
+    }
 
     // One palette for tiles and sprites alike: this dungeon has a single colour
     // scheme, so splitting it across background and sprite tables would buy
