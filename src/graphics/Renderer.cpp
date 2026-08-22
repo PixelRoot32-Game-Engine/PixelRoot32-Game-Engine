@@ -627,7 +627,15 @@ namespace pixelroot32::graphics {
                 const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
                 uint8_t* dstRow = fb8 ? (fb8 + logicalY * screenW) : nullptr;
 
-                for (int col = 0; col < sprite.width; ++col) {
+                int colStart = 0;
+                int colEnd = sprite.width;
+                if (!flipX && sprite.rowMinX != nullptr && sprite.rowMaxX != nullptr) {
+                    colStart = sprite.rowMinX[row];
+                    colEnd = sprite.rowMaxX[row];
+                    if (colStart > colEnd) colEnd = colStart;
+                }
+
+                for (int col = colStart; col < colEnd; ++col) {
                     const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
                     const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
                     const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
@@ -729,10 +737,35 @@ namespace pixelroot32::graphics {
 
                 const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
+                // Optional span limits: when both rowMinX/rowMaxX are non-null
+                // AND flipX is false, clamp the inner column range to skip
+                // leading/trailing transparent nibbles per row. flipX bypasses
+                // because the mirrored layout invalidates the precomputed min/max.
+                int colStart = 0;
+                int colEnd = sprite.width;
+                if (!flipX && sprite.rowMinX != nullptr && sprite.rowMaxX != nullptr) {
+                    colStart = sprite.rowMinX[row];
+                    colEnd = sprite.rowMaxX[row];
+                    if (colStart > colEnd) colEnd = colStart;  // empty row
+                }
+
                 if (fb8 && !flipX) {
                     uint8_t* dstRow = fb8 + logicalY * screenW;
-                    int col = 0;
-                    for (; col + 1 < sprite.width; col += 2) {
+                    int col = colStart;
+                    // Align to even for the paired-nibble loop when possible.
+                    if (col & 1) {
+                        const int byteIdx = col >> 1;
+                        const int bitOffset = (col & 1) << 2;
+                        const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                        if (val != 0) {
+                            const int lx = startX + col;
+                            if (lx >= 0 && lx < screenW) {
+                                dstRow[lx] = packedLUT[val];
+                            }
+                        }
+                        ++col;
+                    }
+                    for (; col + 1 < colEnd; col += 2) {
                         const uint8_t b = rowData[col >> 1];
                         const uint8_t v0 = b & 0x0F;
                         const uint8_t v1 = (b >> 4) & 0x0F;
@@ -745,7 +778,7 @@ namespace pixelroot32::graphics {
                             dstRow[lx1] = packedLUT[v1];
                         }
                     }
-                    if (col < sprite.width) {
+                    if (col < colEnd) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
@@ -758,7 +791,7 @@ namespace pixelroot32::graphics {
                     }
                 } else if (fb8) {
                     uint8_t* dstRow = fb8 + logicalY * screenW;
-                    for (int col = 0; col < sprite.width; ++col) {
+                    for (int col = colStart; col < colEnd; ++col) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
@@ -768,7 +801,7 @@ namespace pixelroot32::graphics {
                         dstRow[logicalX] = packedLUT[val];
                     }
                 } else {
-                    for (int col = 0; col < sprite.width; ++col) {
+                    for (int col = colStart; col < colEnd; ++col) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
