@@ -1433,8 +1433,8 @@ private:
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
     uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive;
 
-    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
-    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
+    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
 
     void ensureDirtyGridSized();
     void markDirtyLogicalRect(int x, int y, int w, int h);

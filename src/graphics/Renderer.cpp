@@ -590,7 +590,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUTParam) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -603,11 +603,19 @@ namespace pixelroot32::graphics {
             uint8_t* const fb8 = logicalFrameBuffer8;
 
             // Pack the palette once per sprite instead of once per pixel; see
-            // the 4bpp blit for the full rationale. Four entries here.
-            uint8_t packedLUT[4];
-            if (fb8) {
-                for (int i = 0; i < 4; ++i) {
-                    packedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+            // the 4bpp blit for the full rationale. Four entries here. The
+            // caller may pass a pre-packed LUT (e.g. from the projected loop's
+            // cache) via packedLUTParam to skip this conversion.
+            uint8_t localPackedLUT[4];
+            const uint8_t* packedLUT;
+            if (packedLUTParam != nullptr) {
+                packedLUT = packedLUTParam;
+            } else {
+                packedLUT = localPackedLUT;
+                if (fb8) {
+                    for (int i = 0; i < 4; ++i) {
+                        localPackedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                    }
                 }
             }
 
@@ -677,7 +685,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUTParam) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -699,10 +707,19 @@ namespace pixelroot32::graphics {
             //
             // Only the direct-framebuffer paths use this; the drawPixel
             // fallback below takes RGB565 and keeps reading paletteLUT.
-            uint8_t packedLUT[16];
-            if (fb8) {
-                for (int i = 0; i < 16; ++i) {
-                    packedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+            //
+            // The caller may pass a pre-packed LUT (e.g. from the projected
+            // loop's cache) via packedLUTParam to skip this conversion.
+            uint8_t localPackedLUT[16];
+            const uint8_t* packedLUT;
+            if (packedLUTParam != nullptr) {
+                packedLUT = packedLUTParam;
+            } else {
+                packedLUT = localPackedLUT;
+                if (fb8) {
+                    for (int i = 0; i < 16; ++i) {
+                        localPackedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                    }
                 }
             }
 
