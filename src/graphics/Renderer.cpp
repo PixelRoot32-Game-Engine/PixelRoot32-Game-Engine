@@ -1244,6 +1244,8 @@ namespace pixelroot32::graphics {
         // 16 entries); the format-specific tail below is what actually reads
         // and writes it.
         uint16_t cachedLUT[16];
+        uint8_t packedCachedLUT4bpp[16];  // mirrors cachedLUT[0..15] packed to 8bpp
+        uint8_t packedCachedLUT2bpp[4];   // mirrors cachedLUT[0..3] packed to 8bpp
         const Color* lastTilePalettePtr = nullptr;
         const uint16_t* lastBackgroundPalettePtr = nullptr;
 
@@ -1327,11 +1329,16 @@ namespace pixelroot32::graphics {
                         for (uint8_t i = paletteCount; i < 16; ++i) {
                             cachedLUT[i] = 0;
                         }
+                        // Build the 8bpp packed LUT atomically alongside cachedLUT
+                        // so a palette swap never leaves the two out of sync.
+                        for (uint8_t i = 0; i < 16; ++i) {
+                            packedCachedLUT4bpp[i] = packRgb565ToTftSprite8(cachedLUT[i]);
+                        }
                         lastTilePalettePtr = tile.palette;
                         lastBackgroundPalettePtr = palettePtr;
                     }
 
-                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false, packedCachedLUT4bpp);
                 }
 
                 if constexpr (std::is_same_v<TileT, Sprite2bpp>) {
@@ -1347,11 +1354,16 @@ namespace pixelroot32::graphics {
                         for (uint8_t i = paletteCount; i < 4; ++i) {
                             cachedLUT[i] = 0;
                         }
+                        // Build the 8bpp packed LUT atomically alongside cachedLUT
+                        // so a palette swap never leaves the two out of sync.
+                        for (uint8_t i = 0; i < 4; ++i) {
+                            packedCachedLUT2bpp[i] = packRgb565ToTftSprite8(cachedLUT[i]);
+                        }
                         lastTilePalettePtr = tile.palette;
                         lastBackgroundPalettePtr = palettePtr;
                     }
 
-                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false);
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false, packedCachedLUT2bpp);
                 }
 
                 if constexpr (std::is_same_v<TileT, Sprite>) {
