@@ -152,6 +152,14 @@ Ordered; all preserve the generic engine design (opt-in per layer/flag).
    (`Renderer.cpp:1247-1257`). Hoisting the 8bpp pack to that same cache level
    removes ~180 × 16 pack ops/frame.
 
+   **Status: implemented as change `iso-perf-blit-fastpath`.** A new optional
+   `packedLUT` parameter on `drawSpriteInternal` (4bpp + 2bpp) lets the
+   projected tilemap loop build the 8bpp table once at the cache-invalidation
+   boundary and pass it through. On cache hit (consecutive tiles share
+   palette), the per-call pack is skipped entirely. Two distinct arrays
+   (`packedCachedLUT4bpp[16]`, `packedCachedLUT2bpp[4]`) are selected by
+   `if constexpr` on `TileT` for zero runtime branch.
+
 ### P1 — the real CPU win, isometric-specific
 
 5. **Static ground + restore.** The ground layer is static; only the camera and
@@ -184,6 +192,18 @@ Ordered; all preserve the generic engine design (opt-in per layer/flag).
 6. **Span-limited 4bpp blit** — precompute per-row opaque `minX/maxX` per tile
    at load/export; skip leading/trailing transparent nibbles. ~50% fewer
    iterations for diamond tiles, generic for any 4bpp sprite with padding.
+
+   **Status: implemented as change `iso-perf-blit-fastpath`.** Optional
+   `rowMinX` / `rowMaxX` pointer fields on `Sprite4bpp` and `Sprite2bpp` carry
+   the per-row opaque span; `drawSpriteInternal` clamps the inner column
+   loop to `[rowMinX[row], rowMaxX[row])` when both are non-null and
+   `flipX == false`. `flipX` always bypasses span limits (mirrored layout
+   invalidates the precomputed min/max). New helper `computeSpanTable()`
+   populates caller-owned static buffers at init time — `iso_dungeon`
+   computes spans for all 6 of its tiles. Convex-row limitation: only
+   leading/trailing transparent runs are skipped; interior transparent
+   pixels still iterate. See
+   `openspec/changes/iso-perf-blit-fastpath/specs/sprite-blit-fastpath/spec.md`.
 
 ### P2 — only if needed (continuous scroll)
 
