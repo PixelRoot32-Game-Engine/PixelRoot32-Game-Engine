@@ -155,10 +155,12 @@ PlatformIO will automatically download and install the library and its dependenc
 
    ```bash
    git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
-   cd PixelRoot32-Game-Engine/examples/hello_world
+   cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`hello_world`, `sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `bomberbot`, `room_screen`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
+   Each folder (`sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
+
+   Three demos — `hello_world`, `bomberbot` and `room_screen` — live in the separate [pr32-demo-projects](https://github.com/PixelRoot32-Game-Engine/pr32-demo-projects) repository, where they build against the published engine package rather than this checkout. `hello_world` is still the recommended starting point.
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -191,6 +193,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
+- **[Demo Projects](https://github.com/PixelRoot32-Game-Engine/pr32-demo-projects)**: Standalone demos that build against the published engine package — start with `hello_world`.
 - **Camera Example**: Demonstrates camera effects, scene transitions, moving platforms, and scene management workflows.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.

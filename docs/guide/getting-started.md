@@ -49,8 +49,13 @@ cd PixelRoot32-Game-Engine
 Each example is a self-contained PlatformIO project under [`examples/`](../../examples/README.md).
 
 ```bash
-cd examples/hello_world
+cd examples/sprites
 ```
+
+The smallest project of all, `hello_world`, lives in the separate
+[pr32-demo-projects](https://github.com/PixelRoot32-Game-Engine/pr32-demo-projects)
+repository together with `bomberbot` and `room_screen`. Those build against the
+published engine package, so they work without cloning the engine at all.
 
 ## Configure PlatformIO
 

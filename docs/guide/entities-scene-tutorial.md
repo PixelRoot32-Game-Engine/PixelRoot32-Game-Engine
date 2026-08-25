@@ -1,6 +1,6 @@
 # Entities & scene tutorial
 
-> **Not an `examples/` project** — This page is a **didactic walkthrough** (bouncing entities, `Entity` subclass, scene wiring). There is **no** matching folder under [`examples/`](../../examples/README.md) with this code. For a **real, minimal** PlatformIO project, start with [`hello_world`](../../examples/hello_world/) and its README.
+> **Not an `examples/` project** — This page is a **didactic walkthrough** (bouncing entities, `Entity` subclass, scene wiring). There is **no** matching folder under [`examples/`](../../examples/README.md) with this code. For a **real, minimal** PlatformIO project, start with [`hello_world`](https://github.com/PixelRoot32-Game-Engine/pr32-demo-projects/tree/main/getting_started/hello_world) in the demo projects repository and its README.
 
 The snippets below illustrate fundamentals: scene lifecycle, custom **`Entity`** subclasses, input, and drawing — useful once you have already opened **`hello_world`** in the repo.
 
