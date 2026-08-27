@@ -25,15 +25,25 @@ function, enum or template parameter anywhere in the engine. Point
 `kTileProjection` at `{0, 0, 16, 0, 0, 16}` and this example becomes a
 top-down board game with no other edit.
 
-## Requirements (build flags)
+## Build flags
+
+The feature flags as set in `lib/platformio.ini`. The `=1` entries are required
+for the example to work as described; the `=0` entries are deliberately off to
+save Flash/RAM.
 
 | Flag | Why |
 |---|---|
+| `PIXELROOT32_ENABLE_AUDIO=1` | On in the shared base profile so the platform stub can instantiate its `SDL2_AudioBackend`. The example emits no sound. |
+| `PIXELROOT32_ENABLE_PARTICLES=0` | No particles. Disabled to save Flash/RAM. |
+| `PIXELROOT32_ENABLE_PHYSICS=0` | Movement is tile-based (`GridMotion`), not physics. Disabled to save Flash/RAM. |
+| `PIXELROOT32_ENABLE_UI_SYSTEM=0` | No menus or HUD. Disabled to save Flash/RAM. |
 | `PIXELROOT32_ENABLE_PROJECTION=1` | `Projection.h`. Without it the header compiles to nothing and the room has no geometry at all. |
+| `PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1` | `Renderer::drawTileMap`'s projected overload. The floor's diamonds are placed by one `drawTileMap` call instead of 49 hand-rolled `drawSprite` calls. Requires `PROJECTION=1`. |
 | `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `Entity::depthKey` and `gameplay::compareByDepthKey`. Off, entities draw in insertion order and the occlusion is simply wrong half the time. |
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `gameplay::GridMotion`. This example declares no `GridSpec` at all, but `GridMotion` shares the grid flag rather than taking one of its own — see below. |
-| `PIXELROOT32_ENABLE_4BPP_SPRITES=1` | The art is 4bpp on a custom 16-colour palette. Not cosmetic: the engine gates its 4bpp draw paths with `if constexpr`, so building without it is not an error, it is a black screen. |
 | `PIXELROOT32_ENABLE_GAMEPLAY_ROOM=1` | `gameplay::RoomGraph`. Holds which door leads where, the current room index, and the `onEnter` callback the whole transition hangs off. |
+| `PIXELROOT32_ENABLE_2BPP_SPRITES=0` | The art is 4bpp; the 2bpp draw paths stay compiled out. |
+| `PIXELROOT32_ENABLE_4BPP_SPRITES=1` | The art is 4bpp on a custom 16-colour palette. Not cosmetic: the engine gates its 4bpp draw paths with `if constexpr`, so building without it is not an error, it is a black screen. |
 | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` | Caches the drawn room so a static floor costs one memcpy per frame instead of 49 sprite blits. |
 | `PIXELROOT32_ENABLE_DIRTY_REGIONS=1` | Narrows that restore to the cells last frame's movers disturbed. Without it the snapshot still works, it just restores the whole 57,600 B buffer. |
 
@@ -194,27 +204,24 @@ The props stay outside the snapshot on purpose. They are captured neither with
 the room nor after it: the hero walks both behind and in front of the altar, so
 they have to keep taking part in the per-frame depth sort.
 
-**The span-limited blit is native-only for now.** The tiles are diamond-shaped:
-a 32×16 floor bitmap whose top and bottom rows are almost entirely transparent
-padding, yet `drawSpriteInternal` decodes every one of the 512 nibbles. `init()`
-builds a per-row opaque span for each of the six tiles via `computeSpanTable`,
-which records the first and last opaque column of every row so the blit can
-skip the leading and trailing transparent nibbles. The span buffers are
-`static` so the `rowMinX`/`rowMaxX` pointers they feed stay valid for the
-program's lifetime, and `computeSpanTable` reads the pixel data through
+**The span-limited blit copies descriptors, it never casts.** The tiles are
+diamond-shaped: a 32×16 floor bitmap whose top and bottom rows are almost
+entirely transparent padding, yet `drawSpriteInternal` decodes every one of the
+512 nibbles. `init()` builds a per-row opaque span for each tileset entry via
+`computeSpanTable`, which records the first and last opaque column of every row
+so the blit can skip the leading and trailing transparent nibbles.
+
+The exported `TILESET_SPRITES` are `const` and, on ESP32,
+`PIXELROOT32_SCENE_FLASH_ATTR`, so `rowMinX`/`rowMaxX` cannot be written back
+into them — that write is undefined behaviour on every target: a LoadStoreError
+on ESP32, an access violation on Windows (the const objects land in read-only
+`.rdata`). `init()` therefore copies the descriptors into a static RAM array,
+computes the spans there, and repoints each room's `tiles` at the RAM copies.
+The pixel data stays where it is; only the descriptors move. The span buffers
+and the descriptor copies are `static` so the pointers they feed stay valid for
+the program's lifetime, and `computeSpanTable` reads the pixel data through
 `PIXELROOT32_READ_BYTE_P` (`pgm_read_byte` on ESP32), so reading flash-resident
 art is safe on every target.
-
-The `#if !defined(ESP32)` around that wiring is the price of the export
-contract, not a shortcut. `DungeonTiles.h` declares the sprites `static const`,
-which the linker may place in flash on ESP32, and writing `rowMinX`/`rowMaxX`
-back through a `const_cast` is undefined behaviour there — a LoadStoreError on
-the first draw. On native the descriptors live in writable RAM, so the cast is
-well-defined and the optimisation runs; on ESP32 it is simply skipped and the
-full-bbox blit is preserved, which is correct, not a fallback. Re-enabling it
-on ESP32 means changing the six `static const Sprite4bpp` declarations in
-`DungeonTiles.h` to `static Sprite4bpp`, which moves the descriptors into RAM —
-an asset-header change, not an engine one.
 
 **Standing still costs nothing.** `shouldRedrawFramebuffer()` reports whether
 the hero would draw differently from the frame already on the panel, and the
