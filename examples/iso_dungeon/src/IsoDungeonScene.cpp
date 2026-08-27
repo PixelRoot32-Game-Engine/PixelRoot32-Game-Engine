@@ -5,7 +5,6 @@
 #include "graphics/Color.h"
 #include "graphics/SpanTable.h"
 #include "platforms/PlatformMemory.h"
-#include "assets/DungeonTiles.h"
 #include "assets/IsoDungeonRoomTileMap.h"
 #include "assets/IsoDungeonRoomTileMapPalette.h"
 
@@ -30,54 +29,35 @@ void IsoDungeonScene::init() {
     // can skip leading/trailing transparent nibbles inside the projected
     // tilemap loop (change iso-perf-blit-fastpath).
     //
-    // Native (PC/SDL2): the Sprite4bpp descriptors live in writable RAM, so
-    // we can const_cast and assign the span pointers in place.
-    //
-    // ESP32: the Sprite4bpp descriptors in DungeonTiles.h may be placed in
-    // flash by the linker. Writing rowMinX/rowMaxX back to them is UB and
-    // triggers a LoadStoreError panic on first draw. The optimization is
-    // therefore gated off on ESP32. To re-enable it, change `static const`
-    // to `static` in DungeonTiles.h's Sprite4bpp declarations (the linker
-    // then places them in RAM).
+    // The exported tileset descriptors (TILESET_SPRITES) are `const` and, on
+    // ESP32, PIXELROOT32_SCENE_FLASH_ATTR -- so writing rowMinX/rowMaxX back
+    // into them is UB on every target: a LoadStoreError on ESP32, an access
+    // violation on Windows (the const objects land in read-only .rdata).
+    // Copy the descriptors into RAM instead, compute each tile's span there,
+    // and repoint every room's tileset at the RAM copies. The pixel data
+    // itself stays where it is; only the descriptors move.
     //
     // computeSpanTable reads pixel data via PIXELROOT32_READ_BYTE_P which
     // expands to pgm_read_byte on ESP32, so reading is safe on both targets.
-#if !defined(ESP32)
     {
-        static uint8_t sFloorAMinX[iso_dungeon::FLOOR_A_HEIGHT];
-        static uint8_t sFloorAMaxX[iso_dungeon::FLOOR_A_HEIGHT];
-        static uint8_t sFloorBMinX[iso_dungeon::FLOOR_B_HEIGHT];
-        static uint8_t sFloorBMaxX[iso_dungeon::FLOOR_B_HEIGHT];
-        static uint8_t sFloorAccentMinX[iso_dungeon::FLOOR_ACCENT_HEIGHT];
-        static uint8_t sFloorAccentMaxX[iso_dungeon::FLOOR_ACCENT_HEIGHT];
-        static uint8_t sWallMinX[iso_dungeon::WALL_HEIGHT];
-        static uint8_t sWallMaxX[iso_dungeon::WALL_HEIGHT];
-        static uint8_t sDoorNeMinX[iso_dungeon::DOOR_NE_HEIGHT];
-        static uint8_t sDoorNeMaxX[iso_dungeon::DOOR_NE_HEIGHT];
-        static uint8_t sDoorNwMinX[iso_dungeon::DOOR_NW_HEIGHT];
-        static uint8_t sDoorNwMaxX[iso_dungeon::DOOR_NW_HEIGHT];
+        // Tallest exported tile is the 40-px wall/door extrusion; floors are 16.
+        constexpr int kMaxTileHeight = 40;
 
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE),       sFloorAMinX,     sFloorAMaxX);
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE),       sFloorBMinX,     sFloorBMaxX);
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE),  sFloorAccentMinX,sFloorAccentMaxX);
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE),         sWallMinX,       sWallMaxX);
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE),       sDoorNeMinX,     sDoorNeMaxX);
-        pr32::graphics::computeSpanTable(const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE),       sDoorNwMinX,     sDoorNwMaxX);
+        static gfx::Sprite4bpp tilesetRam[TILESET_TILE_COUNT];
+        static uint8_t spanMinX[TILESET_TILE_COUNT][kMaxTileHeight];
+        static uint8_t spanMaxX[TILESET_TILE_COUNT][kMaxTileHeight];
 
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE).rowMinX      = sFloorAMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_A_SPRITE).rowMaxX      = sFloorAMaxX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE).rowMinX      = sFloorBMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_B_SPRITE).rowMaxX      = sFloorBMaxX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE).rowMinX = sFloorAccentMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::FLOOR_ACCENT_SPRITE).rowMaxX = sFloorAccentMaxX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE).rowMinX        = sWallMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::WALL_SPRITE).rowMaxX        = sWallMaxX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE).rowMinX      = sDoorNeMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NE_SPRITE).rowMaxX      = sDoorNeMaxX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMinX      = sDoorNwMinX;
-        const_cast<pr32::graphics::Sprite4bpp&>(iso_dungeon::DOOR_NW_SPRITE).rowMaxX      = sDoorNwMaxX;
+        for (int i = 0; i < TILESET_TILE_COUNT; ++i) {
+            tilesetRam[i] = TILESET_SPRITES[i];
+            gfx::computeSpanTable(tilesetRam[i], spanMinX[i], spanMaxX[i]);
+            tilesetRam[i].rowMinX = spanMinX[i];
+            tilesetRam[i].rowMaxX = spanMaxX[i];
+        }
+
+        for (int r = 0; r < NUM_ROOM_LAYERS; ++r) {
+            ROOM_LAYERS[r]->tiles = tilesetRam;
+        }
     }
-#endif  // !ESP32
 
     // One palette for tiles and sprites alike: this dungeon has a single colour
     // scheme, so splitting it across background and sprite tables would buy
