@@ -1,8 +1,8 @@
 # Entities & scene tutorial
 
-> **Not an `examples/` project** — This page is a **didactic walkthrough** (bouncing entities, `Entity` subclass, scene wiring). There is **no** matching folder under [`examples/`](../../examples/README.md) with this code. For a **real, minimal** PlatformIO project, start with [`hello_world`](../../examples/hello_world/) and its README.
+> **Not an `examples/` project** — This page is a **didactic walkthrough** (bouncing entities, `Entity` subclass, scene wiring). There is **no** matching folder under [`examples/`](../../examples/README.md) with this code. For a **real, minimal** PlatformIO project, start with [`sprites`](../../examples/sprites/) and its README.
 
-The snippets below illustrate fundamentals: scene lifecycle, custom **`Entity`** subclasses, input, and drawing — useful once you have already opened **`hello_world`** in the repo.
+The snippets below illustrate fundamentals: scene lifecycle, custom **`Entity`** subclasses, input, and drawing — useful once you have already opened **`sprites`** in the repo.
 
 ## Complete Source
 

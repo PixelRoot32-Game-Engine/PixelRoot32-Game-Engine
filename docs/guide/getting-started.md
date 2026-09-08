@@ -49,7 +49,7 @@ cd PixelRoot32-Game-Engine
 Each example is a self-contained PlatformIO project under [`examples/`](../../examples/README.md).
 
 ```bash
-cd examples/hello_world
+cd examples/sprites
 ```
 
 ## Configure PlatformIO
