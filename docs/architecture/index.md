@@ -124,7 +124,7 @@ The engine also provides **`pixelroot32::graphics::StaticLayerSnapshot`** (`incl
 - **Allocation:** `allocateForLogicalSize` / `allocateForRenderer` in `Scene::init()`
 - **Opt-in:** build flag `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1` (default `0`)
 - **Cost:** one logical framebuffer of heap per allocating scene (~57 KB at 240×240)
-- **Example:** `examples/iso_dungeon` — `RoomRenderer`
+- **Example:** [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) — `RoomRenderer` (PixelRoot32-Demo-Projects)
 
 **Game / scene developer contract:**
 

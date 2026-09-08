@@ -56,7 +56,7 @@ Every entry point degrades to "unavailable" rather than failing: no buffer, a fa
 
 > **Correctness note:** `beginFrame()` sometimes clears the *entire* framebuffer — when the dirty grid is fully dirty, or when nothing moved on the previous frame. A per-cell restore after that would leave the static layers black outside the dirtied cells, so `Renderer` records whether its clear was selective and the snapshot falls back to a full copy when it was not.
 
-Reference consumer: `examples/iso_dungeon`.
+Reference consumer: [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) in PixelRoot32-Demo-Projects.
 
 ## Key Concepts
 
