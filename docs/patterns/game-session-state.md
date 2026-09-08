@@ -13,11 +13,20 @@ placeholder for "not yet".
 
 ## Why there is no engine class
 
-At first glance several examples look like they repeat the same trio — `int
+At first glance several projects look like they repeat the same trio — `int
 score; int lives; bool gameOver;` — which reads as an obvious candidate for a
-small reusable class. Checked against all 13 examples under `examples/`, that
-impression does not survive: the overlap is much thinner than it looks, and
-the shapes that do exist are actively incompatible with each other.
+small reusable class. Checked against all thirteen projects that were then
+under `examples/`, that impression does not survive: the overlap is much
+thinner than it looks, and the shapes that do exist are actively incompatible
+with each other.
+
+> **Where this evidence lives now.** The games cited below — `2048`,
+> `flappy_bird` and `midway_clone` — have since moved out of this
+> repository's `examples/` into
+> [PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main), under `games/`. The code and the argument
+> are unchanged; only the address is. Paths are written relative to that
+> repository from here on. The engine's own `examples/` now holds five minimal
+> capability examples, none of which is a game.
 
 ### `score`, `lives`, and `gameOver` are not one recurring shape — they are three
 
@@ -37,13 +46,13 @@ A health/lives concept doesn't even apply the same way to every genre.
 
 ### `gameOver` itself has three mutually incompatible shapes
 
-1. **A bare `bool`.** `2048/src/Game2048Logic.h` declares
+1. **A bare `bool`.** `games/2048/src/Game2048Logic.h` declares
    `bool gameOver = false;` directly. Binary: the game either has ended or it
    hasn't.
 
 2. **One value inside a 3-state flow enum.** `flappy_bird` has no bare
    `gameOver` field at all. Instead, `GameState` in
-   `examples/flappy_bird/src/FlappyBirdConstants.h:12-16` is:
+   `games/flappy_bird/src/FlappyBirdConstants.h:12-16` is:
 
    ```cpp
    enum class GameState {
@@ -57,7 +66,7 @@ A health/lives concept doesn't even apply the same way to every genre.
    flag layered on top of "playing."
 
 3. **Two distinct endings flattened into one predicate.**
-   `examples/midway_clone/src/MidwayScene.h:149` declares:
+   `games/midway_clone/src/MidwayScene.h:149` declares:
 
    ```cpp
    bool isTerminal() const { return lives_ <= 0 || stageComplete_; }
@@ -69,7 +78,7 @@ A health/lives concept doesn't even apply the same way to every genre.
    the outcome. Either choice is wrong for one of the games above.
 
    The same tension shows up *inside* a single example.
-   `examples/2048/src/Game2048Logic.h:43-44` declares both:
+   `games/2048/src/Game2048Logic.h:43-44` declares both:
 
    ```cpp
    bool gameOver = false;
@@ -91,7 +100,7 @@ and by definition would be wrong for at least two of the three.
 
 `2048` tracks both `score` and `gameOver`, but neither field lives on the
 `Scene`. Both are members of `Game2048Logic`
-(`examples/2048/src/Game2048Logic.h:41,43`) — a plain domain-logic class the
+(`games/2048/src/Game2048Logic.h:41,43`) — a plain domain-logic class the
 scene owns and queries via `getScore()` / `isGameOver()`. A `Scene`-attached
 tracker — the most natural shape for such a class — would not even have
 anywhere to attach in this example, because the scene is deliberately a thin
@@ -164,7 +173,7 @@ public:
 };
 ```
 
-This is exactly what `examples/midway_clone/src/MidwayScene.h` already does,
+This is exactly what `games/midway_clone/src/MidwayScene.h` already does,
 with its `score_`, `lives_` and `isTerminal()` sitting directly on the scene. Nothing about
 this is a workaround — it is the right amount of structure for two fields
 and a flag that are meaningful only to that one game.
@@ -195,8 +204,8 @@ private:
 };
 ```
 
-This is `examples/2048/src/Game2048Logic.h` and
-`examples/2048/src/Game2048Scene.h` as they exist today, and it's the
+This is `games/2048/src/Game2048Logic.h` and
+`games/2048/src/Game2048Scene.h` as they exist today, and it's the
 pattern to reach for once "is the game over" stops being a single boolean
 question — 2048's own answer depends on whether any tile can still merge,
 which is exactly the kind of per-game rule a shared engine class could never

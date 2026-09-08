@@ -190,7 +190,8 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
+- **[Examples](examples/)**: Five minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
 - **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.

@@ -1,6 +1,20 @@
 # PixelRoot32 — Examples
 
-Self-contained **[PlatformIO](https://platformio.org/)** projects that show how to use the engine on **PC (SDL2)** and **ESP32-class boards**. Each folder has its own **`platformio.ini`**, **`src/`** entry point, and **`README.md`** with build flags, supported environments, and documentation links.
+**Five small, single-idea projects.** Each one exists to show one capability of
+the engine clearly enough to copy, and stops there.
+
+> **Looking for a game?** These are not games. Complete games, and per-topic
+> demos for audio, UI, input, gameplay systems and performance, live in
+> [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main). That repository is where a project
+> grows; this one is where a capability is explained. If you came here for
+> something bigger than a single feature, go there — and see
+> [Where the bigger projects went](#where-the-bigger-projects-went) if you are
+> following an old link.
+
+Each folder is a self-contained **[PlatformIO](https://platformio.org/)** project
+that builds on **PC (SDL2)** and on **ESP32-class boards**, with its own
+**`platformio.ini`**, **`src/`** entry point, and **`README.md`** covering build
+flags, supported environments and documentation links.
 
 **Typical workflow:** open a project folder in PlatformIO (or run CLI from that folder), pick an environment (`native`, `esp32dev`, etc.), then:
 
@@ -32,8 +46,27 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 4. **physics** — bodies, sensors, touch, area queries.  
 5. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
 
-For **complete games**, and for audio, UI, input, performance and gameplay topics
-with a demo each, see [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main).
+## Where the bigger projects went
+
+This catalogue used to list thirteen projects, most of them complete games. They
+were **not deleted** — they moved to
+[**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main), which is built for projects that keep
+growing. If you followed a link here, this table is where it now points:
+
+| Was | Now |
+| --- | --- |
+| `examples/2048` | [`games/2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048) |
+| `examples/bomberbot` | [`games/bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot) |
+| `examples/flappy_bird` | [`games/flappy_bird`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/flappy_bird) |
+| `examples/legend_of_clone` | [`games/legend_of_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/legend_of_clone) |
+| `examples/midway_clone` | [`games/midway_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/midway_clone) |
+| `examples/metroidvania` | [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| `examples/iso_dungeon` | [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) |
+| `examples/music-demo` | [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) |
+
+`flappy_bird` and `music-demo` were also the only `esp32c3` examples here. That
+coverage is now [mono_oled](mono_oled/), written for it deliberately rather than
+inherited from a game.
 
 > **Display drivers.** `PIXELROOT32_USE_U8G2` selects `U8G2_Drawer` for
 > monochrome panels; without it, ESP32 builds default to TFT_eSPI. Only
