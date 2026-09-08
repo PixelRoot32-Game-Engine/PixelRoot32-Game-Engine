@@ -351,4 +351,4 @@ void onUnconsumedTouchEvent(const input::TouchEvent& event) override {
 - **[Samples index](../../examples/README.md)** — Real folders under `examples/`
 - **[Physics (`physics`)](../../examples/physics/README.md)** — Collision and actors
 - **[Sprites (`sprites`)](../../examples/sprites/README.md)** — Sprite graphics
-- **Audio** — See [`music-demo`](../../examples/music-demo/README.md), [`2048`](../../examples/2048/README.md)
+- **Audio** — See [`2048`](../../examples/2048/README.md), and [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) in Demo-Projects

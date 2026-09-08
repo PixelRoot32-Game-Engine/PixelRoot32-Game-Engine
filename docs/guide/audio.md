@@ -115,7 +115,7 @@ Point optional **`MusicTrack`** pointers from the **main** track: **`secondVoice
 
 ### Example project
 
-The engine’s **`music-demo`** sample showcases **multi-track** arrangements, **instrument presets**, and melodies: [`examples/music-demo`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/examples/music-demo) (PlatformIO). Also see **`2048`** for lighter music use ([2048](/examples/2048)).
+The **`music_sequencer`** demo showcases **multi-track** arrangements, **instrument presets**, and live transport: [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) in **PixelRoot32-Demo-Projects**. Its `src/assets/songs/` also carries four complete exported pieces. For effect playback see [`audio/sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank); for lighter in-game music use see **`2048`** ([2048](/examples/2048)).
 
 ```cpp
 #include <audio/MusicPlayer.h>

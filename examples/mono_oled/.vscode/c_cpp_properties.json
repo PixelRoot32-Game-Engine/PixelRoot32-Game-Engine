@@ -1,0 +1,62 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "C:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include",
+                "C:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/src",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-APU/include",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-APU/src",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/src",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/include",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-Game-Engine/include",
+                "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-Game-Engine/src",
+                "C:/msys64/mingw64/include",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "C:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/include",
+                    "C:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/src",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-APU/include",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-APU/src",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/src",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/include",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-Game-Engine/include",
+                    "c:/Users/gperez88/Documents/Proyects/Games/pixelroot32 workspace/PixelRoot32-Game-Samples/lib/PixelRoot32-Game-Engine/examples/mono_oled/.pio/libdeps/native/PixelRoot32-Game-Engine/src",
+                    "C:/msys64/mingw64/include",
+                    ""
+                ]
+            },
+            "defines": [
+                "PLATFORMIO=60200",
+                "PIXELROOT32_ENABLE_AUDIO=0",
+                "PIXELROOT32_ENABLE_PARTICLES=0",
+                "PIXELROOT32_ENABLE_PHYSICS=0",
+                "PIXELROOT32_ENABLE_UI_SYSTEM=0",
+                "PLATFORM_NATIVE",
+                "SDL_MAIN_HANDLED",
+                "PHYSICAL_DISPLAY_WIDTH=128",
+                "PHYSICAL_DISPLAY_HEIGHT=64",
+                "X_OFF_SET=28",
+                "Y_OFF_SET=24",
+                "LOGICAL_WIDTH=72",
+                "LOGICAL_HEIGHT=40",
+                ""
+            ],
+            "cppStandard": "gnu++17",
+            "compilerPath": "C:/msys64/mingw64/bin/gcc.exe",
+            "compilerArgs": [
+                "-mconsole",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}
