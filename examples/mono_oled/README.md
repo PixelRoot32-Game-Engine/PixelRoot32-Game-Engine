@@ -133,8 +133,8 @@ Use `native` for layout and logic. Use the hardware to check the display.
 > **Status:** `esp32c3` is verified — it builds, links, and runs on a DFRobot
 > Beetle ESP32-C3. The `native` environment is **not** verified: it does not
 > currently build on the development machine this example was written on
-> (MSYS2/MinGW on Windows). The failure is not specific to this example —
-> `examples/flappy_bird` fails identically, and so does the compile of
+> (MSYS2/MinGW on Windows). The failure is not specific to this example — it
+> reproduces on every example in the repository, and on the compile of
 > `ApuCore.cpp` from the PixelRoot32-APU dependency, which no example owns.
 > Treat the native target here as untested until that toolchain problem is
 > fixed.

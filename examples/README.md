@@ -23,11 +23,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
 | [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing, **interaction triggers** + **gameplay event bus** on sensor pickups | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
-| [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
-| [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
 | [iso_dungeon](iso_dungeon/) | **Isometric dungeon** built on a generic `ProjectionSpec`: exact tile-to-tile movement via `GridMotion` + the projection overload of `interpolatedWorld`, **projection-aware depth sorting** (`compareByDepthKey`) so the hero passes behind and in front of the altar, row-major painter's order with no sort, **three rooms connected by a `RoomGraph`** whose catalog validates itself with `static_assert`, programmatically generated 4bpp iso art | `native`, `esp32dev` |
-| [midway_clone](midway_clone/) | **Clone of Midway** — vertically scrolling shooter: a camera driven **every frame**, `ObjectPool` bullets/enemies/explosions, camera-keyed wave table, sprite-vs-sprite AABB with physics off, and a measured look at what a moving camera costs `StaticTilemapLayerCache` (spoiler: less than the unconditional full-frame SPI push) | `native`, `esp32dev` |
-| [legend_of_clone](legend_of_clone/) | **The Legend of Clone** — 8-bit-style **screen-by-screen overworld and dungeon**: two scenes over a shared room-grid base, scrolling room transitions with input lockout, `triggerTransition` fade between scenes, exported flash-resident 4bpp tilemaps + `StaticTilemapLayerCache`, dual palette mode, and **selectable tile collision** — whole-tile, per-pixel, or per-pixel with erosion via `isTilePixelSolid` | `native`, `esp32dev` |
 
 
 ## Suggested learning order
@@ -36,14 +32,15 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 2. **camera** — scrolling, parallax, camera effects and tweens.  
 3. **animated_tilemap** or **metroidvania** — tilemaps and caching (read **animated_tilemap** for the fullest tilemap write-up).  
 4. **physics** — bodies, sensors, touch, area queries.  
-5. **2048** — **audio** (SFX events). **flappy_bird** — physics + OLED on a 72x40 logical screen, no audio subsystem. For the **multi-track sequencer**, see [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) in Demo-Projects.  
-6. **midway_clone** — where the frame budget actually goes on an ESP32. Read it after step 3: it is the counter-example to the tilemap cache, and it shows how to measure rather than guess.  
-7. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
+5. **iso_dungeon** — projection, grid motion and projection-aware depth sorting.  
+6. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
+
+For **complete games**, and for audio, UI, input, performance and gameplay topics
+with a demo each, see [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main).
 
 > **Display drivers.** `PIXELROOT32_USE_U8G2` selects `U8G2_Drawer` for
 > monochrome panels; without it, ESP32 builds default to TFT_eSPI. Only
-> [mono_oled](mono_oled/) and [flappy_bird](flappy_bird/) set it, and they are
-> also the only `esp32c3` examples. This flag is not part of the
+> [mono_oled](mono_oled/) sets it, and it is also the only `esp32c3` example. This flag is not part of the
 > `PIXELROOT32_ENABLE_*` family below.
 
 ## Where each opt-in capability is demonstrated
@@ -54,11 +51,11 @@ want to see a capability in use:
 
 | Capability | Flag | Example |
 |---|---|---|
-| Grid space / motion | `GAMEPLAY_GRID_SPACE` | [2048](2048/), [iso_dungeon](iso_dungeon/) |
-| State machine | `GAMEPLAY_STATE_MACHINE` | [flappy_bird](flappy_bird/), [metroidvania](metroidvania/) |
-| Object pool | `GAMEPLAY_OBJECT_POOL` | [midway_clone](midway_clone/) |
-| Room graph | `GAMEPLAY_ROOM` | [iso_dungeon](iso_dungeon/), [legend_of_clone](legend_of_clone/) |
-| Per-pixel tile collision | *(always on)* | [legend_of_clone](legend_of_clone/) |
+| Grid space / motion | `GAMEPLAY_GRID_SPACE` | [iso_dungeon](iso_dungeon/) |
+| State machine | `GAMEPLAY_STATE_MACHINE` | [metroidvania](metroidvania/) |
+| Object pool | `GAMEPLAY_OBJECT_POOL` | *(Demo-Projects: [`gameplay/object_pool`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/object_pool))* |
+| Room graph | `GAMEPLAY_ROOM` | [iso_dungeon](iso_dungeon/) |
+| Per-pixel tile collision | *(always on)* | *(Demo-Projects: [`gameplay/room_screen`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/room_screen))* |
 | Gameplay event bus | `GAMEPLAY_EVENTS` | [metroidvania](metroidvania/) |
 | Interaction triggers | `INTERACTION_TRIGGERS` | [metroidvania](metroidvania/) |
 | Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
@@ -77,10 +74,8 @@ Every flag above except the last takes the `PIXELROOT32_ENABLE_` prefix.
 
 - **12-bit colour wire format.** `PIXELROOT32_TFT_12BIT_COLOR` is not part of the
   `PIXELROOT32_ENABLE_*` family; it is a `TFT_eSPI_Drawer` option that defaults
-  to `0` in [`PlatformDefaults.h`](../include/platforms/PlatformDefaults.h). The
-  only reference to it in this tree is a **commented-out** line in
-  [midway_clone](midway_clone/)'s `platformio.ini`, so no example builds with it
-  on.
+  to `0` in [`PlatformDefaults.h`](../include/platforms/PlatformDefaults.h).
+  Nothing in this repository or in Demo-Projects switches it on.
 
 > **Note on the projection flag.** The capability is `PIXELROOT32_ENABLE_PROJECTION`.
 > The older name `PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION` was renamed and now
