@@ -191,7 +191,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ### Local Reference
 
 - **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
-- **Camera Example**: Demonstrates camera effects, scene transitions, moving platforms, and scene management workflows.
+- **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.

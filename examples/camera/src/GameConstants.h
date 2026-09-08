@@ -12,7 +12,6 @@ namespace camerademo {
 constexpr int TILE_SIZE = 8;
 constexpr int TILEMAP_WIDTH = (DISPLAY_WIDTH * 3) / TILE_SIZE;
 constexpr int TILEMAP_HEIGHT = DISPLAY_HEIGHT / TILE_SIZE;
-constexpr int PLATFORM_COUNT = 3;
 constexpr int PLATFORM_VISUAL_OFFSET = 2;
 
 constexpr float PLAYER_GRAVITY = 400.0f;
