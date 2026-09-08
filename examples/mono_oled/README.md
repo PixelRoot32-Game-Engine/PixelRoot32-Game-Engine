@@ -130,12 +130,14 @@ scene therefore draws in `Color::White` only.
 
 Use `native` for layout and logic. Use the hardware to check the display.
 
-> **Status:** the `native` environment does not currently build on this
-> development machine (MSYS2/MinGW on Windows). The failure is not specific to
-> this example — `examples/flappy_bird` fails identically, and so does the
-> compile of `ApuCore.cpp` from the PixelRoot32-APU dependency, which no
-> example owns. `esp32c3` builds and links clean. Treat the native environment
-> here as unverified until that toolchain problem is fixed.
+> **Status:** `esp32c3` is verified — it builds, links, and runs on a DFRobot
+> Beetle ESP32-C3. The `native` environment is **not** verified: it does not
+> currently build on the development machine this example was written on
+> (MSYS2/MinGW on Windows). The failure is not specific to this example —
+> `examples/flappy_bird` fails identically, and so does the compile of
+> `ApuCore.cpp` from the PixelRoot32-APU dependency, which no example owns.
+> Treat the native target here as untested until that toolchain problem is
+> fixed.
 
 ## Documentation links
 
