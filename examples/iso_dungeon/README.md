@@ -273,10 +273,13 @@ in the shape the PixelRoot32 Tilemap Editor emits:
 
 That is the same three-file shape as the real editor output in
 [`examples/metroidvania`](../metroidvania/src/assets/), which is orthogonal.
-Read the two side by side: this example exists to make the difference concrete,
-because **the generator cannot emit an isometric map today**. It writes one
-`TILE_SIZE` into both `tileWidth` and `tileHeight`, has no foot table, and has
-no projection.
+Read the two side by side: this example exists to make the difference concrete.
+
+**The Tool Suite emits this shape.** Its tilemap exporter has an isometric
+projection mode that writes `ISO_PROJECTION` with its validity, determinant and
+paint-order `static_assert`s, a separate `TILE_WIDTH`/`TILE_HEIGHT` cell stride,
+and `TILESET_FOOT_Y` — all as `inline constexpr`. The list below is therefore
+the *contract* an isometric export satisfies, not a wish list.
 
 Four things an isometric export needs that the orthogonal one does not:
 
