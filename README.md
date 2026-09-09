@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="256"/>
-</p>
+![PixelRoot32 Banner](assets/pr32_banner.png "PixelRoot32 Banner")
 
 <h1 align="center">PixelRoot32 Game Engine</h1>
 
@@ -65,7 +63,7 @@ At its core, the engine is built around a few simple ideas:
 
 Watch PixelRoot32 running on ESP32 with example games:
 
-[![PixelRoot32 Demo](https://img.youtube.com/vi/55_Jwkx-gPs/0.jpg)](https://www.youtube.com/shorts/55_Jwkx-gPs)
+[![PixelRoot32 Demo](assets/video-thumb.png)](https://youtu.be/WErteZxaBZw)
 
 > Click the image to watch the full demo on YouTube.  
 

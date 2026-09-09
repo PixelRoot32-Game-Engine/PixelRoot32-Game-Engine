@@ -168,6 +168,15 @@ constexpr int cellToScreenY(int cellX, int cellY, const ProjectionSpec& spec) {
  *       validated against +/-32767 (see projectionSpecIsValid()) and axis
  *       components being tile half-sizes, the products are bounded by roughly
  *       2^22 and their difference by 2^23.
+ *
+ * @warning **No shipped project calls this.** The forward direction
+ *          (cellToScreenX()/cellToScreenY()) is exercised every frame by the
+ *          isometric demos; the inverse is covered by unit tests and nothing
+ *          else — including the floor-toward-negative-infinity path described
+ *          above, which is the part a naive `/` gets wrong. The tests are
+ *          thorough and the arithmetic is simple, but you would be the first
+ *          real caller. Verify your picking against a few known cells before
+ *          trusting it, and please report anything that surprises you.
  */
 constexpr int screenToCellX(int screenX, int screenY, const ProjectionSpec& spec) {
     const int dx = screenX - spec.originX;

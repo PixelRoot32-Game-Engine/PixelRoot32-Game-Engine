@@ -94,11 +94,16 @@ void tearDown(void) {
 
 // The export's definitions -- TILESET_SPRITES, TILESET_FOOT_Y, the ROOMn
 // index arrays and init() -- live in a .cpp, because that is the shape the
-// Tilemap Editor emits. This suite links only headers out of the example,
-// so it pulls that one translation unit in directly rather than teaching the
-// test environment to compile a file from examples/. Including it here keeps
-// the test reading the SHIPPED export data: a copy would prove nothing.
-#include "assets/IsoDungeonRoomTileMap.cpp"
+// Tilemap Editor emits. It is pulled in here rather than compiled on its own,
+// which is what keeps everything below inside the guard: with
+// TILEMAP_PROJECTION off, ISO_PROJECTION's type does not exist, so the export
+// cannot compile as a standalone translation unit in [env:native_test].
+//
+// Hence the .inc suffix on the fixture -- it stops PlatformIO from globbing it
+// into the test build as its own TU, which would both break that environment
+// and define every symbol twice in this one. The file's contents are the
+// export verbatim; only its name differs.
+#include "assets/IsoDungeonRoomTileMap.cpp.inc"
 
 namespace gfx = pixelroot32::graphics;
 namespace math = pixelroot32::math;
