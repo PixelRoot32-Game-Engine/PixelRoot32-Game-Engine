@@ -11,8 +11,11 @@ name: examples
 on:
   push:
     branches: [main, develop]
+  # Deliberately unfiltered, unlike the push trigger above. Long-lived feature
+  # branches are where examples actually break, and a guard that only runs on
+  # PRs into main would have sat out the very pull request that introduced it.
+  # This matches PixelRoot32-Demo-Projects' build workflow.
   pull_request:
-    branches: [main, develop]
   workflow_dispatch:
 
 # A new push to the same branch cancels the previous run: the ESP32 toolchain
