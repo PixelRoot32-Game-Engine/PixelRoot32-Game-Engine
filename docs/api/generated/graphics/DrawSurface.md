@@ -268,3 +268,10 @@ Processes platform events (e.g., SDL window events).
 **Description:**
 
 Swaps buffers (for double-buffered systems like SDL).
+
+### `virtual void flushPendingTransfers()`
+
+**Description:**
+
+Settles any transfer a previous present() deliberately left in
+       flight. No-op by default.

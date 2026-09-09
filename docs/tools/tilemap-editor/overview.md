@@ -20,6 +20,7 @@ The Tilemap Editor is part of the **Tool Suite**. Licensing and downloads: [pixe
 - **Paint** tiles on canvas with layers
 - **Manage tilesets** from PNG imports (JPG/BMP loadable via the file picker's "All Files" filter; PNG recommended)
 - **Multiple scenes** in one project with shared tilesets
+- **Isometric or orthogonal** projection, chosen **per scene**
 - **Onion skinning** — overlay scenes for alignment
 - **Layers** — up to **8 layers** per scene, **palette slots P0-P7** for multi-palette
 - **Tile animations** with live preview
@@ -33,27 +34,29 @@ The Tilemap Editor is part of the **Tool Suite**. Licensing and downloads: [pixe
 | Area | Highlights |
 |------|------------|
 | Tools | Brush, eraser, rectangle, pipette, attribute, animation, live preview |
-| Scenes | Multiple maps, onion skin, per-scene size, optional player spawn and rooms |
+| Scenes | Multiple maps, onion skin, per-scene size, per-scene projection, optional player spawn and rooms |
 | Layers | Up to 8, visibility, reorder, palette slot per layer |
-| Tilesets | Multi-tileset, zoom, auto tile size |
-| Export | Scene `.h`/`.cpp`, animations, `setBackgroundCustomPaletteSlot()` |
+| Tilesets | Multi-tileset, zoom, per-tileset tile size |
+| Projection | Orthogonal or isometric per scene, cell stride, fit-cell-to-art |
+| Export | Scene `.h`/`.cpp`, animations, `setBackgroundCustomPaletteSlot()`, isometric `ISO_PROJECTION` + foot table |
 
 ## Documentation Structure
 
-The documentation is organized in **4 guide levels**:
+The documentation is organized in **5 guide levels**:
 
 | Guide | Level | Description |
 |-------|-------|-------------|
 | [Quick Start](/tools/tilemap-editor/quick-start) | ⭐ Beginner | 5-minute quick start |
 | [Usage Guide](/tools/tilemap-editor/usage-guide) | ⭐/⭐⭐ Basic/Intermediate | Essential features |
 | [Advanced Guide](/tools/tilemap-editor/advanced-guide) | ⭐⭐/⭐⭐⭐ Advanced | Multi-palette, animations, attributes |
+| [Isometric Guide](/tools/tilemap-editor/isometric-guide) | ⭐⭐⭐ Advanced | Projection, cell stride, fit to art, isometric export |
 | [Technical Reference](/tools/tilemap-editor/technical-reference) | ⭐⭐⭐ Advanced | API, limits, data formats |
 
 ## Data Formats
 
 ### Project (`.pr32scene.bin`)
 
-- **Single binary format** (v6) — compact and fast to load
+- **Single binary format** (v9) — compact and fast to load
 - The **"Use Binary Format"** preference only changes the saved extension (`.pr32scene.bin` vs `.pr32scene`); the content is always binary
 - No human-readable JSON project writer
 

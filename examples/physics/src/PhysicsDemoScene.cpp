@@ -14,6 +14,9 @@
 #include <graphics/ui/UIHorizontalLayout.h>
 #include <graphics/ui/UIVerticalLayout.h>
 #endif
+#if PIXELROOT32_ENABLE_PARTICLES
+#include <graphics/particles/ParticlePresets.h>
+#endif
 
 namespace pr32 = pixelroot32;
 
@@ -156,6 +159,17 @@ void PhysicsDemoScene::init() {
         }
     }
     trackedSpawnPerType = toAdd;
+
+#if PIXELROOT32_ENABLE_PARTICLES
+    // Built once and re-registered on every reset: clearEntities() above dropped
+    // the previous registration, but the emitter itself outlives the arena.
+    if (!landingDust) {
+        landingDust = std::make_unique<gfx::particles::ParticleEmitter>(
+            Vector2::ZERO(), gfx::particles::ParticlePresets::Dust);
+    }
+    addEntity(landingDust.get());
+    playerWasOnFloor = false;
+#endif
 
     touchController.registerActor(player);
     // Resistive stack: calibrated coords can sit tens of pixels off valid hitboxes; slop restores
@@ -369,6 +383,10 @@ void PhysicsDemoScene::update(unsigned long deltaTime) {
 
     Scene::update(deltaTime);
 
+#if PIXELROOT32_ENABLE_PARTICLES
+    emitLandingDust();
+#endif
+
 #if PIXELROOT32_ENABLE_SPATIAL_QUERY
     if (input.isButtonPressed(5)) {
         scanEnabled = !scanEnabled;
@@ -376,6 +394,24 @@ void PhysicsDemoScene::update(unsigned long deltaTime) {
     runProximityScan();
 #endif
 }
+
+#if PIXELROOT32_ENABLE_PARTICLES
+void PhysicsDemoScene::emitLandingDust() {
+    if (player == nullptr || !landingDust) {
+        return;
+    }
+
+    // Edge-triggered: one burst per touchdown, not one per frame spent resting
+    // on the floor.
+    const bool onFloor = player->is_on_floor();
+    if (onFloor && !playerWasOnFloor) {
+        const Vector2 feet{player->position.x + toScalar(player->width) * toScalar(0.5f),
+                           player->position.y + toScalar(player->height)};
+        landingDust->burst(feet, kLandingDustCount);
+    }
+    playerWasOnFloor = onFloor;
+}
+#endif
 
 #if PIXELROOT32_ENABLE_SPATIAL_QUERY
 void PhysicsDemoScene::runProximityScan() {

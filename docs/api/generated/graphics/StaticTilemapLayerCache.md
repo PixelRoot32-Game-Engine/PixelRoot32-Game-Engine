@@ -20,6 +20,23 @@ Override points:
 Allocate during scene init() via allocateForLogicalSize() or allocateForRenderer()
 so the game loop does not hit the heap (see ARCH_MEMORY_SYSTEM.md).
 
+### Projected layers
+
+A layer whose TileMap4bppDrawSpec::projection is non-null is cached exactly
+like an axis-aligned one, because the cache stores *framebuffer bytes*: it
+never re-derives cell placement, so the basis a layer was drawn through is
+irrelevant to the snapshot and to its restore.
+
+What that does NOT buy is a cheap scrolling isometric background. draw()
+rebuilds whenever the sampled camera moved (camMoved), so a layer drawn
+through a projection under a camera that scrolls every frame is redrawn
+every frame and the snapshot is pure overhead. The win is on frames where
+the camera is stationary or clamped — a paused or menu frame, a room whose
+map fits the screen, a camera pinned at a level edge. Isometric maps often
+scroll on both axes at once, which makes the stationary case rarer here than
+it is for a side-scroller; measure before enabling the cache on a projected
+layer.
+
 ## Methods
 
 ### `void clear()`

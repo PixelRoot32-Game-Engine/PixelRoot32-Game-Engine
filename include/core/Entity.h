@@ -15,6 +15,8 @@
 #include "math/Vector2.h"
 #include "platforms/EngineConfig.h"
 
+#include <cstdint>
+
 namespace pixelroot32::core {
 
 /**
@@ -79,6 +81,32 @@ protected:
     unsigned char renderLayer = 1;
 
 public:
+#if PIXELROOT32_ENABLE_DEPTH_SORT
+    /**
+     * @brief Paint-order key, written by game code and only ever COMPARED by
+     *        the engine (see gameplay::compareByDepthKey).
+     *
+     * Exists so draw order can be expressed independently of any coordinate
+     * system. Ordering by `position.y + height` is correct only while screen
+     * depth is a monotone function of world Y — true for an axis-aligned
+     * top-down game, false under any non-identity projection (isometric,
+     * oblique), where two cells can share a screen row at different world Ys.
+     * Such a game writes `depthKey` from its projected anchor instead.
+     *
+     * The engine never assigns this field, and never derives it: `core` must
+     * not know about a projection. A default of `0` means a game that ignores
+     * it gets stable layer-only ordering rather than a wrong inherited answer
+     * — which is the reason this is a field and not a virtual getter with a
+     * `position.y + height` default.
+     *
+     * Cost: `Entity` has a single trailing pad byte and an `int16_t` cannot
+     * occupy it, so this grows the object by 4 bytes on a 32-bit target
+     * (28 -> 32) and 8 on 64-bit native. At MAX_ENTITIES = 64 that is 256 B,
+     * paid only by builds that opt into depth sorting.
+     */
+    int16_t depthKey = 0;
+#endif
+
     /**
      * @brief Gets the current render layer.
      * @return The layer index (0-255).

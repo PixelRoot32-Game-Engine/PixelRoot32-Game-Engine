@@ -44,6 +44,19 @@ Accumulate framebuffer clear suppression advice from a scene.
 
 - `skipClearDueToMemcpyRestore`: True if the scene will restore framebuffer via memcpy
 
+### `bool restoreDirtyCellsFromSnapshot(const uint8_t* snapshot)`
+
+**Description:**
+
+Repaints only the cells dirtied by the PREVIOUS frame, taking
+       their pixels from a static-layer snapshot.
+
+**Parameters:**
+
+- `snapshot`: Framebuffer-sized image of the static layers alone.
+
+**Returns:** true when the selective restore ran.
+
 ### `void endFrame()`
 
 **Description:**
@@ -269,6 +282,17 @@ Sets the font for text rendering.
 
 - `font`: Pointer to the font data array.
 
+### `void markCellDirtyForTest(uint8_t cx, uint8_t cy)`
+
+**Description:**
+
+Marks a single 8x8 dirty cell in the current (this-frame) dirty grid.
+
+**Parameters:**
+
+- `cx`: Cell X coordinate (in 8x8 cell units).
+- `cy`: Cell Y coordinate (in 8x8 cell units).
+
 ### `int getXOffset() const`
 
 **Description:**
@@ -453,6 +477,73 @@ Draws a tilemap of 2bpp sprites.
 **Description:**
 
 Draws a tilemap of 4bpp sprites.
+
+### `void drawTileMap(const TileMap4bpp& map, int originX, int originY, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
+
+**Description:**
+
+Draws a tilemap of 4bpp sprites through a projection basis.
+
+**Parameters:**
+
+- `projection`: Places, culls and marks cells through this basis
+       instead of the axis-aligned grid.
+
+       Draw order is the caller's responsibility: this path iterates
+       cells row-major and never sorts. Row-major is a correct
+       back-to-front paint order only when `math::rowMajorIsPainterOrder(projection)`
+       holds -- i.e. a `+1` step along either cell axis moves a tile
+       strictly forward on screen (`axisXy > 0 && axisYy > 0`). It does
+       NOT hold for every valid spec: an orthogonal or oblique basis
+       (`axisXy == 0`) returns `false` from that predicate and is still
+       painted correctly here whenever its art fills its cell and
+       never overhangs it. The predicate is sufficient, not necessary --
+       assert it at the spec's declaration site when tiles can overhang
+       their cell, not unconditionally.
+
+::: tip
+`map.tileFootY` is what this path anchors from. The PixelRoot32
+      Tilemap Editor does not export a foot-anchor table today, so an
+      editor-exported map has `tileFootY == nullptr` and every tile
+      anchors at its top-left corner (`footYFor()` returns 0
+      uniformly) -- correct for a uniform-height tileset, wrong for
+      one with mixed tile heights. Closing that export gap is a later,
+      separate change.
+:::
+
+### `void drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
+
+**Description:**
+
+Draws a tilemap of 2bpp sprites through a projection basis.
+
+**Parameters:**
+
+- `projection`: Places, culls and marks cells through this basis
+       instead of the axis-aligned grid.
+
+### `void drawTileMap(const TileMap& map, int originX, int originY, Color color, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
+
+**Description:**
+
+Draws a tilemap of 1bpp sprites through a projection basis.
+
+**Parameters:**
+
+- `color`: Single fill colour used for every tile in the map.
+- `projection`: Places, culls and marks cells through this basis
+       instead of the axis-aligned grid.
+
+::: tip
+Art constraint, not a defect: `Sprite::data` is one `uint16_t`
+      per row and `drawSprite()` builds `1u << (width - 1)`
+      (Renderer.cpp:495), undefined above 16 -- so `Sprite::width` is
+      capped at 16 px and a 2:1 isometric diamond therefore caps at
+      16x8. `color` is also a single value for the whole map, so a
+      solid-diamond floor renders as a flat monochrome region with no
+      depth cue: outlined/wireframe 1bpp diamonds work, shaded ones
+      cannot exist at this bit depth.
+:::
 
 ### `void setOffsetBypass(bool bypass)`
 

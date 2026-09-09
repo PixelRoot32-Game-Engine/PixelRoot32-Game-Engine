@@ -211,6 +211,7 @@ AudioBackend
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap framebuffer cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled |
+| Static layer snapshot (game-drawn layers) | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Disabled |
 | Dirty Regions (selective clear) | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Disabled |
 
 ---

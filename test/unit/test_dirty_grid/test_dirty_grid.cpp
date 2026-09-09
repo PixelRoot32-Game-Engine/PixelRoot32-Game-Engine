@@ -337,6 +337,162 @@ void test_dirty_grid_clear_prev_nullptr(void) {
 // main
 // =============================================================================
 
+// =============================================================================
+// restoreFramebuffer8FromPrev — same sweep as the selective clear, but the
+// pixels come from a static-layer snapshot instead of a constant fill.
+// Shares forEachPrevSpan() with the clear, so these also guard that refactor.
+// =============================================================================
+
+// The restored region must come from the snapshot, and nothing outside it may move.
+void test_dirty_grid_restore_framebuffer8_from_prev_one_cell(void) {
+    DirtyGrid g;
+    (void)g.init(16, 16);
+    uint8_t fb[256];
+    uint8_t snap[256];
+    std::memset(fb, 0x7Fu, sizeof(fb));
+    std::memset(snap, 0x11u, sizeof(snap));
+
+    g.markRect(0, 0, 8, 8);
+    g.swapAndClear();
+    g.restoreFramebuffer8FromPrev(fb, snap, 16, 16);
+
+    TEST_ASSERT_EQUAL_UINT8(0x11u, fb[0]);
+    TEST_ASSERT_EQUAL_UINT8(0x11u, fb[7]);
+    TEST_ASSERT_EQUAL_UINT8(0x11u, fb[16 * 7 + 7]);
+    // Column 8 onwards is outside the cell: still the framebuffer's own content.
+    TEST_ASSERT_EQUAL_UINT8(0x7Fu, fb[8]);
+    TEST_ASSERT_EQUAL_UINT8(0x7Fu, fb[16 * 15 + 15]);
+}
+
+// Per-pixel fidelity: a constant-filled snapshot could hide an offset error,
+// so this one gives every pixel a distinct value derived from its position.
+void test_dirty_grid_restore_copies_matching_offsets(void) {
+    DirtyGrid g;
+    constexpr int kW = 24;
+    constexpr int kH = 16;
+    (void)g.init(kW, kH);
+    uint8_t fb[kW * kH];
+    uint8_t snap[kW * kH];
+    std::memset(fb, 0u, sizeof(fb));
+    for (int i = 0; i < kW * kH; ++i) {
+        snap[i] = static_cast<uint8_t>(i & 0xFF);
+    }
+
+    // Second cell of the second row: pixels x 8..15, y 8..15.
+    g.markCell(1, 1);
+    g.swapAndClear();
+    g.restoreFramebuffer8FromPrev(fb, snap, kW, kH);
+
+    for (int y = 8; y < 16; ++y) {
+        for (int x = 8; x < 16; ++x) {
+            const int idx = y * kW + x;
+            TEST_ASSERT_EQUAL_UINT8_MESSAGE(static_cast<uint8_t>(idx & 0xFF), fb[idx],
+                "Restored pixel must come from the same offset in the snapshot");
+        }
+    }
+    TEST_ASSERT_EQUAL_UINT8(0u, fb[0]);
+    TEST_ASSERT_EQUAL_UINT8(0u, fb[8]);        // row 0, inside the cell's columns
+    TEST_ASSERT_EQUAL_UINT8(0u, fb[8 * kW]);   // row 8, left of the cell
+}
+
+// Adjacent cells merge into one span; the merge must not overrun into cell 2.
+void test_dirty_grid_restore_row_run_merges_adjacent_cells(void) {
+    DirtyGrid g;
+    constexpr int kW = 24;
+    constexpr int kH = 16;
+    (void)g.init(kW, kH);
+    uint8_t fb[kW * kH];
+    uint8_t snap[kW * kH];
+    std::memset(fb, 0xCDu, sizeof(fb));
+    std::memset(snap, 0x22u, sizeof(snap));
+
+    g.markCell(0, 0);
+    g.markCell(1, 0);
+    g.swapAndClear();
+    g.restoreFramebuffer8FromPrev(fb, snap, kW, kH);
+
+    for (int x = 0; x < 16; ++x) {
+        TEST_ASSERT_EQUAL_UINT8(0x22u, fb[x]);
+    }
+    for (int x = 16; x < kW; ++x) {
+        TEST_ASSERT_EQUAL_UINT8(0xCDu, fb[x]);
+    }
+    TEST_ASSERT_EQUAL_UINT8(0xCDu, fb[8 * kW]);
+}
+
+// A cell starting past the framebuffer width is skipped, not wrapped.
+void test_dirty_grid_restore_clamped_to_framebuffer(void) {
+    DirtyGrid g;
+    constexpr int kGridW = 64;
+    constexpr int kFbW = 20;
+    constexpr int kH = 8;
+    (void)g.init(kGridW, kH);
+    uint8_t fb[kFbW * kH];
+    uint8_t snap[kFbW * kH];
+    std::memset(fb, 0xFFu, sizeof(fb));
+    std::memset(snap, 0x33u, sizeof(snap));
+
+    g.markCell(3, 0);  // pixels 24-31, beyond framebuffer width 20
+    g.swapAndClear();
+    g.restoreFramebuffer8FromPrev(fb, snap, kFbW, kH);
+
+    for (int i = 0; i < kFbW * kH; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFFu, fb[i],
+            "No pixels should change when the marked cell is beyond the framebuffer");
+    }
+}
+
+// A null snapshot is a no-op, not a crash: StaticLayerSnapshot relies on this
+// when its allocation failed.
+void test_dirty_grid_restore_null_snapshot_is_noop(void) {
+    DirtyGrid g;
+    (void)g.init(16, 16);
+    uint8_t fb[256];
+    std::memset(fb, 0xFFu, sizeof(fb));
+
+    g.markRect(0, 0, 8, 8);
+    g.swapAndClear();
+    g.restoreFramebuffer8FromPrev(fb, nullptr, 16, 16);
+
+    for (int i = 0; i < 256; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFFu, fb[i],
+            "Buffer should be untouched when snapshot=nullptr");
+    }
+}
+
+// Uninitialised grid (prev = nullptr) is also a no-op.
+void test_dirty_grid_restore_prev_nullptr(void) {
+    DirtyGrid g;  // not initialized
+    uint8_t fb[64];
+    uint8_t snap[64];
+    std::memset(fb, 0xFFu, sizeof(fb));
+    std::memset(snap, 0x44u, sizeof(snap));
+
+    g.restoreFramebuffer8FromPrev(fb, snap, 16, 16);
+
+    for (int i = 0; i < 64; ++i) {
+        TEST_ASSERT_EQUAL_UINT8_MESSAGE(0xFFu, fb[i],
+            "Buffer should be untouched when prev=nullptr");
+    }
+}
+
+// Nothing marked means nothing restored — the frame where no actor moved.
+void test_dirty_grid_restore_no_marked_cells_leaves_framebuffer(void) {
+    DirtyGrid g;
+    (void)g.init(16, 16);
+    uint8_t fb[256];
+    uint8_t snap[256];
+    std::memset(fb, 0x55u, sizeof(fb));
+    std::memset(snap, 0x66u, sizeof(snap));
+
+    g.swapAndClear();  // prev is empty
+    g.restoreFramebuffer8FromPrev(fb, snap, 16, 16);
+
+    for (int i = 0; i < 256; ++i) {
+        TEST_ASSERT_EQUAL_UINT8(0x55u, fb[i]);
+    }
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -361,6 +517,15 @@ int main() {
     RUN_TEST(test_dirty_grid_clear_skips_zero_bytes);
     RUN_TEST(test_dirty_grid_clear_clamped_to_framebuffer);
     RUN_TEST(test_dirty_grid_clear_prev_nullptr);
+
+    // restoreFramebuffer8FromPrev (StaticLayerSnapshot's selective restore)
+    RUN_TEST(test_dirty_grid_restore_framebuffer8_from_prev_one_cell);
+    RUN_TEST(test_dirty_grid_restore_copies_matching_offsets);
+    RUN_TEST(test_dirty_grid_restore_row_run_merges_adjacent_cells);
+    RUN_TEST(test_dirty_grid_restore_clamped_to_framebuffer);
+    RUN_TEST(test_dirty_grid_restore_null_snapshot_is_noop);
+    RUN_TEST(test_dirty_grid_restore_prev_nullptr);
+    RUN_TEST(test_dirty_grid_restore_no_marked_cells_leaves_framebuffer);
 
     return UNITY_END();
 }

@@ -22,6 +22,15 @@ void drawSpecs(Renderer& renderer, const TileMap4bppDrawSpec* layers, std::size_
         if (!m) {
             continue;
         }
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+        // A null projection means "axis-aligned", so the legacy overload stays
+        // the default path for every spec that never mentions the member.
+        if (layers[i].projection) {
+            renderer.drawTileMap(*m, layers[i].originX, layers[i].originY, layerType,
+                                 *layers[i].projection);
+            continue;
+        }
+#endif
         renderer.drawTileMap(*m, layers[i].originX, layers[i].originY, layerType);
     }
 }

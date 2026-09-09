@@ -420,3 +420,4 @@ if (type && strcmp(type, "door") == 0) {
 - [Quick Start](/tools/tilemap-editor/quick-start) - 5 minute guide
 - [Usage Guide](/tools/tilemap-editor/usage-guide) - Essential features
 - [Technical Reference](/tools/tilemap-editor/technical-reference) - Technical specs
+- [Isometric Guide](/tools/tilemap-editor/isometric-guide) - Projection, cell stride, isometric export

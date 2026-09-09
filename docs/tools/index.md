@@ -37,6 +37,7 @@ Available - visual editor for multi-layer tilemaps, tilesets, animations, attrib
 - [Installation](/tools/tilemap-editor/installation)
 - [Usage guide](/tools/tilemap-editor/usage-guide)
 - [Advanced guide](/tools/tilemap-editor/advanced-guide)
+- [Isometric guide](/tools/tilemap-editor/isometric-guide)
 - [Technical reference](/tools/tilemap-editor/technical-reference)
 
 ### Music Editor (module 2)

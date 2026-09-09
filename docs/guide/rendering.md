@@ -564,6 +564,34 @@ This draws a colored overlay showing dirty cells in real-time. When `forceFullRe
 
 The Dirty Region system integrates tightly with `StaticTilemapLayerCache` to provide an ultra-fast rendering path on ESP32. Instead of redrawing the background tilemap pixel-by-pixel, the cache takes a snapshot of the logical framebuffer containing only `LayerType::Static` elements. On subsequent frames, `renderer.beginFrame()` uses a fast `memcpy` to restore the background, and only the cells marked by `LayerType::Dynamic` elements are selectively cleared and redrawn.
 
+### StaticLayerSnapshot Integration
+
+`StaticTilemapLayerCache` above works by redrawing the `TileMap4bpp` it owns, so it only helps layers expressible as an axis-aligned tilemap. `StaticLayerSnapshot` (requires `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT=1`, default `0`) covers the rest — layers game code draws itself, such as an isometric floor whose diamond cells `drawTileMap` cannot represent.
+
+It never draws anything. The game captures the framebuffer once its static layers are on it, and restores them afterwards:
+
+```cpp
+// Scene::init() — allocates, so never in the game loop.
+(void)snapshot_.allocateForRenderer(engine.getRenderer());
+
+// Scene::adviseFramebufferBeforeBeginFrame() — lets beginFrame() skip a clear
+// restore() is about to redo anyway. Purely an optimisation; skipping this
+// costs a redundant clear, never a wrong frame.
+snapshot_.adviseFramebufferBeforeBeginFrame(renderer);
+
+// In the static layer's draw(), before anything dynamic:
+if (!snapshot_.restore(renderer)) {
+    drawMyStaticLayers(renderer);   // cache cold, or unavailable
+    (void)snapshot_.capture(renderer);
+}
+```
+
+With dirty regions enabled, `restore()` repaints only the cells the previous frame's movers dirtied; without them, it copies the whole buffer. Both are correct.
+
+Call `invalidate()` whenever the static layers would draw differently — a palette swap, a camera move, a door opening. The snapshot has no idea what it is holding and deliberately does not try to guess.
+
+> **Capture order matters:** whatever is on the framebuffer when `capture()` runs is what every later `restore()` puts back. Capture after the static layers and *before* anything dynamic, or a moving actor is baked into the background. Entities that must be depth-sorted against a mover — scenery the player walks both behind and in front of — belong outside the snapshot, in the per-frame sort.
+
 #### Scene Stacking Contract
 
 When using `StaticTilemapLayerCache` with stacked scenes:

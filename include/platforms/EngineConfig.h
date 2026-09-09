@@ -466,6 +466,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableDirtyRegions = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT
+
+    /** @brief Type-safe access to EnableStaticLayerSnapshot configuration. */
+    inline constexpr bool EnableStaticLayerSnapshot = true;
+    #else
+
+    /** @brief Type-safe access to EnableStaticLayerSnapshot configuration. */
+    inline constexpr bool EnableStaticLayerSnapshot = false;
+    #endif
+
     #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
     /** @brief Type-safe access to EnableSceneTransitions configuration. */
@@ -564,6 +574,16 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to EnableCameraTween configuration. */
     inline constexpr bool EnableCameraTween = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_PROJECTION
+
+    /** @brief Type-safe access to EnableProjection configuration. */
+    inline constexpr bool EnableProjection = true;
+    #else
+
+    /** @brief Type-safe access to EnableProjection configuration. */
+    inline constexpr bool EnableProjection = false;
     #endif
 
     inline unsigned long profilerMicros() {

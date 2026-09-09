@@ -63,6 +63,27 @@ public:
     bool isPrevDirty(uint8_t cx, uint8_t cy) const;
 
     /**
+     * @brief Checks whether any 8×8 cell covered by a pixel rectangle was
+     *        marked dirty in the previous frame.
+     *
+     * Iterates the integer cells covered by the half-open rectangle
+     * `[x, x+w) × [y, y+h)`, returning true if any such cell has
+     * `isPrevDirty(cx, cy) == true`. Returns true immediately when the grid
+     * is fully dirty. The rectangle is clipped to the valid cell range, so a
+     * rectangle entirely outside the grid bounds, or with `w <= 0` or
+     * `h <= 0`, returns false. Safe on a freshly constructed grid (prev and
+     * curr zeroed, fullDirty false), in which case it returns false.
+     *
+     * @param x Top-left X coordinate in pixels.
+     * @param y Top-left Y coordinate in pixels.
+     * @param w Width of the rectangle in pixels.
+     * @param h Height of the rectangle in pixels.
+     * @return true if any covered cell was dirty in the previous frame, false
+     *         otherwise.
+     */
+    bool intersectsPrevDirty(int x, int y, int w, int h) const;
+
+    /**
      * @brief Swaps the current and previous buffers, clearing the new current buffer.
      */
     void swapAndClear();
@@ -128,6 +149,25 @@ public:
      * @param framebufferWidth Row stride in bytes (typically logical width).
      */
     void clearFramebuffer8FromPrev(uint8_t* fb, int framebufferWidth, int framebufferHeight, uint8_t fillByte) const;
+
+    /**
+     * The same sweep as clearFramebuffer8FromPrev(), copying from a snapshot
+     * instead of filling with a constant.
+     *
+     * Restores each `prev`-marked 8×8 region of `fb` from the matching region
+     * of `snapshot`, which must be a framebuffer-sized image of the static
+     * layers alone. Where clearing gives back a blank cell, this gives back the
+     * background that was underneath the moving thing — so a scene whose static
+     * layers hold still never redraws them, and pays only for the cells last
+     * frame's movers actually touched.
+     *
+     * `snapshot` must be exactly `framebufferWidth * framebufferHeight` bytes
+     * and must not alias `fb`. No-op if either pointer is null.
+     *
+     * @param framebufferWidth Row stride in bytes (typically logical width).
+     */
+    void restoreFramebuffer8FromPrev(uint8_t* fb, const uint8_t* snapshot,
+                                     int framebufferWidth, int framebufferHeight) const;
 
 private:
     uint8_t  cols = 0;

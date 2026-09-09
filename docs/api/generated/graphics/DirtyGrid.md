@@ -63,6 +63,23 @@ Checks if a cell was marked dirty in the previous frame.
 
 **Returns:** true if the cell was dirty in the previous frame, false otherwise.
 
+### `bool intersectsPrevDirty(int x, int y, int w, int h) const`
+
+**Description:**
+
+Checks whether any 8×8 cell covered by a pixel rectangle was
+       marked dirty in the previous frame.
+
+**Parameters:**
+
+- `x`: Top-left X coordinate in pixels.
+- `y`: Top-left Y coordinate in pixels.
+- `w`: Width of the rectangle in pixels.
+- `h`: Height of the rectangle in pixels.
+
+**Returns:** true if any covered cell was dirty in the previous frame, false
+        otherwise.
+
 ### `void swapAndClear()`
 
 **Description:**
@@ -147,6 +164,12 @@ True when the curr buffer has this cell marked for the current frame.
 **Returns:** True when the curr buffer has this cell marked for the current frame, false otherwise.
 
 ### `void clearFramebuffer8FromPrev(uint8_t* fb, int framebufferWidth, int framebufferHeight, uint8_t fillByte) const`
+
+**Parameters:**
+
+- `framebufferWidth`: Row stride in bytes (typically logical width).
+
+### `void restoreFramebuffer8FromPrev(uint8_t* fb, const uint8_t* snapshot, int framebufferWidth, int framebufferHeight) const`
 
 **Parameters:**
 

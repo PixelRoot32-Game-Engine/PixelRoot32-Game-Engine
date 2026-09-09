@@ -225,8 +225,31 @@ namespace pixelroot32::graphics {
         dirtyGrid.clearFramebuffer8FromPrev(logicalFrameBuffer8, logicalWidth, logicalHeight, kClear8bpp);
     }
 
+    bool Renderer::restoreDirtyCellsFromSnapshot(const uint8_t* snapshot) {
+        if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
+            (void)snapshot;
+            return false;
+        }
+        if (snapshot == nullptr || logicalFrameBuffer8 == nullptr) {
+            return false;
+        }
+        if (!selectiveRestoreValidThisFrame_) {
+            // beginFrame() wiped the whole framebuffer this frame, so the cells
+            // outside prev-dirty no longer hold the static layers and repainting
+            // only prev-dirty would leave them black.
+            return false;
+        }
+        dirtyGrid.restoreFramebuffer8FromPrev(logicalFrameBuffer8, snapshot,
+                                              logicalWidth, logicalHeight);
+        return true;
+    }
+
     void Renderer::beginFrame() {
         logicalFrameBuffer8 = getDrawSurface().getSpriteBuffer();
+
+        // Whatever path this frame takes below, assume it wipes everything until
+        // proven otherwise. Only the two selective outcomes set this true.
+        selectiveRestoreValidThisFrame_ = false;
 
         if constexpr (!pixelroot32::platforms::config::EnableDirtyRegions) {
             suppressFramebufferClearBeforeStaticMemcpy_ = false;
@@ -267,13 +290,20 @@ namespace pixelroot32::graphics {
 
         if (skipClearForMemcpy) {
             // Full framebuffer will be restored from StaticTilemapLayerCache before dynamic draws.
+            // Nothing was touched, so pixels outside prev-dirty are still last frame's.
+            selectiveRestoreValidThisFrame_ = true;
         } else if (!dirtyGrid.isFullDirty() && (dirtyGrid.countPrevMarkedCells() > 0)) {
             clearDirtyCellsFramebuffer8();
+            // Only prev-dirty cells were blanked; everything else survived.
+            selectiveRestoreValidThisFrame_ = true;
         } else {
             getDrawSurface().clearBuffer();
             if (dirtyGrid.isFullDirty()) {
                 dirtyGrid.setFullDirty(false);
             }
+            // The whole buffer is gone: a per-cell restore would leave the
+            // static layers black outside prev-dirty. selectiveRestoreValidThisFrame_
+            // stays false so StaticLayerSnapshot falls back to a full copy.
         }
     }
 
@@ -281,6 +311,12 @@ namespace pixelroot32::graphics {
 #if defined(PIXELROOT32_DEBUG_MODE)
         drawDebugDirtyCellOverlay();
 #endif
+        // Snapshot the camera offset for the projected-tilemap dirty-skip
+        // gate. Taken here — after beginFrame()'s swapAndClear() and before
+        // sendBuffer() — so prevXOffset_/prevYOffset_ match the offset used
+        // for this frame's prev-buffer dirty marks.
+        prevXOffset_ = xOffset;
+        prevYOffset_ = yOffset;
         getDrawSurface().sendBuffer();
     }
 
@@ -533,10 +569,16 @@ namespace pixelroot32::graphics {
 
             const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
             
+            // All 4 entries are filled, not just the sprite's paletteSize: see
+            // the 4bpp overload below for why the tail cannot be left
+            // uninitialised.
             uint16_t paletteLUT[4];
             uint8_t paletteCount = sprite.paletteSize > 4 ? 4 : sprite.paletteSize;
             for (uint8_t i = 0; i < paletteCount; ++i) {
                 paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
+            }
+            for (uint8_t i = paletteCount; i < 4; ++i) {
+                paletteLUT[i] = 0;
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
@@ -548,7 +590,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void Renderer::drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUTParam) {
         if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -560,6 +602,23 @@ namespace pixelroot32::graphics {
 
             uint8_t* const fb8 = logicalFrameBuffer8;
 
+            // Pack the palette once per sprite instead of once per pixel; see
+            // the 4bpp blit for the full rationale. Four entries here. The
+            // caller may pass a pre-packed LUT (e.g. from the projected loop's
+            // cache) via packedLUTParam to skip this conversion.
+            uint8_t localPackedLUT[4];
+            const uint8_t* packedLUT;
+            if (packedLUTParam != nullptr) {
+                packedLUT = packedLUTParam;
+            } else {
+                packedLUT = localPackedLUT;
+                if (fb8) {
+                    for (int i = 0; i < 4; ++i) {
+                        localPackedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                    }
+                }
+            }
+
             // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
@@ -568,7 +627,15 @@ namespace pixelroot32::graphics {
                 const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
                 uint8_t* dstRow = fb8 ? (fb8 + logicalY * screenW) : nullptr;
 
-                for (int col = 0; col < sprite.width; ++col) {
+                int colStart = 0;
+                int colEnd = sprite.width;
+                if (!flipX && sprite.rowMinX != nullptr && sprite.rowMaxX != nullptr) {
+                    colStart = sprite.rowMinX[row];
+                    colEnd = sprite.rowMaxX[row];
+                    if (colStart > colEnd) colEnd = colStart;
+                }
+
+                for (int col = colStart; col < colEnd; ++col) {
                     const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
                     const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
                     const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
@@ -579,7 +646,7 @@ namespace pixelroot32::graphics {
                     if (logicalX < 0 || logicalX >= screenW) continue;
 
                     if (dstRow) {
-                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                        dstRow[logicalX] = packedLUT[val];
                     } else {
                         getDrawSurface().drawPixel(logicalX, logicalY, paletteLUT[val]);
                     }
@@ -600,11 +667,21 @@ namespace pixelroot32::graphics {
                                    currentSpritePaletteSlot : paletteSlot;
 
             const uint16_t* palettePtr = getSpritePaletteSlot(effectiveSlot);
-            
+
+            // All 16 entries are filled, not just the sprite's paletteSize: a
+            // 4bpp pixel can name any index 0..15 regardless of what the
+            // descriptor declares, and drawSpriteInternal reads the table
+            // without a range check (see its packing loop). Leaving the tail
+            // uninitialised put a stack value on screen for such a pixel.
+            // Black matches what resolveColorWithPalette returns for an index
+            // it cannot map.
             uint16_t paletteLUT[16];
             uint8_t paletteCount = sprite.paletteSize > 16 ? 16 : sprite.paletteSize;
             for (uint8_t i = 0; i < paletteCount; ++i) {
                 paletteLUT[i] = resolveColorWithPalette(sprite.palette[i], palettePtr);
+            }
+            for (uint8_t i = paletteCount; i < 16; ++i) {
+                paletteLUT[i] = 0;
             }
 
             drawSpriteInternal(sprite, x, y, paletteLUT, flipX);
@@ -616,7 +693,7 @@ namespace pixelroot32::graphics {
         drawSprite(sprite, x, y, 0, flipX);  // Default to slot 0
     }
 
-    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX) {
+    void IRAM_ATTR Renderer::drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUTParam) {
         if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
             const int screenW = logicalWidth;
             const int screenH = logicalHeight;
@@ -627,52 +704,104 @@ namespace pixelroot32::graphics {
 
             uint8_t* const fb8 = logicalFrameBuffer8;
 
+            // Pack the palette ONCE per sprite rather than once per pixel.
+            //
+            // The framebuffer stores TFT_eSprite 8bpp, so every written pixel
+            // needs its RGB565 narrowed to RRRGGGBB. Doing that inside the
+            // pixel loop repeats the same 16 conversions thousands of times: a
+            // 7x7 isometric room pushes ~37k source pixels through here per
+            // frame against 16 distinct colours. Hoisting it trades ~37k
+            // conversions for 16 and turns the inner loop into a table read.
+            //
+            // Only the direct-framebuffer paths use this; the drawPixel
+            // fallback below takes RGB565 and keeps reading paletteLUT.
+            //
+            // The caller may pass a pre-packed LUT (e.g. from the projected
+            // loop's cache) via packedLUTParam to skip this conversion.
+            uint8_t localPackedLUT[16];
+            const uint8_t* packedLUT;
+            if (packedLUTParam != nullptr) {
+                packedLUT = packedLUTParam;
+            } else {
+                packedLUT = localPackedLUT;
+                if (fb8) {
+                    for (int i = 0; i < 16; ++i) {
+                        localPackedLUT[i] = packRgb565ToTftSprite8(paletteLUT[i]);
+                    }
+                }
+            }
+
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
                 if (logicalY < 0 || logicalY >= screenH) continue;
 
                 const uint8_t* rowData = sprite.data + row * rowStrideBytes;
 
+                // Optional span limits: when both rowMinX/rowMaxX are non-null
+                // AND flipX is false, clamp the inner column range to skip
+                // leading/trailing transparent nibbles per row. flipX bypasses
+                // because the mirrored layout invalidates the precomputed min/max.
+                int colStart = 0;
+                int colEnd = sprite.width;
+                if (!flipX && sprite.rowMinX != nullptr && sprite.rowMaxX != nullptr) {
+                    colStart = sprite.rowMinX[row];
+                    colEnd = sprite.rowMaxX[row];
+                    if (colStart > colEnd) colEnd = colStart;  // empty row
+                }
+
                 if (fb8 && !flipX) {
                     uint8_t* dstRow = fb8 + logicalY * screenW;
-                    int col = 0;
-                    for (; col + 1 < sprite.width; col += 2) {
-                        const uint8_t b = rowData[col >> 1];
-                        const uint8_t v0 = b & 0x0F;
-                        const uint8_t v1 = (b >> 4) & 0x0F;
-                        const int lx0 = startX + col;
-                        const int lx1 = startX + col + 1;
-                        if (v0 != 0 && lx0 >= 0 && lx0 < screenW) {
-                            dstRow[lx0] = packRgb565ToTftSprite8(paletteLUT[v0]);
-                        }
-                        if (v1 != 0 && lx1 >= 0 && lx1 < screenW) {
-                            dstRow[lx1] = packRgb565ToTftSprite8(paletteLUT[v1]);
-                        }
-                    }
-                    if (col < sprite.width) {
+                    int col = colStart;
+                    // Align to even for the paired-nibble loop when possible.
+                    if (col & 1) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
                         if (val != 0) {
                             const int lx = startX + col;
                             if (lx >= 0 && lx < screenW) {
-                                dstRow[lx] = packRgb565ToTftSprite8(paletteLUT[val]);
+                                dstRow[lx] = packedLUT[val];
+                            }
+                        }
+                        ++col;
+                    }
+                    for (; col + 1 < colEnd; col += 2) {
+                        const uint8_t b = rowData[col >> 1];
+                        const uint8_t v0 = b & 0x0F;
+                        const uint8_t v1 = (b >> 4) & 0x0F;
+                        const int lx0 = startX + col;
+                        const int lx1 = startX + col + 1;
+                        if (v0 != 0 && lx0 >= 0 && lx0 < screenW) {
+                            dstRow[lx0] = packedLUT[v0];
+                        }
+                        if (v1 != 0 && lx1 >= 0 && lx1 < screenW) {
+                            dstRow[lx1] = packedLUT[v1];
+                        }
+                    }
+                    if (col < colEnd) {
+                        const int byteIdx = col >> 1;
+                        const int bitOffset = (col & 1) << 2;
+                        const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
+                        if (val != 0) {
+                            const int lx = startX + col;
+                            if (lx >= 0 && lx < screenW) {
+                                dstRow[lx] = packedLUT[val];
                             }
                         }
                     }
                 } else if (fb8) {
                     uint8_t* dstRow = fb8 + logicalY * screenW;
-                    for (int col = 0; col < sprite.width; ++col) {
+                    for (int col = colStart; col < colEnd; ++col) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
                         if (val == 0) continue;
                         const int logicalX = startX + (sprite.width - 1 - col);
                         if (logicalX < 0 || logicalX >= screenW) continue;
-                        dstRow[logicalX] = packRgb565ToTftSprite8(paletteLUT[val]);
+                        dstRow[logicalX] = packedLUT[val];
                     }
                 } else {
-                    for (int col = 0; col < sprite.width; ++col) {
+                    for (int col = colStart; col < colEnd; ++col) {
                         const int byteIdx = col >> 1;
                         const int bitOffset = (col & 1) << 2;
                         const uint8_t val = (rowData[byteIdx] >> bitOffset) & 0x0F;
@@ -787,84 +916,6 @@ namespace pixelroot32::graphics {
             singleLayer.data = layer.data;
             drawSprite(singleLayer, x, y, scaleX, scaleY, layer.color, false);
         }
-    }
-
-    template <typename TMap>
-    bool Renderer::beginTilemapDirty(const TMap& map, int originX, int originY,
-                                     LayerType layerType, TilemapDirtyContext& ctx) {
-        if (map.indices == nullptr || map.tiles == nullptr ||
-            map.width == 0 || map.height == 0 ||
-            map.tileWidth == 0 || map.tileHeight == 0 ||
-            map.tileCount == 0) {
-            return false;
-        }
-
-        ctx.bgContext = PaletteContext::Background;
-        ctx.oldRenderContext = currentRenderContext;
-        setRenderContext(&ctx.bgContext);
-
-        ctx.viewOriginX = offsetBypass ? originX : xOffset + originX;
-        ctx.viewOriginY = offsetBypass ? originY : yOffset + originY;
-
-        const bool selectiveAnimMarks =
-            (layerType == LayerType::Dynamic && map.animManager != nullptr);
-
-        ctx.savedMode = tilemapSpriteDirtyMode_;
-        if (layerType == LayerType::Static || selectiveAnimMarks) {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::SuppressPerSpriteBoundsMark;
-        } else {
-            tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
-        }
-
-        ctx.animSlot = selectiveAnimMarks
-            ? findOrAllocAnimSlot(static_cast<const void*>(map.indices))
-            : nullptr;
-
-        ctx.mapOrOriginMovedAnim = ctx.animSlot != nullptr &&
-            (!ctx.animSlot->primed || ctx.animSlot->mapKey != static_cast<const void*>(map.indices) ||
-             ctx.animSlot->ox != ctx.viewOriginX || ctx.animSlot->oy != ctx.viewOriginY);
-
-        // Viewport culling
-        ctx.startCol = (ctx.viewOriginX < 0) ? (-ctx.viewOriginX / map.tileWidth) : 0;
-        ctx.endCol   = (ctx.viewOriginX + map.width * map.tileWidth > logicalWidth)
-                       ? ((logicalWidth - ctx.viewOriginX + map.tileWidth - 1) / map.tileWidth)
-                       : map.width;
-        ctx.startRow = (ctx.viewOriginY < 0) ? (-ctx.viewOriginY / map.tileHeight) : 0;
-        ctx.endRow   = (ctx.viewOriginY + map.height * map.tileHeight > logicalHeight)
-                       ? ((logicalHeight - ctx.viewOriginY + map.tileHeight - 1) / map.tileHeight)
-                       : map.height;
-
-        if (ctx.startCol < 0) ctx.startCol = 0;
-        if (ctx.endCol > map.width) ctx.endCol = map.width;
-        if (ctx.startRow < 0) ctx.startRow = 0;
-        if (ctx.endRow > map.height) ctx.endRow = map.height;
-
-        return true;
-    }
-
-    void Renderer::endTilemapDirty(const void* mapIndices, TilemapDirtyContext& ctx) {
-        if (ctx.animSlot) {
-            ctx.animSlot->primed = true;
-            ctx.animSlot->mapKey = mapIndices;
-            ctx.animSlot->ox     = ctx.viewOriginX;
-            ctx.animSlot->oy     = ctx.viewOriginY;
-        }
-        tilemapSpriteDirtyMode_ = ctx.savedMode;
-        setRenderContext(ctx.oldRenderContext);
-    }
-
-    bool Renderer::shouldMarkDirtyCell(const TilemapDirtyContext& ctx,
-                                       LayerType layerType,
-                                       TileAnimationManager* animMgr,
-                                       uint8_t rawIndex) const {
-        if (layerType != LayerType::Dynamic) {
-            return false;
-        }
-        if (animMgr != nullptr) {
-            return ctx.mapOrOriginMovedAnim ||
-                   animMgr->animatedTileAppearanceChanged(rawIndex);
-        }
-        return true;
     }
 
     void Renderer::drawTileMap(const TileMap& map,
@@ -1004,6 +1055,10 @@ namespace pixelroot32::graphics {
                     for (uint8_t i = 0; i < paletteCount; ++i) {
                         cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                     }
+                    // Fill the tail: drawSpriteInternal indexes all 4 slots.
+                    for (uint8_t i = paletteCount; i < 4; ++i) {
+                        cachedLUT[i] = 0;
+                    }
                     lastTilePalettePtr = tile.palette;
                     lastBackgroundPalettePtr = palettePtr;
                 }
@@ -1094,6 +1149,11 @@ namespace pixelroot32::graphics {
                         for (uint8_t i = 0; i < paletteCount; ++i) {
                             cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
                         }
+                        // Fill the tail for the same reason drawSprite() does:
+                        // drawSpriteInternal indexes all 16 slots.
+                        for (uint8_t i = paletteCount; i < 16; ++i) {
+                            cachedLUT[i] = 0;
+                        }
                         lastTilePalettePtr = tile.palette;
                         lastBackgroundPalettePtr = palettePtr;
                     }
@@ -1115,6 +1175,239 @@ namespace pixelroot32::graphics {
             setRenderContext(h.oldContext);
         }
     }
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    template<typename TileT>
+    void Renderer::drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
+                                             int originX,
+                                             int originY,
+                                             LayerType layerType,
+                                             const pixelroot32::math::ProjectionSpec& projection,
+                                             Color color) {
+        if (map.indices == nullptr || map.tiles == nullptr ||
+            map.width == 0 || map.height == 0 ||
+            map.tileWidth == 0 || map.tileHeight == 0 ||
+            map.tileCount == 0) {
+            return;
+        }
+
+        auto h = computeTilemapDirtyTracking(map, originX, originY, layerType);
+
+        pixelroot32::math::ProjectionSpec drawSpec = projection;
+        drawSpec.originX += originX;
+        drawSpec.originY += originY;
+
+        pixelroot32::math::ProjectionSpec cullSpec = projection;
+        cullSpec.originX += h.viewOriginX;
+        cullSpec.originY += h.viewOriginY;
+
+        // Bounded per-call scan (see decision 5 in the design record):
+        // worst case is the largest tileCount shipped anywhere in this
+        // repo (46, examples/animated_tilemap), so this is ~46 flash
+        // reads per draw call, per layer, per frame -- not per tile,
+        // and it does not grow with map size.
+        uint8_t maxWidth = 0;
+        uint8_t maxFootY = 0;
+        uint8_t maxBelow = 0;
+        for (uint16_t i = 0; i < map.tileCount; ++i) {
+            const TileT& scanTile = map.tiles[i];
+            if (scanTile.width > maxWidth) {
+                maxWidth = scanTile.width;
+            }
+            const uint8_t footY = map.footYFor(i);
+            if (footY > maxFootY) {
+                maxFootY = footY;
+            }
+            const uint8_t below =
+                (scanTile.height > footY) ? static_cast<uint8_t>(scanTile.height - footY) : 0;
+            if (below > maxBelow) {
+                maxBelow = below;
+            }
+        }
+
+        // Pad the cull rect by the tileset's own worst-case sprite
+        // extent so a tile whose CELL sits outside the window but
+        // whose SPRITE still overlaps it is not culled away (AC-5).
+        const pixelroot32::math::CellRange range = pixelroot32::math::cellRangeForScreenRect(
+            cullSpec,
+            -static_cast<int>(maxWidth), -static_cast<int>(maxBelow),
+            logicalWidth + 2 * static_cast<int>(maxWidth),
+            logicalHeight + static_cast<int>(maxBelow) + static_cast<int>(maxFootY),
+            map.width, map.height);
+        h.startCol = range.startCol;
+        h.endCol   = range.endCol;
+        h.startRow = range.startRow;
+        h.endRow   = range.endRow;
+
+        // Palette Caching (tile palette + background palette slot). Sized for
+        // the widest per-format LUT this function currently serves (4bpp,
+        // 16 entries); the format-specific tail below is what actually reads
+        // and writes it.
+        uint16_t cachedLUT[16];
+        uint8_t packedCachedLUT4bpp[16];  // mirrors cachedLUT[0..15] packed to 8bpp
+        uint8_t packedCachedLUT2bpp[4];   // mirrors cachedLUT[0..3] packed to 8bpp
+        const Color* lastTilePalettePtr = nullptr;
+        const uint16_t* lastBackgroundPalettePtr = nullptr;
+
+        for (int ty = h.startRow; ty < h.endRow; ++ty) {
+            int rowIndexBase = ty * map.width;
+
+            for (int tx = h.startCol; tx < h.endCol; ++tx) {
+                int cellIndex = rowIndexBase + tx;
+                uint8_t rawIndex = map.indices[cellIndex];
+                uint8_t index    = rawIndex;
+
+                if (map.animManager) {
+                    index = map.animManager->resolveFrame(rawIndex);
+                }
+
+                if (index == 0 || index >= map.tileCount) {
+                    continue;
+                }
+
+                if (map.runtimeMask) {
+                    if (!(map.runtimeMask[cellIndex >> 3] & (1 << (cellIndex & 7)))) {
+                        continue;
+                    }
+                }
+
+                const TileT& tile = map.tiles[index];
+                const int centreX = pixelroot32::math::cellToScreenX(tx, ty, drawSpec);
+                const int centreY = pixelroot32::math::cellToScreenY(tx, ty, drawSpec);
+                const int drawX = centreX - tile.width / 2;
+                const int drawY = centreY - map.footYFor(index);
+
+                // Per-tile dirty-skip (projected path): when dirty regions are
+                // enabled, the layer is Dynamic, the framebuffer still holds
+                // last frame's pixels outside the prev-dirty cells, and the
+                // camera has not scrolled since the previous endFrame(), skip
+                // blitting a tile whose screen rect intersects no prev-dirty
+                // cell — its pixels are already correct from last frame.
+                // Compiled out when PIXELROOT32_ENABLE_DIRTY_REGIONS=0.
+                if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                    if (layerType == LayerType::Dynamic &&
+                        selectiveRestoreValidThisFrame_ &&
+                        xOffset == prevXOffset_ && yOffset == prevYOffset_) {
+                        const int pixelX = offsetBypass ? drawX : xOffset + drawX;
+                        const int pixelY = offsetBypass ? drawY : yOffset + drawY;
+                        if (!dirtyGrid.intersectsPrevDirty(pixelX, pixelY, tile.width, tile.height)) {
+                            continue;
+                        }
+                    }
+                }
+
+                if (layerType == LayerType::Dynamic) {
+                    bool markCell = true;
+                    if (map.animManager != nullptr) {
+                        markCell = h.mapOrOriginMovedAnim ||
+                                   map.animManager->animatedTileAppearanceChanged(rawIndex);
+                    }
+                    if (markCell) {
+                        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+                            const int pixelX = offsetBypass ? drawX : xOffset + drawX;
+                            const int pixelY = offsetBypass ? drawY : yOffset + drawY;
+                            dirtyGrid.markRect(pixelX, pixelY, tile.width, tile.height);
+                        }
+                    }
+                }
+
+                // Per-format tail: which palette LUT to build and which blit
+                // to call, selected per TileT with `if constexpr`. 4bpp and
+                // 2bpp build a palette LUT and blit through
+                // drawSpriteInternal; 1bpp has no per-tile palette and blits
+                // through drawSprite() with the map's single Color instead.
+                if constexpr (std::is_same_v<TileT, Sprite4bpp>) {
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 16 ? 16 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        for (uint8_t i = paletteCount; i < 16; ++i) {
+                            cachedLUT[i] = 0;
+                        }
+                        // Build the 8bpp packed LUT atomically alongside cachedLUT
+                        // so a palette swap never leaves the two out of sync.
+                        for (uint8_t i = 0; i < 16; ++i) {
+                            packedCachedLUT4bpp[i] = packRgb565ToTftSprite8(cachedLUT[i]);
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false, packedCachedLUT4bpp);
+                }
+
+                if constexpr (std::is_same_v<TileT, Sprite2bpp>) {
+                    const uint16_t* palettePtr = (map.paletteIndices != nullptr)
+                        ? getBackgroundPaletteSlot(map.paletteIndices[cellIndex] & kTileCellPaletteMask)
+                        : getBackgroundPaletteSlot(0);
+
+                    if (tile.palette != lastTilePalettePtr || palettePtr != lastBackgroundPalettePtr) {
+                        uint8_t paletteCount = tile.paletteSize > 4 ? 4 : tile.paletteSize;
+                        for (uint8_t i = 0; i < paletteCount; ++i) {
+                            cachedLUT[i] = resolveColorWithPalette(tile.palette[i], palettePtr);
+                        }
+                        for (uint8_t i = paletteCount; i < 4; ++i) {
+                            cachedLUT[i] = 0;
+                        }
+                        // Build the 8bpp packed LUT atomically alongside cachedLUT
+                        // so a palette swap never leaves the two out of sync.
+                        for (uint8_t i = 0; i < 4; ++i) {
+                            packedCachedLUT2bpp[i] = packRgb565ToTftSprite8(cachedLUT[i]);
+                        }
+                        lastTilePalettePtr = tile.palette;
+                        lastBackgroundPalettePtr = palettePtr;
+                    }
+
+                    drawSpriteInternal(tile, drawX, drawY, cachedLUT, false, packedCachedLUT2bpp);
+                }
+
+                if constexpr (std::is_same_v<TileT, Sprite>) {
+                    drawSprite(tile, drawX, drawY, color, false);
+                }
+            }
+        }
+
+        if (h.animSlot) {
+            h.animSlot->primed = true;
+            h.animSlot->mapKey = map.indices;
+            h.animSlot->ox     = h.viewOriginX;
+            h.animSlot->oy     = h.viewOriginY;
+        }
+
+        tilemapSpriteDirtyMode_ = h.savedMode;
+        setRenderContext(h.oldContext);
+    }
+
+    void Renderer::drawTileMap(const TileMap4bpp& map, int originX, int originY,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+            // Color is ignored on this path: the 4bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite4bpp>(map, originX, originY, layerType, projection, Color::Black);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap2bpp& map, int originX, int originY,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+            // Color is ignored on this path: the 2bpp tail blits through its
+            // own per-tile palette LUT, not a single map-wide fill colour.
+            drawTileMapProjectedImpl<Sprite2bpp>(map, originX, originY, layerType, projection, Color::Black);
+        }
+    }
+
+    void Renderer::drawTileMap(const TileMap& map, int originX, int originY, Color color,
+                                LayerType layerType, const pixelroot32::math::ProjectionSpec& projection) {
+        // No feature-flag gate, matching the orthogonal 1bpp overload above:
+        // 1bpp sprites have no build-time enable flag.
+        drawTileMapProjectedImpl<Sprite>(map, originX, originY, layerType, projection, color);
+    }
+#endif
 
     void Renderer::setSpritePaletteSlotContext(uint8_t slot) {
         currentSpritePaletteSlot = slot;

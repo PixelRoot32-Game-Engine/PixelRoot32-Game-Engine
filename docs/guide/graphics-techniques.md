@@ -24,8 +24,8 @@ Tilemaps are efficient for backgrounds and level geometry: the engine stores com
 ### Examples in Engine Repo
 
 - `examples/animated_tilemap` — animated tiles
-- `examples/metroidvania` — larger scrollable maps
-- `examples/snake` — minimal grid usage
+- [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) — larger scrollable maps
+- [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) — grid movement under an isometric projection
 
 ---
 
@@ -51,7 +51,7 @@ Built-in palette presets (PR32, NES, Game Boy, PICO-8, etc.) are described in th
 
 ### Example Project
 
-The `examples/dual_palette` sample in the engine repository demonstrates switching palettes in a real scene.
+The `examples/sprites` sample in the engine repository demonstrates switching between single and dual palette mode in a real scene, at runtime.
 
 ---
 
