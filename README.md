@@ -170,7 +170,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.9.0
+    gperez88/PixelRoot32-Game-Engine@^1.10.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -238,6 +238,27 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.10.0
+
+Introduces **cell-to-screen projection**. The engine gains no isometric mode: a view is a `ProjectionSpec` value, and orthogonal, isometric 2:1, isometric 1:1 and oblique are all values of that one type. Every capability is opt-in behind its own build flag and defaults to `0`, so a build that enables none of them is identical to 1.9.0.
+
+### 📐 Projection
+
+- **`ProjectionSpec` (`PIXELROOT32_ENABLE_PROJECTION`)**: an origin plus a 2×2 integer basis. `cellToScreenX/Y` place a cell and never divide; `screenToCellX/Y` invert the mapping for touch picking, flooring toward negative infinity so a tap one pixel outside the map lands in the cell outside it rather than clamping to (0,0). A `constexpr` spec costs zero SRAM.
+- **Projected tilemap draw (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`)**: a flag-guarded `drawTileMap` overload for every tile format — 1bpp, 2bpp and 4bpp — sharing one geometry implementation. Cells are anchored by `TileMapGeneric<T>::tileFootY`, so a tile sits on its cell rather than its top-left corner, and dirty marking follows the sprite's extent so an overhanging tile leaves no stale pixels. The plain orthogonal overloads are textually unchanged.
+- **Cell-range culling (`math::CellRange`)**: the half-open cell window a screen rectangle covers under a given spec, found by inverting the rectangle's corners rather than by the hardcoded orthogonal expressions.
+- **Projection-agnostic depth keys (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: `Entity::depthKey` with `gameplay::compareByDepthKey` lets a game set paint order directly. Ordering by `position.y + height` is correct only while screen depth tracks world Y, which no non-identity projection guarantees. `compareByBottomY` is unchanged and stays right for orthogonal games.
+- **`GridMotion` under a projection**: `interpolatedWorld()` gains a `ProjectionSpec` overload, so an isometric actor reuses the same cell-to-cell stepping an orthogonal one uses.
+- **Static layer snapshot (`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`)**: `graphics::StaticLayerSnapshot` caches static layers that *game code* draws, which `StaticTilemapLayerCache` cannot reach because it presupposes a tilemap. Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240), which is why it defaults to off.
+
+### 🔧 Changed
+
+- `Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`.
+- 4bpp and 2bpp sprite blits pack the palette once per sprite instead of once per pixel.
+- A 4bpp/2bpp pixel naming an index beyond its sprite's `paletteSize` now resolves to black.
+
+Reference consumer: [`examples/iso_dungeon`](examples/iso_dungeon), the first place in this repository where the projected path is executed rather than merely linked, pinned to a frozen pre-conversion oracle by a differential test.
 
 ## 1.9.0
 
