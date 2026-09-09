@@ -72,7 +72,7 @@ build_flags =
 
 > **Reality check:** on a 240×240 panel at `SPI_FREQUENCY=40000000`, pushing one frame costs ~23 ms — the frame budget. CPU saved here does not become frame rate on its own; it becomes headroom to raise the SPI clock, enable 12-bit colour, or spend on game logic. Measure the bus before optimising the draw — see the **Display Bandwidth (TFT_eSPI)** section below, and [12-bit Color on the Wire](#12-bit-color-on-the-wire-rgb444) for the cheapest way to cut that 23 ms.
 
-See `examples/iso_dungeon` for a working consumer.
+See [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) in PixelRoot32-Demo-Projects for a working consumer.
 
 ### Single-Core Resource Contention (ESP32-C3)
 

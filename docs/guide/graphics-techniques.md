@@ -24,8 +24,8 @@ Tilemaps are efficient for backgrounds and level geometry: the engine stores com
 ### Examples in Engine Repo
 
 - `examples/animated_tilemap` — animated tiles
-- `examples/metroidvania` — larger scrollable maps
-- `examples/iso_dungeon` — grid movement under an isometric projection
+- [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) — larger scrollable maps
+- [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) — grid movement under an isometric projection
 
 ---
 

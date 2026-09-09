@@ -43,6 +43,34 @@ Please follow these steps to have your contribution considered by the maintainer
 2. Follow the [Style Guide](docs/guide/index.md#standards-&-compatibility)
 3. After you submit your pull request, verify that all status checks are passing
 
+### Adding an example
+
+`examples/` holds **five** projects, and that number is deliberate. It was
+thirteen; most of those were complete games, and a catalogue nobody could read
+in one sitting is a catalogue nobody reads. Complete games and per-topic demos
+now live in
+[**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects),
+and that is where a new project almost always belongs.
+
+An addition here has to earn its place, so open an issue first. An example
+qualifies only if it teaches **one** engine capability that none of the five
+already covers, and it is not a game. If it needs a paragraph to explain what
+it demonstrates, it belongs in Demo-Projects.
+
+Every example must:
+
+- Build `native` **and** at least one hardware environment.
+- Ship `README.md`, `lib/platformio.ini` and `src/main.cpp`.
+- Have a row in [`examples/README.md`](examples/README.md) — CI fails the build
+  if the catalogue and the disk disagree in either direction.
+- Turn **off** the capabilities it does not use. The flag list is part of the
+  lesson: it tells the reader what the feature costs.
+
+Note that examples depend on the engine through `lib_deps = symlink://../../`,
+which is correct here and banned in Demo-Projects. An example inside this
+repository must build against the working tree; a demo outside it must build
+against a published release.
+
 ## Coding Standards
 
 PixelRoot32 follows a specific coding style to ensure consistency and maintainability.

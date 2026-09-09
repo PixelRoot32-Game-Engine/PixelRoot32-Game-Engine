@@ -1,0 +1,203 @@
+name: examples
+
+# Nothing built examples/ before this workflow existed. That is how four
+# examples were deleted while the catalogue kept advertising them, and how an
+# engine API change could break every surviving example without anyone noticing
+# until a user tried one.
+#
+# Five examples is a small enough matrix to build on every push. It was not, at
+# thirteen — which is part of why the catalogue was cut back to five.
+
+on:
+  push:
+    branches: [main, develop]
+  # Deliberately unfiltered, unlike the push trigger above. Long-lived feature
+  # branches are where examples actually break, and a guard that only runs on
+  # PRs into main would have sat out the very pull request that introduced it.
+  # This matches PixelRoot32-Demo-Projects' build workflow.
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch cancels the previous run: the ESP32 toolchain
+# download dominates and there is no value in finishing a build nobody reads.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Discover every example rather than hardcoding the list, so the matrix cannot
+  # drift away from the disk. Depth 2 here — examples/<name>/platformio.ini —
+  # not the depth 3 PixelRoot32-Demo-Projects uses, because this repository has
+  # no category level. lib/platformio.ini sits one level deeper and is a build
+  # template, not a project.
+  # ---------------------------------------------------------------------------
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      examples: ${{ steps.list.outputs.examples }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: list
+        run: |
+          examples=$(find examples -mindepth 2 -maxdepth 2 -name platformio.ini \
+            | sed 's|/platformio\.ini$||' \
+            | sort \
+            | jq -R . | jq -sc .)
+          echo "examples=$examples" >> "$GITHUB_OUTPUT"
+          echo "Discovered examples: $examples"
+
+  # ---------------------------------------------------------------------------
+  # The check that phase 1 of the catalogue reduction had to do by hand: does
+  # examples/README.md describe what is actually on disk? Both directions — an
+  # example missing from the catalogue is invisible to readers, and a catalogue
+  # row with no folder behind it sends them to a 404.
+  #
+  # Runs in seconds, so it fails before the build matrix spends twenty minutes.
+  # ---------------------------------------------------------------------------
+  catalogue:
+    runs-on: ubuntu-latest
+    needs: discover
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The catalogue and the disk agree
+        run: |
+          status=0
+
+          # Catalogue rows look like:  | [name](name/) | what it shows | envs |
+          # Only those rows start with a link, so no other table matches. Note
+          # the sed delimiter is / and not |, or the \| in the pattern would be
+          # read as an escaped delimiter and quietly match nothing.
+          grep -oE '^\| \[[a-z0-9_]+\]\([a-z0-9_]+/\)' examples/README.md \
+            | sed -E 's/^\| \[([a-z0-9_]+)\].*/\1/' | sort -u > /tmp/catalogue.txt
+
+          if [ ! -s /tmp/catalogue.txt ]; then
+            echo "::error file=examples/README.md::no catalogue rows matched — the table format changed and this check went blind"
+            exit 1
+          fi
+
+          : > /tmp/disk.txt
+          for example in $(echo '${{ needs.discover.outputs.examples }}' | jq -r '.[]'); do
+            name=$(basename "$example")
+            echo "$name" >> /tmp/disk.txt
+            if ! grep -qx "$name" /tmp/catalogue.txt; then
+              echo "::error file=examples/README.md::$name exists on disk but is not a row in the catalogue table"
+              status=1
+            fi
+          done
+          sort -u /tmp/disk.txt -o /tmp/disk.txt
+
+          # Without this, an empty discovery makes both directions vacuously
+          # true and the job reports success while checking nothing.
+          if [ ! -s /tmp/disk.txt ]; then
+            echo "::error::the discover job found no examples — this check went blind"
+            exit 1
+          fi
+
+          while read -r name; do
+            if [ ! -d "examples/$name" ]; then
+              echo "::error file=examples/README.md::the catalogue lists $name, but examples/$name does not exist"
+              status=1
+            fi
+          done < /tmp/catalogue.txt
+
+          echo "on disk:      $(tr '\n' ' ' < /tmp/disk.txt)"
+          echo "in catalogue: $(tr '\n' ' ' < /tmp/catalogue.txt)"
+          exit $status
+
+      - name: Every example has the files an example needs
+        run: |
+          status=0
+          for example in $(echo '${{ needs.discover.outputs.examples }}' | jq -r '.[]'); do
+            for file in README.md lib/platformio.ini src/main.cpp; do
+              if [ ! -f "$example/$file" ]; then
+                echo "::error file=$example::missing required file $file"
+                status=1
+              fi
+            done
+
+            # Every example must run on a PC. An example nobody can try without
+            # buying a board is a screenshot, not an example.
+            if ! sed -n 's/^\[env:\(.*\)\]/\1/p' "$example/platformio.ini" | grep -qx 'native'; then
+              echo "::error file=$example/platformio.ini::no [env:native]"
+              status=1
+            fi
+          done
+          exit $status
+
+  # ---------------------------------------------------------------------------
+  # Build every non-test environment of every example. One job per example, not
+  # per (example, environment): the ESP32 toolchain downloads once per job, so
+  # splitting further multiplies the download rather than the useful
+  # parallelism. mono_oled is the exception that pays anyway — it is the only
+  # example on a second board family (dfrobot_beetle_esp32c3), so its toolchain
+  # is never shared with the others whatever the split.
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    needs: [discover, catalogue]
+    strategy:
+      fail-fast: false
+      matrix:
+        example: ${{ fromJson(needs.discover.outputs.examples) }}
+    name: build ${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Toolchains and platform packages only. .pio/libdeps is deliberately not
+      # cached: these examples depend on the engine through symlink://../../,
+      # so their engine "dependency" is this checkout and must never be served
+      # from a cache written by an older commit.
+      - name: Cache PlatformIO toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-examples-${{ hashFiles('examples/**/platformio.ini') }}
+          restore-keys: ${{ runner.os }}-pio-examples-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      # The native environment links against SDL2; the ESP32 ones do not.
+      - name: Install SDL2
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libsdl2-dev
+
+      # The committed [env:native] build_flags target Windows/MSYS2. Strip the
+      # MSYS2 include/library paths and -mconsole so the same file builds
+      # against the distribution SDL2 headers. The macOS Homebrew lines are
+      # already commented out and need no handling.
+      - name: Apply the Linux variant of the native build flags
+        run: sed -i -e '/msys64/d' -e '/-mconsole/d' "${{ matrix.example }}/platformio.ini"
+
+      # NOTE on symlink://../../ — every example here depends on the engine
+      # through a symlink to the repository root, and that is correct. An
+      # example inside the engine repository must build against the working
+      # tree, which is exactly what this guard exists to test.
+      #
+      # PixelRoot32-Demo-Projects has the opposite rule: its CI hard-fails any
+      # symlink://, because a demo lives outside the engine and must build
+      # standing alone against a published release.
+      #
+      # Both rules are right for their repository. Do not "fix" one to match
+      # the other.
+      - name: Build every non-test environment
+        working-directory: ${{ matrix.example }}
+        run: |
+          status=0
+          for env in $(sed -n 's/^\[env:\(.*\)\]/\1/p' platformio.ini | grep -v test); do
+            echo "::group::${{ matrix.example }} — $env"
+            pio run -e "$env" || status=1
+            echo "::endgroup::"
+          done
+          exit $status

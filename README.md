@@ -19,6 +19,7 @@
 <p align="center">
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
+  <a href="#-demo-projects">Demo Projects</a> •
   <a href="#-tool-suite">Tool Suite</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-best-practices">Best Practices</a> •
@@ -90,6 +91,33 @@ Watch PixelRoot32 running on ESP32 with example games:
 
 ---
 
+## 🎮 Demo Projects
+
+**[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)** is the companion repository: **31 complete,
+self-contained projects** you can copy, build and play.
+
+| Category | Count | A sample of what is there |
+|----------|:-----:|---------------------------|
+| Getting started | 2 | [`hello_world`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/hello_world) — the smallest complete project |
+| Games | 12 | [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), [`chess`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/chess), [`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048), [`snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake) |
+| Gameplay | 4 | [`state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine), [`metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Graphics | 5 | [`iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Audio | 2 | [`music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer), [`sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank) |
+| UI · Input · Performance | 6 | menus, digital and touch controls, and profiling vehicles |
+
+Every demo is a standalone PlatformIO project that builds against the
+**published release** from the registry — copy the folder anywhere, run
+`pio run -e native`, and you have a working starting point.
+
+**How it differs from [`examples/`](examples/) in this repository:** the
+examples here are five minimal projects, each isolating a single engine
+capability, and none of them is a game. Read an example to learn one API; read a
+demo to see several of them working together in something finished.
+
+👉 [Browse the demo catalogue](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)
+
+---
+
 ## 🧰 Tool Suite
 
 The **PixelRoot32 Tool Suite** is a native desktop app (C++17 / SDL2 / ImGui) that accelerates asset creation for the engine.
@@ -155,10 +183,10 @@ PlatformIO will automatically download and install the library and its dependenc
 
    ```bash
    git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
-   cd PixelRoot32-Game-Engine/examples/hello_world
+   cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`hello_world`, `sprites`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `2048`, `music-demo`, `flappy_bird`, `bomberbot`, `iso_dungeon`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `mono_oled`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -190,8 +218,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
-- **Camera Example**: Demonstrates camera effects, scene transitions, moving platforms, and scene management workflows.
+- **[Examples](examples/)**: Five minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
+- **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.

@@ -10,7 +10,6 @@
 namespace camerademo {
 
 class PlayerCube;
-class CameraDemoScene2;
 
 /**
  * @class CameraDemoScene
@@ -35,12 +34,6 @@ public:
     void init() override;
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
-
-    /**
-     * @brief Set the reference to the second scene for end-of-level transition.
-     * @param scene2 Pointer to the CameraDemoScene2 instance.
-     */
-    void setScene2(CameraDemoScene2* scene2) { scene2Ref_ = scene2; }
 
 protected:
     void resetState() noexcept override;
@@ -78,8 +71,6 @@ private:
     int entityCount = 0;
     float levelWidth;                 ///< World width in pixels
     bool jumpInputReady;              ///< Fire rate limiting for jump
-    CameraDemoScene2* scene2Ref_;     ///< Reference to scene2 for end-of-level transition
-    bool endReached_;                 ///< True once end-of-level transition is triggered
 
     pixelroot32::graphics::CameraTween<CAMERA_TWEEN_SLOTS> tweens;
     EffectStep nextEffect = EffectStep::Shake;
