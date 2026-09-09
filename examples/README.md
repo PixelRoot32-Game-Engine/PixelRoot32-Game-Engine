@@ -46,6 +46,29 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 4. **physics** — bodies, sensors, touch, area queries.  
 5. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
 
+## The demo projects
+
+Everything that is not a single-capability example lives in
+**[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)** — **31 complete, self-contained projects**:
+
+| Category | Count | A sample of what is there |
+|----------|:-----:|---------------------------|
+| Getting started | 2 | [`hello_world`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/hello_world), [`first_sprite`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/first_sprite) |
+| Games | 12 | [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), [`chess`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/chess), [`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048), [`snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake) |
+| Gameplay | 4 | [`state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine), [`object_pool`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/object_pool), [`room_screen`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/room_screen), [`metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Graphics | 5 | [`iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`iso_tilemap_export`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_tilemap_export), [`depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Audio | 2 | [`music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer), [`sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank) |
+| UI | 2 | [`menu_navigation`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/ui/menu_navigation) |
+| Input | 2 | [`digital_buttons`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/input/digital_buttons), [`touch_controls`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/input/touch_controls) |
+| Performance | 2 | profiling vehicles with measurements recorded in their READMEs |
+
+The difference is not size, it is **subject**. An example here isolates one
+capability and stops; a demo shows several of them working together in
+something finished. The other practical difference: a demo depends on the
+**published release** from the registry, so its folder can be copied anywhere
+and built, while an example here builds against this working tree through
+`lib_deps = symlink://../../`.
+
 ## Where the bigger projects went
 
 This catalogue used to list thirteen projects, most of them complete games. They

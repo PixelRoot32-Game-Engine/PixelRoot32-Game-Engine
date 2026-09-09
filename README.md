@@ -19,6 +19,7 @@
 <p align="center">
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
+  <a href="#-demo-projects">Demo Projects</a> •
   <a href="#-tool-suite">Tool Suite</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-best-practices">Best Practices</a> •
@@ -87,6 +88,33 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/#getting-started).
+
+---
+
+## 🎮 Demo Projects
+
+**[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)** is the companion repository: **31 complete,
+self-contained projects** you can copy, build and play.
+
+| Category | Count | A sample of what is there |
+|----------|:-----:|---------------------------|
+| Getting started | 2 | [`hello_world`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/hello_world) — the smallest complete project |
+| Games | 12 | [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), [`chess`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/chess), [`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048), [`snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake) |
+| Gameplay | 4 | [`state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine), [`metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Graphics | 5 | [`iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Audio | 2 | [`music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer), [`sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank) |
+| UI · Input · Performance | 6 | menus, digital and touch controls, and profiling vehicles |
+
+Every demo is a standalone PlatformIO project that builds against the
+**published release** from the registry — copy the folder anywhere, run
+`pio run -e native`, and you have a working starting point.
+
+**How it differs from [`examples/`](examples/) in this repository:** the
+examples here are five minimal projects, each isolating a single engine
+capability, and none of them is a game. Read an example to learn one API; read a
+demo to see several of them working together in something finished.
+
+👉 [Browse the demo catalogue](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)
 
 ---
 
