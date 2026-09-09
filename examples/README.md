@@ -1,6 +1,20 @@
 # PixelRoot32 — Examples
 
-Self-contained **[PlatformIO](https://platformio.org/)** projects that show how to use the engine on **PC (SDL2)** and **ESP32-class boards**. Each folder has its own **`platformio.ini`**, **`src/`** entry point, and **`README.md`** with build flags, supported environments, and documentation links.
+**Five small, single-idea projects.** Each one exists to show one capability of
+the engine clearly enough to copy, and stops there.
+
+> **Looking for a game?** These are not games. Complete games, and per-topic
+> demos for audio, UI, input, gameplay systems and performance, live in
+> [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main). That repository is where a project
+> grows; this one is where a capability is explained. If you came here for
+> something bigger than a single feature, go there — and see
+> [Where the bigger projects went](#where-the-bigger-projects-went) if you are
+> following an old link.
+
+Each folder is a self-contained **[PlatformIO](https://platformio.org/)** project
+that builds on **PC (SDL2)** and on **ESP32-class boards**, with its own
+**`platformio.ini`**, **`src/`** entry point, and **`README.md`** covering build
+flags, supported environments and documentation links.
 
 **Typical workflow:** open a project folder in PlatformIO (or run CLI from that folder), pick an environment (`native`, `esp32dev`, etc.), then:
 
@@ -17,51 +31,123 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 
 | Example | What it demonstrates | PlatformIO environments |
 |--------|----------------------|-------------------------|
-| [hello_world](hello_world/) | Minimal `Scene`, `UILabel`, button input, background color cycle | `native`, `esp32dev` , `esp32s3` |
 | [camera](camera/) | `Camera2D` (smoothing, bounds), parallax, tile platforms, `KinematicActor`, **camera effects** (shake / punch / offset) and a scripted **`CameraTween`** pan | `native`, `esp32dev` |
-| [dual_palette](dual_palette/) | Dual palette mode (background vs sprite color tables) | `native`, `esp32dev` |
-| [sprites](sprites/) | 2bpp / 4bpp sprites and animation | `native`, `esp32dev` |
-| [snake](snake/) | Grid game, segment pool, `AudioEngine` + platform audio backends | `native`, `esp32dev` |
-| [brick_breaker](brick_breaker/) | Classic Breakout: paddle, ball physics, bricks, particles, `AudioEngine` + `MusicPlayer` | `native`, `esp32dev` |
-| [music-demo](music-demo/) | **`MusicPlayer`** **multi-track** (main + sub-tracks), **tick / BPM** timing, **`InstrumentPreset`** melodies + **percussion** presets; UI-based sound testing | `native`, `esp32dev` |
-| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay | `native`, `esp32dev`, `esp32cyd` |
-| [metroidvania](metroidvania/) | 4bpp tilemaps, `StaticTilemapLayerCache`, dirty regions, platformer player with gravity + climbing, **interaction triggers** + **gameplay event bus** on sensor pickups | `native`, `esp32dev` |
+| [sprites](sprites/) | 2bpp / 4bpp sprites and animation over a drawn background scene, cycling **single / dual / dual-inverted palette mode** with **A**, with the live background table shown as a 16-entry ramp | `native`, `esp32dev` |
+| [mono_oled](mono_oled/) | **Monochrome 1-bit OLED** on ESP32-C3: `U8G2_Drawer` via `PIXELROOT32_USE_U8G2`, which renderer paths a monochrome panel gives up (no tilemap fast path, no sprite blit, no palette), a **72x40 logical screen offset inside a 128x64 controller framebuffer**, and one-button interaction | `native`, `esp32c3` |
+| [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
-| [2048](2048/) | 2048 puzzle game: grid rendering, touch swipes, D-pad controls, score tracking, **AI auto-play** (expectimax algorithm), audio SFX | `native`, `esp32cyd` |
-| [flappy_bird](flappy_bird/) | Physics flappy clone, U8g2 OLED, ESP32-C3 (**no audio** in this sample) | `native`, `esp32c3` |
-| [bomberbot](bomberbot/) | Original **bomberman-style** game (all CC0 art): interpolated grid movement, deterministic seeded board generation, bounded chain-reaction explosions, PRNG enemy AI, **Y-axis depth sorting**, HUD + text overlays, `AudioEngine` | `native`, `esp32dev` |
-| [room_screen](room_screen/) | Smallest possible `RoomGraph` demo: two rooms, `buildRoomGraph()` from exported room data, camera bounds per room | `native`, `esp32dev` |
-| [midway_clone](midway_clone/) | **Clone of Midway** — vertically scrolling shooter: a camera driven **every frame**, `ObjectPool` bullets/enemies/explosions, camera-keyed wave table, sprite-vs-sprite AABB with physics off, and a measured look at what a moving camera costs `StaticTilemapLayerCache` (spoiler: less than the unconditional full-frame SPI push) | `native`, `esp32dev` |
-| [legend_of_clone](legend_of_clone/) | **The Legend of Clone** — 8-bit-style **screen-by-screen overworld and dungeon**: two scenes over a shared room-grid base, scrolling room transitions with input lockout, `triggerTransition` fade between scenes, exported flash-resident 4bpp tilemaps + `StaticTilemapLayerCache`, dual palette mode, per-tile collision tables | `native`, `esp32dev` |
 
 
 ## Suggested learning order
 
-1. **hello_world** — engine init, one scene, text and input.  
-2. **sprites** or **dual_palette** — graphics and color models.  
-3. **camera** or **metroidvania** / **animated_tilemap** — scrolling, tilemaps, caching (read **animated_tilemap** for the fullest tilemap write-up).  
+1. **sprites** — graphics and colour models (single, dual and dual-inverted palette).  
+2. **camera** — scrolling, parallax, camera effects and tweens.  
+3. **animated_tilemap** — tile animation, the static tilemap cache and dirty regions.  
 4. **physics** — bodies, sensors, touch, area queries.  
-5. **snake** / **2048** / **brick_breaker** / **music-demo** / **bomberbot** — **audio** (events, single-track music, or **multi-track** reference). **flappy_bird** — physics + OLED, no audio subsystem.  
-6. **midway_clone** — where the frame budget actually goes on an ESP32. Read it after step 3: it is the counter-example to the tilemap cache, and it shows how to measure rather than guess.
+5. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
+
+## The demo projects
+
+Everything that is not a single-capability example lives in
+**[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)** — **31 complete, self-contained projects**:
+
+| Category | Count | A sample of what is there |
+|----------|:-----:|---------------------------|
+| Getting started | 2 | [`hello_world`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/hello_world), [`first_sprite`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/first_sprite) |
+| Games | 12 | [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), [`chess`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/chess), [`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048), [`snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake) |
+| Gameplay | 4 | [`state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine), [`object_pool`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/object_pool), [`room_screen`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/room_screen), [`metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Graphics | 5 | [`iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`iso_tilemap_export`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_tilemap_export), [`depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Audio | 2 | [`music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer), [`sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank) |
+| UI | 2 | [`menu_navigation`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/ui/menu_navigation) |
+| Input | 2 | [`digital_buttons`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/input/digital_buttons), [`touch_controls`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/input/touch_controls) |
+| Performance | 2 | profiling vehicles with measurements recorded in their READMEs |
+
+The difference is not size, it is **subject**. An example here isolates one
+capability and stops; a demo shows several of them working together in
+something finished. The other practical difference: a demo depends on the
+**published release** from the registry, so its folder can be copied anywhere
+and built, while an example here builds against this working tree through
+`lib_deps = symlink://../../`.
+
+## Where the bigger projects went
+
+This catalogue used to list thirteen projects, most of them complete games. They
+were **not deleted** — they moved to
+[**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main), which is built for projects that keep
+growing. If you followed a link here, this table is where it now points:
+
+| Was | Now |
+| --- | --- |
+| `examples/2048` | [`games/2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048) |
+| `examples/bomberbot` | [`games/bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot) |
+| `examples/flappy_bird` | [`games/flappy_bird`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/flappy_bird) |
+| `examples/legend_of_clone` | [`games/legend_of_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/legend_of_clone) |
+| `examples/midway_clone` | [`games/midway_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/midway_clone) |
+| `examples/metroidvania` | [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| `examples/iso_dungeon` | [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) |
+| `examples/music-demo` | [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) |
+
+`flappy_bird` and `music-demo` were also the only `esp32c3` examples here. That
+coverage is now [mono_oled](mono_oled/), written for it deliberately rather than
+inherited from a game.
+
+> **Display drivers.** `PIXELROOT32_USE_U8G2` selects `U8G2_Drawer` for
+> monochrome panels; without it, ESP32 builds default to TFT_eSPI. Only
+> [mono_oled](mono_oled/) sets it, and it is also the only `esp32c3` example. This flag is not part of the
+> `PIXELROOT32_ENABLE_*` family below.
 
 ## Where each opt-in capability is demonstrated
 
-Every `PIXELROOT32_ENABLE_*` capability that ships off by default has at least
-one example that turns it on. Start here when you want to see one in use:
+These five examples cover the rendering, camera, physics and display side of
+the engine. Each row names the examples that actually define the flag in their
+`platformio.ini` (or their `lib/platformio.ini` template):
 
 | Capability | Flag | Example |
 |---|---|---|
-| Grid space / motion | `GAMEPLAY_GRID_SPACE` | [snake](snake/), [2048](2048/), [bomberbot](bomberbot/) |
-| State machine | `GAMEPLAY_STATE_MACHINE` | [flappy_bird](flappy_bird/), [metroidvania](metroidvania/) |
-| Object pool | `GAMEPLAY_OBJECT_POOL` | [midway_clone](midway_clone/) |
-| Room graph | `GAMEPLAY_ROOM` | [room_screen](room_screen/), [legend_of_clone](legend_of_clone/) |
-| Gameplay event bus | `GAMEPLAY_EVENTS` | [metroidvania](metroidvania/) |
-| Interaction triggers | `INTERACTION_TRIGGERS` | [metroidvania](metroidvania/) |
-| Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
-| Depth sorting | `DEPTH_SORT` | [bomberbot](bomberbot/) |
+| Sprite bit depths | `2BPP_SPRITES`, `4BPP_SPRITES` | [sprites](sprites/), [animated_tilemap](animated_tilemap/) |
+| Tile animation | `TILE_ANIMATIONS` | [animated_tilemap](animated_tilemap/) |
+| Static tilemap framebuffer cache | `STATIC_TILEMAP_FB_CACHE` | [animated_tilemap](animated_tilemap/) |
+| Dirty regions (selective clear) | `DIRTY_REGIONS` | [animated_tilemap](animated_tilemap/) |
 | Camera effects | `CAMERA_EFFECTS` | [camera](camera/) |
 | Camera tweens | `CAMERA_TWEEN` | [camera](camera/) |
-| 12-bit colour wire format | `TFT_12BIT_COLOR` | [midway_clone](midway_clone/) |
+| Spatial queries | `SPATIAL_QUERY` | [physics](physics/) |
+| Particles | `PARTICLES` | [physics](physics/) |
+| Touch input | `TOUCH` | [physics](physics/) |
+| Scene arena | `SCENE_ARENA` | [animated_tilemap](animated_tilemap/), [camera](camera/), [physics](physics/) |
+| Monochrome display driver | `PIXELROOT32_USE_U8G2` | [mono_oled](mono_oled/) |
+
+Every flag above except the last takes the `PIXELROOT32_ENABLE_` prefix.
+
+### The gameplay framework lives in Demo-Projects
+
+None of the `PIXELROOT32_ENABLE_GAMEPLAY_*` capabilities is demonstrated here
+any more. Each has a demo of its own in
+[**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main), which is where complete projects and
+per-system demos belong:
+
+| Capability | Flag | Demo |
+|---|---|---|
+| Grid space / motion | `GAMEPLAY_GRID_SPACE` | [`games/snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake), [`games/bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot) |
+| State machine | `GAMEPLAY_STATE_MACHINE` | [`gameplay/state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine) |
+| Object pool | `GAMEPLAY_OBJECT_POOL` | [`gameplay/object_pool`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/object_pool) |
+| Room graph | `GAMEPLAY_ROOM` | [`gameplay/room_screen`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/room_screen) |
+| Gameplay event bus | `GAMEPLAY_EVENTS` | [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Interaction triggers | `INTERACTION_TRIGGERS` | [`gameplay/metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Depth sorting | `DEPTH_SORT` | [`graphics/depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Cell-to-screen projection | `PROJECTION`, `TILEMAP_PROJECTION` | [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`graphics/iso_tilemap_export`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_tilemap_export) |
+| Static layer snapshot | `STATIC_LAYER_SNAPSHOT` | [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon) |
+| Per-pixel tile collision | *(always on)* | [`gameplay/room_screen`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/room_screen) |
+| Scene transitions | `SCENE_TRANSITIONS` | [`games/legend_of_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/legend_of_clone) |
+
+**Not demonstrated anywhere.** `PIXELROOT32_TFT_12BIT_COLOR` is not part of the
+`PIXELROOT32_ENABLE_*` family; it is a `TFT_eSPI_Drawer` option that defaults to
+`0` in [`PlatformDefaults.h`](../include/platforms/PlatformDefaults.h). Nothing
+in this repository or in Demo-Projects switches it on.
+
+> **Note on the projection flag.** The capability is `PIXELROOT32_ENABLE_PROJECTION`.
+> The older name `PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION` was renamed and now
+> raises a `#error` at compile time — see
+> [`PlatformDefaults.h`](../include/platforms/PlatformDefaults.h).
 
 ## Engine documentation
 

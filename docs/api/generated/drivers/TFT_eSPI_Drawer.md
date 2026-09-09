@@ -97,6 +97,24 @@ Processes system events. Always true for embedded.
 
 Blocks until the DMA transfer deferred by sendBufferScaled() completes.
 
+### `void flushPendingTransfers()`
+
+**Description:**
+
+Settles the deferred transfer on a frame the engine chose not to
+       present. Implements the DrawSurface hook in terms of
+       waitForPendingDMA().
+
+::: tip
+Do NOT move this into processEvents() to "always be safe".
+      Engine runs processEvents() BEFORE draw(), so flushing there would
+      wait out the DMA before the CPU does the work meant to overlap it,
+      destroying the deferral this exists to protect.
+
+Safe to call when nothing is pending (no-op), so drivers that transfer
+synchronously simply inherit the base no-op instead of overriding.
+:::
+
 ### `bool needsScaling() const`
 
 **Description:**

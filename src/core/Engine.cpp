@@ -280,7 +280,13 @@ namespace pixelroot32::core {
                 t1 = pixelroot32::platforms::config::profilerMicros();
             }
 
-            // waitForDMA
+            // Platform events only. This does NOT wait for the deferred DMA,
+            // despite what this comment used to claim: TFT_eSPI_Drawer's
+            // processEvents() is a no-op, and making it flush here would undo
+            // the deferral, since it runs before the draw work that block's SPI
+            // time is meant to overlap. The pending transfer is settled either
+            // by the next present() or, on a skipped frame, by the
+            // flushPendingTransfers() call below.
             drawer->processEvents();
 
             uint32_t t2 = 0;
@@ -302,6 +308,11 @@ namespace pixelroot32::core {
 
                 // Present frame (TFT_eSPI)
                 drawer->present();
+            } else {
+                // The skipped present() would have been what closed the
+                // transfer the previous one left in flight. Close it here so a
+                // scene sitting still does not hold the bus indefinitely.
+                drawer->flushPendingTransfers();
             }
 
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {

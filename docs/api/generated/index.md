@@ -93,6 +93,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Anchor](./graphics/Anchor.md) — Defines anchor points for positioning UI elements.
 - [BaseDrawSurface](./graphics/BaseDrawSurface.md) — Optional base class for DrawSurface implementations providing default primitive rendering.
 - [Camera2D](./graphics/Camera2D.md) — 2D camera for viewport management and smooth scrolling.
+- [CameraBounds](./graphics/CameraBounds.md) — Closed-interval camera-position range produced by `cameraRangeFor`.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
 - [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
@@ -114,6 +115,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Renderer](./graphics/Renderer.md) — High-level graphics rendering system.
 - [ResolutionPreset](./graphics/ResolutionPreset.md) — Logical resolution choices for memory-constrained targets.
 - [ResolutionPresets](./graphics/ResolutionPresets.md) — Factory for creating DisplayConfig from resolution presets.
+- [ScreenBounds](./graphics/ScreenBounds.md) — Half-open screen-space bounding box accumulated across one or more
+       `expandProjectedMapBounds` calls.
 - [ScrollBehavior](./graphics/ScrollBehavior.md) — Defines how scrolling behaves in layouts.
 - [Sprite](./graphics/Sprite.md) — Compact sprite descriptor for monochrome bitmapped sprites.
 - [Sprite2bpp](./graphics/Sprite2bpp.md) — Sprite descriptor for 2bpp (4-color) multi-color sprites.
@@ -121,6 +124,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [SpriteAnimation](./graphics/SpriteAnimation.md) — Lightweight, step-based sprite animation controller.
 - [SpriteAnimationFrame](./graphics/SpriteAnimationFrame.md) — Single animation frame that can reference either a Sprite or a MultiSprite.
 - [SpriteLayer](./graphics/SpriteLayer.md) — Single monochrome layer used by layered sprites.
+- [StaticLayerSnapshot](./graphics/StaticLayerSnapshot.md) — Framebuffer cache for static layers a game draws ITSELF.
 - [StaticTilemapLayerCache](./graphics/StaticTilemapLayerCache.md) — Centralized framebuffer snapshot for static 4bpp tilemap layers.
 - [TileAnimation](./graphics/TileAnimation.md) — Single tile animation definition (compile-time constant).
 - [TileAnimationManager](./graphics/TileAnimationManager.md) — Manages tile animations for a tilemap.
@@ -193,7 +197,11 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 
 ## Math
 
+- [CellRange](./math/CellRange.md) — Half-open cell-space window `[startCol, endCol) x [startRow, endRow)`
+       covering a screen rectangle, under a given ProjectionSpec.
 - [Fixed16](./math/Fixed16.md) — Fixed-point 16.16 number implementation optimized for RISC-V.
+- [ProjectionSpec](./math/ProjectionSpec.md) — Plain six-`int` aggregate: the screen anchor of cell (0, 0) plus the
+       two screen-space axis vectors of the cell grid.
 - [Random](./math/Random.md) — Instance-based random number generator
 - [Vector2](./math/Vector2.md) — 2D vector using the configured Scalar type (float or Fixed16).
 

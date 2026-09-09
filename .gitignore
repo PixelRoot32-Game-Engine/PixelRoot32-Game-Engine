@@ -108,3 +108,9 @@ _*
 
 # Local-only reference art (ripped sprite sheets, not redistributable)
 docs/audits/
+
+# Local-only analysis write-ups. Deliberately unversioned: an audit describes
+# the tree at one moment, and a stale one in git reads as current guidance.
+# What an audit concludes belongs in code, comments or docs; the write-up itself
+# does not.
+audits/

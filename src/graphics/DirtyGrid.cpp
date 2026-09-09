@@ -148,6 +148,36 @@ bool DirtyGrid::isPrevDirty(uint8_t cx, uint8_t cy) const {
     return getBit(prev, cx, cy);
 }
 
+bool DirtyGrid::intersectsPrevDirty(int x, int y, int w, int h) const {
+    if (fullDirty) {
+        return true;
+    }
+    if (w <= 0 || h <= 0 || !prev || cols == 0 || rows == 0) {
+        return false;
+    }
+    const int maxPxX = static_cast<int>(cols) * static_cast<int>(CELL_W) - 1;
+    const int maxPxY = static_cast<int>(rows) * static_cast<int>(CELL_H) - 1;
+    const int x1     = std::max(0, x);
+    const int y1     = std::max(0, y);
+    const int x2     = std::min(maxPxX, x + w - 1);
+    const int y2     = std::min(maxPxY, y + h - 1);
+    if (x1 > x2 || y1 > y2) {
+        return false;
+    }
+    const uint8_t cx0 = static_cast<uint8_t>(divFloorNonneg(x1, static_cast<int>(CELL_W)));
+    const uint8_t cy0 = static_cast<uint8_t>(divFloorNonneg(y1, static_cast<int>(CELL_H)));
+    const uint8_t cx1 = static_cast<uint8_t>(divFloorNonneg(x2, static_cast<int>(CELL_W)));
+    const uint8_t cy1 = static_cast<uint8_t>(divFloorNonneg(y2, static_cast<int>(CELL_H)));
+    for (uint8_t cy = cy0; cy <= cy1; ++cy) {
+        for (uint8_t cx = cx0; cx <= cx1; ++cx) {
+            if (getBit(prev, cx, cy)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void DirtyGrid::swapAndClear() {
     if (!prev || !curr) {
         return;
@@ -212,22 +242,36 @@ bool DirtyGrid::isCurrMarked(uint8_t cx, uint8_t cy) const {
     return getBit(curr, cx, cy);
 }
 
-void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
-                                          int framebufferWidth,
-                                          int framebufferHeight,
-                                          uint8_t fillByte) const {
-    if (!fb || !prev || cols == 0 || rows == 0) {
-        return;
-    }
+namespace {
 
+/**
+ * @brief Walks every `prev`-marked cell, merging contiguous cells on a
+ *        scanline into one horizontal span, and hands each span to `applySpan`.
+ *
+ * Factored out of clearFramebuffer8FromPrev() when the restore variant landed.
+ * The sweep is fiddly -- a bit-per-cell bitmap, a fast path for fully-set
+ * bytes, and clipping against a framebuffer that need not be a multiple of the
+ * cell size -- and having two copies of it drift apart is a far worse outcome
+ * than one indirection the compiler inlines away. `applySpan` is a template
+ * parameter rather than a function pointer precisely so it does: both callers
+ * below lower to the same loop they had before, with their own memset/memcpy
+ * inlined at the span site.
+ *
+ * @param applySpan Called as `applySpan(py, px, widthPixels, heightRows)` with
+ *                  a span already clipped to the framebuffer.
+ */
+template <typename SpanOp>
+void forEachPrevSpan(const uint8_t* prev, uint8_t cols, uint8_t rows,
+                     int framebufferWidth, int framebufferHeight,
+                     SpanOp applySpan) {
     const size_t bytesPerRow = (cols + 7u) >> 3u;
 
     for (uint8_t cy = 0; cy < rows; ++cy) {
-        const int py = static_cast<int>(cy) * static_cast<int>(CELL_H);
+        const int py = static_cast<int>(cy) * static_cast<int>(DirtyGrid::CELL_H);
         if (py >= framebufferHeight) {
             break;
         }
-        const int rowH = std::min(static_cast<int>(CELL_H), framebufferHeight - py);
+        const int rowH = std::min(static_cast<int>(DirtyGrid::CELL_H), framebufferHeight - py);
 
         size_t byteIdx = static_cast<size_t>(cy) * bytesPerRow;
         uint8_t cx = 0;
@@ -259,20 +303,17 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                 cx = static_cast<uint8_t>(std::min(runEnd + 1, static_cast<int>(cols)));
                 byteIdx = nextByteIdx;
 
-                const int px = runStart * static_cast<int>(CELL_W);
+                const int px = runStart * static_cast<int>(DirtyGrid::CELL_W);
                 if (px >= framebufferWidth) {
                     continue;
                 }
                 int spanCells = actualRunEnd - runStart + 1;
-                int wpixels = spanCells * static_cast<int>(CELL_W);
+                int wpixels = spanCells * static_cast<int>(DirtyGrid::CELL_W);
                 if (px + wpixels > framebufferWidth) {
                     wpixels = framebufferWidth - px;
                 }
                 if (wpixels > 0) {
-                    uint8_t* rowPtr = fb + py * framebufferWidth + px;
-                    for (int r = 0; r < rowH; ++r) {
-                        std::memset(rowPtr + r * framebufferWidth, fillByte, static_cast<size_t>(wpixels));
-                    }
+                    applySpan(py, px, wpixels, rowH);
                 }
             } else {
                 int pos = localCx;
@@ -285,22 +326,19 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
                         break;
                     }
                     int runStart = pos;
-                    int runStartPx = runStart * static_cast<int>(CELL_W);
+                    int runStartPx = runStart * static_cast<int>(DirtyGrid::CELL_W);
                     while (pos < maxPos && (bits & (1u << (pos & 7))) != 0) {
                         ++pos;
                     }
                     int spanCells = pos - runStart;
 
                     if (runStartPx < framebufferWidth) {
-                        int wpixels = spanCells * static_cast<int>(CELL_W);
+                        int wpixels = spanCells * static_cast<int>(DirtyGrid::CELL_W);
                         if (runStartPx + wpixels > framebufferWidth) {
                             wpixels = framebufferWidth - runStartPx;
                         }
                         if (wpixels > 0) {
-                            uint8_t* rowPtr = fb + py * framebufferWidth + runStartPx;
-                            for (int r = 0; r < rowH; ++r) {
-                                std::memset(rowPtr + r * framebufferWidth, fillByte, static_cast<size_t>(wpixels));
-                            }
+                            applySpan(py, runStartPx, wpixels, rowH);
                         }
                     }
                 }
@@ -312,6 +350,49 @@ void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
             }
         }
     }
+}
+
+}  // namespace
+
+void DirtyGrid::clearFramebuffer8FromPrev(uint8_t* fb,
+                                          int framebufferWidth,
+                                          int framebufferHeight,
+                                          uint8_t fillByte) const {
+    if (!fb || !prev || cols == 0 || rows == 0) {
+        return;
+    }
+
+    forEachPrevSpan(prev, cols, rows, framebufferWidth, framebufferHeight,
+                    [fb, framebufferWidth, fillByte](int py, int px, int wpixels, int rowH) {
+                        uint8_t* rowPtr = fb + py * framebufferWidth + px;
+                        for (int r = 0; r < rowH; ++r) {
+                            std::memset(rowPtr + r * framebufferWidth, fillByte,
+                                        static_cast<size_t>(wpixels));
+                        }
+                    });
+}
+
+void DirtyGrid::restoreFramebuffer8FromPrev(uint8_t* fb,
+                                            const uint8_t* snapshot,
+                                            int framebufferWidth,
+                                            int framebufferHeight) const {
+    if (!fb || !snapshot || !prev || cols == 0 || rows == 0) {
+        return;
+    }
+
+    forEachPrevSpan(prev, cols, rows, framebufferWidth, framebufferHeight,
+                    [fb, snapshot, framebufferWidth](int py, int px, int wpixels, int rowH) {
+                        const size_t offset = static_cast<size_t>(py) *
+                                                  static_cast<size_t>(framebufferWidth) +
+                                              static_cast<size_t>(px);
+                        uint8_t* dstRow = fb + offset;
+                        const uint8_t* srcRow = snapshot + offset;
+                        for (int r = 0; r < rowH; ++r) {
+                            std::memcpy(dstRow + r * framebufferWidth,
+                                        srcRow + r * framebufferWidth,
+                                        static_cast<size_t>(wpixels));
+                        }
+                    });
 }
 
 }  // namespace pixelroot32::graphics

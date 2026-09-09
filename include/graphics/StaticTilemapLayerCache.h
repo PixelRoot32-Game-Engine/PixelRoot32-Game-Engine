@@ -14,6 +14,10 @@
 #include "graphics/Renderer.h"
 #include "platforms/PlatformDefaults.h"
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#include "math/Projection.h"
+#endif
+
 namespace pixelroot32::graphics {
 
 /**
@@ -22,11 +26,27 @@ namespace pixelroot32::graphics {
  *
  * Entries with map == nullptr are skipped. Use any number of static layers
  * (snapshotted together) and dynamic layers (redrawn every frame after restore).
+ *
+ * @var TileMap4bppDrawSpec::projection
+ * Optional isometric/oblique basis, only present when
+ * @c PIXELROOT32_ENABLE_TILEMAP_PROJECTION is on. @c nullptr — the default, and
+ * therefore what every existing three-element aggregate initialiser
+ * (@c {&map, 0, 0}) keeps meaning — selects the axis-aligned
+ * Renderer::drawTileMap overload, byte for byte as before. A non-null spec
+ * selects the projected overload instead, which places, culls and marks cells
+ * through that basis (see math/Projection.h).
+ *
+ * The member is deliberately last and default-initialised so adding it did not
+ * touch a single call site, and so the struct's layout is unchanged when the
+ * flag is off.
  */
 struct TileMap4bppDrawSpec {
     const TileMap4bpp* map;
     int originX;
     int originY;
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    const pixelroot32::math::ProjectionSpec* projection = nullptr;
+#endif
 };
 
 /**
@@ -44,6 +64,23 @@ struct TileMap4bppDrawSpec {
  *
  * Allocate during scene @c init() via allocateForLogicalSize() or allocateForRenderer()
  * so the game loop does not hit the heap (see ARCH_MEMORY_SYSTEM.md).
+ *
+ * ### Projected layers
+ *
+ * A layer whose TileMap4bppDrawSpec::projection is non-null is cached exactly
+ * like an axis-aligned one, because the cache stores *framebuffer bytes*: it
+ * never re-derives cell placement, so the basis a layer was drawn through is
+ * irrelevant to the snapshot and to its restore.
+ *
+ * What that does NOT buy is a cheap scrolling isometric background. draw()
+ * rebuilds whenever the sampled camera moved (@c camMoved), so a layer drawn
+ * through a projection under a camera that scrolls every frame is redrawn
+ * every frame and the snapshot is pure overhead. The win is on frames where
+ * the camera is stationary or clamped — a paused or menu frame, a room whose
+ * map fits the screen, a camera pinned at a level edge. Isometric maps often
+ * scroll on both axes at once, which makes the stationary case rarer here than
+ * it is for a side-scroller; measure before enabling the cache on a projected
+ * layer.
  */
 class StaticTilemapLayerCache {
 public:

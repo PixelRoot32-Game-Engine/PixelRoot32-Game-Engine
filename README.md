@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/pr32_logo.png" alt="PixelRoot32 Logo" width="256"/>
-</p>
+![PixelRoot32 Banner](assets/pr32_banner.png "PixelRoot32 Banner")
 
 <h1 align="center">PixelRoot32 Game Engine</h1>
 
@@ -19,6 +17,7 @@
 <p align="center">
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Features</a> •
+  <a href="#-demo-projects">Demo Projects</a> •
   <a href="#-tool-suite">Tool Suite</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-best-practices">Best Practices</a> •
@@ -64,7 +63,7 @@ At its core, the engine is built around a few simple ideas:
 
 Watch PixelRoot32 running on ESP32 with example games:
 
-[![PixelRoot32 Demo](https://img.youtube.com/vi/55_Jwkx-gPs/0.jpg)](https://www.youtube.com/shorts/55_Jwkx-gPs)
+[![PixelRoot32 Demo](assets/video-thumb.png)](https://youtu.be/WErteZxaBZw)
 
 > Click the image to watch the full demo on YouTube.  
 
@@ -87,6 +86,33 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
 > 💡 **Detailed info:** Check out the [Full Feature List](https://docs.pixelroot32.org/#getting-started).
+
+---
+
+## 🎮 Demo Projects
+
+**[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)** is the companion repository: **31 complete,
+self-contained projects** you can copy, build and play.
+
+| Category | Count | A sample of what is there |
+|----------|:-----:|---------------------------|
+| Getting started | 2 | [`hello_world`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/getting_started/hello_world) — the smallest complete project |
+| Games | 12 | [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), [`chess`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/chess), [`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048), [`snake`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/snake) |
+| Gameplay | 4 | [`state_machine`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/state_machine), [`metroidvania`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/gameplay/metroidvania) |
+| Graphics | 5 | [`iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/iso_dungeon), [`depth_sort`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics/depth_sort) |
+| Audio | 2 | [`music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer), [`sfx_bank`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/sfx_bank) |
+| UI · Input · Performance | 6 | menus, digital and touch controls, and profiling vehicles |
+
+Every demo is a standalone PlatformIO project that builds against the
+**published release** from the registry — copy the folder anywhere, run
+`pio run -e native`, and you have a working starting point.
+
+**How it differs from [`examples/`](examples/) in this repository:** the
+examples here are five minimal projects, each isolating a single engine
+capability, and none of them is a game. Read an example to learn one API; read a
+demo to see several of them working together in something finished.
+
+👉 [Browse the demo catalogue](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)
 
 ---
 
@@ -144,7 +170,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.9.0
+    gperez88/PixelRoot32-Game-Engine@^1.10.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -155,10 +181,10 @@ PlatformIO will automatically download and install the library and its dependenc
 
    ```bash
    git clone https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine.git
-   cd PixelRoot32-Game-Engine/examples/hello_world
+   cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`hello_world`, `sprites`, `dual_palette`, `animated_tilemap`, `camera`, `physics`, `metroidvania`, `snake`, `2048`, `brick_breaker`, `music-demo`, `flappy_bird`, `bomberbot`, `room_screen`, `midway_clone`, `legend_of_clone`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on.
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `mono_oled`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -190,8 +216,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Local path to the same demos (open a subfolder in PlatformIO).
-- **Camera Example**: Demonstrates camera effects, scene transitions, moving platforms, and scene management workflows.
+- **[Examples](examples/)**: Five minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
+- **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
@@ -211,6 +238,27 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.10.0
+
+Introduces **cell-to-screen projection**. The engine gains no isometric mode: a view is a `ProjectionSpec` value, and orthogonal, isometric 2:1, isometric 1:1 and oblique are all values of that one type. Every capability is opt-in behind its own build flag and defaults to `0`, so a build that enables none of them is identical to 1.9.0.
+
+### 📐 Projection
+
+- **`ProjectionSpec` (`PIXELROOT32_ENABLE_PROJECTION`)**: an origin plus a 2×2 integer basis. `cellToScreenX/Y` place a cell and never divide; `screenToCellX/Y` invert the mapping for touch picking, flooring toward negative infinity so a tap one pixel outside the map lands in the cell outside it rather than clamping to (0,0). A `constexpr` spec costs zero SRAM.
+- **Projected tilemap draw (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`)**: a flag-guarded `drawTileMap` overload for every tile format — 1bpp, 2bpp and 4bpp — sharing one geometry implementation. Cells are anchored by `TileMapGeneric<T>::tileFootY`, so a tile sits on its cell rather than its top-left corner, and dirty marking follows the sprite's extent so an overhanging tile leaves no stale pixels. The plain orthogonal overloads are textually unchanged.
+- **Cell-range culling (`math::CellRange`)**: the half-open cell window a screen rectangle covers under a given spec, found by inverting the rectangle's corners rather than by the hardcoded orthogonal expressions.
+- **Projection-agnostic depth keys (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: `Entity::depthKey` with `gameplay::compareByDepthKey` lets a game set paint order directly. Ordering by `position.y + height` is correct only while screen depth tracks world Y, which no non-identity projection guarantees. `compareByBottomY` is unchanged and stays right for orthogonal games.
+- **`GridMotion` under a projection**: `interpolatedWorld()` gains a `ProjectionSpec` overload, so an isometric actor reuses the same cell-to-cell stepping an orthogonal one uses.
+- **Static layer snapshot (`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`)**: `graphics::StaticLayerSnapshot` caches static layers that *game code* draws, which `StaticTilemapLayerCache` cannot reach because it presupposes a tilemap. Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240), which is why it defaults to off.
+
+### 🔧 Changed
+
+- `Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`.
+- 4bpp and 2bpp sprite blits pack the palette once per sprite instead of once per pixel.
+- A 4bpp/2bpp pixel naming an index beyond its sprite's `paletteSize` now resolves to black.
+
+Reference consumer: [`examples/iso_dungeon`](examples/iso_dungeon), the first place in this repository where the projected path is executed rather than merely linked, pinned to a frozen pre-conversion oracle by a differential test.
 
 ## 1.9.0
 
@@ -245,9 +293,9 @@ Introduces the **Gameplay Framework**. Every capability is opt-in behind its own
 
 ### 🎮 Examples
 
-- **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon), **room_screen** (minimal `RoomGraph` demo).
-- `snake` and `2048` now derive board geometry from Grid Space; `flappy_bird` and `metroidvania` run their states through State Machine; `physics` shows radius queries, `metroidvania` the triggers and event bus, `bomberbot` depth sorting, and `camera` the effects and tweens.
-- The catalogue is now 16 projects, each covering something no other example covers, with a flag-to-example table in [`examples/README.md`](examples/README.md). `space_invaders` and `tic_tac_toe` were removed as duplicates, and `camera-effect-demo` was folded into `camera`.
+- **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon, `RoomGraph`, selectable per-pixel tile collision).
+- `2048` and `bomberbot` derive board geometry from Grid Space (`iso_dungeon` enables the same flag for `GridMotion`, but declares no `GridSpec`); `flappy_bird` and `metroidvania` run their states through State Machine; `physics` shows radius queries, `metroidvania` the triggers and event bus, `bomberbot` depth sorting, and `camera` the effects and tweens.
+- The catalogue is now 13 projects, each covering something no other example covers, with a flag-to-example table in [`examples/README.md`](examples/README.md). `space_invaders` and `tic_tac_toe` were removed as duplicates, and `camera-effect-demo` was folded into `camera`.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

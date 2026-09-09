@@ -148,6 +148,41 @@ public:
 };
 ```
 
+#### Camera bounds under a non-orthogonal projection
+
+`Camera2D` itself is projection-agnostic — it is a pure translation pushed into
+the renderer as an offset, and nothing in it assumes an axis-aligned tile grid.
+But `setBounds()` / `setVerticalBounds()` clamp in whatever units you hand them,
+and the camera moves in **screen** space.
+
+For an orthogonal map, world units and screen units coincide, so passing the
+map's world extent is correct. Under a non-identity projection
+(`gameplay::ProjectionSpec` — isometric, oblique) they do not coincide: a
+`cols × rows` isometric map is a diamond on screen, roughly
+`(cols + rows) × halfTileWidth` wide, and its leftmost point is at cell
+`(0, rows)`, not at cell `(0, 0)`.
+
+Passing cell-space or world-space bounds there stops the camera in the wrong
+place — usually visible as the view refusing to reach the left and right tips of
+the diamond. Clamp with **projected** bounds instead:
+
+```cpp
+// ✅ Bounds computed through the projection, over all four map corners.
+using namespace pixelroot32::gameplay;
+
+inline constexpr ProjectionSpec kIso{0, 0, 16, 8, -16, 8};
+static_assert(projectionSpecIsValid(kIso, kCols, kRows), "kIso out of range");
+
+const int xs[4] = { cellToScreenX(0, 0, kIso),     cellToScreenX(kCols, 0, kIso),
+                    cellToScreenX(0, kRows, kIso), cellToScreenX(kCols, kRows, kIso) };
+// minX/maxX over xs[], likewise for Y, then:
+camera.setBounds(math::toScalar(minX), math::toScalar(maxX - viewportWidth));
+```
+
+All four corners matter for the same reason `projectionSpecIsValid()` checks
+four: with a negative axis component the extreme is not at the corner an
+axis-aligned map would put it.
+
 ---
 
 ## 🎬 Tile Animation

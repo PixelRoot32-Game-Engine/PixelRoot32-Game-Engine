@@ -20,6 +20,11 @@
 #include "Font.h"
 #include "TileAnimation.h"
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#include "math/Projection.h"
+#include <type_traits>
+#endif
+
 #include <memory>
 #include <string_view>
 
@@ -57,6 +62,10 @@ struct Sprite2bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 /**
@@ -69,6 +78,10 @@ struct Sprite4bpp {
     uint8_t         width;       ///< Sprite width in pixels.
     uint8_t         height;      ///< Sprite height in pixels.
     uint8_t         paletteSize; ///< Number of colors in the palette.
+    /// @brief Optional per-row opaque span (start col). nullptr = full bbox.
+    const uint8_t*  rowMinX = nullptr;
+    /// @brief Optional per-row opaque span (one past last col). nullptr = full bbox.
+    const uint8_t*  rowMaxX = nullptr;
 };
 
 // Multi-palette background (2bpp/4bpp tilemaps): per-cell palette index
@@ -134,6 +147,38 @@ struct TileMapGeneric {
      * (priority, flipX, flipY, effects). Use kTileCellPaletteMask to extract palette.
      */
     const uint8_t*  paletteIndices = nullptr;
+
+    /**
+     * Optional per-tile foot row, parallel to `tiles[]`, `tileCount` entries.
+     * `nullptr` means anchor at top-left, i.e. current behaviour. Typically
+     * filled by editor/export tools. Encodes the shipped anchoring
+     * convention already used in game code: `examples/iso_dungeon/src/IsoDraw.h:28-29`
+     * draws a sprite at `(centreX - sprite.width / 2, centreY - footY)`.
+     */
+    const uint8_t*  tileFootY = nullptr;
+
+    /**
+     * @brief Resolve the foot-anchor row for a tile index.
+     *
+     * @param index Tile index into `tiles[]`.
+     * @return `tileFootY[index]` when a table is present and `index` is in
+     *         range; 0 otherwise (current top-left behaviour).
+     * @note `index >= tileCount` returns 0. `drawTileMap` already guards
+     *       `index >= map.tileCount` (src/graphics/Renderer.cpp:892), so this
+     *       is defence in depth against a caller that does not, not a
+     *       load-bearing branch.
+     * @note `footYFor(0)` reads the table with no special case, even though
+     *       index 0 is the empty-tile sentinel `drawTileMap` skips. The table
+     *       is parallel to `tiles[]`, so slot 0 exists; special-casing it
+     *       would bind the asset format's meaning to a renderer policy that
+     *       is free to change.
+     */
+    inline uint8_t footYFor(uint16_t index) const {
+        if (!tileFootY || index >= tileCount) {
+            return 0;
+        }
+        return tileFootY[index];
+    }
 
     /**
      * @brief Initialize runtime mask buffer for tile activation control.
@@ -777,6 +822,11 @@ public:
             }
             debugDirtyCellOverlay_ = other.debugDirtyCellOverlay_;
             suppressFramebufferClearBeforeStaticMemcpy_ = other.suppressFramebufferClearBeforeStaticMemcpy_;
+            // Not carried over, and deliberately so: it describes a clear that
+            // happened to a framebuffer this renderer no longer points at.
+            // false is the safe answer — it only costs a full restore.
+            selectiveRestoreValidThisFrame_ = false;
+            other.selectiveRestoreValidThisFrame_ = false;
             other.tilemapSpriteDirtyMode_ = TilemapSpriteDirtyMode::Normal;
             other.debugDirtyCellOverlay_ = false;
             other.suppressFramebufferClearBeforeStaticMemcpy_ = false;
@@ -822,6 +872,29 @@ public:
      * @param skipClearDueToMemcpyRestore True if the scene will restore framebuffer via memcpy
      */
     void accumulateFramebufferClearSuppressionAdvice(bool skipClearDueToMemcpyRestore);
+
+    /**
+     * @brief Repaints only the cells dirtied by the PREVIOUS frame, taking
+     *        their pixels from a static-layer snapshot.
+     *
+     * The counterpart to the selective clear `beginFrame()` performs: instead
+     * of blanking the cells last frame's movers touched, this puts the static
+     * background back under them, so a scene whose static layers hold still
+     * never redraws them. Intended for StaticLayerSnapshot, which owns the
+     * buffer and the validity rules; games normally go through that rather
+     * than calling this directly.
+     *
+     * Requires dirty regions AND a driver that exposes an 8bpp logical
+     * framebuffer. Returns false when either is missing, so the caller can
+     * fall back to a full restore rather than silently leaving a stale frame.
+     *
+     * Call after `beginFrame()` and before drawing anything dynamic. `snapshot`
+     * must hold `getLogicalWidth() * getLogicalHeight()` bytes.
+     *
+     * @param snapshot Framebuffer-sized image of the static layers alone.
+     * @return true when the selective restore ran.
+     */
+    [[nodiscard]] bool restoreDirtyCellsFromSnapshot(const uint8_t* snapshot);
 
     /**
      * @brief Finalizes the frame and sends the buffer to the display.
@@ -997,6 +1070,23 @@ public:
     void setFont(const uint8_t* font);
 
     /**
+     * @brief Marks a single 8x8 dirty cell in the current (this-frame) dirty grid.
+     *
+     * Test-only helper: lets unit tests populate the dirty grid deterministically
+     * so they can drive the per-tile dirty-skip predicate in
+     * drawTileMapProjectedImpl through known states. Production code MUST NOT
+     * call this; entity draw paths and tilemap draws already mark their own cells.
+     *
+     * @param cx Cell X coordinate (in 8x8 cell units).
+     * @param cy Cell Y coordinate (in 8x8 cell units).
+     */
+    void markCellDirtyForTest(uint8_t cx, uint8_t cy) {
+        if constexpr (pixelroot32::platforms::config::EnableDirtyRegions) {
+            dirtyGrid.markCell(cx, cy);
+        }
+    }
+
+    /**
      * @brief Gets the current global X offset.
      * @return The X offset.
      */
@@ -1170,6 +1260,90 @@ public:
                      int originY,
                      LayerType layerType = LayerType::Dynamic);
 
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /**
+     * @brief Draws a tilemap of 4bpp sprites through a projection basis.
+     *
+     * Places, culls and marks cells through `projection` instead of the
+     * axis-aligned grid (see math/Projection.h): each tile is anchored at
+     * `(centreX - tile.width / 2, centreY - map.footYFor(index))`, the same
+     * formula already shipped by hand in `examples/iso_dungeon/src/IsoDraw.h:28-29`.
+     *
+     * @note `map.tileFootY` is what this path anchors from. The PixelRoot32
+     *       Tilemap Editor does not export a foot-anchor table today, so an
+     *       editor-exported map has `tileFootY == nullptr` and every tile
+     *       anchors at its top-left corner (`footYFor()` returns 0
+     *       uniformly) -- correct for a uniform-height tileset, wrong for
+     *       one with mixed tile heights. Closing that export gap is a later,
+     *       separate change.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     *
+     *        Draw order is the caller's responsibility: this path iterates
+     *        cells row-major and never sorts. Row-major is a correct
+     *        back-to-front paint order only when `math::rowMajorIsPainterOrder(projection)`
+     *        holds -- i.e. a `+1` step along either cell axis moves a tile
+     *        strictly forward on screen (`axisXy > 0 && axisYy > 0`). It does
+     *        NOT hold for every valid spec: an orthogonal or oblique basis
+     *        (`axisXy == 0`) returns `false` from that predicate and is still
+     *        painted correctly here whenever its art fills its cell and
+     *        never overhangs it. The predicate is sufficient, not necessary --
+     *        assert it at the spec's declaration site when tiles can overhang
+     *        their cell, not unconditionally.
+     */
+    void drawTileMap(const TileMap4bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 2bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract (row-major iteration, `math::rowMajorIsPainterOrder`) and the
+     * `tileFootY` anchoring note. This overload differs only in its
+     * per-tile blit: a 4-entry palette LUT instead of a 16-entry one.
+     *
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap2bpp& map,
+                     int originX,
+                     int originY,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+
+    /**
+     * @brief Draws a tilemap of 1bpp sprites through a projection basis.
+     *
+     * Same placement, culling and dirty-marking behaviour as the 4bpp
+     * projected overload above -- see its Doxygen for the full draw-order
+     * contract and the `tileFootY` anchoring note.
+     *
+     * @note Art constraint, not a defect: `Sprite::data` is one `uint16_t`
+     *       per row and `drawSprite()` builds `1u << (width - 1)`
+     *       (Renderer.cpp:495), undefined above 16 -- so `Sprite::width` is
+     *       capped at 16 px and a 2:1 isometric diamond therefore caps at
+     *       16x8. `color` is also a single value for the whole map, so a
+     *       solid-diamond floor renders as a flat monochrome region with no
+     *       depth cue: outlined/wireframe 1bpp diamonds work, shaded ones
+     *       cannot exist at this bit depth.
+     *
+     * @param color Single fill colour used for every tile in the map.
+     * @param projection Places, culls and marks cells through this basis
+     *        instead of the axis-aligned grid.
+     */
+    void drawTileMap(const TileMap& map,
+                     int originX,
+                     int originY,
+                     Color color,
+                     LayerType layerType,
+                     const pixelroot32::math::ProjectionSpec& projection);
+#endif
+
     /**
      * @brief Enables or disables ignoring global offsets for subsequent draw calls.
      * 
@@ -1208,6 +1382,12 @@ private:
     int logicalHeight = 240;
     int xOffset = 0;
     int yOffset = 0;
+    /// Camera offset as of the previous frame's endFrame(); powers the
+    /// projected-tilemap dirty-skip gate (camera-stationary check). Snapshot
+    /// is taken in endFrame() after beginFrame()'s swapAndClear(), before
+    /// sendBuffer(), so it matches the offset used for that frame's prev marks.
+    int prevXOffset_ = 0;
+    int prevYOffset_ = 0;
     bool offsetBypass = false;
 
     PaletteContext* currentRenderContext = nullptr;
@@ -1237,46 +1417,29 @@ private:
     /** When dirty regions enabled: omit selective/full framebuffer clear — StaticTilemapLayerCache overwrites FB. */
     bool suppressFramebufferClearBeforeStaticMemcpy_ = false;
 
+    /**
+     * Set by beginFrame(): true when this frame's clear left every pixel
+     * OUTSIDE the prev-dirty cells standing (it either skipped the clear or
+     * blanked only those cells), false when it wiped the whole framebuffer.
+     *
+     * restoreDirtyCellsFromSnapshot() reads it to decide whether a per-cell
+     * restore is sound. It cannot be derived after the fact: beginFrame()
+     * clears `fullDirty` on the way through, so the condition that forced the
+     * full wipe is gone by the time anyone could ask.
+     */
+    bool selectiveRestoreValidThisFrame_ = false;
+
     // Sprite palette slot context for multi-palette sprites
     static constexpr uint8_t kSpritePaletteSlotContextInactive = 0xFF;
     uint8_t currentSpritePaletteSlot = kSpritePaletteSlotContextInactive;
 
-    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
-    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX);
+    void drawSpriteInternal(const Sprite2bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
+    void drawSpriteInternal(const Sprite4bpp& sprite, int x, int y, const uint16_t* paletteLUT, bool flipX, const uint8_t* packedLUT = nullptr);
 
     void ensureDirtyGridSized();
     void markDirtyLogicalRect(int x, int y, int w, int h);
     void drawDebugDirtyCellOverlay();
     void clearDirtyCellsFramebuffer8();
-
-    /// Shared state for tilemap dirty-tracking preamble/postamble (F6 dedup).
-    struct TilemapDirtyContext {
-        PaletteContext              bgContext;
-        PaletteContext*             oldRenderContext;
-        TilemapSpriteDirtyMode      savedMode;
-        AnimDynTrackEntry*          animSlot;
-        bool                        mapOrOriginMovedAnim;
-        int                         viewOriginX;
-        int                         viewOriginY;
-        int                         startCol;
-        int                         endCol;
-        int                         startRow;
-        int                         endRow;
-    };
-
-    /// Common preamble for all drawTileMap overloads. Returns false if the map is degenerate.
-    template <typename TMap>
-    bool beginTilemapDirty(const TMap& map, int originX, int originY,
-                           LayerType layerType, TilemapDirtyContext& ctx);
-
-    /// Common postamble for all drawTileMap overloads.
-    void endTilemapDirty(const void* mapIndices, TilemapDirtyContext& ctx);
-
-    /// Per-tile dirty cell marking decision (shared by all overloads).
-    bool shouldMarkDirtyCell(const TilemapDirtyContext& ctx,
-                             LayerType layerType,
-TileAnimationManager* animMgr,
-                              uint8_t rawIndex) const;
 
     /// Helper struct to deduplicate dirty-tracking preamble/postamble across
     /// drawTileMap overloads. Computes common state: viewport origin, animation
@@ -1351,6 +1514,33 @@ TileAnimationManager* animMgr,
 
         return h;
     }
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+    /// Shared geometry for every projected drawTileMap overload: derives the
+    /// draw/cull specs, runs the bounded tileset scan, computes the padded
+    /// cull window, and places/culls/marks cells row-major through
+    /// `projection`. The per-format tail (blit call, palette LUT size) is
+    /// selected with `if constexpr`, so this function exists exactly once
+    /// per tile type that instantiates it, and the projected path itself
+    /// exists exactly once regardless of how many types call in.
+    /// @tparam TileT Tile sprite type (Sprite, Sprite2bpp, or Sprite4bpp).
+    /// @param color Required, not defaulted: this is a private function with
+    ///        exactly three call sites in this translation unit, all of
+    ///        which must pass it explicitly. Only the `Sprite` tail reads
+    ///        it (the single map-wide fill colour); the `Sprite2bpp`/
+    ///        `Sprite4bpp` tails ignore it, since they blit through their
+    ///        own per-tile palette LUT instead. A default here would let a
+    ///        1bpp forwarder silently forget to thread the caller's colour
+    ///        through and draw the whole map black -- a mistake that is not
+    ///        obviously wrong on screen when the colour itself is dark.
+    template<typename TileT>
+    void drawTileMapProjectedImpl(const TileMapGeneric<TileT>& map,
+                                   int originX,
+                                   int originY,
+                                   LayerType layerType,
+                                   const pixelroot32::math::ProjectionSpec& projection,
+                                   Color color);
+#endif
 
     /// Restore dirty-tracking state after tilemap rendering.
     void restoreTilemapDirtyTracking(TilemapDirtyTrackingHelper& h) {

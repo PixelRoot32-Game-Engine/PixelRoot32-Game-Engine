@@ -1,5 +1,13 @@
 # Memory Management Guide - PixelRoot32 C++17
 
+
+> **Where these projects live.** `iso_dungeon` and `metroidvania` were moved out
+> of this repository's `examples/` into
+> [PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main) — `graphics/iso_dungeon` and
+> `gameplay/metroidvania` respectively. The measurements below were taken on
+> that code and remain valid; only its address changed. Paths are written
+> relative to that repository from here on.
+
 ## Overview
 
 This guide covers modern memory management practices in PixelRoot32 using C++17 features. The engine has transitioned from manual memory management to smart pointers and RAII (Resource Acquisition Is Initialization) patterns for improved safety and maintainability.
@@ -74,7 +82,7 @@ When subsystems are disabled via `PIXELROOT32_ENABLE_*` flags, their memory allo
 | `PIXELROOT32_ENABLE_GAMEPLAY_EVENTS=1` | `0` | ~512 B (ESP32-C3) / ~768 B (native) | `gameplay::GameplayEventBus` — single-threaded, `Engine`-owned event ring buffer |
 | `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` | `0` | ~704 B (ESP32, `PHYSICS_MAX_CONTACTS=64`) / ~1.2 KB (native default 128) | `gameplay::InteractionTracker` — enter/exit edge detection over `CollisionSystem` contacts. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
 | `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` | `0` | 0 B extra static storage (adds methods only) | `SpatialGrid::queryRadius/queryBox` + `CollisionSystem::queryRadius/queryBox`. Requires `PIXELROOT32_ENABLE_PHYSICS=1` |
-| `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `0` | ~8 B per `Scene` (comparator pointer + bool) | `Scene::depthComparator` / `depthSortEnabled` secondary sort key, used by `Scene::sortEntities()` |
+| `PIXELROOT32_ENABLE_DEPTH_SORT=1` | `0` | ~8 B per `Scene` (comparator pointer + bool) **+ 4 B per `Entity`** (`depthKey`, see below) | `Scene::depthComparator` / `depthSortEnabled` secondary sort key used by `Scene::sortEntities()`, plus `Entity::depthKey` and `gameplay::compareByDepthKey` |
 
 `PIXELROOT32_ENABLE_INTERACTION_TRIGGERS=1` or `PIXELROOT32_ENABLE_SPATIAL_QUERY=1` combined with `PIXELROOT32_ENABLE_PHYSICS=0` fails the build at compile time via an `#error` in `PlatformDefaults.h` (`CollisionSystem` and `SpatialGrid` only exist when physics is enabled), rather than silently disabling the feature.
 
@@ -108,11 +116,44 @@ Confirmed against the shipped `include/gameplay/StateMachine.h` layout — field
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 0 B SRAM | `gameplay::GridSpace.h` — grid-to-world/world-to-grid coordinate conversion (`GridSpec`, `cellToWorldX/Y`, `cellToWorld`, `worldToCellX/Y`, `containsCell`) |
 | `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE=1` | `0` | 20 B SRAM **per moving actor** | `gameplay::GridMotion.h` — per-actor cell-to-cell step state (`GridMotion`, `isMoving`, `placeAt`, `beginStep`, `tickStep`, `interpolatedWorld`) |
 
-**`GridSpec` byte budget:** every shipped consumer (`examples/snake`, `examples/2048`, `examples/bomberbot`) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
+**`GridSpec` byte budget:** every shipped consumer ([`2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048) and [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot), both in PixelRoot32-Demo-Projects) declares its grid as `inline constexpr GridSpec`. `constexpr` implies `const`, so the six-`int` aggregate lands in `.rodata`/flash, never `.data`/`.bss` — **0 B SRAM**, at every optimization level, independent of whether the optimizer also folds the constant away entirely. `sizeof(GridSpec) == 24 B` (six `int`s — `int` is 4 B under both the ESP32-C3's ILP32 and native's LP64), identical on both targets. A non-`constexpr` (runtime) `GridSpec` would cost 24 B SRAM instead; no shipped consumer uses one.
 
-**`GridMotion` byte budget:** unlike `GridSpec`, a `GridMotion` is inherently per-actor runtime state, so it does land in `.bss`. `sizeof(GridMotion) == 20 B` (five `int`s, identical on ILP32 and LP64). Worst case is one instance per grid-moving actor: `examples/bomberbot` embeds one in `PlayerActor` and one in each of its `kMaxEnemies` pool slots. Against the ESP32-C3 ceiling of 24 entities that is **480 B** if every entity moves on the grid — comfortably inside budget, and typically far lower since static actors (walls, bombs, pickups) need none. `GridMotion` shares `GridSpace`'s flag rather than taking its own: `interpolatedWorld()` takes a `GridSpec`, so "motion without space" is not a reachable configuration.
+**`GridMotion` byte budget:** unlike `GridSpec`, a `GridMotion` is inherently per-actor runtime state, so it does land in `.bss`. `sizeof(GridMotion) == 20 B` (five `int`s, identical on ILP32 and LP64). Worst case is one instance per grid-moving actor: [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot) embeds one in `PlayerActor` and one in each of its `kMaxEnemies` pool slots. Against the ESP32-C3 ceiling of 24 entities that is **480 B** if every entity moves on the grid — comfortably inside budget, and typically far lower since static actors (walls, bombs, pickups) need none. `GridMotion` shares `GridSpace`'s flag rather than taking its own. The original reason — "`interpolatedWorld()` takes a `GridSpec`, so motion without space is not a reachable configuration" — stopped being true when the `ProjectionSpec` overload landed (see the projection section below); the flag is still not split because a separate one would widen the build matrix for a configuration no consumer has asked for. The consequence is that an isometric game wanting `GridMotion` must enable `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE` even if it never declares a `GridSpec`.
 
 **`GridMotion` scope, and what it deliberately excludes:** it owns the logical cell, the in-flight target, the arrival edge and the cell-to-pixel lerp — the mechanics. Cell-enterability tests, direction selection, arrival reactions and input buffering stay in game code, because every shipped consumer answers them differently: `bomberbot`'s player treats the bomb it just dropped as passable while its enemies treat every bomb as solid, and neither buffers direction input (both sample direction only at rest and ignore it in flight). Modelling those as engine callbacks would cost more configuration than the ~17 lines of mechanics it replaces.
+
+**Cell-to-screen projection (opt-in, default `0`):** the canonical implementation lives in `math/Projection.h` (`pixelroot32::math`, Layer 2), header-only with no `.cpp`. `include/math/Projection.h` includes **nothing but `PlatformDefaults.h`** — every function is pure `int` arithmetic, so unlike `GridSpace.h` it does not even depend on the rest of `math/`. `include/gameplay/Projection.h` now forwards to it: a thin `using`-alias header (`pixelroot32::gameplay::ProjectionSpec` and its free functions), so existing `gameplay::`-qualified callers keep compiling unchanged. It is independent of `PIXELROOT32_ENABLE_GAMEPLAY_GRID_SPACE`; the only place the two meet is the `ProjectionSpec` overload of `interpolatedWorld()`, which lives in `GridMotion.h` and is guarded on both flags.
+
+| Flag | Default | RAM Cost When Enabled | Subsystem Added |
+|------|---------|------------------------|------------------|
+| `PIXELROOT32_ENABLE_PROJECTION=1` | `0` | 0 B SRAM | `math/Projection.h` — cell-to-screen mapping for an arbitrary integer 2×2 basis (`ProjectionSpec`, `cellToScreenX/Y`, `screenToCellX/Y`, `projectionDet`, `projectionSpecIsValid`); `gameplay/Projection.h` forwards to it |
+| `PIXELROOT32_ENABLE_TILEMAP_PROJECTION=1` | `0` | 0 B SRAM (see executed-path note below) | A separate, wholly flag-guarded `Renderer::drawTileMap` overload per tile format — `TileMap` (1bpp), `TileMap2bpp`, `TileMap4bpp` — each taking a `const ProjectionSpec&` (a reference, not the earlier pointer — there is no null form), backed by one shared `drawTileMapProjectedImpl<TileT>` so the projected geometry exists once regardless of format; the per-format tail (palette LUT vs single `Color`) is selected with `if constexpr`. The 1bpp overload's single `Color` argument and the reference are stack arguments, not fields, so no per-instance SRAM is added; requires `PIXELROOT32_ENABLE_PROJECTION=1` (`#error` otherwise); the flag-off preprocessed translation unit is unchanged. `cachedLUT[16]` in the shared impl is sized for the widest LUT (4bpp); the 2bpp tail only ever writes/reads entries `[0..3]`, leaving 24 of its 32 bytes unused on that path (stack cost, not SRAM/global), and 1bpp writes none of it. Flash, measured on `esp32dev`/`examples/animated_tilemap` (a real `TileMap4bpp` consumer that calls only the plain overload, clean builds, flags forced through `PLATFORMIO_BUILD_FLAGS`): flags off 325,840 B, flags on 325,808 B — **-32 B**, unchanged from the 4bpp-only measurement despite two more template instantiations existing in the source, because the projected overloads and their instantiated impls are unreferenced by a caller that never invokes them and `--gc-sections` strips them entirely. Neither figure exercises the feature at runtime — no shipped example passed a non-null projection *at the time of that measurement*. An earlier revision of this row measured `graphics/iso_dungeon` and reported **+16 B**; at that time the claim below it — that `graphics/iso_dungeon` never calls `drawTileMap` — was correct, so that figure reflected incidental linker noise, not this feature, and is superseded by the executed-path measurement below. |
+
+**Executed-path measurement (`graphics/iso_dungeon`, post-conversion).** `graphics/iso_dungeon`'s `RoomRenderer::drawTiles` was converted from 49 hand-rolled `drawSprite` calls to one projected `drawTileMap` call (see [Projected Tilemap: Producer Obligations](./projected-tilemap-producer-obligations.md)), making it — as of that conversion — the first vehicle in this repo where the projected path is *executed*, not merely linked; every figure above measures "linked", this one measures "used". `esp32dev`/`iso_dungeon` `firmware.bin`, across the conversion boundary: **355,520 B → 357,264 B, +1,744 B**. SRAM: **24,152 B → 24,232 B, +80 B**, matching the ~81 B forecast (49 B index grid + ~32 B `TileMap4bpp` control struct) almost exactly. Not comparable to the `animated_tilemap` figures above — different vehicle, different call site, and that one still never executes the projected path.
+
+**`ProjectionSpec` byte budget:** `sizeof(ProjectionSpec) == 24 B` — six `int`s, identical on ILP32 and LP64, the same shape and the same reasoning as `GridSpec`. A `constexpr` spec is `const`, so it lands in `.rodata`/flash, never `.data`/`.bss`: **0 B SRAM at every optimization level**. The determinant is deliberately *not* a seventh field — it is computed by `projectionDet()`, because a derived field could be set inconsistently by an aggregate initializer and there is no constructor in which to maintain the invariant.
+
+**Why one type covers every layout.** Orthogonal, isometric 2:1, isometric 1:1, oblique and mirrored layouts are all *values*: `{0,0,16,0,0,16}`, `{0,0,16,8,-16,8}`, `{0,0,16,16,-16,16}`, `{0,0,16,0,8,16}`. A general integer basis costs exactly the same arithmetic as a hardcoded diamond — four multiplies and two adds — so there is no per-layout function, enum or template parameter to pay for, and no API break the first time a game wants a different ratio.
+
+**Division cost, stated precisely.** `cellToScreenX/Y` never divide. `screenToCellX/Y` invert the basis by Cramer's rule and perform **exactly one integer division per axis** — the same cost profile as `worldToCellX()`, whose `detail::gridFloorDiv` also performs exactly one `div`. What both headers avoid is `Fixed16::operator/` (a 64-bit shift plus a 64-bit divide, i.e. a libgcc `__divdi3` call on a 32-bit core). No Q16 reciprocal is precomputed: it would be exact only when the determinant is a power of two. With a `constexpr` spec the determinant is a compile-time constant, so the division is strength-reduced away entirely — for the documented layouts it is 256 or 512, a plain shift.
+
+**`Entity::depthKey` byte budget (under `PIXELROOT32_ENABLE_DEPTH_SORT`):** paint order under a non-identity projection follows *projected* screen Y, which is not a monotone function of world Y — so `gameplay::compareByBottomY` is wrong there and `gameplay::compareByDepthKey` reads a game-written `int16_t` instead. `Entity` has a single trailing pad byte and an `int16_t` cannot occupy it, so the base class grows by **4 B on a 32-bit target (28 → 32)** and **8 B on 64-bit native (32 → 40, measured)**. With the flag off the field is not declared and `sizeof(Entity)` is unchanged.
+
+**The per-entity worst case is an upper bound, and real actors usually pay less.** A derived actor generally has trailing padding of its own, and the base-class growth is absorbed into it. Measured on [`bomberbot`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/bomberbot) (native/64-bit, where the base grows by the larger 8 B):
+
+| Type | `DEPTH_SORT=0` | `DEPTH_SORT=1` | Delta |
+|---|---|---|---|
+| `core::Entity` | 32 B | 40 B | **+8 B** |
+| `PlayerActor` | 104 B | 104 B | **0 B** — absorbed by existing tail padding |
+| `EnemyActor` | 96 B | 96 B | **0 B** — absorbed |
+| `BoardRenderer` | 80 B | 88 B | +8 B — no spare padding |
+| `BomberbotScene` (whole scene, a global in `.bss`) | 2408 B | 2416 B | **+8 B total** |
+
+So the honest figures are: **upper bound** 4 B × `MAX_ENTITIES` = 256 B on device (0.06 % of a 400 KB budget) when no derived type has spare padding, and **measured cost in the only real consumer** 8 bytes for the entire scene. Budget for the bound; expect the measurement.
+
+Unlike `Scene::depthComparator`/`depthSortEnabled`, which are left ungated because they cost ~8 B once per scene, `depthKey` **is** gated: a per-entity field scales with the entity budget, and a game that does not depth-sort must not pay it.
+
+**Why a field and not a virtual getter.** A `virtual int16_t getDepthKey()` would cost 0 B per entity — the vtable already exists — and it still loses. `core::Entity` must not know about a projection (that would invert the layer dependency), so the only possible base-class default is the world-Y expression, which is precisely the wrong answer under a non-identity projection and would be inherited silently by every game that forgets to override it. A field defaulting to `0` has no wrong answer to inherit: a game that never writes it gets stable layer-only ordering. The comparator is also on the hot path — `Scene::sortEntities()` is an insertion sort, O(n²) comparisons in the worst case — where two indirect calls per comparison are not free.
 
 **Sprite UI elements (`UISprite` / `UISpriteRow`, under `PIXELROOT32_ENABLE_UI_SYSTEM`):** the UI system drew text and rectangles only, so any icon — an item slot, a dialog portrait, a button glyph, a resource HUD — had to be drawn by hand in a `Scene::draw()` override, outside the entity tree. `UISpriteRef` (`include/graphics/ui/UISpriteRef.h`) is the tagged union that lets one element handle all three sprite descriptors (`Sprite`, `Sprite2bpp`, `Sprite4bpp`), each of which has a different draw signature. The format switch exists in exactly one place, `drawUISpriteRef()` — type erasure over templating, the same trade the gameplay framework made, for the same reason: one copy in flash instead of one per instantiation.
 
@@ -135,7 +176,7 @@ With `PIXELROOT32_ENABLE_UI_SYSTEM=0` all three translation units compile to an 
 | `RoomGraphBase` vtable | 12–16 B in flash | 12–16 B in flash | One shared vtable per program (not per instance) |
 | `RoomGraph<N>` vptr (from `RoomGraphBase`) | 4 B per instance | 8 B per instance | Per-instance vtable pointer; one per `RoomGraph<N>` regardless of N |
 | `RoomGraph<32>` (max rooms) | ~1296 B (32 × 40 B/room + 12 B bookkeeping + 4 B vptr) | ~1564 B (32 × 48 B/room + 16 B bookkeeping + 8 B vptr) | Bookkeeping: `roomCount_` (2 B), `currentRoomIndex_` (2 B), `onEnter_` fn ptr + `userData_` ptr (8 B on 32-bit, 16 B on 64-bit). No per-room allocated by a game that never instantiates `RoomGraph<N>`. |
-| `RoomGraph<2>` (typical example) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | The `examples/room_screen/` example ships with N=2 |
+| `RoomGraph<2>` (smallest useful graph) | ~100 B (2 × 40 B + 12 B) | ~120 B (2 × 48 B + 16 B) | Sizing shown for N=2; [`legend_of_clone`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/legend_of_clone) ships `RoomGraph<4>` |
 | Per-`Room` size (`sizeof(Room)`) | 40 B | 48 B | Four `Scalar` fields (camera rect, 4×4 B), tile window (8 B + 1 B flag + 1 B pad), `connections_[4]` (16 B), `connectionCount_` (1 B + 3 B pad) |
 | Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block; no code, no data |
 
@@ -147,7 +188,7 @@ Design: #3081 (`sdd/room-screen-abstraction/design`).
 |------|-------------------|---------------------|-------|
 | `sizeof(RoomData)` | 16 B | 16 B | Four `uint16_t` rect fields + `connections[4]`; 2-byte aligned, no padding between entries |
 | `RoomLayer` header | 8 B in flash | 16 B in flash | One `const RoomData*` + `roomCount` (2 B) + two `uint8_t` tile dimensions |
-| A 2-room layer (`examples/room_screen`) | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
+| A 2-room layer | 40 B flash, 0 B SRAM | 48 B flash, 0 B SRAM | 2 × 16 B rooms + the layer header |
 | `buildRoomGraph<N>()` | 0 B SRAM | 0 B SRAM | Runs once in `Scene::init()`; no state of its own, writes straight into the caller's `RoomGraph<N>` |
 | Flag = 0 | **0 B** | **0 B** | Whole header is an empty `#if` block, gated by the same `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` |
 
@@ -280,6 +321,10 @@ Available RAM (ESP32):     ~400 KB (classic) / ~512 KB (S3)
 
 **Optional `StaticTilemapLayerCache` (4bpp tilemap snapshot):** when enabled (`PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE`, default `1`), scenes may allocate a **second** logical **W×H** byte buffer (same order as one fullscreen 8bpp logical surface) via **`allocateForRenderer` / `allocateForLogicalSize`** during **`Scene::init()`** only—no heap traffic in **`draw`/`update`**. Budget an extra **~57 KB** at **240×240** if you use the fast path; set the flag to **`0`** or skip **`allocate*`** to avoid that cost (full redraw fallback).
 
+**Optional `StaticLayerSnapshot` (projection-agnostic snapshot):** same **W×H** byte cost and the same allocate-in-**`Scene::init()`** rule as the tilemap cache above, but gated on **`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`**, default **`0`**. Use it when the static layer is drawn by game code rather than by **`drawTileMap`**—an isometric or oblique floor, for instance, which has no **`TileMap4bpp`** to hand the tilemap cache. Budget the same **~57 KB** at **240×240**. A scene that never calls **`allocate*`** pays nothing, and with **`-ffunction-sections`/`--gc-sections`** a build that never instantiates the class links none of it in.
+
+> The two caches solve the same problem from opposite ends and there is no reason to allocate both for one layer: **`StaticTilemapLayerCache`** owns and redraws the tilemaps it caches, while **`StaticLayerSnapshot`** never draws anything and caches whatever the framebuffer already holds.
+
 ### Per-Entity Memory Costs
 
 | Component | Memory Cost |
@@ -352,7 +397,7 @@ On ESP32 (e.g. `esp32dev`), the linker places static and global data in **`.dram
 | **Logical resolution** | `-D LOGICAL_WIDTH=128 -D LOGICAL_HEIGHT=128` (keep `PHYSICAL_DISPLAY_*` at 240) | Smaller SpatialGrid and tilemap indices; rendering scales to physical size. |
 | **Spatial grid per cell** | `-D SPATIAL_GRID_MAX_STATIC_PER_CELL=4 -D SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=4` | Less static RAM for grid (default 12). |
 | **Contact pool** | `-D PHYSICS_MAX_CONTACTS=64 -D PHYSICS_MAX_PAIRS=64` | Smaller contact array per scene (default 128). |
-| **Scene arena / buffers** | Reduce scene static buffers (e.g. `SPACE_INVADERS_SCENE_ARENA_BUFFER`, demo `sceneBuffer`) in scene `.cpp` | Fewer bytes in `.dram0.bss`. |
+| **Scene arena / buffers** | Reduce scene static buffers in scene `.cpp` (e.g. `sceneArenaBuffer[8192]` in `examples/animated_tilemap/src/AnimatedTilemapScene.cpp:65`, `sceneBuffer[12288]` in `examples/physics/src/PhysicsDemoScene.cpp:89`) | Fewer bytes in `.dram0.bss`. |
 
 **Recommended for ESP32 when linking fails (240×240 physical):**
 
