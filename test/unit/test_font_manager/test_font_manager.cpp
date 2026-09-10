@@ -13,6 +13,7 @@
 #include "../../test_config.h"
 #include "graphics/FontManager.h"
 #include "graphics/Renderer.h"
+#include "graphics/Font5x7.h"
 
 using namespace pixelroot32::graphics;
 
@@ -242,6 +243,76 @@ static const uint16_t extSpriteData[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static const Sprite extGlyphsData[] = {{extSpriteData, 5, 8}};
 static const Font extFont = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xF1, 0xF1, -1};
 
+// =============================================================================
+// isCharSupported called with a lead byte alone (spec: "isCharSupported
+// Contract" -> "isCharSupported called with a lead byte alone")
+// =============================================================================
+
+// A Font with a supplement block whose range *does* cover 0xC3 (0xA0-0xFF,
+// mirroring FONT_5X7's real Latin-1 range), independent of the build flag --
+// unlike extFont above (ext range 0xF1-0xF1, which never contains 0xC3
+// either way and so cannot distinguish the two possible behaviors).
+static const Font fontWithSupplementBlock = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xA0, 0xFF, -1};
+
+void test_font_manager_is_char_supported_lead_byte_alone(void) {
+    // Spec scenario: GIVEN a Font with a supplement block and the raw byte
+    // 0xC3, WHEN isCharSupported(0xC3, font) is called, THEN it evaluates
+    // 0xC3 as a single byte value against the font's ranges only -- it does
+    // not perform lead-byte decoding.
+    //
+    // isCharSupported (FontManager.cpp:78-87) is a plain compare against
+    // activeFont->firstChar/lastChar only -- it never references
+    // extFirstChar/extLastChar at all, unlike getGlyphIndex and
+    // isCodepointSupported. 0xC3 (195) sits inside fontWithSupplementBlock's
+    // ext range [0xA0,0xFF] but outside its base range [32,126]; the
+    // function's own declared (base-only) range compare therefore says
+    // false. Pinned as the contract, not reverse-engineered from a run.
+    TEST_ASSERT_FALSE(FontManager::isCharSupported(static_cast<char>(0xC3), &fontWithSupplementBlock));
+}
+
+// =============================================================================
+// FONT_5X7 Latin-1 supplement flag contract (Phase 5)
+// =============================================================================
+
+// Real shipped font, both build configurations. Off: extGlyphs must stay
+// nullptr and Latin-1 codepoints must resolve as unsupported (blank-cell
+// path). On: the generated 96-entry block must be wired in and cover the
+// documented 0xA0-0xFF range with the 19 drawn codepoints resolving true.
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+void test_font_manager_font5x7_latin1_flag_contract(void) {
+    TEST_ASSERT_NOT_NULL(FONT_5X7.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0xA0, FONT_5X7.extFirstChar);
+    TEST_ASSERT_EQUAL_UINT8(0xFF, FONT_5X7.extLastChar);
+    TEST_ASSERT_EQUAL_INT8(-1, FONT_5X7.extYOffset);
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xD1, &FONT_5X7));   // Ntilde
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xC1, &FONT_5X7));   // Aacute
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xBF, &FONT_5X7));   // inverted ?
+    // 0xA0 (NBSP) is in-range but an undrawn/blank slot: isCodepointSupported
+    // only answers range membership, not "has visible ink" -- it is still
+    // a valid, resolvable glyph index (matches ASCII space's contract).
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xA0, &FONT_5X7));
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported(0x100, &FONT_5X7));  // out of range entirely
+}
+#else
+void test_font_manager_font5x7_latin1_flag_contract(void) {
+    TEST_ASSERT_NULL(FONT_5X7.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0, FONT_5X7.extFirstChar);
+    TEST_ASSERT_EQUAL_UINT8(0, FONT_5X7.extLastChar);
+    TEST_ASSERT_EQUAL_INT8(0, FONT_5X7.extYOffset);
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported(0xD1, &FONT_5X7));
+
+    // The blank-cell contract: an accented sequence still consumes exactly
+    // its 2 bytes and still measures one glyph-width cell, even with no
+    // supplement data compiled in.
+    const auto step = FontManager::nextGlyph("\xC3\x91", 0, &FONT_5X7);  // Ntilde
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(2, step.bytes);
+    TEST_ASSERT_FALSE(step.extended);
+    TEST_ASSERT_EQUAL_INT16(FontManager::textWidth(&FONT_5X7, "A"),
+                             FontManager::textWidth(&FONT_5X7, "\xC3\x91"));
+}
+#endif
+
 void test_font_manager_next_glyph_ascii_byte(void) {
     const auto step = FontManager::nextGlyph("A", 0, &testFont);
     TEST_ASSERT_EQUAL_UINT16(FontManager::getGlyphIndex('A', &testFont), step.index);
@@ -376,11 +447,13 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_is_char_supported_false_high);
     RUN_TEST(test_font_manager_is_char_supported_no_font);
     RUN_TEST(test_font_manager_is_char_supported_uses_default);
-    
+    RUN_TEST(test_font_manager_is_char_supported_lead_byte_alone);
+
     RUN_TEST(test_font_manager_text_width_with_spaces);
     RUN_TEST(test_font_manager_text_width_long_string);
 
     RUN_TEST(test_font_manager_font_supplement_members_default_disabled);
+    RUN_TEST(test_font_manager_font5x7_latin1_flag_contract);
 
     RUN_TEST(test_font_manager_next_glyph_ascii_byte);
     RUN_TEST(test_font_manager_next_glyph_two_byte_extended_resolves);

@@ -8,7 +8,7 @@
 namespace pixelroot32::graphics {
 
 // Definition of FONT5X7_GLYPHS array (declared as extern in Font5x7.h)
-const Sprite FONT5X7_GLYPHS[95] = {
+const Sprite FONT5X7_GLYPHS[] = {
     {GLYPH_SPACE, 5, 7},           // 32: ' '
     {GLYPH_EXCLAMATION, 5, 7},     // 33: '!'
     {GLYPH_QUOTE, 5, 7},          // 34: '"'
@@ -106,6 +106,9 @@ const Sprite FONT5X7_GLYPHS[95] = {
     {GLYPH_TILDE, 5, 7}            // 126: '~'
 };
 
+static_assert(sizeof(FONT5X7_GLYPHS) / sizeof(FONT5X7_GLYPHS[0]) == kFont5x7AsciiGlyphCount,
+              "FONT5X7_GLYPHS entry count must equal lastChar - firstChar + 1 (32-126)");
+
 // Latin-1 supplement tail for the FONT_5X7 initializer below. Guarded by the
 // flag so the struct layout itself never varies by translation unit (only
 // the values do) -- see D7. The glyph data (FONT5X7_LATIN1_GLYPHS) ships in
@@ -129,5 +132,116 @@ const Font FONT_5X7 = {
 };
 
 #undef PR32_FONT5X7_EXT
+
+
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+
+// --- BEGIN GENERATED: scripts/generate_font5x7_latin1.py ---
+const Sprite FONT5X7_LATIN1_GLYPHS[] = {
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA0
+    {GLYPH_LATIN_EXCLAMATION_INVERTED, 5, 8},  // 0xA1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA2
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA8
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xA9
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xAA
+    {GLYPH_LATIN_GUILLEMET_LEFT, 5, 8},  // 0xAB
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xAC
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xAD
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xAE
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xAF
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB0
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB2
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB8
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xB9
+    {GLYPH_LATIN_ORDINAL_MASCULINE, 5, 8},  // 0xBA
+    {GLYPH_LATIN_GUILLEMET_RIGHT, 5, 8},  // 0xBB
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xBC
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xBD
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xBE
+    {GLYPH_LATIN_QUESTION_INVERTED, 5, 8},  // 0xBF
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC0
+    {GLYPH_LATIN_A_acute, 5, 8},  // 0xC1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC2
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xC8
+    {GLYPH_LATIN_E_acute, 5, 8},  // 0xC9
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xCA
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xCB
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xCC
+    {GLYPH_LATIN_I_acute, 5, 8},  // 0xCD
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xCE
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xCF
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD0
+    {GLYPH_LATIN_N_tilde, 5, 8},  // 0xD1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD2
+    {GLYPH_LATIN_O_acute, 5, 8},  // 0xD3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD8
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xD9
+    {GLYPH_LATIN_U_acute, 5, 8},  // 0xDA
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xDB
+    {GLYPH_LATIN_U_diaeresis, 5, 8},  // 0xDC
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xDD
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xDE
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xDF
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE0
+    {GLYPH_LATIN_a_acute, 5, 8},  // 0xE1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE2
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xE8
+    {GLYPH_LATIN_e_acute, 5, 8},  // 0xE9
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xEA
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xEB
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xEC
+    {GLYPH_LATIN_i_acute, 5, 8},  // 0xED
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xEE
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xEF
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF0
+    {GLYPH_LATIN_n_tilde, 5, 8},  // 0xF1
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF2
+    {GLYPH_LATIN_o_acute, 5, 8},  // 0xF3
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF4
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF5
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF6
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF7
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF8
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xF9
+    {GLYPH_LATIN_u_acute, 5, 8},  // 0xFA
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xFB
+    {GLYPH_LATIN_u_diaeresis, 5, 8},  // 0xFC
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xFD
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xFE
+    {GLYPH_LATIN_BLANK, 5, 8},  // 0xFF
+};
+
+static_assert(sizeof(FONT5X7_LATIN1_GLYPHS) / sizeof(FONT5X7_LATIN1_GLYPHS[0]) ==
+                  kFont5x7Latin1GlyphCount,
+              "FONT5X7_LATIN1_GLYPHS entry count must equal"
+              " extLastChar - extFirstChar + 1 (0xA0-0xFF)");
+// --- END GENERATED: do not hand-edit above; re-run the script instead. ---
+
+#endif // PIXELROOT32_ENABLE_FONT_LATIN1
 
 } // namespace pixelroot32::graphics

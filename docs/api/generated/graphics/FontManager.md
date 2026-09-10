@@ -16,6 +16,14 @@ FontManager provides functions to:
 The default font is used when no font is explicitly specified
 in rendering calls.
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `index` | `uint16_t` | Index into glyphs[] or extGlyphs[]; kNoGlyph if undrawable |
+| `bytes` | `uint8_t` | Bytes consumed from `text` at `pos` (1-4) |
+| `extended` | `bool` | true when `index` addresses extGlyphs (apply extYOffset) |
+
 ## Methods
 
 ### `static void setDefaultFont(const Font* font)`
@@ -90,3 +98,37 @@ Checks if a character is supported by a font.
 - `font`: Pointer to the font to check. If nullptr, uses the default font.
 
 **Returns:** true if the character is in the font's range, false otherwise.
+
+::: tip
+Evaluates a single byte only. Does not decode multi-byte UTF-8
+      sequences -- a lead byte passed alone is evaluated as that byte
+      value, not as the start of a sequence. Use isCodepointSupported()
+      or nextGlyph() for multi-byte-aware queries.
+:::
+
+### `static bool isCodepointSupported(uint16_t codepoint, const Font* font = nullptr)`
+
+**Description:**
+
+Checks if a decoded codepoint is supported by a font.
+
+**Parameters:**
+
+- `codepoint`: The decoded codepoint (base ASCII or Latin-1 supplement).
+- `font`: Pointer to the font to check. If nullptr, uses the default font.
+
+**Returns:** true if the codepoint is in the font's base or supplement range.
+
+### `static GlyphStep nextGlyph(std::string_view text, size_t pos, const Font* font)`
+
+**Description:**
+
+Decodes one glyph position from `text` starting at `pos`.
+
+**Parameters:**
+
+- `text`: The full string being decoded.
+- `pos`: Byte offset to start decoding at.
+- `font`: Font whose base/supplement ranges resolve the codepoint.
+
+**Returns:** The decoded step; `bytes` is always >= 1.
