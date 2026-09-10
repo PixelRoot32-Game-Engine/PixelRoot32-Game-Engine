@@ -485,6 +485,49 @@ void test_renderer_draw_text_latin1_N_tilde_distinguishable_from_N(void) {
     TEST_ASSERT_TRUE(countNonZero(accented.framebuffer) > countNonZero(plain.framebuffer));
 }
 
+/// Regression: 'i' is tittle-bearing -- its own topmost lit row is the dot,
+/// not letter ink. The accent must REPLACE that dot, never stack above it:
+/// Spanish typography draws exactly one mark over an accented i ("mi", "si",
+/// "asi", "pais" all carry a single stroke, never two). Coordinator-reported
+/// defect: the first generated GLYPH_LATIN_i_acute lit both the acute (its
+/// own row 0) and the inherited tittle (row 1) at once.
+void test_renderer_draw_text_latin1_i_acute_replaces_tittle_not_stacks(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("i", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xAD", 2, 4, Color::White, 1);  // iacute
+
+    // The stem (GLYPH_i rows 2-6, screen y=6..10) is untouched and shared
+    // with the plain glyph -- only the mark above it changes.
+    for (int row = 2; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+
+    // Where the base glyph's own tittle used to sit (screen y=4, the same
+    // row GLYPH_i's row 0 draws at) must now be dark -- the accent replaced
+    // it instead of stacking above it.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(accented.framebuffer, 4, 4));
+
+    // Exactly one lit pixel across the three rows above the stem gap (accent
+    // row y=3, former-tittle row y=4, gap row y=5): the acute alone.
+    int litAboveStem = 0;
+    for (int row = 3; row <= 5; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            if (pixelAt(accented.framebuffer, 2 + col, row) != 0) {
+                ++litAboveStem;
+            }
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(1, litAboveStem);
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(accented.framebuffer, 5, 3));
+}
+
 #endif // PIXELROOT32_ENABLE_FONT_LATIN1
 
 // The sprite1bpp tests are registered by the shared runner in test_graphics.cpp.

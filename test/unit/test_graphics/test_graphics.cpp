@@ -154,6 +154,7 @@ int main() {
     RUN_TEST(test_renderer_draw_text_latin1_n_tilde_bit_order_not_mirrored);
     RUN_TEST(test_renderer_draw_text_latin1_A_acute_distinguishable_from_A);
     RUN_TEST(test_renderer_draw_text_latin1_N_tilde_distinguishable_from_N);
+    RUN_TEST(test_renderer_draw_text_latin1_i_acute_replaces_tittle_not_stacks);
 #endif
 
     return UNITY_END();

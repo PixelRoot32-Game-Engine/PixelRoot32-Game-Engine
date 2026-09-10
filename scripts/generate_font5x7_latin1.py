@@ -27,8 +27,16 @@ baseline -- see design D5). For glyphs whose body already has blank rows at
 the top (most lowercase letters), the accent is written into the body's own
 blank row closest to the ink, and ext-index 0 stays blank, so the accent sits
 close to the letter instead of floating two rows above it. Uppercase glyphs
-(and 'i', whose dot already occupies row 0) have no spare blank row in the
-body, so the accent goes in ext-index 0, the only row available.
+have no spare blank row in the body, so the accent goes in ext-index 0, the
+only row available.
+
+Tittle-bearing exception ('i', and 'j' if the block ever grows): the base
+glyph's topmost lit row is its own dot (the tittle), not letter ink, so the
+generic rule above would stack the accent on top of it -- two marks where
+Spanish typography has exactly one ('i' with an accent is never drawn with
+its dot too). Bases listed in TITTLE_BEARING_GLYPHS get the accent in
+ext-index 0 *and* have their own topmost row (the tittle) blanked out in the
+generated supplement glyph, so only the diacritic remains.
 
 Usage:
     python scripts/generate_font5x7_latin1.py
@@ -59,6 +67,13 @@ ACUTE_ROW = 0x02        # single point, upper-right lean: ....#. -> col 3 of 5
 DIAERESIS_ROW = 0x0A    # two dots, same pattern as GLYPH_QUOTE's rows: .#.#.
 TILDE_ROW = 0x15        # three-point wave: #.#.#
 
+# Base glyphs whose own topmost lit row is a tittle (a dot that is not part
+# of the letter's stem), not letter ink -- 'i' is the only one among the
+# current 19; 'j' would be the other if the block ever grows. For these, the
+# accent REPLACES the tittle instead of stacking above it: Spanish
+# typography draws exactly one mark over an accented i/j, never two.
+TITTLE_BEARING_GLYPHS = {"i", "j"}
+
 # The 19 codepoints this slice draws, keyed by codepoint. `base` names the
 # existing 7-row GLYPH_<base> array in Font5x7.h to extract programmatically
 # (never duplicated by hand, so it cannot drift from the source of truth).
@@ -67,7 +82,7 @@ ACCENTED_GLYPHS: List[Tuple[int, str, str, int]] = [
     # (codepoint, generated C identifier suffix, base GLYPH_<x> name, diacritic row)
     (0xE1, "a_acute", "a", ACUTE_ROW),       # a - lowercase a with acute
     (0xE9, "e_acute", "e", ACUTE_ROW),       # e
-    (0xED, "i_acute", "i", ACUTE_ROW),       # i
+    (0xED, "i_acute", "i", ACUTE_ROW),       # i -- tittle-bearing, see TITTLE_BEARING_GLYPHS
     (0xF3, "o_acute", "o", ACUTE_ROW),       # o
     (0xFA, "u_acute", "u", ACUTE_ROW),       # u
     (0xFC, "u_diaeresis", "u", DIAERESIS_ROW),  # u
@@ -116,13 +131,20 @@ def extract_base_glyph(header_text: str, name: str) -> List[int]:
     return [int(v, 16) for v in values]
 
 
-def build_accented_ext_rows(body: List[int], diacritic: int) -> List[int]:
+def build_accented_ext_rows(body: List[int], diacritic: int, tittle_bearing: bool = False) -> List[int]:
     """8-row ext array: body always at indices 1-7; diacritic goes immediately
-    above the body's topmost lit row (ext-index 0 if that row is body[0])."""
+    above the body's topmost lit row (ext-index 0 if that row is body[0]).
+
+    `tittle_bearing` (true for 'i'/'j'): the body's topmost lit row is its own
+    dot, not letter ink. The accent replaces it instead of stacking on top --
+    blank that row in the output so only the diacritic remains at ext-index 0.
+    """
     topmost = next((i for i, v in enumerate(body) if v != 0), 0)
     ext = [0x0000] + list(body)
     if topmost == 0:
         ext[0] = diacritic
+        if tittle_bearing:
+            ext[1] = 0x0000  # ext[1] == body[0], the tittle -- replaced, not stacked
     else:
         ext[topmost] = diacritic  # ext[topmost] == body[topmost - 1]'s slot
     return ext
@@ -148,7 +170,8 @@ def generate() -> Tuple[str, str]:
 
     for codepoint, suffix, base_name, diacritic in ACCENTED_GLYPHS:
         body = extract_base_glyph(header_text, base_name)
-        ext_rows = build_accented_ext_rows(body, diacritic)
+        tittle_bearing = base_name in TITTLE_BEARING_GLYPHS
+        ext_rows = build_accented_ext_rows(body, diacritic, tittle_bearing)
         identifier = f"GLYPH_LATIN_{suffix}"
         row_decls.append(format_row_array(identifier, ext_rows, codepoint, suffix))
         entries[codepoint] = identifier
@@ -172,7 +195,11 @@ def generate() -> Tuple[str, str]:
     row_decls.sort(key=lambda line: line.split("[8]")[0])  # stable, readable order
 
     # --- Font5x7.h block: row arrays + shared blank + extern decl ---
-    header_lines = [MARK_BEGIN]
+    # The #if/#endif guard is INSIDE the markers (not wrapped around them by
+    # the caller) so that re-running this script replaces the whole guarded
+    # region in one piece -- splicing only the inner content would leave a
+    # stale guard pair straddling the markers on every subsequent run.
+    header_lines = ["#if PIXELROOT32_ENABLE_FONT_LATIN1", "", MARK_BEGIN]
     header_lines.append(
         "// 19 drawn Latin-1 supplement glyphs (of 96 total, 0xA0-0xFF). Row 0 is"
     )
@@ -207,10 +234,12 @@ def generate() -> Tuple[str, str]:
         "extern const Sprite FONT5X7_LATIN1_GLYPHS[kFont5x7Latin1GlyphCount];"
     )
     header_lines.append(MARK_END)
+    header_lines.append("")
+    header_lines.append("#endif // PIXELROOT32_ENABLE_FONT_LATIN1")
     header_block = "\n".join(header_lines)
 
     # --- Font5x7.cpp block: descriptor table ---
-    cpp_lines = [MARK_BEGIN]
+    cpp_lines = ["#if PIXELROOT32_ENABLE_FONT_LATIN1", "", MARK_BEGIN]
     cpp_lines.append(
         f"const Sprite FONT5X7_LATIN1_GLYPHS[] = {{"
     )
@@ -237,19 +266,39 @@ def generate() -> Tuple[str, str]:
         "              \" extLastChar - extFirstChar + 1 (0xA0-0xFF)\");"
     )
     cpp_lines.append(MARK_END)
+    cpp_lines.append("")
+    cpp_lines.append("#endif // PIXELROOT32_ENABLE_FONT_LATIN1")
     cpp_block = "\n".join(cpp_lines)
 
     return header_block, cpp_block
 
 
+GUARD_BEGIN_LINE = "#if PIXELROOT32_ENABLE_FONT_LATIN1"
+GUARD_END_LINE = "#endif // PIXELROOT32_ENABLE_FONT_LATIN1"
+
+
 def splice(text: str, block: str, anchor_pattern: str) -> str:
     """Replace content between existing markers, or insert the block right
-    after the first line matching `anchor_pattern` if markers are absent."""
+    after the first line matching `anchor_pattern` if markers are absent.
+
+    `block` already contains its own `#if .../#endif` guard around the
+    markers (see generate()). On re-run, the replaced span is expanded
+    outward to the surrounding guard lines too -- replacing only the inner
+    MARK_BEGIN..MARK_END span would leave the *previous* run's guard pair
+    straddling the newly-spliced content, doubling it up on every re-run.
+    """
     begin_idx = text.find(MARK_BEGIN)
     end_idx = text.find(MARK_END)
     if begin_idx != -1 and end_idx != -1:
-        end_idx += len(MARK_END)
-        return text[:begin_idx] + block + text[end_idx:]
+        guard_begin_idx = text.rfind(GUARD_BEGIN_LINE, 0, begin_idx)
+        if guard_begin_idx == -1:
+            raise ValueError("MARK_BEGIN found without a preceding #if guard")
+        guard_end_search_start = end_idx + len(MARK_END)
+        guard_end_idx = text.find(GUARD_END_LINE, guard_end_search_start)
+        if guard_end_idx == -1:
+            raise ValueError("MARK_END found without a following #endif guard")
+        replace_end = guard_end_idx + len(GUARD_END_LINE)
+        return text[:guard_begin_idx] + block + text[replace_end:]
 
     anchor = re.search(anchor_pattern, text, re.MULTILINE)
     if not anchor:
@@ -264,16 +313,18 @@ def main() -> int:
     header_text = FONT_H.read_text(encoding="utf-8")
     header_block, cpp_block = generate()
 
+    # header_block/cpp_block already carry their own #if/#endif guard (see
+    # generate()) -- do not wrap them again here, or a re-run doubles it up.
     new_header = splice(
         header_text,
-        f"#if PIXELROOT32_ENABLE_FONT_LATIN1\n\n{header_block}\n\n#endif // PIXELROOT32_ENABLE_FONT_LATIN1",
+        header_block,
         r"^extern const Sprite FONT5X7_GLYPHS\[kFont5x7AsciiGlyphCount\];\s*$",
     )
 
     cpp_text = FONT_CPP.read_text(encoding="utf-8")
     new_cpp = splice(
         cpp_text,
-        f"#if PIXELROOT32_ENABLE_FONT_LATIN1\n\n{cpp_block}\n\n#endif // PIXELROOT32_ENABLE_FONT_LATIN1",
+        cpp_block,
         r"^#undef PR32_FONT5X7_EXT\s*$",
     )
 
