@@ -313,6 +313,262 @@ void test_sprite1bpp_branches_match_text_rendering(void) {
     TEST_ASSERT_EQUAL_UINT8_ARRAY(reference.data(), fast.framebuffer.data(), kFbSize);
 }
 
+// ============================================================================
+// Zero-pixel-movement golden (Phase 3.7) and extYOffset placement (Phase 4)
+// ============================================================================
+
+/// "Hi" drawn at (0,0), size 1: pixel positions computed independently from
+/// FONT5X7's GLYPH_H/GLYPH_i bit patterns (not derived from Renderer code),
+/// so this locks the ASCII draw position contract the nextGlyph refactor
+/// must not move.
+void test_renderer_draw_text_ascii_golden_positions(void) {
+    SpriteHarness h(true);
+    h.renderer->drawText("Hi", 0, 0, Color::White, 1);
+
+    const uint8_t ink = expectedInk();
+    static const int expectedOn[][2] = {
+        {0, 0}, {4, 0}, {0, 1}, {4, 1}, {0, 2}, {4, 2},
+        {0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3},
+        {0, 4}, {4, 4}, {0, 5}, {4, 5}, {0, 6}, {4, 6}, // 'H'
+        {8, 0}, {7, 2}, {8, 2}, {8, 3}, {8, 4}, {8, 5}, {7, 6}, {8, 6}, {9, 6}, // 'i' at x=6
+    };
+    for (const auto& p : expectedOn) {
+        TEST_ASSERT_EQUAL_UINT8(ink, pixelAt(h.framebuffer, p[0], p[1]));
+    }
+    TEST_ASSERT_EQUAL_UINT32(26, countNonZero(h.framebuffer));
+}
+
+// Synthetic font: base 'A' plus a supplement glyph at U+00F1 whose body rows
+// (1-7) are byte-identical to GLYPH_A's 7 rows -- only row 0 (the accent) and
+// extYOffset differ. Proves D5's baseline-sharing arithmetic.
+static const uint16_t kExtRowsSize1[8] = {0x000A, 0x0004, 0x000A, 0x0011, 0x0011, 0x001F, 0x0011, 0x0011};
+static const Sprite kExtBaseGlyph[] = {{GLYPH_A, 5, 7}};
+static const Sprite kExtSupplementGlyph[] = {{kExtRowsSize1, 5, 8}};
+static const Font kExtFont = {kExtBaseGlyph, 65, 65, 5, 7, 1, 8, kExtSupplementGlyph, 0xF1, 0xF1, -1};
+
+void test_renderer_draw_text_extended_glyph_shares_baseline_size1(void) {
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 2, 5, Color::White, 1, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xB1", 2, 5, Color::White, 1, &kExtFont);
+
+    // GLYPH_A's own rows land at screen y=5..11; the accented glyph's body
+    // (rows 1-7 of its 8-row sprite, shifted up by extYOffset=-1) must land
+    // on the exact same screen rows.
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 5 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 5 + row));
+        }
+    }
+}
+
+void test_renderer_draw_text_extended_glyph_shares_baseline_size2(void) {
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 1, 1, Color::White, 2, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xB1", 1, 1, Color::White, 2, &kExtFont);
+
+    // Per D5's arithmetic proof, the body's screen rows are unaffected by size.
+    // GLYPH_A at size 2 occupies dst rows 0-13 (ceil(7*2)); kept in-bounds of
+    // the 16x16 harness screen.
+    for (int row = 0; row < 14; ++row) {
+        for (int col = 0; col < 10; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 1 + col, 1 + row),
+                                     pixelAt(accented.framebuffer, 1 + col, 1 + row));
+        }
+    }
+}
+
+void test_renderer_draw_text_extended_glyph_clips_above_screen(void) {
+    SpriteHarness h(true);
+    // y=0, extYOffset=-1: the accent row falls at logicalY=-1 and must clip
+    // safely (no crash, no wraparound write) while the body still draws at y=0.
+    h.renderer->drawText("\xC3\xB1", 2, 0, Color::White, 1, &kExtFont);
+
+    // With the accent row clipped away, only GLYPH_A's 16 body pixels remain --
+    // identical to drawing plain 'A' at the same position.
+    SpriteHarness reference(true);
+    reference.renderer->drawText("A", 2, 0, Color::White, 1, &kExtFont);
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(reference.framebuffer.data(), h.framebuffer.data(), kFbSize);
+    TEST_ASSERT_EQUAL_UINT32(16, countNonZero(h.framebuffer));
+}
+
+/// Spec: "Centered accented string is correctly centered" -- drawTextCentered
+/// must measure by decoded glyph count, not raw byte count. kExtFont's
+/// supplement glyph body (its 8-row sprite's rows 1-7, after extYOffset=-1)
+/// is byte-identical to GLYPH_A's body -- see the baseline-sharing tests
+/// above -- so "AA" (2 bytes) and "A\xC3\xB1" (3 bytes) are two visually
+/// identical 2-glyph strings. If centering used byte count instead of glyph
+/// count, the accented string would land at a different x than the ASCII one.
+void test_renderer_draw_text_centered_accented_matches_ascii_glyph_count(void) {
+    SpriteHarness ascii(true);
+    ascii.renderer->drawTextCentered("AA", 5, Color::White, 1, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawTextCentered("A\xC3\xB1", 5, Color::White, 1, &kExtFont);
+
+    // Both strings are 2 glyphs under kExtFont: textWidth = (5+1)*2 - 1 = 11
+    // glyph-cells either way. logicalWidth is 16 (SpriteHarness's kScreenW),
+    // so x = (16-11)/2 = 2 -- derived purely from kExtFont's own geometry
+    // constants, independent of the code path under test.
+    //
+    // Compare the shared glyph-body rows (y..y+6; the accent-only row at
+    // y-1=4 is deliberately excluded) across every column: if both strings
+    // were centered at the same x, every body pixel lands in the same place.
+    for (int row = 0; row <= 6; ++row) {
+        for (int col = 0; col < kScreenW; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(ascii.framebuffer, col, 5 + row),
+                                     pixelAt(accented.framebuffer, col, 5 + row));
+        }
+    }
+
+    // Anchor to a real, independently-computed position (not just
+    // self-consistency): GLYPH_A's row 0 is 0x0004 (only local col 2 lit --
+    // the tip of the 'A'), so screen column x+2 must carry ink and x+0 must
+    // not, where x = 2 is the computed centering x.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(ascii.framebuffer, 2 + 0, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(ascii.framebuffer, 2 + 2, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(accented.framebuffer, 2 + 0, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(accented.framebuffer, 2 + 2, 5 + 0));
+}
+
+// ============================================================================
+// Latin-1 supplement glyphs, real FONT_5X7 (Phase 5): bit order + legibility
+// ============================================================================
+// Guarded on the same flag as the glyph data itself -- these assert against
+// FONT5X7_LATIN1_GLYPHS, which only exists when PIXELROOT32_ENABLE_FONT_LATIN1
+// is on (see Font5x7.cpp). The flag-off contract is covered separately in
+// test_font_manager.cpp (test_font_manager_font5x7_latin1_flag_contract).
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+
+/// Renders "\xC3\x91" (UTF-8 for U+00D1 'Ntilde') and asserts the exact lit
+/// pixel set, computed independently from the intended bit pattern (not from
+/// Renderer's own bit-order code). Row 3 of the body (0x19 = 11001b) is
+/// asymmetric -- if the leftmost-pixel convention were ever flipped to bit 0
+/// (the wrong claim in the sprite-renderer skill doc), this glyph would light
+/// a different, detectably wrong column set instead of silently looking fine.
+void test_renderer_draw_text_latin1_n_tilde_bit_order_not_mirrored(void) {
+    SpriteHarness h(true);
+    FontManager::setDefaultFont(&FONT_5X7);
+    h.renderer->drawText("\xC3\x91", 1, 2, Color::White, 1);
+
+    const uint8_t ink = expectedInk();
+    // x0=1, y0=2; extYOffset=-1 puts the tilde row at y0-1=1.
+    static const int expectedOn[][2] = {
+        {1, 1}, {3, 1}, {5, 1},                  // row0 (tilde): cols 0,2,4
+        {1, 2}, {5, 2},                          // row1 (body row0): cols 0,4
+        {1, 3}, {5, 3},                          // row2 (body row1): cols 0,4
+        {1, 4}, {2, 4}, {5, 4},                  // row3 (body row2, 0x19): cols 0,1,4
+        {1, 5}, {3, 5}, {5, 5},                  // row4 (body row3): cols 0,2,4
+        {1, 6}, {4, 6}, {5, 6},                  // row5 (body row4, 0x13): cols 0,3,4
+        {1, 7}, {5, 7},                          // row6 (body row5): cols 0,4
+        {1, 8}, {5, 8},                          // row7 (body row6): cols 0,4
+    };
+    for (const auto& p : expectedOn) {
+        TEST_ASSERT_EQUAL_UINT8(ink, pixelAt(h.framebuffer, p[0], p[1]));
+    }
+    TEST_ASSERT_EQUAL_UINT32(20, countNonZero(h.framebuffer));
+
+    // Not mirrored: 0x19 = 11001b lights columns {0,1,4}. Under the wrong
+    // "bit 0 = leftmost" convention it would instead light {0,3,4} -- column
+    // 3 (screen x=4) would falsely turn on. It must stay dark.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(h.framebuffer, 4, 4));
+}
+
+/// 'A' vs accented 'Aacute': the 7-row letter body must land on the exact
+/// same screen rows (baseline sharing, D5), and the accent row must add ink
+/// that plain 'A' does not have -- i.e. the two glyphs are both aligned AND
+/// visually distinguishable, not merely occupying the same cell.
+void test_renderer_draw_text_latin1_A_acute_distinguishable_from_A(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\x81", 2, 4, Color::White, 1);  // Aacute
+
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+
+    // The accent row (screen y=3, one above the shared body) must carry ink
+    // for the accented glyph that the plain glyph never draws there.
+    TEST_ASSERT_EQUAL_UINT32(countNonZero(plain.framebuffer) + 1, countNonZero(accented.framebuffer));
+}
+
+/// Same distinguishability contract as above, for 'N' vs 'Ntilde'. Together
+/// with the bit-order test, this covers the two accented uppercase glyphs
+/// the demo games actually render (interfaces render in capitals).
+void test_renderer_draw_text_latin1_N_tilde_distinguishable_from_N(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("N", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\x91", 2, 4, Color::White, 1);  // Ntilde
+
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+    TEST_ASSERT_TRUE(countNonZero(accented.framebuffer) > countNonZero(plain.framebuffer));
+}
+
+/// Regression: 'i' is tittle-bearing -- its own topmost lit row is the dot,
+/// not letter ink. The accent must REPLACE that dot, never stack above it:
+/// Spanish typography draws exactly one mark over an accented i ("mi", "si",
+/// "asi", "pais" all carry a single stroke, never two). Coordinator-reported
+/// defect: the first generated GLYPH_LATIN_i_acute lit both the acute (its
+/// own row 0) and the inherited tittle (row 1) at once.
+void test_renderer_draw_text_latin1_i_acute_replaces_tittle_not_stacks(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("i", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xAD", 2, 4, Color::White, 1);  // iacute
+
+    // The stem (GLYPH_i rows 2-6, screen y=6..10) is untouched and shared
+    // with the plain glyph -- only the mark above it changes.
+    for (int row = 2; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+
+    // Where the base glyph's own tittle used to sit (screen y=4, the same
+    // row GLYPH_i's row 0 draws at) must now be dark -- the accent replaced
+    // it instead of stacking above it.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(accented.framebuffer, 4, 4));
+
+    // Exactly one lit pixel across the three rows above the stem gap (accent
+    // row y=3, former-tittle row y=4, gap row y=5): the acute alone.
+    int litAboveStem = 0;
+    for (int row = 3; row <= 5; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            if (pixelAt(accented.framebuffer, 2 + col, row) != 0) {
+                ++litAboveStem;
+            }
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(1, litAboveStem);
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(accented.framebuffer, 5, 3));
+}
+
+#endif // PIXELROOT32_ENABLE_FONT_LATIN1
+
 // The sprite1bpp tests are registered by the shared runner in test_graphics.cpp.
 // setUp() there calls FontManager::setDefaultFont(&FONT_5X7), which the
 // text-rendering parity test relies on.

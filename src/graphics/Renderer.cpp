@@ -341,26 +341,32 @@ namespace pixelroot32::graphics {
         int16_t currentX = x;
         float scale = static_cast<float>(size);
 
-        for (char c : text) {
-            uint16_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
+        for (size_t i = 0; i < text.size();) {
+            const FontManager::GlyphStep step = FontManager::nextGlyph(text, i, activeFont);
+            i += step.bytes;
 
-            // Skip unsupported characters
-            if (glyphIndex == FontManager::kNoGlyph) {
-                // Advance by glyph width for unsupported characters
+            // Skip unsupported/undecodable sequences -- exactly one blank cell each.
+            if (step.index == FontManager::kNoGlyph) {
                 currentX += static_cast<int16_t>((activeFont->glyphWidth + activeFont->spacing) * scale);
                 continue;
             }
 
-            // Get the glyph sprite
-            const Sprite& glyph = activeFont->glyphs[glyphIndex];
+            // Get the glyph sprite from the base or supplement table.
+            const Sprite* glyphTable = step.extended ? activeFont->extGlyphs : activeFont->glyphs;
+            const Sprite& glyph = glyphTable[step.index];
+
+            // Supplement glyphs share the base baseline via extYOffset (D5).
+            const int16_t glyphY = step.extended
+                ? static_cast<int16_t>(y + activeFont->extYOffset * static_cast<int>(size))
+                : y;
 
             // Render the glyph
             if (size == 1) {
                 // Use non-scaled version for size 1 (more efficient)
-                drawSprite(glyph, currentX, y, color, false);
+                drawSprite(glyph, currentX, glyphY, color, false);
             } else {
                 // Use scaled version for size > 1
-                drawSprite(glyph, currentX, y, scale, scale, color, false);
+                drawSprite(glyph, currentX, glyphY, scale, scale, color, false);
             }
 
             // Advance position

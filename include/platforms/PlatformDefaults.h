@@ -146,6 +146,17 @@
 #define PIXELROOT32_ENABLE_TILEMAP_PROJECTION 0
 #endif
 
+// -----------------------------------------------------------------------------
+// Font Latin-1 Supplement Feature Default
+// -----------------------------------------------------------------------------
+// When enabled, FontManager/Font5x7 carry an accented Latin-1 glyph block
+// (0xA0-0xFF) alongside the base ASCII table. Default 0: the UTF-8 decode in
+// FontManager::nextGlyph is unconditional either way, so disabling this only
+// removes the glyph data and renders those codepoints as blank cells.
+#if !defined(PIXELROOT32_ENABLE_FONT_LATIN1)
+#define PIXELROOT32_ENABLE_FONT_LATIN1 0
+#endif
+
 // No dependency guard is declared for the state machine, the object pool, the
 // grid space helper or the projection helper: unlike interaction triggers and
 // spatial queries, none of them includes any physics-gated header, so all four

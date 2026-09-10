@@ -36,6 +36,14 @@ struct Font {
     uint8_t glyphHeight;       ///< Fixed height of each glyph in pixels
     uint8_t spacing;           ///< Horizontal spacing between characters in pixels
     uint8_t lineHeight;        ///< Total line height including vertical spacing (glyphHeight + vertical spacing)
+
+    // Optional Latin-1 supplement block (appended, never inserted, so existing
+    // 7-value aggregate initializers keep compiling and value-initialize these
+    // to the disabled state: nullptr / 0 / 0 / 0).
+    const Sprite* extGlyphs;   ///< Supplement glyph array, or nullptr when absent
+    uint8_t extFirstChar;      ///< First supplement codepoint (e.g., 0xA0)
+    uint8_t extLastChar;       ///< Last supplement codepoint (e.g., 0xFF)
+    int8_t extYOffset;         ///< Vertical shift applied to supplement glyphs
 };
 
 } // namespace pixelroot32::graphics

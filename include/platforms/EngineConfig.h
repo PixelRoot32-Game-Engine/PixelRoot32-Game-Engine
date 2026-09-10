@@ -586,6 +586,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnableProjection = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_FONT_LATIN1
+
+    /** @brief Type-safe access to EnableFontLatin1 configuration. */
+    inline constexpr bool EnableFontLatin1 = true;
+    #else
+
+    /** @brief Type-safe access to EnableFontLatin1 configuration. */
+    inline constexpr bool EnableFontLatin1 = false;
+    #endif
+
     inline unsigned long profilerMicros() {
         return micros();
     }
