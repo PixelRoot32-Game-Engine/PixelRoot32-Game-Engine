@@ -342,10 +342,10 @@ namespace pixelroot32::graphics {
         float scale = static_cast<float>(size);
 
         for (char c : text) {
-            uint8_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
+            uint16_t glyphIndex = FontManager::getGlyphIndex(c, activeFont);
 
             // Skip unsupported characters
-            if (glyphIndex == 255) {
+            if (glyphIndex == FontManager::kNoGlyph) {
                 // Advance by glyph width for unsupported characters
                 currentX += static_cast<int16_t>((activeFont->glyphWidth + activeFont->spacing) * scale);
                 continue;

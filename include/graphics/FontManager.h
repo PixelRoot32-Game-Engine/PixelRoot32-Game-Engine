@@ -56,12 +56,21 @@ public:
     static int16_t textWidth(const Font* font, std::string_view text, uint8_t size = 1);
 
     /**
+     * @brief Sentinel returned by getGlyphIndex() when no glyph is found.
+     *
+     * Widened to uint16_t (rather than reusing the maximum uint8_t value) so a
+     * legitimately wide font whose glyph table produces index 255 is never
+     * confused with "not found" -- see getGlyphIndex().
+     */
+    static constexpr uint16_t kNoGlyph = 0xFFFF;
+
+    /**
      * @brief Gets the glyph index for a character code.
      * @param c The character code.
      * @param font Pointer to the font to use. If nullptr, uses the default font.
-     * @return Glyph index (0-based) if character is in font range, or 255 if not found.
+     * @return Glyph index (0-based) if character is in font range, or `kNoGlyph` if not found.
      */
-    static uint8_t getGlyphIndex(char c, const Font* font = nullptr);
+    static uint16_t getGlyphIndex(char c, const Font* font = nullptr);
 
     /**
      * @brief Checks if a character is supported by a font.

@@ -54,17 +54,17 @@ int16_t FontManager::textWidth(const Font* font, std::string_view text, uint8_t 
     return width;
 }
 
-uint8_t FontManager::getGlyphIndex(char c, const Font* font) {
+uint16_t FontManager::getGlyphIndex(char c, const Font* font) {
     const Font* activeFont = font ? font : defaultFont;
-    
+
     if (!activeFont) {
-        return 255; // Invalid index
+        return kNoGlyph; // Invalid index
     }
 
     uint8_t charCode = static_cast<uint8_t>(c);
-    
+
     if (charCode < activeFont->firstChar || charCode > activeFont->lastChar) {
-        return 255; // Character out of range
+        return kNoGlyph; // Character out of range
     }
 
     return charCode - activeFont->firstChar;
