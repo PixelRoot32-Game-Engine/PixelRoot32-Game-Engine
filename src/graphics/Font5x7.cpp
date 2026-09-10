@@ -106,6 +106,16 @@ const Sprite FONT5X7_GLYPHS[95] = {
     {GLYPH_TILDE, 5, 7}            // 126: '~'
 };
 
+// Latin-1 supplement tail for the FONT_5X7 initializer below. Guarded by the
+// flag so the struct layout itself never varies by translation unit (only
+// the values do) -- see D7. The glyph data (FONT5X7_LATIN1_GLYPHS) ships in
+// a follow-up slice; until then the flag-on branch is unused.
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+#define PR32_FONT5X7_EXT FONT5X7_LATIN1_GLYPHS, 0xA0, 0xFF, -1
+#else
+#define PR32_FONT5X7_EXT nullptr, 0, 0, 0
+#endif
+
 // Definition of FONT_5X7 instance (declared as extern in Font5x7.h)
 const Font FONT_5X7 = {
     FONT5X7_GLYPHS,    // glyphs array
@@ -114,7 +124,10 @@ const Font FONT_5X7 = {
     5,                  // glyphWidth
     7,                  // glyphHeight
     1,                  // spacing
-    8                   // lineHeight (7 + 1)
+    8,                  // lineHeight (7 + 1)
+    PR32_FONT5X7_EXT    // Latin-1 supplement block (nullptr/0/0/0 when disabled)
 };
+
+#undef PR32_FONT5X7_EXT
 
 } // namespace pixelroot32::graphics
