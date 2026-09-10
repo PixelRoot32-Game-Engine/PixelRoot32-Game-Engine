@@ -147,6 +147,13 @@ uint16_t wrapPass(std::string_view text, const Font* font, uint8_t size,
 uint8_t TextLayout::wrap(std::string_view text, const Font* font, uint8_t size,
                           int16_t maxWidthPx, uint16_t skipLines,
                           WrappedLine* outLines, uint8_t maxOutLines) {
+    // A null outLines must never reach wrapPass(): there, outLines == nullptr
+    // is an internal sentinel meaning "count-only mode" (used exclusively by
+    // countWrappedLines()), which ignores skipLines/maxOutLines and returns
+    // the unbounded total line count instead of 0.
+    if (outLines == nullptr) {
+        return 0;
+    }
     const Font* activeFont = font ? font : FontManager::getDefaultFont();
     return static_cast<uint8_t>(
         wrapPass(text, activeFont, size, maxWidthPx, skipLines, outLines, maxOutLines));

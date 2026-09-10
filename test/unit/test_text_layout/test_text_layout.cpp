@@ -183,6 +183,16 @@ void test_text_layout_wrap_null_font_no_default_returns_zero(void) {
     TEST_ASSERT_EQUAL_UINT8(0, written);
 }
 
+void test_text_layout_wrap_null_out_lines_returns_zero(void) {
+    // GIVEN a null outLines buffer, WHEN wrap is called, THEN it returns 0
+    // rather than forwarding into wrapPass()'s internal count-only sentinel
+    // (outLines == nullptr there means "ignore skipLines/maxOutLines, count
+    // everything" -- the mode countWrappedLines() relies on). A caller that
+    // passes a null buffer to wrap() must get 0, never an unbounded count.
+    const uint8_t written = TextLayout::wrap("AAAAA BBBBB", &testFont, 1, 100, 0, nullptr, 4);
+    TEST_ASSERT_EQUAL_UINT8(0, written);
+}
+
 void test_text_layout_wrap_uses_default_font(void) {
     FontManager::setDefaultFont(&testFont);
     TextLayout::WrappedLine lines[10];
@@ -395,6 +405,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_text_layout_wrap_newline_is_hard_break);
     RUN_TEST(test_text_layout_wrap_max_width_too_small_for_one_glyph_returns_zero);
     RUN_TEST(test_text_layout_wrap_null_font_no_default_returns_zero);
+    RUN_TEST(test_text_layout_wrap_null_out_lines_returns_zero);
     RUN_TEST(test_text_layout_wrap_uses_default_font);
 
     RUN_TEST(test_text_layout_wrap_skip_lines_mid_skip);

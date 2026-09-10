@@ -33,8 +33,9 @@ public:
     /// Honors '\n' as a hard break. Breaks a word longer than maxWidthPx at the
     /// last GLYPH boundary that fits -- never mid-glyph.
     /// @return linesWritten: rows written to `outLines` (<= maxOutLines).
-    ///         0 when the font is unusable, text is empty, maxWidthPx cannot
-    ///         hold one glyph, or skipLines is past the end.
+    ///         0 when the font is unusable, text is empty or whitespace-only,
+    ///         maxWidthPx cannot hold one glyph, skipLines is past the end,
+    ///         or outLines is null.
     [[nodiscard]] static uint8_t wrap(std::string_view text,
                                       const Font*      font,
                                       uint8_t          size,
