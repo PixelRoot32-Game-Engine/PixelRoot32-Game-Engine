@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.11.0
+
+### 🔧 Changed
+
+* **`FontManager::getGlyphIndex` returns `uint16_t` and reports "not found" as `FontManager::kNoGlyph` (`0xFFFF`) instead of `255`.** The old sentinel was itself a legal glyph index. A `Font` declaring `firstChar = 0, lastChar = 255` is valid today and yields a real index `255` for byte `0xFF`, which `Renderer::drawText` then read as "unsupported" and skipped — a glyph that silently refused to draw. No font shipped in this repository declares that range, so nothing rendered differently, but the collision capped any font at 95 glyphs and blocked accented-character support outright. **Migration:** a caller comparing the result against a literal `255`, or storing it in a `uint8_t`, must move to `kNoGlyph`. Neither breaks loudly — `0xFFFF == 255` evaluates false, so an unsupported character falls through the guard and indexes the glyph array out of bounds, and `uint8_t(0xFFFF)` truncates to `0xFF` and compares equal by accident. All six in-tree call sites are migrated. Three existing tests asserted `TEST_ASSERT_EQUAL_UINT8(255, index)` and would have stayed green while proving nothing for exactly that truncation reason; they now assert against `kNoGlyph` at full width. `test_font_manager` covers the widened contract, including a regression guard for the out-of-bounds read.
+
 # 1.10.0
 
 ### ✨ Added
