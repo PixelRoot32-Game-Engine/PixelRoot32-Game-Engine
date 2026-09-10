@@ -65,7 +65,7 @@ Calculates the width in pixels of a text string when rendered.
 
 **Returns:** Width in pixels, or 0 if font is invalid or text is empty.
 
-### `static uint8_t getGlyphIndex(char c, const Font* font = nullptr)`
+### `static uint16_t getGlyphIndex(char c, const Font* font = nullptr)`
 
 **Description:**
 
@@ -76,7 +76,7 @@ Gets the glyph index for a character code.
 - `c`: The character code.
 - `font`: Pointer to the font to use. If nullptr, uses the default font.
 
-**Returns:** Glyph index (0-based) if character is in font range, or 255 if not found.
+**Returns:** Glyph index (0-based) if character is in font range, or `kNoGlyph` if not found.
 
 ### `static bool isCharSupported(char c, const Font* font = nullptr)`
 
