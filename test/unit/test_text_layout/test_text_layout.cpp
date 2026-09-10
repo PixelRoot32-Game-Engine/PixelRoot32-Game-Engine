@@ -142,6 +142,17 @@ void test_text_layout_wrap_max_out_lines_overflow_no_oob(void) {
     TEST_ASSERT_EQUAL_STRING_LEN("BBBBB", lines[1].slice.data(), lines[1].slice.size());
 }
 
+void test_text_layout_wrap_max_out_lines_zero_returns_zero(void) {
+    // GIVEN maxOutLines == 0 with a valid non-null buffer, WHEN wrap is
+    // called, THEN it returns 0 and writes nothing. wrapPass()'s
+    // write-then-break guard (`written < maxOutLines` before writing,
+    // `written >= maxOutLines` break after) is written to handle this
+    // boundary safely, but no prior test exercised it.
+    TextLayout::WrappedLine lines[4];
+    const uint8_t written = TextLayout::wrap("AAAAA BBBBB", &testFont, 1, 29, 0, lines, 0);
+    TEST_ASSERT_EQUAL_UINT8(0, written);
+}
+
 void test_text_layout_wrap_empty_string_returns_zero(void) {
     // GIVEN an empty string, WHEN wrap is called, THEN it returns 0 lines
     // without crashing.
@@ -400,6 +411,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_text_layout_wrap_breaks_at_word_boundary);
     RUN_TEST(test_text_layout_wrap_word_longer_than_line_hard_breaks);
     RUN_TEST(test_text_layout_wrap_max_out_lines_overflow_no_oob);
+    RUN_TEST(test_text_layout_wrap_max_out_lines_zero_returns_zero);
     RUN_TEST(test_text_layout_wrap_empty_string_returns_zero);
     RUN_TEST(test_text_layout_wrap_whitespace_only_returns_zero);
     RUN_TEST(test_text_layout_wrap_newline_is_hard_break);
