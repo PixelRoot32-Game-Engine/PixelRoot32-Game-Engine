@@ -132,9 +132,51 @@ static const uint16_t GLYPH_PIPE[7] = {0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0
 static const uint16_t GLYPH_CLOSE_BRACE[7] = {0x0008, 0x0004, 0x0004, 0x0002, 0x0004, 0x0004, 0x0008}; // }
 static const uint16_t GLYPH_TILDE[7] = {0x0000, 0x0000, 0x0008, 0x0015, 0x0002, 0x0000, 0x0000}; // ~
 
+/// Number of glyphs in the base ASCII table: lastChar - firstChar + 1 (32..126).
+inline constexpr uint16_t kFont5x7AsciiGlyphCount = 126 - 32 + 1;
+
 // Array of Sprite structures for all glyphs (95 characters: space to tilde)
 // Declared as extern - defined in Font5x7.cpp
-extern const Sprite FONT5X7_GLYPHS[95];
+extern const Sprite FONT5X7_GLYPHS[kFont5x7AsciiGlyphCount];
+
+
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+
+// --- BEGIN GENERATED: scripts/generate_font5x7_latin1.py ---
+// 19 drawn Latin-1 supplement glyphs (of 96 total, 0xA0-0xFF). Row 0 is
+// the diacritic/extra row; rows 1-7 are the letter body, aligned with
+// the base 7-row glyph via extYOffset=-1 (see design D5).
+static const uint16_t GLYPH_LATIN_A_acute[8] = {0x0002, 0x0004, 0x000A, 0x0011, 0x0011, 0x001F, 0x0011, 0x0011}; // U+00C1 A_acute
+static const uint16_t GLYPH_LATIN_EXCLAMATION_INVERTED[8] = {0x0000, 0x0004, 0x0000, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004}; // U+00A1 EXCLAMATION_INVERTED
+static const uint16_t GLYPH_LATIN_E_acute[8] = {0x0002, 0x001F, 0x0010, 0x0010, 0x001E, 0x0010, 0x0010, 0x001F}; // U+00C9 E_acute
+static const uint16_t GLYPH_LATIN_GUILLEMET_LEFT[8] = {0x0000, 0x0000, 0x0005, 0x000A, 0x0014, 0x000A, 0x0005, 0x0000}; // U+00AB GUILLEMET_LEFT
+static const uint16_t GLYPH_LATIN_GUILLEMET_RIGHT[8] = {0x0000, 0x0000, 0x0014, 0x000A, 0x0005, 0x000A, 0x0014, 0x0000}; // U+00BB GUILLEMET_RIGHT
+static const uint16_t GLYPH_LATIN_I_acute[8] = {0x0002, 0x000E, 0x0004, 0x0004, 0x0004, 0x0004, 0x0004, 0x000E}; // U+00CD I_acute
+static const uint16_t GLYPH_LATIN_N_tilde[8] = {0x0015, 0x0011, 0x0011, 0x0019, 0x0015, 0x0013, 0x0011, 0x0011}; // U+00D1 N_tilde
+static const uint16_t GLYPH_LATIN_ORDINAL_MASCULINE[8] = {0x0000, 0x0000, 0x000E, 0x000A, 0x000E, 0x0000, 0x000E, 0x0000}; // U+00BA ORDINAL_MASCULINE
+static const uint16_t GLYPH_LATIN_O_acute[8] = {0x0002, 0x000E, 0x0011, 0x0011, 0x0011, 0x0011, 0x0011, 0x000E}; // U+00D3 O_acute
+static const uint16_t GLYPH_LATIN_QUESTION_INVERTED[8] = {0x0000, 0x0004, 0x0000, 0x0004, 0x0002, 0x0001, 0x0011, 0x000E}; // U+00BF QUESTION_INVERTED
+static const uint16_t GLYPH_LATIN_U_acute[8] = {0x0002, 0x0011, 0x0011, 0x0011, 0x0011, 0x0011, 0x0011, 0x000E}; // U+00DA U_acute
+static const uint16_t GLYPH_LATIN_U_diaeresis[8] = {0x000A, 0x0011, 0x0011, 0x0011, 0x0011, 0x0011, 0x0011, 0x000E}; // U+00DC U_diaeresis
+static const uint16_t GLYPH_LATIN_a_acute[8] = {0x0000, 0x0000, 0x0002, 0x000E, 0x0001, 0x000F, 0x0011, 0x000F}; // U+00E1 a_acute
+static const uint16_t GLYPH_LATIN_e_acute[8] = {0x0000, 0x0000, 0x0002, 0x000E, 0x0011, 0x001F, 0x0010, 0x000E}; // U+00E9 e_acute
+static const uint16_t GLYPH_LATIN_i_acute[8] = {0x0002, 0x0004, 0x0000, 0x000C, 0x0004, 0x0004, 0x0004, 0x000E}; // U+00ED i_acute
+static const uint16_t GLYPH_LATIN_n_tilde[8] = {0x0000, 0x0000, 0x0015, 0x0016, 0x0019, 0x0011, 0x0011, 0x0011}; // U+00F1 n_tilde
+static const uint16_t GLYPH_LATIN_o_acute[8] = {0x0000, 0x0000, 0x0002, 0x000E, 0x0011, 0x0011, 0x0011, 0x000E}; // U+00F3 o_acute
+static const uint16_t GLYPH_LATIN_u_acute[8] = {0x0000, 0x0000, 0x0002, 0x0011, 0x0011, 0x0011, 0x0011, 0x000F}; // U+00FA u_acute
+static const uint16_t GLYPH_LATIN_u_diaeresis[8] = {0x0000, 0x0000, 0x000A, 0x0011, 0x0011, 0x0011, 0x0011, 0x000F}; // U+00FC u_diaeresis
+
+// Shared by all 77 undrawn codepoints in the block -- one 8-row zero
+// array referenced many times, not one array per blank codepoint.
+static const uint16_t GLYPH_LATIN_BLANK[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+/// Number of glyphs in the Latin-1 supplement table: extLastChar - extFirstChar + 1 (0xA0..0xFF).
+inline constexpr uint16_t kFont5x7Latin1GlyphCount = 0xFF - 0xA0 + 1;
+
+extern const Sprite FONT5X7_LATIN1_GLYPHS[kFont5x7Latin1GlyphCount];
+// --- END GENERATED: do not hand-edit above; re-run the script instead. ---
+
+#endif // PIXELROOT32_ENABLE_FONT_LATIN1
 
 /**
  * @brief 5x7 pixel font instance.
