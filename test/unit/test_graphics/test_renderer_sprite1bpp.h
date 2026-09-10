@@ -313,6 +313,89 @@ void test_sprite1bpp_branches_match_text_rendering(void) {
     TEST_ASSERT_EQUAL_UINT8_ARRAY(reference.data(), fast.framebuffer.data(), kFbSize);
 }
 
+// ============================================================================
+// Zero-pixel-movement golden (Phase 3.7) and extYOffset placement (Phase 4)
+// ============================================================================
+
+/// "Hi" drawn at (0,0), size 1: pixel positions computed independently from
+/// FONT5X7's GLYPH_H/GLYPH_i bit patterns (not derived from Renderer code),
+/// so this locks the ASCII draw position contract the nextGlyph refactor
+/// must not move.
+void test_renderer_draw_text_ascii_golden_positions(void) {
+    SpriteHarness h(true);
+    h.renderer->drawText("Hi", 0, 0, Color::White, 1);
+
+    const uint8_t ink = expectedInk();
+    static const int expectedOn[][2] = {
+        {0, 0}, {4, 0}, {0, 1}, {4, 1}, {0, 2}, {4, 2},
+        {0, 3}, {1, 3}, {2, 3}, {3, 3}, {4, 3},
+        {0, 4}, {4, 4}, {0, 5}, {4, 5}, {0, 6}, {4, 6}, // 'H'
+        {8, 0}, {7, 2}, {8, 2}, {8, 3}, {8, 4}, {8, 5}, {7, 6}, {8, 6}, {9, 6}, // 'i' at x=6
+    };
+    for (const auto& p : expectedOn) {
+        TEST_ASSERT_EQUAL_UINT8(ink, pixelAt(h.framebuffer, p[0], p[1]));
+    }
+    TEST_ASSERT_EQUAL_UINT32(26, countNonZero(h.framebuffer));
+}
+
+// Synthetic font: base 'A' plus a supplement glyph at U+00F1 whose body rows
+// (1-7) are byte-identical to GLYPH_A's 7 rows -- only row 0 (the accent) and
+// extYOffset differ. Proves D5's baseline-sharing arithmetic.
+static const uint16_t kExtRowsSize1[8] = {0x000A, 0x0004, 0x000A, 0x0011, 0x0011, 0x001F, 0x0011, 0x0011};
+static const Sprite kExtBaseGlyph[] = {{GLYPH_A, 5, 7}};
+static const Sprite kExtSupplementGlyph[] = {{kExtRowsSize1, 5, 8}};
+static const Font kExtFont = {kExtBaseGlyph, 65, 65, 5, 7, 1, 8, kExtSupplementGlyph, 0xF1, 0xF1, -1};
+
+void test_renderer_draw_text_extended_glyph_shares_baseline_size1(void) {
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 2, 5, Color::White, 1, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xB1", 2, 5, Color::White, 1, &kExtFont);
+
+    // GLYPH_A's own rows land at screen y=5..11; the accented glyph's body
+    // (rows 1-7 of its 8-row sprite, shifted up by extYOffset=-1) must land
+    // on the exact same screen rows.
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 5 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 5 + row));
+        }
+    }
+}
+
+void test_renderer_draw_text_extended_glyph_shares_baseline_size2(void) {
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 1, 1, Color::White, 2, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\xB1", 1, 1, Color::White, 2, &kExtFont);
+
+    // Per D5's arithmetic proof, the body's screen rows are unaffected by size.
+    // GLYPH_A at size 2 occupies dst rows 0-13 (ceil(7*2)); kept in-bounds of
+    // the 16x16 harness screen.
+    for (int row = 0; row < 14; ++row) {
+        for (int col = 0; col < 10; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 1 + col, 1 + row),
+                                     pixelAt(accented.framebuffer, 1 + col, 1 + row));
+        }
+    }
+}
+
+void test_renderer_draw_text_extended_glyph_clips_above_screen(void) {
+    SpriteHarness h(true);
+    // y=0, extYOffset=-1: the accent row falls at logicalY=-1 and must clip
+    // safely (no crash, no wraparound write) while the body still draws at y=0.
+    h.renderer->drawText("\xC3\xB1", 2, 0, Color::White, 1, &kExtFont);
+
+    // With the accent row clipped away, only GLYPH_A's 16 body pixels remain --
+    // identical to drawing plain 'A' at the same position.
+    SpriteHarness reference(true);
+    reference.renderer->drawText("A", 2, 0, Color::White, 1, &kExtFont);
+    TEST_ASSERT_EQUAL_UINT8_ARRAY(reference.framebuffer.data(), h.framebuffer.data(), kFbSize);
+    TEST_ASSERT_EQUAL_UINT32(16, countNonZero(h.framebuffer));
+}
+
 // The sprite1bpp tests are registered by the shared runner in test_graphics.cpp.
 // setUp() there calls FontManager::setDefaultFont(&FONT_5X7), which the
 // text-rendering parity test relies on.
