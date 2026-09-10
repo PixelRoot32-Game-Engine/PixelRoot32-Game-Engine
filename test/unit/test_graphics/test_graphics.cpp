@@ -149,6 +149,7 @@ int main() {
     RUN_TEST(test_renderer_draw_text_extended_glyph_shares_baseline_size1);
     RUN_TEST(test_renderer_draw_text_extended_glyph_shares_baseline_size2);
     RUN_TEST(test_renderer_draw_text_extended_glyph_clips_above_screen);
+    RUN_TEST(test_renderer_draw_text_centered_accented_matches_ascii_glyph_count);
 
 #if PIXELROOT32_ENABLE_FONT_LATIN1
     RUN_TEST(test_renderer_draw_text_latin1_n_tilde_bit_order_not_mirrored);

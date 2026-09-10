@@ -396,6 +396,45 @@ void test_renderer_draw_text_extended_glyph_clips_above_screen(void) {
     TEST_ASSERT_EQUAL_UINT32(16, countNonZero(h.framebuffer));
 }
 
+/// Spec: "Centered accented string is correctly centered" -- drawTextCentered
+/// must measure by decoded glyph count, not raw byte count. kExtFont's
+/// supplement glyph body (its 8-row sprite's rows 1-7, after extYOffset=-1)
+/// is byte-identical to GLYPH_A's body -- see the baseline-sharing tests
+/// above -- so "AA" (2 bytes) and "A\xC3\xB1" (3 bytes) are two visually
+/// identical 2-glyph strings. If centering used byte count instead of glyph
+/// count, the accented string would land at a different x than the ASCII one.
+void test_renderer_draw_text_centered_accented_matches_ascii_glyph_count(void) {
+    SpriteHarness ascii(true);
+    ascii.renderer->drawTextCentered("AA", 5, Color::White, 1, &kExtFont);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawTextCentered("A\xC3\xB1", 5, Color::White, 1, &kExtFont);
+
+    // Both strings are 2 glyphs under kExtFont: textWidth = (5+1)*2 - 1 = 11
+    // glyph-cells either way. logicalWidth is 16 (SpriteHarness's kScreenW),
+    // so x = (16-11)/2 = 2 -- derived purely from kExtFont's own geometry
+    // constants, independent of the code path under test.
+    //
+    // Compare the shared glyph-body rows (y..y+6; the accent-only row at
+    // y-1=4 is deliberately excluded) across every column: if both strings
+    // were centered at the same x, every body pixel lands in the same place.
+    for (int row = 0; row <= 6; ++row) {
+        for (int col = 0; col < kScreenW; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(ascii.framebuffer, col, 5 + row),
+                                     pixelAt(accented.framebuffer, col, 5 + row));
+        }
+    }
+
+    // Anchor to a real, independently-computed position (not just
+    // self-consistency): GLYPH_A's row 0 is 0x0004 (only local col 2 lit --
+    // the tip of the 'A'), so screen column x+2 must carry ink and x+0 must
+    // not, where x = 2 is the computed centering x.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(ascii.framebuffer, 2 + 0, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(ascii.framebuffer, 2 + 2, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(accented.framebuffer, 2 + 0, 5 + 0));
+    TEST_ASSERT_EQUAL_UINT8(expectedInk(), pixelAt(accented.framebuffer, 2 + 2, 5 + 0));
+}
+
 // ============================================================================
 // Latin-1 supplement glyphs, real FONT_5X7 (Phase 5): bit order + legibility
 // ============================================================================

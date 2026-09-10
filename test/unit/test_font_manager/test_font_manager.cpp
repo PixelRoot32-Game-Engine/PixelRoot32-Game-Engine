@@ -244,6 +244,33 @@ static const Sprite extGlyphsData[] = {{extSpriteData, 5, 8}};
 static const Font extFont = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xF1, 0xF1, -1};
 
 // =============================================================================
+// isCharSupported called with a lead byte alone (spec: "isCharSupported
+// Contract" -> "isCharSupported called with a lead byte alone")
+// =============================================================================
+
+// A Font with a supplement block whose range *does* cover 0xC3 (0xA0-0xFF,
+// mirroring FONT_5X7's real Latin-1 range), independent of the build flag --
+// unlike extFont above (ext range 0xF1-0xF1, which never contains 0xC3
+// either way and so cannot distinguish the two possible behaviors).
+static const Font fontWithSupplementBlock = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xA0, 0xFF, -1};
+
+void test_font_manager_is_char_supported_lead_byte_alone(void) {
+    // Spec scenario: GIVEN a Font with a supplement block and the raw byte
+    // 0xC3, WHEN isCharSupported(0xC3, font) is called, THEN it evaluates
+    // 0xC3 as a single byte value against the font's ranges only -- it does
+    // not perform lead-byte decoding.
+    //
+    // isCharSupported (FontManager.cpp:78-87) is a plain compare against
+    // activeFont->firstChar/lastChar only -- it never references
+    // extFirstChar/extLastChar at all, unlike getGlyphIndex and
+    // isCodepointSupported. 0xC3 (195) sits inside fontWithSupplementBlock's
+    // ext range [0xA0,0xFF] but outside its base range [32,126]; the
+    // function's own declared (base-only) range compare therefore says
+    // false. Pinned as the contract, not reverse-engineered from a run.
+    TEST_ASSERT_FALSE(FontManager::isCharSupported(static_cast<char>(0xC3), &fontWithSupplementBlock));
+}
+
+// =============================================================================
 // FONT_5X7 Latin-1 supplement flag contract (Phase 5)
 // =============================================================================
 
@@ -420,7 +447,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_is_char_supported_false_high);
     RUN_TEST(test_font_manager_is_char_supported_no_font);
     RUN_TEST(test_font_manager_is_char_supported_uses_default);
-    
+    RUN_TEST(test_font_manager_is_char_supported_lead_byte_alone);
+
     RUN_TEST(test_font_manager_text_width_with_spaces);
     RUN_TEST(test_font_manager_text_width_long_string);
 
