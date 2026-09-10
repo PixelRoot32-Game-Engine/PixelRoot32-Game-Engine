@@ -142,5 +142,19 @@ int main() {
     RUN_TEST(test_sprite1bpp_branches_match_wide_sprite);
     RUN_TEST(test_sprite1bpp_branches_match_text_rendering);
 
+    // These were added in Phases 3-4 but never registered here (only
+    // exercised via an uncommitted manual driver); registering them now
+    // closes that gap so a real `pio test` run actually executes them.
+    RUN_TEST(test_renderer_draw_text_ascii_golden_positions);
+    RUN_TEST(test_renderer_draw_text_extended_glyph_shares_baseline_size1);
+    RUN_TEST(test_renderer_draw_text_extended_glyph_shares_baseline_size2);
+    RUN_TEST(test_renderer_draw_text_extended_glyph_clips_above_screen);
+
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+    RUN_TEST(test_renderer_draw_text_latin1_n_tilde_bit_order_not_mirrored);
+    RUN_TEST(test_renderer_draw_text_latin1_A_acute_distinguishable_from_A);
+    RUN_TEST(test_renderer_draw_text_latin1_N_tilde_distinguishable_from_N);
+#endif
+
     return UNITY_END();
 }

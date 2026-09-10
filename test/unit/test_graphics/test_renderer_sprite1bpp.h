@@ -396,6 +396,97 @@ void test_renderer_draw_text_extended_glyph_clips_above_screen(void) {
     TEST_ASSERT_EQUAL_UINT32(16, countNonZero(h.framebuffer));
 }
 
+// ============================================================================
+// Latin-1 supplement glyphs, real FONT_5X7 (Phase 5): bit order + legibility
+// ============================================================================
+// Guarded on the same flag as the glyph data itself -- these assert against
+// FONT5X7_LATIN1_GLYPHS, which only exists when PIXELROOT32_ENABLE_FONT_LATIN1
+// is on (see Font5x7.cpp). The flag-off contract is covered separately in
+// test_font_manager.cpp (test_font_manager_font5x7_latin1_flag_contract).
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+
+/// Renders "\xC3\x91" (UTF-8 for U+00D1 'Ntilde') and asserts the exact lit
+/// pixel set, computed independently from the intended bit pattern (not from
+/// Renderer's own bit-order code). Row 3 of the body (0x19 = 11001b) is
+/// asymmetric -- if the leftmost-pixel convention were ever flipped to bit 0
+/// (the wrong claim in the sprite-renderer skill doc), this glyph would light
+/// a different, detectably wrong column set instead of silently looking fine.
+void test_renderer_draw_text_latin1_n_tilde_bit_order_not_mirrored(void) {
+    SpriteHarness h(true);
+    FontManager::setDefaultFont(&FONT_5X7);
+    h.renderer->drawText("\xC3\x91", 1, 2, Color::White, 1);
+
+    const uint8_t ink = expectedInk();
+    // x0=1, y0=2; extYOffset=-1 puts the tilde row at y0-1=1.
+    static const int expectedOn[][2] = {
+        {1, 1}, {3, 1}, {5, 1},                  // row0 (tilde): cols 0,2,4
+        {1, 2}, {5, 2},                          // row1 (body row0): cols 0,4
+        {1, 3}, {5, 3},                          // row2 (body row1): cols 0,4
+        {1, 4}, {2, 4}, {5, 4},                  // row3 (body row2, 0x19): cols 0,1,4
+        {1, 5}, {3, 5}, {5, 5},                  // row4 (body row3): cols 0,2,4
+        {1, 6}, {4, 6}, {5, 6},                  // row5 (body row4, 0x13): cols 0,3,4
+        {1, 7}, {5, 7},                          // row6 (body row5): cols 0,4
+        {1, 8}, {5, 8},                          // row7 (body row6): cols 0,4
+    };
+    for (const auto& p : expectedOn) {
+        TEST_ASSERT_EQUAL_UINT8(ink, pixelAt(h.framebuffer, p[0], p[1]));
+    }
+    TEST_ASSERT_EQUAL_UINT32(20, countNonZero(h.framebuffer));
+
+    // Not mirrored: 0x19 = 11001b lights columns {0,1,4}. Under the wrong
+    // "bit 0 = leftmost" convention it would instead light {0,3,4} -- column
+    // 3 (screen x=4) would falsely turn on. It must stay dark.
+    TEST_ASSERT_EQUAL_UINT8(0, pixelAt(h.framebuffer, 4, 4));
+}
+
+/// 'A' vs accented 'Aacute': the 7-row letter body must land on the exact
+/// same screen rows (baseline sharing, D5), and the accent row must add ink
+/// that plain 'A' does not have -- i.e. the two glyphs are both aligned AND
+/// visually distinguishable, not merely occupying the same cell.
+void test_renderer_draw_text_latin1_A_acute_distinguishable_from_A(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("A", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\x81", 2, 4, Color::White, 1);  // Aacute
+
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+
+    // The accent row (screen y=3, one above the shared body) must carry ink
+    // for the accented glyph that the plain glyph never draws there.
+    TEST_ASSERT_EQUAL_UINT32(countNonZero(plain.framebuffer) + 1, countNonZero(accented.framebuffer));
+}
+
+/// Same distinguishability contract as above, for 'N' vs 'Ntilde'. Together
+/// with the bit-order test, this covers the two accented uppercase glyphs
+/// the demo games actually render (interfaces render in capitals).
+void test_renderer_draw_text_latin1_N_tilde_distinguishable_from_N(void) {
+    FontManager::setDefaultFont(&FONT_5X7);
+
+    SpriteHarness plain(true);
+    plain.renderer->drawText("N", 2, 4, Color::White, 1);
+
+    SpriteHarness accented(true);
+    accented.renderer->drawText("\xC3\x91", 2, 4, Color::White, 1);  // Ntilde
+
+    for (int row = 0; row < 7; ++row) {
+        for (int col = 0; col < 5; ++col) {
+            TEST_ASSERT_EQUAL_UINT8(pixelAt(plain.framebuffer, 2 + col, 4 + row),
+                                     pixelAt(accented.framebuffer, 2 + col, 4 + row));
+        }
+    }
+    TEST_ASSERT_TRUE(countNonZero(accented.framebuffer) > countNonZero(plain.framebuffer));
+}
+
+#endif // PIXELROOT32_ENABLE_FONT_LATIN1
+
 // The sprite1bpp tests are registered by the shared runner in test_graphics.cpp.
 // setUp() there calls FontManager::setDefaultFont(&FONT_5X7), which the
 // text-rendering parity test relies on.
