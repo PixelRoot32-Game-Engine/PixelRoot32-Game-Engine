@@ -239,10 +239,22 @@ public:
      *         the current selection; revision() bumps only when the
      *         selection actually changed, not on every successful call.
      *
-     *         Legal to call from within the configured DialogEventFn: it
-     *         never calls emit() and so cannot recurse, and every other
-     *         mutation it performs (selected_, revision_) has no trailing
-     *         statement after it that a reentrant call could invalidate.
+     *         Callable from within the configured DialogEventFn -- it
+     *         never calls emit(), so it cannot recurse -- but whether the
+     *         selection SURVIVES depends on which event you are handling,
+     *         and the two cases differ:
+     *
+     *         From LineEnter on a choice line it takes effect and holds.
+     *         Nothing runs after that emit() for a line whose kind is not
+     *         End, so there is no trailing statement to overwrite it.
+     *
+     *         From ChoiceConfirmed it is accepted and then DISCARDED. That
+     *         event fires while the runner is still on the line it is
+     *         about to leave, and the transition that follows -- enterLine()
+     *         for the chosen next, or finish() -- resets the selection
+     *         unconditionally. The call returns true and bumps revision(),
+     *         and neither survives the same feed(). Do not drive a touch
+     *         hit-test from that event; handle it from LineEnter instead.
      */
     bool select(ChoiceId index);
 

@@ -222,6 +222,25 @@ static const DialogLine kBoundClampLines[] = {
 };
 static const DialogScript kBoundClampScript{kBoundClampLines, kTwoChoicesForBoundTest, 1, 2};
 
+// The only shape in which the kNoChoice clamp is the BINDING one. It needs a
+// script whose table runs past index 255, which every other fixture is far too
+// small to reach: with a smaller table the table-bound guard or maxByScript
+// always decides first, so the collision arithmetic itself is never what
+// produces the answer. Zero-initialized, since only the COUNT matters here --
+// no test below reads an entry's text or tag.
+//
+// firstChoice=253 against a 256-entry table: the table-bound guard does not
+// fire (253 < 256), maxByScript is 3 and DialogMaxChoices is 4, so the answer
+// comes from kNoChoice - 253 == 2. Indices 253 and 254 are addressable; 255
+// is the sentinel and must not be.
+static const DialogChoice kChoiceTableSpanningTheSentinel[256] = {};
+static const DialogLine kIndexLimitLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 80, 0, /*firstChoice*/ 253, /*choiceCount*/ 4,
+     LineKind::Choice, 0},
+};
+static const DialogScript kIndexLimitScript{kIndexLimitLines, kChoiceTableSpanningTheSentinel, 1,
+                                              256};
+
 // firstChoice=5 into a 3-entry table: past the end, but nowhere near the
 // kNoChoice sentinel, so the sentinel arithmetic does not catch it. This is
 // the ONLY shape that isolates effectiveChoiceCount()'s table-bound guard:
@@ -969,6 +988,24 @@ void test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table(void) {
     TEST_ASSERT_EQUAL_UINT8(1, runner.choiceCount());
 }
 
+void test_dialog_runner_choice_count_stops_one_short_of_the_sentinel_index(void) {
+    DialogRunner runner;
+    runner.start(kIndexLimitScript, 0);  // firstChoice=253, table holds 256
+
+    // 2, not the line's declared 4 and not maxByScript's 3: the line may
+    // address 253 and 254, and must stop before 255 == kNoChoice.
+    TEST_ASSERT_EQUAL_UINT8(2, runner.choiceCount());
+    TEST_ASSERT_NOT_NULL(runner.choice(0));
+    TEST_ASSERT_NOT_NULL(runner.choice(1));
+    TEST_ASSERT_NULL(runner.choice(2));
+
+    // The two reachable entries are the ones at 253 and 254, not some other
+    // pair -- a clamp that produced the right COUNT from the wrong offset
+    // would otherwise pass.
+    TEST_ASSERT_EQUAL_PTR(&kChoiceTableSpanningTheSentinel[253], runner.choice(0));
+    TEST_ASSERT_EQUAL_PTR(&kChoiceTableSpanningTheSentinel[254], runner.choice(1));
+}
+
 void test_dialog_runner_choice_count_is_zero_when_first_choice_is_past_the_table(void) {
     DialogRunner runner;
     runner.start(kFirstChoicePastTableScript, 0);  // firstChoice=5, table holds 3
@@ -1573,6 +1610,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_choice_count_is_zero_outside_showing_choices);
     RUN_TEST(test_dialog_runner_choice_count_clamps_to_dialog_max_choices);
     RUN_TEST(test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table);
+    RUN_TEST(test_dialog_runner_choice_count_stops_one_short_of_the_sentinel_index);
     RUN_TEST(test_dialog_runner_choice_count_is_zero_when_first_choice_is_past_the_table);
     RUN_TEST(test_dialog_runner_choice_count_is_zero_when_first_choice_is_the_sentinel);
     RUN_TEST(test_dialog_runner_choice_returns_null_when_not_showing_choices);
