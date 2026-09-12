@@ -3,10 +3,10 @@
  * Licensed under the MIT License
  */
 #pragma once
-#include "platforms/EngineConfig.h"
 #include "platforms/PlatformDefaults.h"
 #if PIXELROOT32_ENABLE_DIALOG
 #include "gameplay/DialogTypes.h"
+#include "platforms/EngineConfig.h"
 
 namespace pixelroot32::gameplay {
 

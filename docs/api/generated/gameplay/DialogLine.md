@@ -29,4 +29,4 @@ flash budget.
 | `firstChoice` | `ChoiceId` | Index into DialogScript::choices. |
 | `choiceCount` | `uint8_t` | Clamped to config::DialogMaxChoices at runtime. |
 | `kind` | `LineKind` | Discriminator; decides which fields above apply. |
-| `flags` | `uint8_t` | kLineFlagAllowCancel; honored once choice handling lands. |
+| `flags` | `uint8_t` | kLineFlagAllowCancel; unknown bits are ignored, not rejected. |

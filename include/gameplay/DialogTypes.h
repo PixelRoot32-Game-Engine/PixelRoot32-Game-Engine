@@ -145,7 +145,7 @@ struct DialogLine {
     // out of bounds or exposed as an index the caller cannot distinguish
     // from "no choice".
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
-    uint8_t     flags;          ///< kLineFlagAllowCancel; honored once choice handling lands.
+    uint8_t     flags;          ///< kLineFlagAllowCancel; unknown bits are ignored, not rejected.
 };
 
 /**
