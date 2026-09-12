@@ -139,13 +139,99 @@ static const DialogLine kBadNextLines[] = {
 };
 static const DialogScript kBadNextScript{kBadNextLines, nullptr, 1, 0};
 
-// Single Choice line. choices is null / choiceCount is 0: DialogRunner does
-// not read the choices table yet, so this stays valid until it does.
+// Single Choice line whose script carries no choices table at all (choices
+// is null, script.choiceCount is 0) -- zero usable choices regardless of
+// what the line itself declares, exercised by the zero-usable-choices test.
 static const DialogLine kChoiceLines[] = {
     {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 9, 0, /*firstChoice*/ 0, /*choiceCount*/ 2,
      LineKind::Choice, 0},
 };
 static const DialogScript kChoiceScript{kChoiceLines, nullptr, 1, 0};
+
+// -----------------------------------------------------------------------
+// Choice fixtures -- a real choices table, for the four accessors and
+// ShowingChoices' action handling.
+// -----------------------------------------------------------------------
+
+static const DialogChoice kThreeChoices[] = {
+    {"Option A", /*next*/ 1, /*tag*/ 501},
+    {"Option B", /*next*/ kNoLine, /*tag*/ 502},
+    {"Option C", /*next*/ 1, /*tag*/ 503},
+};
+
+// Choice line (id 0, 3 options, Cancel not allowed) followed by a
+// player-driven text line (id 1) that two of the three choices' `next`
+// point at.
+static const DialogLine kThreeChoiceLines[] = {
+    {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 40, 0, /*firstChoice*/ 0, /*choiceCount*/ 3,
+     LineKind::Choice, /*flags*/ 0},
+    {kLineBText, nullptr, /*next*/ kNoLine, /*tag*/ 41, 0, 0, 0, LineKind::Text, 0},
+};
+static const DialogScript kThreeChoiceScript{kThreeChoiceLines, kThreeChoices, 2, 3};
+
+// Same 3 options, but the line allows Cancel.
+static const DialogLine kThreeChoiceCancelableLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 42, 0, 0, 3, LineKind::Choice,
+     /*flags*/ kLineFlagAllowCancel},
+};
+static const DialogScript kThreeChoiceCancelableScript{kThreeChoiceCancelableLines, kThreeChoices,
+                                                         1, 3};
+
+// Same 3 options, flags carries ONLY an unknown/reserved bit (0x80), not
+// kLineFlagAllowCancel -- proves Cancel is gated by an explicit mask of the
+// defined bit, not by `flags` truthiness (any nonzero flags value would
+// wrongly allow Cancel under a truthiness check).
+static const DialogLine kUnknownFlagOnlyLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 43, 0, 0, 3, LineKind::Choice, /*flags*/ 0x80},
+};
+static const DialogScript kUnknownFlagOnlyScript{kUnknownFlagOnlyLines, kThreeChoices, 1, 3};
+
+// Same 3 options, flags carries kLineFlagAllowCancel TOGETHER WITH an
+// unknown bit -- proves unknown bits are ignored rather than rejecting the
+// line (Cancel must still work).
+static const DialogLine kAllowCancelPlusUnknownFlagLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 44, 0, 0, 3, LineKind::Choice,
+     /*flags*/ static_cast<uint8_t>(kLineFlagAllowCancel | 0x80)},
+};
+static const DialogScript kAllowCancelPlusUnknownFlagScript{kAllowCancelPlusUnknownFlagLines,
+                                                              kThreeChoices, 1, 3};
+
+// 6 real choices in the table and on the line -- choiceCount() must clamp
+// to config::DialogMaxChoices (4), not the line's declared 6 or the
+// table's 6.
+static const DialogChoice kSixChoices[] = {
+    {"A", kNoLine, 1}, {"B", kNoLine, 2}, {"C", kNoLine, 3},
+    {"D", kNoLine, 4}, {"E", kNoLine, 5}, {"F", kNoLine, 6},
+};
+static const DialogLine kSixChoiceLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 50, 0, /*firstChoice*/ 0, /*choiceCount*/ 6,
+     LineKind::Choice, 0},
+};
+static const DialogScript kSixChoiceScript{kSixChoiceLines, kSixChoices, 1, 6};
+
+// firstChoice=1 into a 2-entry table, but the line declares choiceCount=10
+// -- choiceCount() must clamp to what the table actually holds from
+// firstChoice (1), not what the line claims or DialogMaxChoices allows.
+static const DialogChoice kTwoChoicesForBoundTest[] = {
+    {"X", kNoLine, 71},
+    {"Y", kNoLine, 72},
+};
+static const DialogLine kBoundClampLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 60, 0, /*firstChoice*/ 1, /*choiceCount*/ 10,
+     LineKind::Choice, 0},
+};
+static const DialogScript kBoundClampScript{kBoundClampLines, kTwoChoicesForBoundTest, 1, 2};
+
+// firstChoice == kNoChoice (0xFF) itself -- the tightest instance of the
+// uint8_t/uint16_t collision: any line addressing an index at or past 0xFF
+// must be unreadable through choiceCount()/choice()/selectedChoice(),
+// never confusable with "no choice".
+static const DialogLine kSentinelFirstChoiceLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 70, 0, /*firstChoice*/ kNoChoice, /*choiceCount*/ 1,
+     LineKind::Choice, 0},
+};
+static const DialogScript kSentinelFirstChoiceScript{kSentinelFirstChoiceLines, kThreeChoices, 1,
+                                                       3};
 
 // Single End-kind line -- must finish immediately on entry.
 static const DialogLine kEndLines[] = {
@@ -246,6 +332,47 @@ void onLineEnterAttemptsReentrantStart(void* ownerPtr, const DialogEvent& event)
     if (event.type == DialogEventType::LineEnter && !owner->attempted) {
         owner->attempted = true;
         owner->reentrantResult = owner->runner->start(*owner->reentrantScript, 0);
+    }
+}
+
+/// Owner used by the two stop()-from-ChoiceConfirmed tests. Records every
+/// event and calls stop() back into the runner the moment ChoiceConfirmed
+/// fires -- covers both the choice.next-follows route and the
+/// choice.next == kNoLine (finish) route into the same hazard enterLine()
+/// already had to be gated against.
+struct StopOnChoiceConfirmedOwner {
+    DialogRunner* runner = nullptr;
+    LoggedEvent log[8]{};
+    int logCount = 0;
+
+    void record(const DialogEvent& event) {
+        if (logCount < 8) {
+            log[logCount++] = LoggedEvent{event.type, event.line, event.choice, event.tag};
+        }
+    }
+};
+
+void onChoiceConfirmedStops(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<StopOnChoiceConfirmedOwner*>(ownerPtr);
+    owner->record(event);
+    if (event.type == DialogEventType::ChoiceConfirmed) {
+        owner->runner->stop();
+    }
+}
+
+/// Owner used by the reentrant-feed()-from-ChoiceConfirmed test. Reacts to
+/// ChoiceConfirmed by feeding Confirm straight back into the same runner --
+/// must be dropped by the existing dispatching_ guard, not double-applied.
+struct ReentrantFeedFromChoiceOwner {
+    DialogRunner* runner = nullptr;
+    int choiceConfirmedCount = 0;
+};
+
+void onChoiceConfirmedReentersFeed(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<ReentrantFeedFromChoiceOwner*>(ownerPtr);
+    if (event.type == DialogEventType::ChoiceConfirmed) {
+        ++owner->choiceConfirmedCount;
+        owner->runner->feed(DialogAction::Confirm);  // reentrant: must be a no-op
     }
 }
 
@@ -760,11 +887,12 @@ void test_dialog_runner_stop_on_an_active_runner_still_bumps_revision(void) {
 }
 
 // =============================================================================
-// Requirement: a Choice line reaches ShowingChoices; every action there is a
-// deliberate no-op until ShowingChoices' action handling is implemented
+// Requirement: a Choice line reaches ShowingChoices; every action is a
+// deliberate no-op when the line has zero usable choices (here: the script
+// carries no choices table at all)
 // =============================================================================
 
-void test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance(void) {
+void test_dialog_runner_choice_line_with_zero_usable_choices_ignores_every_action(void) {
     MockOwner owner;
     DialogRunner runner;
     runner.configure(&owner, onDialogEvent);
@@ -773,22 +901,444 @@ void test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance(
 
     TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
     TEST_ASSERT_TRUE(runner.isActive());
+    TEST_ASSERT_EQUAL_UINT8(0, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
     const uint16_t revBefore = runner.revision();
     const int logBefore = owner.logCount;
 
     runner.feed(DialogAction::Advance);
     runner.feed(DialogAction::Up);
     runner.feed(DialogAction::Down);
-    runner.feed(DialogAction::Confirm);
+    runner.feed(DialogAction::Confirm);  // nothing to confirm: must be a no-op
     runner.feed(DialogAction::Cancel);
-    runner.feed(DialogAction::None);  // Match the other three illegal-action
-                                       // tests: all six actions, so the four
-                                       // are only meaningful together as full
-                                       // coverage of the action product.
+    runner.feed(DialogAction::None);
 
     TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
     TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
     TEST_ASSERT_EQUAL_INT(logBefore, owner.logCount);
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
+// =============================================================================
+// Requirement: the four choice accessors and their kNoChoice/table/
+// DialogMaxChoices clamps
+// =============================================================================
+
+void test_dialog_runner_choice_count_reflects_the_line(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+
+    TEST_ASSERT_EQUAL_UINT8(3, runner.choiceCount());
+}
+
+void test_dialog_runner_choice_count_is_zero_outside_showing_choices(void) {
+    DialogRunner runner;
+    runner.start(kLinearScript, 0);  // AwaitingAdvance, not a choice line
+
+    TEST_ASSERT_EQUAL_UINT8(0, runner.choiceCount());
+}
+
+void test_dialog_runner_choice_count_clamps_to_dialog_max_choices(void) {
+    DialogRunner runner;
+    runner.start(kSixChoiceScript, 0);
+
+    // Both the line (6) and the table (6) could serve more than this; only
+    // config::DialogMaxChoices (4) bounds the result.
+    TEST_ASSERT_EQUAL_UINT8(4, runner.choiceCount());
+}
+
+void test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table(void) {
+    DialogRunner runner;
+    runner.start(kBoundClampScript, 0);  // firstChoice=1, table has 2 entries
+
+    // Only index 1 ("Y") exists from firstChoice=1; the line's declared 10
+    // must not read past DialogScript::choices.
+    TEST_ASSERT_EQUAL_UINT8(1, runner.choiceCount());
+}
+
+void test_dialog_runner_choice_count_is_zero_when_first_choice_is_the_sentinel(void) {
+    DialogRunner runner;
+    runner.start(kSentinelFirstChoiceScript, 0);  // firstChoice == kNoChoice
+
+    TEST_ASSERT_EQUAL_UINT8(0, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
+void test_dialog_runner_choice_returns_null_when_not_showing_choices(void) {
+    DialogRunner runner;
+    runner.start(kLinearScript, 0);
+
+    TEST_ASSERT_NULL(runner.choice(0));
+}
+
+void test_dialog_runner_choice_returns_null_when_index_out_of_range(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+
+    TEST_ASSERT_NULL(runner.choice(3));    // choiceCount() == 3: 3 is out of range
+    TEST_ASSERT_NULL(runner.choice(255));  // kNoChoice itself
+}
+
+void test_dialog_runner_choice_returns_the_correct_entry(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+
+    const DialogChoice* c = runner.choice(2);
+
+    TEST_ASSERT_NOT_NULL(c);
+    TEST_ASSERT_EQUAL_STRING("Option C", c->text);
+    TEST_ASSERT_EQUAL_UINT16(503, c->tag);
+}
+
+// =============================================================================
+// Requirement: selected_ resets on every line entry -- 0 when the line has
+// usable choices, kNoChoice otherwise
+// =============================================================================
+
+void test_dialog_runner_selected_choice_defaults_to_zero_on_entering_showing_choices(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+}
+
+void test_dialog_runner_selected_choice_is_no_choice_outside_showing_choices(void) {
+    DialogRunner runner;
+    runner.start(kLinearScript, 0);
+
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
+// =============================================================================
+// Requirement: Up/Down move selectedChoice(), clamped at the boundaries,
+// never wrapping; revision() bumps only on an actual change
+// =============================================================================
+
+void test_dialog_runner_down_moves_selection_and_bumps_revision(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    runner.feed(DialogAction::Down);
+
+    TEST_ASSERT_EQUAL_UINT8(1, runner.selectedChoice());
+    TEST_ASSERT_NOT_EQUAL(revBefore, runner.revision());
+}
+
+void test_dialog_runner_down_clamps_at_the_last_index_without_wrapping(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);
+    TEST_ASSERT_EQUAL_UINT8(2, runner.selectedChoice());  // choiceCount() - 1
+    const uint16_t revBefore = runner.revision();
+
+    runner.feed(DialogAction::Down);  // one past the end: must clamp, not wrap to 0
+
+    TEST_ASSERT_EQUAL_UINT8(2, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());  // clamped no-op: no bump
+}
+
+void test_dialog_runner_up_clamps_at_zero_without_wrapping(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+    const uint16_t revBefore = runner.revision();
+
+    runner.feed(DialogAction::Up);  // already at 0: must clamp, not wrap to choiceCount()-1
+
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());  // clamped no-op: no bump
+}
+
+void test_dialog_runner_up_moves_selection_back_after_down(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);
+    TEST_ASSERT_EQUAL_UINT8(2, runner.selectedChoice());
+
+    runner.feed(DialogAction::Up);
+
+    TEST_ASSERT_EQUAL_UINT8(1, runner.selectedChoice());
+}
+
+void test_dialog_runner_advance_and_none_stay_noop_in_showing_choices_with_real_choices(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceScript, 0);
+    owner.logCount = 0;
+    const uint16_t revBefore = runner.revision();
+    const ChoiceId selectedBefore = runner.selectedChoice();
+
+    runner.feed(DialogAction::Advance);
+    runner.feed(DialogAction::None);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+    TEST_ASSERT_EQUAL_INT(0, owner.logCount);
+    TEST_ASSERT_EQUAL_HEX8(selectedBefore, runner.selectedChoice());
+}
+
+// =============================================================================
+// Requirement: select() for touch hit-testing
+// =============================================================================
+
+void test_dialog_runner_select_sets_selection_directly(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+
+    const bool result = runner.select(2);
+
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT8(2, runner.selectedChoice());
+}
+
+void test_dialog_runner_select_bumps_revision_on_change(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    runner.select(1);
+
+    TEST_ASSERT_NOT_EQUAL(revBefore, runner.revision());
+}
+
+void test_dialog_runner_select_does_not_bump_revision_when_unchanged(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+    const uint16_t revBefore = runner.revision();
+
+    const bool result = runner.select(0);  // already the current selection
+
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_select_fails_and_changes_nothing_when_out_of_range(void) {
+    DialogRunner runner;
+    runner.start(kThreeChoiceScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    const bool result = runner.select(3);  // choiceCount() == 3: out of range
+
+    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());  // unchanged
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_select_fails_and_changes_nothing_when_not_showing_choices(void) {
+    DialogRunner runner;
+    runner.start(kLinearScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    const bool result = runner.select(0);
+
+    TEST_ASSERT_FALSE(result);
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+// =============================================================================
+// Requirement: Confirm emits ChoiceConfirmed with the chosen tag, then
+// follows that choice's `next` (or finishes when next == kNoLine)
+// =============================================================================
+
+void test_dialog_runner_confirm_emits_choice_confirmed_with_line_index_and_choice_tag(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);  // selectedChoice() == 2 ("Option C", tag 503)
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Confirm);
+
+    TEST_ASSERT_TRUE(owner.logCount >= 1);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_EQUAL_UINT16(0, owner.log[0].line);     // the CHOICE line's id
+    TEST_ASSERT_EQUAL_HEX8(2, owner.log[0].choice);     // the selected index
+    TEST_ASSERT_EQUAL_UINT16(503, owner.log[0].tag);    // the CHOICE's own tag, not the line's
+}
+
+void test_dialog_runner_confirm_follows_the_choices_next(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);  // index 2, next == 1
+
+    runner.feed(DialogAction::Confirm);
+
+    TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+}
+
+void test_dialog_runner_confirm_with_next_kNoLine_finishes(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);  // index 1, "Option B", next == kNoLine
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Confirm);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+    TEST_ASSERT_FALSE(runner.isActive());
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_EQUAL_INT(2, owner.logCount);  // ChoiceConfirmed, then Ended
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_TRUE(owner.log[1].type == DialogEventType::Ended);
+    TEST_ASSERT_EQUAL_UINT16(0, owner.log[1].line);   // the CHOICE line finished
+    TEST_ASSERT_EQUAL_UINT16(40, owner.log[1].tag);   // the LINE's own tag, not the choice's
+}
+
+// =============================================================================
+// Requirement: Cancel honored only with kLineFlagAllowCancel; unknown flag
+// bits are ignored, not rejecting the line
+// =============================================================================
+
+void test_dialog_runner_cancel_is_noop_without_allow_cancel_flag(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceScript, 0);  // flags == 0
+    owner.logCount = 0;
+    const uint16_t revBefore = runner.revision();
+
+    runner.feed(DialogAction::Cancel);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_INT(0, owner.logCount);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_cancel_emits_cancelled_and_stays_on_the_line_with_allow_cancel(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kThreeChoiceCancelableScript, 0);
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Cancel);
+
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::Cancelled);
+    TEST_ASSERT_EQUAL_UINT16(0, owner.log[0].line);
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, owner.log[0].choice);
+    TEST_ASSERT_EQUAL_UINT16(42, owner.log[0].tag);  // the LINE's own tag
+    // Left ON the line: the runner does not invent a transition Cancel was
+    // not specified to make. The game decides what cancelling means.
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_UINT16(0, runner.currentLineId());
+}
+
+void test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit(void) {
+    // Would incorrectly succeed under a bare `if (line.flags)` truthiness
+    // check, since 0x80 is nonzero; the mask must test kLineFlagAllowCancel
+    // specifically.
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kUnknownFlagOnlyScript, 0);
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Cancel);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_INT(0, owner.logCount);
+}
+
+void test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit(void) {
+    // The other half of the same proof: an unknown bit alongside the real
+    // one must not REJECT the line either -- unknown bits are ignored, not
+    // treated as invalid.
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kAllowCancelPlusUnknownFlagScript, 0);
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Cancel);
+
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::Cancelled);
+}
+
+// =============================================================================
+// Requirement: a callback reacting to ChoiceConfirmed by calling stop() is
+// respected, not silently undone by the trailing transition that follows
+// the choice's `next`
+// =============================================================================
+
+void test_dialog_runner_stop_from_choice_confirmed_callback_when_next_would_follow_is_respected(
+    void) {
+    StopOnChoiceConfirmedOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    runner.configure(&owner, onChoiceConfirmedStops);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);  // index 2, next == 1 (a valid line)
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Confirm);
+
+    // Without the current_ == enteredLine gate, the follow-on
+    // enterLine(1) would run anyway, producing a second LineEnter the
+    // callback's stop() never authorized.
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_FALSE(runner.isActive());
+}
+
+void test_dialog_runner_stop_from_choice_confirmed_callback_when_next_is_kNoLine_is_respected(
+    void) {
+    StopOnChoiceConfirmedOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    runner.configure(&owner, onChoiceConfirmedStops);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);  // index 1, "Option B", next == kNoLine
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Confirm);
+
+    // Without the gate, the trailing finish(enteredLine) would run anyway,
+    // resurrecting the session stop() just tore down: an extra Ended event
+    // and Finished instead of Inactive.
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_FALSE(runner.isActive());
+}
+
+void test_dialog_runner_reentrant_feed_from_choice_confirmed_is_ignored_not_recursive(void) {
+    ReentrantFeedFromChoiceOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    runner.configure(&owner, onChoiceConfirmedReentersFeed);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);  // index 2, next == 1
+
+    runner.feed(DialogAction::Confirm);
+
+    // The reentrant feed(Confirm) made from inside the callback must be
+    // dropped by the existing dispatching_ guard: exactly one
+    // ChoiceConfirmed, and the runner moved to line 1 exactly once (not
+    // twice, and not past it).
+    TEST_ASSERT_EQUAL_INT(1, owner.choiceConfirmedCount);
+    TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
 }
 
 // =============================================================================
@@ -989,7 +1539,39 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_stop_fires_no_event);
     RUN_TEST(test_dialog_runner_stop_on_an_already_inactive_runner_does_not_bump_revision);
     RUN_TEST(test_dialog_runner_stop_on_an_active_runner_still_bumps_revision);
-    RUN_TEST(test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance);
+    RUN_TEST(test_dialog_runner_choice_line_with_zero_usable_choices_ignores_every_action);
+    RUN_TEST(test_dialog_runner_choice_count_reflects_the_line);
+    RUN_TEST(test_dialog_runner_choice_count_is_zero_outside_showing_choices);
+    RUN_TEST(test_dialog_runner_choice_count_clamps_to_dialog_max_choices);
+    RUN_TEST(test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table);
+    RUN_TEST(test_dialog_runner_choice_count_is_zero_when_first_choice_is_the_sentinel);
+    RUN_TEST(test_dialog_runner_choice_returns_null_when_not_showing_choices);
+    RUN_TEST(test_dialog_runner_choice_returns_null_when_index_out_of_range);
+    RUN_TEST(test_dialog_runner_choice_returns_the_correct_entry);
+    RUN_TEST(test_dialog_runner_selected_choice_defaults_to_zero_on_entering_showing_choices);
+    RUN_TEST(test_dialog_runner_selected_choice_is_no_choice_outside_showing_choices);
+    RUN_TEST(test_dialog_runner_down_moves_selection_and_bumps_revision);
+    RUN_TEST(test_dialog_runner_down_clamps_at_the_last_index_without_wrapping);
+    RUN_TEST(test_dialog_runner_up_clamps_at_zero_without_wrapping);
+    RUN_TEST(test_dialog_runner_up_moves_selection_back_after_down);
+    RUN_TEST(test_dialog_runner_advance_and_none_stay_noop_in_showing_choices_with_real_choices);
+    RUN_TEST(test_dialog_runner_select_sets_selection_directly);
+    RUN_TEST(test_dialog_runner_select_bumps_revision_on_change);
+    RUN_TEST(test_dialog_runner_select_does_not_bump_revision_when_unchanged);
+    RUN_TEST(test_dialog_runner_select_fails_and_changes_nothing_when_out_of_range);
+    RUN_TEST(test_dialog_runner_select_fails_and_changes_nothing_when_not_showing_choices);
+    RUN_TEST(test_dialog_runner_confirm_emits_choice_confirmed_with_line_index_and_choice_tag);
+    RUN_TEST(test_dialog_runner_confirm_follows_the_choices_next);
+    RUN_TEST(test_dialog_runner_confirm_with_next_kNoLine_finishes);
+    RUN_TEST(test_dialog_runner_cancel_is_noop_without_allow_cancel_flag);
+    RUN_TEST(test_dialog_runner_cancel_emits_cancelled_and_stays_on_the_line_with_allow_cancel);
+    RUN_TEST(test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit);
+    RUN_TEST(test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit);
+    RUN_TEST(
+        test_dialog_runner_stop_from_choice_confirmed_callback_when_next_would_follow_is_respected);
+    RUN_TEST(
+        test_dialog_runner_stop_from_choice_confirmed_callback_when_next_is_kNoLine_is_respected);
+    RUN_TEST(test_dialog_runner_reentrant_feed_from_choice_confirmed_is_ignored_not_recursive);
     RUN_TEST(test_dialog_runner_current_line_reflects_state);
     RUN_TEST(test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive);
     RUN_TEST(test_dialog_runner_reentrant_start_from_callback_is_a_pure_noop);

@@ -3,6 +3,7 @@
  * Licensed under the MIT License
  */
 #pragma once
+#include "platforms/EngineConfig.h"
 #include "platforms/PlatformDefaults.h"
 #if PIXELROOT32_ENABLE_DIALOG
 #include "gameplay/DialogTypes.h"
@@ -22,17 +23,17 @@ namespace pixelroot32::gameplay {
  * are copied from gameplay/StateMachine.h: the caller-owned
  * script is bound, not copied, and must outlive the runner.
  *
- * This implementation covers Inactive, ShowingText,
- * AwaitingAdvance and Finished fully, plus entry only into ShowingChoices --
- * a Choice line reaches that state and every DialogAction fed there is a
- * deliberate no-op. The four choice accessors (choiceCount(), choice(),
- * selectedChoice(), select()) and ShowingChoices' action handling are
- * additive and land later; nothing declared here changes shape or meaning
- * when they do.
+ * This implementation covers all five states fully, including
+ * ShowingChoices: a Choice line reaches that state, Up/Down move the
+ * selection (clamped, never wrapping), select() sets it directly for touch
+ * hit-testing, Confirm emits ChoiceConfirmed and follows the chosen
+ * DialogChoice::next, and Cancel is honored only when the line's flags
+ * allow it. Advance and None remain no-ops in this state, and every action
+ * is a no-op on a line with zero usable choices.
  *
  * Reentrancy: feed()/update()/start() may call the configured DialogEventFn
  * synchronously, and that callback is allowed to call back into this same
- * runner. See configure()'s @param onEvent for the exact contract.
+ * runner. See configure() below for the exact contract.
  */
 class DialogRunner {
 public:
@@ -96,9 +97,17 @@ public:
      * Total over DialogState x DialogAction: an
      * action illegal in the current state is silently ignored -- no state
      * change, no revision() bump, no event, no crash. Confirm aliases
-     * Advance in ShowingText and AwaitingAdvance. A reentrant call made
-     * from within the configured DialogEventFn is also ignored -- see
-     * configure()'s reentrancy contract.
+     * Advance in ShowingText and AwaitingAdvance. In ShowingChoices: Up/Down
+     * move selectedChoice() (clamped at the boundaries, never wrapping;
+     * revision() bumps only when the selection actually changed), Confirm
+     * emits ChoiceConfirmed and follows the chosen DialogChoice::next
+     * (kNoLine finishes the dialog), Cancel is honored only when the line's
+     * flags allow it (see DialogTypes.h's kLineFlagAllowCancel), and
+     * Advance/None stay no-ops. Every ShowingChoices action is a no-op on a
+     * line with zero usable choices -- there is nothing to move to or
+     * confirm. A reentrant call made from within the configured
+     * DialogEventFn is also ignored -- see configure()'s reentrancy
+     * contract.
      */
     void feed(DialogAction action);
 
@@ -184,11 +193,73 @@ public:
      */
     [[nodiscard]] uint16_t revision() const { return revision_; }
 
+    /**
+     * @brief The current line's effective choice count.
+     * @return 0 unless state() == ShowingChoices. Otherwise the current
+     *         line's DialogLine::choiceCount, clamped to
+     *         config::DialogMaxChoices and further clamped so the
+     *         addressed range never leaves DialogScript::choices and never
+     *         reaches the kNoChoice sentinel value (see DialogTypes.h for
+     *         why a line can never address a choice at or past index 255).
+     *         0 whenever any of those clamps leaves nothing usable, e.g. a
+     *         DialogLine::firstChoice that is itself out of range or equal
+     *         to kNoChoice.
+     */
+    [[nodiscard]] uint8_t choiceCount() const;
+
+    /**
+     * @brief The choice at `index` on the current ShowingChoices line.
+     * @param index Zero-based index, local to the current line (not an
+     *        offset into DialogScript::choices).
+     * @return nullptr when state() != ShowingChoices or `index >=
+     *         choiceCount()`. Never dereferences DialogScript::choices
+     *         outside the range choiceCount() already bounds.
+     */
+    [[nodiscard]] const DialogChoice* choice(ChoiceId index) const;
+
+    /**
+     * @brief The currently selected choice on a ShowingChoices line.
+     * @return selected_, or kNoChoice when state() != ShowingChoices or the
+     *         current line has zero usable choices (choiceCount() == 0).
+     *         Reset to 0 on entering a ShowingChoices line with at least
+     *         one usable choice, and to kNoChoice on entering any other
+     *         line, or a ShowingChoices line with none.
+     */
+    [[nodiscard]] ChoiceId selectedChoice() const;
+
+    /**
+     * @brief Sets the selection directly, for touch hit-testing.
+     * @param index Zero-based index, local to the current line.
+     * @return false, changing nothing, when state() != ShowingChoices or
+     *         `index >= choiceCount()`. Both rejection causes collapse to
+     *         the same single postcondition -- "no effect" -- so this
+     *         bool's false has exactly one meaning, unlike start()'s two
+     *         reentrancy-dependent outcomes (see start() above).
+     *
+     *         Returns true otherwise, including when `index` already equals
+     *         the current selection; revision() bumps only when the
+     *         selection actually changed, not on every successful call.
+     *
+     *         Legal to call from within the configured DialogEventFn: it
+     *         never calls emit() and so cannot recurse, and every other
+     *         mutation it performs (selected_, revision_) has no trailing
+     *         statement after it that a reentrant call could invalidate.
+     */
+    bool select(ChoiceId index);
+
 private:
     void enterLine(LineId id);       ///< Emits LineEnter, sets state, resets page/timer.
     void resolveAdvance();           ///< page+1, else follow `next`, else finish.
     void finish(LineId at);          ///< Emits Ended, state_ = Finished.
     void emit(DialogEventType type, LineId line, ChoiceId choice, uint16_t tag) const;
+
+    /// The shared clamp behind choiceCount()/choice()/selectedChoice()'s
+    /// zero-usable-choices case: DialogLine::choiceCount bounded by
+    /// config::DialogMaxChoices, by what DialogScript::choices actually
+    /// holds from `line.firstChoice`, and by the kNoChoice collision guard
+    /// (an addressed index may never reach 0xFF). Returns 0 whenever
+    /// `line.firstChoice` is itself out of range or equal to kNoChoice.
+    [[nodiscard]] uint8_t effectiveChoiceCount(const DialogLine& line) const;
 
     const DialogScript* script_ = nullptr;       // 4 / 8
     void* owner_ = nullptr;                      // 4 / 8
@@ -225,6 +296,15 @@ static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
               "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
               "if this growth is intentional, raise the threshold above and "
               "update the size comment");
+
+/// ChoiceId is a uint8_t and kNoChoice (0xFF) is its "no choice" sentinel,
+/// so any real choice index must stay strictly below it. This holds today
+/// (DialogMaxChoices is 4) by a wide margin; it exists to fail the build
+/// loudly if a future config change ever pushed DialogMaxChoices to 255,
+/// rather than letting the runtime clamp in effectiveChoiceCount() paper
+/// over a config that can no longer address its own last choice.
+static_assert(pixelroot32::platforms::config::DialogMaxChoices < kNoChoice,
+              "DialogMaxChoices must stay below the kNoChoice sentinel value");
 
 } // namespace pixelroot32::gameplay
 #endif // PIXELROOT32_ENABLE_DIALOG

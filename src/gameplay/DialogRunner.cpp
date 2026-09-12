@@ -94,11 +94,83 @@ void DialogRunner::feed(DialogAction action) {
             }
             break;
 
-        case DialogState::ShowingChoices:
-            // Entry only: Up/Down/Confirm/Cancel handling for ShowingChoices
-            // is not implemented yet; every action here is a deliberate
-            // no-op until it is.
+        case DialogState::ShowingChoices: {
+            const DialogLine* linePtr = currentLine();
+            if (linePtr == nullptr) break;
+            const DialogLine& line = *linePtr;
+            const uint8_t count = effectiveChoiceCount(line);
+
+            switch (action) {
+                case DialogAction::Up:
+                    if (count > 0 && selected_ > 0) {
+                        --selected_;
+                        ++revision_;
+                    }
+                    break;
+
+                case DialogAction::Down:
+                    if (count > 0 && selected_ < static_cast<ChoiceId>(count - 1)) {
+                        ++selected_;
+                        ++revision_;
+                    }
+                    break;
+
+                case DialogAction::Confirm: {
+                    if (count == 0) break;  // Nothing to confirm.
+
+                    // Capture everything emit() below's callback could
+                    // invalidate BEFORE calling it -- the same reasoning as
+                    // enterLine()'s trailing finish() gate.
+                    const LineId enteredLine = current_;
+                    const ChoiceId chosenIndex = selected_;
+                    const DialogChoice& chosen =
+                        script_->choices[static_cast<uint16_t>(line.firstChoice) + chosenIndex];
+                    const LineId nextLine = chosen.next;
+                    const uint16_t choiceTag = chosen.tag;
+
+                    emit(DialogEventType::ChoiceConfirmed, enteredLine, chosenIndex, choiceTag);
+
+                    // The callback may have called stop() -- the only
+                    // mutator reachable during dispatch (feed()/update()/
+                    // start() are dispatching_-gated no-ops), and it always
+                    // moves current_ to kNoLine, never to another real line
+                    // id. Gate the follow-on transition on the runner
+                    // still being on the same line, exactly the predicate
+                    // enterLine() uses for its own trailing finish().
+                    if (current_ == enteredLine) {
+                        if (nextLine == kNoLine) {
+                            finish(enteredLine);
+                        } else {
+                            enterLine(nextLine);
+                        }
+                    }
+                    break;
+                }
+
+                case DialogAction::Cancel: {
+                    // Explicit mask of the one defined bit, never `flags`
+                    // truthiness: an unrelated/reserved bit must not be
+                    // read as "allow cancel" (see DialogTypes.h's
+                    // kLineFlagAllowCancel doc for why unknown bits are
+                    // ignored rather than rejecting the line).
+                    if ((line.flags & kLineFlagAllowCancel) == 0) break;
+
+                    // No trailing state mutation after this emit() at all
+                    // -- the runner deliberately does not invent a
+                    // transition Cancel was not specified to make, so
+                    // there is nothing here for a callback's stop() (or
+                    // anything else) to race against.
+                    emit(DialogEventType::Cancelled, current_, kNoChoice, line.tag);
+                    break;
+                }
+
+                case DialogAction::Advance:
+                case DialogAction::None:
+                default:
+                    break;
+            }
             break;
+        }
 
         case DialogState::Inactive:
         case DialogState::Finished:
@@ -155,6 +227,74 @@ const DialogLine* DialogRunner::currentLine() const {
     return &script_->lines[current_];
 }
 
+uint8_t DialogRunner::effectiveChoiceCount(const DialogLine& line) const {
+    if (script_ == nullptr || script_->choices == nullptr) return 0;
+
+    // kNoChoice collision guard: firstChoice itself at or past the
+    // sentinel addresses nothing usable at all. (For any script whose
+    // choiceCount also happens to be small, the table-bound check and the
+    // maxByIndexLimit arithmetic below independently reach the same
+    // answer; this explicit check is what keeps that true even for a
+    // script carrying 256+ choices, which is the case those two cannot
+    // cover on their own -- see DialogTypes.h's firstChoice/choiceCount
+    // doc.)
+    if (line.firstChoice >= kNoChoice) return 0;
+
+    // Out of the script's own choices table entirely.
+    if (line.firstChoice >= script_->choiceCount) return 0;
+
+    // Never let the addressed range reach kNoChoice (0xFF): the number of
+    // indices from firstChoice up to, but excluding, kNoChoice.
+    const uint16_t maxByIndexLimit = static_cast<uint16_t>(kNoChoice) - line.firstChoice;
+    // Never read past DialogScript::choices.
+    const uint16_t maxByScript =
+        static_cast<uint16_t>(script_->choiceCount) - line.firstChoice;
+
+    uint16_t count = line.choiceCount;
+    if (count > maxByIndexLimit) count = maxByIndexLimit;
+    if (count > maxByScript) count = maxByScript;
+    if (count > platforms::config::DialogMaxChoices) count = platforms::config::DialogMaxChoices;
+
+    return static_cast<uint8_t>(count);
+}
+
+uint8_t DialogRunner::choiceCount() const {
+    if (state_ != DialogState::ShowingChoices) return 0;
+    const DialogLine* line = currentLine();
+    if (line == nullptr) return 0;
+    return effectiveChoiceCount(*line);
+}
+
+const DialogChoice* DialogRunner::choice(ChoiceId index) const {
+    if (state_ != DialogState::ShowingChoices) return nullptr;
+    const DialogLine* line = currentLine();
+    if (line == nullptr) return nullptr;
+    if (index >= effectiveChoiceCount(*line)) return nullptr;
+    return &script_->choices[static_cast<uint16_t>(line->firstChoice) + index];
+}
+
+ChoiceId DialogRunner::selectedChoice() const {
+    if (state_ != DialogState::ShowingChoices) return kNoChoice;
+    const DialogLine* line = currentLine();
+    if (line == nullptr || effectiveChoiceCount(*line) == 0) return kNoChoice;
+    return selected_;
+}
+
+bool DialogRunner::select(ChoiceId index) {
+    if (state_ != DialogState::ShowingChoices) return false;
+    const DialogLine* line = currentLine();
+    if (line == nullptr) return false;
+
+    const uint8_t count = effectiveChoiceCount(*line);
+    if (count == 0 || index >= count) return false;
+
+    if (selected_ != index) {
+        selected_ = index;
+        ++revision_;
+    }
+    return true;
+}
+
 void DialogRunner::enterLine(LineId id) {
     if (id == kNoLine || script_ == nullptr || id >= script_->lineCount) {
         finish(kNoLine);
@@ -176,6 +316,11 @@ void DialogRunner::enterLine(LineId id) {
     switch (line.kind) {
         case LineKind::Choice:
             state_ = DialogState::ShowingChoices;
+            // 0 when the line has at least one usable choice (the common
+            // case); stays kNoChoice, already set above, when it has none
+            // -- selectedChoice() must never report a real-looking index
+            // for a line nothing can be confirmed on.
+            selected_ = (effectiveChoiceCount(line) > 0) ? ChoiceId{0} : kNoChoice;
             break;
         case LineKind::End:
             state_ = DialogState::Finished;

@@ -15,7 +15,14 @@ using ChoiceId = uint8_t;
 inline constexpr LineId   kNoLine   = 0xFFFF;
 inline constexpr ChoiceId kNoChoice = 0xFF;
 
-/// DialogLine::flags bits. Reserved bits MUST be 0.
+/// DialogLine::flags bits. DialogRunner reads this field through an
+/// explicit mask of each bit it knows about (e.g. `flags &
+/// kLineFlagAllowCancel`), never by testing `flags` for truthiness. Unknown
+/// or future bits are therefore silently IGNORED, not rejected -- a line
+/// carrying a reserved bit the runner does not understand still runs
+/// normally, it just has no effect from that bit. This keeps a script
+/// forward-compatible with an older runner build instead of failing closed
+/// on it.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
 
 /**
@@ -128,6 +135,15 @@ struct DialogLine {
     uint16_t    autoAdvanceMs;  ///< 0 waits for the player (AwaitingAdvance).
     ChoiceId    firstChoice;    ///< Index into DialogScript::choices.
     uint8_t     choiceCount;    ///< Clamped to config::DialogMaxChoices at runtime.
+    // firstChoice/choiceCount collision limit: ChoiceId is uint8_t and
+    // kNoChoice (0xFF) is its "no choice" sentinel, while
+    // DialogScript::choiceCount is uint16_t -- a script MAY carry more than
+    // 255 choices in total, but no single DialogLine may ADDRESS one at or
+    // past index 255. DialogRunner::choiceCount() enforces this: any
+    // firstChoice/choiceCount pair that would reach or exceed kNoChoice, or
+    // run past DialogScript::choiceCount, is clamped down rather than read
+    // out of bounds or exposed as an index the caller cannot distinguish
+    // from "no choice".
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
     uint8_t     flags;          ///< kLineFlagAllowCancel; honored once choice handling lands.
 };
