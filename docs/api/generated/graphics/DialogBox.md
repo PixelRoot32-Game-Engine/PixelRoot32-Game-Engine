@@ -133,9 +133,10 @@ Pages the given line needs at this style.
 - `line`: The line to measure.
 - `style`: The style to wrap against.
 
-**Returns:** The number of pages `line`'s body text needs at
-        `style`'s width, at least 1. Explicit path for games that
-        draw the panel themselves (e.g. a hand-rolled shop modal).
+**Returns:** The number of pages `line`'s body text needs at `style`'s
+        width, at least 1; always exactly 1 for a `LineKind::Choice`
+        line, since DialogRunner ignores Advance while ShowingChoices.
+        Explicit path for games that draw the panel themselves.
 
 ### `static int16_t measureHeightPx(const gameplay::DialogScript& script, const DialogBoxStyle&         style)`
 

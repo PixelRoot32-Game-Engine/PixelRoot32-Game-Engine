@@ -10,7 +10,7 @@ Every visual and layout knob DialogBox needs to draw a panel.
 
 Pointer first, tags last (the same field-packing convention
 DialogRunner and DialogTypes follow, copied from StateMachine): `font`
-leads, the eight scalar/enum fields follow.
+leads, the 14 scalar/enum fields follow.
 
 ## Properties
 
