@@ -67,11 +67,25 @@ Binds `script` and enters `first`.
 - `first`: Line to enter first. Defaults to 0.
 
 **Returns:** false when `script.lines` is null, `script.lineCount` is 0,
-        `first` is out of range, or this call is reentrant (made from
-        within `onEvent` -- see configure()). On any false return the
-        runner is left fully Inactive: state(), currentLineId() and
-        currentLine() all report "not on a line", even if a PRIOR
-        successful start() had it pointing at a different script.
+        or `first` is out of range -- the runner is left fully
+        Inactive: state(), currentLineId() and currentLine() all
+        report "not on a line", even if a PRIOR successful start()
+        had it pointing at a different script.
+
+        ALSO false, but with NO effect on this runner whatsoever,
+        when called reentrantly from within the configured
+        DialogEventFn (see configure()): the outer call already in
+        flight owns the session and must not be torn down out from
+        under it, so script_ stays bound to whatever the outer call
+        started with. This return value is therefore NOT enough on
+        its own to distinguish "rejected" from "ignored, still
+        running" -- only the caller's own context can, since a
+        reentrant call is only reachable from code that is already
+        inside `onEvent` and therefore already knows it is mid-
+        dispatch. A bool return cannot express three outcomes; this
+        is a deliberate, documented limit of the signature, not an
+        oversight.
+
         Returns true otherwise, after entering `first` (which itself
         may finish immediately if `first`'s kind is LineKind::End).
 
