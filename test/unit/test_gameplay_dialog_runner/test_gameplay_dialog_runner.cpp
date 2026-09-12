@@ -399,6 +399,7 @@ struct SelectFromCallbackOwner {
     DialogRunner* runner = nullptr;
     DialogEventType on = DialogEventType::LineEnter;
     ChoiceId index = 0;
+    bool alsoStop = false;  ///< Call stop() right after select(), same callback.
     bool selectReturned = false;
     bool fired = false;
 };
@@ -408,6 +409,7 @@ void onEventSelects(void* ownerPtr, const DialogEvent& event) {
     if (event.type == owner->on && !owner->fired) {
         owner->fired = true;
         owner->selectReturned = owner->runner->select(owner->index);
+        if (owner->alsoStop) owner->runner->stop();
     }
 }
 
@@ -1377,6 +1379,28 @@ void test_dialog_runner_select_from_line_enter_callback_survives(void) {
     TEST_ASSERT_EQUAL_HEX8(2, runner.selectedChoice());
 }
 
+void test_dialog_runner_select_then_stop_from_a_callback_discards_the_selection(void) {
+    SelectFromCallbackOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.on = DialogEventType::LineEnter;
+    owner.index = 2;
+    owner.alsoStop = true;
+    runner.configure(&owner, onEventSelects);
+
+    runner.start(kThreeChoiceScript, 0);
+
+    // LineEnter on its own leaves a selection alone -- the test above proves
+    // that. The other terminator is the callback's own stop(), which is
+    // legal from any event and tears the session down whichever one it was
+    // reacting to. select() still reports success; the selection is gone
+    // regardless, which is the whole reason the contract names both.
+    TEST_ASSERT_TRUE(owner.selectReturned);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_FALSE(runner.isActive());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
 void test_dialog_runner_select_from_cancelled_callback_survives(void) {
     SelectFromCallbackOwner owner;
     DialogRunner runner;
@@ -1737,6 +1761,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit);
     RUN_TEST(test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit);
     RUN_TEST(test_dialog_runner_select_from_line_enter_callback_survives);
+    RUN_TEST(test_dialog_runner_select_then_stop_from_a_callback_discards_the_selection);
     RUN_TEST(test_dialog_runner_select_from_cancelled_callback_survives);
     RUN_TEST(test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_next_follows);
     RUN_TEST(
