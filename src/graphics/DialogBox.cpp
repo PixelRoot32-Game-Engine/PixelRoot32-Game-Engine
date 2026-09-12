@@ -55,11 +55,14 @@ inline int16_t lineContentHeightPx(const gameplay::DialogLine& line, const Font&
     const std::string_view text =
         (line.text != nullptr) ? std::string_view(line.text) : std::string_view{};
     int16_t bodyRows = 0;
+    bool willPage = false;
     if (!text.empty()) {
         const uint16_t totalLines = TextLayout::countWrappedLines(text, &font, style.textSize, contentW);
         bodyRows = static_cast<int16_t>((totalLines < platforms::config::DialogMaxWrappedLines)
                                              ? totalLines
                                              : platforms::config::DialogMaxWrappedLines);
+        willPage = (line.kind != gameplay::LineKind::Choice) &&
+                   (totalLines > platforms::config::DialogMaxWrappedLines);
     }
 
     uint8_t choiceRows = (line.kind == gameplay::LineKind::Choice) ? line.choiceCount : uint8_t{0};
@@ -69,6 +72,9 @@ inline int16_t lineContentHeightPx(const gameplay::DialogLine& line, const Font&
 
     int16_t height = static_cast<int16_t>(bodyRows * rows.bodyLineHeightPx +
                                            choiceRows * rows.choiceRowHeightPx);
+    if (willPage) {
+        height = static_cast<int16_t>(height + rows.bodyLineHeightPx);
+    }
     if (line.speaker != nullptr) {
         height = static_cast<int16_t>(height + rows.bodyLineHeightPx);
     }

@@ -314,6 +314,39 @@ void test_dialog_box_measure_height_px_zero_for_empty_script(void) {
     TEST_ASSERT_EQUAL_INT16(0, DialogBox::measureHeightPx(empty, style));
 }
 
+void test_dialog_box_measure_height_px_reserves_room_for_the_next_page_cue(void) {
+    // draw() renders the "next page" cue as an extra text row at
+    // bodyY + bodyLineCount * bodyLineHeightPx whenever page + 1 < pageCount;
+    // measureHeightPx() must reserve that row too, or a panel sized from it
+    // is one row too short to fit the cue draw() actually emits.
+    DialogRunner runner;
+    runner.start(kLongTextScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+    pixelroot32::graphics::DisplayConfig config(pixelroot32::graphics::DisplayType::NONE, 0, 240,
+                                                 240, 240, 240, 0, 0);
+    MockRenderer mock(config);
+
+    box.draw(mock, runner);  // Page 0 of a multi-page line: cue must be present.
+
+    int16_t cueY = -1;
+    bool sawCue = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "text" && call.text == ">") {
+            cueY = call.y;
+            sawCue = true;
+        }
+    }
+    TEST_ASSERT_TRUE(sawCue);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+    TEST_ASSERT_LESS_OR_EQUAL_INT16(
+        static_cast<int16_t>(style.y + DialogBox::measureHeightPx(kLongTextScript, style)),
+        static_cast<int16_t>(cueY + layout.bodyLineHeightPx));
+}
+
 // =============================================================================
 // needsRedraw
 // =============================================================================
@@ -591,6 +624,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_box_measure_height_px_multiline_exceeds_single_line);
     RUN_TEST(test_dialog_box_measure_height_px_includes_choice_line_prompt_body_rows);
     RUN_TEST(test_dialog_box_measure_height_px_zero_for_empty_script);
+    RUN_TEST(test_dialog_box_measure_height_px_reserves_room_for_the_next_page_cue);
     RUN_TEST(test_dialog_box_needs_redraw_false_before_any_draw_and_after_matching_draw);
     RUN_TEST(test_dialog_box_needs_redraw_true_after_the_runner_changes);
     RUN_TEST(test_dialog_box_choice_rect_false_when_not_showing_choices);
