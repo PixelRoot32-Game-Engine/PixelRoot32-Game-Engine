@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
+ */
 #pragma once
 #include "platforms/PlatformDefaults.h"
 #if PIXELROOT32_ENABLE_DIALOG
@@ -14,8 +18,32 @@ inline constexpr ChoiceId kNoChoice = 0xFF;
 /// DialogLine::flags bits. Reserved bits MUST be 0.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
 
+/**
+ * @enum LineKind
+ * @brief Distinguishes what a DialogLine presents when the runner enters it.
+ *
+ * DialogRunner::enterLine() switches on this to pick the entry state: a
+ * `Text` line becomes ShowingText or AwaitingAdvance depending on
+ * DialogLine::autoAdvanceMs, a `Choice` line goes straight to
+ * ShowingChoices, and `End` finishes the dialog. Keeping this a plain
+ * three-value enum -- rather than inferring the kind from which fields
+ * happen to be populated -- makes a malformed script fail loudly instead
+ * of guessing.
+ */
 enum class LineKind : uint8_t { Text = 0, Choice = 1, End = 2 };
 
+/**
+ * @enum DialogState
+ * @brief The five states DialogRunner can be in; feed() is total over State x DialogAction.
+ *
+ * ShowingText and AwaitingAdvance both mean "on a text line" but are kept
+ * distinct so a per-line auto-advance timer (ShowingText) and a
+ * player-driven wait (AwaitingAdvance) are each independently observable
+ * and testable, rather than folding both into one state with a hidden
+ * autoAdvanceMs branch. Finished is kept separate from Inactive so a game
+ * can read the dialog's result on the frame after it ends without racing
+ * a reset back to Inactive.
+ */
 enum class DialogState : uint8_t {
     Inactive = 0,        ///< Not started, or stopped.
     ShowingText,         ///< Text line with autoAdvanceMs > 0; update(dt) ticks.
@@ -24,12 +52,38 @@ enum class DialogState : uint8_t {
     Finished             ///< Ended. Distinct from Inactive so the result survives a frame.
 };
 
+/**
+ * @enum DialogAction
+ * @brief The semantic input vocabulary DialogRunner::feed() accepts.
+ *
+ * Deliberately abstracted away from any physical input (touch tap, D-pad,
+ * button) so the same runner works unmodified whether a game drives it
+ * from touch (Chess) or buttons (Top Down City); the game translates its
+ * own input into one of these actions before calling feed().
+ */
 enum class DialogAction : uint8_t { None = 0, Advance, Up, Down, Confirm, Cancel };
 
+/**
+ * @enum DialogEventType
+ * @brief Identifies which fields of a DialogEvent are meaningful.
+ *
+ * Delivered through the single DialogEventFn callback rather than one
+ * callback per kind, so a game's dialog handler is one switch statement
+ * instead of four separate registrations.
+ */
 enum class DialogEventType : uint8_t { LineEnter = 0, ChoiceConfirmed, Cancelled, Ended };
 
+/**
+ * @struct DialogEvent
+ * @brief The single payload type delivered to DialogEventFn for every kind of dialog event.
+ *
+ * One shared shape for all four DialogEventType values, rather than a
+ * union or a type per event, keeps the runner's synchronous callback
+ * interface a single function pointer with no std::function and no
+ * heap-allocated event objects.
+ */
 struct DialogEvent {
-    DialogEventType type;
+    DialogEventType type;    ///< Which event this is; decides which fields below apply.
     LineId          line;    ///< Line the event concerns; kNoLine on Ended after a bad id.
     ChoiceId        choice;  ///< kNoChoice except on ChoiceConfirmed.
     uint16_t        tag;     ///< Line tag, or choice tag on ChoiceConfirmed. Never interpreted.
@@ -37,14 +91,32 @@ struct DialogEvent {
 
 using DialogEventFn = void (*)(void* owner, const DialogEvent& event);
 
-/// 8 bytes on ESP32 (4-byte pointer), 16 on 64-bit native.
+/**
+ * @struct DialogChoice
+ * @brief One selectable option on a DialogState::ShowingChoices line.
+ *
+ * 8 bytes on ESP32 (4-byte pointer), 16 on 64-bit native -- this exact
+ * figure is the regression guard `test_dialog_types_dialog_choice_size_guard`
+ * pins, so growing this struct is a conscious, reviewed change rather
+ * than silent drift in a game's flash budget.
+ */
 struct DialogChoice {
     const char* text;   ///< Flash literal. Never copied.
     LineId      next;   ///< kNoLine ends the dialog.
     uint16_t    tag;    ///< Opaque game code.
 };
 
-/// 20 bytes on ESP32 (not 16 -- see section 6), 32 on 64-bit native.
+/**
+ * @struct DialogLine
+ * @brief One line of a DialogScript: either shown text or a choice prompt.
+ *
+ * 20 bytes on ESP32 -- not 16, because next/tag/autoAdvanceMs pad out to
+ * the pointer alignment the two leading char pointers impose -- and 32 on
+ * 64-bit native -- this exact figure is the regression guard
+ * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
+ * is a conscious, reviewed change rather than silent drift in a game's
+ * flash budget.
+ */
 struct DialogLine {
     const char* text;           ///< nullptr for a choice-only line.
     const char* speaker;        ///< nullptr means no speaker.
@@ -53,11 +125,19 @@ struct DialogLine {
     uint16_t    autoAdvanceMs;  ///< 0 waits for the player (AwaitingAdvance).
     ChoiceId    firstChoice;    ///< Index into DialogScript::choices.
     uint8_t     choiceCount;    ///< Clamped to config::DialogMaxChoices at runtime.
-    LineKind    kind;
-    uint8_t     flags;          ///< kLineFlagAllowCancel; honored from slice 2b.
+    LineKind    kind;           ///< Discriminator; decides which fields above apply.
+    uint8_t     flags;          ///< kLineFlagAllowCancel; honored once choice handling lands.
 };
 
-/// Caller-owned, const, .rodata-resident. NOT copied; must outlive the runner.
+/**
+ * @struct DialogScript
+ * @brief The caller-owned, immutable table a DialogRunner is started with.
+ *
+ * Lives in .rodata as flash data, never copied and never owned by the
+ * runner: this is what keeps DialogRunner headless and heap-free, since
+ * the runner only ever holds a pointer to a script the game already
+ * allocated statically. Must outlive every DialogRunner started from it.
+ */
 struct DialogScript {
     const DialogLine*   lines;
     const DialogChoice* choices;

@@ -10,19 +10,19 @@
  * DialogRunner does not exist yet in this slice (dialog/runner-types) -- only
  * DialogTypes.h ships here -- so this file adapts that wording to
  * "DialogTypes.h-gated test files" and proves the identical property for the
- * header this slice actually introduces. See sdd/dialog-mvp/tasks, Phase 2.
+ * header this slice actually introduces.
  *
  * Beyond that one formal requirement, this file also carries non-spec-mandated
- * static-layout regression guards backed by design section 6's field-by-field
+ * static-layout regression guards backed by the field-by-field
  * arithmetic: sizeof(DialogChoice), sizeof(DialogLine), sizeof(DialogScript),
  * and std::is_trivially_destructible on DialogLine/DialogChoice. These pin
  * the flash/RAM cost of the script data model so a future field addition is a
  * conscious, reviewed bump rather than silent drift. DialogChoice and
- * DialogLine are documented in design section 4.2 with explicit dual figures
+ * DialogLine carry explicit dual figures in their header briefs
  * for both ESP32 (4-byte pointer) and 64-bit native (8-byte pointer); this
  * file asserts both. DialogScript's byte-exact figure (12 B) is documented in
- * design section 6 only as an ESP32 flash-budget number -- no native figure
- * is specified anywhere in the design -- so that concrete pin is scoped to
+ * its header brief only as an ESP32 flash-budget number -- no native figure
+ * is specified anywhere -- so that concrete pin is scoped to
  * ESP32 builds only; on native, DialogScript's type and pointer/count fields
  * are still exercised (see DialogTypes.h's own generic
  * `sizeof(DialogChoice) <= 2 * sizeof(void*)` guard for the parallel pattern
@@ -50,7 +50,7 @@
 using namespace pixelroot32::gameplay;
 
 // =============================================================================
-// Static layout regression guards (design section 6's field-by-field
+// Static layout regression guards (the field-by-field
 // arithmetic). ESP32 assumes a 4-byte pointer; native (this repo's only
 // buildable/testable target in this environment) is 64-bit, 8-byte pointer.
 // =============================================================================
@@ -68,7 +68,7 @@ static_assert(sizeof(DialogChoice) == 16,
 static_assert(sizeof(DialogLine) == 32,
               "DialogLine must be 32 bytes on 64-bit native: two 8-byte pointers plus 10 bytes "
               "of trailing fields, padded to align 8.");
-// DialogScript has no documented native figure (design section 6 states the
+// DialogScript has no documented native figure (its header brief states the
 // 12 B figure as an ESP32 flash-budget number only); no native static_assert
 // is pinned here for that reason.
 #endif
@@ -143,7 +143,7 @@ void test_dialog_types_dialog_script_size_guard(void) {
 #else
     TEST_PASS_MESSAGE(
         "DialogScript's byte-exact regression pin (12 B) is an ESP32 "
-        "flash-budget figure only (design section 6); no 64-bit native "
+        "flash-budget figure only; no 64-bit native "
         "figure is documented, so no numeric assertion is pinned here.");
 #endif
 }
