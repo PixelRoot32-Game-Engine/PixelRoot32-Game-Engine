@@ -35,7 +35,7 @@ public:
     /// @return linesWritten: rows written to `outLines` (<= maxOutLines).
     ///         0 when the font is unusable, text is empty or whitespace-only,
     ///         maxWidthPx cannot hold one glyph, skipLines is past the end,
-    ///         or outLines is null.
+    ///         outLines is null, or maxOutLines is 0.
     [[nodiscard]] static uint8_t wrap(std::string_view text,
                                       const Font*      font,
                                       uint8_t          size,

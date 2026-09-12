@@ -147,6 +147,17 @@
 #endif
 
 // -----------------------------------------------------------------------------
+// Dialog Feature Default
+// -----------------------------------------------------------------------------
+// Gates gameplay/DialogRunner.h, gameplay/DialogTypes.h AND graphics/DialogBox.h.
+// The flag is bare -- no GAMEPLAY_ infix -- precisely because it spans two
+// top-level directories, the same reason PIXELROOT32_ENABLE_GAMEPLAY_PROJECTION
+// was renamed to PIXELROOT32_ENABLE_PROJECTION above.
+#if !defined(PIXELROOT32_ENABLE_DIALOG)
+#define PIXELROOT32_ENABLE_DIALOG 0
+#endif
+
+// -----------------------------------------------------------------------------
 // Font Latin-1 Supplement Feature Default
 // -----------------------------------------------------------------------------
 // When enabled, FontManager/Font5x7 carry an accented Latin-1 glyph block
