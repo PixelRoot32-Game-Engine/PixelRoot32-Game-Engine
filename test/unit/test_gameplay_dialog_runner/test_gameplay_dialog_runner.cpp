@@ -394,7 +394,7 @@ void onChoiceConfirmedStops(void* ownerPtr, const DialogEvent& event) {
 
 /// Owner for the select()-from-inside-a-callback tests. Calls select() once,
 /// on the first event of `on`, so each test pins whether that selection
-/// survives the rest of the feed() it was made from.
+/// survives the rest of the dispatching call it was made from.
 struct SelectFromCallbackOwner {
     DialogRunner* runner = nullptr;
     DialogEventType on = DialogEventType::LineEnter;
@@ -1356,9 +1356,8 @@ void test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit(
 }
 
 // =============================================================================
-// Requirement: a callback reacting to ChoiceConfirmed by calling stop() is
-// respected, not silently undone by the trailing transition that follows
-// the choice's `next`
+// Requirement: a selection made by select() from inside an event callback
+// holds while the runner stays on the line, and is discarded when it leaves
 // =============================================================================
 
 void test_dialog_runner_select_from_line_enter_callback_survives(void) {
@@ -1437,6 +1436,12 @@ void test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_
     TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
     TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
 }
+
+// =============================================================================
+// Requirement: a callback reacting to ChoiceConfirmed by calling stop() is
+// respected, not silently undone by the trailing transition that follows the
+// choice's `next`
+// =============================================================================
 
 void test_dialog_runner_stop_from_choice_confirmed_callback_when_next_would_follow_is_respected(
     void) {

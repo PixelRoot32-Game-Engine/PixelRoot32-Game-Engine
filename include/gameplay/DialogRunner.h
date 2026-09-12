@@ -241,16 +241,16 @@ public:
      *
      *         Callable from within the configured DialogEventFn -- it
      *         never calls emit(), so it cannot recurse -- and the
-     *         selection it sets survives, UNLESS the runner leaves the
-     *         current line before that same feed() returns. Of the events
-     *         dispatched while a choice line is current, only
-     *         ChoiceConfirmed does that: it fires while the runner is
-     *         still on the line it is about to leave, and the transition
-     *         that follows either enters the next line, which resets the
+     *         selection it sets holds for exactly as long as the runner
+     *         stays on the same line. Two things end that before the
+     *         dispatching call (feed(), update() or start()) returns: a
+     *         stop() the callback makes itself, from any event, and
+     *         ChoiceConfirmed, which fires while the runner is still on
+     *         the line it is about to leave -- the transition after it
+     *         either enters the chosen next line, which resets the
      *         selection, or finishes, which leaves the state every choice
-     *         accessor gates on. Either way the selection is gone by the
-     *         time the caller regains control, so drive a touch hit-test
-     *         from LineEnter rather than from ChoiceConfirmed.
+     *         accessor gates on. So drive a touch hit-test from LineEnter,
+     *         not from ChoiceConfirmed.
      */
     bool select(ChoiceId index);
 
