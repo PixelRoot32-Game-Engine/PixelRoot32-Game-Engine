@@ -61,11 +61,25 @@ public:
      *        copied; must outlive this runner.
      * @param first Line to enter first. Defaults to 0.
      * @return false when `script.lines` is null, `script.lineCount` is 0,
-     *         `first` is out of range, or this call is reentrant (made from
-     *         within `onEvent` -- see configure()). On any false return the
-     *         runner is left fully Inactive: state(), currentLineId() and
-     *         currentLine() all report "not on a line", even if a PRIOR
-     *         successful start() had it pointing at a different script.
+     *         or `first` is out of range -- the runner is left fully
+     *         Inactive: state(), currentLineId() and currentLine() all
+     *         report "not on a line", even if a PRIOR successful start()
+     *         had it pointing at a different script.
+     *
+     *         ALSO false, but with NO effect on this runner whatsoever,
+     *         when called reentrantly from within the configured
+     *         DialogEventFn (see configure()): the outer call already in
+     *         flight owns the session and must not be torn down out from
+     *         under it, so script_ stays bound to whatever the outer call
+     *         started with. This return value is therefore NOT enough on
+     *         its own to distinguish "rejected" from "ignored, still
+     *         running" -- only the caller's own context can, since a
+     *         reentrant call is only reachable from code that is already
+     *         inside `onEvent` and therefore already knows it is mid-
+     *         dispatch. A bool return cannot express three outcomes; this
+     *         is a deliberate, documented limit of the signature, not an
+     *         oversight.
+     *
      *         Returns true otherwise, after entering `first` (which itself
      *         may finish immediately if `first`'s kind is LineKind::End).
      */
@@ -202,20 +216,19 @@ private:
     bool dispatching_ = false;                   // 1
 };
 
-/// RAM regression guard. Field bytes sum to 25 on ESP32 (32-bit pointers)
-/// and 37 on 64-bit native. Neither total is the struct's actual size:
-/// both round UP to their platform's pointer-driven alignment (4 on ESP32,
-/// 8 on native) via trailing padding -- 3 bytes on each platform here --
-/// landing at 28 B ESP32 / 40 B native, both exactly at the threshold
-/// below with zero slack. Before `dispatching_` existed the field sum was
-/// 24 on ESP32 (no padding needed, already a multiple of 4) and 36 on
-/// native (4 bytes of then-undocumented trailing padding); adding this
-/// one-byte field consumed all 4 of ESP32's previously-unused alignment
-/// bytes but only 1 of native's 4, so ESP32 grew from 24 to 28 while
-/// native's total did not move. A future field of 1-3 bytes could still
-/// land inside native's remaining 3 bytes of trailing padding without
-/// tripping this assert or the sizeof test guard -- re-derive the sum by
-/// hand before trusting that a passing assert means nothing moved.
+/// RAM regression guard, re-derived by hand.
+/// ESP32 (32-bit pointers): field bytes sum to 25, padded by 3 bytes to
+/// the platform's 4-byte pointer alignment -- 28 B total. Before
+/// `dispatching_` existed the sum was 24, already a multiple of 4 (zero
+/// padding, 24 B total); the new field is a real 4-byte growth (1 field
+/// byte + 3 new padding bytes), not reclaimed slack -- there was none.
+/// 64-bit native: field bytes sum to 37, padded by 3 bytes to the
+/// platform's 8-byte alignment -- 40 B total, unchanged from before
+/// `dispatching_` (sum was 36, padded by 4; the new field consumed 1 of
+/// those 4 padding bytes, leaving 3). Both totals sit exactly at the
+/// threshold below, zero slack on either platform. A future field of 1-3
+/// bytes could still land inside native's remaining 3 bytes of padding
+/// without tripping this assert or the sizeof test guard.
 static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
               "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
               "if this growth is intentional, raise the threshold above and "
