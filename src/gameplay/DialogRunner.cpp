@@ -67,12 +67,19 @@ bool DialogRunner::start(const DialogScript& script, LineId first) {
 void DialogRunner::stop() {
     // Teardown only (mirrors StateMachine::reset): fires nothing, so it is
     // safe to call even when the owner is already gone.
+    //
+    // Defensive callers invoke this without checking isActive() first, so
+    // revision() must only bump when there was an actual session to detach
+    // -- the same wasAttached guard start()'s failure path and
+    // setPageCount() already apply. Otherwise a no-op stop() on an idle
+    // runner would look redraw-worthy to a presenter polling revision().
+    const bool wasAttached = (state_ != DialogState::Inactive) || (current_ != kNoLine);
     state_ = DialogState::Inactive;
     current_ = kNoLine;
     selected_ = kNoChoice;
     page_ = 0;
     pageCount_ = 1;
-    ++revision_;
+    if (wasAttached) ++revision_;
 }
 
 void DialogRunner::feed(DialogAction action) {

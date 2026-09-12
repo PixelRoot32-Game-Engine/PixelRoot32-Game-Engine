@@ -730,6 +730,35 @@ void test_dialog_runner_stop_fires_no_event(void) {
     TEST_ASSERT_FALSE(runner.isActive());
 }
 
+void test_dialog_runner_stop_on_an_already_inactive_runner_does_not_bump_revision(void) {
+    // stop() is defensive by nature -- games call it without first checking
+    // isActive(). Bumping revision() when there was nothing to tear down
+    // would make a presenter polling revision() redraw for no visible
+    // change, exactly the asymmetry start()'s failure path and
+    // setPageCount() already guard against in this same file.
+    DialogRunner runner;
+    const uint16_t revBefore = runner.revision();
+
+    runner.stop();
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_stop_on_an_active_runner_still_bumps_revision(void) {
+    // The companion case: stop() detaching a REAL session remains a visible
+    // change and must still bump revision(), so the guard above cannot be
+    // satisfied by simply never bumping in stop().
+    DialogRunner runner;
+    runner.start(kLinearScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    runner.stop();
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_NOT_EQUAL(revBefore, runner.revision());
+}
+
 // =============================================================================
 // Requirement: a Choice line reaches ShowingChoices; every action there is a
 // deliberate no-op until ShowingChoices' action handling is implemented
@@ -958,6 +987,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_illegal_actions_are_noop_in_awaiting_advance);
     RUN_TEST(test_dialog_runner_illegal_actions_are_noop_when_finished);
     RUN_TEST(test_dialog_runner_stop_fires_no_event);
+    RUN_TEST(test_dialog_runner_stop_on_an_already_inactive_runner_does_not_bump_revision);
+    RUN_TEST(test_dialog_runner_stop_on_an_active_runner_still_bumps_revision);
     RUN_TEST(test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance);
     RUN_TEST(test_dialog_runner_current_line_reflects_state);
     RUN_TEST(test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive);
