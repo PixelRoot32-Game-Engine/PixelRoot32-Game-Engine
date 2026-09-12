@@ -392,6 +392,25 @@ void onChoiceConfirmedStops(void* ownerPtr, const DialogEvent& event) {
     }
 }
 
+/// Owner for the select()-from-inside-a-callback tests. Calls select() once,
+/// on the first event of `on`, so each test pins whether that selection
+/// survives the rest of the feed() it was made from.
+struct SelectFromCallbackOwner {
+    DialogRunner* runner = nullptr;
+    DialogEventType on = DialogEventType::LineEnter;
+    ChoiceId index = 0;
+    bool selectReturned = false;
+    bool fired = false;
+};
+
+void onEventSelects(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<SelectFromCallbackOwner*>(ownerPtr);
+    if (event.type == owner->on && !owner->fired) {
+        owner->fired = true;
+        owner->selectReturned = owner->runner->select(owner->index);
+    }
+}
+
 /// Owner used by the reentrant-feed()-from-ChoiceConfirmed test. Reacts to
 /// ChoiceConfirmed by feeding Confirm straight back into the same runner --
 /// must be dropped by the existing dispatching_ guard, not double-applied.
@@ -1342,6 +1361,83 @@ void test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit(
 // the choice's `next`
 // =============================================================================
 
+void test_dialog_runner_select_from_line_enter_callback_survives(void) {
+    SelectFromCallbackOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.on = DialogEventType::LineEnter;
+    owner.index = 2;
+    runner.configure(&owner, onEventSelects);
+
+    runner.start(kThreeChoiceScript, 0);
+
+    // enterLine() seeds selected_ BEFORE it emits, and for a Choice line
+    // nothing runs after that emit -- the trailing finish() is gated on the
+    // kind being End. So the callback's selection is the one that stands.
+    TEST_ASSERT_TRUE(owner.selectReturned);
+    TEST_ASSERT_EQUAL_HEX8(2, runner.selectedChoice());
+}
+
+void test_dialog_runner_select_from_cancelled_callback_survives(void) {
+    SelectFromCallbackOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.on = DialogEventType::Cancelled;
+    owner.index = 1;
+    runner.configure(&owner, onEventSelects);
+    runner.start(kThreeChoiceCancelableScript, 0);
+
+    runner.feed(DialogAction::Cancel);
+
+    // Cancel emits and stops there, inventing no transition, so the runner
+    // is still on the same line when the callback returns and the selection
+    // stands -- the same outcome as LineEnter, for the same reason.
+    TEST_ASSERT_TRUE(owner.selectReturned);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_HEX8(1, runner.selectedChoice());
+}
+
+void test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_next_follows(void) {
+    SelectFromCallbackOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.on = DialogEventType::ChoiceConfirmed;
+    owner.index = 2;
+    runner.configure(&owner, onEventSelects);
+    runner.start(kThreeChoiceScript, 0);  // selection 0, whose next is line 1
+
+    runner.feed(DialogAction::Confirm);
+
+    // The select() succeeded -- the runner was still on the choice line when
+    // the callback ran -- and was then thrown away by the enterLine() that
+    // followed, which resets the selection on entry.
+    TEST_ASSERT_TRUE(owner.selectReturned);
+    TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
+void test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_dialog_finishes(
+    void) {
+    SelectFromCallbackOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.on = DialogEventType::ChoiceConfirmed;
+    owner.index = 2;
+    runner.configure(&owner, onEventSelects);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);  // index 1, whose next is kNoLine
+
+    runner.feed(DialogAction::Confirm);
+
+    // The other route out of the line. finish() never writes selected_; the
+    // selection becomes unreadable because every choice accessor gates on
+    // ShowingChoices, which finish() leaves. Different mechanism, same
+    // guarantee to the caller.
+    TEST_ASSERT_TRUE(owner.selectReturned);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+}
+
 void test_dialog_runner_stop_from_choice_confirmed_callback_when_next_would_follow_is_respected(
     void) {
     StopOnChoiceConfirmedOwner owner;
@@ -1635,6 +1731,11 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_cancel_emits_cancelled_and_stays_on_the_line_with_allow_cancel);
     RUN_TEST(test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit);
     RUN_TEST(test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit);
+    RUN_TEST(test_dialog_runner_select_from_line_enter_callback_survives);
+    RUN_TEST(test_dialog_runner_select_from_cancelled_callback_survives);
+    RUN_TEST(test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_next_follows);
+    RUN_TEST(
+        test_dialog_runner_select_from_choice_confirmed_callback_is_discarded_when_dialog_finishes);
     RUN_TEST(
         test_dialog_runner_stop_from_choice_confirmed_callback_when_next_would_follow_is_respected);
     RUN_TEST(

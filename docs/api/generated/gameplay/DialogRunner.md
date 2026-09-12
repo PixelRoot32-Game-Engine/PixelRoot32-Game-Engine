@@ -283,18 +283,14 @@ Sets the selection directly, for touch hit-testing.
         selection actually changed, not on every successful call.
 
         Callable from within the configured DialogEventFn -- it
-        never calls emit(), so it cannot recurse -- but whether the
-        selection SURVIVES depends on which event you are handling,
-        and the two cases differ:
-
-        From LineEnter on a choice line it takes effect and holds.
-        Nothing runs after that emit() for a line whose kind is not
-        End, so there is no trailing statement to overwrite it.
-
-        From ChoiceConfirmed it is accepted and then DISCARDED. That
-        event fires while the runner is still on the line it is
-        about to leave, and the transition that follows -- enterLine()
-        for the chosen next, or finish() -- resets the selection
-        unconditionally. The call returns true and bumps revision(),
-        and neither survives the same feed(). Do not drive a touch
-        hit-test from that event; handle it from LineEnter instead.
+        never calls emit(), so it cannot recurse -- and the
+        selection it sets survives, UNLESS the runner leaves the
+        current line before that same feed() returns. Of the events
+        dispatched while a choice line is current, only
+        ChoiceConfirmed does that: it fires while the runner is
+        still on the line it is about to leave, and the transition
+        that follows either enters the next line, which resets the
+        selection, or finishes, which leaves the state every choice
+        accessor gates on. Either way the selection is gone by the
+        time the caller regains control, so drive a touch hit-test
+        from LineEnter rather than from ChoiceConfirmed.
