@@ -2,7 +2,7 @@
  * @file test_gameplay_dialog_runner.cpp
  * @brief Unit tests for gameplay/DialogRunner
  *
- * Covers requirements 7-14 of the dialog-runner capability:
+ * Covers the dialog-runner capability:
  * - Five-state machine and legal transitions
  * - Linear line chains (DialogLine::next)
  * - Per-line auto-advance
@@ -10,17 +10,17 @@
  * - Bad LineId clamps instead of indexing out of range
  * - Zero heap, trivially destructible data (heap side, across a full session)
  * - sizeof(DialogRunner) RAM regression guard
+ * - The four choice accessors and ShowingChoices' action handling
  *
- * Requirement 6 ("Zero-byte reservation when disabled") is exercised by the
- * #else stub below compiling and passing without referencing DialogRunner at
- * all.
+ * Zero-byte reservation when the flag is disabled is exercised by the #else
+ * stub below compiling and passing without referencing DialogRunner at all.
  *
- * Out of scope here, deliberately: the four choice accessors
- * (choiceCount()/choice()/selectedChoice()/select()), ShowingChoices' action
- * handling, and DialogEventType::{ChoiceConfirmed,Cancelled} are not
- * implemented yet. This file only proves a Choice line reaches
- * ShowingChoices and that every DialogAction fed there is a no-op, which
- * stays true unmodified once that handling is implemented.
+ * The four choice accessors (choiceCount()/choice()/selectedChoice()/
+ * select()), ShowingChoices' Up/Down/Confirm/Cancel handling, and
+ * DialogEventType::{ChoiceConfirmed,Cancelled} are covered here too. None
+ * of the earlier no-op assertions in this file change: a Choice line still
+ * reaches ShowingChoices the same way, and Advance/None there are still
+ * no-ops -- only Up/Down/Confirm/Cancel gained real behavior.
  *
  * The functional tests only compile when PIXELROOT32_ENABLE_DIALOG is
  * enabled, since DialogRunner is entirely guarded behind that flag (see
@@ -125,7 +125,8 @@ static const DialogLine kAutoAdvanceThenAwaitLines[] = {
 };
 static const DialogScript kAutoAdvanceThenAwaitScript{kAutoAdvanceThenAwaitLines, nullptr, 2, 0};
 
-// Single line whose tag is 0 -- LineEnter must still fire (design D8).
+// Single line whose tag is 0 -- LineEnter must still fire; tag filtering,
+// including a tag of 0, is the game's responsibility, not the runner's.
 static const DialogLine kZeroTagLines[] = {
     {kLineAText, nullptr, /*next*/ kNoLine, /*tag*/ 0, 0, 0, 0, LineKind::Text, 0},
 };
@@ -309,7 +310,7 @@ void test_dialog_runner_start_failure_on_an_already_inactive_runner_does_not_bum
 }
 
 // =============================================================================
-// Requirement: LineEnter fires unconditionally, including tag 0 (design D8)
+// Requirement: LineEnter fires unconditionally, including tag 0
 // =============================================================================
 
 void test_dialog_runner_line_enter_fires_with_line_tag(void) {
