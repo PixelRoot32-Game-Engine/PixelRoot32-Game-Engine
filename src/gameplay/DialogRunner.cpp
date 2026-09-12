@@ -183,17 +183,13 @@ void DialogRunner::enterLine(LineId id) {
     ++revision_;
     emit(DialogEventType::LineEnter, id, kNoChoice, line.tag);
 
-    // The callback above may have called stop() -- the one mutator still
-    // reachable during dispatch, since feed()/update()/start() are all
-    // no-ops here via dispatching_. stop() resets current_ to kNoLine; if
-    // it ran, finish() below must NOT also run, or it would silently
-    // resurrect a session stop() just tore down: state_ back to Finished,
-    // a second revision() bump, and an Ended event stop()'s own contract
-    // promises will never fire. `current_ == id` is the exact, minimal
-    // test for "nothing has moved the runner off this line since it was
-    // entered" -- sufficient because stop() is the only thing that can
-    // change current_ while dispatching_ is true, and it always changes
-    // it away from any real line id (to kNoLine), never to another real id.
+    // The callback may have called stop() -- the only mutator reachable
+    // during dispatch, since feed()/update()/start() are no-ops here. If
+    // it ran, finish() must NOT, or it would resurrect the session stop()
+    // just tore down: Finished again, a second revision() bump, and an
+    // Ended event stop() promises never fires. `current_ == id` is exact:
+    // stop() is the only thing that can move current_ while dispatching_,
+    // and it always moves it to kNoLine, never to another real line id.
     if (line.kind == LineKind::End && current_ == id) {
         finish(id);
     }
