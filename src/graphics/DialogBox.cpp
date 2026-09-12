@@ -18,11 +18,10 @@ inline const Font* resolveFont(const DialogBoxStyle& style) {
     return style.font ? style.font : FontManager::getDefaultFont();
 }
 
-/// Height of one line of text at this style: the font's own line height
-/// (already includes intra-glyph vertical spacing) times the style's size
-/// multiplier.
-inline uint8_t textLineHeightPx(const Font& font, const DialogBoxStyle& style) {
-    return static_cast<uint8_t>(font.lineHeight * style.textSize);
+/// Height of one line of text at this style. int16_t: at textSize >= 32
+/// with an 8px font, font.lineHeight * textSize already exceeds 255.
+inline int16_t textLineHeightPx(const Font& font, const DialogBoxStyle& style) {
+    return static_cast<int16_t>(font.lineHeight * style.textSize);
 }
 
 /// Usable interior width: panel width minus the border on both sides and
@@ -30,6 +29,50 @@ inline uint8_t textLineHeightPx(const Font& font, const DialogBoxStyle& style) {
 inline int16_t contentWidthPx(const DialogBoxStyle& style) {
     const int16_t inset = static_cast<int16_t>(2 * (style.padding + style.borderWidth));
     return (style.w > inset) ? static_cast<int16_t>(style.w - inset) : int16_t{0};
+}
+
+/// bodyLineHeightPx/choiceRowHeightPx -- derived here ONCE so computeLayout()
+/// and measureHeightPx() cannot disagree on either.
+struct RowHeights {
+    int16_t bodyLineHeightPx;
+    int16_t choiceRowHeightPx;
+};
+
+inline RowHeights rowHeightsFor(const Font& font, const DialogBoxStyle& style) {
+    const int16_t lineHeightPx = textLineHeightPx(font, style);
+    return RowHeights{static_cast<int16_t>(lineHeightPx + style.lineSpacing),
+                       static_cast<int16_t>(lineHeightPx + 2 * style.padding)};
+}
+
+/// A line's content height (speaker row + up to DialogMaxWrappedLines body
+/// rows + up to DialogMaxChoices choice rows), with no DialogRunner needed.
+/// Body rows come from `line.text` regardless of `line.kind`, matching
+/// computeLayout()'s own wrap() call -- a Choice line's prompt is body text
+/// like any other and must contribute rows here too.
+inline int16_t lineContentHeightPx(const gameplay::DialogLine& line, const Font& font,
+                                    const DialogBoxStyle& style, int16_t contentW,
+                                    const RowHeights& rows) {
+    const std::string_view text =
+        (line.text != nullptr) ? std::string_view(line.text) : std::string_view{};
+    int16_t bodyRows = 0;
+    if (!text.empty()) {
+        const uint16_t totalLines = TextLayout::countWrappedLines(text, &font, style.textSize, contentW);
+        bodyRows = static_cast<int16_t>((totalLines < platforms::config::DialogMaxWrappedLines)
+                                             ? totalLines
+                                             : platforms::config::DialogMaxWrappedLines);
+    }
+
+    uint8_t choiceRows = (line.kind == gameplay::LineKind::Choice) ? line.choiceCount : uint8_t{0};
+    if (choiceRows > platforms::config::DialogMaxChoices) {
+        choiceRows = platforms::config::DialogMaxChoices;
+    }
+
+    int16_t height = static_cast<int16_t>(bodyRows * rows.bodyLineHeightPx +
+                                           choiceRows * rows.choiceRowHeightPx);
+    if (line.speaker != nullptr) {
+        height = static_cast<int16_t>(height + rows.bodyLineHeightPx);
+    }
+    return height;
 }
 
 }  // namespace
@@ -54,13 +97,10 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
 
     const int16_t contentX = static_cast<int16_t>(style.x + style.padding + style.borderWidth);
     const int16_t contentW = contentWidthPx(style);
-    const uint8_t lineHeightPx = textLineHeightPx(*font, style);
+    const RowHeights rowHeights = rowHeightsFor(*font, style);
 
-    outLayout.bodyLineHeightPx = static_cast<uint8_t>(lineHeightPx + style.lineSpacing);
-    // Row height reserves style.padding above AND below the row's text --
-    // draw()'s choice loop and this figure must always agree; see the
-    // anti-drift note beside draw()'s choice text call in DialogBox.h.
-    outLayout.choiceRowHeightPx = static_cast<uint8_t>(lineHeightPx + 2 * style.padding);
+    outLayout.bodyLineHeightPx = rowHeights.bodyLineHeightPx;
+    outLayout.choiceRowHeightPx = rowHeights.choiceRowHeightPx;
 
     outLayout.hasSpeaker = (line->speaker != nullptr);
 
@@ -119,6 +159,12 @@ bool DialogBox::choiceRect(const gameplay::DialogRunner& runner, uint8_t index, 
 }
 
 uint8_t DialogBox::pageCountFor(const gameplay::DialogLine& line, const DialogBoxStyle& style) {
+    if (line.kind == gameplay::LineKind::Choice) {
+        // DialogRunner ignores Advance while ShowingChoices, so a second
+        // page could never be reached.
+        return 1;
+    }
+
     const Font* font = resolveFont(style);
     if (font == nullptr || font->glyphs == nullptr) {
         return 1;
@@ -158,41 +204,13 @@ int16_t DialogBox::measureHeightPx(const gameplay::DialogScript& script,
     }
 
     const int16_t contentW = contentWidthPx(style);
-    const uint8_t lineHeightPx = textLineHeightPx(*font, style);
-    const uint8_t bodyLineHeightPx = static_cast<uint8_t>(lineHeightPx + style.lineSpacing);
-    const uint8_t choiceRowHeightPx = static_cast<uint8_t>(lineHeightPx + 2 * style.padding);
+    const RowHeights rowHeights = rowHeightsFor(*font, style);
     const int16_t frame = static_cast<int16_t>(2 * (style.padding + style.borderWidth));
 
     int16_t tallest = 0;
     for (uint16_t i = 0; i < script.lineCount; ++i) {
-        const gameplay::DialogLine& line = script.lines[i];
-        int16_t contentHeight = 0;
-
-        if (line.kind == gameplay::LineKind::Choice) {
-            uint8_t rows = line.choiceCount;
-            if (rows > platforms::config::DialogMaxChoices) {
-                rows = platforms::config::DialogMaxChoices;
-            }
-            contentHeight = static_cast<int16_t>(rows * choiceRowHeightPx);
-        } else if (line.kind == gameplay::LineKind::Text) {
-            const std::string_view text =
-                (line.text != nullptr) ? std::string_view(line.text) : std::string_view{};
-            if (!text.empty()) {
-                const uint16_t totalLines =
-                    TextLayout::countWrappedLines(text, font, style.textSize, contentW);
-                const uint16_t rows = (totalLines < platforms::config::DialogMaxWrappedLines)
-                                           ? totalLines
-                                           : platforms::config::DialogMaxWrappedLines;
-                contentHeight = static_cast<int16_t>(rows * bodyLineHeightPx);
-            }
-        }
-        // LineKind::End shows nothing; contentHeight stays 0.
-
-        if (line.speaker != nullptr) {
-            contentHeight = static_cast<int16_t>(contentHeight + bodyLineHeightPx);
-        }
-
-        const int16_t total = static_cast<int16_t>(contentHeight + frame);
+        const int16_t total = static_cast<int16_t>(
+            lineContentHeightPx(script.lines[i], *font, style, contentW, rowHeights) + frame);
         if (total > tallest) {
             tallest = total;
         }

@@ -20,7 +20,7 @@ namespace pixelroot32::graphics {
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the eight scalar/enum fields follow.
+ * leads, the 14 scalar/enum fields follow.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -55,9 +55,11 @@ public:
     /**
      * @brief Every pixel coordinate the box uses, computed once.
      *
-     * draw(), choiceRect() and measureHeightPx() all consume this and
-     * nothing else computes geometry -- hit-test and draw geometry cannot
-     * drift apart. Stack-local, zero heap.
+     * draw() and choiceRect() both consume this via computeLayout(), so
+     * hit-test and drawn geometry cannot drift apart. measureHeightPx() has
+     * no DialogRunner to build one from, so it shares computeLayout()'s
+     * row-height/content-height helpers (DialogBox.cpp) instead, keeping
+     * the two in agreement. Stack-local, zero heap.
      *
      * Deliberately left without a Doxygen struct tag: scripts/generate_api_docs.py
      * resolves a documented method against class_spans[-1], the most
@@ -73,8 +75,8 @@ public:
         int16_t bodyX, bodyY;         ///< Top-left of body line 0.
         int16_t choiceX, choiceY;     ///< Top-left of choice row 0.
         int16_t choiceW;              ///< Row width (panel inner width).
-        uint8_t bodyLineHeightPx;
-        uint8_t choiceRowHeightPx;
+        int16_t bodyLineHeightPx;
+        int16_t choiceRowHeightPx;
         uint8_t bodyLineCount;        ///< Rows valid in bodyLines.
         uint8_t choiceCount;          ///< Already clamped to DialogMaxChoices.
         uint8_t pageCount;            ///< Total pages of the current line's text.
@@ -165,9 +167,10 @@ public:
      * @brief Pages the given line needs at this style.
      * @param line The line to measure.
      * @param style The style to wrap against.
-     * @return The number of pages `line`'s body text needs at
-     *         `style`'s width, at least 1. Explicit path for games that
-     *         draw the panel themselves (e.g. a hand-rolled shop modal).
+     * @return The number of pages `line`'s body text needs at `style`'s
+     *         width, at least 1; always exactly 1 for a `LineKind::Choice`
+     *         line, since DialogRunner ignores Advance while ShowingChoices.
+     *         Explicit path for games that draw the panel themselves.
      */
     [[nodiscard]] static uint8_t pageCountFor(const gameplay::DialogLine& line,
                                                const DialogBoxStyle&       style);

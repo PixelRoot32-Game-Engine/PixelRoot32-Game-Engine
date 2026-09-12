@@ -94,6 +94,14 @@ const DialogLine kChoiceLines[] = {
 };
 const DialogScript kChoiceScript{kChoiceLines, kChoices, 1, 3};
 
+// Choice line carrying a prompt (kLongText) long enough to wrap past
+// DialogMaxWrappedLines -- a Choice line MAY carry text per DialogTypes.h's
+// "either shown text or a choice prompt" doc.
+const DialogLine kChoiceWithPromptLines[] = {
+    {kLongText, nullptr, kNoLine, 0, 0, /*firstChoice*/ 0, /*choiceCount*/ 3, LineKind::Choice, 0},
+};
+const DialogScript kChoiceWithPromptScript{kChoiceWithPromptLines, kChoices, 1, 3};
+
 }  // namespace
 
 // =============================================================================
@@ -152,6 +160,22 @@ void test_dialog_box_compute_layout_with_speaker_offsets_body_below_speaker_line
     TEST_ASSERT_EQUAL_INT16(expectedSpeakerY, layout.speakerY);
     TEST_ASSERT_EQUAL_INT16(
         static_cast<int16_t>(expectedSpeakerY + layout.bodyLineHeightPx), layout.bodyY);
+}
+
+void test_dialog_box_compute_layout_body_line_height_does_not_overflow_at_large_text_size(void) {
+    // font.lineHeight (8) * textSize (32) == 256, which wraps to 0 in a
+    // uint8_t before lineSpacing is even added.
+    DialogRunner runner;
+    runner.start(kShortNoSpeakerScript);
+    DialogBoxStyle style = makeStyle();
+    style.textSize = 32;
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TEST_ASSERT_EQUAL_INT16(
+        static_cast<int16_t>(kTestFont.lineHeight * style.textSize + style.lineSpacing),
+        layout.bodyLineHeightPx);
 }
 
 void test_dialog_box_compute_layout_inactive_runner_yields_zeroed_counts(void) {
@@ -234,6 +258,27 @@ void test_dialog_box_body_shows_only_the_current_page(void) {
     TEST_ASSERT_FALSE(oracle[0].slice == oracle2[0].slice);
 }
 
+void test_dialog_box_choice_line_prompt_pages_once_and_draws_no_next_page_cue(void) {
+    // A Choice line's prompt shows only its first DialogMaxWrappedLines
+    // wrapped lines; DialogRunner ignores Advance in ShowingChoices, so a
+    // second page could never be reached.
+    const DialogBoxStyle style = makeStyle();
+    TEST_ASSERT_EQUAL_UINT8(1, DialogBox::pageCountFor(kChoiceWithPromptLines[0], style));
+
+    DialogRunner runner;
+    runner.start(kChoiceWithPromptScript);
+    DialogBox box;
+    box.setStyle(style);
+    pixelroot32::graphics::DisplayConfig config(pixelroot32::graphics::DisplayType::NONE, 0, 240,
+                                                 240, 240, 240, 0, 0);
+    MockRenderer mock(config);
+    box.draw(mock, runner);
+
+    for (const auto& call : mock.rendererCalls) {
+        TEST_ASSERT_FALSE(call.type == "text" && call.text == ">");
+    }
+}
+
 // =============================================================================
 // measureHeightPx
 // =============================================================================
@@ -243,6 +288,24 @@ void test_dialog_box_measure_height_px_multiline_exceeds_single_line(void) {
     const int16_t shortHeight = DialogBox::measureHeightPx(kShortNoSpeakerScript, style);
     const int16_t longHeight = DialogBox::measureHeightPx(kLongTextScript, style);
     TEST_ASSERT_GREATER_THAN_INT16(shortHeight, longHeight);
+}
+
+void test_dialog_box_measure_height_px_includes_choice_line_prompt_body_rows(void) {
+    // A Choice line's own prompt (line.text) must contribute body rows to
+    // measureHeightPx() the same way computeLayout() renders them, or a
+    // panel sized from it is too short to fit what draw() actually shows.
+    DialogRunner runner;
+    runner.start(kChoiceWithPromptScript);
+    const DialogBoxStyle style = makeStyle();
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    const int16_t lastChoiceRowBottom = static_cast<int16_t>(
+        layout.choiceY + layout.choiceCount * layout.choiceRowHeightPx - style.y);
+
+    TEST_ASSERT_GREATER_OR_EQUAL_INT16(
+        lastChoiceRowBottom, DialogBox::measureHeightPx(kChoiceWithPromptScript, style));
 }
 
 void test_dialog_box_measure_height_px_zero_for_empty_script(void) {
@@ -519,11 +582,14 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_box_sizeof_guard);
     RUN_TEST(test_dialog_box_compute_layout_no_speaker_places_body_at_content_origin);
     RUN_TEST(test_dialog_box_compute_layout_with_speaker_offsets_body_below_speaker_line);
+    RUN_TEST(test_dialog_box_compute_layout_body_line_height_does_not_overflow_at_large_text_size);
     RUN_TEST(test_dialog_box_compute_layout_inactive_runner_yields_zeroed_counts);
     RUN_TEST(test_dialog_box_page_count_for_short_text_returns_one);
     RUN_TEST(test_dialog_box_page_count_for_long_text_matches_ceiling_of_wrapped_lines);
+    RUN_TEST(test_dialog_box_choice_line_prompt_pages_once_and_draws_no_next_page_cue);
     RUN_TEST(test_dialog_box_body_shows_only_the_current_page);
     RUN_TEST(test_dialog_box_measure_height_px_multiline_exceeds_single_line);
+    RUN_TEST(test_dialog_box_measure_height_px_includes_choice_line_prompt_body_rows);
     RUN_TEST(test_dialog_box_measure_height_px_zero_for_empty_script);
     RUN_TEST(test_dialog_box_needs_redraw_false_before_any_draw_and_after_matching_draw);
     RUN_TEST(test_dialog_box_needs_redraw_true_after_the_runner_changes);
