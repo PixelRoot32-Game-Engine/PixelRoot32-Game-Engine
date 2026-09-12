@@ -29,6 +29,10 @@ namespace pixelroot32::gameplay {
  * selectedChoice(), select()) and ShowingChoices' action handling are
  * additive and land later; nothing declared here changes shape or meaning
  * when they do.
+ *
+ * Reentrancy: feed()/update()/start() may call the configured DialogEventFn
+ * synchronously, and that callback is allowed to call back into this same
+ * runner. See configure()'s @param onEvent for the exact contract.
  */
 class DialogRunner {
 public:
@@ -37,6 +41,17 @@ public:
      * @param owner Opaque pointer forwarded uncast to every callback; may be null.
      * @param onEvent Callback invoked synchronously from feed()/update()/start();
      *        a null callback silently drops every event.
+     *
+     * Reentrancy contract: `onEvent` is free to read anything on this
+     * runner, but a call it makes back into feed(), update() or start() on
+     * this same runner is ignored -- not queued, not run after the
+     * in-progress call finishes, simply dropped. Without this, a script
+     * whose `DialogLine::next` values form a cycle, paired with a callback
+     * that reacts to `LineEnter` by feeding another action, would recurse
+     * without a bound and overflow the stack on ESP32. stop() is the one
+     * exception: it never emits and cannot recurse, so it remains legal
+     * (and useful, e.g. to abort a dialog from inside a tag handler) to
+     * call from within `onEvent`.
      */
     void configure(void* owner, DialogEventFn onEvent);
 
@@ -45,10 +60,14 @@ public:
      * @param script Caller-owned, const, .rodata-resident script table. NOT
      *        copied; must outlive this runner.
      * @param first Line to enter first. Defaults to 0.
-     * @return false, leaving the runner Inactive, when `script.lines` is
-     *         null, `script.lineCount` is 0, or `first` is out of range;
-     *         true otherwise, after entering `first` (which itself may
-     *         finish immediately if `first`'s kind is LineKind::End).
+     * @return false when `script.lines` is null, `script.lineCount` is 0,
+     *         `first` is out of range, or this call is reentrant (made from
+     *         within `onEvent` -- see configure()). On any false return the
+     *         runner is left fully Inactive: state(), currentLineId() and
+     *         currentLine() all report "not on a line", even if a PRIOR
+     *         successful start() had it pointing at a different script.
+     *         Returns true otherwise, after entering `first` (which itself
+     *         may finish immediately if `first`'s kind is LineKind::End).
      */
     bool start(const DialogScript& script, LineId first = 0);
 
@@ -67,7 +86,9 @@ public:
      * Total over DialogState x DialogAction: an
      * action illegal in the current state is silently ignored -- no state
      * change, no revision() bump, no event, no crash. Confirm aliases
-     * Advance in ShowingText and AwaitingAdvance.
+     * Advance in ShowingText and AwaitingAdvance. A reentrant call made
+     * from within the configured DialogEventFn is also ignored -- see
+     * configure()'s reentrancy contract.
      */
     void feed(DialogAction action);
 
@@ -77,7 +98,9 @@ public:
      *        call; accumulates saturating at UINT32_MAX.
      *
      * No-op unless state() == ShowingText -- AwaitingAdvance and
-     * ShowingChoices wait for feed(), never the clock.
+     * ShowingChoices wait for feed(), never the clock. Also a no-op,
+     * dropping `deltaTimeMs` entirely, when called reentrantly from within
+     * the configured DialogEventFn (see configure()).
      */
     void update(unsigned long deltaTimeMs);
 
@@ -90,6 +113,14 @@ public:
      * Resets to 1 on every line entry, so a runner with no presenter
      * behaves as exactly one page per line. Clamps the current page into
      * range and bumps revision() only when something actually changed.
+     *
+     * No-op, entirely, when there is no current line (Inactive or
+     * Finished) -- there is nothing to page and nothing player-visible
+     * changes, so revision() correctly does not bump either. Calling this
+     * on a fresh or a just-finished runner is otherwise easy to reach (an
+     * async text-wrap result landing a frame after the player advances
+     * past the last line is the realistic trigger) and must not look like
+     * a redraw-worthy change to a presenter polling revision().
      */
     void setPageCount(uint8_t pageCount);
 
@@ -163,11 +194,28 @@ private:
     uint8_t page_ = 0;                           // 1
     uint8_t pageCount_ = 1;                      // 1
     DialogState state_ = DialogState::Inactive;  // 1
+    // True for the duration of any feed()/update()/start() call that is
+    // still inside its own DialogEventFn dispatch. See configure()'s
+    // reentrancy contract for why this exists and what it does. stop() is
+    // deliberately NOT gated by this flag: it never calls emit() and so
+    // cannot recurse.
+    bool dispatching_ = false;                   // 1
 };
 
-/// RAM regression guard. Actual: 24 B on ESP32, 40 B on 64-bit native. Zero
-/// native slack is deliberate -- adding a field must be a conscious bump of
-/// this constant with a note, not a silent drift.
+/// RAM regression guard. Field bytes sum to 25 on ESP32 (32-bit pointers)
+/// and 37 on 64-bit native. Neither total is the struct's actual size:
+/// both round UP to their platform's pointer-driven alignment (4 on ESP32,
+/// 8 on native) via trailing padding -- 3 bytes on each platform here --
+/// landing at 28 B ESP32 / 40 B native, both exactly at the threshold
+/// below with zero slack. Before `dispatching_` existed the field sum was
+/// 24 on ESP32 (no padding needed, already a multiple of 4) and 36 on
+/// native (4 bytes of then-undocumented trailing padding); adding this
+/// one-byte field consumed all 4 of ESP32's previously-unused alignment
+/// bytes but only 1 of native's 4, so ESP32 grew from 24 to 28 while
+/// native's total did not move. A future field of 1-3 bytes could still
+/// land inside native's remaining 3 bytes of trailing padding without
+/// tripping this assert or the sizeof test guard -- re-derive the sum by
+/// hand before trusting that a passing assert means nothing moved.
 static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
               "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
               "if this growth is intentional, raise the threshold above and "

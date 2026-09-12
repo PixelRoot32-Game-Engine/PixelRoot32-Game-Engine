@@ -10,14 +10,52 @@
 
 namespace pixelroot32::gameplay {
 
+namespace {
+
+/// Sets a bool true for its lifetime and always restores its PRIOR value on
+/// scope exit, covering every return path of the function it guards without
+/// a try/finally -- unavailable here since the engine builds -fno-exceptions.
+/// Zero heap, zero virtual dispatch: a reference and a bool copy, nothing
+/// this class doesn't already have on the stack.
+class ScopedDispatchGuard {
+public:
+    explicit ScopedDispatchGuard(bool& flag) : flag_(flag), previous_(flag) { flag_ = true; }
+    ~ScopedDispatchGuard() { flag_ = previous_; }
+    ScopedDispatchGuard(const ScopedDispatchGuard&) = delete;
+    ScopedDispatchGuard& operator=(const ScopedDispatchGuard&) = delete;
+
+private:
+    bool& flag_;
+    bool previous_;
+};
+
+}  // namespace
+
 void DialogRunner::configure(void* owner, DialogEventFn onEvent) {
     owner_ = owner;
     onEvent_ = onEvent;
 }
 
 bool DialogRunner::start(const DialogScript& script, LineId first) {
+    if (dispatching_) return false;  // Reentrant from inside onEvent: ignored.
+    ScopedDispatchGuard guard(dispatching_);
+
     if (script.lines == nullptr || script.lineCount == 0 || first >= script.lineCount) {
+        // Reset fully, mirroring stop()/finish(): a rejected script must not
+        // leave the runner pointing at whatever a PRIOR successful start()
+        // left active -- currentLineId()/currentLine() must report "not on
+        // a line", not a stale id into a script the caller may now free.
+        // revision() only bumps when this call actually detached a
+        // previously-active session; calling this repeatedly on an
+        // already-Inactive runner must not look like a visible change.
+        const bool wasAttached = (state_ != DialogState::Inactive) || (current_ != kNoLine);
         state_ = DialogState::Inactive;
+        script_ = nullptr;
+        current_ = kNoLine;
+        selected_ = kNoChoice;
+        page_ = 0;
+        pageCount_ = 1;
+        if (wasAttached) ++revision_;
         return false;
     }
 
@@ -38,6 +76,9 @@ void DialogRunner::stop() {
 }
 
 void DialogRunner::feed(DialogAction action) {
+    if (dispatching_) return;  // Reentrant from inside onEvent: ignored.
+    ScopedDispatchGuard guard(dispatching_);
+
     switch (state_) {
         case DialogState::ShowingText:
         case DialogState::AwaitingAdvance:
@@ -60,7 +101,9 @@ void DialogRunner::feed(DialogAction action) {
 }
 
 void DialogRunner::update(unsigned long deltaTimeMs) {
+    if (dispatching_) return;  // Reentrant from inside onEvent: ignored.
     if (state_ != DialogState::ShowingText) return;
+    ScopedDispatchGuard guard(dispatching_);
 
     // Saturating add (mirrors StateMachine::update): the timer "gets stuck
     // at maximum" rather than wrapping, which would never satisfy an `>=`
@@ -75,6 +118,10 @@ void DialogRunner::update(unsigned long deltaTimeMs) {
 }
 
 void DialogRunner::setPageCount(uint8_t pageCount) {
+    if (current_ == kNoLine) return;  // No current line: nothing to page,
+                                       // nothing player-visible to bump
+                                       // revision() for (Inactive/Finished).
+
     const uint8_t newCount = (pageCount == 0) ? 1 : pageCount;
     bool changed = false;
 
@@ -107,28 +154,41 @@ void DialogRunner::enterLine(LineId id) {
         return;
     }
 
+    const DialogLine& line = script_->lines[id];
+
     current_ = id;
     page_ = 0;
     pageCount_ = 1;
     timeInLineMs_ = 0;
     selected_ = kNoChoice;
-    ++revision_;
 
-    const DialogLine& line = script_->lines[id];
-    emit(DialogEventType::LineEnter, id, kNoChoice, line.tag);
-
+    // state_ is assigned BEFORE emit() below, for every kind including
+    // End, so a callback that reacts to LineEnter by reading state()
+    // always sees a value consistent with current_ already pointing at
+    // this line -- never the previous line's state with the new line's id.
     switch (line.kind) {
-        case LineKind::End:
-            finish(id);
-            break;
         case LineKind::Choice:
             state_ = DialogState::ShowingChoices;
+            break;
+        case LineKind::End:
+            state_ = DialogState::Finished;
             break;
         case LineKind::Text:
         default:
             state_ = (line.autoAdvanceMs > 0) ? DialogState::ShowingText
                                                : DialogState::AwaitingAdvance;
             break;
+    }
+
+    ++revision_;
+    emit(DialogEventType::LineEnter, id, kNoChoice, line.tag);
+
+    // finish() completes the End-kind transition (resets current_ to
+    // kNoLine, bumps revision() again, emits Ended) AFTER LineEnter has
+    // already been observed with state() == Finished -- matching what a
+    // callback would infer from an End line's LineEnter anyway.
+    if (line.kind == LineKind::End) {
+        finish(id);
     }
 }
 
