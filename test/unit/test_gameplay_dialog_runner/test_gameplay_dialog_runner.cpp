@@ -46,13 +46,16 @@
 using namespace pixelroot32::gameplay;
 
 // =============================================================================
-// Static-layout regression guard: 24 B ESP32 (32-bit
+// Static-layout regression guard: 28 B ESP32 (32-bit
 // pointer), 40 B on 64-bit native. Mirrors test_dialog_types.cpp's pattern.
+// ESP32 moved from 24 to 28 when the dispatching_ reentrancy-guard field was
+// added -- see the RAM regression guard comment above DialogRunner's
+// static_assert in DialogRunner.h for the full byte-by-byte reconciliation.
 // =============================================================================
 
 #ifdef ESP32
-static_assert(sizeof(DialogRunner) == 24,
-              "DialogRunner must be 24 bytes on ESP32; see the RAM regression "
+static_assert(sizeof(DialogRunner) == 28,
+              "DialogRunner must be 28 bytes on ESP32; see the RAM regression "
               "guard comment above DialogRunner's static_assert in "
               "DialogRunner.h if this changed intentionally.");
 #else
@@ -149,6 +152,51 @@ static const DialogLine kEndLines[] = {
 };
 static const DialogScript kEndScript{kEndLines, nullptr, 1, 0};
 
+// Five lines, only used to exercise start() at a non-zero valid index (4) in
+// the start()-failure-reset test below.
+static const DialogLine kFiveLineLines[] = {
+    {kLineAText, nullptr, kNoLine, 1, 0, 0, 0, LineKind::Text, 0},
+    {kLineAText, nullptr, kNoLine, 2, 0, 0, 0, LineKind::Text, 0},
+    {kLineAText, nullptr, kNoLine, 3, 0, 0, 0, LineKind::Text, 0},
+    {kLineAText, nullptr, kNoLine, 4, 0, 0, 0, LineKind::Text, 0},
+    {kLineBText, nullptr, kNoLine, 5, 0, 0, 0, LineKind::Text, 0},
+};
+static const DialogScript kFiveLineScript{kFiveLineLines, nullptr, 5, 0};
+
+// Two-line cycle (0 -> 1 -> 0 -> ...), used only by the reentrancy test to
+// prove a callback that always re-feeds Advance on LineEnter cannot recurse
+// without bound.
+static const DialogLine kCyclicLines[] = {
+    {kLineAText, nullptr, /*next*/ 1, /*tag*/ 10, 0, 0, 0, LineKind::Text, 0},
+    {kLineBText, nullptr, /*next*/ 0, /*tag*/ 20, 0, 0, 0, LineKind::Text, 0},
+};
+static const DialogScript kCyclicScript{kCyclicLines, nullptr, 2, 0};
+
+/// Owner used only by the reentrancy test. Counts LineEnter events, checks
+/// that currentLineId()/state() are already consistent with the entering
+/// line WHEN the callback observes them (the ordering fix), and reacts to
+/// every LineEnter by feeding another Advance straight back into the same
+/// runner -- the exact pattern that recurses without bound on an unguarded
+/// runner given a cyclic script.
+struct ReentrantOwner {
+    DialogRunner* runner = nullptr;
+    int lineEnterCount = 0;
+    bool allConsistent = true;
+};
+
+void onReentrantLineEnter(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<ReentrantOwner*>(ownerPtr);
+    if (event.type != DialogEventType::LineEnter) return;
+
+    ++owner->lineEnterCount;
+    if (owner->runner->currentLineId() != event.line ||
+        owner->runner->state() != DialogState::AwaitingAdvance) {
+        owner->allConsistent = false;
+    }
+
+    owner->runner->feed(DialogAction::Advance);  // reentrant: must be a no-op
+}
+
 }  // namespace
 
 // =============================================================================
@@ -177,6 +225,36 @@ void test_dialog_runner_start_fails_with_out_of_range_first(void) {
 
     TEST_ASSERT_FALSE(runner.start(kLinearScript, 99));
     TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+}
+
+void test_dialog_runner_start_failure_resets_a_previously_active_session(void) {
+    // Exact sequence from review: a successful start() at a non-zero line,
+    // then a start() that fails, must not leave currentLineId()/
+    // currentLine() pointing at the first script -- a caller reading
+    // `false` as "detached" and then freeing/reusing that script's storage
+    // would otherwise turn this into a stale-pointer read.
+    DialogRunner runner;
+    TEST_ASSERT_TRUE(runner.start(kFiveLineScript, 4));
+    TEST_ASSERT_EQUAL_UINT16(4, runner.currentLineId());
+    const uint16_t revBefore = runner.revision();
+
+    TEST_ASSERT_FALSE(runner.start(kLinearScript, 99));  // rejected: out of range
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_FALSE(runner.isActive());
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_NULL(runner.currentLine());
+    TEST_ASSERT_NOT_EQUAL(revBefore, runner.revision());  // detaching a live session IS visible
+}
+
+void test_dialog_runner_start_failure_on_an_already_inactive_runner_does_not_bump_revision(void) {
+    DialogRunner runner;
+    const uint16_t revBefore = runner.revision();
+
+    TEST_ASSERT_FALSE(runner.start(kLinearScript, 99));
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());  // nothing was attached to detach
 }
 
 // =============================================================================
@@ -245,6 +323,25 @@ void test_dialog_runner_advance_moves_to_next_line(void) {
     TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
 }
 
+void test_dialog_runner_line_enter_fires_on_a_mid_session_transition(void) {
+    // The prior test proves the transition; this one proves LineEnter is
+    // unconditional beyond just the FIRST line -- start()'s own LineEnter
+    // is not the only one exercised across a `next` link.
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kLinearScript, 0);
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Advance);  // line 0 -> line 1 via `next`
+
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::LineEnter);
+    TEST_ASSERT_EQUAL_UINT16(1, owner.log[0].line);
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, owner.log[0].choice);
+    TEST_ASSERT_EQUAL_UINT16(222, owner.log[0].tag);  // line 1's own tag
+}
+
 void test_dialog_runner_confirm_aliases_advance(void) {
     DialogRunner runner;
     runner.start(kLinearScript, 0);
@@ -279,6 +376,24 @@ void test_dialog_runner_auto_advance_fires_at_exact_ms(void) {
     runner.update(1);  // accumulates to exactly 2400
     TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());
     TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+}
+
+void test_dialog_runner_auto_advance_fires_on_a_single_call_at_and_past_threshold(void) {
+    // The previous test only proves the accumulated-delta path (2399 then
+    // +1). A caller ticking with one large deltaTimeMs per frame must
+    // converge on the same behavior in a single update() call, both at the
+    // exact threshold and past it.
+    DialogRunner exact;
+    exact.start(kAutoAdvanceThenAwaitScript, 0);
+    exact.update(2400);  // single call, lands exactly on autoAdvanceMs
+    TEST_ASSERT_EQUAL_UINT16(1, exact.currentLineId());
+    TEST_ASSERT_TRUE(exact.state() == DialogState::AwaitingAdvance);
+
+    DialogRunner past;
+    past.start(kAutoAdvanceThenAwaitScript, 0);
+    past.update(5000);  // single call, well past autoAdvanceMs
+    TEST_ASSERT_EQUAL_UINT16(1, past.currentLineId());
+    TEST_ASSERT_TRUE(past.state() == DialogState::AwaitingAdvance);
 }
 
 void test_dialog_runner_update_is_noop_outside_showing_text(void) {
@@ -340,6 +455,33 @@ void test_dialog_runner_set_page_count_zero_is_treated_as_one(void) {
     runner.setPageCount(0);
 
     TEST_ASSERT_EQUAL_UINT8(1, runner.pageCount());
+}
+
+void test_dialog_runner_set_page_count_is_noop_when_inactive(void) {
+    // The realistic trigger: an async text-wrap result lands a frame after
+    // the runner was never started, or after the player already advanced
+    // past the last line. Nothing player-visible changes, so revision()
+    // must not bump either.
+    DialogRunner runner;
+    const uint16_t revBefore = runner.revision();
+
+    runner.setPageCount(5);
+
+    TEST_ASSERT_EQUAL_UINT8(1, runner.pageCount());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_set_page_count_is_noop_when_finished(void) {
+    DialogRunner runner;
+    runner.start(kLinearScript, 1);
+    runner.feed(DialogAction::Advance);  // -> Finished (next == kNoLine)
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+    const uint16_t revBefore = runner.revision();
+
+    runner.setPageCount(5);
+
+    TEST_ASSERT_EQUAL_UINT8(1, runner.pageCount());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
 }
 
 // =============================================================================
@@ -505,6 +647,10 @@ void test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance(
     runner.feed(DialogAction::Down);
     runner.feed(DialogAction::Confirm);
     runner.feed(DialogAction::Cancel);
+    runner.feed(DialogAction::None);  // Match the other three illegal-action
+                                       // tests: all six actions, so the four
+                                       // are only meaningful together as full
+                                       // coverage of the action product.
 
     TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
     TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
@@ -528,6 +674,38 @@ void test_dialog_runner_current_line_reflects_state(void) {
 
     TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
     TEST_ASSERT_NULL(runner.currentLine());
+}
+
+// =============================================================================
+// Requirement: reentrant feed()/update()/start() calls made from within the
+// configured DialogEventFn are ignored, not recursive -- and state()/
+// currentLineId() are already consistent with the entering line by the time
+// the callback observes them.
+// =============================================================================
+
+void test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive(void) {
+    ReentrantOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    runner.configure(&owner, onReentrantLineEnter);
+
+    TEST_ASSERT_TRUE(runner.start(kCyclicScript, 0));
+
+    // start()'s own LineEnter dispatch already tried one reentrant feed();
+    // on an unguarded runner and this cyclic script, that recurses without
+    // bound and overflows the stack on ESP32. Here it must simply be
+    // dropped: exactly one LineEnter, no extra transition.
+    TEST_ASSERT_EQUAL_INT(1, owner.lineEnterCount);
+    TEST_ASSERT_TRUE(owner.allConsistent);
+    TEST_ASSERT_EQUAL_UINT16(0, runner.currentLineId());
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+
+    runner.feed(DialogAction::Advance);  // top-level call: allowed to transition
+
+    TEST_ASSERT_EQUAL_INT(2, owner.lineEnterCount);
+    TEST_ASSERT_TRUE(owner.allConsistent);
+    TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());  // moved exactly once
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
 }
 
 // =============================================================================
@@ -584,7 +762,7 @@ void test_dialog_runner_zero_heap_allocation_across_full_session(void) {
 
 void test_dialog_runner_sizeof_guard(void) {
 #ifdef ESP32
-    TEST_ASSERT_EQUAL_UINT32(24u, static_cast<uint32_t>(sizeof(DialogRunner)));
+    TEST_ASSERT_EQUAL_UINT32(28u, static_cast<uint32_t>(sizeof(DialogRunner)));
 #else
     TEST_ASSERT_EQUAL_UINT32(40u, static_cast<uint32_t>(sizeof(DialogRunner)));
 #endif
@@ -622,18 +800,24 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_start_fails_with_null_lines);
     RUN_TEST(test_dialog_runner_start_fails_with_zero_line_count);
     RUN_TEST(test_dialog_runner_start_fails_with_out_of_range_first);
+    RUN_TEST(test_dialog_runner_start_failure_resets_a_previously_active_session);
+    RUN_TEST(test_dialog_runner_start_failure_on_an_already_inactive_runner_does_not_bump_revision);
     RUN_TEST(test_dialog_runner_line_enter_fires_with_line_tag);
     RUN_TEST(test_dialog_runner_line_enter_fires_with_tag_zero);
     RUN_TEST(test_dialog_runner_text_line_with_auto_advance_enters_showing_text);
     RUN_TEST(test_dialog_runner_text_line_without_auto_advance_enters_awaiting_advance);
     RUN_TEST(test_dialog_runner_advance_moves_to_next_line);
+    RUN_TEST(test_dialog_runner_line_enter_fires_on_a_mid_session_transition);
     RUN_TEST(test_dialog_runner_confirm_aliases_advance);
     RUN_TEST(test_dialog_runner_confirm_aliases_advance_in_showing_text);
     RUN_TEST(test_dialog_runner_auto_advance_fires_at_exact_ms);
+    RUN_TEST(test_dialog_runner_auto_advance_fires_on_a_single_call_at_and_past_threshold);
     RUN_TEST(test_dialog_runner_update_is_noop_outside_showing_text);
     RUN_TEST(test_dialog_runner_set_page_count_advance_before_next_line);
     RUN_TEST(test_dialog_runner_set_page_count_clamps_current_page_on_shrink);
     RUN_TEST(test_dialog_runner_set_page_count_zero_is_treated_as_one);
+    RUN_TEST(test_dialog_runner_set_page_count_is_noop_when_inactive);
+    RUN_TEST(test_dialog_runner_set_page_count_is_noop_when_finished);
     RUN_TEST(test_dialog_runner_next_kNoLine_finishes_dialog);
     RUN_TEST(test_dialog_runner_out_of_range_next_finishes_without_oob);
     RUN_TEST(test_dialog_runner_end_kind_line_finishes_immediately);
@@ -644,6 +828,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_stop_fires_no_event);
     RUN_TEST(test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance);
     RUN_TEST(test_dialog_runner_current_line_reflects_state);
+    RUN_TEST(test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive);
     RUN_TEST(test_dialog_runner_zero_heap_allocation_across_full_session);
     RUN_TEST(test_dialog_runner_sizeof_guard);
 #else
