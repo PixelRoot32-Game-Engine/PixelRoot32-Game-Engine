@@ -197,6 +197,57 @@ void onReentrantLineEnter(void* ownerPtr, const DialogEvent& event) {
     owner->runner->feed(DialogAction::Advance);  // reentrant: must be a no-op
 }
 
+// A player-driven text line (0) followed by an End-kind line (1) -- lets a
+// test reach an End line via resolveAdvance()'s enterLine(line.next) path,
+// not just start()'s enterLine(first) path.
+static const DialogLine kTextThenEndLines[] = {
+    {kLineAText, nullptr, /*next*/ 1, /*tag*/ 1, 0, 0, 0, LineKind::Text, 0},
+    {nullptr, nullptr, kNoLine, /*tag*/ 2, 0, 0, 0, LineKind::End, 0},
+};
+static const DialogScript kTextThenEndScript{kTextThenEndLines, nullptr, 2, 0};
+
+/// Owner used by the two stop()-from-callback tests. Records every event
+/// and calls stop() back into the runner when LineEnter fires for
+/// `stopOnLine`.
+struct StopOnLineOwner {
+    DialogRunner* runner = nullptr;
+    LineId stopOnLine = kNoLine;
+    LoggedEvent log[8]{};
+    int logCount = 0;
+
+    void record(const DialogEvent& event) {
+        if (logCount < 8) {
+            log[logCount++] = LoggedEvent{event.type, event.line, event.choice, event.tag};
+        }
+    }
+};
+
+void onLineEnterStopsOnTargetLine(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<StopOnLineOwner*>(ownerPtr);
+    owner->record(event);
+    if (event.type == DialogEventType::LineEnter && event.line == owner->stopOnLine) {
+        owner->runner->stop();
+    }
+}
+
+/// Owner used by the reentrant-start() test. Attempts exactly one reentrant
+/// start() against a DIFFERENT script the first time LineEnter fires, and
+/// records that call's own return value.
+struct ReentrantStartOwner {
+    DialogRunner* runner = nullptr;
+    const DialogScript* reentrantScript = nullptr;
+    bool attempted = false;
+    bool reentrantResult = true;
+};
+
+void onLineEnterAttemptsReentrantStart(void* ownerPtr, const DialogEvent& event) {
+    auto* owner = static_cast<ReentrantStartOwner*>(ownerPtr);
+    if (event.type == DialogEventType::LineEnter && !owner->attempted) {
+        owner->attempted = true;
+        owner->reentrantResult = owner->runner->start(*owner->reentrantScript, 0);
+    }
+}
+
 }  // namespace
 
 // =============================================================================
@@ -538,6 +589,59 @@ void test_dialog_runner_end_kind_line_finishes_immediately(void) {
     TEST_ASSERT_EQUAL_UINT16(3, owner.log[1].tag);
 }
 
+void test_dialog_runner_stop_from_callback_on_end_kind_line_via_start_is_respected(void) {
+    // Reached via start()'s enterLine(first) path. Without the fix,
+    // enterLine()'s trailing finish() call would run unconditionally after
+    // the callback returns, silently undoing stop() and firing an Ended
+    // event stop()'s own contract promises will never happen.
+    StopOnLineOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.stopOnLine = 0;
+    runner.configure(&owner, onLineEnterStopsOnTargetLine);
+
+    const bool started = runner.start(kEndScript, 0);
+
+    // start() itself succeeded -- it validly entered line 0 and dispatched
+    // LineEnter. Whether the SESSION survives past that point is a
+    // separate question, answered by what the callback did with it.
+    TEST_ASSERT_TRUE(started);
+
+    // Full observable consequence, not just state(): exactly one event
+    // (LineEnter; no Ended), fully Inactive, no current line, revision()
+    // reflects stop()'s own bump and nothing more.
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::LineEnter);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_FALSE(runner.isActive());
+    TEST_ASSERT_EQUAL_UINT16(2, runner.revision());  // enterLine's bump, then stop()'s
+}
+
+void test_dialog_runner_stop_from_callback_on_end_kind_line_via_advance_is_respected(void) {
+    // Reached via resolveAdvance()'s enterLine(line.next) path -- the other
+    // route into an End-kind line named explicitly in review.
+    StopOnLineOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.stopOnLine = 1;  // the End line, reached only after advancing
+    runner.configure(&owner, onLineEnterStopsOnTargetLine);
+    runner.start(kTextThenEndScript, 0);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+    owner.logCount = 0;
+    const uint16_t revBefore = runner.revision();
+
+    runner.feed(DialogAction::Advance);  // line 0 -> line 1 (End) -> callback stops
+
+    TEST_ASSERT_EQUAL_INT(1, owner.logCount);  // LineEnter only; no Ended
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::LineEnter);
+    TEST_ASSERT_EQUAL_UINT16(1, owner.log[0].line);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_HEX16(kNoLine, runner.currentLineId());
+    TEST_ASSERT_FALSE(runner.isActive());
+    TEST_ASSERT_NOT_EQUAL(revBefore, runner.revision());  // stop() itself is a visible change
+}
+
 // =============================================================================
 // Requirement: feed() is total -- every illegal (state, action) cell is a
 // no-op, including no revision() bump.
@@ -708,6 +812,31 @@ void test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive(
     TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
 }
 
+void test_dialog_runner_reentrant_start_from_callback_is_a_pure_noop(void) {
+    // A reentrant start() must not reset anything (unlike a REJECTED
+    // start()): the outer call is still executing and owns the session.
+    // Resetting here would tear that session down out from under it.
+    ReentrantStartOwner owner;
+    DialogRunner runner;
+    owner.runner = &runner;
+    owner.reentrantScript = &kEndScript;  // deliberately a different script
+    runner.configure(&owner, onLineEnterAttemptsReentrantStart);
+
+    const bool outerResult = runner.start(kLinearScript, 0);
+
+    TEST_ASSERT_TRUE(outerResult);            // the OUTER call succeeded
+    TEST_ASSERT_TRUE(owner.attempted);
+    TEST_ASSERT_FALSE(owner.reentrantResult);  // the REENTRANT call was rejected
+
+    // Zero effect: the runner is still exactly where the outer start() left
+    // it -- kLinearScript's line 0, not torn down or redirected toward
+    // kEndScript by the reentrant attempt.
+    TEST_ASSERT_EQUAL_UINT16(0, runner.currentLineId());
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+    TEST_ASSERT_NOT_NULL(runner.currentLine());
+    TEST_ASSERT_EQUAL_STRING(kLineAText, runner.currentLine()->text);
+}
+
 // =============================================================================
 // Requirement: zero heap allocation across a full session
 // (start -> paging -> linear advance -> auto-advance no-op -> finish -> stop)
@@ -821,6 +950,8 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_next_kNoLine_finishes_dialog);
     RUN_TEST(test_dialog_runner_out_of_range_next_finishes_without_oob);
     RUN_TEST(test_dialog_runner_end_kind_line_finishes_immediately);
+    RUN_TEST(test_dialog_runner_stop_from_callback_on_end_kind_line_via_start_is_respected);
+    RUN_TEST(test_dialog_runner_stop_from_callback_on_end_kind_line_via_advance_is_respected);
     RUN_TEST(test_dialog_runner_illegal_actions_are_noop_when_inactive);
     RUN_TEST(test_dialog_runner_illegal_actions_are_noop_in_showing_text);
     RUN_TEST(test_dialog_runner_illegal_actions_are_noop_in_awaiting_advance);
@@ -829,6 +960,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance);
     RUN_TEST(test_dialog_runner_current_line_reflects_state);
     RUN_TEST(test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive);
+    RUN_TEST(test_dialog_runner_reentrant_start_from_callback_is_a_pure_noop);
     RUN_TEST(test_dialog_runner_zero_heap_allocation_across_full_session);
     RUN_TEST(test_dialog_runner_sizeof_guard);
 #else
