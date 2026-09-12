@@ -71,6 +71,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [DialogEvent](./gameplay/DialogEvent.md) — The single payload type delivered to DialogEventFn for every kind of dialog event.
 - [DialogEventType](./gameplay/DialogEventType.md) — Identifies which fields of a DialogEvent are meaningful.
 - [DialogLine](./gameplay/DialogLine.md) — One line of a DialogScript: either shown text or a choice prompt.
+- [DialogRunner](./gameplay/DialogRunner.md) — Headless five-state dialog machine over a caller-owned, const DialogScript.
 - [DialogScript](./gameplay/DialogScript.md) — The caller-owned, immutable table a DialogRunner is started with.
 - [DialogState](./gameplay/DialogState.md) — The five states DialogRunner can be in; feed() is total over State x DialogAction.
 - [GameplayEvent](./gameplay/GameplayEvent.md) — Fixed-size POD carried by the GameplayEventBus.
