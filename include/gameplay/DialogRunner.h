@@ -183,8 +183,7 @@ public:
 
     /**
      * @brief A change counter, incremented whenever anything player-visible
-     *        changes (line, page, or -- once choice selection is
-     *        implemented -- the selected choice).
+     *        changes (line, page, or the selected choice).
      * @return The counter's current value.
      *
      * WRAPS: uint16_t, roughly 18 minutes of per-frame bumps at 60 FPS.
