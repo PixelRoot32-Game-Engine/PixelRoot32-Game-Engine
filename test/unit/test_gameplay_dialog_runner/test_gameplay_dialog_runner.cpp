@@ -222,6 +222,19 @@ static const DialogLine kBoundClampLines[] = {
 };
 static const DialogScript kBoundClampScript{kBoundClampLines, kTwoChoicesForBoundTest, 1, 2};
 
+// firstChoice=5 into a 3-entry table: past the end, but nowhere near the
+// kNoChoice sentinel, so the sentinel arithmetic does not catch it. This is
+// the ONLY shape that isolates effectiveChoiceCount()'s table-bound guard:
+// without it, `script_->choiceCount - line.firstChoice` underflows in
+// uint16_t to 65534, that clamp stops bounding anything, and choice(0)
+// hands back &choices[5] from a table holding three.
+static const DialogLine kFirstChoicePastTableLines[] = {
+    {nullptr, nullptr, kNoLine, /*tag*/ 75, 0, /*firstChoice*/ 5, /*choiceCount*/ 2,
+     LineKind::Choice, 0},
+};
+static const DialogScript kFirstChoicePastTableScript{kFirstChoicePastTableLines, kThreeChoices, 1,
+                                                        3};
+
 // firstChoice == kNoChoice (0xFF) itself -- the tightest instance of the
 // uint8_t/uint16_t collision: any line addressing an index at or past 0xFF
 // must be unreadable through choiceCount()/choice()/selectedChoice(),
@@ -956,6 +969,22 @@ void test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table(void) {
     TEST_ASSERT_EQUAL_UINT8(1, runner.choiceCount());
 }
 
+void test_dialog_runner_choice_count_is_zero_when_first_choice_is_past_the_table(void) {
+    DialogRunner runner;
+    runner.start(kFirstChoicePastTableScript, 0);  // firstChoice=5, table holds 3
+
+    // Nothing is addressable, so nothing is exposed: no count, no entry,
+    // and no selection index a caller could mistake for a real one.
+    TEST_ASSERT_EQUAL_UINT8(0, runner.choiceCount());
+    TEST_ASSERT_NULL(runner.choice(0));
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+
+    // And Confirm on it stays a no-op rather than following a choice read
+    // from past the end of the table.
+    runner.feed(DialogAction::Confirm);
+    TEST_ASSERT_EQUAL(DialogState::ShowingChoices, runner.state());
+}
+
 void test_dialog_runner_choice_count_is_zero_when_first_choice_is_the_sentinel(void) {
     DialogRunner runner;
     runner.start(kSentinelFirstChoiceScript, 0);  // firstChoice == kNoChoice
@@ -1544,6 +1573,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_choice_count_is_zero_outside_showing_choices);
     RUN_TEST(test_dialog_runner_choice_count_clamps_to_dialog_max_choices);
     RUN_TEST(test_dialog_runner_choice_count_clamps_to_the_scripts_choices_table);
+    RUN_TEST(test_dialog_runner_choice_count_is_zero_when_first_choice_is_past_the_table);
     RUN_TEST(test_dialog_runner_choice_count_is_zero_when_first_choice_is_the_sentinel);
     RUN_TEST(test_dialog_runner_choice_returns_null_when_not_showing_choices);
     RUN_TEST(test_dialog_runner_choice_returns_null_when_index_out_of_range);

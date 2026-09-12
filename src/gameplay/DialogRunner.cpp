@@ -123,10 +123,18 @@ void DialogRunner::feed(DialogAction action) {
                     // enterLine()'s trailing finish() gate.
                     const LineId enteredLine = current_;
                     const ChoiceId chosenIndex = selected_;
-                    const DialogChoice& chosen =
-                        script_->choices[static_cast<uint16_t>(line.firstChoice) + chosenIndex];
-                    const LineId nextLine = chosen.next;
-                    const uint16_t choiceTag = chosen.tag;
+                    // Through choice(), not by re-deriving firstChoice +
+                    // index here: one bounds-checked indexing expression
+                    // in the class, not two that must stay in agreement.
+                    // Unreachable while the invariant selected_ < count
+                    // holds -- enterLine() seeds it, Up/Down clamp it and
+                    // select() bounds it -- but checked rather than
+                    // assumed, because the cost of the invariant being
+                    // wrong is a read past the caller's array.
+                    const DialogChoice* chosen = choice(chosenIndex);
+                    if (chosen == nullptr) break;
+                    const LineId nextLine = chosen->next;
+                    const uint16_t choiceTag = chosen->tag;
 
                     emit(DialogEventType::ChoiceConfirmed, enteredLine, chosenIndex, choiceTag);
 
@@ -230,21 +238,21 @@ const DialogLine* DialogRunner::currentLine() const {
 uint8_t DialogRunner::effectiveChoiceCount(const DialogLine& line) const {
     if (script_ == nullptr || script_->choices == nullptr) return 0;
 
-    // kNoChoice collision guard: firstChoice itself at or past the
-    // sentinel addresses nothing usable at all. (For any script whose
-    // choiceCount also happens to be small, the table-bound check and the
-    // maxByIndexLimit arithmetic below independently reach the same
-    // answer; this explicit check is what keeps that true even for a
-    // script carrying 256+ choices, which is the case those two cannot
-    // cover on their own -- see DialogTypes.h's firstChoice/choiceCount
-    // doc.)
-    if (line.firstChoice >= kNoChoice) return 0;
-
-    // Out of the script's own choices table entirely.
+    // Out of the script's own choices table entirely. Load-bearing, not
+    // merely tidy: maxByScript below subtracts firstChoice from
+    // choiceCount in uint16_t, so without this guard a firstChoice past
+    // the end of the table underflows to a huge value, defeating that
+    // clamp and letting choice()/select()/Confirm index past the array
+    // the caller actually allocated.
     if (line.firstChoice >= script_->choiceCount) return 0;
 
-    // Never let the addressed range reach kNoChoice (0xFF): the number of
-    // indices from firstChoice up to, but excluding, kNoChoice.
+    // Never let the addressed range reach kNoChoice (0xFF): the count of
+    // indices from firstChoice up to, but excluding, kNoChoice. This IS
+    // the whole kNoChoice collision guard. A firstChoice of exactly
+    // kNoChoice yields 0 here, so no separate sentinel check is needed --
+    // one was written and then removed as provably dead, since ChoiceId
+    // is uint8_t and kNoChoice is its maximum value, leaving no input
+    // this clamp does not already reduce to 0.
     const uint16_t maxByIndexLimit = static_cast<uint16_t>(kNoChoice) - line.firstChoice;
     // Never read past DialogScript::choices.
     const uint16_t maxByScript =

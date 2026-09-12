@@ -266,10 +266,12 @@ private:
     uint32_t timeInLineMs_ = 0;                  // 4
     uint16_t revision_ = 0;                      // 2
     LineId current_ = kNoLine;                   // 2
-    // Declared and initialized here, deliberately unused until choice
-    // selection is implemented -- keeps sizeof(DialogRunner) and the
-    // static_assert below stable in the meantime, so a future diff adding
-    // selection support carries no layout change to review.
+    // Index into the current line's choices, local to that line, NOT an
+    // offset into DialogScript::choices. kNoChoice whenever the runner is
+    // not on a choice line, or is on one with no usable choice. Held
+    // within [0, choiceCount()) by enterLine()'s reset, by Up/Down's
+    // clamp and by select()'s bounds check; feed()'s Confirm branch
+    // depends on that.
     ChoiceId selected_ = kNoChoice;              // 1
     uint8_t page_ = 0;                           // 1
     uint8_t pageCount_ = 1;                      // 1
