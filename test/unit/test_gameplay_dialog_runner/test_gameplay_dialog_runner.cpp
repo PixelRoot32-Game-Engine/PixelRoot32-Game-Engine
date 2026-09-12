@@ -1,9 +1,8 @@
 /**
  * @file test_gameplay_dialog_runner.cpp
- * @brief Unit tests for gameplay/DialogRunner (dialog/runner-core slice)
+ * @brief Unit tests for gameplay/DialogRunner
  *
- * Covers the spec requirements this slice owns (dialog-runner capability,
- * requirements 7-14):
+ * Covers requirements 7-14 of the dialog-runner capability:
  * - Five-state machine and legal transitions
  * - Linear line chains (DialogLine::next)
  * - Per-line auto-advance
@@ -18,10 +17,10 @@
  *
  * Out of scope here, deliberately: the four choice accessors
  * (choiceCount()/choice()/selectedChoice()/select()), ShowingChoices' action
- * handling, and DialogEventType::{ChoiceConfirmed,Cancelled} -- all land in
- * dialog/runner-choices (design.md section 12). This file only proves a
- * Choice line reaches ShowingChoices and that every DialogAction fed there
- * is a no-op, which stays true unmodified after that slice lands.
+ * handling, and DialogEventType::{ChoiceConfirmed,Cancelled} are not
+ * implemented yet. This file only proves a Choice line reaches
+ * ShowingChoices and that every DialogAction fed there is a no-op, which
+ * stays true unmodified once that handling is implemented.
  *
  * The functional tests only compile when PIXELROOT32_ENABLE_DIALOG is
  * enabled, since DialogRunner is entirely guarded behind that flag (see
@@ -47,16 +46,20 @@
 using namespace pixelroot32::gameplay;
 
 // =============================================================================
-// Static-layout regression guard (design.md section 6): 24 B ESP32 (32-bit
+// Static-layout regression guard: 24 B ESP32 (32-bit
 // pointer), 40 B on 64-bit native. Mirrors test_dialog_types.cpp's pattern.
 // =============================================================================
 
 #ifdef ESP32
 static_assert(sizeof(DialogRunner) == 24,
-              "DialogRunner must be 24 bytes on ESP32 (design.md section 6).");
+              "DialogRunner must be 24 bytes on ESP32; see the RAM regression "
+              "guard comment above DialogRunner's static_assert in "
+              "DialogRunner.h if this changed intentionally.");
 #else
 static_assert(sizeof(DialogRunner) == 40,
-              "DialogRunner must be 40 bytes on 64-bit native (design.md section 6).");
+              "DialogRunner must be 40 bytes on 64-bit native; see the RAM "
+              "regression guard comment above DialogRunner's static_assert "
+              "in DialogRunner.h if this changed intentionally.");
 #endif
 
 namespace {
@@ -91,7 +94,8 @@ void onDialogEvent(void* owner, const DialogEvent& event) {
 }
 
 // =============================================================================
-// Script fixtures -- caller-owned, const, .rodata-resident (design.md D7).
+// Script fixtures -- caller-owned, const, .rodata-resident; must outlive
+// any DialogRunner started from them.
 // =============================================================================
 
 constexpr const char* kLineAText = "Line A";
@@ -131,8 +135,8 @@ static const DialogLine kBadNextLines[] = {
 };
 static const DialogScript kBadNextScript{kBadNextLines, nullptr, 1, 0};
 
-// Single Choice line. choices is null / choiceCount is 0: dialog/runner-core
-// never reads the choices table, so this stays valid ahead of that slice.
+// Single Choice line. choices is null / choiceCount is 0: DialogRunner does
+// not read the choices table yet, so this stays valid until it does.
 static const DialogLine kChoiceLines[] = {
     {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 9, 0, /*firstChoice*/ 0, /*choiceCount*/ 2,
      LineKind::Choice, 0},
@@ -481,7 +485,7 @@ void test_dialog_runner_stop_fires_no_event(void) {
 
 // =============================================================================
 // Requirement: a Choice line reaches ShowingChoices; every action there is a
-// deliberate no-op in this slice (dialog/runner-choices fills the branch)
+// deliberate no-op until ShowingChoices' action handling is implemented
 // =============================================================================
 
 void test_dialog_runner_choice_line_reaches_showing_choices_and_ignores_advance(void) {

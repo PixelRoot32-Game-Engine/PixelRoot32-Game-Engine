@@ -47,9 +47,9 @@ void DialogRunner::feed(DialogAction action) {
             break;
 
         case DialogState::ShowingChoices:
-            // dialog/runner-core: entry only. Up/Down/Confirm/Cancel handling
-            // for ShowingChoices lands in dialog/runner-choices (design.md
-            // section 12); every action here is a deliberate no-op until then.
+            // Entry only: Up/Down/Confirm/Cancel handling for ShowingChoices
+            // is not implemented yet; every action here is a deliberate
+            // no-op until it is.
             break;
 
         case DialogState::Inactive:

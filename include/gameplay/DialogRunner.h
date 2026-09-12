@@ -16,19 +16,19 @@ namespace pixelroot32::gameplay {
  * No Renderer, no InputManager, no Font: it consumes semantic DialogActions
  * and knows nothing about pixels, which is what lets Top Down City adopt it
  * alone, without DialogBox, and keeps the RAM guard below meaningful without
- * a graphics include in this header (design.md D4). Zero heap allocation in
+ * a graphics include in this header. Zero heap allocation in
  * every path -- feed()/update()/start() only ever mutate this object's own
  * fixed fields. Table-ownership, function-pointer and packing conventions
- * are copied from gameplay/StateMachine.h (design.md D7): the caller-owned
+ * are copied from gameplay/StateMachine.h: the caller-owned
  * script is bound, not copied, and must outlive the runner.
  *
- * This slice (dialog/runner-core) implements Inactive, ShowingText,
+ * This implementation covers Inactive, ShowingText,
  * AwaitingAdvance and Finished fully, plus entry only into ShowingChoices --
  * a Choice line reaches that state and every DialogAction fed there is a
  * deliberate no-op. The four choice accessors (choiceCount(), choice(),
  * selectedChoice(), select()) and ShowingChoices' action handling are
- * purely additive in dialog/runner-choices (design.md section 12); nothing
- * declared here changes shape or meaning when that slice lands.
+ * additive and land later; nothing declared here changes shape or meaning
+ * when they do.
  */
 class DialogRunner {
 public:
@@ -43,7 +43,7 @@ public:
     /**
      * @brief Binds `script` and enters `first`.
      * @param script Caller-owned, const, .rodata-resident script table. NOT
-     *        copied; must outlive this runner (design.md D7).
+     *        copied; must outlive this runner.
      * @param first Line to enter first. Defaults to 0.
      * @return false, leaving the runner Inactive, when `script.lines` is
      *         null, `script.lineCount` is 0, or `first` is out of range;
@@ -64,7 +64,7 @@ public:
      * @brief Applies one semantic action.
      * @param action The action to apply.
      *
-     * Total over DialogState x DialogAction (design.md section 5): an
+     * Total over DialogState x DialogAction: an
      * action illegal in the current state is silently ignored -- no state
      * change, no revision() bump, no event, no crash. Confirm aliases
      * Advance in ShowingText and AwaitingAdvance.
@@ -85,7 +85,7 @@ public:
      * @brief Declares how many pages the CURRENT line's text occupies.
      * @param pageCount Total pages for the current line; 0 is treated as 1.
      *
-     * The runner is headless and cannot derive this itself (design.md D4):
+     * The runner is headless and cannot derive this itself:
      * the presenter (DialogBox, or the game) supplies it after wrapping.
      * Resets to 1 on every line entry, so a runner with no presenter
      * behaves as exactly one page per line. Clamps the current page into
@@ -133,8 +133,8 @@ public:
 
     /**
      * @brief A change counter, incremented whenever anything player-visible
-     *        changes (line, page, or -- once dialog/runner-choices lands --
-     *        selected choice).
+     *        changes (line, page, or -- once choice selection is
+     *        implemented -- the selected choice).
      * @return The counter's current value.
      *
      * WRAPS: uint16_t, roughly 18 minutes of per-frame bumps at 60 FPS.
@@ -155,10 +155,10 @@ private:
     uint32_t timeInLineMs_ = 0;                  // 4
     uint16_t revision_ = 0;                      // 2
     LineId current_ = kNoLine;                   // 2
-    // Declared and initialized here, deliberately unused until
-    // dialog/runner-choices lands its accessors -- keeps sizeof(DialogRunner)
-    // and the static_assert below stable across the whole chain, so that
-    // slice's diff carries no layout change to review (design.md section 12).
+    // Declared and initialized here, deliberately unused until choice
+    // selection is implemented -- keeps sizeof(DialogRunner) and the
+    // static_assert below stable in the meantime, so a future diff adding
+    // selection support carries no layout change to review.
     ChoiceId selected_ = kNoChoice;              // 1
     uint8_t page_ = 0;                           // 1
     uint8_t pageCount_ = 1;                      // 1
@@ -167,9 +167,11 @@ private:
 
 /// RAM regression guard. Actual: 24 B on ESP32, 40 B on 64-bit native. Zero
 /// native slack is deliberate -- adding a field must be a conscious bump of
-/// this constant with a note, not a silent drift (design.md section 6).
+/// this constant with a note, not a silent drift.
 static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
-              "DialogRunner grew; see sdd/dialog-mvp/design section 6");
+              "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
+              "if this growth is intentional, raise the threshold above and "
+              "update the size comment");
 
 } // namespace pixelroot32::gameplay
 #endif // PIXELROOT32_ENABLE_DIALOG
