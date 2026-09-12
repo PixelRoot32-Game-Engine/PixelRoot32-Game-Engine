@@ -11,19 +11,19 @@ Headless five-state dialog machine over a caller-owned, const DialogScript.
 No Renderer, no InputManager, no Font: it consumes semantic DialogActions
 and knows nothing about pixels, which is what lets Top Down City adopt it
 alone, without DialogBox, and keeps the RAM guard below meaningful without
-a graphics include in this header (design.md D4). Zero heap allocation in
+a graphics include in this header. Zero heap allocation in
 every path -- feed()/update()/start() only ever mutate this object's own
 fixed fields. Table-ownership, function-pointer and packing conventions
-are copied from gameplay/StateMachine.h (design.md D7): the caller-owned
+are copied from gameplay/StateMachine.h: the caller-owned
 script is bound, not copied, and must outlive the runner.
 
-This slice (dialog/runner-core) implements Inactive, ShowingText,
+This implementation covers Inactive, ShowingText,
 AwaitingAdvance and Finished fully, plus entry only into ShowingChoices --
 a Choice line reaches that state and every DialogAction fed there is a
 deliberate no-op. The four choice accessors (choiceCount(), choice(),
 selectedChoice(), select()) and ShowingChoices' action handling are
-purely additive in dialog/runner-choices (design.md section 12); nothing
-declared here changes shape or meaning when that slice lands.
+additive and land later; nothing declared here changes shape or meaning
+when they do.
 
 ## Methods
 
@@ -48,7 +48,7 @@ Binds `script` and enters `first`.
 **Parameters:**
 
 - `script`: Caller-owned, const, .rodata-resident script table. NOT
-       copied; must outlive this runner (design.md D7).
+       copied; must outlive this runner.
 - `first`: Line to enter first. Defaults to 0.
 
 **Returns:** false, leaving the runner Inactive, when `script.lines` is
@@ -72,7 +72,7 @@ Applies one semantic action.
 
 - `action`: The action to apply.
 
-Total over DialogState x DialogAction (design.md section 5): an
+Total over DialogState x DialogAction: an
 action illegal in the current state is silently ignored -- no state
 change, no revision() bump, no event, no crash. Confirm aliases
 Advance in ShowingText and AwaitingAdvance.
@@ -101,7 +101,7 @@ Declares how many pages the CURRENT line's text occupies.
 
 - `pageCount`: Total pages for the current line; 0 is treated as 1.
 
-The runner is headless and cannot derive this itself (design.md D4):
+The runner is headless and cannot derive this itself:
 the presenter (DialogBox, or the game) supplies it after wrapping.
 Resets to 1 on every line entry, so a runner with no presenter
 behaves as exactly one page per line. Clamps the current page into
@@ -162,8 +162,8 @@ The total page count of the current line.
 **Description:**
 
 A change counter, incremented whenever anything player-visible
-       changes (line, page, or -- once dialog/runner-choices lands --
-       selected choice).
+       changes (line, page, or -- once choice selection is
+       implemented -- the selected choice).
 
 **Returns:** The counter's current value.
 
