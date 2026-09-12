@@ -110,9 +110,12 @@ struct DialogChoice {
  * @struct DialogLine
  * @brief One line of a DialogScript: either shown text or a choice prompt.
  *
- * 20 bytes on ESP32 -- not 16, because next/tag/autoAdvanceMs pad out to
- * the pointer alignment the two leading char pointers impose -- and 32 on
- * 64-bit native -- this exact figure is the regression guard
+ * 20 bytes on ESP32, 32 on 64-bit native. The fields sum to 18 on ESP32
+ * with no padding between them -- next, tag and autoAdvanceMs land on
+ * offsets 8, 10 and 12 and are already aligned. The extra 2 bytes are
+ * trailing padding, rounding the struct to the 4-byte alignment its two
+ * leading pointers impose (design.md section 6). This exact figure is
+ * the regression guard
  * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
  * is a conscious, reviewed change rather than silent drift in a game's
  * flash budget.
