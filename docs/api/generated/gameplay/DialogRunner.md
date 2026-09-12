@@ -72,18 +72,14 @@ Binds `script` and enters `first`.
         report "not on a line", even if a PRIOR successful start()
         had it pointing at a different script.
 
-        ALSO false, but with NO effect on this runner whatsoever,
-        when called reentrantly from within the configured
-        DialogEventFn (see configure()): the outer call already in
-        flight owns the session and must not be torn down out from
-        under it, so script_ stays bound to whatever the outer call
-        started with. This return value is therefore NOT enough on
-        its own to distinguish "rejected" from "ignored, still
-        running" -- only the caller's own context can, since a
-        reentrant call is only reachable from code that is already
-        inside `onEvent` and therefore already knows it is mid-
-        dispatch. A bool return cannot express three outcomes; this
-        is a deliberate, documented limit of the signature, not an
+        ALSO false, but with NO effect on this runner at all, when
+        called reentrantly from within the configured DialogEventFn
+        (see configure()): the outer call in flight owns the session
+        and must not be torn down under it. A bool cannot express
+        three outcomes, so the return alone does not separate
+        "rejected" from "ignored, still running" -- only the caller
+        can, since a reentrant call is reachable only from code that
+        already knows it is mid-dispatch. Deliberate limit, not an
         oversight.
 
         Returns true otherwise, after entering `first` (which itself

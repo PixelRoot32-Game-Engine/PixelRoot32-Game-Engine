@@ -66,18 +66,14 @@ public:
      *         report "not on a line", even if a PRIOR successful start()
      *         had it pointing at a different script.
      *
-     *         ALSO false, but with NO effect on this runner whatsoever,
-     *         when called reentrantly from within the configured
-     *         DialogEventFn (see configure()): the outer call already in
-     *         flight owns the session and must not be torn down out from
-     *         under it, so script_ stays bound to whatever the outer call
-     *         started with. This return value is therefore NOT enough on
-     *         its own to distinguish "rejected" from "ignored, still
-     *         running" -- only the caller's own context can, since a
-     *         reentrant call is only reachable from code that is already
-     *         inside `onEvent` and therefore already knows it is mid-
-     *         dispatch. A bool return cannot express three outcomes; this
-     *         is a deliberate, documented limit of the signature, not an
+     *         ALSO false, but with NO effect on this runner at all, when
+     *         called reentrantly from within the configured DialogEventFn
+     *         (see configure()): the outer call in flight owns the session
+     *         and must not be torn down under it. A bool cannot express
+     *         three outcomes, so the return alone does not separate
+     *         "rejected" from "ignored, still running" -- only the caller
+     *         can, since a reentrant call is reachable only from code that
+     *         already knows it is mid-dispatch. Deliberate limit, not an
      *         oversight.
      *
      *         Returns true otherwise, after entering `first` (which itself
@@ -217,18 +213,14 @@ private:
 };
 
 /// RAM regression guard, re-derived by hand.
-/// ESP32 (32-bit pointers): field bytes sum to 25, padded by 3 bytes to
-/// the platform's 4-byte pointer alignment -- 28 B total. Before
-/// `dispatching_` existed the sum was 24, already a multiple of 4 (zero
-/// padding, 24 B total); the new field is a real 4-byte growth (1 field
-/// byte + 3 new padding bytes), not reclaimed slack -- there was none.
-/// 64-bit native: field bytes sum to 37, padded by 3 bytes to the
-/// platform's 8-byte alignment -- 40 B total, unchanged from before
-/// `dispatching_` (sum was 36, padded by 4; the new field consumed 1 of
-/// those 4 padding bytes, leaving 3). Both totals sit exactly at the
-/// threshold below, zero slack on either platform. A future field of 1-3
-/// bytes could still land inside native's remaining 3 bytes of padding
-/// without tripping this assert or the sizeof test guard.
+/// ESP32: fields sum to 25, +3 padding to 4-byte alignment = 28 B. Was
+/// 24 (sum 24, zero padding), so `dispatching_` is real 4-byte growth,
+/// not reclaimed slack -- there was none.
+/// Native: fields sum to 37, +3 padding to 8-byte alignment = 40 B,
+/// unchanged (was sum 36 +4 padding; the new field took 1 of those 4).
+/// Both sit exactly at the threshold below, zero slack. A future 1-3
+/// byte field still fits native's 3 padding bytes without tripping this
+/// assert or the sizeof test guard.
 static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
               "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
               "if this growth is intentional, raise the threshold above and "
