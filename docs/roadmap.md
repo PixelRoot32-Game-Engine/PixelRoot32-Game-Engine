@@ -17,6 +17,7 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 
 ## Completed Features ✅
 
+- ✅ **Cell-to-Screen Projection**: Isometric and oblique views as `ProjectionSpec` values, with projected tilemap drawing. Shipped in [1.10.0](../CHANGELOG.md).
 - ✅ **Gameplay Framework**: Grid space, state machines, object pools, event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — every capability opt-in behind its own `PIXELROOT32_ENABLE_*` flag. Shipped in [1.9.0](../CHANGELOG.md).
 - ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
 - ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
