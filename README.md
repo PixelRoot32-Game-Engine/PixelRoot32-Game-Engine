@@ -239,6 +239,29 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
+## 1.11.0
+
+Introduces a **dialog system** and **accented Latin text**. Both are opt-in behind build flags that default to `0`. ASCII text measures and renders exactly as in 1.10.0; the one API change is that `FontManager::getGlyphIndex` now returns `uint16_t` (see Changed).
+
+### 💬 Dialog
+
+- **`DialogRunner` (`PIXELROOT32_ENABLE_DIALOG`)**: a headless dialog state machine for text lines, auto-advancing lines, paged text and choices. It is driven only by semantic `feed(DialogAction)` and `update(deltaTimeMs)` calls, has no `Renderer`, `InputManager` or `Font` dependency, and reports lines and confirmed choices through one event callback. The script is a caller-owned `const` table in flash. A session allocates nothing on the heap, and the runner is 28 B on ESP32.
+- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list with the selection highlighted. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
+- **`DialogTypes`**: `DialogLine`, `DialogChoice` and `DialogScript`, the data model a game authors its script in.
+
+### 🔤 Text & Fonts
+
+- **Accented Latin characters (`PIXELROOT32_ENABLE_FONT_LATIN1`)**: renders `á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡ « » º` from ordinary UTF-8 string literals, with no compiler charset flag. Accented capitals keep the same baseline as unaccented ones.
+- **`TextLayout`**: glyph-accurate word wrap and measurement (`wrap()`, `measureWidthPx()`, `countWrappedLines()`), allocation-free, with page skipping so a presenter never wraps the same text twice. It is always available, with no flag.
+- **`Font` supplement block**: optional extra glyphs appended to the struct, so every existing font initializer keeps compiling.
+
+### 🔧 Changed
+
+- `FontManager::getGlyphIndex` returns `uint16_t` and reports "not found" as `FontManager::kNoGlyph` (`0xFFFF`) instead of `255`, which was itself a legal glyph index. **Migration:** replace comparisons against `255` and stop storing the result in a `uint8_t`. Neither mistake fails to compile, so check call sites by hand.
+- `textWidth` and `drawTextCentered` measure per glyph instead of per byte, so they agree with `drawText` for multi-byte text. ASCII strings are unaffected.
+
+Reference consumer: [`examples/dialog`](examples/dialog), which shows an auto-advancing line, a speaker chain and a branching three-option choice.
+
 ## 1.10.0
 
 Introduces **cell-to-screen projection**. The engine gains no isometric mode: a view is a `ProjectionSpec` value, and orthogonal, isometric 2:1, isometric 1:1 and oblique are all values of that one type. Every capability is opt-in behind its own build flag and defaults to `0`, so a build that enables none of them is identical to 1.9.0.
