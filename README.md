@@ -232,7 +232,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
-- 💬 **Dialog System, post-MVP**: Migrating Top Down City and Chess onto the 1.11.0 dialog system comes first. After that come additions that land when a game needs them: multi-column option rows, conditional choices, speaker portraits, per-character reveal and localization.
+- 💬 **Dialog System, post-MVP**: Additions to the 1.11.0 dialog system that land when a game needs them: multi-column option rows, conditional choices, speaker portraits, per-character reveal and localization.
 
 👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
