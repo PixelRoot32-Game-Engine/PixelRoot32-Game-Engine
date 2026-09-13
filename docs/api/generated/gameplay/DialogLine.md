@@ -26,7 +26,7 @@ flash budget.
 | `next` | `LineId` | LineKind::Text only. |
 | `tag` | `uint16_t` | Carried on LineEnter; 0 is a legal tag. |
 | `autoAdvanceMs` | `uint16_t` | 0 waits for the player (AwaitingAdvance). |
-| `firstChoice` | `ChoiceId` | Index into DialogScript::choices. |
-| `choiceCount` | `uint8_t` | Clamped to config::DialogMaxChoices at runtime. |
+| `firstChoice` | `ChoiceId` | Index into DialogScript::choices; must stay below 255. |
+| `choiceCount` | `uint8_t` | Clamped to DialogMaxChoices, to the table, and below 255. |
 | `kind` | `LineKind` | Discriminator; decides which fields above apply. |
-| `flags` | `uint8_t` | kLineFlagAllowCancel; honored once choice handling lands. |
+| `flags` | `uint8_t` | kLineFlagAllowCancel; unknown bits are ignored, not rejected. |
