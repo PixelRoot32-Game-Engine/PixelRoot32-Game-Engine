@@ -15,7 +15,14 @@ using ChoiceId = uint8_t;
 inline constexpr LineId   kNoLine   = 0xFFFF;
 inline constexpr ChoiceId kNoChoice = 0xFF;
 
-/// DialogLine::flags bits. Reserved bits MUST be 0.
+/// DialogLine::flags bits. DialogRunner reads this field through an
+/// explicit mask of each bit it knows about (e.g. `flags &
+/// kLineFlagAllowCancel`), never by testing `flags` for truthiness. Unknown
+/// or future bits are therefore silently IGNORED, not rejected -- a line
+/// carrying a reserved bit the runner does not understand still runs
+/// normally, it just has no effect from that bit. This keeps a script
+/// forward-compatible with an older runner build instead of failing closed
+/// on it.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
 
 /**
@@ -110,9 +117,12 @@ struct DialogChoice {
  * @struct DialogLine
  * @brief One line of a DialogScript: either shown text or a choice prompt.
  *
- * 20 bytes on ESP32 -- not 16, because next/tag/autoAdvanceMs pad out to
- * the pointer alignment the two leading char pointers impose -- and 32 on
- * 64-bit native -- this exact figure is the regression guard
+ * 20 bytes on ESP32, 32 on 64-bit native. The fields sum to 18 on ESP32
+ * with no padding between them -- next, tag and autoAdvanceMs land on
+ * offsets 8, 10 and 12 and are already aligned. The extra 2 bytes are
+ * trailing padding, rounding the struct to the 4-byte alignment its two
+ * leading pointers impose. This exact figure is
+ * the regression guard
  * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
  * is a conscious, reviewed change rather than silent drift in a game's
  * flash budget.
@@ -123,10 +133,15 @@ struct DialogLine {
     LineId      next;           ///< LineKind::Text only.
     uint16_t    tag;            ///< Carried on LineEnter; 0 is a legal tag.
     uint16_t    autoAdvanceMs;  ///< 0 waits for the player (AwaitingAdvance).
-    ChoiceId    firstChoice;    ///< Index into DialogScript::choices.
-    uint8_t     choiceCount;    ///< Clamped to config::DialogMaxChoices at runtime.
+    // A script may hold more than 255 choices in total, but no single line can ADDRESS
+    // one at or past index 255: ChoiceId is uint8_t and kNoChoice (0xFF) is its sentinel,
+    // so an index that reached it would be indistinguishable from "no choice".
+    // DialogRunner::choiceCount() clamps any pair that would reach it, or that overruns
+    // DialogScript::choiceCount, rather than reading out of bounds.
+    ChoiceId    firstChoice;    ///< Index into DialogScript::choices; must stay below 255.
+    uint8_t     choiceCount;    ///< Clamped to DialogMaxChoices, to the table, and below 255.
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
-    uint8_t     flags;          ///< kLineFlagAllowCancel; honored once choice handling lands.
+    uint8_t     flags;          ///< kLineFlagAllowCancel; unknown bits are ignored, not rejected.
 };
 
 /**

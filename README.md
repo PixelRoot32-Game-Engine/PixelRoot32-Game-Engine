@@ -232,6 +232,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
+- 💬 **Dialog System, post-MVP**: Migrating Top Down City and Chess onto the 1.11.0 dialog system comes first. After that come additions that land when a game needs them: multi-column option rows, conditional choices, speaker portraits, per-character reveal and localization.
 
 👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
@@ -239,63 +240,28 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.10.0
+## 1.11.0
 
-Introduces **cell-to-screen projection**. The engine gains no isometric mode: a view is a `ProjectionSpec` value, and orthogonal, isometric 2:1, isometric 1:1 and oblique are all values of that one type. Every capability is opt-in behind its own build flag and defaults to `0`, so a build that enables none of them is identical to 1.9.0.
+Introduces a **dialog system** and **accented Latin text**. Both are opt-in behind build flags that default to `0`. ASCII text measures and renders exactly as in 1.10.0; the one API change is that `FontManager::getGlyphIndex` now returns `uint16_t` (see Changed).
 
-### 📐 Projection
+### 💬 Dialog
 
-- **`ProjectionSpec` (`PIXELROOT32_ENABLE_PROJECTION`)**: an origin plus a 2×2 integer basis. `cellToScreenX/Y` place a cell and never divide; `screenToCellX/Y` invert the mapping for touch picking, flooring toward negative infinity so a tap one pixel outside the map lands in the cell outside it rather than clamping to (0,0). A `constexpr` spec costs zero SRAM.
-- **Projected tilemap draw (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`)**: a flag-guarded `drawTileMap` overload for every tile format — 1bpp, 2bpp and 4bpp — sharing one geometry implementation. Cells are anchored by `TileMapGeneric<T>::tileFootY`, so a tile sits on its cell rather than its top-left corner, and dirty marking follows the sprite's extent so an overhanging tile leaves no stale pixels. The plain orthogonal overloads are textually unchanged.
-- **Cell-range culling (`math::CellRange`)**: the half-open cell window a screen rectangle covers under a given spec, found by inverting the rectangle's corners rather than by the hardcoded orthogonal expressions.
-- **Projection-agnostic depth keys (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: `Entity::depthKey` with `gameplay::compareByDepthKey` lets a game set paint order directly. Ordering by `position.y + height` is correct only while screen depth tracks world Y, which no non-identity projection guarantees. `compareByBottomY` is unchanged and stays right for orthogonal games.
-- **`GridMotion` under a projection**: `interpolatedWorld()` gains a `ProjectionSpec` overload, so an isometric actor reuses the same cell-to-cell stepping an orthogonal one uses.
-- **Static layer snapshot (`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`)**: `graphics::StaticLayerSnapshot` caches static layers that *game code* draws, which `StaticTilemapLayerCache` cannot reach because it presupposes a tilemap. Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240), which is why it defaults to off.
+- **`DialogRunner` (`PIXELROOT32_ENABLE_DIALOG`)**: a headless dialog state machine for text lines, auto-advancing lines, paged text and choices. It is driven only by semantic `feed(DialogAction)` and `update(deltaTimeMs)` calls, has no `Renderer`, `InputManager` or `Font` dependency, and reports lines and confirmed choices through one event callback. The script is a caller-owned `const` table in flash. A session allocates nothing on the heap, and the runner is 28 B on ESP32.
+- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list with the selection highlighted. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
+- **`DialogTypes`**: `DialogLine`, `DialogChoice` and `DialogScript`, the data model a game authors its script in.
+
+### 🔤 Text & Fonts
+
+- **Accented Latin characters (`PIXELROOT32_ENABLE_FONT_LATIN1`)**: renders `á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡ « » º` from ordinary UTF-8 string literals, with no compiler charset flag. Accented capitals keep the same baseline as unaccented ones.
+- **`TextLayout`**: glyph-accurate word wrap and measurement (`wrap()`, `measureWidthPx()`, `countWrappedLines()`), allocation-free, with page skipping so a presenter never wraps the same text twice. It is always available, with no flag.
+- **`Font` supplement block**: optional extra glyphs appended to the struct, so every existing font initializer keeps compiling.
 
 ### 🔧 Changed
 
-- `Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`.
-- 4bpp and 2bpp sprite blits pack the palette once per sprite instead of once per pixel.
-- A 4bpp/2bpp pixel naming an index beyond its sprite's `paletteSize` now resolves to black.
+- `FontManager::getGlyphIndex` returns `uint16_t` and reports "not found" as `FontManager::kNoGlyph` (`0xFFFF`) instead of `255`, which was itself a legal glyph index. **Migration:** replace comparisons against `255` and stop storing the result in a `uint8_t`. Neither mistake fails to compile, so check call sites by hand.
+- `textWidth` and `drawTextCentered` measure per glyph instead of per byte, so they agree with `drawText` for multi-byte text. ASCII strings are unaffected.
 
-Reference consumer: [`examples/iso_dungeon`](examples/iso_dungeon), the first place in this repository where the projected path is executed rather than merely linked, pinned to a frozen pre-conversion oracle by a differential test.
-
-## 1.9.0
-
-Introduces the **Gameplay Framework**. Every capability is opt-in behind its own build flag, all default to `0`, and a build that enables none of them is identical to 1.8.0 — no breaking changes.
-
-### 🕹️ Gameplay Framework
-
-- **Grid Space**: Cell ↔ world conversion with correct floor semantics at negative coordinates and no division on the hot path, plus `GridMotion` for sub-cell interpolated movement between cells. A `constexpr GridSpec` costs zero SRAM.
-- **State Machine**: Actor states driven from a flash-resident `const` table with `onEnter`/`onUpdate`/`onExit` callbacks and immediate, fully drained transitions.
-- **Object Pool**: `ObjectPool<T, N>` — fixed-capacity, zero-heap acquire/release for bullets, enemies and explosions.
-- **Events & Interaction Triggers**: Engine-owned fixed-capacity event bus, plus `InteractionTracker` turning the per-frame contact set into `onEnter`/`onExit` edges for trigger volumes and pickups.
-- **Room Graphs**: `RoomGraph<N>` models a screen-by-screen world with per-room camera bounds, consumes Tilemap Editor room exports through `buildRoomGraph()` with no parsing or allocation, and notifies scenes via `Scene::onRoomEnter()`.
-
-### 🎨 Graphics & UI
-
-- **Camera Tweens**: `CameraTween<N>` moves the camera along waypoints with Linear and quadratic easing, fixed-point throughout (no FPU cost on ESP32-C3).
-- **Depth Sorting**: Optional secondary comparator *within* a render layer — what top-down games need to order actors against scenery by Y.
-- **UI Sprites**: `UISprite` makes an icon a first-class UI element (visibility, layout placement, `setFixedPosition()`); `UISpriteRow` draws a whole value-driven row — hearts, lives, ammo — from one entity, with half and quarter steps.
-- **Transition Color Fix**: Fades and wipes scaled the packed colour byte as a single value, rotating hue instead of dimming on hardware. Now scaled per channel.
-
-### 🏀 Physics
-
-- **Spatial Queries**: `queryRadius()` / `queryBox()` with a collision-layer mask for blasts, aggro ranges and area effects — no manual scan over every actor.
-- **Multi-Hit Tiles**: `requiredHits` + `applyHit()` on `TileConsumptionHelper` for breakable and armoured blocks.
-- **Per-Pixel Tile Collision**: `isTilePixelSolid()` / `isWorldPixelSolid()` decode a tile's 4bpp bitmap so transparent "dead" pixels don't block movement, with an optional morphological erosion radius — no physics simulation required.
-
-### ⚡ Performance
-
-- **Deferred DMA Wait**: The frame's last SPI block stays in flight and flushes at the top of the next call, so frame cost becomes `max(CPU, transfer)` instead of `CPU + transfer`. Always on.
-- **1bpp Direct Framebuffer Path**: Text, `MultiSprite` layers and 1bpp tilemaps write the 8bpp framebuffer directly instead of a virtual `drawPixel()` per pixel (~40–100 cycles → ~4–8).
-- **12-bit RGB444 (opt-in, experimental)**: `PIXELROOT32_TFT_12BIT_COLOR` cuts 25% of SPI bus time and DMA buffer size with no colour loss. **Not yet verified on hardware** — ships off.
-
-### 🎮 Examples
-
-- **bomberbot** (grid movement, chain-reaction explosions, PRNG enemy AI), **midway_clone** (pooled vertical shooter with a camera driven every frame, profiled), **legend_of_clone** (screen-by-screen overworld and dungeon, `RoomGraph`, selectable per-pixel tile collision).
-- `2048` and `bomberbot` derive board geometry from Grid Space (`iso_dungeon` enables the same flag for `GridMotion`, but declares no `GridSpec`); `flappy_bird` and `metroidvania` run their states through State Machine; `physics` shows radius queries, `metroidvania` the triggers and event bus, `bomberbot` depth sorting, and `camera` the effects and tweens.
-- The catalogue is now 13 projects, each covering something no other example covers, with a flag-to-example table in [`examples/README.md`](examples/README.md). `space_invaders` and `tic_tac_toe` were removed as duplicates, and `camera-effect-demo` was folded into `camera`.
+Reference consumer: [`examples/dialog`](examples/dialog), which shows an auto-advancing line, a speaker chain and a branching three-option choice.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

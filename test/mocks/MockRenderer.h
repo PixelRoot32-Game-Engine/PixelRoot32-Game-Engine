@@ -36,6 +36,18 @@ public:
         rendererCalls.push_back({"text", x, y, 0, 0, 0, 0, 0, color, std::string(text), 1.0f, 1.0f});
     }
 
+    // 6-arg overload capturing the explicit-font call path. Renderer declares
+    // both a 5-arg and a 6-arg drawText(); the 5-arg override above hides
+    // *every* Renderer::drawText overload (non-virtual same-name hiding, not
+    // overriding), so without this a caller that always passes a font
+    // (nullptr or otherwise) would fail to compile against MockRenderer. The
+    // font pointer itself is not captured -- no test needs to assert which
+    // Font* a call used, only that the call happened with the right text and
+    // position.
+    void drawText(std::string_view text, int16_t x, int16_t y, Color color, uint8_t size, const Font* /*font*/) {
+        rendererCalls.push_back({"text", x, y, 0, 0, 0, 0, 0, color, std::string(text), 1.0f, 1.0f});
+    }
+
     void drawTextCentered(std::string_view text, int16_t y, Color color, uint8_t size) {
         rendererCalls.push_back({"text_centered", 0, y, 0, 0, 0, 0, 0, color, std::string(text), 1.0f, 1.0f});
     }

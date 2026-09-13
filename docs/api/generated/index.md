@@ -71,6 +71,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [DialogEvent](./gameplay/DialogEvent.md) — The single payload type delivered to DialogEventFn for every kind of dialog event.
 - [DialogEventType](./gameplay/DialogEventType.md) — Identifies which fields of a DialogEvent are meaningful.
 - [DialogLine](./gameplay/DialogLine.md) — One line of a DialogScript: either shown text or a choice prompt.
+- [DialogRunner](./gameplay/DialogRunner.md) — Headless five-state dialog machine over a caller-owned, const DialogScript.
 - [DialogScript](./gameplay/DialogScript.md) — The caller-owned, immutable table a DialogRunner is started with.
 - [DialogState](./gameplay/DialogState.md) — The five states DialogRunner can be in; feed() is total over State x DialogAction.
 - [GameplayEvent](./gameplay/GameplayEvent.md) — Fixed-size POD carried by the GameplayEventBus.
@@ -105,6 +106,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
 - [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
+- [DialogBox](./graphics/DialogBox.md) — Optional default dialog panel, driven by a DialogRunner.
+- [DialogBoxStyle](./graphics/DialogBoxStyle.md) — Every visual and layout knob DialogBox needs to draw a panel.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayConfig](./graphics/DisplayConfig.md) — Configuration settings for initializing displays with optional resolution scaling.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
