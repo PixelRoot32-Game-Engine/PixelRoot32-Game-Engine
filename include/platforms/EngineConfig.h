@@ -158,6 +158,17 @@
 #endif
 
 // =============================================================================
+// Dialog Limits
+// =============================================================================
+#ifndef PIXELROOT32_DIALOG_MAX_CHOICES
+    #define PIXELROOT32_DIALOG_MAX_CHOICES 4
+#endif
+
+#ifndef PIXELROOT32_DIALOG_MAX_WRAPPED_LINES
+    #define PIXELROOT32_DIALOG_MAX_WRAPPED_LINES 4
+#endif
+
+// =============================================================================
 // Palette Limits
 // =============================================================================
 
@@ -348,6 +359,14 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to SpatialQueryMaxRadius configuration. */
     inline constexpr int SpatialQueryMaxRadius = SPATIAL_QUERY_MAX_RADIUS;
+
+    // Dialog Limits
+
+    /** @brief Type-safe access to DialogMaxChoices configuration. */
+    inline constexpr uint8_t DialogMaxChoices = PIXELROOT32_DIALOG_MAX_CHOICES;
+
+    /** @brief Type-safe access to DialogMaxWrappedLines configuration. */
+    inline constexpr uint8_t DialogMaxWrappedLines = PIXELROOT32_DIALOG_MAX_WRAPPED_LINES;
 
     // Deprecated for backward compatibility
 
@@ -584,6 +603,16 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to EnableProjection configuration. */
     inline constexpr bool EnableProjection = false;
+    #endif
+
+    #if PIXELROOT32_ENABLE_DIALOG
+
+    /** @brief Type-safe access to EnableDialog configuration. */
+    inline constexpr bool EnableDialog = true;
+    #else
+
+    /** @brief Type-safe access to EnableDialog configuration. */
+    inline constexpr bool EnableDialog = false;
     #endif
 
     #if PIXELROOT32_ENABLE_FONT_LATIN1

@@ -7,9 +7,17 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 - 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
+- 💬 **Dialog System, post-MVP**: The MVP (`TextLayout`, `DialogRunner`, `DialogBox`, `examples/dialog`) ships in 1.11.0. Next comes migrating Top Down City (banner and item picker) and Chess (promotion picker) onto it. After that, each item below is additive and is waiting for a game to need it:
+  - multi-column option rows with per-column colour, such as a label plus a price;
+  - a game-supplied `ChoiceFilterFn` for conditional options;
+  - speaker portraits;
+  - per-character text reveal and per-character sound;
+  - a text ID table for localization, with scripts authored in the Tool Suite;
+  - an optional `GameplayEventBus` bridge.
 
 ## Completed Features ✅
 
+- ✅ **Cell-to-Screen Projection**: Isometric and oblique views as `ProjectionSpec` values, with projected tilemap drawing. Shipped in [1.10.0](../CHANGELOG.md).
 - ✅ **Gameplay Framework**: Grid space, state machines, object pools, event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — every capability opt-in behind its own `PIXELROOT32_ENABLE_*` flag. Shipped in [1.9.0](../CHANGELOG.md).
 - ✅ **Spatial Partitioning (Uniform Grid)**: Optional collision optimization system that divides the world into fixed-size grid cells to reduce collision checks.
 - ✅ **Advanced Physics System (Flat Solver)**: Godot-like Kinematic/Rigid actors, stable stacking, and iterative collision resolution.
