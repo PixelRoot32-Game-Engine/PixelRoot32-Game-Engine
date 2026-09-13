@@ -66,6 +66,14 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 
 ## Gameplay
 
+- [DialogAction](./gameplay/DialogAction.md) — The semantic input vocabulary DialogRunner::feed() accepts.
+- [DialogChoice](./gameplay/DialogChoice.md) — One selectable option on a DialogState::ShowingChoices line.
+- [DialogEvent](./gameplay/DialogEvent.md) — The single payload type delivered to DialogEventFn for every kind of dialog event.
+- [DialogEventType](./gameplay/DialogEventType.md) — Identifies which fields of a DialogEvent are meaningful.
+- [DialogLine](./gameplay/DialogLine.md) — One line of a DialogScript: either shown text or a choice prompt.
+- [DialogRunner](./gameplay/DialogRunner.md) — Headless five-state dialog machine over a caller-owned, const DialogScript.
+- [DialogScript](./gameplay/DialogScript.md) — The caller-owned, immutable table a DialogRunner is started with.
+- [DialogState](./gameplay/DialogState.md) — The five states DialogRunner can be in; feed() is total over State x DialogAction.
 - [GameplayEvent](./gameplay/GameplayEvent.md) — Fixed-size POD carried by the GameplayEventBus.
 - [GameplayEventBus](./gameplay/GameplayEventBus.md) — Fixed-capacity FIFO ring buffer for GameplayEvent, single-instance and Engine-owned.
 - [GameplayEventType](./gameplay/GameplayEventType.md) — Tag identifying the meaning of a GameplayEvent.
@@ -77,6 +85,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [InteractionComponent](./gameplay/InteractionComponent.md) — Opt-in interaction hooks for a game actor — composition, not inheritance.
 - [InteractionTracker](./gameplay/InteractionTracker.md) — Detects enter/exit edges on the per-frame physics contact set and
        dispatches InteractionComponent callbacks (design.md D3).
+- [LineKind](./gameplay/LineKind.md) — Distinguishes what a DialogLine presents when the runner enters it.
 - [ObjectPool](./gameplay/ObjectPool.md) — Fixed-capacity, zero-heap slot pool over aligned raw storage.
 - [Room](./gameplay/Room.md) — POD describing a single room: camera rect + optional tile window
        + fixed-size connection list.
@@ -97,6 +106,8 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [CameraEffectsSystem](./graphics/CameraEffectsSystem.md) — Manages up to 4 simultaneous camera effects with round-robin insertion.
 - [CameraTween](./graphics/CameraTween.md) — Fixed-capacity camera tween pool with enum-based easing.
 - [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
+- [DialogBox](./graphics/DialogBox.md) — Optional default dialog panel, driven by a DialogRunner.
+- [DialogBoxStyle](./graphics/DialogBoxStyle.md) — Every visual and layout knob DialogBox needs to draw a panel.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayConfig](./graphics/DisplayConfig.md) — Configuration settings for initializing displays with optional resolution scaling.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
@@ -126,6 +137,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [SpriteLayer](./graphics/SpriteLayer.md) — Single monochrome layer used by layered sprites.
 - [StaticLayerSnapshot](./graphics/StaticLayerSnapshot.md) — Framebuffer cache for static layers a game draws ITSELF.
 - [StaticTilemapLayerCache](./graphics/StaticTilemapLayerCache.md) — Centralized framebuffer snapshot for static 4bpp tilemap layers.
+- [TextLayout](./graphics/TextLayout.md) — Wrap/measure over FontManager. Stateless, allocation-free, no Renderer.
 - [TileAnimation](./graphics/TileAnimation.md) — Single tile animation definition (compile-time constant).
 - [TileAnimationManager](./graphics/TileAnimationManager.md) — Manages tile animations for a tilemap.
 - [TileAttribute](./graphics/TileAttribute.md) — Single attribute key-value pair for tile metadata.
