@@ -4,7 +4,7 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 
 ## Planned
 
-- 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
+- 💾 **Persistence (Save/Load)**: One storage interface with three backends: NVS on ESP32, an external I2C/SPI EEPROM, and a file on native. The data shape, key-value or byte-addressed slots, is decided with all three backends in view. The Arduino-ESP32 `EEPROM` library is itself emulated on NVS, so only an external chip is a distinct backend.
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
 - 💬 **Dialog System, post-MVP**: The MVP (`TextLayout`, `DialogRunner`, `DialogBox`, `examples/dialog`) ships in 1.11.0. Each item below is additive and is waiting for a game to need it:
@@ -12,8 +12,7 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
   - a game-supplied `ChoiceFilterFn` for conditional options;
   - speaker portraits;
   - per-character text reveal and per-character sound;
-  - a text ID table for localization, with scripts authored in the Tool Suite;
-  - an optional `GameplayEventBus` bridge.
+  - a text ID table for localization, with scripts authored in the Tool Suite.
 
 ## Completed Features ✅
 
