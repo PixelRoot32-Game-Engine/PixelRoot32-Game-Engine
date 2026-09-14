@@ -28,12 +28,43 @@ namespace pixelroot32::gameplay {
  * selection (clamped, never wrapping), select() sets it directly for touch
  * hit-testing, Confirm emits ChoiceConfirmed and follows the chosen
  * DialogChoice::next, and Cancel is honored only when the line's flags
- * allow it. Advance and None remain no-ops in this state, and every action
- * is a no-op on a line with zero usable choices.
+ * allow it. Advance and None remain no-ops in this state, and Up, Down and
+ * Confirm are no-ops on a line with zero usable choices.
+ *
+ * Cancel does not leave the line. An allowed Cancel only emits
+ * DialogEventType::Cancelled: the runner stays in ShowingChoices on the
+ * same line, with the same selection. A game that wants Cancel to close
+ * the dialog calls stop() itself, which is legal from inside the
+ * DialogEventFn that receives Cancelled.
  *
  * Reentrancy: feed()/update()/start() may call the configured DialogEventFn
  * synchronously, and that callback is allowed to call back into this same
  * runner. See configure() below for the exact contract.
+ *
+ * Choosing the next line from game state after a choice: a start() made
+ * from inside the DialogEventFn is dropped, so restart the runner from the
+ * game's frame code instead, after feed() returns. Point the choice's
+ * DialogChoice::next at kNoLine, read the highlighted choice BEFORE feeding
+ * Confirm (choice() returns nullptr once the runner has left
+ * ShowingChoices; the pointer addresses the caller-owned script, so it
+ * stays valid afterwards), and start the chosen line if the runner
+ * finished:
+ *
+ * @code
+ * const DialogChoice* picked = runner.choice(runner.selectedChoice());
+ * runner.feed(DialogAction::Confirm);
+ * if (picked != nullptr && picked->tag == kTagBuy &&
+ *     runner.state() == DialogState::Finished) {
+ *     runner.start(kShopScript, canAfford() ? kLineThanks : kLineNoMoney);
+ * }
+ * @endcode
+ *
+ * Within that frame the events arrive in this order: ChoiceConfirmed and
+ * Ended from the choice line, then LineEnter from the started line. The
+ * runner is Finished only between feed() and start(), so a presenter that
+ * draws after this code never sees a frame without a current line. If the
+ * callback called stop() on ChoiceConfirmed, state() is Inactive and the
+ * restart is skipped.
  */
 class DialogRunner {
 public:
@@ -53,6 +84,10 @@ public:
      * exception: it never emits and cannot recurse, so it remains legal
      * (and useful, e.g. to abort a dialog from inside a tag handler) to
      * call from within `onEvent`.
+     *
+     * Because a start() made from `onEvent` is dropped, a callback cannot
+     * choose the next line from game state after a choice. The class
+     * description shows the supported same-frame restart pattern.
      */
     void configure(void* owner, DialogEventFn onEvent);
 
@@ -75,7 +110,9 @@ public:
      *         "rejected" from "ignored, still running" -- only the caller
      *         can, since a reentrant call is reachable only from code that
      *         already knows it is mid-dispatch. Deliberate limit, not an
-     *         oversight.
+     *         oversight. To pick the next line from game state after a
+     *         choice, restart from frame code once feed() returns; the
+     *         class description shows that pattern.
      *
      *         Returns true otherwise, after entering `first` (which itself
      *         may finish immediately if `first`'s kind is LineKind::End).
@@ -103,11 +140,13 @@ public:
      * emits ChoiceConfirmed and follows the chosen DialogChoice::next
      * (kNoLine finishes the dialog), Cancel is honored only when the line's
      * flags allow it (see DialogTypes.h's kLineFlagAllowCancel), and
-     * Advance/None stay no-ops. Every ShowingChoices action is a no-op on a
-     * line with zero usable choices -- there is nothing to move to or
-     * confirm. A reentrant call made from within the configured
-     * DialogEventFn is also ignored -- see configure()'s reentrancy
-     * contract.
+     * Advance/None stay no-ops. An honored Cancel only emits Cancelled and
+     * leaves the runner on the line; closing the dialog is the game's call
+     * to stop(). Up, Down and Confirm are no-ops on a line with zero usable
+     * choices -- there is nothing to move to or confirm -- while an allowed
+     * Cancel still emits Cancelled there. A reentrant call made from within
+     * the configured DialogEventFn is also ignored -- see configure()'s
+     * reentrancy contract.
      */
     void feed(DialogAction action);
 

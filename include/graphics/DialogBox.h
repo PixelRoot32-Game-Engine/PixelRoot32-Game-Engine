@@ -21,6 +21,45 @@ namespace pixelroot32::graphics {
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
  * leads, the 14 scalar/enum fields follow.
+ *
+ * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
+ * names, not RGB565 values. DialogBox::draw() hands them to the renderer,
+ * which resolves each one through a palette at draw time, exactly as for
+ * any primitive or text. In single-palette mode that is the palette set by
+ * setPalette() or setCustomPalette(). In dual-palette mode it is the sprite
+ * palette, unless the renderer's render context is
+ * PaletteContext::Background during the draw; Scene::draw() sets that
+ * context only while drawing entities on render layer 0 and clears it
+ * afterwards. A palette that stores 0x0000 in one of these slots draws that
+ * element black: with the defaults, a zeroed Yellow slot makes the selected
+ * choice invisible on the Black panel. Set these fields to slots the game's
+ * palette defines, or keep the default slots (Black, White, Gray, Yellow)
+ * populated in that palette.
+ *
+ * Sizing: `padding` is applied once inside the border on every side, and
+ * again above and below the text of every choice row. The height one line
+ * needs, with L = font lineHeight x textSize, is:
+ *
+ * @code
+ * bodyRowPx   = L + lineSpacing
+ * choiceRowPx = L + 2 * padding
+ * height      = 2 * (borderWidth + padding)
+ *             + (speaker != nullptr ? bodyRowPx : 0)
+ *             + bodyRows * bodyRowPx
+ *             + (willPage ? bodyRowPx : 0)
+ *             + choiceRows * choiceRowPx
+ * @endcode
+ *
+ * `bodyRows` is the line's wrapped text row count, capped at
+ * config::DialogMaxWrappedLines, wrapping at w - 2 * (borderWidth +
+ * padding). `willPage` holds for a non-Choice line whose text wraps past
+ * that cap, and reserves one row for the next-page cue. `choiceRows` is a
+ * Choice line's declared choiceCount capped at config::DialogMaxChoices,
+ * and 0 for any other kind. Padding therefore adds
+ * 2 * padding * (1 + choiceRows) px, and it also narrows the wrap width,
+ * which can add body rows. DialogBox::measureHeightPx() returns this height
+ * for the tallest line of a script; compare it with the area the box must
+ * fit.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -28,13 +67,13 @@ struct DialogBoxStyle {
     int16_t     y             = 0;
     int16_t     w             = 0;
     int16_t     h             = 0;
-    Color       panel         = Color::Black;
-    Color       border        = Color::White;
-    Color       ink           = Color::White;
-    Color       inkDim        = Color::Gray;
-    Color       inkSelected   = Color::Yellow;
+    Color       panel         = Color::Black;   ///< Palette-resolved at draw time; see the colour note above.
+    Color       border        = Color::White;   ///< Palette-resolved at draw time.
+    Color       ink           = Color::White;   ///< Speaker, body and unselected choices. Palette-resolved.
+    Color       inkDim        = Color::Gray;    ///< Next-page cue. Palette-resolved.
+    Color       inkSelected   = Color::Yellow;  ///< Selected choice. Palette-resolved; a zeroed slot hides it.
     uint8_t     borderWidth   = 1;
-    uint8_t     padding       = 4;
+    uint8_t     padding       = 4;              ///< Inside the border, and above and below each choice row.
     uint8_t     textSize      = 1;
     uint8_t     lineSpacing   = 1;      ///< Extra px between wrapped body lines.
     bool        fixedPosition = true;   ///< true: setOffsetBypass(true) while drawing, ignoring the camera.
@@ -181,6 +220,10 @@ public:
      * @param style The style to measure against.
      * @return The minimum panel height, in pixels, that fits the tallest
      *         single page any line in `script` can produce.
+     * @note This is the way to check that a style fits a fixed area such
+     *       as a HUD strip before choosing DialogBoxStyle::h, which draw()
+     *       uses as-is without clipping. The per-line height formula, and
+     *       how `padding` enters it, is in the DialogBoxStyle description.
      */
     [[nodiscard]] static int16_t measureHeightPx(const gameplay::DialogScript& script,
                                                   const DialogBoxStyle&         style);

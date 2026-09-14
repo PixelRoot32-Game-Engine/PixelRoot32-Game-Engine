@@ -151,3 +151,10 @@ Minimum panel height in px for the tallest line in `script`.
 
 **Returns:** The minimum panel height, in pixels, that fits the tallest
         single page any line in `script` can produce.
+
+::: tip
+This is the way to check that a style fits a fixed area such
+      as a HUD strip before choosing DialogBoxStyle::h, which draw()
+      uses as-is without clipping. The per-line height formula, and
+      how `padding` enters it, is in the DialogBoxStyle description.
+:::

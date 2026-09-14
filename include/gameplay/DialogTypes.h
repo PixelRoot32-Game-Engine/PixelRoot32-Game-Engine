@@ -23,6 +23,11 @@ inline constexpr ChoiceId kNoChoice = 0xFF;
 /// normally, it just has no effect from that bit. This keeps a script
 /// forward-compatible with an older runner build instead of failing closed
 /// on it.
+///
+/// kLineFlagAllowCancel lets DialogAction::Cancel act on a LineKind::Choice
+/// line, and that action only emits DialogEventType::Cancelled with the
+/// line's tag. The runner stays on the line; call DialogRunner::stop() to
+/// close the dialog, which is legal from inside the DialogEventFn.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
 
 /**
