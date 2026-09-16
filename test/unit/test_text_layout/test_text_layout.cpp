@@ -127,6 +127,127 @@ void test_text_layout_wrap_word_longer_than_line_hard_breaks(void) {
     TEST_ASSERT_EQUAL_INT16(29, lines[1].widthPx);
 }
 
+void test_text_layout_wrap_exactly_one_pixel_too_wide_wraps(void) {
+    // The complementary edge of the exact-width boundary the two tests above
+    // already pin from the fitting side ("AAAAA" measures exactly 29 px and
+    // stays on one line at maxWidthPx == 29). Here the SAME text is given one
+    // pixel less room than it needs, so it must wrap: the comparison is
+    // `width > maxWidthPx`, not `>=`, and both sides of that `>` are now
+    // pinned.
+    TEST_ASSERT_EQUAL_INT(29, TextLayout::measureWidthPx("AAAAA", &testFont, 1));
+
+    // Fitting side: exactly maxWidthPx -> one line (guards the `>` against
+    // silently becoming `>=`).
+    TextLayout::WrappedLine exact[4];
+    TEST_ASSERT_EQUAL_UINT8(1, TextLayout::wrap("AAAAA", &testFont, 1, 29, 0, exact, 4));
+    TEST_ASSERT_EQUAL_STRING_LEN("AAAAA", exact[0].slice.data(), exact[0].slice.size());
+    TEST_ASSERT_EQUAL_INT16(29, exact[0].widthPx);
+
+    // Overflowing side: one pixel too narrow -> hard break after 4 glyphs,
+    // since the 5th would take the line to 29 px against a 28 px budget.
+    TextLayout::WrappedLine tooWide[4];
+    const uint8_t written = TextLayout::wrap("AAAAA", &testFont, 1, 28, 0, tooWide, 4);
+    TEST_ASSERT_EQUAL_UINT8(2, written);
+    TEST_ASSERT_EQUAL_STRING_LEN("AAAA", tooWide[0].slice.data(), tooWide[0].slice.size());
+    TEST_ASSERT_EQUAL_size_t(4, tooWide[0].slice.size());
+    TEST_ASSERT_EQUAL_INT16(23, tooWide[0].widthPx); // 4*6-1
+    TEST_ASSERT_EQUAL_STRING_LEN("A", tooWide[1].slice.data(), tooWide[1].slice.size());
+    TEST_ASSERT_EQUAL_INT16(5, tooWide[1].widthPx);
+
+    // countWrappedLines() must agree on both sides of the same boundary.
+    TEST_ASSERT_EQUAL_UINT16(1, TextLayout::countWrappedLines("AAAAA", &testFont, 1, 29));
+    TEST_ASSERT_EQUAL_UINT16(2, TextLayout::countWrappedLines("AAAAA", &testFont, 1, 28));
+}
+
+void test_text_layout_wrap_trailing_spaces_do_not_force_an_extra_line(void) {
+    // GIVEN text whose only content past the last fitting word is trailing
+    // spaces, WHEN wrap is called, THEN those spaces never open a further
+    // wrapped line -- scanLine() consumes the overflowing space as the break
+    // itself (returning nextStart past it) instead of carrying it over as a
+    // leading space on a new line.
+
+    // One trailing space, exactly at the width boundary: still one line.
+    TextLayout::WrappedLine one[4];
+    TEST_ASSERT_EQUAL_UINT8(1, TextLayout::wrap("AAAAA ", &testFont, 1, 29, 0, one, 4));
+    TEST_ASSERT_EQUAL_STRING_LEN("AAAAA", one[0].slice.data(), one[0].slice.size());
+    TEST_ASSERT_EQUAL_size_t(5, one[0].slice.size()); // the space is trimmed, not kept
+    TEST_ASSERT_EQUAL_INT16(29, one[0].widthPx);
+
+    // Two words that each fill a line, with the single space between them
+    // consumed as the break: exactly two lines.
+    TextLayout::WrappedLine two[8];
+    TEST_ASSERT_EQUAL_UINT8(2, TextLayout::wrap("AAAAA BBBBB", &testFont, 1, 29, 0, two, 8));
+    TEST_ASSERT_EQUAL_STRING_LEN("AAAAA", two[0].slice.data(), two[0].slice.size());
+    TEST_ASSERT_EQUAL_STRING_LEN("BBBBB", two[1].slice.data(), two[1].slice.size());
+    TEST_ASSERT_EQUAL_INT16(29, two[1].widthPx);
+
+    // A single trailing space adds nothing to the line count.
+    TEST_ASSERT_EQUAL_UINT16(TextLayout::countWrappedLines("AAAAA BBBBB", &testFont, 1, 29),
+                              TextLayout::countWrappedLines("AAAAA BBBBB ", &testFont, 1, 29));
+}
+
+void test_text_layout_wrap_multiple_trailing_spaces_do_not_open_an_extra_line(void) {
+    // REGRESSION GUARD for the defect audit section 11.1 named. A break
+    // consumes exactly ONE space (scanLine() returns nextStart == pos + 1),
+    // so with N trailing spaces the remaining N-1 used to start a fresh scan
+    // and be emitted as a real wrapped line -- invisible when drawn, yet it
+    // still consumed a line slot, vertical space and a slice of the paging
+    // budget. wrapPass() now stops when the remainder from `pos` holds
+    // nothing but spaces.
+    TextLayout::WrappedLine lines[8];
+    const uint8_t written = TextLayout::wrap("AAAAA BBBBB   ", &testFont, 1, 29, 0, lines, 8);
+
+    TEST_ASSERT_EQUAL_UINT8(2, written);
+    TEST_ASSERT_EQUAL_STRING_LEN("AAAAA", lines[0].slice.data(), lines[0].slice.size());
+    TEST_ASSERT_EQUAL_STRING_LEN("BBBBB", lines[1].slice.data(), lines[1].slice.size());
+
+    // Reachable without any wrapping at all: one word plus two trailing
+    // spaces, where the width boundary consumes the first of them.
+    TEST_ASSERT_EQUAL_UINT16(1, TextLayout::countWrappedLines("AAAAA  ", &testFont, 1, 29));
+
+    // countWrappedLines() must agree with wrap() -- a presenter measures
+    // first and wraps second, so a disagreement mis-sizes the panel.
+    TEST_ASSERT_EQUAL_UINT16(written,
+                              TextLayout::countWrappedLines("AAAAA BBBBB   ", &testFont, 1, 29));
+
+    // Trailing spaces of any count cost nothing, however many there are.
+    TEST_ASSERT_EQUAL_UINT16(TextLayout::countWrappedLines("AAAAA BBBBB", &testFont, 1, 29),
+                              TextLayout::countWrappedLines("AAAAA BBBBB      ", &testFont, 1, 29));
+
+    // A newline still in the remainder is real content, not trailing
+    // whitespace, so the deliberate blank line it opens must survive this
+    // guard: test_text_layout_wrap_consecutive_newlines_keep_the_blank_line
+    // pins that case.
+}
+
+void test_text_layout_wrap_consecutive_newlines_keep_the_blank_line(void) {
+    // CHARACTERIZATION of today's observed behavior: "a\n\nb" produces THREE
+    // lines -- "a", an empty line, then "b". scanLine() returns immediately on
+    // a '\n' with sliceEnd == the newline's own position, so the second
+    // newline yields a zero-length slice of width 0 rather than being
+    // collapsed into the first break. A presenter that lays lines out by
+    // index therefore gets the vertical gap the author wrote.
+    TextLayout::WrappedLine lines[8];
+    const uint8_t written = TextLayout::wrap("a\n\nb", &testFont, 1, 100, 0, lines, 8);
+
+    TEST_ASSERT_EQUAL_UINT8(3, written);
+    TEST_ASSERT_EQUAL_STRING_LEN("a", lines[0].slice.data(), lines[0].slice.size());
+    TEST_ASSERT_EQUAL_size_t(1, lines[0].slice.size());
+    TEST_ASSERT_EQUAL_INT16(5, lines[0].widthPx);
+
+    // The blank line between the two newlines: present, empty, zero width.
+    TEST_ASSERT_EQUAL_size_t(0, lines[1].slice.size());
+    TEST_ASSERT_EQUAL_INT16(0, lines[1].widthPx);
+
+    TEST_ASSERT_EQUAL_STRING_LEN("b", lines[2].slice.data(), lines[2].slice.size());
+    TEST_ASSERT_EQUAL_size_t(1, lines[2].slice.size());
+    TEST_ASSERT_EQUAL_INT16(5, lines[2].widthPx);
+
+    // countWrappedLines() counts the blank line too -- a paging presenter
+    // must not disagree with wrap() about how tall the text is.
+    TEST_ASSERT_EQUAL_UINT16(3, TextLayout::countWrappedLines("a\n\nb", &testFont, 1, 100));
+}
+
 void test_text_layout_wrap_max_out_lines_overflow_no_oob(void) {
     // GIVEN text requiring more lines than maxOutLines, WHEN wrap is called,
     // THEN it writes exactly maxOutLines entries and returns maxOutLines,
@@ -410,6 +531,10 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_text_layout_wrap_breaks_at_word_boundary);
     RUN_TEST(test_text_layout_wrap_word_longer_than_line_hard_breaks);
+    RUN_TEST(test_text_layout_wrap_exactly_one_pixel_too_wide_wraps);
+    RUN_TEST(test_text_layout_wrap_trailing_spaces_do_not_force_an_extra_line);
+    RUN_TEST(test_text_layout_wrap_multiple_trailing_spaces_do_not_open_an_extra_line);
+    RUN_TEST(test_text_layout_wrap_consecutive_newlines_keep_the_blank_line);
     RUN_TEST(test_text_layout_wrap_max_out_lines_overflow_no_oob);
     RUN_TEST(test_text_layout_wrap_max_out_lines_zero_returns_zero);
     RUN_TEST(test_text_layout_wrap_empty_string_returns_zero);

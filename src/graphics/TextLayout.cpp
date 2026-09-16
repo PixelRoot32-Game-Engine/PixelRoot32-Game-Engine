@@ -120,6 +120,21 @@ uint16_t wrapPass(std::string_view text, const Font* font, uint8_t size,
     const size_t len       = text.size();
 
     while (pos < len) {
+        // A remainder made only of spaces draws nothing, so it must not open
+        // a wrapped line. scanLine() consumes exactly ONE space at a break
+        // (nextStart == pos + 1), so N trailing spaces leave N-1 to start a
+        // fresh scan; without this guard that scan emits an invisible line
+        // which still costs a line slot, vertical space and part of a
+        // presenter's paging budget -- in a DialogBox capped at
+        // DialogMaxWrappedLines rows it can force a page holding nothing but
+        // the next-page cue. This is the whole-input whitespace guard above,
+        // applied to every post-break remainder. A newline still in the
+        // remainder is real content (it opens a deliberate blank line) and
+        // find_first_not_of(' ') sees it, so that case is untouched.
+        if (text.find_first_not_of(' ', pos) == std::string_view::npos) {
+            break;
+        }
+
         const LineScan scan = scanLine(text, pos, font, advance, spacingPx, maxWidthPx);
 
         if (outLines == nullptr) {
