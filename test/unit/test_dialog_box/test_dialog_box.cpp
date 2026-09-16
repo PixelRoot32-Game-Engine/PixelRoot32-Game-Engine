@@ -109,10 +109,12 @@ const DialogScript kChoiceWithPromptScript{kChoiceWithPromptLines, kChoices, 1, 
 // =============================================================================
 
 // DialogBoxStyle: one pointer (font) + four int16_t + five Color (uint8_t)
-// + four uint8_t + one bool. ESP32 (4-byte pointer): 4+8+5+4+1=22, padded to
-// 4-byte alignment = 24. Native (8-byte pointer): 8+8+5+4+1=26, padded to
-// 8-byte alignment = 32 -- independently re-derived here, not copied from
-// DialogBoxStyle's own comments, so a drift in either place is caught.
+// + four uint8_t + one char (choiceCaret) + one bool. ESP32 (4-byte
+// pointer): 4+8+5+4+1+1=23, padded to 4-byte alignment = 24. Native (8-byte
+// pointer): 8+8+5+4+1+1=27, padded to 8-byte alignment = 32 -- independently
+// re-derived here, not copied from DialogBoxStyle's own comments, so a drift
+// in either place is caught. choiceCaret landed in the existing tail slack
+// and cost zero bytes; that is what these numbers pin.
 // DialogBox adds lastRevision_ (uint16_t): ESP32 24+2=26, padded to 28;
 // native 32+2=34, padded to 40.
 #ifdef ESP32
@@ -274,8 +276,12 @@ void test_dialog_box_choice_line_prompt_pages_once_and_draws_no_next_page_cue(vo
     MockRenderer mock(config);
     box.draw(mock, runner);
 
+    // The cue and the DEFAULT selection caret are both the glyph '>', so the
+    // text alone cannot tell them apart on a Choice line. They never share a
+    // colour: the cue is drawn in inkDim, the caret in ink (see draw()).
     for (const auto& call : mock.rendererCalls) {
-        TEST_ASSERT_FALSE(call.type == "text" && call.text == ">");
+        TEST_ASSERT_FALSE(call.type == "text" && call.text == ">" &&
+                          call.color == style.inkDim);
     }
 }
 
@@ -543,6 +549,216 @@ void test_dialog_box_draw_choice_text_y_equals_choice_rect_y_plus_padding(void) 
     }
 }
 
+// =============================================================================
+// Selection caret -- the second, colour-independent signal of which option is
+// selected. A game shipped a sprite palette with a zeroed Yellow slot, which
+// made the inkSelected-coloured choice invisible black-on-black; colour alone
+// is a single point of failure, so these tests pin the caret's existence,
+// position, movement and -- critically -- its colour.
+// =============================================================================
+
+void test_dialog_box_draw_caret_marks_the_selected_row_exactly_once(void) {
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    runner.select(1);  // "No"
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    uint8_t caretCalls = 0;
+    int16_t caretX = -1;
+    int16_t caretY = -1;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "text" && call.text == ">") {
+            ++caretCalls;
+            caretX = call.x;
+            caretY = call.y;
+        }
+    }
+    TEST_ASSERT_EQUAL_UINT8(1, caretCalls);
+    TEST_ASSERT_EQUAL_INT16(layout.choiceX, caretX);
+    TEST_ASSERT_EQUAL_INT16(
+        static_cast<int16_t>(layout.choiceY + 1 * layout.choiceRowHeightPx + style.padding),
+        caretY);
+}
+
+void test_dialog_box_draw_caret_follows_the_selection(void) {
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    DialogBox box;
+    box.setStyle(style);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    for (uint8_t i = 0; i < 3; ++i) {
+        runner.select(i);
+        MockRenderer mock = makeMock();
+        box.draw(mock, runner);
+
+        bool found = false;
+        for (const auto& call : mock.rendererCalls) {
+            if (call.type == "text" && call.text == ">") {
+                TEST_ASSERT_EQUAL_INT16(
+                    static_cast<int16_t>(layout.choiceY + i * layout.choiceRowHeightPx +
+                                          style.padding),
+                    call.y);
+                found = true;
+            }
+        }
+        TEST_ASSERT_TRUE(found);
+    }
+}
+
+void test_dialog_box_draw_caret_uses_ink_and_never_ink_selected(void) {
+    // THE regression guard for the palette incident. The caret exists to
+    // survive a palette that zeroes the inkSelected slot, so drawing it in
+    // inkSelected would make it vanish in exactly the case it insures
+    // against. Body text already proves ink resolves to a visible slot.
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    runner.select(2);  // "Maybe"
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    style.ink = Color::White;
+    style.inkSelected = Color::Yellow;
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    bool sawCaret = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type != "text" || call.text != ">") continue;
+        sawCaret = true;
+        TEST_ASSERT_EQUAL(Color::White, call.color);
+        TEST_ASSERT_NOT_EQUAL(Color::Yellow, call.color);
+    }
+    TEST_ASSERT_TRUE(sawCaret);
+}
+
+void test_dialog_box_draw_choice_text_starts_after_the_caret_gutter(void) {
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TEST_ASSERT_GREATER_THAN_INT16(0, layout.caretGutterPx);
+    TEST_ASSERT_GREATER_THAN_INT16(layout.choiceX, layout.choiceTextX);
+    TEST_ASSERT_EQUAL_INT16(static_cast<int16_t>(layout.choiceX + layout.caretGutterPx),
+                             layout.choiceTextX);
+
+    for (uint8_t i = 0; i < 3; ++i) {
+        const char* expectedText = (i == 0) ? "Yes" : (i == 1) ? "No" : "Maybe";
+        bool found = false;
+        for (const auto& call : mock.rendererCalls) {
+            if (call.type == "text" && call.text == expectedText) {
+                TEST_ASSERT_EQUAL_INT16(layout.choiceTextX, call.x);
+                found = true;
+            }
+        }
+        TEST_ASSERT_TRUE(found);
+    }
+}
+
+void test_dialog_box_zero_caret_disables_the_gutter_and_restores_old_geometry(void) {
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = 0;  // Opt out entirely.
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TEST_ASSERT_EQUAL_INT16(0, layout.caretGutterPx);
+    TEST_ASSERT_EQUAL_INT16(layout.choiceX, layout.choiceTextX);
+
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type != "text") continue;
+        // No one-glyph caret row of any kind, and every option keeps the
+        // pre-caret X exactly.
+        TEST_ASSERT_FALSE(call.text == ">");
+        if (call.text == "Yes" || call.text == "No" || call.text == "Maybe") {
+            TEST_ASSERT_EQUAL_INT16(layout.choiceX, call.x);
+        }
+    }
+}
+
+void test_dialog_box_choice_rect_still_spans_the_caret_gutter(void) {
+    // The whole row stays tappable, gutter included: choiceRect() must keep
+    // reporting choiceX / choiceW, not the narrowed text origin.
+    DialogRunner runner;
+    runner.start(kChoiceScript);
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+    const int16_t contentX = static_cast<int16_t>(style.x + style.padding + style.borderWidth);
+    const int16_t contentW = static_cast<int16_t>(style.w - 2 * (style.padding + style.borderWidth));
+
+    for (uint8_t i = 0; i < 3; ++i) {
+        int16_t rectX, rectY, rectW, rectH;
+        TEST_ASSERT_TRUE(box.choiceRect(runner, i, rectX, rectY, rectW, rectH));
+        TEST_ASSERT_EQUAL_INT16(contentX, rectX);
+        TEST_ASSERT_EQUAL_INT16(contentW, rectW);
+        TEST_ASSERT_LESS_THAN_INT16(layout.choiceTextX, rectX);
+
+        // The anti-drift relationship survives the gutter: the row's text
+        // still sits one padding below the rect choiceRect() reports.
+        const char* expectedText = (i == 0) ? "Yes" : (i == 1) ? "No" : "Maybe";
+        for (const auto& call : mock.rendererCalls) {
+            if (call.type == "text" && call.text == expectedText) {
+                TEST_ASSERT_EQUAL_INT16(static_cast<int16_t>(rectY + style.padding), call.y);
+            }
+        }
+    }
+}
+
+void test_dialog_box_draw_emits_no_caret_on_a_non_choice_line(void) {
+    DialogRunner runner;
+    runner.start(kShortNoSpeakerScript);  // LineKind::Text, single page, no cue.
+    DialogBoxStyle style = makeStyle();
+    style.choiceCaret = '>';
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    for (const auto& call : mock.rendererCalls) {
+        TEST_ASSERT_FALSE(call.type == "text" && call.text == ">");
+    }
+}
+
 void test_dialog_box_draw_restores_offset_bypass_to_its_prior_value(void) {
     DialogRunner runner;
     runner.start(kShortNoSpeakerScript);
@@ -635,6 +851,13 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_box_draw_is_noop_when_runner_has_no_current_line);
     RUN_TEST(test_dialog_box_draw_selected_choice_uses_ink_selected_color);
     RUN_TEST(test_dialog_box_draw_choice_text_y_equals_choice_rect_y_plus_padding);
+    RUN_TEST(test_dialog_box_draw_caret_marks_the_selected_row_exactly_once);
+    RUN_TEST(test_dialog_box_draw_caret_follows_the_selection);
+    RUN_TEST(test_dialog_box_draw_caret_uses_ink_and_never_ink_selected);
+    RUN_TEST(test_dialog_box_draw_choice_text_starts_after_the_caret_gutter);
+    RUN_TEST(test_dialog_box_zero_caret_disables_the_gutter_and_restores_old_geometry);
+    RUN_TEST(test_dialog_box_choice_rect_still_spans_the_caret_gutter);
+    RUN_TEST(test_dialog_box_draw_emits_no_caret_on_a_non_choice_line);
     RUN_TEST(test_dialog_box_draw_restores_offset_bypass_to_its_prior_value);
     RUN_TEST(test_dialog_box_draw_shows_next_page_cue_only_when_a_later_page_remains);
 #else

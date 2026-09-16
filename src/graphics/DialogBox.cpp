@@ -134,6 +134,18 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
 
     outLayout.choiceX = contentX;
     outLayout.choiceW = contentW;
+    // choiceX/choiceW stay the FULL row rect: choiceRect() reports them for
+    // touch hit-testing, and the whole row -- caret gutter included -- must
+    // stay tappable. Only the text origin moves.
+    if (style.choiceCaret != 0) {
+        // The gutter is the caret plus one separating space, measured through
+        // the same font path drawText() uses, so it cannot disagree with the
+        // glyph actually drawn at choiceX.
+        const char caretBuf[2] = {style.choiceCaret, ' '};
+        outLayout.caretGutterPx =
+            TextLayout::measureWidthPx(std::string_view(caretBuf, 2), font, style.textSize);
+    }
+    outLayout.choiceTextX = static_cast<int16_t>(outLayout.choiceX + outLayout.caretGutterPx);
     outLayout.choiceY =
         static_cast<int16_t>(cursorY + outLayout.bodyLineCount * outLayout.bodyLineHeightPx);
     outLayout.choiceCount = runner.choiceCount();
