@@ -20,7 +20,7 @@ namespace pixelroot32::graphics {
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the 14 scalar/enum fields follow.
+ * leads, the 15 scalar/enum fields follow.
  *
  * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
  * names, not RGB565 values. DialogBox::draw() hands them to the renderer,
@@ -34,7 +34,15 @@ namespace pixelroot32::graphics {
  * element black: with the defaults, a zeroed Yellow slot makes the selected
  * choice invisible on the Black panel. Set these fields to slots the game's
  * palette defines, or keep the default slots (Black, White, Gray, Yellow)
- * populated in that palette.
+ * populated in that palette. This is not hypothetical -- legend_of_clone
+ * shipped exactly that palette. `choiceCaret` is the answer: DialogBox marks
+ * the selected row with that glyph as well as with `inkSelected`, and draws
+ * the caret in `ink`, NOT in `inkSelected`, on purpose. Selection therefore
+ * has two independent signals, and the caret's own slot is the one the body
+ * text already proves is visible; a caret drawn in `inkSelected` would
+ * disappear in the very case it exists to cover. Setting `choiceCaret` to 0
+ * disables the caret and gives back the pre-caret geometry exactly, at the
+ * cost of returning selection to a single point of failure.
  *
  * Sizing: `padding` is applied once inside the border on every side, and
  * again above and below the text of every choice row. The height one line
@@ -60,6 +68,15 @@ namespace pixelroot32::graphics {
  * which can add body rows. DialogBox::measureHeightPx() returns this height
  * for the tallest line of a script; compare it with the area the box must
  * fit.
+ *
+ * A non-zero `choiceCaret` also reserves a gutter to the left of every
+ * option, as wide as the two-character slice {caret, ' '} at this font and
+ * textSize (Layout::caretGutterPx). It costs no height, but it narrows the
+ * room an option's text has: choice text is NOT wrapped, so a label that no
+ * longer fits simply runs past the panel's inner edge. Keep the longest
+ * option shorter than contentWidth - caretGutterPx, or set `choiceCaret`
+ * to 0. The row rect choiceRect() reports is unaffected and still spans the
+ * gutter, so the whole row stays tappable.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -76,6 +93,7 @@ struct DialogBoxStyle {
     uint8_t     padding       = 4;              ///< Inside the border, and above and below each choice row.
     uint8_t     textSize      = 1;
     uint8_t     lineSpacing   = 1;      ///< Extra px between wrapped body lines.
+    char        choiceCaret   = '>';    ///< Marks the selected choice. 0 disables the caret and its gutter.
     bool        fixedPosition = true;   ///< true: setOffsetBypass(true) while drawing, ignoring the camera.
 };
 
@@ -112,8 +130,10 @@ public:
         int16_t panelX, panelY, panelW, panelH;
         int16_t speakerX, speakerY;   ///< Valid when hasSpeaker.
         int16_t bodyX, bodyY;         ///< Top-left of body line 0.
-        int16_t choiceX, choiceY;     ///< Top-left of choice row 0.
-        int16_t choiceW;              ///< Row width (panel inner width).
+        int16_t choiceX, choiceY;     ///< Top-left of choice row 0, gutter included.
+        int16_t choiceW;              ///< Row width (panel inner width), gutter included.
+        int16_t caretGutterPx;        ///< Width reserved for the caret; 0 when it is disabled.
+        int16_t choiceTextX;          ///< choiceX + caretGutterPx. Where option text starts.
         int16_t bodyLineHeightPx;
         int16_t choiceRowHeightPx;
         uint8_t bodyLineCount;        ///< Rows valid in bodyLines.
@@ -308,10 +328,24 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
         // choiceRect() reports as that row's top. This is the relationship
         // the anti-drift test pins: a future change to either offset alone
         // would desync draw() from choiceRect() and fail it.
-        renderer.drawText(text, layout.choiceX,
-                           static_cast<int16_t>(layout.choiceY + i * layout.choiceRowHeightPx +
-                                                 style_.padding),
-                           color, style_.textSize, style_.font);
+        const int16_t rowTextY = static_cast<int16_t>(
+            layout.choiceY + i * layout.choiceRowHeightPx + style_.padding);
+
+        if (style_.choiceCaret != 0 && i == runner.selectedChoice()) {
+            // Drawn in style_.ink, NOT style_.inkSelected -- deliberately.
+            // The caret exists so that selection has a second signal that is
+            // independent of the inkSelected palette slot: legend_of_clone
+            // shipped a sprite palette with a zeroed Yellow slot, and the
+            // selected choice rendered black-on-black, leaving the player no
+            // way to see what was selected. A caret sharing the very colour
+            // slot it insures against would insure nothing; the body text
+            // above already proves `ink` resolves to a visible slot.
+            renderer.drawText(std::string_view(&style_.choiceCaret, 1), layout.choiceX, rowTextY,
+                               style_.ink, style_.textSize, style_.font);
+        }
+
+        renderer.drawText(text, layout.choiceTextX, rowTextY, color, style_.textSize,
+                           style_.font);
     }
 
     if (style_.fixedPosition) {
