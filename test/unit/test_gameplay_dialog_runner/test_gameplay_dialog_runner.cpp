@@ -265,6 +265,35 @@ static const DialogLine kSentinelFirstChoiceLines[] = {
 static const DialogScript kSentinelFirstChoiceScript{kSentinelFirstChoiceLines, kThreeChoices, 1,
                                                        3};
 
+// Exactly ONE usable choice -- the degenerate menu. Up and Down have nowhere
+// to move, so both must be complete no-ops (no selection change, no revision
+// bump, no event), which is a different code path from the zero-usable-choices
+// line above: here `count > 0`, so only the clamp itself stops the move.
+static const DialogChoice kSingleChoice[] = {
+    {"Only option", /*next*/ kNoLine, /*tag*/ 601},
+};
+static const DialogLine kSingleChoiceLines[] = {
+    {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 90, 0, /*firstChoice*/ 0, /*choiceCount*/ 1,
+     LineKind::Choice, 0},
+};
+static const DialogScript kSingleChoiceScript{kSingleChoiceLines, kSingleChoice, 1, 1};
+
+// Text -> Choice -> Text -> end. Used by the no-callback session test and the
+// determinism test: one script that walks every state a game actually drives
+// (AwaitingAdvance, ShowingChoices, AwaitingAdvance, Finished) from a single
+// fixed action sequence.
+static const DialogChoice kSessionChoices[] = {
+    {"Yes", /*next*/ 2, /*tag*/ 611},
+    {"No", /*next*/ kNoLine, /*tag*/ 612},
+};
+static const DialogLine kSessionLines[] = {
+    {kLineAText, nullptr, /*next*/ 1, /*tag*/ 91, /*autoAdvanceMs*/ 0, 0, 0, LineKind::Text, 0},
+    {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 92, 0, /*firstChoice*/ 0, /*choiceCount*/ 2,
+     LineKind::Choice, /*flags*/ kLineFlagAllowCancel},
+    {kLineBText, nullptr, /*next*/ kNoLine, /*tag*/ 93, 0, 0, 0, LineKind::Text, 0},
+};
+static const DialogScript kSessionScript{kSessionLines, kSessionChoices, 3, 2};
+
 // Single End-kind line -- must finish immediately on entry.
 static const DialogLine kEndLines[] = {
     {nullptr, nullptr, kNoLine, /*tag*/ 3, 0, 0, 0, LineKind::End, 0},
@@ -1609,6 +1638,168 @@ void test_dialog_runner_reentrant_start_from_callback_is_a_pure_noop(void) {
 }
 
 // =============================================================================
+// Requirement: a Choice line with exactly ONE usable choice ignores Up/Down
+// =============================================================================
+
+void test_dialog_runner_up_and_down_are_noops_with_a_single_usable_choice(void) {
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+
+    TEST_ASSERT_TRUE(runner.start(kSingleChoiceScript, 0));
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_UINT8(1, runner.choiceCount());
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+
+    const uint16_t revBefore = runner.revision();
+    const int logBefore = owner.logCount;
+
+    // Both directions, repeatedly and interleaved: with a single option there
+    // is no index to move to in either direction, so nothing player-visible
+    // changes and revision() must not bump (a presenter polling it would
+    // otherwise redraw the panel on every rejected key press).
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Up);
+    runner.feed(DialogAction::Up);
+    runner.feed(DialogAction::Down);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+    TEST_ASSERT_EQUAL_INT(logBefore, owner.logCount);
+
+    // The one choice is still confirmable afterwards -- the no-op clamp must
+    // not have left the selection in an unusable state.
+    runner.feed(DialogAction::Confirm);
+    TEST_ASSERT_EQUAL_INT(logBefore + 2, owner.logCount);  // ChoiceConfirmed + Ended
+    TEST_ASSERT_TRUE(owner.log[logBefore].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_EQUAL_UINT8(0, owner.log[logBefore].choice);
+    TEST_ASSERT_EQUAL_UINT16(601, owner.log[logBefore].tag);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+}
+
+// =============================================================================
+// Requirement: configure(nullptr, nullptr) -- a full session with no callback
+// =============================================================================
+
+void test_dialog_runner_full_session_with_no_callback_is_safe(void) {
+    DialogRunner runner;
+    runner.configure(nullptr, nullptr);  // explicit: no owner, no event sink
+
+    // Text line.
+    TEST_ASSERT_TRUE(runner.start(kSessionScript, 0));
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+    TEST_ASSERT_TRUE(runner.isActive());
+    runner.update(16);  // no-op outside ShowingText, and must not dereference a null sink
+
+    // -> Choice line.
+    runner.feed(DialogAction::Advance);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_UINT8(2, runner.choiceCount());
+
+    // Move the selection around, including the Cancelled event this line
+    // allows -- every one of these would dispatch through a callback if one
+    // were configured, so each is a null-sink path.
+    runner.feed(DialogAction::Down);
+    TEST_ASSERT_EQUAL_UINT8(1, runner.selectedChoice());
+    runner.feed(DialogAction::Cancel);  // emits Cancelled into no sink
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    runner.feed(DialogAction::Up);
+    TEST_ASSERT_EQUAL_UINT8(0, runner.selectedChoice());
+    TEST_ASSERT_TRUE(runner.select(1));
+    TEST_ASSERT_EQUAL_UINT8(1, runner.selectedChoice());
+    TEST_ASSERT_TRUE(runner.select(0));
+
+    // Confirm choice 0 -> line 2.
+    runner.feed(DialogAction::Confirm);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+    TEST_ASSERT_EQUAL_UINT16(2, runner.currentLineId());
+
+    // -> Finished, then stop().
+    runner.feed(DialogAction::Advance);
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+    TEST_ASSERT_FALSE(runner.isActive());
+    runner.stop();
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+    TEST_ASSERT_EQUAL_UINT16(kNoLine, runner.currentLineId());
+}
+
+// =============================================================================
+// Requirement: determinism -- the same action sequence produces the same
+// event sequence
+// =============================================================================
+
+namespace {
+
+/// The fixed action sequence both determinism runners are driven with.
+/// Deliberately includes rejected actions (a Cancel, an Up at the clamp) so
+/// the comparison covers the no-event paths as well as the emitting ones.
+const DialogAction kDeterminismActions[] = {
+    DialogAction::None,     // no-op on a text line
+    DialogAction::Advance,  // line 0 -> line 1 (Choice)
+    DialogAction::Up,       // already at index 0: rejected, no event
+    DialogAction::Down,     // -> index 1
+    DialogAction::Cancel,   // allowed on this line: emits Cancelled, stays put
+    DialogAction::Up,       // back to index 0
+    DialogAction::Confirm,  // choice 0 -> line 2
+    DialogAction::Advance,  // line 2's next == kNoLine -> Finished
+    DialogAction::Advance,  // Finished: rejected, no event
+};
+
+/// Starts a fresh runner over kSessionScript and feeds the sequence above,
+/// recording every event into `owner`.
+void runDeterminismSequence(MockOwner& owner) {
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.start(kSessionScript, 0);
+    for (const DialogAction action : kDeterminismActions) {
+        runner.feed(action);
+    }
+}
+
+}  // namespace
+
+void test_dialog_runner_same_action_sequence_produces_the_same_event_sequence(void) {
+    MockOwner first;
+    MockOwner second;
+
+    // Two INDEPENDENTLY started runners -- separate objects, separate owners,
+    // no shared mutable state beyond the const script itself.
+    runDeterminismSequence(first);
+    runDeterminismSequence(second);
+
+    // The sequence must have produced real events, otherwise this test would
+    // pass vacuously on two empty logs.
+    TEST_ASSERT_GREATER_THAN_INT(0, first.logCount);
+    TEST_ASSERT_LESS_THAN_INT(MockOwner::kMaxLog, first.logCount);  // nothing was dropped
+    TEST_ASSERT_EQUAL_INT(first.logCount, second.logCount);
+
+    for (int i = 0; i < first.logCount; ++i) {
+        TEST_ASSERT_EQUAL_INT(static_cast<int>(first.log[i].type),
+                              static_cast<int>(second.log[i].type));
+        TEST_ASSERT_EQUAL_UINT16(first.log[i].line, second.log[i].line);
+        TEST_ASSERT_EQUAL_UINT8(first.log[i].choice, second.log[i].choice);
+        TEST_ASSERT_EQUAL_UINT16(first.log[i].tag, second.log[i].tag);
+    }
+
+    // Pin the sequence itself too, so a future change that makes BOTH runners
+    // emit something different still fails here rather than staying "equal".
+    TEST_ASSERT_EQUAL_INT(6, first.logCount);
+    TEST_ASSERT_TRUE(first.log[0].type == DialogEventType::LineEnter);   // line 0
+    TEST_ASSERT_EQUAL_UINT16(91, first.log[0].tag);
+    TEST_ASSERT_TRUE(first.log[1].type == DialogEventType::LineEnter);   // line 1
+    TEST_ASSERT_EQUAL_UINT16(92, first.log[1].tag);
+    TEST_ASSERT_TRUE(first.log[2].type == DialogEventType::Cancelled);
+    TEST_ASSERT_TRUE(first.log[3].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_EQUAL_UINT8(0, first.log[3].choice);
+    TEST_ASSERT_EQUAL_UINT16(611, first.log[3].tag);
+    TEST_ASSERT_TRUE(first.log[4].type == DialogEventType::LineEnter);   // line 2
+    TEST_ASSERT_EQUAL_UINT16(93, first.log[4].tag);
+    TEST_ASSERT_TRUE(first.log[5].type == DialogEventType::Ended);
+}
+
+// =============================================================================
 // Requirement: zero heap allocation across a full session
 // (start -> paging -> linear advance -> auto-advance no-op -> finish -> stop)
 // =============================================================================
@@ -1774,6 +1965,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_current_line_reflects_state);
     RUN_TEST(test_dialog_runner_reentrant_feed_from_line_enter_is_ignored_not_recursive);
     RUN_TEST(test_dialog_runner_reentrant_start_from_callback_is_a_pure_noop);
+    RUN_TEST(test_dialog_runner_up_and_down_are_noops_with_a_single_usable_choice);
+    RUN_TEST(test_dialog_runner_full_session_with_no_callback_is_safe);
+    RUN_TEST(test_dialog_runner_same_action_sequence_produces_the_same_event_sequence);
     RUN_TEST(test_dialog_runner_zero_heap_allocation_across_full_session);
     RUN_TEST(test_dialog_runner_sizeof_guard);
 #else
