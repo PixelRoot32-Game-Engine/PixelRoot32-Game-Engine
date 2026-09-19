@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.10.1
+
+### 🐛 Fixed
+
+* **Display rotation 90/270 (landscape) was sheared with a black bar**: `DisplayConfig` now normalizes `DISPLAY_ROTATION` to 0-3 and, for 1/3 (90°/270°), swaps physical/logical dimensions and offsets before creating the `DrawSurface`. An ILI9341 panel configured as `PHYSICAL 240x320 + ROT=3` for landscape now creates a 320x240 sprite and DMA window instead of 240x320, removing the 80px black bar and shear seen in `games/top_down_city` on `esp32dev_ILI9341`. The swap is centralized in `DisplayConfig::applyRotationNormalization()`; `TFT_eSPI_Drawer::setRotation()` now only normalizes/forwards to `tft.setRotation()` to avoid double-swap. `U8G2` paths remain compatible (they match both `1` and `90` forms). No API change for orthogonal/square panels or `ROT=0/2`.
+
 # 1.10.0
 
 ### ✨ Added

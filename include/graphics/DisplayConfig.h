@@ -26,6 +26,7 @@
 #include "platforms/EngineConfig.h"
 #include <cassert>
 #include <memory>
+#include <utility>
 
 namespace pixelroot32::graphics {
 
@@ -106,7 +107,8 @@ public:
           logicalWidth(logW == 0 ? physW : logW),
           logicalHeight(logH == 0 ? physH : logH),
           xOffset(xOff), yOffset(yOff), drawSurface(customSurface)
-    {   
+    {
+        applyRotationNormalization();
         if (type != DisplayType::CUSTOM) {
             initDrawSurface();
         } else if (!drawSurface) {
@@ -156,6 +158,7 @@ public:
         clockPin(clk), dataPin(data), csPin(cs), dcPin(dc), resetPin(rst),
         useHardwareI2C(hwI2C)
     {
+        applyRotationNormalization();
         if (type != DisplayType::CUSTOM) {
             initDrawSurface();
         }
@@ -292,6 +295,42 @@ public:
     }
 
 private:
+    /**
+     * @brief Normalizes rotation to 0-3 and swaps dimensions for 90/270.
+     *
+     * Centralized fix for DISPLAY_ROTATION=1/3 landscape bug: the panel's
+     * physical/logical sizes and offsets are stored in effective (post-rotation)
+     * orientation so callers (Renderer, TFT_eSPI_Drawer::init/buildScaleLUTs)
+     * receive 320x240 instead of 240x320 for a 240x320 panel rotated 90/270.
+     * Logical fallback (log==0 ? phys : log) already ran in the initializer
+     * list; swapping afterwards keeps them consistent.
+     * Must run before initDrawSurface() so the DrawSurface is created with
+     * effective sizes. Copy/move ops preserve already-normalized values.
+     */
+    void applyRotationNormalization() {
+        int rot = rotation;
+        int norm;
+        bool isValidRotation = false;
+        if (rot == 90) { norm = 1; isValidRotation = true; }
+        else if (rot == 180) { norm = 2; isValidRotation = true; }
+        else if (rot == 270) { norm = 3; isValidRotation = true; }
+        else if (rot == 0 || rot == 1 || rot == 2 || rot == 3) { norm = rot; isValidRotation = true; }
+        else if (rot % 90 == 0 && rot >= 0) { // handles 360, 450 etc if multiples of 90
+            norm = (rot / 90) % 4;
+            isValidRotation = true;
+        } else {
+            // unusual rotation like 45 — keep as is, no swap, no normalize
+            return;
+        }
+        if (norm < 0) norm = (norm % 4 + 4) % 4;
+        if ((norm & 1) == 1) {
+            std::swap(physicalWidth, physicalHeight);
+            std::swap(logicalWidth, logicalHeight);
+            std::swap(xOffset, yOffset);
+        }
+        rotation = norm;
+    }
+
     std::unique_ptr<DrawSurface> drawSurface;
 };
 
