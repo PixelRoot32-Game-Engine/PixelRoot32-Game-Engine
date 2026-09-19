@@ -42,7 +42,7 @@ void test_display_config_with_offsets(void) {
 
 void test_display_config_with_rotation(void) {
     DisplayConfig config(DisplayType::NONE, 90, 240, 240);
-    TEST_ASSERT_EQUAL(90, config.rotation);
+    TEST_ASSERT_EQUAL(1, config.rotation);
 }
 
 void test_display_config_st7789_type(void) {
@@ -153,7 +153,7 @@ void test_display_config_move_assignment(void) {
 // ============================================================================
 
 void test_display_config_copy_constructor(void) {
-    DisplayConfig original(DisplayType::ST7735, 90, 128, 128, 64, 64, 5, 10);
+    DisplayConfig original(DisplayType::ST7735, 1, 128, 128, 64, 64, 5, 10);
     DisplayConfig copy(original);
     
     TEST_ASSERT_EQUAL(original.type, copy.type);

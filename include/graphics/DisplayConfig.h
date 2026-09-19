@@ -310,11 +310,18 @@ private:
     void applyRotationNormalization() {
         int rot = rotation;
         int norm;
-        if (rot == 90) norm = 1;
-        else if (rot == 180) norm = 2;
-        else if (rot == 270) norm = 3;
-        else if (rot >= 360) norm = (rot / 90) % 4;
-        else norm = rot % 4;
+        bool isValidRotation = false;
+        if (rot == 90) { norm = 1; isValidRotation = true; }
+        else if (rot == 180) { norm = 2; isValidRotation = true; }
+        else if (rot == 270) { norm = 3; isValidRotation = true; }
+        else if (rot == 0 || rot == 1 || rot == 2 || rot == 3) { norm = rot; isValidRotation = true; }
+        else if (rot % 90 == 0 && rot >= 0) { // handles 360, 450 etc if multiples of 90
+            norm = (rot / 90) % 4;
+            isValidRotation = true;
+        } else {
+            // unusual rotation like 45 — keep as is, no swap, no normalize
+            return;
+        }
         if (norm < 0) norm = (norm % 4 + 4) % 4;
         if ((norm & 1) == 1) {
             std::swap(physicalWidth, physicalHeight);
