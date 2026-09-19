@@ -170,7 +170,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.10.0
+    gperez88/PixelRoot32-Game-Engine@^1.10.1
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -238,6 +238,10 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ---
 
 ## 🕒 Changelog
+
+## 1.10.1
+
+Fixes **landscape via `DISPLAY_ROTATION=1/3`**. `DisplayConfig` swaps physical/logical and offsets for 90°/270° so a `240x320` ILI9341 with `ROT=3` correctly renders `320x240` — no black bar, no shear. No API change; square/orthogonal panels unaffected.
 
 ## 1.10.0
 
