@@ -142,19 +142,19 @@ void test_display_config_rotation_default(void) {
 void test_display_config_rotation_custom(void) {
     DisplayConfig config(DisplayType::NONE, 90);
     
-    TEST_ASSERT_EQUAL_INT(90, config.rotation);
+    TEST_ASSERT_EQUAL_INT(1, config.rotation);
 }
 
 void test_display_config_rotation_180(void) {
     DisplayConfig config(DisplayType::NONE, 180);
     
-    TEST_ASSERT_EQUAL_INT(180, config.rotation);
+    TEST_ASSERT_EQUAL_INT(2, config.rotation);
 }
 
 void test_display_config_rotation_270(void) {
     DisplayConfig config(DisplayType::NONE, 270);
     
-    TEST_ASSERT_EQUAL_INT(270, config.rotation);
+    TEST_ASSERT_EQUAL_INT(3, config.rotation);
 }
 
 // =============================================================================
@@ -237,19 +237,19 @@ void test_display_config_init_draw_surface_rotation_0(void) {
 void test_display_config_init_draw_surface_rotation_90(void) {
     DisplayConfig config(DisplayType::ST7789, 90, 240, 240);
 
-    TEST_ASSERT_EQUAL_INT(90, config.rotation);
+    TEST_ASSERT_EQUAL_INT(1, config.rotation);
 }
 
 void test_display_config_init_draw_surface_rotation_180(void) {
     DisplayConfig config(DisplayType::ST7789, 180, 240, 240);
 
-    TEST_ASSERT_EQUAL_INT(180, config.rotation);
+    TEST_ASSERT_EQUAL_INT(2, config.rotation);
 }
 
 void test_display_config_init_draw_surface_rotation_270(void) {
     DisplayConfig config(DisplayType::ST7789, 270, 240, 240);
 
-    TEST_ASSERT_EQUAL_INT(270, config.rotation);
+    TEST_ASSERT_EQUAL_INT(3, config.rotation);
 }
 
 void test_display_config_init_draw_surface_rotation_1(void) {
