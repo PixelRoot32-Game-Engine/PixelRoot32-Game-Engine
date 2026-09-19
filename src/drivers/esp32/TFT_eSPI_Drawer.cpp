@@ -144,7 +144,10 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::init() {
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::setRotation(uint16_t rot) {
-    // Standardize rotation to index 0-3 (0, 90, 180, 270)
+    // Standardize rotation to index 0-3 (0, 90, 180, 270).
+    // NOTE: Physical/logical dimension swap for 90/270 is handled centrally
+    // in DisplayConfig::applyRotationNormalization(); do NOT swap here to
+    // avoid double-swap. This method only normalizes and forwards to TFT.
     if (rot == 90) rotation = 1;
     else if (rot == 180) rotation = 2;
     else if (rot == 270) rotation = 3;
