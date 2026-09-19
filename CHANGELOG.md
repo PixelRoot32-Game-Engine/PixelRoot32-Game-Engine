@@ -22,6 +22,12 @@ All notable changes to this project will be documented in this file.
 * **`textWidth` and `drawTextCentered` measure per glyph, not per byte.** Both previously advanced one cell for every byte, including bytes no font could render, so a UTF-8 accented string measured wider than it drew and centred text drifted left. They now consume the same decoder `drawText` uses, so measurement and drawing cannot disagree. **Nothing shipped in this repository moves** — there are no non-ASCII string literals in the engine or its demos, and every ASCII string measures and renders byte-identically, asserted by a golden-position test. A downstream game that already has an accented literal in its source **will** see `textWidth` and `drawTextCentered` change, in the direction of correctness.
 * **Accented capitals render at the same baseline as unaccented ones.** At 5x7 the uppercase glyphs occupy all seven rows, leaving nowhere for a diacritic; widening the whole font to 5x8 would have shifted every existing string down one pixel. Instead the supplement glyphs are eight rows tall with the diacritic on row 0 and are drawn at `y + extYOffset` (`-1`), so the letter body lands on exactly the scanline an unaccented glyph would occupy. `Renderer::drawSprite` already clips per row, so text drawn at `y = 0` loses the accent row rather than reading out of bounds. This matters more than it sounds: the shipped demos render their interfaces in capitals, so accented capitals are the common case here, not the rare one.
 
+# 1.10.1
+
+### 🐛 Fixed
+
+* **Display rotation 90/270 (landscape) was sheared with a black bar**: `DisplayConfig` now normalizes `DISPLAY_ROTATION` to 0-3 and, for 1/3 (90°/270°), swaps physical/logical dimensions and offsets before creating the `DrawSurface`. An ILI9341 panel configured as `PHYSICAL 240x320 + ROT=3` for landscape now creates a 320x240 sprite and DMA window instead of 240x320, removing the 80px black bar and shear seen in `games/top_down_city` on `esp32dev_ILI9341`. The swap is centralized in `DisplayConfig::applyRotationNormalization()`; `TFT_eSPI_Drawer::setRotation()` now only normalizes/forwards to `tft.setRotation()` to avoid double-swap. `U8G2` paths remain compatible (they match both `1` and `90` forms). No API change for orthogonal/square panels or `ROT=0/2`.
+
 # 1.10.0
 
 ### ✨ Added

@@ -11,11 +11,20 @@ name: examples
 on:
   push:
     branches: [main, develop]
-  # Deliberately unfiltered, unlike the push trigger above. Long-lived feature
-  # branches are where examples actually break, and a guard that only runs on
-  # PRs into main would have sat out the very pull request that introduced it.
-  # This matches PixelRoot32-Demo-Projects' build workflow.
+  # Filtered to the integration branches, matching tests.yml. This trigger was
+  # deliberately unfiltered at first, on the argument that long-lived feature
+  # branches are where examples actually break. That argument is still true, and
+  # the cost is accepted: an example broken on a feature branch is now caught
+  # when its work reaches main or develop, not on the intermediate pull request.
+  #
+  # What changed is that chained pull-request stacks made the unfiltered trigger
+  # expensive out of proportion to what it caught. A stack of six pull requests
+  # into one tracker branch rebuilt the whole ESP32 example matrix six times over
+  # nearly identical trees, and none of those runs targeted an integration
+  # branch. Use workflow_dispatch to build examples for a feature branch on
+  # demand.
   pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 # A new push to the same branch cancels the previous run: the ESP32 toolchain
