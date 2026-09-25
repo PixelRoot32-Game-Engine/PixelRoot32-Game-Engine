@@ -170,7 +170,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.10.1
+    gperez88/PixelRoot32-Game-Engine@^1.11.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -229,9 +229,10 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🗺️ Roadmap
 
-- 💾 **Persistence (Save/Load)**: Abstract key-value storage (NVS on ESP32).
+- 💾 **Persistence (Save/Load)**: One storage interface with NVS on ESP32, external EEPROM, and file-on-native backends.
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
+- 💬 **Dialog System, post-MVP**: Additions to the 1.11.0 dialog system that land when a game needs them: multi-column option rows, conditional choices, speaker portraits, per-character reveal and localization.
 
 👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
@@ -239,30 +240,30 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.10.1
+## 1.11.0
 
-Fixes **landscape via `DISPLAY_ROTATION=1/3`**. `DisplayConfig` swaps physical/logical and offsets for 90°/270° so a `240x320` ILI9341 with `ROT=3` correctly renders `320x240` — no black bar, no shear. No API change; square/orthogonal panels unaffected.
+Introduces a **dialog system** and **accented Latin text**. Both are opt-in behind build flags that default to `0`. ASCII text measures and renders exactly as in 1.10.0; the one API change is that `FontManager::getGlyphIndex` now returns `uint16_t` (see Changed).
 
-## 1.10.0
+### 💬 Dialog
 
-Introduces **cell-to-screen projection**. The engine gains no isometric mode: a view is a `ProjectionSpec` value, and orthogonal, isometric 2:1, isometric 1:1 and oblique are all values of that one type. Every capability is opt-in behind its own build flag and defaults to `0`, so a build that enables none of them is identical to 1.9.0.
+- **`DialogRunner` (`PIXELROOT32_ENABLE_DIALOG`)**: a headless dialog state machine for text lines, auto-advancing lines, paged text and choices. It is driven only by semantic `feed(DialogAction)` and `update(deltaTimeMs)` calls, has no `Renderer`, `InputManager` or `Font` dependency, and reports lines and confirmed choices through one event callback. The script is a caller-owned `const` table in flash. A session allocates nothing on the heap, and the runner is 28 B on ESP32.
+- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list whose selection is marked twice: `inkSelected` plus a `choiceCaret` glyph drawn in `ink`, so it stays visible on a palette that leaves the highlight colour unset. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
+- **`DialogTypes`**: `DialogLine`, `DialogChoice` and `DialogScript`, the data model a game authors its script in.
 
-### 📐 Projection
+### 🔤 Text & Fonts
 
-- **`ProjectionSpec` (`PIXELROOT32_ENABLE_PROJECTION`)**: an origin plus a 2×2 integer basis. `cellToScreenX/Y` place a cell and never divide; `screenToCellX/Y` invert the mapping for touch picking, flooring toward negative infinity so a tap one pixel outside the map lands in the cell outside it rather than clamping to (0,0). A `constexpr` spec costs zero SRAM.
-- **Projected tilemap draw (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`)**: a flag-guarded `drawTileMap` overload for every tile format — 1bpp, 2bpp and 4bpp — sharing one geometry implementation. Cells are anchored by `TileMapGeneric<T>::tileFootY`, so a tile sits on its cell rather than its top-left corner, and dirty marking follows the sprite's extent so an overhanging tile leaves no stale pixels. The plain orthogonal overloads are textually unchanged.
-- **Cell-range culling (`math::CellRange`)**: the half-open cell window a screen rectangle covers under a given spec, found by inverting the rectangle's corners rather than by the hardcoded orthogonal expressions.
-- **Projection-agnostic depth keys (`PIXELROOT32_ENABLE_DEPTH_SORT`)**: `Entity::depthKey` with `gameplay::compareByDepthKey` lets a game set paint order directly. Ordering by `position.y + height` is correct only while screen depth tracks world Y, which no non-identity projection guarantees. `compareByBottomY` is unchanged and stays right for orthogonal games.
-- **`GridMotion` under a projection**: `interpolatedWorld()` gains a `ProjectionSpec` overload, so an isometric actor reuses the same cell-to-cell stepping an orthogonal one uses.
-- **Static layer snapshot (`PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT`)**: `graphics::StaticLayerSnapshot` caches static layers that *game code* draws, which `StaticTilemapLayerCache` cannot reach because it presupposes a tilemap. Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240), which is why it defaults to off.
+- **Accented Latin characters (`PIXELROOT32_ENABLE_FONT_LATIN1`)**: renders `á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡ « » º` from ordinary UTF-8 string literals, with no compiler charset flag. Accented capitals keep the same baseline as unaccented ones.
+- **`TextLayout`**: glyph-accurate word wrap and measurement (`wrap()`, `measureWidthPx()`, `countWrappedLines()`), allocation-free, with page skipping so a presenter never wraps the same text twice. It is always available, with no flag.
+- **`Font` supplement block**: optional extra glyphs appended to the struct, so every existing font initializer keeps compiling.
 
 ### 🔧 Changed
 
-- `Entity` grows 4 bytes on 32-bit targets when `PIXELROOT32_ENABLE_DEPTH_SORT=1`.
-- 4bpp and 2bpp sprite blits pack the palette once per sprite instead of once per pixel.
-- A 4bpp/2bpp pixel naming an index beyond its sprite's `paletteSize` now resolves to black.
+- `FontManager::getGlyphIndex` returns `uint16_t` and reports "not found" as `FontManager::kNoGlyph` (`0xFFFF`) instead of `255`, which was itself a legal glyph index. **Migration:** replace comparisons against `255` and stop storing the result in a `uint8_t`. Neither mistake fails to compile, so check call sites by hand.
+- `textWidth` and `drawTextCentered` measure per glyph instead of per byte, so they agree with `drawText` for multi-byte text. ASCII strings are unaffected.
 
-Reference consumer: [`examples/iso_dungeon`](examples/iso_dungeon), the first place in this repository where the projected path is executed rather than merely linked, pinned to a frozen pre-conversion oracle by a differential test.
+Reference consumer: [`examples/dialog`](examples/dialog), which shows an auto-advancing line, a speaker chain and a branching three-option choice.
+
+Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ---
 

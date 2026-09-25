@@ -13,6 +13,7 @@
 #include "../../test_config.h"
 #include "graphics/FontManager.h"
 #include "graphics/Renderer.h"
+#include "graphics/Font5x7.h"
 
 using namespace pixelroot32::graphics;
 
@@ -112,38 +113,74 @@ void test_font_manager_text_width_empty_glyph(void) {
 
 void test_font_manager_get_glyph_index_valid(void) {
     // 'A' = 65, firstChar = 32, index = 33
-    uint8_t index = FontManager::getGlyphIndex('A', &testFont);
+    uint16_t index = FontManager::getGlyphIndex('A', &testFont);
     TEST_ASSERT_EQUAL_UINT8(33, index);
 }
 
 void test_font_manager_get_glyph_index_space(void) {
     // ' ' = 32, firstChar = 32, index = 0
-    uint8_t index = FontManager::getGlyphIndex(' ', &testFont);
+    uint16_t index = FontManager::getGlyphIndex(' ', &testFont);
     TEST_ASSERT_EQUAL_UINT8(0, index);
 }
 
 void test_font_manager_get_glyph_index_invalid_low(void) {
     // 31 is below firstChar (32)
-    uint8_t index = FontManager::getGlyphIndex(31, &testFont);
-    TEST_ASSERT_EQUAL_UINT8(255, index);
+    uint16_t index = FontManager::getGlyphIndex(31, &testFont);
+    // Was TEST_ASSERT_EQUAL_UINT8(255, index) -- passed for the wrong reason
+    // after the uint8_t -> uint16_t widening, because uint8_t(0xFFFF) == 0xFF.
+    // Asserting the full-width sentinel proves the real contract.
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, index);
 }
 
 void test_font_manager_get_glyph_index_invalid_high(void) {
     // 127 is above lastChar (126)
-    uint8_t index = FontManager::getGlyphIndex(127, &testFont);
-    TEST_ASSERT_EQUAL_UINT8(255, index);
+    uint16_t index = FontManager::getGlyphIndex(127, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, index);
 }
 
 void test_font_manager_get_glyph_index_no_font(void) {
-    uint8_t index = FontManager::getGlyphIndex('A', nullptr);
-    TEST_ASSERT_EQUAL_UINT8(255, index);
+    uint16_t index = FontManager::getGlyphIndex('A', nullptr);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, index);
 }
 
 void test_font_manager_get_glyph_index_uses_default(void) {
     FontManager::setDefaultFont(&testFont);
-    
-    uint8_t index = FontManager::getGlyphIndex('A', nullptr);
+
+    uint16_t index = FontManager::getGlyphIndex('A', nullptr);
     TEST_ASSERT_EQUAL_UINT8(33, index);
+}
+
+void test_font_manager_legacy_255_does_not_collide_with_sentinel(void) {
+    // A Font whose base range reaches byte 255 legitimately produces glyph
+    // index 255 (charCode - firstChar = 255 - 0). Before the uint16_t
+    // widening, that valid index was bit-identical to the uint8_t "not found"
+    // sentinel (also 255), so a caller had no way to tell them apart. This
+    // proves index 255 and FontManager::kNoGlyph are now distinct values.
+    static const Sprite wideRangeGlyphs[] = {{mockSpriteData, 5, 7}};
+    const Font wideRangeFont = {wideRangeGlyphs, 0, 255, 5, 7, 1, 8};
+
+    uint16_t index = FontManager::getGlyphIndex(static_cast<char>(255), &wideRangeFont);
+
+    TEST_ASSERT_EQUAL_UINT16(255, index);
+    TEST_ASSERT_NOT_EQUAL_UINT16(FontManager::kNoGlyph, index);
+}
+
+void test_font_manager_out_of_bounds_flash_read_guard(void) {
+    // Regression for the exact defect this change fixes: Renderer.cpp used to
+    // gate the "unsupported glyph" branch with `if (glyphIndex == 255)`. Once
+    // getGlyphIndex returns uint16_t, a stale `255` literal no longer equals
+    // the widened sentinel (0xFFFF), so an unsupported codepoint would fall
+    // through as "found" and index glyphs[0xFFFF] on a table that only has
+    // one entry -- an out-of-bounds flash read. This asserts the real guard
+    // value (kNoGlyph), not the old literal, is what a caller must compare
+    // against.
+    static const Sprite narrowGlyphs[] = {{mockSpriteData, 5, 7}};
+    const Font narrowFont = {narrowGlyphs, 0, 0, 5, 7, 1, 8};  // only codepoint 0 is valid
+
+    uint16_t index = FontManager::getGlyphIndex(static_cast<char>(1), &narrowFont);
+
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, index);
+    TEST_ASSERT_NOT_EQUAL_UINT16(255, index);
 }
 
 // =============================================================================
@@ -178,6 +215,181 @@ void test_font_manager_is_char_supported_uses_default(void) {
     FontManager::setDefaultFont(&testFont);
     
     TEST_ASSERT_TRUE(FontManager::isCharSupported('A', nullptr));
+}
+
+// =============================================================================
+// Tests for the appended Font supplement members (Phase 2)
+// =============================================================================
+
+void test_font_manager_font_supplement_members_default_disabled(void) {
+    // testFont/emptyFont use the pre-existing 7-value aggregate initializer
+    // unmodified; the four appended Font members must value-initialize to the
+    // disabled state under C++17 [dcl.init.aggr]/5.
+    TEST_ASSERT_NULL(testFont.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0, testFont.extFirstChar);
+    TEST_ASSERT_EQUAL_UINT8(0, testFont.extLastChar);
+    TEST_ASSERT_EQUAL_INT8(0, testFont.extYOffset);
+
+    TEST_ASSERT_NULL(emptyFont.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0, emptyFont.extFirstChar);
+}
+
+// =============================================================================
+// Tests for nextGlyph (Phase 3 decode)
+// =============================================================================
+
+// Synthetic supplement block: one drawn glyph at codepoint 0xF1 ('n' + tilde).
+static const uint16_t extSpriteData[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+static const Sprite extGlyphsData[] = {{extSpriteData, 5, 8}};
+static const Font extFont = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xF1, 0xF1, -1};
+
+// =============================================================================
+// isCharSupported called with a lead byte alone (spec: "isCharSupported
+// Contract" -> "isCharSupported called with a lead byte alone")
+// =============================================================================
+
+// A Font with a supplement block whose range *does* cover 0xC3 (0xA0-0xFF,
+// mirroring FONT_5X7's real Latin-1 range), independent of the build flag --
+// unlike extFont above (ext range 0xF1-0xF1, which never contains 0xC3
+// either way and so cannot distinguish the two possible behaviors).
+static const Font fontWithSupplementBlock = {mockGlyphs, 32, 126, 5, 7, 1, 8, extGlyphsData, 0xA0, 0xFF, -1};
+
+void test_font_manager_is_char_supported_lead_byte_alone(void) {
+    // Spec scenario: GIVEN a Font with a supplement block and the raw byte
+    // 0xC3, WHEN isCharSupported(0xC3, font) is called, THEN it evaluates
+    // 0xC3 as a single byte value against the font's ranges only -- it does
+    // not perform lead-byte decoding.
+    //
+    // isCharSupported (FontManager.cpp:78-87) is a plain compare against
+    // activeFont->firstChar/lastChar only -- it never references
+    // extFirstChar/extLastChar at all, unlike getGlyphIndex and
+    // isCodepointSupported. 0xC3 (195) sits inside fontWithSupplementBlock's
+    // ext range [0xA0,0xFF] but outside its base range [32,126]; the
+    // function's own declared (base-only) range compare therefore says
+    // false. Pinned as the contract, not reverse-engineered from a run.
+    TEST_ASSERT_FALSE(FontManager::isCharSupported(static_cast<char>(0xC3), &fontWithSupplementBlock));
+}
+
+// =============================================================================
+// FONT_5X7 Latin-1 supplement flag contract (Phase 5)
+// =============================================================================
+
+// Real shipped font, both build configurations. Off: extGlyphs must stay
+// nullptr and Latin-1 codepoints must resolve as unsupported (blank-cell
+// path). On: the generated 96-entry block must be wired in and cover the
+// documented 0xA0-0xFF range with the 19 drawn codepoints resolving true.
+#if PIXELROOT32_ENABLE_FONT_LATIN1
+void test_font_manager_font5x7_latin1_flag_contract(void) {
+    TEST_ASSERT_NOT_NULL(FONT_5X7.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0xA0, FONT_5X7.extFirstChar);
+    TEST_ASSERT_EQUAL_UINT8(0xFF, FONT_5X7.extLastChar);
+    TEST_ASSERT_EQUAL_INT8(-1, FONT_5X7.extYOffset);
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xD1, &FONT_5X7));   // Ntilde
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xC1, &FONT_5X7));   // Aacute
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xBF, &FONT_5X7));   // inverted ?
+    // 0xA0 (NBSP) is in-range but an undrawn/blank slot: isCodepointSupported
+    // only answers range membership, not "has visible ink" -- it is still
+    // a valid, resolvable glyph index (matches ASCII space's contract).
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xA0, &FONT_5X7));
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported(0x100, &FONT_5X7));  // out of range entirely
+}
+#else
+void test_font_manager_font5x7_latin1_flag_contract(void) {
+    TEST_ASSERT_NULL(FONT_5X7.extGlyphs);
+    TEST_ASSERT_EQUAL_UINT8(0, FONT_5X7.extFirstChar);
+    TEST_ASSERT_EQUAL_UINT8(0, FONT_5X7.extLastChar);
+    TEST_ASSERT_EQUAL_INT8(0, FONT_5X7.extYOffset);
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported(0xD1, &FONT_5X7));
+
+    // The blank-cell contract: an accented sequence still consumes exactly
+    // its 2 bytes and still measures one glyph-width cell, even with no
+    // supplement data compiled in.
+    const auto step = FontManager::nextGlyph("\xC3\x91", 0, &FONT_5X7);  // Ntilde
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(2, step.bytes);
+    TEST_ASSERT_FALSE(step.extended);
+    TEST_ASSERT_EQUAL_INT16(FontManager::textWidth(&FONT_5X7, "A"),
+                             FontManager::textWidth(&FONT_5X7, "\xC3\x91"));
+}
+#endif
+
+void test_font_manager_next_glyph_ascii_byte(void) {
+    const auto step = FontManager::nextGlyph("A", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::getGlyphIndex('A', &testFont), step.index);
+    TEST_ASSERT_EQUAL_UINT8(1, step.bytes);
+    TEST_ASSERT_FALSE(step.extended);
+}
+
+void test_font_manager_next_glyph_two_byte_extended_resolves(void) {
+    // 0xC3 0xB1 = UTF-8 for U+00F1 (ntilde), inside extFont's supplement block.
+    const auto step = FontManager::nextGlyph("\xC3\xB1", 0, &extFont);
+    TEST_ASSERT_EQUAL_UINT16(0, step.index);
+    TEST_ASSERT_EQUAL_UINT8(2, step.bytes);
+    TEST_ASSERT_TRUE(step.extended);
+}
+
+void test_font_manager_next_glyph_two_byte_no_ext_block_blank(void) {
+    // Same bytes, but testFont has no supplement block -- one blank cell.
+    const auto step = FontManager::nextGlyph("\xC3\xB1", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(2, step.bytes);
+    TEST_ASSERT_FALSE(step.extended);
+}
+
+void test_font_manager_next_glyph_missing_continuation(void) {
+    // Lead byte at end of string, no continuation available.
+    const auto step = FontManager::nextGlyph("\xC3", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(1, step.bytes);
+}
+
+void test_font_manager_next_glyph_invalid_continuation(void) {
+    // 'A' (0x41) is not a valid continuation byte (0x80-0xBF).
+    const auto step = FontManager::nextGlyph("\xC3\x41", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(1, step.bytes);
+}
+
+void test_font_manager_next_glyph_stray_continuation(void) {
+    const auto step = FontManager::nextGlyph("\x80", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(1, step.bytes);
+}
+
+void test_font_manager_next_glyph_three_byte_sequence(void) {
+    // 0xE2 0x82 0xAC = UTF-8 for the euro sign; fully consumed, one blank cell.
+    const auto step = FontManager::nextGlyph("\xE2\x82\xAC", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(3, step.bytes);
+}
+
+void test_font_manager_next_glyph_four_byte_sequence(void) {
+    const auto step = FontManager::nextGlyph("\xF0\x9F\x98\x80", 0, &testFont);
+    TEST_ASSERT_EQUAL_UINT16(FontManager::kNoGlyph, step.index);
+    TEST_ASSERT_EQUAL_UINT8(4, step.bytes);
+}
+
+void test_font_manager_textwidth_matches_drawtext_advance(void) {
+    // "A" + 2-byte ext glyph + "B": textWidth must equal the sum of per-step
+    // advances nextGlyph reports, not the raw byte count.
+    const std::string_view mixed = "A\xC3\xB1M";
+    size_t glyphCount = 0;
+    for (size_t i = 0; i < mixed.size();) {
+        const auto step = FontManager::nextGlyph(mixed, i, &extFont);
+        i += step.bytes;
+        ++glyphCount;
+    }
+    TEST_ASSERT_EQUAL_size_t(3, glyphCount); // 'A', the folded ext glyph, 'M'
+
+    const int16_t expected = static_cast<int16_t>((extFont.glyphWidth + extFont.spacing) * glyphCount - extFont.spacing);
+    TEST_ASSERT_EQUAL_INT(expected, FontManager::textWidth(&extFont, mixed, 1));
+}
+
+void test_font_manager_iscodepointsupported_basic(void) {
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported('A', &testFont));
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported('A' - 1 + 128, &testFont));
+    TEST_ASSERT_TRUE(FontManager::isCodepointSupported(0xF1, &extFont));
+    TEST_ASSERT_FALSE(FontManager::isCodepointSupported(0xF1, &testFont));
 }
 
 // =============================================================================
@@ -225,7 +437,9 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_get_glyph_index_invalid_high);
     RUN_TEST(test_font_manager_get_glyph_index_no_font);
     RUN_TEST(test_font_manager_get_glyph_index_uses_default);
-    
+    RUN_TEST(test_font_manager_legacy_255_does_not_collide_with_sentinel);
+    RUN_TEST(test_font_manager_out_of_bounds_flash_read_guard);
+
     RUN_TEST(test_font_manager_is_char_supported_true);
     RUN_TEST(test_font_manager_is_char_supported_space);
     RUN_TEST(test_font_manager_is_char_supported_tilde);
@@ -233,9 +447,24 @@ int main(int argc, char **argv) {
     RUN_TEST(test_font_manager_is_char_supported_false_high);
     RUN_TEST(test_font_manager_is_char_supported_no_font);
     RUN_TEST(test_font_manager_is_char_supported_uses_default);
-    
+    RUN_TEST(test_font_manager_is_char_supported_lead_byte_alone);
+
     RUN_TEST(test_font_manager_text_width_with_spaces);
     RUN_TEST(test_font_manager_text_width_long_string);
-    
+
+    RUN_TEST(test_font_manager_font_supplement_members_default_disabled);
+    RUN_TEST(test_font_manager_font5x7_latin1_flag_contract);
+
+    RUN_TEST(test_font_manager_next_glyph_ascii_byte);
+    RUN_TEST(test_font_manager_next_glyph_two_byte_extended_resolves);
+    RUN_TEST(test_font_manager_next_glyph_two_byte_no_ext_block_blank);
+    RUN_TEST(test_font_manager_next_glyph_missing_continuation);
+    RUN_TEST(test_font_manager_next_glyph_invalid_continuation);
+    RUN_TEST(test_font_manager_next_glyph_stray_continuation);
+    RUN_TEST(test_font_manager_next_glyph_three_byte_sequence);
+    RUN_TEST(test_font_manager_next_glyph_four_byte_sequence);
+    RUN_TEST(test_font_manager_textwidth_matches_drawtext_advance);
+    RUN_TEST(test_font_manager_iscodepointsupported_basic);
+
     return UNITY_END();
 }

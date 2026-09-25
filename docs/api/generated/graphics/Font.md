@@ -42,3 +42,6 @@ Include "Renderer.h" when using Font in implementation files
 | `glyphHeight` | `uint8_t` | Fixed height of each glyph in pixels |
 | `spacing` | `uint8_t` | Horizontal spacing between characters in pixels |
 | `lineHeight` | `uint8_t` | Total line height including vertical spacing (glyphHeight + vertical spacing) |
+| `extFirstChar` | `uint8_t` | First supplement codepoint (e.g., 0xA0) |
+| `extLastChar` | `uint8_t` | Last supplement codepoint (e.g., 0xFF) |
+| `extYOffset` | `int8_t` | Vertical shift applied to supplement glyphs |
