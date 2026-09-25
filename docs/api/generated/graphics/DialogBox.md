@@ -20,8 +20,10 @@ method.
 |------|------|-------------|
 | `speakerX` | `int16_t` | Valid when hasSpeaker. |
 | `bodyX` | `int16_t` | Top-left of body line 0. |
-| `choiceX` | `int16_t` | Top-left of choice row 0. |
-| `choiceW` | `int16_t` | Row width (panel inner width). |
+| `choiceX` | `int16_t` | Top-left of choice row 0, gutter included. |
+| `choiceW` | `int16_t` | Row width (panel inner width), gutter included. |
+| `caretGutterPx` | `int16_t` | Width reserved for the caret; 0 when it is disabled. |
+| `choiceTextX` | `int16_t` | choiceX + caretGutterPx. Where option text starts. |
 | `bodyLineCount` | `uint8_t` | Rows valid in bodyLines. |
 | `choiceCount` | `uint8_t` | Already clamped to DialogMaxChoices. |
 | `pageCount` | `uint8_t` | Total pages of the current line's text. |

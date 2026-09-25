@@ -149,7 +149,11 @@ revision() bumps only when the selection actually changed), Confirm
 emits ChoiceConfirmed and follows the chosen DialogChoice::next
 (kNoLine finishes the dialog), Cancel is honored only when the line's
 flags allow it (see DialogTypes.h's kLineFlagAllowCancel), and
-Advance/None stay no-ops. An honored Cancel only emits Cancelled and
+Advance/None stay no-ops. The selection clamps rather than wraps
+because config::DialogMaxChoices caps a line at 4 options and
+DialogBox draws them all at once: wrapping would buy no reach the
+player does not already have, while clamping makes "I am at the end
+of the list" unambiguous and keeps select()'s contract monotonic. An honored Cancel only emits Cancelled and
 leaves the runner on the line; closing the dialog is the game's call
 to stop(). Up, Down and Confirm are no-ops on a line with zero usable
 choices -- there is nothing to move to or confirm -- while an allowed
@@ -275,6 +279,17 @@ The current line's effective choice count.
         0 whenever any of those clamps leaves nothing usable, e.g. a
         DialogLine::firstChoice that is itself out of range or equal
         to kNoChoice.
+
+        WHY CLAMP RATHER THAN REJECT THE SCRIPT IN start(): a
+        malformed choice range is a per-line authoring error, and
+        start() may be asked to run a script long before the offending
+        line is ever reached. Failing the whole script there shows the
+        player nothing at all, on a device with no console to explain
+        why; clamping degrades exactly that one line to "no usable
+        choices" and leaves the rest of the script playable. Keeping
+        all three clamps in this one function is also what stops the
+        bounds policy from being split across two places that can
+        disagree.
 
 ### `const DialogChoice* choice(ChoiceId index) const`
 
