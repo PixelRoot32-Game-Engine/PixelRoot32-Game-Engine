@@ -247,7 +247,7 @@ Introduces a **dialog system** and **accented Latin text**. Both are opt-in behi
 ### 💬 Dialog
 
 - **`DialogRunner` (`PIXELROOT32_ENABLE_DIALOG`)**: a headless dialog state machine for text lines, auto-advancing lines, paged text and choices. It is driven only by semantic `feed(DialogAction)` and `update(deltaTimeMs)` calls, has no `Renderer`, `InputManager` or `Font` dependency, and reports lines and confirmed choices through one event callback. The script is a caller-owned `const` table in flash. A session allocates nothing on the heap, and the runner is 28 B on ESP32.
-- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list with the selection highlighted. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
+- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list whose selection is marked twice: `inkSelected` plus a `choiceCaret` glyph drawn in `ink`, so it stays visible on a palette that leaves the highlight colour unset. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
 - **`DialogTypes`**: `DialogLine`, `DialogChoice` and `DialogScript`, the data model a game authors its script in.
 
 ### 🔤 Text & Fonts
