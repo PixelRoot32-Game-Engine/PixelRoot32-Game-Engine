@@ -1,6 +1,6 @@
 # PixelRoot32 — Examples
 
-**Five small, single-idea projects.** Each one exists to show one capability of
+**Six small, single-idea projects.** Each one exists to show one capability of
 the engine clearly enough to copy, and stops there.
 
 > **Looking for a game?** These are not games. Complete games, and per-topic
@@ -32,6 +32,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | Example | What it demonstrates | PlatformIO environments |
 |--------|----------------------|-------------------------|
 | [camera](camera/) | `Camera2D` (smoothing, bounds), parallax, tile platforms, `KinematicActor`, **camera effects** (shake / punch / offset) and a scripted **`CameraTween`** pan | `native`, `esp32dev` |
+| [dialog](dialog/) | Headless **`DialogRunner`** (five states) driven by semantic actions, and **`DialogBox`** as its default panel: an auto-advance line, a 3-line linear chain, and a branching 3-option **`Choice`** line | `native`, `esp32dev` |
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation over a drawn background scene, cycling **single / dual / dual-inverted palette mode** with **A**, with the live background table shown as a 16-entry ramp | `native`, `esp32dev` |
 | [mono_oled](mono_oled/) | **Monochrome 1-bit OLED** on ESP32-C3: `U8G2_Drawer` via `PIXELROOT32_USE_U8G2`, which renderer paths a monochrome panel gives up (no tilemap fast path, no sprite blit, no palette), a **72x40 logical screen offset inside a 128x64 controller framebuffer**, and one-button interaction | `native`, `esp32c3` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
@@ -98,7 +99,7 @@ inherited from a game.
 
 ## Where each opt-in capability is demonstrated
 
-These five examples cover the rendering, camera, physics and display side of
+These six examples cover the rendering, camera, physics, dialog and display side of
 the engine. Each row names the examples that actually define the flag in their
 `platformio.ini` (or their `lib/platformio.ini` template):
 
@@ -114,6 +115,7 @@ the engine. Each row names the examples that actually define the flag in their
 | Particles | `PARTICLES` | [physics](physics/) |
 | Touch input | `TOUCH` | [physics](physics/) |
 | Scene arena | `SCENE_ARENA` | [animated_tilemap](animated_tilemap/), [camera](camera/), [physics](physics/) |
+| Dialog | `DIALOG` | [dialog](dialog/) |
 | Monochrome display driver | `PIXELROOT32_USE_U8G2` | [mono_oled](mono_oled/) |
 
 Every flag above except the last takes the `PIXELROOT32_ENABLE_` prefix.

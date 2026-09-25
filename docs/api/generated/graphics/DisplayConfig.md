@@ -91,3 +91,9 @@ Initializes the underlying draw surface.
 Transfers ownership of the DrawSurface to the caller.
 
 **Returns:** A unique_ptr containing the DrawSurface.
+
+### `void applyRotationNormalization()`
+
+**Description:**
+
+Normalizes rotation to 0-3 and swaps dimensions for 90/270.

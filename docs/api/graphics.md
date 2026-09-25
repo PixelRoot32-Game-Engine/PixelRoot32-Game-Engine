@@ -130,7 +130,11 @@ The engine supports indexed colors via the `Color` enumeration.
 ### Font System
 
 Uses a native bitmap font system via 1bpp sprites (`struct Font`).
-- **`FONT_5X7`**: A built-in 5x7 pixel bitmap font (ASCII 32-126).
+- **`FONT_5X7`**: A built-in 5x7 pixel bitmap font (ASCII 32-126), plus an optional
+  Latin-1 supplement (`á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡ « » º` and the reserved
+  `0xA0-0xFF` range for future glyphs) gated behind `PIXELROOT32_ENABLE_FONT_LATIN1`
+  (off by default). With the flag off, accented UTF-8 characters still measure and
+  advance one cell each -- they just render blank.
 - `FontManager` manages the active default font and text width calculations.
 
 ### Sprite Structures
