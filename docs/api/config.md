@@ -44,8 +44,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK` | Fallback DMA batch size if memory fails. | `30` |
 | `PIXELROOT32_TFT_12BIT_COLOR` | Send frames as 12-bit RGB444 (2 pixels per 3 bytes) instead of RGB565. Experimental. | `0` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
-| `PIXELROOT32_VELOCITY_DAMPING` | Per-frame velocity damping factor (0.0-1.0). | `0.999` |
-| `PIXELROOT32_MAX_VELOCITY` | Maximum velocity cap in units/s. | `500` |
+| `PIXELROOT32_VELOCITY_DAMPING` | Per-frame velocity damping factor (0.0-1.0). **Currently no-op (see issue #242): nothing in `src/` or `include/` reads it.** | `0.999` |
+| `PIXELROOT32_MAX_VELOCITY` | Maximum velocity cap in units/s. **Currently no-op (see issue #242): nothing in `src/` or `include/` reads it.** | `500` |
 
 ### TFT_eSPI Display Flags
 
@@ -138,7 +138,7 @@ build_flags =
 | `SPATIAL_GRID_MAX_STATIC_PER_CELL` | `12` | Max static actors per grid cell. |
 | `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | `12` | Max dynamic actors per grid cell. |
 | `PR32_HAS_FPU_MACRO` | Auto-detected | Set to `1` if target has hardware FPU (ESP32, ESP32-S3, ESP32-P4, native). Undefined for C-series. |
-| `PR32_FORCE_FIXED` | Undefined | User override: undefines `PR32_HAS_FPU_MACRO` to force Fixed16 math. |
+| `PR32_FORCE_FIXED` | Undefined | User override: undefines `PR32_HAS_FPU_MACRO` to force Fixed16 math. **Experimental as a cross-target reproducibility path (see issue #244): same-results-across-targets is not yet backed by a scripted native-vs-ESP32 comparison test.** |
 
 ## Custom Scene Limits
 

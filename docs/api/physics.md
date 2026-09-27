@@ -122,7 +122,7 @@ The `CollisionSystem` is attached to a `Scene`. It manages the broadphase (Spati
 
 ### PhysicsScheduler
 
-Ensures the physics simulation runs at a fixed time step regardless of the rendering frame rate. This guarantees deterministic jumps and collision responses.
+Ensures the physics simulation runs at a fixed time step regardless of the rendering frame rate. This makes jumps and collision responses repeatable within the same build on the same target (same inputs applied on the same physics steps). It does not guarantee identical results across different hardware/targets: `Scalar` is `float` on FPU targets and `Fixed16` elsewhere, float results may differ between CPUs/compilers, and inputs read once per frame can land on different physics steps under different frame timing (see issue #244).
 - Default timestep: `1/60.0f` seconds.
 - Cap: `MAX_FRAME_ACCUMULATOR` prevents the "spiral of death" during lag spikes.
 
