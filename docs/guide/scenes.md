@@ -332,52 +332,54 @@ public:
 
 ### Level Transitions (Built-in)
 
-The engine provides a built-in scene transition system with Fade and Iris effects. Transitions are triggered via the `Engine::triggerTransition()` API and are feature-gated via `PIXELROOT32_ENABLE_SCENE_TRANSITIONS`.
+The engine provides a built-in scene transition system with Fade, Iris and DiagonalWipe effects. Transitions are triggered via the `Engine::triggerTransition()` API and are feature-gated via `PIXELROOT32_ENABLE_SCENE_TRANSITIONS`. The target scene is passed to `triggerTransition()` itself — the swap between the Out phase (visible → hidden) and the In phase (hidden → visible) is automatic, so do **not** call `setScene()` afterwards.
 
 ```cpp
 #include <Engine.h>
-#include <TransitionEffect.h>
 
 using namespace pixelroot32;
 
 // Fade transition (smooth black dimming)
 void GameLevel::completeLevel() {
-    // Trigger fade-out → scene swap → fade-in (500ms each phase)
+    // Trigger fade-out → automatic scene swap → fade-in (500ms each phase)
     engine->triggerTransition(
+        new NextLevel(),
         graphics::TransitionType::Fade,
-        500,  // duration in ms per phase
-        graphics::TransitionDirection::Out  // fade out first
+        500  // duration in ms per phase
     );
-    
-    // Scene is swapped automatically after fade-out completes
-    engine->setScene(new NextLevel());
 }
 
 // Iris transition (circular wipe)
 void GameLevel::enterBossRoom() {
     engine->triggerTransition(
+        new BossScene(),
         graphics::TransitionType::Iris,
-        400,
-        graphics::TransitionDirection::Out
+        400
     );
-    
-    engine->setScene(new BossScene());
 }
 
-// Iris with custom center (offset iris)
+// Iris with custom centers (offset iris, e.g. closing on the player)
 void GameLevel::teleportPlayer() {
-    graphics::TransitionEffect effect;
-    effect.setIrisCenter(128, 64);  // Right side of screen
-    
     engine->triggerTransition(
+        new TeleportScene(),
         graphics::TransitionType::Iris,
         300,
-        graphics::TransitionDirection::Out
+        128, 64,  // iris center for the Out (closing) phase
+        128, 64   // iris center for the In (opening) phase
     );
-    
-    engine->setScene(new TeleportScene());
+}
+
+// DiagonalWipe transition (corner-to-corner sweep)
+void GameLevel::slideToNextArea() {
+    engine->triggerTransition(
+        new NextArea(),
+        graphics::TransitionType::DiagonalWipe,
+        400
+    );
 }
 ```
+
+> **Note (issue #240):** `WipeDirection` (four corner-to-corner directions) and the DiagonalWipe sub-step (`TransitionEffect::setSubStepMs()`) currently exist only on `TransitionEffect` itself — `Engine::triggerTransition()` has no `WipeDirection` or sub-step parameter, and every wipe triggered through `Engine` runs with the default direction (`NE_SW`). Per-call direction selection is planned; until then, games that need another direction must drive `TransitionEffect` directly.
 
 ::: tip Feature Gate
 Scene transitions require `PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1` in your build flags. When disabled, `triggerTransition()` becomes a no-op with zero overhead.
