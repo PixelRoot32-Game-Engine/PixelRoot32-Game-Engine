@@ -112,6 +112,28 @@ void PhysicsDemoScene::init() {
     ceiling->setCollisionMask(1);
     addEntity(ceiling);
 
+    // Diagonal ramp: spawned circles fall onto it and bounce/roll down to
+    // the floor, exercising circle-vs-segment contact (issue #241).
+    RampActor* ramp = arenaNew<RampActor>(arena, 20, 45,
+        Vector2(toScalar(0), toScalar(40)), Vector2(toScalar(130), toScalar(0)));
+    ramp->setCollisionLayer(1);
+    ramp->setCollisionMask(1);
+    addEntity(ramp);
+
+    // L corner sharing one end point: balls hitting the joint meet the
+    // radial end-point normal and cannot slip through.
+    RampActor* cornerH = arenaNew<RampActor>(arena, 150, 60,
+        Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(30), toScalar(0)));
+    cornerH->setCollisionLayer(1);
+    cornerH->setCollisionMask(1);
+    addEntity(cornerH);
+
+    RampActor* cornerV = arenaNew<RampActor>(arena, 180, 60,
+        Vector2(toScalar(0), toScalar(0)), Vector2(toScalar(0), toScalar(40)));
+    cornerV->setCollisionLayer(1);
+    cornerV->setCollisionMask(1);
+    addEntity(cornerV);
+
     player = arenaNew<PlayerActor>(arena, 140, 30, 10, 10);
     player->setCollisionLayer(1);
     player->setCollisionMask(1);
