@@ -445,6 +445,11 @@ namespace pixelroot32::core {
                                         irisInCx, irisInCy);
     }
 
+    void Engine::triggerTransition(Scene* newScene,
+                                    const pixelroot32::graphics::TransitionConfig& config) {
+        sceneManager.transitionToScene(newScene, config);
+    }
+
     void Engine::drawDebugOverlay(pixelroot32::graphics::Renderer& r) {
         if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
             debugAccumulatedMs += deltaTime;
