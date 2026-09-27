@@ -111,6 +111,18 @@ Salida: los docs dejan de mentir aunque el código aún no cambie.
 
 Si hay dos autores: uno toma física (#244→#243→#242→#245→#246) y otro #240 en paralelo. #241 siempre última.
 
+## 7. Estrategia de ramas (una rama por fase)
+
+Cada fase se trabaja en su propia rama aislada desde `develop` y se integra por separado:
+
+| Rama | Fase | Contenido |
+|------|------|-----------|
+| `plan/fase-0-verdad-documentada` | Fase 0 | Docs veraces (esta rama) |
+| `plan/fase-1-correctitud-fisica` | Fase 1 | #243 + #242 |
+| `plan/fase-2-transiciones` | Fase 2 | #240 (paralelizable con Fase 1, otro autor posible) |
+| `plan/fase-3-tuning-reposo` | Fase 3 | #245 + #246 (requiere Fase 1 por la decisión sobre `MIN_VELOCITY`) |
+| `plan/fase-4-segmentos` | Fase 4 | #241 (solo tras la demo Lunar Pool externa) |
+
 ## 6. Riesgos y notas
 
 - #242 mal resuelto (activar damping 0.999 por defecto) rompería juegos existentes. Exigir defaults no-op.
