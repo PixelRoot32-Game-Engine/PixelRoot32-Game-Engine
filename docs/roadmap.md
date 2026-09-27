@@ -4,6 +4,8 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 
 ## Planned
 
+- 🧱 **AABB-vs-segment collision**: `CollisionShape::SEGMENT` collides only with circles today (issue #241 scope) — AABB bodies fall through segments, as the boxes do on the `examples/physics` ramp while the balls bounce. If a game needs crates on ramps, add an AABB-vs-segment narrow-phase contact (closest point on the segment clamped to the box, reusing the circle-vs-segment normal logic), `checkCollision` coverage and unit tests.
+
 - 💾 **Persistence (Save/Load)**: One storage interface with three backends: NVS on ESP32, an external I2C/SPI EEPROM, and a file on native. The data shape, key-value or byte-addressed slots, is decided with all three backends in view. The Arduino-ESP32 `EEPROM` library is itself emulated on NVS, so only an external chip is a distinct backend.
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
