@@ -10,6 +10,7 @@
 #include "physics/RigidActor.h"
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
+#include "core/Log.h"
 #include "math/MathUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -36,6 +37,47 @@ namespace pixelroot32::physics {
     using math::min;
     using math::max;
     using math::clamp;
+
+#ifdef PIXELROOT32_DEBUG_MODE
+    namespace logging = pixelroot32::core::logging;
+
+    // First-hit capacity reports (issue #243). Each limit logs once per
+    // process; the drop counters on CollisionSystem/SpatialGrid keep the
+    // cumulative totals for tests. All of this compiles out in release.
+    inline void reportEntityLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: entity limit reached (PHYSICS_MAX_ENTITIES=%d); "
+                "body not added to physics. Raise PHYSICS_MAX_ENTITIES.",
+                pixelroot32::platforms::config::PhysicsMaxEntities);
+        }
+    }
+
+    inline void reportContactLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: contact limit reached (PHYSICS_MAX_CONTACTS=%d); "
+                "contact not resolved. Raise PHYSICS_MAX_CONTACTS.",
+                pixelroot32::platforms::config::PhysicsMaxContacts);
+        }
+    }
+
+    inline void reportCandidateLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: per-body candidate limit reached "
+                "(PHYSICS_MAX_CANDIDATES_PER_BODY=%d); further candidates not tested. "
+                "Raise PHYSICS_MAX_CANDIDATES_PER_BODY.",
+                pixelroot32::platforms::config::PhysicsMaxCandidatesPerBody);
+        }
+    }
+#endif
 
     namespace {
 
@@ -92,7 +134,11 @@ namespace pixelroot32::physics {
     void CollisionSystem::addEntity(Entity* e) {
         assert(e != nullptr && "Cannot add null entity to collision system");
         if (entityCount >= kMaxEntities) {
-            return;  // Silently ignore - could add assert or log
+#ifdef PIXELROOT32_DEBUG_MODE
+            ++droppedEntities_;
+            reportEntityLimitOnce();
+#endif
+            return;  // Over capacity: the body is never added to physics
         }
         if (e->type == EntityType::ACTOR) {
             Actor* actor = static_cast<Actor*>(e);
@@ -114,6 +160,15 @@ namespace pixelroot32::physics {
             }
         }
     }
+
+#ifdef PIXELROOT32_DEBUG_MODE
+    void CollisionSystem::resetLimitDropCounters() {
+        droppedEntities_ = 0;
+        droppedContacts_ = 0;
+        droppedCandidates_ = 0;
+        SpatialGrid::resetLimitDropCounters();
+    }
+#endif
 
     void CollisionSystem::update() {
         // Store previous positions before integration
@@ -178,7 +233,7 @@ namespace pixelroot32::physics {
                 grid.insertDynamic(actor);
         }
 
-        static Actor* potential[64];
+        static Actor* potential[kMaxCandidatesPerBody];
         
         for (uint16_t i = 0; i < entityCount; i++) {
             Entity* e = entities[i];
@@ -190,7 +245,13 @@ namespace pixelroot32::physics {
             PhysicsActor* pA = static_cast<PhysicsActor*>(actorA);
             
             int count = 0;
-            grid.getPotentialColliders(actorA, potential, count, 64);
+            grid.getPotentialColliders(actorA, potential, count, kMaxCandidatesPerBody);
+#ifdef PIXELROOT32_DEBUG_MODE
+            if (count >= kMaxCandidatesPerBody) {
+                ++droppedCandidates_;
+                reportCandidateLimitOnce();
+            }
+#endif
             
             for (int i = 0; i < count; ++i) {
                 Actor* actorB = potential[i];
@@ -248,6 +309,12 @@ namespace pixelroot32::physics {
                         contact.isSensorContact = moving->isSensor() || staticBody->isSensor();
                         if (contactCount < kMaxContacts)
                             contacts[contactCount++] = contact;
+#ifdef PIXELROOT32_DEBUG_MODE
+                        else {
+                            ++droppedContacts_;
+                            reportContactLimitOnce();
+                        }
+#endif
                     }
                 } else {
                     generateContact(pA, pB);
@@ -295,6 +362,12 @@ namespace pixelroot32::physics {
             contact.isSensorContact = a->isSensor() || b->isSensor();
             if (contactCount < kMaxContacts)
                 contacts[contactCount++] = contact;
+#ifdef PIXELROOT32_DEBUG_MODE
+            else {
+                ++droppedContacts_;
+                reportContactLimitOnce();
+            }
+#endif
         }
         return hit;
     }

@@ -6,6 +6,7 @@
 #include "core/Actor.h"
 #include "core/Entity.h"
 #include "core/PhysicsActor.h"
+#include "core/Log.h"
 #include "math/MathUtil.h"
 
 #ifndef IRAM_ATTR
@@ -30,6 +31,40 @@ namespace pixelroot32::physics {
     int SpatialGrid::staticCellCounts[SpatialGrid::kMaxCells];
     Actor* SpatialGrid::dynamicCells[SpatialGrid::kMaxCells][SpatialGrid::kMaxDynamicPerCell];
     int SpatialGrid::dynamicCellCounts[SpatialGrid::kMaxCells];
+
+#ifdef PIXELROOT32_DEBUG_MODE
+    namespace logging = pixelroot32::core::logging;
+
+    unsigned SpatialGrid::droppedStaticInserts_ = 0;
+    unsigned SpatialGrid::droppedDynamicInserts_ = 0;
+
+    // First-hit capacity reports (issue #243). Each limit logs once per
+    // process; the static counters keep the cumulative totals for tests.
+    // All of this compiles out in release.
+    void reportStaticCellLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "SpatialGrid: static per-cell limit reached "
+                "(SPATIAL_GRID_MAX_STATIC_PER_CELL=%d); body not registered in that cell. "
+                "Raise SPATIAL_GRID_MAX_STATIC_PER_CELL.",
+                pixelroot32::platforms::config::SpatialGridMaxStaticPerCell);
+        }
+    }
+
+    void reportDynamicCellLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "SpatialGrid: dynamic per-cell limit reached "
+                "(SPATIAL_GRID_MAX_DYNAMIC_PER_CELL=%d); body not registered in that cell. "
+                "Raise SPATIAL_GRID_MAX_DYNAMIC_PER_CELL.",
+                pixelroot32::platforms::config::SpatialGridMaxDynamicPerCell);
+        }
+    }
+#endif
 
     void SpatialGrid::clear() {
         for (int i = 0; i < kMaxCells; ++i) {
@@ -96,6 +131,12 @@ namespace pixelroot32::physics {
                     if (staticCellCounts[idx] < kMaxStaticPerCell) {
                         staticCells[idx][staticCellCounts[idx]++] = actor;
                     }
+#ifdef PIXELROOT32_DEBUG_MODE
+                    else {
+                        ++droppedStaticInserts_;
+                        reportStaticCellLimitOnce();
+                    }
+#endif
                 }
             }
         }
@@ -125,6 +166,12 @@ namespace pixelroot32::physics {
                 if (dynamicCellCounts[idx] < kMaxDynamicPerCell) {
                     dynamicCells[idx][dynamicCellCounts[idx]++] = actor;
                 }
+#ifdef PIXELROOT32_DEBUG_MODE
+                else {
+                    ++droppedDynamicInserts_;
+                    reportDynamicCellLimitOnce();
+                }
+#endif
             }
         }
     }

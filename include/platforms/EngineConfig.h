@@ -214,6 +214,10 @@
     #define PHYSICS_MAX_PAIRS 128
 #endif
 
+#ifndef PHYSICS_MAX_CANDIDATES_PER_BODY
+    #define PHYSICS_MAX_CANDIDATES_PER_BODY 64
+#endif
+
 #ifndef GAMEPLAY_EVENT_QUEUE_CAPACITY
     #define GAMEPLAY_EVENT_QUEUE_CAPACITY 32
 #endif
@@ -345,6 +349,9 @@ namespace pixelroot32::platforms::config {
 
     /** @brief Type-safe access to PhysicsMaxPairs configuration. */
     inline constexpr int PhysicsMaxPairs = PHYSICS_MAX_PAIRS;
+
+    /** @brief Type-safe access to PhysicsMaxCandidatesPerBody configuration. */
+    inline constexpr int PhysicsMaxCandidatesPerBody = PHYSICS_MAX_CANDIDATES_PER_BODY;
 
     /** @brief Type-safe access to VelocityIterations configuration. */
     inline constexpr int VelocityIterations = PIXELROOT32_VELOCITY_ITERATIONS;

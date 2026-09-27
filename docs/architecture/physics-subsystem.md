@@ -88,10 +88,6 @@ static constexpr Scalar BIAS = toScalar(0.2f);               // 20% correction p
 static constexpr Scalar VELOCITY_THRESHOLD = toScalar(0.5f); // Zero restitution below this
 static constexpr int VELOCITY_ITERATIONS = 2;                // Impulse solver iterations
 static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation threshold
-
-// vPhysics Scheduler constants
-static constexpr Scalar VELOCITY_DAMPING = toScalar(0.999f);  // Per-frame velocity damping
-static constexpr Scalar MAX_VELOCITY = toScalar(500.0f);     // Maximum velocity cap (units/s)
 ```
 
 ---
@@ -154,9 +150,10 @@ void Scene::update(unsigned long deltaTime) {
 
 ```ini
 # platformio.ini
--D PIXELROOT32_VELOCITY_DAMPING=0.999           ; Per-frame damping (default)
--D PIXELROOT32_MAX_VELOCITY=500                  ; Max velocity (units/s, default)
+-D PIXELROOT32_VELOCITY_ITERATIONS=4              ; Impulse solver passes per step (default 2)
 ```
+
+> **Note:** `PIXELROOT32_VELOCITY_DAMPING` and `PIXELROOT32_MAX_VELOCITY` were removed (issue #242): nothing in the engine ever read them. Per-body damping is covered by `friction` (`RigidActor::integrate`).
 
 ---
 
@@ -523,12 +520,29 @@ Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build f
 // Contact pool size (fixed array, no heap)
 #define PHYSICS_MAX_CONTACTS 128
 
+// Per-body broadphase candidate buffer (fixed array, no heap)
+#define PHYSICS_MAX_CANDIDATES_PER_BODY 64
+
 // Spatial grid: static = rebuilt when entities change; dynamic = per frame
 #define SPATIAL_GRID_MAX_STATIC_PER_CELL  12
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
 
-**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
+### 9.1.1 Capacity limits and what happens at each one (issue #243)
+
+Every buffer below is fixed-size. When one is full, the extra work is **skipped**, and in debug builds (`PIXELROOT32_DEBUG_MODE`) the first hit logs a warning naming the limit and the flag that raises it. The cumulative totals are readable via `CollisionSystem::getDroppedEntityCount()` / `getDroppedContactCount()` / `getDroppedCandidateCount()` and `SpatialGrid::getDroppedStaticInserts()` / `getDroppedDynamicInserts()` (debug builds only). Release builds keep today's skip behavior at zero extra per-frame cost.
+
+| Limit | Default flag | Consequence when reached |
+|-------|--------------|--------------------------|
+| `PHYSICS_MAX_ENTITIES` | `64` | The body is never added to physics (`CollisionSystem::addEntity`). |
+| `SPATIAL_GRID_MAX_STATIC_PER_CELL` | `12` | The static body is not registered in that cell and can miss collisions there. |
+| `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | `12` | The moving body is not registered in that cell and can miss collisions there. A 15-ball pool rack can exceed this in one 32px cell. |
+| Candidates per body | `PHYSICS_MAX_CANDIDATES_PER_BODY=64` | Further broadphase candidates are not narrow-phase tested for that body. |
+| `PHYSICS_MAX_CONTACTS` | `128` | The contact is not resolved (bodies overlap without response). |
+
+The grid only covers the logical screen and positions outside it are clamped into the edge cells, so every out-of-screen body shares those few cells and counts against the per-cell caps.
+
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage — but bodies past a lowered per-cell cap stop colliding in that cell (see table above). See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
 
 Solver tuning (in code):
 
