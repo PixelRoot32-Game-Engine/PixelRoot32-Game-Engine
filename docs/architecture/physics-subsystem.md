@@ -544,16 +544,25 @@ The grid only covers the logical screen and positions outside it are clamped int
 
 **ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage — but bodies past a lowered per-cell cap stop colliding in that cell (see table above). See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
 
-Solver tuning (in code):
+Solver tuning via build flags (no engine header edits needed):
 
-```cpp
-// For more stable stacking (slower)
-static constexpr int VELOCITY_ITERATIONS = 4;  // Default: 2
-static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
-
-// For looser collision (faster)
-static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
+```ini
+# platformio.ini
+-D PHYSICS_BIAS=0.3f                  ; 30% correction per step (default 0.2)
+-D PHYSICS_SLOP=0.05f                 ; ignore penetration below this (default 0.02)
+-D PHYSICS_REST_THRESHOLD=5.0f        ; snap slow unforced bodies to rest (default 0 = off)
+-D PIXELROOT32_VELOCITY_ITERATIONS=4  ; impulse solver passes (default 2)
 ```
+
+Each step removes `(penetration - SLOP) * BIAS`, so a larger `BIAS` separates overlapping bodies in fewer steps; correction stops at the `SLOP` floor.
+
+### Rest threshold
+
+Proportional friction (`velocity *= 1 - friction * dt`) decays slow bodies asymptotically — they creep instead of stopping. With `PHYSICS_REST_THRESHOLD` set (e.g. `5.0f`), `RigidActor::integrate()` snaps a body whose speed drops below the threshold to exactly zero velocity, provided the game applied no force to it that step (gravity injected by `integrate()` itself does not count). The default `0` disables the snap and preserves existing behavior.
+
+Two queries expose the state without the game iterating its own entities (turn-based games: pool, golf, artillery):
+- `PhysicsActor::isAtRest()` — true when velocity is exactly zero.
+- `CollisionSystem::allBodiesAtRest()` — true when every registered physics body is at rest.
 
 **Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
 

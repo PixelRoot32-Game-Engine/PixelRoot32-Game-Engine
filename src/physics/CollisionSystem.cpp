@@ -170,6 +170,17 @@ namespace pixelroot32::physics {
     }
 #endif
 
+    bool CollisionSystem::allBodiesAtRest() const {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
+            if (e->type != EntityType::ACTOR) continue;
+            Actor* actor = static_cast<Actor*>(e);
+            if (!actor->isPhysicsBody()) continue;
+            if (!static_cast<PhysicsActor*>(actor)->isAtRest()) return false;
+        }
+        return true;
+    }
+
     void CollisionSystem::update() {
         // Store previous positions before integration
         for (uint16_t i = 0; i < entityCount; i++) {

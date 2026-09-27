@@ -740,17 +740,13 @@ static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation t
 
 #### Tuning for Your Game
 
-**More stable stacking** (slower):
+All solver tuning is build flags — no engine header edits needed (a project
+on `lib_deps` must never edit the downloaded copy):
 
-```cpp
-static constexpr int VELOCITY_ITERATIONS = 4;  // Default: 2
-static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
-```
-
-**Faster, looser collisions**:
-
-```cpp
-static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
+```ini
+# platformio.ini
+-D PHYSICS_BIAS=0.3f   ; 30% correction per step (default 0.2, more stable stacking, slower)
+-D PHYSICS_SLOP=0.05f  ; ignore penetration below this (default 0.02, looser collisions, faster)
 ```
 
 ### Performance Notes
