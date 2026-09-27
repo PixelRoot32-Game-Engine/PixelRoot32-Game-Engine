@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+# Unreleased
+
+### ✨ Added
+
+* **Static segment collision shape (`CollisionShape::SEGMENT`)**: `PhysicsActor::setSegment(a, b)` turns a (usually static) actor into a line-segment wall at any angle — diagonal cushions, ramps, cut corners; one segment per actor, so a polyline table is N static segment actors. Endpoints are offsets from `position` and width/height sync to the bounding box, so `getHitBox()` and the broadphase work unchanged. Circle-vs-segment contacts flow through the existing impulse/restitution path: the normal is perpendicular to the segment for interior hits and radial at the end points (which behave as zero-radius circles, so bodies cannot slip through a shared corner joint). Segment-vs-segment and AABB-vs-segment pairs produce no contact. API shape taken from the validated Lunar Pool demo's cushion physics (`games/pool`); pinned by `test/unit/test_collision_segments/` (perpendicular hit, 45° wall, corner joint, zero-length segment, both registration orders). Closes #241.
+* **Configurable penetration correction (`PHYSICS_BIAS`, default `0.2f`; `PHYSICS_SLOP`, default `0.02f`)**: each step now corrects `(penetration - SLOP) * BIAS`, tunable per game from `platformio.ini` instead of editing engine headers. Closes #245.
+* **Rest threshold (`PHYSICS_REST_THRESHOLD`, default `0.0f` = off) plus at-rest queries**: with the threshold set, `RigidActor::integrate()` snaps a slow body with no game-applied force to exactly zero velocity instead of creeping asymptotically under proportional friction; gravity injected by `integrate()` itself does not block the snap, and the branch compiles out at the default `0`, preserving existing behavior. `PhysicsActor::isAtRest()` and `CollisionSystem::allBodiesAtRest()` let turn-based games (pool, golf, artillery) detect a stopped table without iterating their own entities. Covered both ways by `test/unit/test_physics_rest/`: the default build pins unchanged behavior, the `native_test_physics_rest` env (+ CI step) pins the snap. Closes #246.
+* **Broadphase/narrowphase capacity reporting**: debug builds now count silently dropped entities, contacts and per-body candidates instead of losing them without a trace, and `PHYSICS_MAX_CANDIDATES_PER_BODY` (default `64`) bounds narrow-phase work per body. Pinned by `test/unit/test_physics_limits/`. Closes #243.
+* **`graphics::TransitionConfig` through `Engine::triggerTransition()`**: wipe direction (all four `WipeDirection` values), DiagonalWipe sub-step and per-phase iris centers in one call; existing overloads forward to it with defaults, so a transition never inherits a previous call's direction. Pinned by ST-15–ST-18 in `test_scene_transition`. Closes #240.
+
+### 🔧 Changed
+
+* **Physics docs no longer overstate determinism**: the fixed timestep is now documented as deterministic *per build*, not across hardware (`Scalar` is `float` on ESP32 and native). Closes #244.
+
+### 🗑️ Removed
+
+* **Dead `VELOCITY_DAMPING` / `MAX_VELOCITY` / `MIN_VELOCITY`**: settable via `-D` but never read by any code; removed from headers, sources, docs and in-repo `platformio.ini` files. **Migration:** builds that define them still compile (a stray `-D` is harmless), but the macros do nothing — delete them. `Demo-Projects` games `brick_breaker`/`pong` still set the removed flags (noted on the PR). Closes #242.
+
 # 1.11.0
 
 ### ✨ Added
