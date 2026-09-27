@@ -26,7 +26,8 @@ enum class PhysicsBodyType {
  */
 enum class CollisionShape {
     AABB,   ///< Axis-Aligned Bounding Box (Default)
-    CIRCLE  ///< Circular collider
+    CIRCLE, ///< Circular collider
+    SEGMENT ///< Static line segment at any angle (see setSegment)
 };
 
 /**
@@ -100,6 +101,10 @@ protected:
 
     CollisionShape shape = CollisionShape::AABB;
     pixelroot32::math::Scalar radius = pixelroot32::math::toScalar(0.0f);
+
+    /** Segment endpoints as offsets from position (only for Shape::SEGMENT). */
+    pixelroot32::math::Vector2 segmentA;
+    pixelroot32::math::Vector2 segmentB;
 
     /**
      * @brief Opaque user data pointer for attaching custom metadata.
@@ -362,6 +367,45 @@ public:
         width = static_cast<int>(r * dm);
         height = static_cast<int>(r * dm);
     }
+
+    /**
+     * @brief Defines the line segment collider (only for Shape::SEGMENT).
+     *
+     * Endpoints are stored as offsets from position, so moving the actor
+     * moves the segment with it. Width/height are synced to the segment's
+     * bounding box (plus one unit for fractional parts) so getHitBox() and
+     * the broad phase keep covering the whole segment with no other changes.
+     *
+     * Intended for static bodies (diagonal walls, cushions, ramps): one
+     * segment per actor, so a polyline table is N static segment actors.
+     * Segment-vs-segment and AABB-vs-segment pairs produce no contact;
+     * only circle-vs-segment collides.
+     *
+     * @param a First endpoint, relative to position.
+     * @param b Second endpoint, relative to position.
+     */
+    void setSegment(pixelroot32::math::Vector2 a, pixelroot32::math::Vector2 b) {
+        segmentA = a;
+        segmentB = b;
+        pixelroot32::math::Scalar minX = a.x < b.x ? a.x : b.x;
+        pixelroot32::math::Scalar minY = a.y < b.y ? a.y : b.y;
+        pixelroot32::math::Scalar maxX = a.x > b.x ? a.x : b.x;
+        pixelroot32::math::Scalar maxY = a.y > b.y ? a.y : b.y;
+        width = static_cast<int>(maxX - minX) + 1;
+        height = static_cast<int>(maxY - minY) + 1;
+    }
+
+    /**
+     * @brief Gets the first segment endpoint in world coordinates.
+     * @return position + the first offset passed to setSegment.
+     */
+    pixelroot32::math::Vector2 getSegmentA() const { return position + segmentA; }
+
+    /**
+     * @brief Gets the second segment endpoint in world coordinates.
+     * @return position + the second offset passed to setSegment.
+     */
+    pixelroot32::math::Vector2 getSegmentB() const { return position + segmentB; }
 
     /**
      * @brief Set user data pointer for custom metadata.
