@@ -110,6 +110,19 @@ ball->setCollisionShape(CollisionShape::CIRCLE);
 ball->setSize(16, 16); // Sets radius to 8
 ```
 
+### SegmentWall (Pattern)
+
+Setting the collision shape to `SEGMENT` turns a (usually static) actor into a
+line-segment wall at any angle — diagonal cushions, ramps, cut corners:
+```cpp
+auto cushion = scene.createEntity<pixelroot32::physics::StaticActor>();
+cushion->setCollisionShape(CollisionShape::SEGMENT);
+// Endpoints relative to the actor's position; one segment per actor.
+cushion->setSegment(Vector2(0, 20), Vector2(20, 0));
+```
+Only circle-vs-segment pairs collide; the contact normal is perpendicular to
+the segment (radial at the end points) and restitution applies as usual.
+
 ## Architecture Notes
 
 ### CollisionSystem (The Flat Solver)

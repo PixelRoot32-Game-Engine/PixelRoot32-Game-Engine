@@ -173,6 +173,17 @@ void Scene::update(unsigned long deltaTime) {
 | AABB vs AABB | SAT (Separating Axis Theorem) |
 | Circle vs Circle | Distance check with vertical fallback for perfect overlap |
 | Circle vs AABB | Closest point clamping |
+| Circle vs Segment | Closest point on segment (interior: perpendicular normal; ends: radial normal); segment-vs-segment and AABB-vs-segment produce no contact |
+
+A segment collider is a static line at any angle: one segment per actor via
+`PhysicsActor::setSegment(a, b)` (endpoints relative to position; width/height
+sync to the bounding box so the broad phase is unchanged). Contacts flow
+through the standard impulse/restitution path, so a circle bounces off a
+diagonal wall with its tangent velocity preserved. Shared end points between
+two segments behave as zero-radius circles, so a body cannot slip through a
+corner joint. Shape validated by the Lunar Pool demo's cushion physics
+(`games/pool` in PixelRoot32-Demo-Projects); a polyline table maps to N static
+segment actors.
 
 ### 3.3 Contact Generation and Pool
 

@@ -357,8 +357,18 @@ namespace pixelroot32::physics {
             hit = generateAABBVsAABBContact(contact);
         } else {
             PhysicsActor* circle = (shapeA == CollisionShape::CIRCLE) ? a : b;
-            PhysicsActor* box = (shapeA == CollisionShape::CIRCLE) ? b : a;
-            hit = generateCircleVsAABBContact(contact, circle, box);
+            PhysicsActor* segment = (shapeA == CollisionShape::CIRCLE) ? b : a;
+            if ((shapeA == CollisionShape::CIRCLE && shapeB == CollisionShape::SEGMENT) ||
+                (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::CIRCLE)) {
+                hit = generateCircleVsSegmentContact(contact, circle, segment);
+            } else if (shapeA == CollisionShape::SEGMENT || shapeB == CollisionShape::SEGMENT) {
+                // SEGMENT vs SEGMENT and AABB vs SEGMENT produce no contact;
+                // only circle-vs-segment collides (issue #241).
+                hit = false;
+            } else {
+                PhysicsActor* box = (shapeA == CollisionShape::CIRCLE) ? b : a;
+                hit = generateCircleVsAABBContact(contact, circle, box);
+            }
         }
         
         // One-way platform filter: validate spatial crossing
@@ -476,6 +486,59 @@ namespace pixelroot32::physics {
             if (dTop < minDist) { minDist = dTop; contact.normal = Vector2(0, -1); }
             if (dBottom < minDist) { minDist = dBottom; contact.normal = Vector2(0, 1); }
             contact.penetration = r + minDist;
+        }
+
+        contact.contactPoint = closestP;
+        if (circle == contact.bodyB) {
+            contact.normal = -contact.normal;
+        }
+        return true;
+    }
+
+    bool CollisionSystem::generateCircleVsSegmentContact(Contact& contact,
+                                                         PhysicsActor* circle,
+                                                         PhysicsActor* segment) {
+        Scalar r = circle->getRadius();
+        Vector2 centerC = circle->position + Vector2(r, r);
+        Vector2 segA = segment->getSegmentA();
+        Vector2 segB = segment->getSegmentB();
+
+        // Closest point on the segment to the circle center. Clamping the
+        // projection to [0, 1] unifies both demo phases (World::resolveCushions):
+        // an interior projection gives the perpendicular normal, a clamped
+        // endpoint gives the radial normal of a zero-radius circle, so shared
+        // corners between two segments cannot be slipped through (issue #241).
+        Vector2 ab = segB - segA;
+        Scalar lenSq = ab.lengthSquared();
+        Vector2 closestP;
+        if (lenSq <= kEpsilon) {
+            closestP = segA;  // Zero-length segment behaves as a point.
+        } else {
+            Scalar t = (centerC - segA).dot(ab) / lenSq;
+            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+            closestP = segA + ab * t;
+        }
+
+        Vector2 v = centerC - closestP;
+        Scalar distSqr = v.lengthSquared();
+
+        if (distSqr >= r * r) {
+            return false;
+        }
+
+        Scalar dist = sqrt(distSqr);
+        if (dist > kEpsilon) {
+            contact.normal = v / dist;
+            contact.penetration = r - dist;
+        } else if (lenSq > kEpsilon) {
+            // Center exactly on the segment: no defined direction to the
+            // closest point, so use the segment perpendicular.
+            Scalar len = sqrt(lenSq);
+            contact.normal = Vector2(-ab.y / len, ab.x / len);
+            contact.penetration = r;
+        } else {
+            contact.normal = Vector2(0, -1);
+            contact.penetration = r;
         }
 
         contact.contactPoint = closestP;
@@ -622,6 +685,38 @@ namespace pixelroot32::physics {
                         Circle cA = {pA->position.x + pA->getRadius(), pA->position.y + pA->getRadius(), pA->getRadius()};
                         Circle cB = {pB->position.x + pB->getRadius(), pB->position.y + pB->getRadius(), pB->getRadius()};
                         isColliding = intersects(cA, cB);
+                    } else if ((shapeA == CollisionShape::CIRCLE && shapeB == CollisionShape::SEGMENT) ||
+                               (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::CIRCLE)) {
+                        PhysicsActor* circP = (shapeA == CollisionShape::CIRCLE) ? pA : pB;
+                        PhysicsActor* segP = (shapeA == CollisionShape::CIRCLE) ? pB : pA;
+                        Scalar r = circP->getRadius();
+                        Vector2 center = circP->position + Vector2(r, r);
+                        Vector2 segA = segP->getSegmentA();
+                        Vector2 segB = segP->getSegmentB();
+                        Vector2 ab = segB - segA;
+                        Scalar lenSq = ab.lengthSquared();
+                        Vector2 closestP;
+                        if (lenSq <= kEpsilon) {
+                            closestP = segA;
+                        } else {
+                            Scalar t = (center - segA).dot(ab) / lenSq;
+                            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+                            closestP = segA + ab * t;
+                        }
+                        isColliding = (center - closestP).lengthSquared() < r * r;
+                    } else if (shapeA == CollisionShape::SEGMENT || shapeB == CollisionShape::SEGMENT) {
+                        PhysicsActor* segP = (shapeA == CollisionShape::SEGMENT) ? pA : pB;
+                        PhysicsActor* otherP = (shapeA == CollisionShape::SEGMENT) ? pB : pA;
+                        if (otherP->getShape() == CollisionShape::AABB) {
+                            Segment s = {segP->getSegmentA().x, segP->getSegmentA().y,
+                                         segP->getSegmentB().x, segP->getSegmentB().y};
+                            isColliding = intersects(s, otherP->getHitBox());
+                        } else {
+                            // SEGMENT vs SEGMENT has no narrow phase; fall back
+                            // to hitbox overlap (conservative, like the
+                            // non-physics branch below).
+                            isColliding = actor->getHitBox().intersects(other->getHitBox());
+                        }
                     } else {
                         PhysicsActor* circP = (shapeA == CollisionShape::CIRCLE) ? pA : pB;
                         PhysicsActor* boxP = (shapeA == CollisionShape::CIRCLE) ? pB : pA;
