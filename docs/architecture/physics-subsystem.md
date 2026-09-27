@@ -658,7 +658,7 @@ void RigidActor::update(unsigned long deltaTime) {
 1. **More stable stacking**: Impulse solver handles multiple contacts better
 2. **Perfect elastic collisions**: Restitution 1.0 actually works now
 3. **No more sticking**: Proper separation of velocity/position phases
-4. **Deterministic**: Same inputs always produce same outputs
+4. **Deterministic per build**: Same inputs produce same outputs within the same build (see the determinism scope note under Key Design Principles)
 
 ---
 
