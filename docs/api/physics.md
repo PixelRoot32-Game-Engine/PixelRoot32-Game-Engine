@@ -143,9 +143,15 @@ A structural boundary used to restrict actor movement (e.g., keeping the player 
 
 | Constant | Description |
 |----------|-------------|
+| `PHYSICS_MAX_ENTITIES` | Max bodies in physics (default: 64). Past it, the body is never added. |
 | `PHYSICS_MAX_PAIRS` | Max broadphase collision pairs (default: 128). |
-| `PHYSICS_MAX_CONTACTS` | Max simultaneous narrowphase contacts (default: 128). |
+| `PHYSICS_MAX_CONTACTS` | Max simultaneous narrowphase contacts (default: 128). Past it, the contact is not resolved. |
+| `PHYSICS_MAX_CANDIDATES_PER_BODY` | Max broadphase candidates narrow-phase tested per body (default: 64). |
+| `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Max static bodies registered per grid cell (default: 12). Past it, the body is not registered in that cell. |
+| `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Max moving bodies registered per grid cell (default: 12). Past it, the body is not registered in that cell. |
 | `VELOCITY_ITERATIONS` | Number of passes in the impulse solver (default: 2). |
+
+In debug builds (`PIXELROOT32_DEBUG_MODE`) the first hit of each limit logs a warning naming the limit and the flag that raises it; see the [capacity limits table](../architecture/physics-subsystem.md#911-capacity-limits-and-what-happens-at-each-one-issue-243).
 
 ## Tile Collision Utilities
 

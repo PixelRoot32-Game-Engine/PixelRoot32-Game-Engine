@@ -59,20 +59,6 @@ public:
     static constexpr pixelroot32::math::Scalar SLOP = pixelroot32::math::toScalar(0.02f);
     static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
     static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
-    static constexpr pixelroot32::math::Scalar MIN_VELOCITY = pixelroot32::math::toScalar(0.01f);
-    
-    // Velocity enhancements (Phase 3)
-    #ifdef PIXELROOT32_VELOCITY_DAMPING
-        static constexpr pixelroot32::math::Scalar VELOCITY_DAMPING = pixelroot32::math::toScalar(PIXELROOT32_VELOCITY_DAMPING);
-    #else
-        static constexpr pixelroot32::math::Scalar VELOCITY_DAMPING = pixelroot32::math::toScalar(0.999f);
-    #endif
-    
-    #ifdef PIXELROOT32_MAX_VELOCITY
-        static constexpr pixelroot32::math::Scalar MAX_VELOCITY = pixelroot32::math::toScalar(PIXELROOT32_MAX_VELOCITY);
-    #else
-        static constexpr pixelroot32::math::Scalar MAX_VELOCITY = pixelroot32::math::toScalar(500.0f);
-    #endif
     static constexpr int VELOCITY_ITERATIONS = pixelroot32::platforms::config::VelocityIterations;
     static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
     
@@ -139,12 +125,48 @@ public:
      */
     size_t getEntityCount() const { return entityCount; }
 
+#ifdef PIXELROOT32_DEBUG_MODE
+    /**
+     * @brief Number of bodies refused by addEntity() because PHYSICS_MAX_ENTITIES was reached.
+     *
+     * Debug builds only. See issue #243.
+     */
+    unsigned getDroppedEntityCount() const { return droppedEntities_; }
+
+    /**
+     * @brief Number of contacts discarded because PHYSICS_MAX_CONTACTS was reached.
+     *
+     * Debug builds only. See issue #243.
+     */
+    unsigned getDroppedContactCount() const { return droppedContacts_; }
+
+    /**
+     * @brief Number of bodies whose candidate list was truncated at
+     *        PHYSICS_MAX_CANDIDATES_PER_BODY.
+     *
+     * Debug builds only. See issue #243.
+     */
+    unsigned getDroppedCandidateCount() const { return droppedCandidates_; }
+
+    /**
+     * @brief Resets all capacity-limit drop counters, including the grid's.
+     *
+     * Debug builds only. See issue #243.
+     */
+    void resetLimitDropCounters();
+#endif
+
     /**
      * @brief Clears the collision system state.
      */
     void clear() {
         entityCount = 0;
         contactCount = 0;
+#ifdef PIXELROOT32_DEBUG_MODE
+        droppedEntities_ = 0;
+        droppedContacts_ = 0;
+        droppedCandidates_ = 0;
+#endif
         grid.clear();
 #if PIXELROOT32_ENABLE_INTERACTION_TRIGGERS
         if (interactionTracker_) interactionTracker_->reset();
@@ -267,6 +289,7 @@ public:
 private:
     static constexpr int kMaxPairs = pixelroot32::platforms::config::PhysicsMaxPairs;
     static constexpr int kMaxContacts = pixelroot32::platforms::config::PhysicsMaxContacts;
+    static constexpr int kMaxCandidatesPerBody = pixelroot32::platforms::config::PhysicsMaxCandidatesPerBody;
     static constexpr int kVelocityIterations = pixelroot32::platforms::config::VelocityIterations;
     static constexpr uint16_t kMaxEntities = pixelroot32::platforms::config::PhysicsMaxEntities;
 
@@ -280,6 +303,11 @@ private:
     uint16_t entityCount = 0;
     Contact contacts[kMaxContacts];
     int contactCount = 0;
+#ifdef PIXELROOT32_DEBUG_MODE
+    unsigned droppedEntities_ = 0;
+    unsigned droppedContacts_ = 0;
+    unsigned droppedCandidates_ = 0;
+#endif
     SpatialGrid grid;
     uint16_t nextEntityId = 1;  ///< Next id to assign on addEntity; 0 is reserved for "unregistered".
 
