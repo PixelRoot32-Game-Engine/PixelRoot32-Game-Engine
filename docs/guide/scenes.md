@@ -379,7 +379,19 @@ void GameLevel::slideToNextArea() {
 }
 ```
 
-> **Note (issue #240):** `WipeDirection` (four corner-to-corner directions) and the DiagonalWipe sub-step (`TransitionEffect::setSubStepMs()`) currently exist only on `TransitionEffect` itself — `Engine::triggerTransition()` has no `WipeDirection` or sub-step parameter, and every wipe triggered through `Engine` runs with the default direction (`NE_SW`). Per-call direction selection is planned; until then, games that need another direction must drive `TransitionEffect` directly.
+For full control, pass a `graphics::TransitionConfig`: wipe direction (all four `WipeDirection` values), DiagonalWipe sub-step and per-phase iris centers in one call. The existing overloads stay and forward to it with defaults, and every call carries the whole description, so a transition never inherits the direction or sub-step of an earlier one.
+
+```cpp
+// DiagonalWipe from bottom-left to top-right, flicker-free sub-step
+void GameLevel::slideToNextArea() {
+    graphics::TransitionConfig config;
+    config.type = graphics::TransitionType::DiagonalWipe;
+    config.durationMs = 400;
+    config.wipeDirection = graphics::WipeDirection::SW_NE;
+    config.subStepMs = 16;  // quantise to ~60fps steps; 0 disables
+    engine->triggerTransition(new NextArea(), config);
+}
+```
 
 ::: tip Feature Gate
 Scene transitions require `PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1` in your build flags. When disabled, `triggerTransition()` becomes a no-op with zero overhead.
