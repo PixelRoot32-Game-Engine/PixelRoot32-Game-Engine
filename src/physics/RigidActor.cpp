@@ -36,6 +36,9 @@ void RigidActor::integrate(pixelroot32::math::Scalar dt) {
     using math::Vector2;
     using math::toScalar;
 
+    // Game-applied force only: gravity injected below never blocks rest.
+    const bool unforced = (force == Vector2::ZERO());
+
     Scalar worldGravityY = toScalar(200.0f); 
     force.y += worldGravityY * gravityScale * mass;
 
@@ -48,6 +51,15 @@ void RigidActor::integrate(pixelroot32::math::Scalar dt) {
     force.y = toScalar(0.0f);
 
     velocity *= (toScalar(1.0f) - friction * dt);
+
+    // Rest threshold (issue #246): with no applied force, a body slower than
+    // kRestThreshold stops exactly instead of creeping asymptotically under
+    // proportional friction. Compiles out when the threshold is 0 (default).
+    if constexpr (kRestThreshold > toScalar(0)) {
+        if (unforced && velocity.lengthSquared() < kRestThreshold * kRestThreshold) {
+            velocity = Vector2::ZERO();
+        }
+    }
 }
 
 void RigidActor::update(unsigned long deltaTime) {

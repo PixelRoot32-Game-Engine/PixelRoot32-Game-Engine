@@ -126,6 +126,12 @@ Ensures the physics simulation runs at a fixed time step regardless of the rende
 - Default timestep: `1/60.0f` seconds.
 - Cap: `MAX_FRAME_ACCUMULATOR` prevents the "spiral of death" during lag spikes.
 
+### Rest queries
+
+- `PhysicsActor::isAtRest()` reports whether a body stopped (exactly zero velocity).
+- `CollisionSystem::allBodiesAtRest()` reports whether every registered physics body stopped, so a game knows a turn is over without iterating its own entities.
+- With `PHYSICS_REST_THRESHOLD` set, slow unforced rigid bodies snap to exactly zero velocity instead of creeping (`0` disables the snap).
+
 ## Configuration & Data Structures
 
 ### WorldCollisionInfo

@@ -56,8 +56,8 @@ struct Contact {
 class CollisionSystem {
 public:
     static constexpr pixelroot32::math::Scalar FIXED_DT = pixelroot32::math::toScalar(1.0f / 60.0f);
-    static constexpr pixelroot32::math::Scalar SLOP = pixelroot32::math::toScalar(0.02f);
-    static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(0.2f);
+    static constexpr pixelroot32::math::Scalar SLOP = pixelroot32::math::toScalar(pixelroot32::platforms::config::PhysicsSlop);
+    static constexpr pixelroot32::math::Scalar BIAS = pixelroot32::math::toScalar(pixelroot32::platforms::config::PhysicsBias);
     static constexpr pixelroot32::math::Scalar VELOCITY_THRESHOLD = pixelroot32::math::toScalar(0.5f);
     static constexpr int VELOCITY_ITERATIONS = pixelroot32::platforms::config::VelocityIterations;
     static constexpr pixelroot32::math::Scalar CCD_THRESHOLD = pixelroot32::math::toScalar(3.0f);
@@ -155,6 +155,17 @@ public:
      */
     void resetLimitDropCounters();
 #endif
+
+    /**
+     * @brief Checks whether every registered physics body is at rest.
+     * @return True when no registered physics body has nonzero velocity
+     *         (or when no physics bodies are registered).
+     *
+     * Lets a game know a turn is over (pool, golf, artillery) without
+     * iterating its own entities (issue #246). Invisible bodies still
+     * integrate, so they count.
+     */
+    bool allBodiesAtRest() const;
 
     /**
      * @brief Clears the collision system state.

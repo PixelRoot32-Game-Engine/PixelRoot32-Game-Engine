@@ -305,6 +305,17 @@ public:
     const pixelroot32::math::Vector2& getVelocity() const { return velocity; }
 
     /**
+     * @brief Checks whether this body is at rest.
+     * @return True when velocity is exactly zero (issue #246).
+     *
+     * Static bodies are always at rest. Rigid bodies reach exact zero through
+     * the rest threshold (see RigidActor::kRestThreshold) or by having their
+     * velocity zeroed outright. A slowly creeping body under pure proportional
+     * friction is NOT at rest.
+     */
+    bool isAtRest() const { return velocity == pixelroot32::math::Vector2::ZERO(); }
+
+    /**
      * @brief Sets the restitution (bounciness) of the actor.
      * @param r Restitution value (0.0 to 1.0+). 1.0 means no energy is lost on bounce.
      */

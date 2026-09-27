@@ -17,6 +17,19 @@ namespace pixelroot32::physics {
  * dynamic objects that should behave naturally, like falling crates or debris.
  */
 class RigidActor : public pixelroot32::core::PhysicsActor {
+public:
+    /**
+     * @brief Rest velocity threshold in units/s (issue #246).
+     *
+     * From PHYSICS_REST_THRESHOLD (default 0 = disabled, preserving existing
+     * behavior). When enabled, integrate() snaps a slow body with no applied
+     * force to exactly zero velocity instead of letting proportional friction
+     * creep asymptotically. Gravity injected by integrate() itself does not
+     * count as an applied force; a force the game applied this step does.
+     */
+    static constexpr pixelroot32::math::Scalar kRestThreshold =
+        pixelroot32::math::toScalar(pixelroot32::platforms::config::PhysicsRestThreshold);
+
 protected:
     pixelroot32::math::Vector2 force; ///< Accumulated force for the current frame.
 

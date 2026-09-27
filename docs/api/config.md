@@ -131,6 +131,9 @@ build_flags =
 | `PHYSICS_MAX_PAIRS` | `128` | Maximum collision pairs considered in broadphase. |
 | `PHYSICS_MAX_CONTACTS` | `128` | Maximum simultaneous contacts in the physics solver. Past it, the contact is not resolved. |
 | `PHYSICS_MAX_CANDIDATES_PER_BODY` | `64` | Maximum broadphase candidates narrow-phase tested per body. |
+| `PHYSICS_BIAS` | `0.2f` | Fraction of penetration corrected per step (0.0-1.0). |
+| `PHYSICS_SLOP` | `0.02f` | Penetration below this is ignored (no correction). |
+| `PHYSICS_REST_THRESHOLD` | `0.0f` | Rest velocity threshold in units/s. `0` disables snap-to-rest. |
 | `PIXELROOT32_VELOCITY_ITERATIONS` | `2` | Number of impulse solver passes per frame. |
 | `SPATIAL_GRID_CELL_SIZE` | `32` | Size of each cell in the broadphase grid (pixels). |
 | `SPATIAL_GRID_MAX_ENTITIES_PER_CELL` | `24` | (Legacy) max entities per cell. |

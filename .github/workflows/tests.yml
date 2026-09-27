@@ -50,6 +50,13 @@ jobs:
       run: |
         pio test -e native_test_gameplay --verbose
 
+    # Separate step for the same reason: native_test proves the rest
+    # threshold stays behavior-inert at its 0 default, while this env is the
+    # only place the snap-to-rest assertions actually run (issue #246).
+    - name: Run Tests (physics rest threshold set)
+      run: |
+        pio test -e native_test_physics_rest --verbose
+
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
