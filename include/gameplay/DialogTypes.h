@@ -103,6 +103,38 @@ struct DialogEvent {
 
 using DialogEventFn = void (*)(void* owner, const DialogEvent& event);
 
+struct DialogChoice;  // Defined below; forward-declared for ChoiceFilterFn.
+
+/**
+ * @typedef ChoiceFilterFn
+ * @brief Optional per-choice visibility predicate for a ShowingChoices line.
+ *
+ * A game supplies this through DialogRunner::setChoiceFilter; the runner
+ * calls it lazily -- on every choiceCount()/choice()/select() query and on
+ * every ShowingChoices feed() -- so the visible set always reflects current
+ * game state (e.g. hiding a "Buy" option the player can no longer afford)
+ * with no explicit invalidation call. Returning false HIDES the choice:
+ * navigation skips it, indices the runner reports are compacted over the
+ * visible choices only, and a line with every choice hidden behaves exactly
+ * like a line with zero usable choices. A null filter (the default) shows
+ * every choice, preserving pre-filter behaviour bit for bit.
+ *
+ * Must be pure: it must not call back into the runner. The runner invokes
+ * it while evaluating its own accessors, so a reentrant runner call from
+ * inside the filter would recurse; a fail-open in-filter guard shows every
+ * choice rather than recursing, but well-behaved filters never rely on it.
+ *
+ * @param owner Opaque pointer bound by DialogRunner::setChoiceFilter.
+ * @param line Id of the ShowingChoices line being presented.
+ * @param scriptIndex Offset into DialogScript::choices of the candidate
+ *        choice (line.firstChoice + visible index is NOT valid under a
+ *        filter; the runner translates).
+ * @param choice Pointer to that candidate choice; never null.
+ * @return true to show the choice, false to hide it.
+ */
+using ChoiceFilterFn = bool (*)(void* owner, LineId line, ChoiceId scriptIndex,
+                                 const DialogChoice* choice);
+
 /**
  * @struct DialogChoice
  * @brief One selectable option on a DialogState::ShowingChoices line.

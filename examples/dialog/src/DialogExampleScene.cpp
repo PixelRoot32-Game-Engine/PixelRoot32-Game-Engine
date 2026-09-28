@@ -64,6 +64,17 @@ void DialogExampleScene::onDialogEvent(void* owner, const gameplay::DialogEvent&
     static_cast<DialogExampleScene*>(owner)->handleDialogEvent(event);
 }
 
+bool DialogExampleScene::choiceFilter(void* owner, gameplay::LineId line,
+                                      gameplay::ChoiceId scriptIndex,
+                                      const gameplay::DialogChoice* choice) {
+    (void)line;
+    (void)choice;
+    // Script choice 1 is "Ask a riddle": a one-time option. Everything
+    // else is always visible.
+    const auto* self = static_cast<const DialogExampleScene*>(owner);
+    return scriptIndex != 1 || !self->riddleAsked_;
+}
+
 void DialogExampleScene::handleDialogEvent(const gameplay::DialogEvent& event) {
     if (event.type != gameplay::DialogEventType::ChoiceConfirmed) {
         return;
@@ -71,8 +82,19 @@ void DialogExampleScene::handleDialogEvent(const gameplay::DialogEvent& event) {
     // ChoiceConfirmed is emitted BEFORE the runner follows the chosen
     // DialogChoice::next, so it is still on the ShowingChoices line here --
     // choice() is valid and addresses the option the player just confirmed.
+    // Note event.choice is a VISIBLE index: with the riddle hidden,
+    // confirming visible 1 addresses script choice 2 ("Walk away").
     const gameplay::DialogChoice* choice = runner.choice(event.choice);
     lastChoiceText_ = (choice != nullptr) ? choice->text : nullptr;
+    if (choice != nullptr && choice->tag == 102) {
+        // The riddle was asked: hide it from now on. The runner has
+        // already left the choice line by the time this returns (it
+        // follows `next` after emitting), so this is a no-op today and a
+        // live renormalization on any later revisit -- replay the script
+        // to see the two-option menu.
+        riddleAsked_ = true;
+        runner.refreshChoices();
+    }
 }
 
 void DialogExampleScene::init() {
@@ -94,7 +116,9 @@ void DialogExampleScene::init() {
     box.setStyle(style);
 
     lastChoiceText_ = nullptr;
+    riddleAsked_ = false;
     runner.configure(this, &DialogExampleScene::onDialogEvent);
+    runner.setChoiceFilter(this, &DialogExampleScene::choiceFilter);
     runner.start(kScript, 0);
 }
 
