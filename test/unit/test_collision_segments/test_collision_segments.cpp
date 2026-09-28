@@ -226,10 +226,30 @@ void test_zero_length_segment_behaves_as_point(void) {
 // Non-circle segment pairs produce no contact
 // =============================================================================
 
-void test_aabb_vs_segment_produces_no_contact(void) {
+// =============================================================================
+// AABB vs segment: crates collide with ramps (no fall-through)
+// =============================================================================
+
+void test_aabb_vs_segment_produces_contact(void) {
     CollisionSystem system;
     SegmentMockWall wall(80.0f, 100.0f, 0.0f, 0.0f, 40.0f, 0.0f);
-    SegmentMockBox box(95.0f, 95.0f, 10, 10);  // Hitbox overlaps the segment.
+    SegmentMockBox box(95.0f, 90.0f, 10, 10);  // Bottom edge touches the segment.
+    box.setGravityScale(toScalar(0.0f));
+    box.setVelocity(0.0f, 0.0f);
+
+    system.addEntity(&box);
+    system.addEntity(&wall);
+    system.update();
+
+    TEST_ASSERT_TRUE(box.collisionCalled);
+    TEST_ASSERT_TRUE(wall.collisionCalled);
+}
+
+void test_aabb_vs_segment_separated_produces_no_contact(void) {
+    CollisionSystem system;
+    SegmentMockWall wall(80.0f, 100.0f, 0.0f, 0.0f, 40.0f, 0.0f);
+    SegmentMockBox box(10.0f, 10.0f, 10, 10);  // Far from the segment.
+    box.setGravityScale(toScalar(0.0f));
     box.setVelocity(0.0f, 0.0f);
 
     system.addEntity(&box);
@@ -238,6 +258,87 @@ void test_aabb_vs_segment_produces_no_contact(void) {
 
     TEST_ASSERT_FALSE(box.collisionCalled);
     TEST_ASSERT_FALSE(wall.collisionCalled);
+}
+
+void test_aabb_perpendicular_hit_reflects_normal_only(void) {
+    CollisionSystem system;
+    // Horizontal wall (80,100)-(120,100). Box 10x10 at (95,90): bottom edge
+    // y=100 rests exactly on the wall.
+    SegmentMockWall wall(80.0f, 100.0f, 0.0f, 0.0f, 40.0f, 0.0f);
+    SegmentMockBox box(95.0f, 90.0f, 10, 10);
+    box.setGravityScale(toScalar(0.0f));
+    box.setVelocity(30.0f, 60.0f);  // Into the wall, with tangent drift.
+
+    system.addEntity(&box);
+    system.addEntity(&wall);
+    system.update();
+
+    TEST_ASSERT_TRUE(box.collisionCalled);
+    TEST_ASSERT_TRUE(wall.collisionCalled);
+    // Restitution defaults to 1: normal (y) flips, tangent (x) is unchanged.
+    TEST_ASSERT_FLOAT_EQUAL_EPS(-60.0f, static_cast<float>(box.getVelocityY()), 1.0f);
+    TEST_ASSERT_FLOAT_EQUAL_EPS(30.0f, static_cast<float>(box.getVelocityX()), 1.0f);
+    // Penetration correction pushed the box back out above the wall:
+    // integrated y would be 91, correction moves it back up.
+    TEST_ASSERT_TRUE(static_cast<float>(box.position.y) < 91.0f);
+}
+
+// Same geometry with the registration order swapped: the contact normal must
+// still point from the segment toward the box (bodyB flip path).
+void test_aabb_as_second_body_still_reflects(void) {
+    CollisionSystem system;
+    SegmentMockWall wall(80.0f, 100.0f, 0.0f, 0.0f, 40.0f, 0.0f);
+    SegmentMockBox box(95.0f, 90.0f, 10, 10);
+    box.setGravityScale(toScalar(0.0f));
+    box.setVelocity(30.0f, 60.0f);
+
+    system.addEntity(&wall);
+    system.addEntity(&box);
+    system.update();
+
+    TEST_ASSERT_TRUE(box.collisionCalled);
+    TEST_ASSERT_TRUE(wall.collisionCalled);
+    TEST_ASSERT_FLOAT_EQUAL_EPS(-60.0f, static_cast<float>(box.getVelocityY()), 1.0f);
+    TEST_ASSERT_FLOAT_EQUAL_EPS(30.0f, static_cast<float>(box.getVelocityX()), 1.0f);
+}
+
+void test_aabb_45_degree_wall_reflects(void) {
+    CollisionSystem system;
+    // Wall (100,120)-(120,100), slope -1. Box 10x10 at (107,107): center
+    // (112,112), closest point (110,110) inside the box.
+    SegmentMockWall wall(100.0f, 100.0f, 0.0f, 20.0f, 20.0f, 0.0f);
+    SegmentMockBox box(107.0f, 107.0f, 10, 10);
+    box.setGravityScale(toScalar(0.0f));
+    box.setVelocity(-60.0f, -60.0f);  // Straight into the wall along -normal.
+
+    system.addEntity(&box);
+    system.addEntity(&wall);
+    system.update();
+
+    TEST_ASSERT_TRUE(box.collisionCalled);
+    // v' = v - 2(v.n)n with n = (1,1)/sqrt(2): (-60,-60) -> (60,60).
+    TEST_ASSERT_FLOAT_EQUAL_EPS(60.0f, static_cast<float>(box.getVelocityX()), 1.5f);
+    TEST_ASSERT_FLOAT_EQUAL_EPS(60.0f, static_cast<float>(box.getVelocityY()), 1.5f);
+}
+
+void test_aabb_zero_length_segment_behaves_as_point(void) {
+    CollisionSystem system;
+    SegmentMockWall point(50.0f, 50.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    SegmentMockBox inside(47.0f, 47.0f, 10, 10);  // Point (50,50) inside.
+    inside.setGravityScale(toScalar(0.0f));
+    inside.setVelocity(0.0f, 0.0f);
+    SegmentMockBox outside(0.0f, 0.0f, 10, 10);  // Point far away.
+    outside.setGravityScale(toScalar(0.0f));
+    outside.setVelocity(0.0f, 0.0f);
+
+    system.addEntity(&inside);
+    system.addEntity(&outside);
+    system.addEntity(&point);
+    system.update();
+
+    TEST_ASSERT_TRUE(inside.collisionCalled);
+    TEST_ASSERT_TRUE(point.collisionCalled);
+    TEST_ASSERT_FALSE(outside.collisionCalled);
 }
 
 void test_segment_vs_segment_produces_no_contact(void) {
@@ -277,6 +378,32 @@ void test_check_collision_circle_vs_segment(void) {
     TEST_ASSERT_FALSE(system.checkCollision(&far, out, count, 4));
 }
 
+void test_check_collision_aabb_vs_segment(void) {
+    CollisionSystem system;
+    SegmentMockWall wall(80.0f, 100.0f, 0.0f, 0.0f, 40.0f, 0.0f);
+    SegmentMockBox near(95.0f, 90.0f, 10, 10);  // Bottom edge touches the segment.
+    SegmentMockBox far(10.0f, 10.0f, 10, 10);
+
+    system.addEntity(&near);
+    system.addEntity(&far);
+    system.addEntity(&wall);
+
+    Actor* out[4];
+    int count = 0;
+    TEST_ASSERT_TRUE(system.checkCollision(&near, out, count, 4));
+    TEST_ASSERT_EQUAL_INT(1, count);
+    TEST_ASSERT_EQUAL_PTR(&wall, out[0]);
+
+    // Query from the segment side is symmetric.
+    count = 0;
+    TEST_ASSERT_TRUE(system.checkCollision(&wall, out, count, 4));
+    TEST_ASSERT_EQUAL_INT(1, count);
+    TEST_ASSERT_EQUAL_PTR(&near, out[0]);
+
+    count = 0;
+    TEST_ASSERT_FALSE(system.checkCollision(&far, out, count, 4));
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -290,9 +417,15 @@ int main(int argc, char **argv) {
     RUN_TEST(test_45_degree_wall_reflects);
     RUN_TEST(test_corner_joint_does_not_let_circle_through);
     RUN_TEST(test_zero_length_segment_behaves_as_point);
-    RUN_TEST(test_aabb_vs_segment_produces_no_contact);
+    RUN_TEST(test_aabb_vs_segment_produces_contact);
+    RUN_TEST(test_aabb_vs_segment_separated_produces_no_contact);
+    RUN_TEST(test_aabb_perpendicular_hit_reflects_normal_only);
+    RUN_TEST(test_aabb_as_second_body_still_reflects);
+    RUN_TEST(test_aabb_45_degree_wall_reflects);
+    RUN_TEST(test_aabb_zero_length_segment_behaves_as_point);
     RUN_TEST(test_segment_vs_segment_produces_no_contact);
     RUN_TEST(test_check_collision_circle_vs_segment);
+    RUN_TEST(test_check_collision_aabb_vs_segment);
 
     return UNITY_END();
 }
