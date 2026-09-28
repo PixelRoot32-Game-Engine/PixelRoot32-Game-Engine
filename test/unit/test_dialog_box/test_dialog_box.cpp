@@ -5,6 +5,8 @@
  * Covers the dialog-box capability:
  * - Default panel rendering (speaker present/absent)
  * - Single-column option list with a caret/highlight following selection
+ * - Multi-column option rows: optional right-aligned detail (e.g. a price)
+ *   with per-column colour, null detail preserving single-column geometry
  * - choiceRect for touch hit-testing, matching draw()'s own geometry
  * - measureHeightPx for layout, without an active runner
  * - Zero heap allocation
@@ -85,9 +87,9 @@ const DialogScript kLongTextScript{kLongTextLines, nullptr, 1, 0};
 
 // Choice line with three options.
 const DialogChoice kChoices[] = {
-    {"Yes", kNoLine, 1},
-    {"No", kNoLine, 2},
-    {"Maybe", kNoLine, 3},
+    {"Yes", nullptr, kNoLine, 1},
+    {"No", nullptr, kNoLine, 2},
+    {"Maybe", nullptr, kNoLine, 3},
 };
 const DialogLine kChoiceLines[] = {
     {nullptr, nullptr, kNoLine, 0, 0, /*firstChoice*/ 0, /*choiceCount*/ 3, LineKind::Choice, 0},
@@ -102,25 +104,39 @@ const DialogLine kChoiceWithPromptLines[] = {
 };
 const DialogScript kChoiceWithPromptScript{kChoiceWithPromptLines, kChoices, 1, 3};
 
+// Shop line: three options with a right-aligned detail column (prices).
+// Short labels on purpose -- label + detail must fit contentW - gutter
+// (see DialogBoxStyle's multi-column doc); the overflow policy is
+// "drawn, not clipped", so fixtures stay inside the panel.
+const DialogChoice kShopChoices[] = {
+    {"Potion", "12g", kNoLine, 11},
+    {"Sword", "120g", kNoLine, 12},
+    {"Leave", nullptr, kNoLine, 13},
+};
+const DialogLine kShopLines[] = {
+    {nullptr, nullptr, kNoLine, 0, 0, /*firstChoice*/ 0, /*choiceCount*/ 3, LineKind::Choice, 0},
+};
+const DialogScript kShopScript{kShopLines, kShopChoices, 1, 3};
+
 }  // namespace
 
 // =============================================================================
 // sizeof guard -- RAM regression, mirrors DialogRunner's pattern.
 // =============================================================================
 
-// DialogBoxStyle: one pointer (font) + four int16_t + five Color (uint8_t)
-// + four uint8_t + one char (choiceCaret) + one bool. ESP32 (4-byte
-// pointer): 4+8+5+4+1+1=23, padded to 4-byte alignment = 24. Native (8-byte
-// pointer): 8+8+5+4+1+1=27, padded to 8-byte alignment = 32 -- independently
-// re-derived here, not copied from DialogBoxStyle's own comments, so a drift
-// in either place is caught. choiceCaret landed in the existing tail slack
-// and cost zero bytes; that is what these numbers pin.
-// DialogBox adds lastRevision_ (uint16_t): ESP32 24+2=26, padded to 28;
+// DialogBoxStyle: two pointers? No -- one pointer (font) + four int16_t +
+// five... now SEVEN Color (uint8_t: panel, border, ink, inkDim,
+// inkSelected, inkDetail, inkDetailSelected) + four uint8_t + one char
+// (choiceCaret) + one bool. ESP32 (4-byte pointer): 4+8+7+4+1+1=25, padded
+// to 4-byte alignment = 28. Native (8-byte pointer): 8+8+7+4+1+1=29,
+// padded to 8-byte alignment = 32 -- the two detail colours landed in
+// native's existing tail slack (was 27->32) and cost zero bytes there.
+// DialogBox adds lastRevision_ (uint16_t): ESP32 28+2=30, padded to 32;
 // native 32+2=34, padded to 40.
 #ifdef ESP32
 void test_dialog_box_sizeof_guard(void) {
-    TEST_ASSERT_EQUAL_UINT32(24, sizeof(DialogBoxStyle));
-    TEST_ASSERT_EQUAL_UINT32(28, sizeof(DialogBox));
+    TEST_ASSERT_EQUAL_UINT32(28, sizeof(DialogBoxStyle));
+    TEST_ASSERT_EQUAL_UINT32(32, sizeof(DialogBox));
 }
 #else
 void test_dialog_box_sizeof_guard(void) {
@@ -803,6 +819,165 @@ void test_dialog_box_draw_shows_next_page_cue_only_when_a_later_page_remains(voi
     TEST_ASSERT_FALSE(sawCue);
 }
 
+// =============================================================================
+// Multi-column option rows (DialogChoice::detail, second post-MVP item)
+// =============================================================================
+
+void test_dialog_box_draw_detail_right_aligned_with_per_column_colour(void) {
+    DialogRunner runner;
+    runner.start(kShopScript);  // Selected row 0 ("Potion"/"12g").
+    DialogBoxStyle style = makeStyle();
+    style.ink = Color::White;
+    style.inkSelected = Color::Yellow;
+    style.inkDetail = Color::Gray;
+    style.inkDetailSelected = Color::Cyan;
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    // The detail is right-aligned against the panel's inner edge, on the
+    // same baseline as its label (one padding below the row top).
+    const int16_t detailW =
+        TextLayout::measureWidthPx("12g", &kTestFont, style.textSize);
+    const int16_t expectedX =
+        static_cast<int16_t>(layout.choiceX + layout.choiceW - detailW);
+    int16_t rectX, rectY, rectW, rectH;
+    TEST_ASSERT_TRUE(box.choiceRect(runner, 0, rectX, rectY, rectW, rectH));
+
+    bool sawDetail = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "text" && call.text == "12g") {
+            sawDetail = true;
+            TEST_ASSERT_EQUAL_INT16(expectedX, call.x);
+            TEST_ASSERT_EQUAL_INT16(static_cast<int16_t>(rectY + style.padding), call.y);
+            // Row 0 is selected: the detail uses the SELECTED detail colour,
+            // the label the selected label colour -- per-column colour.
+            TEST_ASSERT_EQUAL(Color::Cyan, call.color);
+        }
+        if (call.type == "text" && call.text == "Potion") {
+            TEST_ASSERT_EQUAL(Color::Yellow, call.color);
+            TEST_ASSERT_EQUAL_INT16(layout.choiceTextX, call.x);
+        }
+    }
+    TEST_ASSERT_TRUE(sawDetail);
+}
+
+void test_dialog_box_draw_unselected_detail_uses_ink_detail(void) {
+    DialogRunner runner;
+    runner.start(kShopScript);
+    runner.select(2);  // "Leave": rows 0-1 are now unselected.
+    DialogBoxStyle style = makeStyle();
+    style.ink = Color::White;
+    style.inkSelected = Color::Yellow;
+    style.inkDetail = Color::Gray;
+    style.inkDetailSelected = Color::Cyan;
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    bool sawPotionDetail = false;
+    bool sawSwordDetail = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "text" && call.text == "12g") {
+            sawPotionDetail = true;
+            TEST_ASSERT_EQUAL(Color::Gray, call.color);
+        }
+        if (call.type == "text" && call.text == "120g") {
+            sawSwordDetail = true;
+            TEST_ASSERT_EQUAL(Color::Gray, call.color);
+        }
+        if (call.type == "text" && call.text == "Sword") {
+            TEST_ASSERT_EQUAL(Color::White, call.color);
+        }
+    }
+    TEST_ASSERT_TRUE(sawPotionDetail);
+    TEST_ASSERT_TRUE(sawSwordDetail);
+}
+
+void test_dialog_box_draw_null_detail_emits_no_extra_text(void) {
+    // "Leave" carries detail == nullptr: no second drawText for that row,
+    // and the label keeps its single-column origin exactly.
+    DialogRunner runner;
+    runner.start(kShopScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    uint8_t detailCalls = 0;
+    bool sawLeaveAtTextX = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type != "text") continue;
+        if (call.text == "12g" || call.text == "120g") ++detailCalls;
+        if (call.text == "Leave") {
+            TEST_ASSERT_EQUAL_INT16(layout.choiceTextX, call.x);
+            sawLeaveAtTextX = true;
+        }
+    }
+    TEST_ASSERT_EQUAL_UINT8(2, detailCalls);  // Only Potion's and Sword's.
+    TEST_ASSERT_TRUE(sawLeaveAtTextX);
+}
+
+void test_dialog_box_draw_detail_does_not_change_choice_rect(void) {
+    // The second column is presentational only: hit-testing still reports
+    // the full row rect, gutter included, exactly as for single-column rows.
+    DialogRunner runner;
+    runner.start(kShopScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    for (uint8_t i = 0; i < 3; ++i) {
+        int16_t x, y, w, h;
+        TEST_ASSERT_TRUE(box.choiceRect(runner, i, x, y, w, h));
+        TEST_ASSERT_EQUAL_INT16(layout.choiceX, x);
+        TEST_ASSERT_EQUAL_INT16(
+            static_cast<int16_t>(layout.choiceY + i * layout.choiceRowHeightPx), y);
+        TEST_ASSERT_EQUAL_INT16(layout.choiceW, w);
+        TEST_ASSERT_EQUAL_INT16(layout.choiceRowHeightPx, h);
+    }
+}
+
+void test_dialog_box_draw_detail_empty_string_draws_nothing(void) {
+    // An empty detail literal draws no second column -- same observable
+    // behaviour as nullptr, without requiring the game to normalize "".
+    const DialogChoice emptyDetailChoices[] = {
+        {"Potion", "", kNoLine, 11},
+    };
+    const DialogLine emptyDetailLines[] = {
+        {nullptr, nullptr, kNoLine, 0, 0, /*firstChoice*/ 0, /*choiceCount*/ 1,
+         LineKind::Choice, 0},
+    };
+    const DialogScript emptyDetailScript{emptyDetailLines, emptyDetailChoices, 1, 1};
+
+    DialogRunner runner;
+    runner.start(emptyDetailScript);
+    DialogBox box;
+    box.setStyle(makeStyle());
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    for (const auto& call : mock.rendererCalls) {
+        TEST_ASSERT_FALSE(call.type == "text" && call.text.empty());
+    }
+}
+
 #else
 
 void test_dialog_box_flag_off_reserves_zero_bytes(void) {
@@ -860,6 +1035,11 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_box_draw_emits_no_caret_on_a_non_choice_line);
     RUN_TEST(test_dialog_box_draw_restores_offset_bypass_to_its_prior_value);
     RUN_TEST(test_dialog_box_draw_shows_next_page_cue_only_when_a_later_page_remains);
+    RUN_TEST(test_dialog_box_draw_detail_right_aligned_with_per_column_colour);
+    RUN_TEST(test_dialog_box_draw_unselected_detail_uses_ink_detail);
+    RUN_TEST(test_dialog_box_draw_null_detail_emits_no_extra_text);
+    RUN_TEST(test_dialog_box_draw_detail_does_not_change_choice_rect);
+    RUN_TEST(test_dialog_box_draw_detail_empty_string_draws_nothing);
 #else
     RUN_TEST(test_dialog_box_flag_off_reserves_zero_bytes);
 #endif

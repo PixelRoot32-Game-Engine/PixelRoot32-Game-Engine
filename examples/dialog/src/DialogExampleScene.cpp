@@ -28,9 +28,9 @@ constexpr const char* kGuide    = "Guide";
 // copies it and must find it still alive for as long as it is started
 // against it (StateMachine's table-ownership convention).
 static const gameplay::DialogChoice kChoices[] = {
-    {"Say hello",    5, 101},
-    {"Ask a riddle", 6, 102},
-    {"Walk away",    7, 103},
+    {"Say hello", nullptr, 5, 101},
+    {"Ask a riddle", "once", 6, 102},
+    {"Walk away", nullptr, 7, 103},
 };
 
 static const gameplay::DialogLine kLines[] = {
@@ -108,6 +108,10 @@ void DialogExampleScene::init() {
     style.textSize = 1;
     style.lineSpacing = 1;
     style.fixedPosition = true;
+    // Per-column colour for the multi-column row below: the "once" detail
+    // on "Ask a riddle" draws in these slots, the labels in ink/inkSelected.
+    style.inkDetail = gfx::Color::Gray;
+    style.inkDetailSelected = gfx::Color::Cyan;
 
     // measureHeightPx() only reads style.w/font/padding/borderWidth/textSize/
     // lineSpacing, so it can be sized before style.h/y are known.
