@@ -336,6 +336,9 @@ private:
     bool generateCircleVsSegmentContact(Contact& contact,
                                         pixelroot32::core::PhysicsActor* circle,
                                         pixelroot32::core::PhysicsActor* segment);
+    bool generateAABBVsSegmentContact(Contact& contact,
+                                      pixelroot32::core::PhysicsActor* box,
+                                      pixelroot32::core::PhysicsActor* segment);
 };
 
 }

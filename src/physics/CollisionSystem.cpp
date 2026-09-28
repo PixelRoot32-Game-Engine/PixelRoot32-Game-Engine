@@ -355,6 +355,11 @@ namespace pixelroot32::physics {
             hit = generateCircleVsCircleContact(contact);
         } else if (shapeA == CollisionShape::AABB && shapeB == CollisionShape::AABB) {
             hit = generateAABBVsAABBContact(contact);
+        } else if ((shapeA == CollisionShape::AABB && shapeB == CollisionShape::SEGMENT) ||
+                   (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::AABB)) {
+            PhysicsActor* box = (shapeA == CollisionShape::AABB) ? a : b;
+            PhysicsActor* segment = (shapeA == CollisionShape::AABB) ? b : a;
+            hit = generateAABBVsSegmentContact(contact, box, segment);
         } else {
             PhysicsActor* circle = (shapeA == CollisionShape::CIRCLE) ? a : b;
             PhysicsActor* segment = (shapeA == CollisionShape::CIRCLE) ? b : a;
@@ -362,8 +367,8 @@ namespace pixelroot32::physics {
                 (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::CIRCLE)) {
                 hit = generateCircleVsSegmentContact(contact, circle, segment);
             } else if (shapeA == CollisionShape::SEGMENT || shapeB == CollisionShape::SEGMENT) {
-                // SEGMENT vs SEGMENT and AABB vs SEGMENT produce no contact;
-                // only circle-vs-segment collides (issue #241).
+                // SEGMENT vs SEGMENT produces no contact; circle-vs-segment
+                // and AABB-vs-segment both collide (issue #241).
                 hit = false;
             } else {
                 PhysicsActor* box = (shapeA == CollisionShape::CIRCLE) ? b : a;
@@ -543,6 +548,78 @@ namespace pixelroot32::physics {
 
         contact.contactPoint = closestP;
         if (circle == contact.bodyB) {
+            contact.normal = -contact.normal;
+        }
+        return true;
+    }
+
+    bool CollisionSystem::generateAABBVsSegmentContact(Contact& contact,
+                                                       PhysicsActor* box,
+                                                       PhysicsActor* segment) {
+        ScalarRect boxRec = ScalarRect::from(box->getHitBox());
+        Vector2 segA = segment->getSegmentA();
+        Vector2 segB = segment->getSegmentB();
+        Vector2 boxCenter = Vector2(boxRec.x + boxRec.w / 2, boxRec.y + boxRec.h / 2);
+
+        // Closest point on the segment to the box center, reusing the
+        // circle-vs-segment projection logic: an interior projection gives
+        // the perpendicular ramp normal, a clamped endpoint gives the radial
+        // corner normal, so crates meet ramps and joints like balls do.
+        Vector2 ab = segB - segA;
+        Scalar lenSq = ab.lengthSquared();
+        Vector2 segClosest;
+        if (lenSq <= kEpsilon) {
+            segClosest = segA;  // Zero-length segment behaves as a point.
+        } else {
+            Scalar t = (boxCenter - segA).dot(ab) / lenSq;
+            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+            segClosest = segA + ab * t;
+        }
+
+        // Clamp the segment point to the box: inside/on-edge means overlap
+        // (or exact touch), outside with a gap means no contact. The segment
+        // has no radius, so any positive gap separates, unlike circles.
+        Vector2 boxPoint = segClosest;
+        boxPoint.x = clamp(boxPoint.x, boxRec.x, boxRec.x + boxRec.w);
+        boxPoint.y = clamp(boxPoint.y, boxRec.y, boxRec.y + boxRec.h);
+
+        Vector2 gap = segClosest - boxPoint;
+        if (sqrt(gap.lengthSquared()) > kEpsilon) {
+            return false;
+        }
+
+        // Penetration is the distance from the segment point to the nearest
+        // box face; pushing the box out along the segment normal by that
+        // amount expels an axis-aligned rest exactly and converges for ramps
+        // over successive frames.
+        Scalar dLeft = segClosest.x - boxRec.x;
+        Scalar dRight = (boxRec.x + boxRec.w) - segClosest.x;
+        Scalar dTop = segClosest.y - boxRec.y;
+        Scalar dBottom = (boxRec.y + boxRec.h) - segClosest.y;
+        Scalar minDist = dLeft;
+        if (dRight < minDist) minDist = dRight;
+        if (dTop < minDist) minDist = dTop;
+        if (dBottom < minDist) minDist = dBottom;
+        if (minDist < toScalar(0.0f)) minDist = toScalar(0.0f);
+
+        // Normal points from the segment toward the box center, reusing the
+        // circle-vs-segment direction logic (perpendicular or radial).
+        Vector2 w = boxCenter - segClosest;
+        Scalar distW = sqrt(w.lengthSquared());
+        Vector2 raw;
+        if (distW > kEpsilon) {
+            raw = w / distW;
+        } else if (lenSq > kEpsilon) {
+            Scalar len = sqrt(lenSq);
+            raw = Vector2(-ab.y / len, ab.x / len);
+        } else {
+            raw = Vector2(0, -1);
+        }
+
+        contact.normal = raw;
+        contact.penetration = minDist;
+        contact.contactPoint = segClosest;
+        if (box == contact.bodyB) {
             contact.normal = -contact.normal;
         }
         return true;

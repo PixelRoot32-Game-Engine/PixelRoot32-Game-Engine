@@ -378,8 +378,8 @@ public:
      *
      * Intended for static bodies (diagonal walls, cushions, ramps): one
      * segment per actor, so a polyline table is N static segment actors.
-     * Segment-vs-segment and AABB-vs-segment pairs produce no contact;
-     * only circle-vs-segment collides.
+     * Segment-vs-segment pairs produce no contact; circle-vs-segment and
+     * AABB-vs-segment both collide.
      *
      * @param a First endpoint, relative to position.
      * @param b Second endpoint, relative to position.
