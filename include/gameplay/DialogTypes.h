@@ -7,8 +7,18 @@
 #if PIXELROOT32_ENABLE_DIALOG
 #include <cstdint>
 
-namespace pixelroot32::gameplay {
+namespace pixelroot32 {
+// Opaque portrait handle. graphics::Sprite's definition lives in
+// graphics/Renderer.h; this header must NOT include it -- DialogRunner is
+// headless by design (no Font, no Renderer, no pixels) and DialogTypes.h is
+// the layer that keeps it so. A pointer needs no definition, only a name:
+// DialogBox.cpp includes Renderer.h and reads width/height there. The same
+// forward-declaration precedent already exists in graphics/Font.h.
+namespace graphics {
+struct Sprite;
+}  // namespace graphics
 
+namespace gameplay {
 using LineId   = uint16_t;
 using ChoiceId = uint8_t;
 
@@ -29,6 +39,15 @@ inline constexpr ChoiceId kNoChoice = 0xFF;
 /// line's tag. The runner stays on the line; call DialogRunner::stop() to
 /// close the dialog, which is legal from inside the DialogEventFn.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
+
+/// kLineFlagPortraitRight draws the line's DialogLine::portrait at the
+/// top-RIGHT of the panel's content area instead of the default top-left,
+/// letting two speakers face each other across alternating lines. Read by
+/// graphics::DialogBox ONLY -- DialogRunner never masks this bit, so it is
+/// covered by the "silently ignored" rule above as far as the runner is
+/// concerned, exactly like a future reserved bit on an older build. The
+/// vertical placement never changes (top, always); only the side mirrors.
+inline constexpr uint8_t kLineFlagPortraitRight = 0x02;
 
 /**
  * @enum LineKind
@@ -162,15 +181,16 @@ struct DialogChoice {
  * @struct DialogLine
  * @brief One line of a DialogScript: either shown text or a choice prompt.
  *
- * 20 bytes on ESP32, 32 on 64-bit native. The fields sum to 18 on ESP32
- * with no padding between them -- next, tag and autoAdvanceMs land on
- * offsets 8, 10 and 12 and are already aligned. The extra 2 bytes are
- * trailing padding, rounding the struct to the 4-byte alignment its two
- * leading pointers impose. This exact figure is
+ * 24 bytes on ESP32, 40 on 64-bit native. The pre-portrait fields sum to 18
+ * on ESP32 with no padding between them -- next, tag and autoAdvanceMs land
+ * on offsets 8, 10 and 12 and are already aligned, plus 2 trailing padding
+ * bytes rounding to the 4-byte alignment the two leading pointers impose
+ * (20). The portrait pointer adds 4/8 for 24/40. This exact figure is
  * the regression guard
  * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
  * is a conscious, reviewed change rather than silent drift in a game's
- * flash budget.
+ * flash budget. Grew from 20/32 when the optional speaker portrait was
+ * added (third post-MVP dialog item).
  */
 struct DialogLine {
     const char* text;           ///< nullptr for a choice-only line.
@@ -186,7 +206,14 @@ struct DialogLine {
     ChoiceId    firstChoice;    ///< Index into DialogScript::choices; must stay below 255.
     uint8_t     choiceCount;    ///< Clamped to DialogMaxChoices, to the table, and below 255.
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
-    uint8_t     flags;          ///< kLineFlagAllowCancel; unknown bits are ignored, not rejected.
+    uint8_t     flags;          ///< kLineFlagAllowCancel, kLineFlagPortraitRight; see above.
+    /// Optional speaker portrait, drawn 1:1 at the top of the content area
+    /// (left by default, right with kLineFlagPortraitRight) in
+    /// DialogBoxStyle::portraitInk. Flash-resident 1bpp graphics::Sprite
+    /// (width <= 16 px); never copied, never owned. nullptr (the default,
+    /// so existing 9-value initializers keep compiling) draws no portrait
+    /// with identical geometry. The runner never reads this field.
+    const graphics::Sprite* portrait = nullptr;
 };
 
 /**
@@ -208,5 +235,6 @@ struct DialogScript {
 static_assert(sizeof(DialogChoice) <= 3 * sizeof(void*), "DialogChoice grew");
 // Trivially destructible: the script is flash data, never destroyed.
 
-} // namespace pixelroot32::gameplay
+}  // namespace gameplay
+}  // namespace pixelroot32
 #endif // PIXELROOT32_ENABLE_DIALOG

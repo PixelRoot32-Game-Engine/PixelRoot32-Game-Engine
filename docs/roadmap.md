@@ -8,12 +8,12 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
 - 💬 **Dialog System, post-MVP**: The MVP (`TextLayout`, `DialogRunner`, `DialogBox`, `examples/dialog`) ships in 1.11.0. Each item below is additive and is waiting for a game to need it:
-  - speaker portraits;
   - per-character text reveal and per-character sound;
   - a text ID table for localization, with scripts authored in the Tool Suite.
 
 ## Completed Features ✅
 
+- ✅ **Speaker portraits (`DialogLine::portrait`)**: optional 1bpp flash sprite per line, top-left by default or top-right with `kLineFlagPortraitRight`; text column shifts and narrows, runner untouched. Third post-MVP dialog item. Unreleased — see [CHANGELOG](../CHANGELOG.md#unreleased).
 - ✅ **Multi-column dialog option rows (`DialogChoice::detail`)**: optional right-aligned second column per choice (e.g. a price) with per-column colour (`inkDetail`/`inkDetailSelected`); null detail preserves single-column geometry, runner untouched. Second post-MVP dialog item. Unreleased — see [CHANGELOG](../CHANGELOG.md#unreleased).
 - ✅ **Conditional dialog options (`ChoiceFilterFn`)**: a game-supplied visibility predicate bound via `DialogRunner::setChoiceFilter()` hides disqualified options; indices compact over the visible set, `refreshChoices()` renormalizes the selection, `DialogBox` inherits it with no changes. First post-MVP dialog item. Unreleased — see [CHANGELOG](../CHANGELOG.md#unreleased).
 - ✅ **AABB-vs-segment collision**: `CollisionShape::SEGMENT` now collides with AABB bodies too, not just circles (issue #241 scope) — crates rest and bounce on ramps via an AABB-vs-segment narrow-phase contact (closest point on the segment to the box center, clamped to the box, reusing the circle-vs-segment normal logic), with `checkCollision` coverage and unit tests in `test/unit/test_collision_segments/`. Unreleased — see [CHANGELOG](../CHANGELOG.md#unreleased).

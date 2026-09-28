@@ -1392,6 +1392,34 @@ void test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit(
 }
 
 // =============================================================================
+// Requirement: the runner ignores presentational line data (portrait)
+// =============================================================================
+
+void test_dialog_runner_ignores_portrait_pointer_and_side_flag(void) {
+    // DialogLine::portrait and kLineFlagPortraitRight belong to DialogBox:
+    // the runner must run the line exactly as if neither were set. Uses a
+    // null portrait plus the side flag (no Sprite fixture needed -- the
+    // runner never dereferences the pointer, so even null proves the
+    // point: flags it does not mask change nothing).
+    static const DialogLine portraitFlagLines[] = {
+        {kLineAText, nullptr, /*next*/ kNoLine, /*tag*/ 77, 0, 0, 0, LineKind::Text,
+         kLineFlagPortraitRight},
+    };
+    static const DialogScript portraitFlagScript{portraitFlagLines, nullptr, 1, 0};
+
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+
+    TEST_ASSERT_TRUE(runner.start(portraitFlagScript, 0));
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+    TEST_ASSERT_EQUAL_UINT16(0, runner.currentLineId());
+
+    runner.feed(DialogAction::Advance);  // next == kNoLine -> Finished.
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Finished);
+}
+
+// =============================================================================
 // Requirement: a selection made by select() from inside an event callback
 // holds while the runner stays on the line, and is discarded when it leaves
 // =============================================================================
@@ -2166,6 +2194,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_cancel_emits_cancelled_and_stays_on_the_line_with_allow_cancel);
     RUN_TEST(test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit);
     RUN_TEST(test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit);
+    RUN_TEST(test_dialog_runner_ignores_portrait_pointer_and_side_flag);
     RUN_TEST(test_dialog_runner_null_filter_shows_everything_by_default);
     RUN_TEST(test_dialog_runner_filter_hides_middle_choice_and_compacts_indices);
     RUN_TEST(test_dialog_runner_filter_navigation_skips_hidden_choice);

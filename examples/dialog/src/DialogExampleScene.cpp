@@ -24,6 +24,13 @@ constexpr uint8_t BTN_CANCEL  = 5;
 constexpr const char* kNarrator = "Narrator";
 constexpr const char* kGuide    = "Guide";
 
+// Tiny 8x8 1bpp speaker portraits: flash data, never copied. Narrator is
+// a diamond, Guide a square -- distinct at a glance on the 240x240 panel.
+static const uint16_t kNarratorPortraitData[8] = {0x18, 0x3C, 0x7E, 0xFF, 0xFF, 0x7E, 0x3C, 0x18};
+static const gfx::Sprite kNarratorPortrait{kNarratorPortraitData, 8, 8};
+static const uint16_t kGuidePortraitData[8] = {0xFF, 0x81, 0xBD, 0xA5, 0xA5, 0xBD, 0x81, 0xFF};
+static const gfx::Sprite kGuidePortrait{kGuidePortraitData, 8, 8};
+
 // The script: caller-owned, const, .rodata-resident. DialogRunner never
 // copies it and must find it still alive for as long as it is started
 // against it (StateMachine's table-ownership convention).
@@ -34,18 +41,20 @@ static const gameplay::DialogChoice kChoices[] = {
 };
 
 static const gameplay::DialogLine kLines[] = {
-    // 0: auto-advances on its own after 1800ms.
+    // 0: auto-advances on its own after 1800ms. Narrator speaks from the
+    // right, Guide from the left -- the two sides face each other.
     {"Welcome to the PixelRoot32 dialog demo.", kNarrator, 1, 0, 1800, 0, 0,
-     gameplay::LineKind::Text, 0},
+     gameplay::LineKind::Text, gameplay::kLineFlagPortraitRight, &kNarratorPortrait},
     // 1-3: a 3-line linear chain, advanced by the player (autoAdvanceMs == 0).
     {"This panel is a DialogBox, drawn from a DialogRunner.", kGuide, 2, 0, 0, 0, 0,
-     gameplay::LineKind::Text, 0},
+     gameplay::LineKind::Text, 0, &kGuidePortrait},
     {"The runner is headless: no Font, no Renderer, only states.", kGuide, 3, 0, 0, 0, 0,
-     gameplay::LineKind::Text, 0},
-    {"Now try a choice.", kGuide, 4, 0, 0, 0, 0, gameplay::LineKind::Text, 0},
+     gameplay::LineKind::Text, 0, &kGuidePortrait},
+    {"Now try a choice.", kGuide, 4, 0, 0, 0, 0, gameplay::LineKind::Text, 0, &kGuidePortrait},
     // 4: a Choice line with 3 options branching to 3 different endings.
     // Kept short -- a Choice line's prompt never pages.
-    {"What do you do?", kGuide, gameplay::kNoLine, 0, 0, 0, 3, gameplay::LineKind::Choice, 0},
+    {"What do you do?", kGuide, gameplay::kNoLine, 0, 0, 0, 3, gameplay::LineKind::Choice, 0,
+     &kGuidePortrait},
     // 5-7: one ending per choice, all rejoining at the End line below.
     {"Hello to you too!", kGuide, 8, 0, 0, 0, 0, gameplay::LineKind::Text, 0},
     {"Why did the chicken cross the road?", kGuide, 8, 0, 0, 0, 0, gameplay::LineKind::Text, 0},

@@ -20,7 +20,7 @@ namespace pixelroot32::graphics {
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the 17 scalar/enum fields follow.
+ * leads, the 18 scalar/enum fields follow.
  *
  * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
  * names, not RGB565 values. DialogBox::draw() hands them to the renderer,
@@ -79,14 +79,29 @@ namespace pixelroot32::graphics {
  * gutter, so the whole row stays tappable.
  *
  * Multi-column rows: DialogChoice::detail, when non-null, draws a second
- * column RIGHT-aligned against the panel's inner edge (choiceX + choiceW),
- * on the same row baseline, in `inkDetail` (or `inkDetailSelected` when
- * that row is selected). The label keeps its left-aligned origin exactly,
- * so a null detail reproduces the single-column geometry bit for bit.
- * Neither column wraps and drawText() does not clip: the game keeps
- * `label + gap + detail` within contentWidth - caretGutterPx. On overlap
- * the detail wins visually (drawn second, same row); there is no
- * truncation or ellipsis, by design -- one drawText per column, zero heap.
+ * column RIGHT-aligned against the text column's trailing edge
+ * (Layout::detailRightX -- the panel's inner edge, unless a right-side
+ * portrait narrows the column), on the same row baseline, in `inkDetail`
+ * (or `inkDetailSelected` when that row is selected). The label keeps its
+ * left-aligned origin exactly, so a null detail reproduces the
+ * single-column geometry bit for bit. Neither column wraps and drawText()
+ * does not clip: the game keeps `label + gap + detail` within the text
+ * column width minus caretGutterPx. On overlap the detail wins visually
+ * (drawn second, same row); there is no truncation or ellipsis, by
+ * design -- one drawText per column, zero heap.
+ *
+ * Speaker portraits: DialogLine::portrait, when non-null, draws that 1bpp
+ * flash Sprite 1:1 at the TOP of the content area -- top-LEFT by default,
+ * top-right with kLineFlagPortraitRight -- in `portraitInk`, so two
+ * speakers can face each other across alternating lines. The whole text
+ * column (speaker label, body, choices) shifts to the other side and the
+ * body wrap width narrows by portrait width + one padding (the gap); a
+ * null portrait reproduces the portrait-less geometry bit for bit.
+ * Portraits never scale and drawText()/drawSprite() never clip, so the
+ * game authors portraits to fit: measureHeightPx() takes the taller of
+ * the portrait and the text block per line. choiceRect() still reports
+ * the FULL content-width row, portrait area included -- the whole row
+ * stays tappable, the same precedent as the caret gutter.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -101,6 +116,7 @@ struct DialogBoxStyle {
     Color       inkSelected   = Color::Yellow;  ///< Selected choice. Palette-resolved; a zeroed slot hides it.
     Color       inkDetail     = Color::Gray;    ///< Second-column (DialogChoice::detail) text. Palette-resolved.
     Color       inkDetailSelected = Color::Yellow;  ///< Selected row's second column. Palette-resolved.
+    Color       portraitInk   = Color::White;   ///< Speaker portrait tint (1bpp Sprite). Palette-resolved.
     uint8_t     borderWidth   = 1;
     uint8_t     padding       = 4;              ///< Inside the border, and above and below each choice row.
     uint8_t     textSize      = 1;
@@ -140,12 +156,15 @@ public:
      */
     struct Layout {
         int16_t panelX, panelY, panelW, panelH;
-        int16_t speakerX, speakerY;   ///< Valid when hasSpeaker.
-        int16_t bodyX, bodyY;         ///< Top-left of body line 0.
-        int16_t choiceX, choiceY;     ///< Top-left of choice row 0, gutter included.
+        int16_t speakerX, speakerY;   ///< Valid when hasSpeaker. In the text column (see below).
+        int16_t bodyX, bodyY;         ///< Top-left of body line 0. In the text column.
+        int16_t choiceX, choiceY;     ///< Top-left of choice row 0: FULL content width, gutter included.
         int16_t choiceW;              ///< Row width (panel inner width), gutter included.
         int16_t caretGutterPx;        ///< Width reserved for the caret; 0 when it is disabled.
-        int16_t choiceTextX;          ///< choiceX + caretGutterPx. Where option text starts.
+        int16_t choiceTextX;          ///< Text-column origin + caretGutterPx. Where option text starts.
+        int16_t detailRightX;         ///< Trailing edge of the text column; detail right-aligns here.
+        int16_t portraitX, portraitY; ///< Top-left of the portrait; valid when hasPortrait.
+        int16_t portraitW, portraitH; ///< Portrait size in px (1:1 Sprite dims); valid when hasPortrait.
         int16_t bodyLineHeightPx;
         int16_t choiceRowHeightPx;
         uint8_t bodyLineCount;        ///< Rows valid in bodyLines.
@@ -153,6 +172,8 @@ public:
         uint8_t pageCount;            ///< Total pages of the current line's text.
         uint8_t page;                 ///< Zero-based current page index.
         bool    hasSpeaker;
+        bool    hasPortrait;
+        bool    portraitRight;        ///< True when kLineFlagPortraitRight mirrors the portrait.
         TextLayout::WrappedLine bodyLines[platforms::config::DialogMaxWrappedLines];
     };
 
@@ -320,6 +341,16 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
                            style_.ink, style_.textSize, style_.font);
     }
 
+    if (layout.hasPortrait && line->portrait != nullptr) {
+        // 1:1, top of the content area, tinted with portraitInk. The layout
+        // above already resolved the side; draw() only emits. A null check
+        // rides along because hasPortrait is layout state, line->portrait
+        // is the data -- belt and suspenders against a torn read, at zero
+        // cost on the frame.
+        renderer.drawSprite(*line->portrait, layout.portraitX, layout.portraitY,
+                             style_.portraitInk);
+    }
+
     for (uint8_t i = 0; i < layout.bodyLineCount; ++i) {
         renderer.drawText(layout.bodyLines[i].slice, layout.bodyX,
                            static_cast<int16_t>(layout.bodyY + i * layout.bodyLineHeightPx),
@@ -367,8 +398,10 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
         renderer.drawText(text, layout.choiceTextX, rowTextY, color, style_.textSize,
                            style_.font);
 
-        // Second column: right-aligned against the panel's inner edge, same
-        // baseline, per-column colour. Null detail draws nothing, preserving
+        // Second column: right-aligned against the text column's trailing
+        // edge (layout.detailRightX -- the panel's inner edge, unless a
+        // right-side portrait narrows the column), same baseline,
+        // per-column colour. Null detail draws nothing, preserving
         // single-column geometry bit for bit. Drawn AFTER the label so a
         // game that overflows both still shows the price -- the overlap
         // policy is documented on DialogBoxStyle, not clipped here.
@@ -378,8 +411,7 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
                                                                      : style_.inkDetail;
             const int16_t detailW =
                 TextLayout::measureWidthPx(detail, style_.font, style_.textSize);
-            const int16_t detailX = static_cast<int16_t>(
-                layout.choiceX + layout.choiceW - detailW);
+            const int16_t detailX = static_cast<int16_t>(layout.detailRightX - detailW);
             renderer.drawText(detail, detailX, rowTextY, detailColor, style_.textSize,
                                style_.font);
         }

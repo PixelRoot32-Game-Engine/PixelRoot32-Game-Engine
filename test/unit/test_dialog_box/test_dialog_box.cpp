@@ -118,19 +118,59 @@ const DialogLine kShopLines[] = {
 };
 const DialogScript kShopScript{kShopLines, kShopChoices, 1, 3};
 
+// Speaker portraits: 8x8 1bpp flash sprite. Real Sprite so draw() emits a
+// genuine drawSprite through MockRenderer's "sprite" capture.
+const uint16_t kPortraitData[8] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
+const Sprite kPortrait{kPortraitData, 8, 8};
+// Tall portrait (8x20): taller than any single-line text block below, so
+// measureHeightPx() must size for the portrait, not the text.
+const uint16_t kTallPortraitData[20] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
+                                        0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
+const Sprite kTallPortrait{kTallPortraitData, 8, 20};
+
+// Text line with speaker AND a left-side (default) portrait.
+const DialogLine kPortraitLines[] = {
+    {"Hi there", "Bob", kNoLine, 0, 0, 0, 0, LineKind::Text, 0, &kPortrait},
+};
+const DialogScript kPortraitScript{kPortraitLines, nullptr, 1, 0};
+
+// Same line mirrored right via kLineFlagPortraitRight.
+const DialogLine kPortraitRightLines[] = {
+    {"Hi there", "Bob", kNoLine, 0, 0, 0, 0, LineKind::Text, kLineFlagPortraitRight,
+     &kPortrait},
+};
+const DialogScript kPortraitRightScript{kPortraitRightLines, nullptr, 1, 0};
+
+// Speaker + short body + tall portrait: the portrait wins the height.
+const DialogLine kTallPortraitLines[] = {
+    {"Hi", "Bob", kNoLine, 0, 0, 0, 0, LineKind::Text, 0, &kTallPortrait},
+};
+const DialogScript kTallPortraitScript{kTallPortraitLines, nullptr, 1, 0};
+
+// 14 glyphs, no spaces: 14*6=84px fits contentW (90) in one line but not
+// the portrait-narrowed textW (78), forcing two wrapped lines -- the
+// narrowing oracle for the wrap test below.
+const DialogLine kNarrowWrapLines[] = {
+    {"AAAAAAAAAAAAAA", "Bob", kNoLine, 0, 0, 0, 0, LineKind::Text, 0, &kPortrait},
+};
+const DialogScript kNarrowWrapScript{kNarrowWrapLines, nullptr, 1, 0};
+
 }  // namespace
 
 // =============================================================================
 // sizeof guard -- RAM regression, mirrors DialogRunner's pattern.
 // =============================================================================
 
-// DialogBoxStyle: two pointers? No -- one pointer (font) + four int16_t +
-// five... now SEVEN Color (uint8_t: panel, border, ink, inkDim,
-// inkSelected, inkDetail, inkDetailSelected) + four uint8_t + one char
-// (choiceCaret) + one bool. ESP32 (4-byte pointer): 4+8+7+4+1+1=25, padded
-// to 4-byte alignment = 28. Native (8-byte pointer): 8+8+7+4+1+1=29,
-// padded to 8-byte alignment = 32 -- the two detail colours landed in
-// native's existing tail slack (was 27->32) and cost zero bytes there.
+// DialogBoxStyle: one pointer (font) + four int16_t +
+// EIGHT Color (uint8_t: panel, border, ink, inkDim, inkSelected,
+// inkDetail, inkDetailSelected, portraitInk) + four uint8_t + one char
+// (choiceCaret) + one bool. ESP32 (4-byte pointer): 4+8+8+4+1+1=26, padded
+// to 4-byte alignment = 28. Native (8-byte pointer): 8+8+8+4+1+1=30,
+// padded to 8-byte alignment = 32 -- portraitInk landed in the existing
+// tail slack on both targets and cost zero bytes; that is what these
+// numbers pin.
 // DialogBox adds lastRevision_ (uint16_t): ESP32 28+2=30, padded to 32;
 // native 32+2=34, padded to 40.
 #ifdef ESP32
@@ -978,6 +1018,182 @@ void test_dialog_box_draw_detail_empty_string_draws_nothing(void) {
     }
 }
 
+// =============================================================================
+// Speaker portraits (DialogLine::portrait, third post-MVP item)
+// =============================================================================
+
+void test_dialog_box_draw_left_portrait_at_content_origin_shifting_text(void) {
+    DialogRunner runner;
+    runner.start(kPortraitScript);
+    DialogBoxStyle style = makeStyle();
+    style.portraitInk = Color::Cyan;
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    // contentX = 0+4+1 = 5, content top = 5, contentW = 100-10 = 90.
+    TEST_ASSERT_TRUE(layout.hasPortrait);
+    TEST_ASSERT_FALSE(layout.portraitRight);
+    TEST_ASSERT_EQUAL_INT16(8, layout.portraitW);
+    TEST_ASSERT_EQUAL_INT16(8, layout.portraitH);
+    TEST_ASSERT_EQUAL_INT16(5, layout.portraitX);
+    TEST_ASSERT_EQUAL_INT16(5, layout.portraitY);
+
+    // The whole text column shifts past portrait + one padding gap...
+    TEST_ASSERT_EQUAL_INT16(5 + 8 + style.padding, layout.bodyX);
+    TEST_ASSERT_EQUAL_INT16(5 + 8 + style.padding, layout.speakerX);
+    TEST_ASSERT_EQUAL_INT16(5 + 8 + style.padding, layout.choiceTextX - layout.caretGutterPx);
+    // ...while the detail still closes at the panel's inner edge.
+    TEST_ASSERT_EQUAL_INT16(5 + 90, layout.detailRightX);
+
+    bool sawSprite = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "sprite") {
+            sawSprite = true;
+            TEST_ASSERT_EQUAL_INT16(5, call.x);
+            TEST_ASSERT_EQUAL_INT16(5, call.y);
+            TEST_ASSERT_EQUAL_INT16(8, call.w);
+            TEST_ASSERT_EQUAL_INT16(8, call.h);
+            TEST_ASSERT_EQUAL(Color::Cyan, call.color);
+        }
+    }
+    TEST_ASSERT_TRUE(sawSprite);
+}
+
+void test_dialog_box_draw_right_portrait_mirrors_layout(void) {
+    DialogRunner runner;
+    runner.start(kPortraitRightScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TEST_ASSERT_TRUE(layout.hasPortrait);
+    TEST_ASSERT_TRUE(layout.portraitRight);
+    // Portrait hugs the inner right edge; text stays at the left origin.
+    TEST_ASSERT_EQUAL_INT16(5 + 90 - 8, layout.portraitX);
+    TEST_ASSERT_EQUAL_INT16(5, layout.portraitY);
+    TEST_ASSERT_EQUAL_INT16(5, layout.bodyX);
+    TEST_ASSERT_EQUAL_INT16(5, layout.speakerX);
+    // The detail closes at the text column's trailing edge -- the
+    // portrait's left edge minus the gap -- never under the portrait.
+    TEST_ASSERT_EQUAL_INT16(5 + 90 - 8 - style.padding, layout.detailRightX);
+
+    bool sawSprite = false;
+    for (const auto& call : mock.rendererCalls) {
+        if (call.type == "sprite") {
+            sawSprite = true;
+            TEST_ASSERT_EQUAL_INT16(5 + 90 - 8, call.x);
+            TEST_ASSERT_EQUAL_INT16(5, call.y);
+        }
+    }
+    TEST_ASSERT_TRUE(sawSprite);
+}
+
+void test_dialog_box_draw_null_portrait_emits_no_sprite(void) {
+    // kShortNoSpeakerScript lines carry portrait == nullptr: no sprite
+    // call, and origins at the plain content origin exactly.
+    DialogRunner runner;
+    runner.start(kShortNoSpeakerScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+    MockRenderer mock = makeMock();
+
+    box.draw(mock, runner);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TEST_ASSERT_FALSE(layout.hasPortrait);
+    TEST_ASSERT_EQUAL_INT16(5, layout.bodyX);
+    TEST_ASSERT_EQUAL_INT16(5 + 90, layout.detailRightX);
+    for (const auto& call : mock.rendererCalls) {
+        TEST_ASSERT_FALSE(call.type == "sprite");
+    }
+}
+
+void test_dialog_box_portrait_narrows_body_wrap_width(void) {
+    // 14 glyphs = 84px: one line at the full 90px content width, two at
+    // the portrait-narrowed 78px. Independent oracle through TextLayout.
+    DialogRunner runner;
+    runner.start(kNarrowWrapScript);
+    const DialogBoxStyle style = makeStyle();
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+
+    TextLayout::WrappedLine oracle[DialogMaxWrappedLines];
+    const uint8_t oracleCount = TextLayout::wrap("AAAAAAAAAAAAAA", &kTestFont, style.textSize,
+                                                 78, 0, oracle, DialogMaxWrappedLines);
+    TEST_ASSERT_EQUAL_UINT8(2, oracleCount);
+    TEST_ASSERT_EQUAL_UINT8(oracleCount, layout.bodyLineCount);
+
+    const uint8_t fullCount = TextLayout::countWrappedLines("AAAAAAAAAAAAAA", &kTestFont,
+                                                             style.textSize, 90);
+    TEST_ASSERT_EQUAL_UINT8(1, fullCount);  // Precondition: narrowing is what splits it.
+}
+
+void test_dialog_box_measure_height_px_sizes_for_taller_portrait(void) {
+    // Speaker (9px) + one body line (9px) = 18px of text under a 20px
+    // portrait: the panel needs frame (10) + 20 = 30, not 10 + 18 = 28.
+    const DialogBoxStyle style = makeStyle();
+    TEST_ASSERT_EQUAL_INT16(30, DialogBox::measureHeightPx(kTallPortraitScript, style));
+
+    // Same text without the portrait measures the text block instead.
+    const DialogLine noPortraitLines[] = {
+        {"Hi", "Bob", kNoLine, 0, 0, 0, 0, LineKind::Text, 0},
+    };
+    const DialogScript noPortraitScript{noPortraitLines, nullptr, 1, 0};
+    TEST_ASSERT_EQUAL_INT16(28, DialogBox::measureHeightPx(noPortraitScript, style));
+}
+
+void test_dialog_box_choice_rect_spans_full_width_with_portrait(void) {
+    // Choice rows keep the full content-width hit rect with a portrait
+    // present; only text origins move. Uses a portrait-carrying Choice
+    // line so ShowingChoices is actually reachable here.
+    const DialogChoice portraitChoices[] = {
+        {"Yes", nullptr, kNoLine, 1},
+        {"No", nullptr, kNoLine, 2},
+    };
+    const DialogLine portraitChoiceLines[] = {
+        {nullptr, nullptr, kNoLine, 0, 0, /*firstChoice*/ 0, /*choiceCount*/ 2,
+         LineKind::Choice, 0, &kPortrait},
+    };
+    const DialogScript portraitChoiceScript{portraitChoiceLines, portraitChoices, 1, 2};
+
+    DialogRunner runner;
+    runner.start(portraitChoiceScript);
+    const DialogBoxStyle style = makeStyle();
+    DialogBox box;
+    box.setStyle(style);
+
+    DialogBox::Layout layout{};
+    DialogBox::computeLayout(style, runner, layout);
+    TEST_ASSERT_TRUE(layout.hasPortrait);
+
+    for (uint8_t i = 0; i < 2; ++i) {
+        int16_t x, y, w, h;
+        TEST_ASSERT_TRUE(box.choiceRect(runner, i, x, y, w, h));
+        TEST_ASSERT_EQUAL_INT16(5, x);
+        TEST_ASSERT_EQUAL_INT16(90, w);
+        TEST_ASSERT_EQUAL_INT16(
+            static_cast<int16_t>(layout.choiceY + i * layout.choiceRowHeightPx), y);
+    }
+    // ...while the option text itself starts past the portrait block.
+    TEST_ASSERT_EQUAL_INT16(5 + 8 + style.padding + layout.caretGutterPx, layout.choiceTextX);
+}
+
 #else
 
 void test_dialog_box_flag_off_reserves_zero_bytes(void) {
@@ -1040,6 +1256,12 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_box_draw_null_detail_emits_no_extra_text);
     RUN_TEST(test_dialog_box_draw_detail_does_not_change_choice_rect);
     RUN_TEST(test_dialog_box_draw_detail_empty_string_draws_nothing);
+    RUN_TEST(test_dialog_box_draw_left_portrait_at_content_origin_shifting_text);
+    RUN_TEST(test_dialog_box_draw_right_portrait_mirrors_layout);
+    RUN_TEST(test_dialog_box_draw_null_portrait_emits_no_sprite);
+    RUN_TEST(test_dialog_box_portrait_narrows_body_wrap_width);
+    RUN_TEST(test_dialog_box_measure_height_px_sizes_for_taller_portrait);
+    RUN_TEST(test_dialog_box_choice_rect_spans_full_width_with_portrait);
 #else
     RUN_TEST(test_dialog_box_flag_off_reserves_zero_bytes);
 #endif

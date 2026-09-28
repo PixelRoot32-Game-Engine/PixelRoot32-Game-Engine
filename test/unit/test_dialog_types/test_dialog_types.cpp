@@ -21,7 +21,8 @@
  * DialogLine carry explicit dual figures in their header briefs
  * for both ESP32 (4-byte pointer) and 64-bit native (8-byte pointer); this
  * file asserts both (DialogChoice grew 8->12 / 16->24 with the optional
- * second-column `detail` literal). DialogScript's byte-exact figure (12 B) is documented in
+ * second-column `detail` literal; DialogLine grew 20->24 / 32->40 with the
+ * optional speaker `portrait` pointer). DialogScript's byte-exact figure (12 B) is documented in
  * its header brief only as an ESP32 flash-budget number -- no native figure
  * is specified anywhere -- so that concrete pin is scoped to
  * ESP32 builds only; on native, DialogScript's type and pointer/count fields
@@ -59,16 +60,16 @@ using namespace pixelroot32::gameplay;
 #ifdef ESP32
 static_assert(sizeof(DialogChoice) == 12,
               "DialogChoice must be 12 bytes on ESP32: text(4)+detail(4)+next(2)+tag(2), no padding.");
-static_assert(sizeof(DialogLine) == 20,
-              "DialogLine must be 20 bytes on ESP32: 4+4+2+2+2+1+1+1+1=18, aligned to 4.");
+static_assert(sizeof(DialogLine) == 24,
+              "DialogLine must be 24 bytes on ESP32: 4+4+2+2+2+1+1+1+1=18 plus portrait(4)=22, aligned to 4.");
 static_assert(sizeof(DialogScript) == 12,
               "DialogScript must be 12 bytes on ESP32: 4+4+2+2, no padding.");
 #else
 static_assert(sizeof(DialogChoice) == 24,
               "DialogChoice must be 24 bytes on 64-bit native: text(8)+detail(8)+next(2)+tag(2), padded to align 8.");
-static_assert(sizeof(DialogLine) == 32,
-              "DialogLine must be 32 bytes on 64-bit native: two 8-byte pointers plus 10 bytes "
-              "of trailing fields, padded to align 8.");
+static_assert(sizeof(DialogLine) == 40,
+              "DialogLine must be 40 bytes on 64-bit native: two 8-byte pointers plus 10 bytes "
+              "of trailing fields plus the 8-byte portrait pointer, padded to align 8.");
 // DialogScript has no documented native figure (its header brief states the
 // 12 B figure as an ESP32 flash-budget number only); no native static_assert
 // is pinned here for that reason.
@@ -102,6 +103,10 @@ void test_dialog_types_line_flag_allow_cancel_is_0x01(void) {
     TEST_ASSERT_EQUAL_HEX8(0x01, kLineFlagAllowCancel);
 }
 
+void test_dialog_types_line_flag_portrait_right_is_0x02(void) {
+    TEST_ASSERT_EQUAL_HEX8(0x02, kLineFlagPortraitRight);
+}
+
 // =============================================================================
 // Trivial destructibility (zero heap, .rodata-resident script data)
 // =============================================================================
@@ -132,9 +137,9 @@ void test_dialog_types_dialog_choice_size_guard(void) {
 
 void test_dialog_types_dialog_line_size_guard(void) {
 #ifdef ESP32
-    TEST_ASSERT_EQUAL_UINT32(20u, static_cast<uint32_t>(sizeof(DialogLine)));
+    TEST_ASSERT_EQUAL_UINT32(24u, static_cast<uint32_t>(sizeof(DialogLine)));
 #else
-    TEST_ASSERT_EQUAL_UINT32(32u, static_cast<uint32_t>(sizeof(DialogLine)));
+    TEST_ASSERT_EQUAL_UINT32(40u, static_cast<uint32_t>(sizeof(DialogLine)));
 #endif
 }
 
@@ -184,6 +189,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_types_no_line_sentinel_is_0xffff);
     RUN_TEST(test_dialog_types_no_choice_sentinel_is_0xff);
     RUN_TEST(test_dialog_types_line_flag_allow_cancel_is_0x01);
+    RUN_TEST(test_dialog_types_line_flag_portrait_right_is_0x02);
     RUN_TEST(test_dialog_types_dialog_line_and_choice_are_trivially_destructible);
     RUN_TEST(test_dialog_types_dialog_choice_size_guard);
     RUN_TEST(test_dialog_types_dialog_line_size_guard);
