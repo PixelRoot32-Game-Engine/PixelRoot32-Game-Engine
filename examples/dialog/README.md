@@ -44,13 +44,17 @@ one pass:
    player.
 3. **A 3-option `Choice` line** — `Up`/`Down` move the selection, `Confirm`
    fires `ChoiceConfirmed` and follows the chosen `DialogChoice::next`; all
-   three branches rejoin at one `LineKind::End` line.
+   three branches rejoin at one `LineKind::End` line. A `ChoiceFilterFn`
+   hides "Ask a riddle" once asked — replay the script to see the
+   two-option menu.
 
 ## Features
 
 - `DialogRunner` — headless five-state machine, driven by `feed()`/`update()`
 - `DialogBox` — default panel, sized once via `measureHeightPx()`
 - A `DialogEventFn` callback reacting to `ChoiceConfirmed`
+- A `ChoiceFilterFn` hiding a one-time option, renormalized via
+  `refreshChoices()`
 
 ## File Structure
 

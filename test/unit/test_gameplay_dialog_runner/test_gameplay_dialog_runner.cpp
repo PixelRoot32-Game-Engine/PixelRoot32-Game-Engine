@@ -11,6 +11,9 @@
  * - Zero heap, trivially destructible data (heap side, across a full session)
  * - sizeof(DialogRunner) RAM regression guard
  * - The four choice accessors and ShowingChoices' action handling
+ * - Game-supplied ChoiceFilterFn for conditional options (hide-only,
+ *   lazy against live game state, visible-index compaction, refreshChoices
+ *   renormalization, reentrant-filter fail-open)
  *
  * Zero-byte reservation when the flag is disabled is exercised by the #else
  * stub below compiling and passing without referencing DialogRunner at all.
@@ -46,21 +49,23 @@
 using namespace pixelroot32::gameplay;
 
 // =============================================================================
-// Static-layout regression guard: 28 B ESP32 (32-bit
-// pointer), 40 B on 64-bit native. Mirrors test_dialog_types.cpp's pattern.
+// Static-layout regression guard: 36 B ESP32 (32-bit
+// pointer), 56 B on 64-bit native. Mirrors test_dialog_types.cpp's pattern.
 // ESP32 moved from 24 to 28 when the dispatching_ reentrancy-guard field was
-// added -- see the RAM regression guard comment above DialogRunner's
-// static_assert in DialogRunner.h for the full byte-by-byte reconciliation.
+// added, and from 28 to 36 with the ChoiceFilterFn binding (two pointers)
+// plus the in-filter reentrancy flag -- see the RAM regression guard comment
+// above DialogRunner's static_assert in DialogRunner.h for the full
+// byte-by-byte reconciliation.
 // =============================================================================
 
 #ifdef ESP32
-static_assert(sizeof(DialogRunner) == 28,
-              "DialogRunner must be 28 bytes on ESP32; see the RAM regression "
+static_assert(sizeof(DialogRunner) == 36,
+              "DialogRunner must be 36 bytes on ESP32; see the RAM regression "
               "guard comment above DialogRunner's static_assert in "
               "DialogRunner.h if this changed intentionally.");
 #else
-static_assert(sizeof(DialogRunner) == 40,
-              "DialogRunner must be 40 bytes on 64-bit native; see the RAM "
+static_assert(sizeof(DialogRunner) == 56,
+              "DialogRunner must be 56 bytes on 64-bit native; see the RAM "
               "regression guard comment above DialogRunner's static_assert "
               "in DialogRunner.h if this changed intentionally.");
 #endif
@@ -1848,16 +1853,226 @@ void test_dialog_runner_zero_heap_allocation_across_full_session(void) {
 }
 
 // =============================================================================
+// Requirement: game-supplied ChoiceFilterFn for conditional options
+// =============================================================================
+
+// Mutable game state the filters below read, proving the runner evaluates
+// lazily against live state rather than snapshotting at enterLine().
+struct FilterState {
+    bool hideScriptIndex1 = false;
+    bool hideAll = false;
+    int  callCount = 0;
+};
+
+// Hides script choice 1 ("Option B") when asked, everything when hideAll.
+bool hideMiddleFilter(void* owner, LineId line, ChoiceId scriptIndex,
+                      const DialogChoice* choice) {
+    (void)line;
+    (void)choice;
+    FilterState* state = static_cast<FilterState*>(owner);
+    ++state->callCount;
+    if (state->hideAll) return false;
+    if (state->hideScriptIndex1) return scriptIndex != 1;
+    return true;
+}
+
+// Forbidden-shape filter: calls back into the runner. The in-filter guard
+// must fail open (show everything) rather than recurse without a bound.
+bool reentrantFilter(void* owner, LineId line, ChoiceId scriptIndex,
+                     const DialogChoice* choice) {
+    (void)line;
+    (void)scriptIndex;
+    (void)choice;
+    DialogRunner* runner = static_cast<DialogRunner*>(owner);
+    return runner->choiceCount() == 3;
+}
+
+void test_dialog_runner_null_filter_shows_everything_by_default(void) {
+    DialogRunner runner;  // No setChoiceFilter: the default binding is null.
+    runner.start(kThreeChoiceScript, 0);
+
+    TEST_ASSERT_EQUAL_UINT8(3, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+    TEST_ASSERT_NOT_NULL(runner.choice(0));
+    TEST_ASSERT_NOT_NULL(runner.choice(2));
+}
+
+void test_dialog_runner_filter_hides_middle_choice_and_compacts_indices(void) {
+    FilterState state;
+    state.hideScriptIndex1 = true;
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+
+    TEST_ASSERT_EQUAL_UINT8(2, runner.choiceCount());
+    // Visible 0 is still script 0 ("Option A"), visible 1 is script 2
+    // ("Option C") -- firstChoice + visible index would wrongly say script 1.
+    TEST_ASSERT_EQUAL_UINT16(501, runner.choice(0)->tag);
+    TEST_ASSERT_EQUAL_UINT16(503, runner.choice(1)->tag);
+    TEST_ASSERT_NULL(runner.choice(2));
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+    TEST_ASSERT_TRUE(state.callCount > 0);  // Evaluated lazily, not snapshotted.
+}
+
+void test_dialog_runner_filter_navigation_skips_hidden_choice(void) {
+    FilterState state;
+    state.hideScriptIndex1 = true;
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+
+    runner.feed(DialogAction::Down);  // 0 -> 1, landing on "Option C", not "Option B".
+    TEST_ASSERT_EQUAL_HEX8(1, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(503, runner.choice(runner.selectedChoice())->tag);
+
+    const uint16_t revBefore = runner.revision();
+    runner.feed(DialogAction::Down);  // Clamps at the last VISIBLE index.
+    TEST_ASSERT_EQUAL_HEX8(1, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+
+    runner.feed(DialogAction::Up);
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+}
+
+void test_dialog_runner_filter_confirm_emits_visible_index_with_hidden_choices_tag(void) {
+    FilterState state;
+    state.hideScriptIndex1 = true;
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);  // Visible 1 == script 2 ("Option C", tag 503, next == 1).
+    owner.logCount = 0;
+
+    runner.feed(DialogAction::Confirm);
+
+    TEST_ASSERT_TRUE(owner.logCount >= 1);
+    TEST_ASSERT_TRUE(owner.log[0].type == DialogEventType::ChoiceConfirmed);
+    TEST_ASSERT_EQUAL_HEX8(1, owner.log[0].choice);   // Visible index, not script index 2.
+    TEST_ASSERT_EQUAL_UINT16(503, owner.log[0].tag);  // The hidden-skipped choice's own tag.
+    TEST_ASSERT_EQUAL_UINT16(1, runner.currentLineId());  // Followed "Option C"'s next.
+}
+
+void test_dialog_runner_filter_hiding_everything_behaves_like_zero_usable_choices(void) {
+    FilterState state;
+    state.hideAll = true;
+    MockOwner owner;
+    DialogRunner runner;
+    runner.configure(&owner, onDialogEvent);
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);  // flags == 0: Cancel not allowed.
+    owner.logCount = 0;
+    const uint16_t revBefore = runner.revision();
+
+    TEST_ASSERT_EQUAL_UINT8(0, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+    TEST_ASSERT_NULL(runner.choice(0));
+
+    runner.feed(DialogAction::Up);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Confirm);
+    runner.feed(DialogAction::Cancel);
+
+    TEST_ASSERT_TRUE(runner.state() == DialogState::ShowingChoices);
+    TEST_ASSERT_EQUAL_INT(0, owner.logCount);
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+}
+
+void test_dialog_runner_filter_applies_lazily_to_live_game_state(void) {
+    FilterState state;  // Nothing hidden yet.
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+    runner.feed(DialogAction::Down);
+    runner.feed(DialogAction::Down);  // selected_ == 2, the last script choice.
+    TEST_ASSERT_EQUAL_HEX8(2, runner.selectedChoice());
+
+    // Game state changes with the line still open: no rebind, no re-enter.
+    state.hideScriptIndex1 = true;
+
+    // Const accessors report the new reality without mutating: the stored
+    // selection no longer addresses a visible choice.
+    TEST_ASSERT_EQUAL_UINT8(2, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(kNoChoice, runner.selectedChoice());
+
+    // An explicit renormalize clamps to the last visible option and bumps.
+    const uint16_t revBefore = runner.revision();
+    runner.refreshChoices();
+    TEST_ASSERT_EQUAL_HEX8(1, runner.selectedChoice());
+    TEST_ASSERT_TRUE(runner.revision() != revBefore);
+}
+
+void test_dialog_runner_refresh_choices_is_noop_outside_showing_choices(void) {
+    FilterState state;
+    state.hideAll = true;
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+
+    runner.refreshChoices();  // Inactive: nothing to renormalize.
+    TEST_ASSERT_TRUE(runner.state() == DialogState::Inactive);
+
+    runner.start(kLinearScript, 0);  // AwaitingAdvance, not ShowingChoices.
+    const uint16_t revBefore = runner.revision();
+    runner.refreshChoices();
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+    TEST_ASSERT_TRUE(runner.state() == DialogState::AwaitingAdvance);
+}
+
+void test_dialog_runner_refresh_choices_without_selection_change_does_not_bump_revision(void) {
+    FilterState state;  // Filter bound but hiding nothing.
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    runner.refreshChoices();
+
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+}
+
+void test_dialog_runner_select_rejects_past_visible_end(void) {
+    FilterState state;
+    state.hideScriptIndex1 = true;
+    DialogRunner runner;
+    runner.setChoiceFilter(&state, hideMiddleFilter);
+    runner.start(kThreeChoiceScript, 0);
+    const uint16_t revBefore = runner.revision();
+
+    TEST_ASSERT_FALSE(runner.select(2));  // Only visible 0 and 1 exist.
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(revBefore, runner.revision());
+
+    TEST_ASSERT_TRUE(runner.select(1));  // Visible 1 == script 2 ("Option C").
+    TEST_ASSERT_EQUAL_HEX8(1, runner.selectedChoice());
+    TEST_ASSERT_EQUAL_UINT16(503, runner.choice(runner.selectedChoice())->tag);
+}
+
+void test_dialog_runner_reentrant_runner_call_from_filter_fails_open(void) {
+    DialogRunner runner;
+    runner.setChoiceFilter(&runner, reentrantFilter);
+    runner.start(kThreeChoiceScript, 0);
+
+    // The inner choiceCount() runs under the in-filter guard and sees every
+    // choice, so the filter answers true throughout: full count, no hang,
+    // no stack exhaustion.
+    TEST_ASSERT_EQUAL_UINT8(3, runner.choiceCount());
+    TEST_ASSERT_EQUAL_HEX8(0, runner.selectedChoice());
+    TEST_ASSERT_NOT_NULL(runner.choice(2));
+}
+
+// =============================================================================
 // Requirement: sizeof(DialogRunner) RAM regression guard
 // =============================================================================
 
 void test_dialog_runner_sizeof_guard(void) {
 #ifdef ESP32
-    TEST_ASSERT_EQUAL_UINT32(28u, static_cast<uint32_t>(sizeof(DialogRunner)));
+    TEST_ASSERT_EQUAL_UINT32(36u, static_cast<uint32_t>(sizeof(DialogRunner)));
 #else
-    TEST_ASSERT_EQUAL_UINT32(40u, static_cast<uint32_t>(sizeof(DialogRunner)));
+    TEST_ASSERT_EQUAL_UINT32(56u, static_cast<uint32_t>(sizeof(DialogRunner)));
 #endif
-    TEST_ASSERT_LESS_OR_EQUAL(3 * sizeof(void*) + 16, sizeof(DialogRunner));
+    TEST_ASSERT_LESS_OR_EQUAL(5 * sizeof(void*) + 16, sizeof(DialogRunner));
 }
 
 #else  // !PIXELROOT32_ENABLE_DIALOG
@@ -1951,6 +2166,16 @@ int main(int argc, char** argv) {
     RUN_TEST(test_dialog_runner_cancel_emits_cancelled_and_stays_on_the_line_with_allow_cancel);
     RUN_TEST(test_dialog_runner_cancel_is_noop_with_only_an_unknown_flag_bit);
     RUN_TEST(test_dialog_runner_cancel_works_with_allow_cancel_plus_an_unknown_flag_bit);
+    RUN_TEST(test_dialog_runner_null_filter_shows_everything_by_default);
+    RUN_TEST(test_dialog_runner_filter_hides_middle_choice_and_compacts_indices);
+    RUN_TEST(test_dialog_runner_filter_navigation_skips_hidden_choice);
+    RUN_TEST(test_dialog_runner_filter_confirm_emits_visible_index_with_hidden_choices_tag);
+    RUN_TEST(test_dialog_runner_filter_hiding_everything_behaves_like_zero_usable_choices);
+    RUN_TEST(test_dialog_runner_filter_applies_lazily_to_live_game_state);
+    RUN_TEST(test_dialog_runner_refresh_choices_is_noop_outside_showing_choices);
+    RUN_TEST(test_dialog_runner_refresh_choices_without_selection_change_does_not_bump_revision);
+    RUN_TEST(test_dialog_runner_select_rejects_past_visible_end);
+    RUN_TEST(test_dialog_runner_reentrant_runner_call_from_filter_fails_open);
     RUN_TEST(test_dialog_runner_select_from_line_enter_callback_survives);
     RUN_TEST(test_dialog_runner_select_then_stop_from_a_callback_discards_the_selection);
     RUN_TEST(test_dialog_runner_select_from_cancelled_callback_survives);

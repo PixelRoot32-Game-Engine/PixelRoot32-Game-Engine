@@ -92,6 +92,27 @@ public:
     void configure(void* owner, DialogEventFn onEvent);
 
     /**
+     * @brief Binds the optional per-choice visibility filter.
+     * @param owner Opaque pointer forwarded uncast to every filter call; may be null.
+     * @param filter Predicate the runner calls lazily for each candidate
+     *        choice whenever it evaluates choiceCount()/choice()/select(),
+     *        ShowingChoices feed() input, or refreshChoices(). A null filter
+     *        (the default) shows every choice.
+     *
+     * The filter MUST be pure: it must not call back into this runner
+     * (feed()/update()/start()/stop()/select()/refreshChoices() or any
+     * accessor). The runner invokes it while evaluating its own accessors,
+     * so a reentrant call would recurse; an in-filter guard fails open
+     * (shows every choice) rather than recursing, but well-behaved filters
+     * never rely on it. Changing the binding is never itself a visible
+     * change -- call refreshChoices() afterwards when the visible set may
+     * have changed and the runner should renormalize its selection.
+     *
+     * Zero heap; stores two pointers only.
+     */
+    void setChoiceFilter(void* owner, ChoiceFilterFn filter);
+
+    /**
      * @brief Binds `script` and enters `first`.
      * @param script Caller-owned, const, .rodata-resident script table. NOT
      *        copied; must outlive this runner.
@@ -247,6 +268,13 @@ public:
      *         DialogLine::firstChoice that is itself out of range or equal
      *         to kNoChoice.
      *
+     *         When a ChoiceFilterFn is bound (see setChoiceFilter), the
+     *         count is instead the number of VISIBLE choices -- candidates
+     *         the filter hides are compacted out, so every index below the
+     *         returned count addresses a visible choice through choice().
+     *         A line with every choice hidden reports 0, exactly like a
+     *         line with zero usable choices.
+     *
      *         WHY CLAMP RATHER THAN REJECT THE SCRIPT IN start(): a
      *         malformed choice range is a per-line authoring error, and
      *         start() may be asked to run a script long before the offending
@@ -263,7 +291,10 @@ public:
     /**
      * @brief The choice at `index` on the current ShowingChoices line.
      * @param index Zero-based index, local to the current line (not an
-     *        offset into DialogScript::choices).
+     *        offset into DialogScript::choices). Under a ChoiceFilterFn
+     *        this is an index into the VISIBLE choices, compacted over the
+     *        hidden ones -- `line.firstChoice + index` is NOT valid then;
+     *        the runner translates.
      * @return nullptr when state() != ShowingChoices or `index >=
      *         choiceCount()`. Never dereferences DialogScript::choices
      *         outside the range choiceCount() already bounds.
@@ -274,6 +305,11 @@ public:
      * @brief The currently selected choice on a ShowingChoices line.
      * @return selected_, or kNoChoice when state() != ShowingChoices or the
      *         current line has zero usable choices (choiceCount() == 0).
+     *         Under a ChoiceFilterFn this is an index into the VISIBLE
+     *         choices; kNoChoice is also returned when the stored selection
+     *         no longer addresses a visible choice (the filter hid it since
+     *         the selection was made) -- feed()/select()/refreshChoices()
+     *         renormalize the stored value, const accessors only report.
      *         Reset to 0 on entering a ShowingChoices line with at least
      *         one usable choice, and to kNoChoice on entering any other
      *         line, or a ShowingChoices line with none.
@@ -282,7 +318,8 @@ public:
 
     /**
      * @brief Sets the selection directly, for touch hit-testing.
-     * @param index Zero-based index, local to the current line.
+     * @param index Zero-based index, local to the current line. Under a
+     *        ChoiceFilterFn this is an index into the VISIBLE choices.
      * @return false, changing nothing, when state() != ShowingChoices or
      *         `index >= choiceCount()`. Both rejection causes collapse to
      *         the same single postcondition -- "no effect" -- so this
@@ -308,6 +345,25 @@ public:
      */
     bool select(ChoiceId index);
 
+    /**
+     * @brief Renormalizes the selection against the current filter result.
+     *
+     * Call this after game state the bound ChoiceFilterFn reads has
+     * changed while a ShowingChoices line is open (e.g. the player's gold
+     * changed, hiding the "Buy" option) and before the presenter draws:
+     * the selection clamps into the visible range exactly as feed()'s
+     * Up/Down would, and revision() bumps only when the selection actually
+     * moved. No-op when state() != ShowingChoices; with no filter bound it
+     * still clamps defensively but can never find anything to change.
+     *
+     * Draw paths that call draw() unconditionally do not strictly need
+     * this -- draw() re-reads choiceCount()/choice() lazily every frame --
+     * but anything polling needsRedraw() does: without a renormalizing
+     * call, a filter-driven selection change is not observable through
+     * revision().
+     */
+    void refreshChoices();
+
 private:
     void enterLine(LineId id);       ///< Emits LineEnter, sets state, resets page/timer.
     void resolveAdvance();           ///< page+1, else follow `next`, else finish.
@@ -322,9 +378,39 @@ private:
     /// `line.firstChoice` is itself out of range or equal to kNoChoice.
     [[nodiscard]] uint8_t effectiveChoiceCount(const DialogLine& line) const;
 
+    /// Whether candidate script choice `scriptIndex` (an offset into
+    /// DialogScript::choices, NOT a visible index) is shown. Null filter
+    /// shows everything; while already inside a filter call (inFilter_)
+    /// also shows everything rather than recursing -- filters must be
+    /// pure and never call back into the runner, so this path is only
+    /// reachable from a misbehaving filter.
+    [[nodiscard]] bool isChoiceVisible(LineId lineId, ChoiceId scriptIndex,
+                                       const DialogChoice* choice) const;
+
+    /// Number of visible choices on `line`: the raw effectiveChoiceCount()
+    /// range with hidden candidates compacted out. 0 with no filter change
+    /// beyond effectiveChoiceCount() itself.
+    [[nodiscard]] uint8_t visibleChoiceCount(const DialogLine& line) const;
+
+    /// Translates a visible index (what choiceCount()/choice()/select()/
+    /// selectedChoice() and ChoiceConfirmed traffic in) to the underlying
+    /// DialogScript::choices offset. Returns kNoChoice when `visible` is
+    /// past the visible end.
+    [[nodiscard]] ChoiceId scriptIndexForVisible(const DialogLine& line,
+                                                 ChoiceId visible) const;
+
+    /// Clamps selected_ into [0, visibleChoiceCount()) -- or to kNoChoice
+    /// when the line has no visible choice -- bumping revision() only when
+    /// the selection actually moved. Called on entering a ShowingChoices
+    /// line, from feed()'s ShowingChoices branch, from select()'s bounds
+    /// path and from refreshChoices().
+    void normalizeSelection(const DialogLine& line);
+
     const DialogScript* script_ = nullptr;       // 4 / 8
     void* owner_ = nullptr;                      // 4 / 8
     DialogEventFn onEvent_ = nullptr;            // 4 / 8
+    void* filterOwner_ = nullptr;                // 4 / 8
+    ChoiceFilterFn filter_ = nullptr;            // 4 / 8
     uint32_t timeInLineMs_ = 0;                  // 4
     uint16_t revision_ = 0;                      // 2
     LineId current_ = kNoLine;                   // 2
@@ -338,6 +424,15 @@ private:
     uint8_t page_ = 0;                           // 1
     uint8_t pageCount_ = 1;                      // 1
     DialogState state_ = DialogState::Inactive;  // 1
+    // True while a ChoiceFilterFn call made by this runner is in flight.
+    // Mutable so the const choice accessors can hold it: a filter that
+    // calls back into the runner would otherwise recurse without a bound
+    // (const accessors cannot set dispatching_, which only feed()/update()/
+    // start() hold). The fail-open read in isChoiceVisible() is the backstop;
+    // well-behaved filters never reach it. Deliberately NOT set by feed()/
+    // update()/start() themselves -- dispatching_ already covers those, and
+    // conflating the two would let a filter run unguarded outside dispatch.
+    mutable bool inFilter_ = false;              // 1
     // True for the duration of any feed()/update()/start() call that is
     // still inside its own DialogEventFn dispatch. See configure()'s
     // reentrancy contract for why this exists and what it does. stop() is
@@ -347,16 +442,18 @@ private:
 };
 
 /// RAM regression guard, re-derived by hand.
-/// ESP32: fields sum to 25, +3 padding to 4-byte alignment = 28 B. Was
-/// 24 (sum 24, zero padding), so `dispatching_` is real 4-byte growth,
-/// not reclaimed slack -- there was none.
-/// Native: fields sum to 37, +3 padding to 8-byte alignment = 40 B,
-/// unchanged (was sum 36 +4 padding; the new field took 1 of those 4).
-/// Both sit exactly at the threshold below, zero slack. A future 1-3
-/// byte field still fits native's 3 padding bytes without tripping this
-/// assert or the sizeof test guard.
-static_assert(sizeof(DialogRunner) <= 3 * sizeof(void*) + 16,
-              "DialogRunner exceeds its RAM budget (3*sizeof(void*)+16 bytes); "
+/// ESP32: fields sum to 34 (25 + 8 filter pointers + 1 in-filter flag), +2
+/// padding to 4-byte alignment = 36 B. Was 28 (sum 25, +3 padding), so the
+/// filter binding is real 8-byte growth plus 1 flag byte sharing the new
+/// padding -- there was no slack left to reclaim.
+/// Native: fields sum to 54 (37 + 16 + 1), +2 padding to 8-byte alignment =
+/// 56 B, unchanged in shape (was sum 37 +3 padding; the new fields took the
+/// slack and grew past it by the same 16 the pointers cost).
+/// Both sit exactly at the threshold below, zero slack. A future pointer
+/// field costs 4/8 B again; a future 1-2 byte field still fits ESP32's 2
+/// padding bytes without tripping this assert or the sizeof test guard.
+static_assert(sizeof(DialogRunner) <= 5 * sizeof(void*) + 16,
+              "DialogRunner exceeds its RAM budget (5*sizeof(void*)+16 bytes); "
               "if this growth is intentional, raise the threshold above and "
               "update the size comment");
 

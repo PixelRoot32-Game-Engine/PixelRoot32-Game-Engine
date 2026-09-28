@@ -244,6 +244,11 @@ public:
      *       as a HUD strip before choosing DialogBoxStyle::h, which draw()
      *       uses as-is without clipping. The per-line height formula, and
      *       how `padding` enters it, is in the DialogBoxStyle description.
+     * @note A ChoiceFilterFn can only SHRINK the drawn option list, never
+     *       grow it: this measures the UNFILTERED maximum, so a panel sized
+     *       from it always fits, filtered or not. There is no runner (and
+     *       hence no filter) to measure against here by design -- the panel
+     *       is sized once, up front, for the worst case.
      */
     [[nodiscard]] static int16_t measureHeightPx(const gameplay::DialogScript& script,
                                                   const DialogBoxStyle&         style);
