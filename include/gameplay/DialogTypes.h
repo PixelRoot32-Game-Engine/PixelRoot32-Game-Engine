@@ -139,13 +139,21 @@ using ChoiceFilterFn = bool (*)(void* owner, LineId line, ChoiceId scriptIndex,
  * @struct DialogChoice
  * @brief One selectable option on a DialogState::ShowingChoices line.
  *
- * 8 bytes on ESP32 (4-byte pointer), 16 on 64-bit native -- this exact
+ * 12 bytes on ESP32 (two 4-byte pointers), 24 on 64-bit native -- this exact
  * figure is the regression guard `test_dialog_types_dialog_choice_size_guard`
  * pins, so growing this struct is a conscious, reviewed change rather
- * than silent drift in a game's flash budget.
+ * than silent drift in a game's flash budget. Grew from 8/16 when the
+ * optional second-column `detail` literal was added (multi-column option
+ * rows, second post-MVP dialog item).
  */
 struct DialogChoice {
-    const char* text;   ///< Flash literal. Never copied.
+    const char* text;            ///< Main label, left-aligned. Flash literal. Never copied.
+    const char* detail = nullptr;  ///< Optional second column (e.g. a price), right-aligned.
+                                   ///< Flash literal. nullptr (the default, so existing
+                                   ///< 3-value initializers keep compiling) draws the
+                                   ///< classic single-column row with identical geometry.
+                                   ///< Never wrapped, like `text`: keep `text + detail`
+                                   ///< within the panel's content width (see DialogBoxStyle).
     LineId      next;   ///< kNoLine ends the dialog.
     uint16_t    tag;    ///< Opaque game code.
 };
@@ -197,7 +205,7 @@ struct DialogScript {
     uint16_t            choiceCount;
 };
 
-static_assert(sizeof(DialogChoice) <= 2 * sizeof(void*), "DialogChoice grew");
+static_assert(sizeof(DialogChoice) <= 3 * sizeof(void*), "DialogChoice grew");
 // Trivially destructible: the script is flash data, never destroyed.
 
 } // namespace pixelroot32::gameplay

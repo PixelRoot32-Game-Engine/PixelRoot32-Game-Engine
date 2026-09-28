@@ -20,7 +20,8 @@
  * conscious, reviewed bump rather than silent drift. DialogChoice and
  * DialogLine carry explicit dual figures in their header briefs
  * for both ESP32 (4-byte pointer) and 64-bit native (8-byte pointer); this
- * file asserts both. DialogScript's byte-exact figure (12 B) is documented in
+ * file asserts both (DialogChoice grew 8->12 / 16->24 with the optional
+ * second-column `detail` literal). DialogScript's byte-exact figure (12 B) is documented in
  * its header brief only as an ESP32 flash-budget number -- no native figure
  * is specified anywhere -- so that concrete pin is scoped to
  * ESP32 builds only; on native, DialogScript's type and pointer/count fields
@@ -56,15 +57,15 @@ using namespace pixelroot32::gameplay;
 // =============================================================================
 
 #ifdef ESP32
-static_assert(sizeof(DialogChoice) == 8,
-              "DialogChoice must be 8 bytes on ESP32: text(4)+next(2)+tag(2), no padding.");
+static_assert(sizeof(DialogChoice) == 12,
+              "DialogChoice must be 12 bytes on ESP32: text(4)+detail(4)+next(2)+tag(2), no padding.");
 static_assert(sizeof(DialogLine) == 20,
               "DialogLine must be 20 bytes on ESP32: 4+4+2+2+2+1+1+1+1=18, aligned to 4.");
 static_assert(sizeof(DialogScript) == 12,
               "DialogScript must be 12 bytes on ESP32: 4+4+2+2, no padding.");
 #else
-static_assert(sizeof(DialogChoice) == 16,
-              "DialogChoice must be 16 bytes on 64-bit native: text(8)+next(2)+tag(2), padded to align 8.");
+static_assert(sizeof(DialogChoice) == 24,
+              "DialogChoice must be 24 bytes on 64-bit native: text(8)+detail(8)+next(2)+tag(2), padded to align 8.");
 static_assert(sizeof(DialogLine) == 32,
               "DialogLine must be 32 bytes on 64-bit native: two 8-byte pointers plus 10 bytes "
               "of trailing fields, padded to align 8.");
@@ -123,9 +124,9 @@ void test_dialog_types_dialog_line_and_choice_are_trivially_destructible(void) {
 
 void test_dialog_types_dialog_choice_size_guard(void) {
 #ifdef ESP32
-    TEST_ASSERT_EQUAL_UINT32(8u, static_cast<uint32_t>(sizeof(DialogChoice)));
+    TEST_ASSERT_EQUAL_UINT32(12u, static_cast<uint32_t>(sizeof(DialogChoice)));
 #else
-    TEST_ASSERT_EQUAL_UINT32(16u, static_cast<uint32_t>(sizeof(DialogChoice)));
+    TEST_ASSERT_EQUAL_UINT32(24u, static_cast<uint32_t>(sizeof(DialogChoice)));
 #endif
 }
 

@@ -46,7 +46,9 @@ one pass:
    fires `ChoiceConfirmed` and follows the chosen `DialogChoice::next`; all
    three branches rejoin at one `LineKind::End` line. A `ChoiceFilterFn`
    hides "Ask a riddle" once asked — replay the script to see the
-   two-option menu.
+   two-option menu. "Ask a riddle" also carries a right-aligned `detail`
+   column ("once") drawn in its own colour slots — the multi-column row
+   demo.
 
 ## Features
 
@@ -55,6 +57,8 @@ one pass:
 - A `DialogEventFn` callback reacting to `ChoiceConfirmed`
 - A `ChoiceFilterFn` hiding a one-time option, renormalized via
   `refreshChoices()`
+- A multi-column option row: `DialogChoice::detail` right-aligned with
+  per-column colour (`inkDetail`/`inkDetailSelected`)
 
 ## File Structure
 

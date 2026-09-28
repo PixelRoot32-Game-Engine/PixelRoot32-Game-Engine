@@ -20,7 +20,7 @@ namespace pixelroot32::graphics {
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the 15 scalar/enum fields follow.
+ * leads, the 17 scalar/enum fields follow.
  *
  * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
  * names, not RGB565 values. DialogBox::draw() hands them to the renderer,
@@ -77,6 +77,16 @@ namespace pixelroot32::graphics {
  * option shorter than contentWidth - caretGutterPx, or set `choiceCaret`
  * to 0. The row rect choiceRect() reports is unaffected and still spans the
  * gutter, so the whole row stays tappable.
+ *
+ * Multi-column rows: DialogChoice::detail, when non-null, draws a second
+ * column RIGHT-aligned against the panel's inner edge (choiceX + choiceW),
+ * on the same row baseline, in `inkDetail` (or `inkDetailSelected` when
+ * that row is selected). The label keeps its left-aligned origin exactly,
+ * so a null detail reproduces the single-column geometry bit for bit.
+ * Neither column wraps and drawText() does not clip: the game keeps
+ * `label + gap + detail` within contentWidth - caretGutterPx. On overlap
+ * the detail wins visually (drawn second, same row); there is no
+ * truncation or ellipsis, by design -- one drawText per column, zero heap.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -89,6 +99,8 @@ struct DialogBoxStyle {
     Color       ink           = Color::White;   ///< Speaker, body and unselected choices. Palette-resolved.
     Color       inkDim        = Color::Gray;    ///< Next-page cue. Palette-resolved.
     Color       inkSelected   = Color::Yellow;  ///< Selected choice. Palette-resolved; a zeroed slot hides it.
+    Color       inkDetail     = Color::Gray;    ///< Second-column (DialogChoice::detail) text. Palette-resolved.
+    Color       inkDetailSelected = Color::Yellow;  ///< Selected row's second column. Palette-resolved.
     uint8_t     borderWidth   = 1;
     uint8_t     padding       = 4;              ///< Inside the border, and above and below each choice row.
     uint8_t     textSize      = 1;
@@ -262,8 +274,11 @@ private:
 /// against sizeof(void*) so one formula covers ESP32 (32-bit) and 64-bit
 /// native: DialogBoxStyle's single pointer plus lastRevision_ never needs
 /// more than 2 pointer-widths of slack beyond a fixed 24-byte core.
-/// Actual: 28 B on ESP32, 40 B on 64-bit native (test_dialog_box_sizeof_guard
-/// pins both exactly). Growing this struct must be a conscious bump of the
+/// Actual: 32 B on ESP32 (style 28 + revision 2, padded), 40 B on 64-bit
+/// native (style 32 + revision 2, padded) -- test_dialog_box_sizeof_guard
+/// pins both exactly. The two inkDetail colours cost 4 B on ESP32 (style
+/// 24->28, box 28->32) and zero on native (absorbed by tail slack).
+/// Growing this struct must be a conscious bump of the
 /// threshold below, not a silent drift.
 static_assert(sizeof(DialogBox) <= 2 * sizeof(void*) + 24,
               "DialogBox exceeds its RAM budget (2*sizeof(void*)+24 bytes); "
@@ -351,6 +366,23 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
 
         renderer.drawText(text, layout.choiceTextX, rowTextY, color, style_.textSize,
                            style_.font);
+
+        // Second column: right-aligned against the panel's inner edge, same
+        // baseline, per-column colour. Null detail draws nothing, preserving
+        // single-column geometry bit for bit. Drawn AFTER the label so a
+        // game that overflows both still shows the price -- the overlap
+        // policy is documented on DialogBoxStyle, not clipped here.
+        if (choice != nullptr && choice->detail != nullptr && choice->detail[0] != '\0') {
+            const std::string_view detail(choice->detail);
+            const Color detailColor = (i == runner.selectedChoice()) ? style_.inkDetailSelected
+                                                                     : style_.inkDetail;
+            const int16_t detailW =
+                TextLayout::measureWidthPx(detail, style_.font, style_.textSize);
+            const int16_t detailX = static_cast<int16_t>(
+                layout.choiceX + layout.choiceW - detailW);
+            renderer.drawText(detail, detailX, rowTextY, detailColor, style_.textSize,
+                               style_.font);
+        }
     }
 
     if (style_.fixedPosition) {

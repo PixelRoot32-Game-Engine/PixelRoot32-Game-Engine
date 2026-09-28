@@ -159,9 +159,9 @@ static const DialogScript kChoiceScript{kChoiceLines, nullptr, 1, 0};
 // -----------------------------------------------------------------------
 
 static const DialogChoice kThreeChoices[] = {
-    {"Option A", /*next*/ 1, /*tag*/ 501},
-    {"Option B", /*next*/ kNoLine, /*tag*/ 502},
-    {"Option C", /*next*/ 1, /*tag*/ 503},
+    {"Option A", /*detail*/ nullptr, /*next*/ 1, /*tag*/ 501},
+    {"Option B", /*detail*/ nullptr, /*next*/ kNoLine, /*tag*/ 502},
+    {"Option C", /*detail*/ nullptr, /*next*/ 1, /*tag*/ 503},
 };
 
 // Choice line (id 0, 3 options, Cancel not allowed) followed by a
@@ -205,8 +205,8 @@ static const DialogScript kAllowCancelPlusUnknownFlagScript{kAllowCancelPlusUnkn
 // to config::DialogMaxChoices (4), not the line's declared 6 or the
 // table's 6.
 static const DialogChoice kSixChoices[] = {
-    {"A", kNoLine, 1}, {"B", kNoLine, 2}, {"C", kNoLine, 3},
-    {"D", kNoLine, 4}, {"E", kNoLine, 5}, {"F", kNoLine, 6},
+    {"A", nullptr, kNoLine, 1}, {"B", nullptr, kNoLine, 2}, {"C", nullptr, kNoLine, 3},
+    {"D", nullptr, kNoLine, 4}, {"E", nullptr, kNoLine, 5}, {"F", nullptr, kNoLine, 6},
 };
 static const DialogLine kSixChoiceLines[] = {
     {nullptr, nullptr, kNoLine, /*tag*/ 50, 0, /*firstChoice*/ 0, /*choiceCount*/ 6,
@@ -218,8 +218,8 @@ static const DialogScript kSixChoiceScript{kSixChoiceLines, kSixChoices, 1, 6};
 // -- choiceCount() must clamp to what the table actually holds from
 // firstChoice (1), not what the line claims or DialogMaxChoices allows.
 static const DialogChoice kTwoChoicesForBoundTest[] = {
-    {"X", kNoLine, 71},
-    {"Y", kNoLine, 72},
+    {"X", nullptr, kNoLine, 71},
+    {"Y", nullptr, kNoLine, 72},
 };
 static const DialogLine kBoundClampLines[] = {
     {nullptr, nullptr, kNoLine, /*tag*/ 60, 0, /*firstChoice*/ 1, /*choiceCount*/ 10,
@@ -275,7 +275,7 @@ static const DialogScript kSentinelFirstChoiceScript{kSentinelFirstChoiceLines, 
 // bump, no event), which is a different code path from the zero-usable-choices
 // line above: here `count > 0`, so only the clamp itself stops the move.
 static const DialogChoice kSingleChoice[] = {
-    {"Only option", /*next*/ kNoLine, /*tag*/ 601},
+    {"Only option", /*detail*/ nullptr, /*next*/ kNoLine, /*tag*/ 601},
 };
 static const DialogLine kSingleChoiceLines[] = {
     {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 90, 0, /*firstChoice*/ 0, /*choiceCount*/ 1,
@@ -288,8 +288,8 @@ static const DialogScript kSingleChoiceScript{kSingleChoiceLines, kSingleChoice,
 // (AwaitingAdvance, ShowingChoices, AwaitingAdvance, Finished) from a single
 // fixed action sequence.
 static const DialogChoice kSessionChoices[] = {
-    {"Yes", /*next*/ 2, /*tag*/ 611},
-    {"No", /*next*/ kNoLine, /*tag*/ 612},
+    {"Yes", /*detail*/ nullptr, /*next*/ 2, /*tag*/ 611},
+    {"No", /*detail*/ nullptr, /*next*/ kNoLine, /*tag*/ 612},
 };
 static const DialogLine kSessionLines[] = {
     {kLineAText, nullptr, /*next*/ 1, /*tag*/ 91, /*autoAdvanceMs*/ 0, 0, 0, LineKind::Text, 0},
