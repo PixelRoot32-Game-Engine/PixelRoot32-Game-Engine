@@ -118,8 +118,8 @@ static const DialogScript kAutoAdvanceScript{kAutoAdvanceLines, nullptr, 2, 0};
 /// A Choice line, so ShowingChoices gets its own gating coverage: choice 0
 /// continues to a text line, choice 1 ends the dialog outright.
 static const DialogChoice kChoices[] = {
-    {"Stay", /*next*/ 1, /*tag*/ 501},
-    {"Leave", /*next*/ kNoLine, /*tag*/ 502},
+    {"Stay", /*detail*/ nullptr, /*next*/ 1, /*tag*/ 501},
+    {"Leave", /*detail*/ nullptr, /*next*/ kNoLine, /*tag*/ 502},
 };
 static const DialogLine kChoiceLines[] = {
     {nullptr, nullptr, /*next*/ kNoLine, /*tag*/ 5, 0, /*firstChoice*/ 0, /*choiceCount*/ 2,
