@@ -48,7 +48,8 @@ one pass:
    hides "Ask a riddle" once asked — replay the script to see the
    two-option menu. "Ask a riddle" also carries a right-aligned `detail`
    column ("once") drawn in its own colour slots — the multi-column row
-   demo.
+   demo. Narrator speaks with a right-side portrait, Guide with a
+   left-side one — speaker portraits facing each other.
 
 ## Features
 
@@ -59,6 +60,10 @@ one pass:
   `refreshChoices()`
 - A multi-column option row: `DialogChoice::detail` right-aligned with
   per-column colour (`inkDetail`/`inkDetailSelected`)
+- Speaker portraits in 4bpp at the `Size32` box: a Dragon Quest-style slime
+  (Narrator, right) and a green-cap hero face (Guide, left) — simple NES
+  references showing the multi-color portrait path (`portrait4bpp` +
+  per-line `portraitPaletteSlot`)
 
 ## File Structure
 

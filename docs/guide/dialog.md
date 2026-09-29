@@ -103,7 +103,11 @@ static const gameplay::DialogScript kScript{
 | `firstChoice` | `ChoiceId` | Index into `DialogScript::choices`. Must stay **below 255**. |
 | `choiceCount` | `uint8_t` | Clamped to `DialogMaxChoices`, to the table, and below 255. |
 | `kind` | `LineKind` | `Text`, `Choice` or `End`. The discriminator — never inferred from which fields are populated. |
-| `flags` | `uint8_t` | `kLineFlagAllowCancel` (`0x01`). Unknown bits are **ignored, not rejected**, so a script stays forward-compatible with an older runner. |
+| `flags` | `uint8_t` | `kLineFlagAllowCancel` (`0x01`), `kLineFlagPortraitRight` (`0x02`). Unknown bits are **ignored, not rejected**, so a script stays forward-compatible with an older runner. |
+| `portrait` | `const graphics::Sprite*` | Optional 1bpp face, drawn 1:1 in `DialogBoxStyle::portraitInk`. `nullptr` (default) draws no portrait. |
+| `portrait2bpp` | `const graphics::Sprite2bpp*` | Optional 4-color face, drawn through `portraitPaletteSlot`. `nullptr` (default). |
+| `portrait4bpp` | `const graphics::Sprite4bpp*` | Optional 16-color face, drawn through `portraitPaletteSlot`. `nullptr` (default). When several portrait pointers are set, 4bpp wins, then 2bpp, then 1bpp. |
+| `portraitPaletteSlot` | `uint8_t` | Sprite palette slot (`0..7`) resolving the 2bpp/4bpp portrait. Ignored for 1bpp. |
 
 ### `DialogChoice`
 
@@ -120,6 +124,22 @@ static const gameplay::DialogScript kScript{
 - **`LineKind::Text`** enters `ShowingText` when `autoAdvanceMs > 0`, otherwise `AwaitingAdvance`.
 - **`LineKind::Choice`** enters `ShowingChoices` directly. Its `next` is unused — branching comes from each `DialogChoice::next`.
 - **`LineKind::End`** finishes the dialog on entry.
+
+### Speaker portraits
+
+Any line can carry a speaker face: set exactly one of `DialogLine::portrait` (1bpp), `portrait2bpp` or `portrait4bpp` (multi-color, resolved through the line's `portraitPaletteSlot`). The portrait draws 1:1 at the top of the content area — top-left by default, top-right with `kLineFlagPortraitRight` — so two speakers can face each other across alternating lines, and the text column (speaker, body, choices) shifts to the other side while the body wrap narrows by portrait width + one padding. A line with no portrait pointer draws with portrait-less geometry bit for bit, and `DialogBoxStyle::portraitsEnabled = false` turns portraits off globally without touching scripts. `measureHeightPx()` takes the taller of the portrait and the text block per line; `choiceRect()` still reports the full content-width row, so the whole row stays tappable.
+
+Sizes are fixed, not open: `DialogBoxStyle::portraitSize` (`Size16`, `Size24` or `Size32`, default `Size16`) declares the square box every face must fit in. Author faces at exactly the box size — a smaller sprite still draws 1:1, but a sprite larger than the box in either dimension is ignored (portrait-less geometry, no draw), so an oversized asset can never overflow the panel. There is no scaler or clip rect for 2bpp/4bpp, which is why the set is closed.
+
+```cpp
+// 1bpp badge, tinted with portraitInk.
+{"Welcome.", kGuide, 1, 0, 0, 0, 0, gameplay::LineKind::Text, 0, &kGuidePortrait},
+// 4bpp face through palette slot 2, on the right.
+{"Welcome.", kNarrator, 1, 0, 0, 0, 0, gameplay::LineKind::Text,
+ gameplay::kLineFlagPortraitRight, nullptr, nullptr, &kNarratorFace4bpp, 2},
+// No portrait at all: identical geometry to a pre-portrait line.
+{"Welcome.", kGuide, 1, 0, 0, 0, 0, gameplay::LineKind::Text, 0},
+```
 
 ### `kLineFlagAllowCancel`
 
@@ -258,6 +278,9 @@ void MyScene::draw(gfx::Renderer& renderer) {
 | `ink` | `Color::White` | Speaker, body, unselected choices, **and the caret**. |
 | `inkDim` | `Color::Gray` | Next-page cue. |
 | `inkSelected` | `Color::Yellow` | Selected choice only. |
+| `portraitInk` | `Color::White` | 1bpp speaker portrait tint. 2bpp/4bpp portraits use the line's `portraitPaletteSlot` instead. |
+| `portraitsEnabled` | `true` | Master portrait switch. `false` draws every line portrait-less without touching scripts. |
+| `portraitSize` | `Size16` | Fixed portrait box (`Size16`/`Size24`/`Size32` = px side). Faces larger than the box are ignored, never drawn. |
 | `borderWidth` | `1` | |
 | `padding` | `4` | Once inside the border on every side, **and again above and below every choice row**. |
 | `textSize` | `1` | Glyph scale multiplier. |
@@ -377,9 +400,9 @@ On a four-choice box, going from `padding = 1` to the example's `padding = 4` ad
 A non-zero caret **reserves a gutter to the left of every option row**, as wide as the two-character slice `{caret, ' '}` at the current font and `textSize` (`Layout::caretGutterPx`). Consequences:
 
 - It costs **no height**.
-- Option text starts at **`Layout::choiceTextX`** (`choiceX + caretGutterPx`), not at the panel's inner edge.
+- The caret draws at **`Layout::caretX`** — the text-column origin, past a left-side portrait — and option text starts at **`Layout::choiceTextX`** (`caretX + caretGutterPx`), not at the panel's inner edge. Drawing the caret at the full-row origin instead would overlap a left-side face.
 - Choice text is **not wrapped**. A label that no longer fits simply runs past the panel's inner edge. Keep the longest option shorter than `contentWidth - caretGutterPx`, or set `choiceCaret` to `0`.
-- **`choiceRect()` is unaffected** and still spans the gutter, so the whole row — caret included — stays tappable.
+- **`choiceRect()` is unaffected** and still spans the gutter **and the portrait area**, so the whole row stays tappable.
 
 Setting `choiceCaret` to `0` gives back the pre-caret geometry exactly, at the cost of returning selection to a single point of failure. See the palette gotcha above for why that matters.
 
@@ -403,7 +426,6 @@ Choice addressing is clamped defensively: `choiceCount()` bounds `DialogLine::ch
 The 1.11.0 MVP is deliberately small. It has **no**:
 
 - conditions, variables or text interpolation — branch with `start(script, first)` from game state, or with separate static choice lines;
-- speaker portraits;
 - per-character text reveal or per-character sound;
 - localization text table;
 - multi-column option rows with per-column colour — a padded literal (`"SHIELD   30"`) carries a price today;
