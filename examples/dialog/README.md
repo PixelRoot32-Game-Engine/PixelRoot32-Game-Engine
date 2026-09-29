@@ -60,8 +60,10 @@ one pass:
   `refreshChoices()`
 - A multi-column option row: `DialogChoice::detail` right-aligned with
   per-column colour (`inkDetail`/`inkDetailSelected`)
-- Speaker portraits: `DialogLine::portrait` 1:1 at the content top, left
-  by default or right with `kLineFlagPortraitRight` (`portraitInk`)
+- Speaker portraits in 4bpp at the `Size32` box: a Dragon Quest-style slime
+  (Narrator, right) and a green-cap hero face (Guide, left) — simple NES
+  references showing the multi-color portrait path (`portrait4bpp` +
+  per-line `portraitPaletteSlot`)
 
 ## File Structure
 

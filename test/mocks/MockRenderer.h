@@ -25,6 +25,10 @@ public:
         Color color;
         std::string text;
         float scaleX, scaleY;
+        // Sprite palette slot resolving 2bpp/4bpp draws; 0 unless the call
+        // is a "sprite2bpp"/"sprite4bpp". Trailing with a default so the
+        // existing 12-value call-site initializers keep compiling.
+        uint8_t paletteSlot = 0;
     };
 
     std::vector<DrawCall> rendererCalls;
@@ -82,6 +86,23 @@ public:
 
     void drawSprite(const Sprite& sprite, int x, int y, float scaleX, float scaleY, Color color, bool flipX = false) {
         rendererCalls.push_back({"sprite_scaled", x, y, 0, 0, sprite.width, sprite.height, 0, color, "", scaleX, scaleY});
+    }
+
+    // 2bpp/4bpp capture the palette slot the real Renderer resolves colors
+    // through. DialogBox::draw<MockRenderer> instantiates these; without
+    // them the multi-color portrait path would not compile against the mock.
+    void drawSprite(const Sprite2bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false) {
+        (void)flipX;
+        DrawCall call{"sprite2bpp", x, y, 0, 0, sprite.width, sprite.height, 0, Color::White, "", 1.0f, 1.0f};
+        call.paletteSlot = paletteSlot;
+        rendererCalls.push_back(call);
+    }
+
+    void drawSprite(const Sprite4bpp& sprite, int x, int y, uint8_t paletteSlot = 0, bool flipX = false) {
+        (void)flipX;
+        DrawCall call{"sprite4bpp", x, y, 0, 0, sprite.width, sprite.height, 0, Color::White, "", 1.0f, 1.0f};
+        call.paletteSlot = paletteSlot;
+        rendererCalls.push_back(call);
     }
 
     void clear() {

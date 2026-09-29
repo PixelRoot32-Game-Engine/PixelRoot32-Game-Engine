@@ -32,12 +32,66 @@ inline int16_t contentWidthPx(const DialogBoxStyle& style) {
     return (style.w > inset) ? static_cast<int16_t>(style.w - inset) : int16_t{0};
 }
 
-/// Portrait pixel width on a line, 0 when the line carries none. The gap
+/// True when the line carries any portrait format. The runner never calls
+/// this; it is DialogBox's read of DialogLine's three portrait pointers.
+/// A format compiled out (Enable2BppSprites/Enable4BppSprites off) reads as
+/// absent: Renderer::drawSprite() is a no-op for it, so sizing a text
+/// column around an invisible portrait would be the worse inconsistency.
+inline bool lineHasAnyPortrait(const gameplay::DialogLine& line) {
+    if (line.portrait != nullptr) return true;
+    if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+        if (line.portrait2bpp != nullptr) return true;
+    }
+    if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+        if (line.portrait4bpp != nullptr) return true;
+    }
+    return false;
+}
+
+/// Effective portrait: style switch AND line data AND the fixed size box.
+/// False reproduces the portrait-less geometry bit for bit in every
+/// consumer below. Declared after portraitWidthPx/portraitHeightPx, which
+/// it reads.
+inline bool hasPortrait(const gameplay::DialogLine& line, const DialogBoxStyle& style);
+
+/// Portrait pixel width on a line, 0 when the line carries none. Callers
+/// gate on hasPortrait() for the portraitsEnabled switch; this helper only
+/// reads the winning pointer. Priority matches draw(): 4bpp, then 2bpp,
+/// then 1bpp, so measured and drawn widths cannot disagree. The gap
 /// between portrait and text column is one style.padding, shared with the
 /// text-column computation below so the two cannot disagree.
+inline int16_t portraitWidthPx(const gameplay::DialogLine& line) {
+    if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+        if (line.portrait4bpp != nullptr) return static_cast<int16_t>(line.portrait4bpp->width);
+    }
+    if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+        if (line.portrait2bpp != nullptr) return static_cast<int16_t>(line.portrait2bpp->width);
+    }
+    if (line.portrait != nullptr) return static_cast<int16_t>(line.portrait->width);
+    return 0;
+}
+
+/// Portrait pixel height, same priority as the width above.
+inline int16_t portraitHeightPx(const gameplay::DialogLine& line) {
+    if constexpr (pixelroot32::platforms::config::Enable4BppSprites) {
+        if (line.portrait4bpp != nullptr) return static_cast<int16_t>(line.portrait4bpp->height);
+    }
+    if constexpr (pixelroot32::platforms::config::Enable2BppSprites) {
+        if (line.portrait2bpp != nullptr) return static_cast<int16_t>(line.portrait2bpp->height);
+    }
+    if (line.portrait != nullptr) return static_cast<int16_t>(line.portrait->height);
+    return 0;
+}
+
+inline bool hasPortrait(const gameplay::DialogLine& line, const DialogBoxStyle& style) {
+    if (!style.portraitsEnabled || !lineHasAnyPortrait(line)) return false;
+    const int16_t box = static_cast<int16_t>(style.portraitSize);
+    return portraitWidthPx(line) <= box && portraitHeightPx(line) <= box;
+}
+
 inline int16_t portraitBlockPx(const gameplay::DialogLine& line, const DialogBoxStyle& style) {
-    if (line.portrait == nullptr) return 0;
-    return static_cast<int16_t>(line.portrait->width + style.padding);
+    if (!hasPortrait(line, style)) return 0;
+    return static_cast<int16_t>(portraitWidthPx(line) + style.padding);
 }
 
 /// Body wrap width for a line: the content width narrowed by the portrait
@@ -101,8 +155,8 @@ inline int16_t lineContentHeightPx(const gameplay::DialogLine& line, const Font&
     if (line.speaker != nullptr) {
         height = static_cast<int16_t>(height + rows.bodyLineHeightPx);
     }
-    if (line.portrait != nullptr && line.portrait->height > height) {
-        height = static_cast<int16_t>(line.portrait->height);
+    if (hasPortrait(line, style) && portraitHeightPx(line) > height) {
+        height = portraitHeightPx(line);
     }
     return height;
 }
@@ -140,7 +194,7 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
     // mirrors). The text column shifts to the other side and narrows by
     // the block; with no portrait every origin below lands exactly where
     // it did before portraits existed.
-    outLayout.hasPortrait = (line->portrait != nullptr);
+    outLayout.hasPortrait = hasPortrait(*line, style);
     outLayout.portraitRight =
         outLayout.hasPortrait && ((line->flags & gameplay::kLineFlagPortraitRight) != 0);
     const int16_t block = portraitBlockPx(*line, style);
@@ -148,8 +202,8 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
         static_cast<int16_t>(contentX + (outLayout.hasPortrait && !outLayout.portraitRight ? block : 0));
     const int16_t textW = textWidthPx(*line, style, contentW);
     if (outLayout.hasPortrait) {
-        outLayout.portraitW = line->portrait->width;
-        outLayout.portraitH = line->portrait->height;
+        outLayout.portraitW = portraitWidthPx(*line);
+        outLayout.portraitH = portraitHeightPx(*line);
         outLayout.portraitY = static_cast<int16_t>(style.y + style.padding + style.borderWidth);
         outLayout.portraitX = static_cast<int16_t>(
             outLayout.portraitRight ? contentX + contentW - outLayout.portraitW : contentX);
@@ -183,6 +237,11 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
 
     outLayout.choiceX = contentX;
     outLayout.choiceW = contentW;
+    // The caret lives in the text column, NOT at choiceX: with a left-side
+    // portrait choiceX sits under the face (it stays the full row origin
+    // for hit-testing). Without a portrait both origins coincide, so this
+    // changes nothing there.
+    outLayout.caretX = textX;
     // choiceX/choiceW stay the FULL row rect: choiceRect() reports them for
     // touch hit-testing, and the whole row -- caret gutter AND portrait
     // area included -- must stay tappable. Only the text origin moves.
@@ -194,9 +253,9 @@ void DialogBox::computeLayout(const DialogBoxStyle&         style,
         outLayout.caretGutterPx =
             TextLayout::measureWidthPx(std::string_view(caretBuf, 2), font, style.textSize);
     }
-    // Text-column origin, NOT choiceX: with a left-side portrait the text
-    // starts past the block. Identical to choiceX + gutter without one.
-    outLayout.choiceTextX = static_cast<int16_t>(textX + outLayout.caretGutterPx);
+    // Option text starts past the caret gutter, measured from the caret
+    // column -- identical to choiceX + gutter without a portrait.
+    outLayout.choiceTextX = static_cast<int16_t>(outLayout.caretX + outLayout.caretGutterPx);
     outLayout.choiceY =
         static_cast<int16_t>(cursorY + outLayout.bodyLineCount * outLayout.bodyLineHeightPx);
     outLayout.choiceCount = runner.choiceCount();

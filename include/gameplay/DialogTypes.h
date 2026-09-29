@@ -16,6 +16,8 @@ namespace pixelroot32 {
 // forward-declaration precedent already exists in graphics/Font.h.
 namespace graphics {
 struct Sprite;
+struct Sprite2bpp;
+struct Sprite4bpp;
 }  // namespace graphics
 
 namespace gameplay {
@@ -181,16 +183,18 @@ struct DialogChoice {
  * @struct DialogLine
  * @brief One line of a DialogScript: either shown text or a choice prompt.
  *
- * 24 bytes on ESP32, 40 on 64-bit native. The pre-portrait fields sum to 18
+ * 36 bytes on ESP32, 64 on 64-bit native. The pre-portrait fields sum to 18
  * on ESP32 with no padding between them -- next, tag and autoAdvanceMs land
  * on offsets 8, 10 and 12 and are already aligned, plus 2 trailing padding
  * bytes rounding to the 4-byte alignment the two leading pointers impose
- * (20). The portrait pointer adds 4/8 for 24/40. This exact figure is
- * the regression guard
+ * (20). The three portrait pointers add 12/24 for 32/56, plus the 1-byte
+ * portraitPaletteSlot (33/57) rounded up to the pointer alignment (36/64).
+ * This exact figure is the regression guard
  * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
  * is a conscious, reviewed change rather than silent drift in a game's
  * flash budget. Grew from 20/32 when the optional speaker portrait was
- * added (third post-MVP dialog item).
+ * added (third post-MVP dialog item), and from 24/40 when 2bpp/4bpp
+ * portraits joined it.
  */
 struct DialogLine {
     const char* text;           ///< nullptr for a choice-only line.
@@ -208,12 +212,23 @@ struct DialogLine {
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
     uint8_t     flags;          ///< kLineFlagAllowCancel, kLineFlagPortraitRight; see above.
     /// Optional speaker portrait, drawn 1:1 at the top of the content area
-    /// (left by default, right with kLineFlagPortraitRight) in
-    /// DialogBoxStyle::portraitInk. Flash-resident 1bpp graphics::Sprite
-    /// (width <= 16 px); never copied, never owned. nullptr (the default,
+    /// (left by default, right with kLineFlagPortraitRight). Exactly one of
+    /// the three pointers should be set: a 1bpp graphics::Sprite drawn in
+    /// DialogBoxStyle::portraitInk, a graphics::Sprite2bpp, or a
+    /// graphics::Sprite4bpp -- the two multi-color formats draw through
+    /// portraitPaletteSlot instead of a tint, so one line can carry a
+    /// higher-detail face than 1bpp allows. When more than one pointer is
+    /// set, 4bpp wins, then 2bpp, then 1bpp. All three nullptr (the default,
     /// so existing 9-value initializers keep compiling) draws no portrait
-    /// with identical geometry. The runner never reads this field.
+    /// with identical geometry, as does DialogBoxStyle::portraitsEnabled
+    /// set to false. Flash-resident asset data; never copied, never owned.
+    /// The runner never reads these fields.
     const graphics::Sprite* portrait = nullptr;
+    const graphics::Sprite2bpp* portrait2bpp = nullptr;
+    const graphics::Sprite4bpp* portrait4bpp = nullptr;
+    /// Sprite palette slot (0..7) resolving 2bpp/4bpp portrait colors.
+    /// Ignored for a 1bpp portrait, which uses portraitInk instead.
+    uint8_t portraitPaletteSlot = 0;
 };
 
 /**
