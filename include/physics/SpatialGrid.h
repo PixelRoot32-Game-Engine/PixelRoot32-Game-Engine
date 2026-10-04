@@ -65,6 +65,35 @@ public:
      */
     void getPotentialColliders(pixelroot32::core::Actor* actor, pixelroot32::core::Actor** outArray, int& count, int maxCount);
 
+#ifdef PIXELROOT32_DEBUG_MODE
+    /**
+     * @brief Number of static registrations refused because a cell reached
+     *        SPATIAL_GRID_MAX_STATIC_PER_CELL.
+     *
+     * Debug builds only. Storage is static (shared by all instances),
+     * mirroring the shared cell storage. See issue #243.
+     */
+    static unsigned getDroppedStaticInserts() { return droppedStaticInserts_; }
+
+    /**
+     * @brief Number of dynamic registrations refused because a cell reached
+     *        SPATIAL_GRID_MAX_DYNAMIC_PER_CELL.
+     *
+     * Debug builds only. See issue #243.
+     */
+    static unsigned getDroppedDynamicInserts() { return droppedDynamicInserts_; }
+
+    /**
+     * @brief Resets both per-cell drop counters.
+     *
+     * Debug builds only. See issue #243.
+     */
+    static void resetLimitDropCounters() {
+        droppedStaticInserts_ = 0;
+        droppedDynamicInserts_ = 0;
+    }
+#endif
+
 #if PIXELROOT32_ENABLE_SPATIAL_QUERY
     /**
      * @brief Raw, unfiltered radius query against the grid (static + dynamic cells).
@@ -118,6 +147,10 @@ private:
     static int staticCellCounts[kMaxCells];
     static pixelroot32::core::Actor* dynamicCells[kMaxCells][kMaxDynamicPerCell];
     static int dynamicCellCounts[kMaxCells];
+#ifdef PIXELROOT32_DEBUG_MODE
+    static unsigned droppedStaticInserts_;
+    static unsigned droppedDynamicInserts_;
+#endif
 
     bool staticDirty = true;
     int queryId = 0;

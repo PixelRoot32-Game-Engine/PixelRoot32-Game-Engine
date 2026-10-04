@@ -60,6 +60,27 @@ enum class TransitionDirection : uint8_t {
     In          ///< Entry direction (hidden → visible).
 };
 
+/**
+ * @struct TransitionConfig
+ * @brief Full per-call description of a scene transition (issue #240).
+ *
+ * Passed by value to Engine::triggerTransition() / SceneManager::transitionToScene().
+ * A value type scales better than one overload per parameter, and passing the
+ * whole description on every call prevents state carry-over between
+ * transitions (a wipe triggered later never inherits the direction,
+ * sub-step or iris centers of an earlier one).
+ */
+struct TransitionConfig {
+    TransitionType type = TransitionType::Fade;         ///< Fade, Iris or DiagonalWipe.
+    unsigned long durationMs = 500;                     ///< Duration of each phase (Out and In).
+    WipeDirection wipeDirection = WipeDirection::NE_SW; ///< DiagonalWipe corner direction.
+    int irisOutCx = -1;                                 ///< Iris center X, Out phase (-1 = buffer center).
+    int irisOutCy = -1;                                 ///< Iris center Y, Out phase (-1 = buffer center).
+    int irisInCx = -1;                                  ///< Iris center X, In phase (-1 = buffer center).
+    int irisInCy = -1;                                  ///< Iris center Y, In phase (-1 = buffer center).
+    uint16_t subStepMs = 0;                             ///< DiagonalWipe sub-step (0 = disabled).
+};
+
 #if PIXELROOT32_ENABLE_SCENE_TRANSITIONS
 
 /**
@@ -216,6 +237,12 @@ public:
     void setWipeDirection(WipeDirection dir) { wipeDirection_ = dir; }
 
     /**
+     * @brief Get the wipe direction for DiagonalWipe transitions.
+     * @return Current corner-to-corner direction.
+     */
+    WipeDirection getWipeDirection() const { return wipeDirection_; }
+
+    /**
      * @brief Set the number of hold frames after duration expires.
      * @param frames Number of update ticks the effect stays active
      *               after reaching the duration boundary (default: 1).
@@ -238,6 +265,12 @@ public:
      *       you observe boundary flicker during the wipe animation.
      */
     void setSubStepMs(uint16_t ms) { subStepMs_ = ms; }
+
+    /**
+     * @brief Get the sub-step time for DiagonalWipe transitions.
+     * @return Sub-step duration in milliseconds (0 = disabled).
+     */
+    uint16_t getSubStepMs() const { return subStepMs_; }
 
 private:
     TransitionType type_ = TransitionType::Fade;
@@ -321,8 +354,10 @@ public:
     void setIrisOutCenter(int /*cx*/, int /*cy*/) {}
     void setIrisInCenter(int /*cx*/, int /*cy*/) {}
     void setWipeDirection(WipeDirection /*dir*/) {}
+    WipeDirection getWipeDirection() const { return WipeDirection::NE_SW; }
     void setHoldFrames(uint8_t /*frames*/) {}
     void setSubStepMs(uint16_t /*ms*/) {}
+    uint16_t getSubStepMs() const { return 0; }
 };
 
 #endif // PIXELROOT32_ENABLE_SCENE_TRANSITIONS

@@ -22,6 +22,13 @@ N Maximum number of simultaneously active tweens (default 4).
           When N=0, startTween() always returns kInvalidSlotId and
           activeCount() always returns 0.
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `kMaxTweens` | `static constexpr uint8_t` | Maximum number of simultaneous tweens. |
+| `kInvalidSlotId` | `static constexpr uint8_t` | Sentinel returned by startTween() when the pool is full, durationMs is 0, or the N=0 degenerate case is used. |
+
 ## Methods
 
 ### `uint8_t startTween(pixelroot32::math::Vector2 from, pixelroot32::math::Vector2 to, uint16_t durationMs, TweenEasing easing)`

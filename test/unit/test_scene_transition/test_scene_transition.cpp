@@ -514,6 +514,163 @@ void test_transition_no_effect_pointer(void) {
 }
 
 // =============================================================================
+// ST-15: TransitionConfig selects all four wipe directions via SceneManager
+// (issue #240)
+// =============================================================================
+
+void test_transition_config_all_wipe_directions(void) {
+    const WipeDirection dirs[4] = {
+        WipeDirection::NW_SE, WipeDirection::NE_SW,
+        WipeDirection::SE_NW, WipeDirection::SW_NE
+    };
+    for (int i = 0; i < 4; ++i) {
+        SceneManager mgr;
+        TransitionEffect effect;
+        TransitionMockScene currentScene;
+        TransitionMockScene targetScene;
+
+        mgr.setTransitionEffect(&effect);
+        mgr.pushScene(&currentScene);
+
+        TransitionConfig config;
+        config.type = TransitionType::DiagonalWipe;
+        config.durationMs = 500;
+        config.wipeDirection = dirs[i];
+        mgr.transitionToScene(&targetScene, config);
+
+        TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(dirs[i]),
+                                static_cast<uint8_t>(effect.getWipeDirection()));
+    }
+}
+
+// =============================================================================
+// ST-16: Sub-step set via public API and re-applied after SceneSwap (issue #240)
+// =============================================================================
+
+void test_transition_config_sub_step_reapplied_after_swap(void) {
+    SceneManager mgr;
+    TransitionEffect effect;
+    TransitionMockScene currentScene;
+    TransitionMockScene targetScene;
+
+    mgr.setTransitionEffect(&effect);
+    mgr.pushScene(&currentScene);
+
+    TransitionConfig config;
+    config.type = TransitionType::DiagonalWipe;
+    config.durationMs = 500;
+    config.wipeDirection = WipeDirection::SE_NW;
+    config.subStepMs = 16;
+    mgr.transitionToScene(&targetScene, config);
+
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(WipeDirection::SE_NW),
+                            static_cast<uint8_t>(effect.getWipeDirection()));
+    TEST_ASSERT_EQUAL_UINT16(16, effect.getSubStepMs());
+
+    // Drive through FadingOut into SceneSwap, then tick SceneSwap so the
+    // effect is re-initialised for the In phase and the stored description
+    // is re-applied. (Bounded loop: the 16ms sub-step quantises elapsed time,
+    // so fixed update counts calibrated for Fade do not transfer.)
+    int guard = 0;
+    while (mgr.getTransitionState() == TransitionState::FadingOut && guard < 500) {
+        mgr.update(8);
+        ++guard;
+    }
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::SceneSwap),
+                            static_cast<uint8_t>(mgr.getTransitionState()));
+    mgr.update(16);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::FadingIn),
+                            static_cast<uint8_t>(mgr.getTransitionState()));
+
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(WipeDirection::SE_NW),
+                            static_cast<uint8_t>(effect.getWipeDirection()));
+    TEST_ASSERT_EQUAL_UINT16(16, effect.getSubStepMs());
+}
+
+// =============================================================================
+// ST-17: No carry-over — a plain wipe after a configured one uses defaults
+// (issue #240)
+// =============================================================================
+
+void test_transition_no_direction_carryover(void) {
+    SceneManager mgr;
+    TransitionEffect effect;
+    TransitionMockScene currentScene;
+    TransitionMockScene targetScene;
+    TransitionMockScene laterScene;
+
+    mgr.setTransitionEffect(&effect);
+    mgr.pushScene(&currentScene);
+
+    TransitionConfig config;
+    config.type = TransitionType::DiagonalWipe;
+    config.durationMs = 100;
+    config.wipeDirection = WipeDirection::SW_NE;
+    config.subStepMs = 16;
+    mgr.transitionToScene(&targetScene, config);
+
+    // Full cycle to Idle. (Bounded loop: the 16ms sub-step quantises elapsed
+    // time, so the fixed update count calibrated for Fade undershoots.)
+    int guard = 0;
+    while (mgr.isTransitioning() && guard < 500) {
+        mgr.update(8);
+        ++guard;
+    }
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(TransitionState::Idle),
+                            static_cast<uint8_t>(mgr.getTransitionState()));
+
+    // Second transition via the legacy overload: no direction specified.
+    mgr.transitionToScene(&laterScene, TransitionType::DiagonalWipe, 100);
+
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(WipeDirection::NE_SW),
+                            static_cast<uint8_t>(effect.getWipeDirection()));
+    TEST_ASSERT_EQUAL_UINT16(0, effect.getSubStepMs());
+}
+
+// =============================================================================
+// ST-18: Engine::triggerTransition with TransitionConfig (issue #240)
+// =============================================================================
+
+void test_engine_trigger_transition_config(void) {
+    auto mock = std::make_unique<MockDrawSurface>();
+    DisplayConfig config = PIXELROOT32_CUSTOM_DISPLAY(mock.release(), 240, 240);
+    TestTransitionEngine engine(config);
+    engine.init();
+
+    // Observe the Engine-driven path with a probe effect.
+    TransitionEffect probeEffect;
+    engine.testSceneManager().setTransitionEffect(&probeEffect);
+
+    TransitionMockScene currentScene;
+    TransitionMockScene targetScene;
+    engine.setScene(&currentScene);
+
+    TransitionConfig cfg;
+    cfg.type = TransitionType::DiagonalWipe;
+    cfg.durationMs = 100;
+    cfg.wipeDirection = WipeDirection::SW_NE;
+    cfg.subStepMs = 16;
+    engine.triggerTransition(&targetScene, cfg);
+
+    TEST_ASSERT_TRUE(engine.testSceneManager().isTransitioning());
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(WipeDirection::SW_NE),
+                            static_cast<uint8_t>(probeEffect.getWipeDirection()));
+    TEST_ASSERT_EQUAL_UINT16(16, probeEffect.getSubStepMs());
+
+    for (int i = 0; i < 100; ++i) {
+        engine.testUpdate(16);
+    }
+
+    TEST_ASSERT_TRUE(engine.getCurrentScene().has_value());
+    TEST_ASSERT_EQUAL_PTR(&targetScene, engine.getCurrentScene().value());
+    TEST_ASSERT_FALSE(engine.testSceneManager().isTransitioning());
+    // Description survived the SceneSwap re-init for the In phase.
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(WipeDirection::SW_NE),
+                            static_cast<uint8_t>(probeEffect.getWipeDirection()));
+    TEST_ASSERT_EQUAL_UINT16(16, probeEffect.getSubStepMs());
+}
+
+// =============================================================================
 // main
 // =============================================================================
 
@@ -547,6 +704,12 @@ int main(void) {
     // Engine integration smoke tests
     RUN_TEST(test_engine_trigger_transition_delegates);
     RUN_TEST(test_engine_draw_hook_smoke);
+
+    // TransitionConfig public path (issue #240)
+    RUN_TEST(test_transition_config_all_wipe_directions);
+    RUN_TEST(test_transition_config_sub_step_reapplied_after_swap);
+    RUN_TEST(test_transition_no_direction_carryover);
+    RUN_TEST(test_engine_trigger_transition_config);
 
     return UNITY_END();
 }

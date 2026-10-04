@@ -23,7 +23,7 @@
 
 /**
  * @file PhysicsDemoScene.h
- * @brief Physics demo: RigidActor, KinematicActor, StaticActor, particle burst on landing.
+ * @brief Physics demo: RigidActor, KinematicActor, StaticActor, segment ramp/corner, particle burst on landing.
  */
 
 namespace physicsdemo {
@@ -92,6 +92,30 @@ public:
 
     void draw(pixelroot32::graphics::Renderer& renderer) override {
         renderer.drawRectangle(static_cast<int>(position.x), static_cast<int>(position.y), width, height, pixelroot32::graphics::Color::DarkGreen);
+    }
+};
+
+/** @brief Static line-segment wall at any angle (diagonal ramp, corner). */
+class RampActor : public pixelroot32::physics::StaticActor {
+public:
+    RampActor(pixelroot32::math::Scalar x, pixelroot32::math::Scalar y,
+              pixelroot32::math::Vector2 a, pixelroot32::math::Vector2 b)
+        : pixelroot32::physics::StaticActor(x, y, 8, 8) {
+        setShape(pixelroot32::core::CollisionShape::SEGMENT);
+        setSegment(a, b);
+        setBounce(true);
+    }
+
+    pixelroot32::core::Rect getHitBox() override {
+        return {position, width, height};
+    }
+
+    void draw(pixelroot32::graphics::Renderer& renderer) override {
+        pixelroot32::math::Vector2 a = getSegmentA();
+        pixelroot32::math::Vector2 b = getSegmentB();
+        renderer.drawLine(static_cast<int>(a.x), static_cast<int>(a.y),
+                          static_cast<int>(b.x), static_cast<int>(b.y),
+                          pixelroot32::graphics::Color::Orange);
     }
 };
 

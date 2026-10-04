@@ -36,6 +36,13 @@ void DialogRunner::configure(void* owner, DialogEventFn onEvent) {
     onEvent_ = onEvent;
 }
 
+void DialogRunner::setChoiceFilter(void* owner, ChoiceFilterFn filter) {
+    // Binding only -- never a visible change by itself. The game calls
+    // refreshChoices() afterwards when the visible set may have changed.
+    filterOwner_ = owner;
+    filter_ = filter;
+}
+
 bool DialogRunner::start(const DialogScript& script, LineId first) {
     if (dispatching_) return false;  // Reentrant from inside onEvent: ignored.
     ScopedDispatchGuard guard(dispatching_);
@@ -98,7 +105,18 @@ void DialogRunner::feed(DialogAction action) {
             const DialogLine* linePtr = currentLine();
             if (linePtr == nullptr) break;
             const DialogLine& line = *linePtr;
-            const uint8_t count = effectiveChoiceCount(line);
+            // The filter reads live game state, which may have changed
+            // since the last input: renormalize first, so Up/Down clamp
+            // against the visible set and Confirm cannot address a
+            // choice the filter just hid.
+            normalizeSelection(line);
+            // normalizeSelection() runs game code (the filter), which is
+            // documented pure but cannot be proven so: a filter that calls
+            // stop() would leave this branch acting on a torn-down session.
+            // Gate on still being on the line, the same predicate feed()'s
+            // Confirm branch already applies after its own emit().
+            if (state_ != DialogState::ShowingChoices || current_ == kNoLine) break;
+            const uint8_t count = visibleChoiceCount(line);
 
             switch (action) {
                 case DialogAction::Up:
@@ -122,21 +140,25 @@ void DialogRunner::feed(DialogAction action) {
                     // invalidate BEFORE calling it -- the same reasoning as
                     // enterLine()'s trailing finish() gate.
                     const LineId enteredLine = current_;
-                    const ChoiceId chosenIndex = selected_;
+                    const ChoiceId chosenVisible = selected_;
                     // Through choice(), not by re-deriving firstChoice +
                     // index here: one bounds-checked indexing expression
                     // in the class, not two that must stay in agreement.
-                    // Unreachable while the invariant selected_ < count
-                    // holds -- enterLine() seeds it, Up/Down clamp it and
-                    // select() bounds it -- but checked rather than
-                    // assumed, because the cost of the invariant being
-                    // wrong is a read past the caller's array.
-                    const DialogChoice* chosen = choice(chosenIndex);
+                    // Under a filter this is a visible index, translated
+                    // to the script table inside choice(). Unreachable
+                    // while the invariant selected_ < count holds --
+                    // normalizeSelection() above re-established it, Up/Down
+                    // clamp it and select() bounds it -- but checked rather
+                    // than assumed, because the cost of the invariant being
+                    // wrong is a read past the caller's array (a filter
+                    // that changes its answer between two calls in the same
+                    // frame is the adversarial case).
+                    const DialogChoice* chosen = choice(chosenVisible);
                     if (chosen == nullptr) break;
                     const LineId nextLine = chosen->next;
                     const uint16_t choiceTag = chosen->tag;
 
-                    emit(DialogEventType::ChoiceConfirmed, enteredLine, chosenIndex, choiceTag);
+                    emit(DialogEventType::ChoiceConfirmed, enteredLine, chosenVisible, choiceTag);
 
                     // The callback may have called stop() -- the only
                     // mutator reachable during dispatch (feed()/update()/
@@ -270,21 +292,33 @@ uint8_t DialogRunner::choiceCount() const {
     if (state_ != DialogState::ShowingChoices) return 0;
     const DialogLine* line = currentLine();
     if (line == nullptr) return 0;
-    return effectiveChoiceCount(*line);
+    return visibleChoiceCount(*line);
 }
 
 const DialogChoice* DialogRunner::choice(ChoiceId index) const {
     if (state_ != DialogState::ShowingChoices) return nullptr;
     const DialogLine* line = currentLine();
     if (line == nullptr) return nullptr;
-    if (index >= effectiveChoiceCount(*line)) return nullptr;
-    return &script_->choices[static_cast<uint16_t>(line->firstChoice) + index];
+    if (filter_ == nullptr) {
+        if (index >= effectiveChoiceCount(*line)) return nullptr;
+        return &script_->choices[static_cast<uint16_t>(line->firstChoice) + index];
+    }
+    const ChoiceId scriptIndex = scriptIndexForVisible(*line, index);
+    if (scriptIndex == kNoChoice) return nullptr;
+    return &script_->choices[scriptIndex];
 }
 
 ChoiceId DialogRunner::selectedChoice() const {
     if (state_ != DialogState::ShowingChoices) return kNoChoice;
     const DialogLine* line = currentLine();
-    if (line == nullptr || effectiveChoiceCount(*line) == 0) return kNoChoice;
+    if (line == nullptr) return kNoChoice;
+    // Single evaluation: the filter reads live game state, so two calls
+    // could answer differently; compare against one snapshot. Reports only
+    // -- renormalizing here would mutate from a const accessor, so a
+    // selection the filter hid since it was made reads as kNoChoice until
+    // feed()/select()/refreshChoices() renormalizes the stored value.
+    const uint8_t count = visibleChoiceCount(*line);
+    if (count == 0 || selected_ == kNoChoice || selected_ >= count) return kNoChoice;
     return selected_;
 }
 
@@ -293,7 +327,7 @@ bool DialogRunner::select(ChoiceId index) {
     const DialogLine* line = currentLine();
     if (line == nullptr) return false;
 
-    const uint8_t count = effectiveChoiceCount(*line);
+    const uint8_t count = visibleChoiceCount(*line);
     if (count == 0 || index >= count) return false;
 
     if (selected_ != index) {
@@ -301,6 +335,90 @@ bool DialogRunner::select(ChoiceId index) {
         ++revision_;
     }
     return true;
+}
+
+void DialogRunner::refreshChoices() {
+    if (state_ != DialogState::ShowingChoices) return;
+    const DialogLine* line = currentLine();
+    if (line == nullptr) return;
+    // Never calls emit(), so -- like select() -- this is callable from
+    // within the configured DialogEventFn.
+    normalizeSelection(*line);
+}
+
+bool DialogRunner::isChoiceVisible(LineId lineId, ChoiceId scriptIndex,
+                                   const DialogChoice* choice) const {
+    if (filter_ == nullptr) return true;
+    // Reentrant from inside a filter: fail open (show everything) rather
+    // than recurse. Reachable only from a filter that calls back into the
+    // runner, which the ChoiceFilterFn contract forbids.
+    if (inFilter_) return true;
+    // Defensive; every internal caller passes a valid entry.
+    if (choice == nullptr) return true;
+    ScopedDispatchGuard guard(inFilter_);
+    return filter_(filterOwner_, lineId, scriptIndex, choice);
+}
+
+uint8_t DialogRunner::visibleChoiceCount(const DialogLine& line) const {
+    if (script_ == nullptr || script_->choices == nullptr) return 0;
+    if (filter_ == nullptr) return effectiveChoiceCount(line);
+    // `line` is always the current line here (every caller passes
+    // *currentLine()), so current_ is its id. The raw range carries
+    // effectiveChoiceCount()'s guarantees: [firstChoice, firstChoice + raw)
+    // stays inside the table and below kNoChoice, so the ChoiceId cast
+    // below cannot wrap.
+    const uint8_t raw = effectiveChoiceCount(line);
+    uint8_t visible = 0;
+    for (uint8_t i = 0; i < raw; ++i) {
+        const ChoiceId scriptIndex =
+            static_cast<ChoiceId>(static_cast<uint16_t>(line.firstChoice) + i);
+        if (isChoiceVisible(current_, scriptIndex, &script_->choices[scriptIndex])) {
+            ++visible;
+        }
+    }
+    return visible;
+}
+
+ChoiceId DialogRunner::scriptIndexForVisible(const DialogLine& line, ChoiceId visible) const {
+    if (script_ == nullptr || script_->choices == nullptr) return kNoChoice;
+    if (filter_ == nullptr) {
+        if (visible >= effectiveChoiceCount(line)) return kNoChoice;
+        return static_cast<ChoiceId>(static_cast<uint16_t>(line.firstChoice) + visible);
+    }
+    const uint8_t raw = effectiveChoiceCount(line);
+    uint8_t seen = 0;
+    for (uint8_t i = 0; i < raw; ++i) {
+        const ChoiceId scriptIndex =
+            static_cast<ChoiceId>(static_cast<uint16_t>(line.firstChoice) + i);
+        if (!isChoiceVisible(current_, scriptIndex, &script_->choices[scriptIndex])) {
+            continue;
+        }
+        if (seen == visible) return scriptIndex;
+        ++seen;
+    }
+    return kNoChoice;
+}
+
+void DialogRunner::normalizeSelection(const DialogLine& line) {
+    const uint8_t count = visibleChoiceCount(line);
+    if (count == 0) {
+        if (selected_ != kNoChoice) {
+            selected_ = kNoChoice;
+            ++revision_;
+        }
+        return;
+    }
+    // From "no selection" (an all-hidden line that regained a visible
+    // choice) restart at the first visible option, mirroring enterLine();
+    // from a now-past-the-end selection clamp to the last visible option,
+    // mirroring Down's clamp. Either move is player-visible, hence the bump.
+    if (selected_ == kNoChoice) {
+        selected_ = ChoiceId{0};
+        ++revision_;
+    } else if (selected_ >= count) {
+        selected_ = static_cast<ChoiceId>(count - 1);
+        ++revision_;
+    }
 }
 
 void DialogRunner::enterLine(LineId id) {
@@ -327,8 +445,15 @@ void DialogRunner::enterLine(LineId id) {
             // 0 when the line has at least one usable choice (the common
             // case); stays kNoChoice, already set above, when it has none
             // -- selectedChoice() must never report a real-looking index
-            // for a line nothing can be confirmed on.
-            selected_ = (effectiveChoiceCount(line) > 0) ? ChoiceId{0} : kNoChoice;
+            // for a line nothing can be confirmed on. "Usable" is the
+            // VISIBLE count under a ChoiceFilterFn, deliberately read here
+            // instead of normalizeSelection(): enterLine() bumps revision()
+            // itself right below, so a normalizing bump here would count
+            // the same entry twice. A line whose choices are all hidden on
+            // entry behaves exactly like a line with none, and regains a
+            // selection through refreshChoices() if the filter later shows
+            // one.
+            selected_ = (visibleChoiceCount(line) > 0) ? ChoiceId{0} : kNoChoice;
             break;
         case LineKind::End:
             state_ = DialogState::Finished;

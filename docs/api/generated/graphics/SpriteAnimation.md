@@ -26,7 +26,7 @@ with time-based advancement without changing Renderer.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `SpriteAnimationFrame` | `const` | Pointer to immutable frame table. |
+| `frames` | `const SpriteAnimationFrame*` | Pointer to immutable frame table. |
 | `frameCount` | `uint8_t` | Number of frames in the table. |
 | `current` | `uint8_t` | Current frame index [0, frameCount). |
 

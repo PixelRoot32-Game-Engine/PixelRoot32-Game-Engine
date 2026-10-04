@@ -110,6 +110,19 @@ ball->setCollisionShape(CollisionShape::CIRCLE);
 ball->setSize(16, 16); // Sets radius to 8
 ```
 
+### SegmentWall (Pattern)
+
+Setting the collision shape to `SEGMENT` turns a (usually static) actor into a
+line-segment wall at any angle — diagonal cushions, ramps, cut corners:
+```cpp
+auto cushion = scene.createEntity<pixelroot32::physics::StaticActor>();
+cushion->setCollisionShape(CollisionShape::SEGMENT);
+// Endpoints relative to the actor's position; one segment per actor.
+cushion->setSegment(Vector2(0, 20), Vector2(20, 0));
+```
+Only circle-vs-segment pairs collide; the contact normal is perpendicular to
+the segment (radial at the end points) and restitution applies as usual.
+
 ## Architecture Notes
 
 ### CollisionSystem (The Flat Solver)
@@ -122,9 +135,15 @@ The `CollisionSystem` is attached to a `Scene`. It manages the broadphase (Spati
 
 ### PhysicsScheduler
 
-Ensures the physics simulation runs at a fixed time step regardless of the rendering frame rate. This guarantees deterministic jumps and collision responses.
+Ensures the physics simulation runs at a fixed time step regardless of the rendering frame rate. This makes jumps and collision responses repeatable within the same build on the same target (same inputs applied on the same physics steps). It does not guarantee identical results across different hardware/targets: `Scalar` is `float` on FPU targets and `Fixed16` elsewhere, float results may differ between CPUs/compilers, and inputs read once per frame can land on different physics steps under different frame timing (see issue #244).
 - Default timestep: `1/60.0f` seconds.
 - Cap: `MAX_FRAME_ACCUMULATOR` prevents the "spiral of death" during lag spikes.
+
+### Rest queries
+
+- `PhysicsActor::isAtRest()` reports whether a body stopped (exactly zero velocity).
+- `CollisionSystem::allBodiesAtRest()` reports whether every registered physics body stopped, so a game knows a turn is over without iterating its own entities.
+- With `PHYSICS_REST_THRESHOLD` set, slow unforced rigid bodies snap to exactly zero velocity instead of creeping (`0` disables the snap).
 
 ## Configuration & Data Structures
 
@@ -143,9 +162,15 @@ A structural boundary used to restrict actor movement (e.g., keeping the player 
 
 | Constant | Description |
 |----------|-------------|
+| `PHYSICS_MAX_ENTITIES` | Max bodies in physics (default: 64). Past it, the body is never added. |
 | `PHYSICS_MAX_PAIRS` | Max broadphase collision pairs (default: 128). |
-| `PHYSICS_MAX_CONTACTS` | Max simultaneous narrowphase contacts (default: 128). |
+| `PHYSICS_MAX_CONTACTS` | Max simultaneous narrowphase contacts (default: 128). Past it, the contact is not resolved. |
+| `PHYSICS_MAX_CANDIDATES_PER_BODY` | Max broadphase candidates narrow-phase tested per body (default: 64). |
+| `SPATIAL_GRID_MAX_STATIC_PER_CELL` | Max static bodies registered per grid cell (default: 12). Past it, the body is not registered in that cell. |
+| `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | Max moving bodies registered per grid cell (default: 12). Past it, the body is not registered in that cell. |
 | `VELOCITY_ITERATIONS` | Number of passes in the impulse solver (default: 2). |
+
+In debug builds (`PIXELROOT32_DEBUG_MODE`) the first hit of each limit logs a warning naming the limit and the flag that raises it; see the [capacity limits table](../architecture/physics-subsystem.md#911-capacity-limits-and-what-happens-at-each-one-issue-243).
 
 ## Tile Collision Utilities
 

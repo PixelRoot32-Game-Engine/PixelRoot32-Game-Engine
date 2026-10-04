@@ -81,15 +81,18 @@ namespace pixelroot32::core {
                     transitionTargetScene_ = nullptr;
                 }
                 // Re-initialise the effect for the fade-in phase.
-                // After init(), the effect's centers are reset to -1, so we
-                // must re-apply any stored directional iris centers.
+                // init() resets the timer and the iris centers (and leaves
+                // wipe direction / sub-step untouched), so the stored full
+                // description is re-applied here.
                 if (transitionEffect_ != nullptr) {
                     transitionEffect_->init(transitionType_,
                                             pixelroot32::graphics::TransitionDirection::In,
                                             transitionDuration_);
-                    // Re-apply stored iris centers (no-op if all -1).
+                    // Re-apply stored description (no-op entries stay default).
                     transitionEffect_->setIrisOutCenter(irisOutX_, irisOutY_);
                     transitionEffect_->setIrisInCenter(irisInX_, irisInY_);
+                    transitionEffect_->setWipeDirection(wipeDirection_);
+                    transitionEffect_->setSubStepMs(subStepMs_);
                 }
                 transitionState_ = TransitionState::FadingIn;
                 // NOTE: scene.update(dt) is NOT called during SceneSwap.
@@ -114,46 +117,58 @@ namespace pixelroot32::core {
     }
 
     void SceneManager::transitionToScene(Scene* newScene,
-                                          pixelroot32::graphics::TransitionType type,
-                                          unsigned long durationMs) {
-        // Ignored if a transition is already running.
-        if (transitionState_ != TransitionState::Idle) return;
-
-        // Reset stored iris centers (no centers specified → use defaults).
-        irisOutX_ = irisOutY_ = irisInX_ = irisInY_ = -1;
-
-        transitionTargetScene_ = newScene;
-        transitionType_ = type;
-        transitionDuration_ = durationMs;
-        transitionState_ = TransitionState::FadingOut;
-
-        // Initialise the effect for the fade-out phase.
-        if (transitionEffect_ != nullptr) {
-            transitionEffect_->init(type,
-                                    pixelroot32::graphics::TransitionDirection::Out,
-                                    durationMs);
-        }
+                                           pixelroot32::graphics::TransitionType type,
+                                           unsigned long durationMs) {
+        gfx::TransitionConfig config;
+        config.type = type;
+        config.durationMs = durationMs;
+        transitionToScene(newScene, config);
     }
 
     void SceneManager::transitionToScene(Scene* newScene,
-                                          pixelroot32::graphics::TransitionType type,
-                                          unsigned long durationMs,
-                                          int irisOutCx, int irisOutCy,
-                                          int irisInCx, int irisInCy) {
-        // Call the original overload to start the transition (init effect for Out).
-        // This will reset stored iris centers to -1, so we must store AFTER.
-        transitionToScene(newScene, type, durationMs);
+                                           pixelroot32::graphics::TransitionType type,
+                                           unsigned long durationMs,
+                                           int irisOutCx, int irisOutCy,
+                                           int irisInCx, int irisInCy) {
+        gfx::TransitionConfig config;
+        config.type = type;
+        config.durationMs = durationMs;
+        config.irisOutCx = irisOutCx;
+        config.irisOutCy = irisOutCy;
+        config.irisInCx = irisInCx;
+        config.irisInCy = irisInCy;
+        transitionToScene(newScene, config);
+    }
 
-        // Store the directional iris centers AFTER the 3-param overload reset.
-        irisOutX_ = irisOutCx;
-        irisOutY_ = irisOutCy;
-        irisInX_ = irisInCx;
-        irisInY_ = irisInCy;
+    void SceneManager::transitionToScene(Scene* newScene,
+                                           const gfx::TransitionConfig& config) {
+        // Ignored if a transition is already running.
+        if (transitionState_ != TransitionState::Idle) return;
 
-        // Apply centers to the effect for the Out phase.
+        // Store the whole description: a later transition never inherits
+        // direction, sub-step or centers from this one (issue #240).
+        transitionTargetScene_ = newScene;
+        transitionType_ = config.type;
+        transitionDuration_ = config.durationMs;
+        irisOutX_ = config.irisOutCx;
+        irisOutY_ = config.irisOutCy;
+        irisInX_ = config.irisInCx;
+        irisInY_ = config.irisInCy;
+        wipeDirection_ = config.wipeDirection;
+        subStepMs_ = config.subStepMs;
+        transitionState_ = TransitionState::FadingOut;
+
+        // Initialise the effect for the fade-out phase, then apply the
+        // stored description (init resets centers but not direction/sub-step;
+        // setting everything explicitly keeps both phases consistent).
         if (transitionEffect_ != nullptr) {
-            transitionEffect_->setIrisOutCenter(irisOutCx, irisOutCy);
-            transitionEffect_->setIrisInCenter(irisInCx, irisInCy);
+            transitionEffect_->init(config.type,
+                                    pixelroot32::graphics::TransitionDirection::Out,
+                                    config.durationMs);
+            transitionEffect_->setIrisOutCenter(irisOutX_, irisOutY_);
+            transitionEffect_->setIrisInCenter(irisInX_, irisInY_);
+            transitionEffect_->setWipeDirection(wipeDirection_);
+            transitionEffect_->setSubStepMs(subStepMs_);
         }
     }
 

@@ -12,5 +12,6 @@ Per-slot state for a single camera effect (20 bytes).
 
 | Name | Type | Description |
 |------|------|-------------|
-| `long` | `unsigned` | Total duration in ms. |
+| `duration` | `unsigned long` | Total duration in ms. |
+| `elapsed` | `unsigned long` | Elapsed time in ms. |
 | `direction` | `math::Vector2` | Normalized direction (Punch/Offset only). |

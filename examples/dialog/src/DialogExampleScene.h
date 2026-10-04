@@ -37,6 +37,17 @@ private:
     /// Flash literal from the confirmed DialogChoice; nullptr until the
     /// player has confirmed one. Never owned, never copied.
     const char* lastChoiceText_ = nullptr;
+    /// Game state the choice filter reads: once the player has asked the
+    /// riddle, that option hides on every later visit to the choice line
+    /// (including replays), demonstrating a game-supplied ChoiceFilterFn.
+    bool riddleAsked_ = false;
+
+    /// ChoiceFilterFn bound via DialogRunner::setChoiceFilter: hides the
+    /// "Ask a riddle" script choice (index 1) once riddleAsked_. Pure --
+    /// it never calls back into the runner.
+    static bool choiceFilter(void* owner, pixelroot32::gameplay::LineId line,
+                             pixelroot32::gameplay::ChoiceId scriptIndex,
+                             const pixelroot32::gameplay::DialogChoice* choice);
 };
 
 }  // namespace dialogexample

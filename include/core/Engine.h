@@ -150,6 +150,19 @@ public:
                            int irisInCx, int irisInCy);
 
     /**
+     * @brief Start a visual scene transition from the full per-call description.
+     * @param newScene The target scene to transition to.
+     * @param config Transition type, duration, wipe direction, iris centers
+     *        and DiagonalWipe sub-step (issue #240).
+     *
+     * The existing overloads stay and forward to it with defaults.
+     * Delegates to SceneManager::transitionToScene(). Ignored if a
+     * transition is already in progress.
+     */
+    void triggerTransition(Scene* newScene,
+                           const pixelroot32::graphics::TransitionConfig& config);
+
+    /**
      * @brief Retrieves the currently active scene.
      * @return Optional pointer to the current Scene, or nullopt if none is set.
      */

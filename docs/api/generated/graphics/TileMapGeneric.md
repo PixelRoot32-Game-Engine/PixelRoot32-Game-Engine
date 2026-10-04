@@ -17,12 +17,14 @@ T The sprite type used for tiles (Sprite, Sprite2bpp, or Sprite4bpp).
 | `indices` | `uint8_t*` | Pointer to tile indices array (size = width * height). |
 | `width` | `uint8_t` | Map width in tiles. |
 | `height` | `uint8_t` | Map height in tiles. |
-| `T` | `const` | Pointer to tileset array. |
+| `tiles` | `const T*` | Pointer to tileset array. |
 | `tileWidth` | `uint8_t` | Width of each tile in pixels. |
 | `tileHeight` | `uint8_t` | Height of each tile in pixels. |
 | `tileCount` | `uint16_t` | Number of unique tiles in the tileset. |
 | `runtimeMask` | `uint8_t*` | Bitmask for runtime tile activation (1 bit per tile, nullptr = all active) |
 | `animManager` | `TileAnimationManager*` | Optional animation manager for tile animations |
+| `paletteIndices` | `const uint8_t*` | Optional per-cell background palette index (only for 2bpp/4bpp multi-palette). If nullptr, all tiles use the global background palette (backward compatible). If non-null, array size must be width * height. Const to allow PROGMEM/flash and to match tiles; typically filled by editor/export tools. Byte layout: bits 0-2 = palette slot (0..7); bits 3-7 reserved for future use (priority, flipX, flipY, effects). Use kTileCellPaletteMask to extract palette. |
+| `tileFootY` | `const uint8_t*` | Optional per-tile foot row, parallel to `tiles[]`, `tileCount` entries. `nullptr` means anchor at top-left, i.e. current behaviour. Typically filled by editor/export tools. Encodes the shipped anchoring convention already used in game code: `examples/iso_dungeon/src/IsoDraw.h:28-29` draws a sprite at `(centreX - sprite.width / 2, centreY - footY)`. |
 
 ## Methods
 

@@ -7,8 +7,20 @@
 #if PIXELROOT32_ENABLE_DIALOG
 #include <cstdint>
 
-namespace pixelroot32::gameplay {
+namespace pixelroot32 {
+// Opaque portrait handle. graphics::Sprite's definition lives in
+// graphics/Renderer.h; this header must NOT include it -- DialogRunner is
+// headless by design (no Font, no Renderer, no pixels) and DialogTypes.h is
+// the layer that keeps it so. A pointer needs no definition, only a name:
+// DialogBox.cpp includes Renderer.h and reads width/height there. The same
+// forward-declaration precedent already exists in graphics/Font.h.
+namespace graphics {
+struct Sprite;
+struct Sprite2bpp;
+struct Sprite4bpp;
+}  // namespace graphics
 
+namespace gameplay {
 using LineId   = uint16_t;
 using ChoiceId = uint8_t;
 
@@ -29,6 +41,15 @@ inline constexpr ChoiceId kNoChoice = 0xFF;
 /// line's tag. The runner stays on the line; call DialogRunner::stop() to
 /// close the dialog, which is legal from inside the DialogEventFn.
 inline constexpr uint8_t kLineFlagAllowCancel = 0x01;
+
+/// kLineFlagPortraitRight draws the line's DialogLine::portrait at the
+/// top-RIGHT of the panel's content area instead of the default top-left,
+/// letting two speakers face each other across alternating lines. Read by
+/// graphics::DialogBox ONLY -- DialogRunner never masks this bit, so it is
+/// covered by the "silently ignored" rule above as far as the runner is
+/// concerned, exactly like a future reserved bit on an older build. The
+/// vertical placement never changes (top, always); only the side mirrors.
+inline constexpr uint8_t kLineFlagPortraitRight = 0x02;
 
 /**
  * @enum LineKind
@@ -103,17 +124,57 @@ struct DialogEvent {
 
 using DialogEventFn = void (*)(void* owner, const DialogEvent& event);
 
+struct DialogChoice;  // Defined below; forward-declared for ChoiceFilterFn.
+
+/**
+ * @typedef ChoiceFilterFn
+ * @brief Optional per-choice visibility predicate for a ShowingChoices line.
+ *
+ * A game supplies this through DialogRunner::setChoiceFilter; the runner
+ * calls it lazily -- on every choiceCount()/choice()/select() query and on
+ * every ShowingChoices feed() -- so the visible set always reflects current
+ * game state (e.g. hiding a "Buy" option the player can no longer afford)
+ * with no explicit invalidation call. Returning false HIDES the choice:
+ * navigation skips it, indices the runner reports are compacted over the
+ * visible choices only, and a line with every choice hidden behaves exactly
+ * like a line with zero usable choices. A null filter (the default) shows
+ * every choice, preserving pre-filter behaviour bit for bit.
+ *
+ * Must be pure: it must not call back into the runner. The runner invokes
+ * it while evaluating its own accessors, so a reentrant runner call from
+ * inside the filter would recurse; a fail-open in-filter guard shows every
+ * choice rather than recursing, but well-behaved filters never rely on it.
+ *
+ * @param owner Opaque pointer bound by DialogRunner::setChoiceFilter.
+ * @param line Id of the ShowingChoices line being presented.
+ * @param scriptIndex Offset into DialogScript::choices of the candidate
+ *        choice (line.firstChoice + visible index is NOT valid under a
+ *        filter; the runner translates).
+ * @param choice Pointer to that candidate choice; never null.
+ * @return true to show the choice, false to hide it.
+ */
+using ChoiceFilterFn = bool (*)(void* owner, LineId line, ChoiceId scriptIndex,
+                                 const DialogChoice* choice);
+
 /**
  * @struct DialogChoice
  * @brief One selectable option on a DialogState::ShowingChoices line.
  *
- * 8 bytes on ESP32 (4-byte pointer), 16 on 64-bit native -- this exact
+ * 12 bytes on ESP32 (two 4-byte pointers), 24 on 64-bit native -- this exact
  * figure is the regression guard `test_dialog_types_dialog_choice_size_guard`
  * pins, so growing this struct is a conscious, reviewed change rather
- * than silent drift in a game's flash budget.
+ * than silent drift in a game's flash budget. Grew from 8/16 when the
+ * optional second-column `detail` literal was added (multi-column option
+ * rows, second post-MVP dialog item).
  */
 struct DialogChoice {
-    const char* text;   ///< Flash literal. Never copied.
+    const char* text;            ///< Main label, left-aligned. Flash literal. Never copied.
+    const char* detail = nullptr;  ///< Optional second column (e.g. a price), right-aligned.
+                                   ///< Flash literal. nullptr (the default, so existing
+                                   ///< 3-value initializers keep compiling) draws the
+                                   ///< classic single-column row with identical geometry.
+                                   ///< Never wrapped, like `text`: keep `text + detail`
+                                   ///< within the panel's content width (see DialogBoxStyle).
     LineId      next;   ///< kNoLine ends the dialog.
     uint16_t    tag;    ///< Opaque game code.
 };
@@ -122,15 +183,18 @@ struct DialogChoice {
  * @struct DialogLine
  * @brief One line of a DialogScript: either shown text or a choice prompt.
  *
- * 20 bytes on ESP32, 32 on 64-bit native. The fields sum to 18 on ESP32
- * with no padding between them -- next, tag and autoAdvanceMs land on
- * offsets 8, 10 and 12 and are already aligned. The extra 2 bytes are
- * trailing padding, rounding the struct to the 4-byte alignment its two
- * leading pointers impose. This exact figure is
- * the regression guard
+ * 36 bytes on ESP32, 64 on 64-bit native. The pre-portrait fields sum to 18
+ * on ESP32 with no padding between them -- next, tag and autoAdvanceMs land
+ * on offsets 8, 10 and 12 and are already aligned, plus 2 trailing padding
+ * bytes rounding to the 4-byte alignment the two leading pointers impose
+ * (20). The three portrait pointers add 12/24 for 32/56, plus the 1-byte
+ * portraitPaletteSlot (33/57) rounded up to the pointer alignment (36/64).
+ * This exact figure is the regression guard
  * `test_dialog_types_dialog_line_size_guard` pins, so growing this struct
  * is a conscious, reviewed change rather than silent drift in a game's
- * flash budget.
+ * flash budget. Grew from 20/32 when the optional speaker portrait was
+ * added (third post-MVP dialog item), and from 24/40 when 2bpp/4bpp
+ * portraits joined it.
  */
 struct DialogLine {
     const char* text;           ///< nullptr for a choice-only line.
@@ -146,7 +210,27 @@ struct DialogLine {
     ChoiceId    firstChoice;    ///< Index into DialogScript::choices; must stay below 255.
     uint8_t     choiceCount;    ///< Clamped to DialogMaxChoices, to the table, and below 255.
     LineKind    kind;           ///< Discriminator; decides which fields above apply.
-    uint8_t     flags;          ///< kLineFlagAllowCancel; unknown bits are ignored, not rejected.
+    uint8_t     flags;          ///< kLineFlagAllowCancel, kLineFlagPortraitRight; see above.
+    /// Optional speaker portrait, drawn 1:1 at the top of the content area
+    /// (left by default, right with kLineFlagPortraitRight). Exactly one of
+    /// the three pointers should be set: a 1bpp graphics::Sprite drawn in
+    /// DialogBoxStyle::portraitInk, a graphics::Sprite2bpp, or a
+    /// graphics::Sprite4bpp -- the two multi-color formats draw through
+    /// portraitPaletteSlot instead of a tint, so one line can carry a
+    /// higher-detail face than 1bpp allows. When more than one pointer is
+    /// set, 4bpp wins, then 2bpp, then 1bpp. All three nullptr (the default,
+    /// so existing 9-value initializers keep compiling) draws no portrait
+    /// with identical geometry, as does DialogBoxStyle::portraitsEnabled
+    /// set to false. Flash-resident asset data; never copied, never owned.
+    /// The runner never reads these fields.
+    const graphics::Sprite* portrait = nullptr;
+    /// 4-color face; same position and priority rules as `portrait` above.
+    const graphics::Sprite2bpp* portrait2bpp = nullptr;
+    /// 16-color face; same position and priority rules as `portrait` above.
+    const graphics::Sprite4bpp* portrait4bpp = nullptr;
+    /// Sprite palette slot (0..7) resolving 2bpp/4bpp portrait colors.
+    /// Ignored for a 1bpp portrait, which uses portraitInk instead.
+    uint8_t portraitPaletteSlot = 0;
 };
 
 /**
@@ -165,8 +249,9 @@ struct DialogScript {
     uint16_t            choiceCount;
 };
 
-static_assert(sizeof(DialogChoice) <= 2 * sizeof(void*), "DialogChoice grew");
+static_assert(sizeof(DialogChoice) <= 3 * sizeof(void*), "DialogChoice grew");
 // Trivially destructible: the script is flash data, never destroyed.
 
-} // namespace pixelroot32::gameplay
+}  // namespace gameplay
+}  // namespace pixelroot32
 #endif // PIXELROOT32_ENABLE_DIALOG

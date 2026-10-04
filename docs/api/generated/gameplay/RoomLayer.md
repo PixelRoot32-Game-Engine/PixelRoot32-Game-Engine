@@ -15,7 +15,7 @@ Holds no ownership: `rooms` points at the editor's flash-resident array.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `RoomData` | `const` | Pointer to the exported room array (may be null). |
+| `rooms` | `const RoomData*` | Pointer to the exported room array (may be null). |
 | `roomCount` | `uint16_t` | Number of entries in `rooms`. |
 | `tileWidth` | `uint8_t` | Tile width in world units. MUST be >= 1. |
 | `tileHeight` | `uint8_t` | Tile height in world units. MUST be >= 1. |

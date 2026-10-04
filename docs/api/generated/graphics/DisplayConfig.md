@@ -15,6 +15,13 @@ scales the output using nearest-neighbor interpolation.
 Use this structure to define the hardware pins, display dimensions, rotation,
 and communication type (I2C or SPI).
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `physicalWidth` | `uint16_t` | Physical display resolution (hardware) |
+| `logicalWidth` | `uint16_t` | Logical rendering resolution (what the game draws to) |
+
 ## Methods
 
 ### `static DisplayConfig createCustom(DrawSurface* surface, uint16_t w, uint16_t h, int rot = 0)`

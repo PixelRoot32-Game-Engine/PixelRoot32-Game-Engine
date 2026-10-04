@@ -51,4 +51,5 @@ Values are always strings; convert to int/bool as needed in game code
 
 | Name | Type | Description |
 |------|------|-------------|
-| `char` | `const` | Attribute key (PROGMEM string, e.g., "type", "solid") |
+| `key` | `const char*` | Attribute key (PROGMEM string, e.g., "type", "solid") |
+| `value` | `const char*` | Attribute value (PROGMEM string, e.g., "door", "true") |

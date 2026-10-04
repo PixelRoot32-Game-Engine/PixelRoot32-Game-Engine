@@ -39,6 +39,13 @@ one set of resources.
 See this file's header-level doc comment for why arena-backed pool
 storage is NOT supported (design.md D6).
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `kCapacity` | `static constexpr uint16_t` | Fixed slot capacity of this pool instantiation. |
+| `kEnd` | `static constexpr uint16_t` | nextLive()/indexOf() end-of-iteration / not-found sentinel. |
+
 ## Methods
 
 ### `T* acquire(Args&&... args)`

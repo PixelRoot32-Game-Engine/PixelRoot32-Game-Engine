@@ -34,6 +34,20 @@ contains the 0.4 — see AudioMixerLUT.h.
 
 | Name | Type | Description |
 |------|------|-------------|
+| `MAX_VOICES` | `static constexpr int` | Maximum number of voices (dynamic pool size). |
+| `NUM_CHANNELS` | `static constexpr int` | Alias for MAX_VOICES for backward compatibility. |
+| `MAX_MUSIC_TRACKS` | `static constexpr size_t` | Maximum simultaneous music tracks. |
+| `MUSIC_VOICE_BASE` | `static constexpr int` | First voice slot reserved for music tracks (inclusive). |
+| `MUSIC_VOICE_COUNT` | `static constexpr int` | Number of voice slots reserved for music tracks. |
+| `SFX_VOICE_BASE` | `static constexpr int` | First voice slot reserved for SFX / PLAY_EVENT (inclusive). |
+| `SFX_VOICE_COUNT` | `static constexpr int` | Number of voice slots reserved for SFX. |
+| `TICKS_PER_BEAT` | `static constexpr int` | Default ticks (subdivisions) per beat. |
+| `DEFAULT_BPM` | `static constexpr float` | Default tempo in BPM. |
+| `DEFAULT_MAX_NOTES_PER_FRAME` | `static constexpr size_t` | Default max notes per frame for the music sequencer. |
+| `MAX_NOTES_PER_FRAME` | `static constexpr size_t` | User-configurable max notes per frame. |
+| `MIXER_SCALE` | `static constexpr float` | Per-channel scaling factor before summation. |
+| `MIXER_K` | `static constexpr float` | Compressor nonlinearity constant. |
+| `PROFILE_RING_SIZE` | `static constexpr int` | Ring buffer size for profile entries. |
 | `audioTimeSamples` | `uint64_t` | Global sample counter at capture. |
 | `peak` | `float` | Peak sample magnitude [0.0 - 1.0]. |
 | `clipped` | `bool` | Whether any sample exceeded ±32767. |

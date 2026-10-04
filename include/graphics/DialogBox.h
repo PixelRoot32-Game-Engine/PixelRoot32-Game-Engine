@@ -15,12 +15,32 @@
 namespace pixelroot32::graphics {
 
 /**
+ * @enum DialogPortraitSize
+ * @brief The closed set of speaker-portrait boxes DialogBox supports.
+ *
+ * Values ARE pixel dimensions: a portrait box is square, side =
+ * static_cast<uint8_t>(size). Games author faces at exactly the box size;
+ * a smaller sprite draws 1:1 top-left, a larger one is ignored entirely
+ * (see DialogBoxStyle::portraitSize), so an oversized asset can never
+ * overflow the panel or eat the text column. Deliberately closed --
+ * an open width/height pair would let any size through and reintroduce
+ * the overflow this enum exists to prevent. The renderer has no scaler
+ * or source-rect clip for 2bpp/4bpp, so "draw it smaller" is not an
+ * option: fixed boxes are the whole mechanism.
+ */
+enum class DialogPortraitSize : uint8_t {
+    Size16 = 16,  ///< 16x16 box. Default; fits small faces and HUD strips.
+    Size24 = 24,  ///< 24x24 box.
+    Size32 = 32   ///< 32x32 box. Largest; costs 32 + padding px of text width.
+};
+
+/**
  * @struct DialogBoxStyle
  * @brief Every visual and layout knob DialogBox needs to draw a panel.
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the 15 scalar/enum fields follow.
+ * leads, the 20 scalar/enum fields follow.
  *
  * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
  * names, not RGB565 values. DialogBox::draw() hands them to the renderer,
@@ -75,8 +95,46 @@ namespace pixelroot32::graphics {
  * room an option's text has: choice text is NOT wrapped, so a label that no
  * longer fits simply runs past the panel's inner edge. Keep the longest
  * option shorter than contentWidth - caretGutterPx, or set `choiceCaret`
- * to 0. The row rect choiceRect() reports is unaffected and still spans the
- * gutter, so the whole row stays tappable.
+ * to 0. The caret itself draws at Layout::caretX -- the text-column origin,
+ * past a left-side portrait -- never at the full-row choiceX it would
+ * overlap the face from. The row rect choiceRect() reports is unaffected
+ * and still spans the gutter AND the portrait area, so the whole row
+ * stays tappable.
+ *
+ * Multi-column rows: DialogChoice::detail, when non-null, draws a second
+ * column RIGHT-aligned against the text column's trailing edge
+ * (Layout::detailRightX -- the panel's inner edge, unless a right-side
+ * portrait narrows the column), on the same row baseline, in `inkDetail`
+ * (or `inkDetailSelected` when that row is selected). The label keeps its
+ * left-aligned origin exactly, so a null detail reproduces the
+ * single-column geometry bit for bit. Neither column wraps and drawText()
+ * does not clip: the game keeps `label + gap + detail` within the text
+ * column width minus caretGutterPx. On overlap the detail wins visually
+ * (drawn second, same row); there is no truncation or ellipsis, by
+ * design -- one drawText per column, zero heap.
+ *
+ * Speaker portraits: DialogLine::portrait / portrait2bpp / portrait4bpp,
+ * when any one is non-null AND portraitsEnabled is true AND the sprite
+ * fits the `portraitSize` box, draws that flash sprite 1:1 at the TOP of
+ * the content area -- top-LEFT by default, top-right with
+ * kLineFlagPortraitRight -- so two speakers can face each other across
+ * alternating lines. A 1bpp portrait draws in `portraitInk`;
+ * a 2bpp/4bpp portrait draws through the line's `portraitPaletteSlot`,
+ * allowing higher-detail faces than 1bpp allows. A sprite larger than
+ * the box in either dimension is ignored (portrait-less geometry, no
+ * draw): without a scaler or clip rect, drawing it would overflow the
+ * panel, so the engine refuses instead. Author every face at exactly
+ * the box size; a smaller one still draws 1:1 and only shifts the text
+ * by its own width. The whole text
+ * column (speaker label, body, choices) shifts to the other side and the
+ * body wrap width narrows by portrait width + one padding (the gap); no
+ * portrait -- all three pointers null, portraitsEnabled false, or
+ * over-box -- reproduces the portrait-less geometry bit for bit.
+ * Portraits never scale and drawText()/drawSprite() never clip, so the
+ * game authors portraits to fit: measureHeightPx() takes the taller of
+ * the portrait and the text block per line. choiceRect() still reports
+ * the FULL content-width row, portrait area included -- the whole row
+ * stays tappable, the same precedent as the caret gutter.
  */
 struct DialogBoxStyle {
     const Font* font          = nullptr;  ///< nullptr uses FontManager's default.
@@ -89,12 +147,27 @@ struct DialogBoxStyle {
     Color       ink           = Color::White;   ///< Speaker, body and unselected choices. Palette-resolved.
     Color       inkDim        = Color::Gray;    ///< Next-page cue. Palette-resolved.
     Color       inkSelected   = Color::Yellow;  ///< Selected choice. Palette-resolved; a zeroed slot hides it.
+    Color       inkDetail     = Color::Gray;    ///< Second-column (DialogChoice::detail) text. Palette-resolved.
+    Color       inkDetailSelected = Color::Yellow;  ///< Selected row's second column. Palette-resolved.
+    Color       portraitInk   = Color::White;   ///< Speaker portrait tint (1bpp Sprite). Palette-resolved.
     uint8_t     borderWidth   = 1;
     uint8_t     padding       = 4;              ///< Inside the border, and above and below each choice row.
     uint8_t     textSize      = 1;
     uint8_t     lineSpacing   = 1;      ///< Extra px between wrapped body lines.
     char        choiceCaret   = '>';    ///< Marks the selected choice. 0 disables the caret and its gutter.
     bool        fixedPosition = true;   ///< true: setOffsetBypass(true) while drawing, ignoring the camera.
+    /**
+     * @brief Master switch for speaker portraits. False draws every line as
+     *        if it carried no portrait, with portrait-less geometry bit for
+     *        bit -- dialogs work without portraits without touching scripts.
+     */
+    bool        portraitsEnabled = true;
+    /**
+     * @brief Fixed portrait box every face must fit in. A sprite larger
+     *        than the box in either dimension is ignored (same geometry
+     *        as no portrait); author faces at exactly this size.
+     */
+    DialogPortraitSize portraitSize = DialogPortraitSize::Size16;
 };
 
 /**
@@ -128,12 +201,17 @@ public:
      */
     struct Layout {
         int16_t panelX, panelY, panelW, panelH;
-        int16_t speakerX, speakerY;   ///< Valid when hasSpeaker.
-        int16_t bodyX, bodyY;         ///< Top-left of body line 0.
-        int16_t choiceX, choiceY;     ///< Top-left of choice row 0, gutter included.
+        int16_t speakerX, speakerY;   ///< Valid when hasSpeaker. In the text column (see below).
+        int16_t bodyX, bodyY;         ///< Top-left of body line 0. In the text column.
+        int16_t choiceX, choiceY;     ///< Top-left of choice row 0: FULL content width, gutter included.
         int16_t choiceW;              ///< Row width (panel inner width), gutter included.
         int16_t caretGutterPx;        ///< Width reserved for the caret; 0 when it is disabled.
-        int16_t choiceTextX;          ///< choiceX + caretGutterPx. Where option text starts.
+        int16_t caretX;               ///< Caret column: text-column origin (past a left portrait),
+                                      ///< choiceX without one. choiceRect() stays full-width.
+        int16_t choiceTextX;          ///< caretX + caretGutterPx. Where option text starts.
+        int16_t detailRightX;         ///< Trailing edge of the text column; detail right-aligns here.
+        int16_t portraitX, portraitY; ///< Top-left of the portrait; valid when hasPortrait.
+        int16_t portraitW, portraitH; ///< Portrait size in px (1:1 Sprite dims); valid when hasPortrait.
         int16_t bodyLineHeightPx;
         int16_t choiceRowHeightPx;
         uint8_t bodyLineCount;        ///< Rows valid in bodyLines.
@@ -141,6 +219,8 @@ public:
         uint8_t pageCount;            ///< Total pages of the current line's text.
         uint8_t page;                 ///< Zero-based current page index.
         bool    hasSpeaker;
+        bool    hasPortrait;
+        bool    portraitRight;        ///< True when kLineFlagPortraitRight mirrors the portrait.
         TextLayout::WrappedLine bodyLines[platforms::config::DialogMaxWrappedLines];
     };
 
@@ -244,6 +324,11 @@ public:
      *       as a HUD strip before choosing DialogBoxStyle::h, which draw()
      *       uses as-is without clipping. The per-line height formula, and
      *       how `padding` enters it, is in the DialogBoxStyle description.
+     * @note A ChoiceFilterFn can only SHRINK the drawn option list, never
+     *       grow it: this measures the UNFILTERED maximum, so a panel sized
+     *       from it always fits, filtered or not. There is no runner (and
+     *       hence no filter) to measure against here by design -- the panel
+     *       is sized once, up front, for the worst case.
      */
     [[nodiscard]] static int16_t measureHeightPx(const gameplay::DialogScript& script,
                                                   const DialogBoxStyle&         style);
@@ -257,8 +342,11 @@ private:
 /// against sizeof(void*) so one formula covers ESP32 (32-bit) and 64-bit
 /// native: DialogBoxStyle's single pointer plus lastRevision_ never needs
 /// more than 2 pointer-widths of slack beyond a fixed 24-byte core.
-/// Actual: 28 B on ESP32, 40 B on 64-bit native (test_dialog_box_sizeof_guard
-/// pins both exactly). Growing this struct must be a conscious bump of the
+/// Actual: 32 B on ESP32 (style 28 + revision 2, padded), 40 B on 64-bit
+/// native (style 32 + revision 2, padded) -- test_dialog_box_sizeof_guard
+/// pins both exactly. The two inkDetail colours cost 4 B on ESP32 (style
+/// 24->28, box 28->32) and zero on native (absorbed by tail slack).
+/// Growing this struct must be a conscious bump of the
 /// threshold below, not a silent drift.
 static_assert(sizeof(DialogBox) <= 2 * sizeof(void*) + 24,
               "DialogBox exceeds its RAM budget (2*sizeof(void*)+24 bytes); "
@@ -298,6 +386,39 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
     if (layout.hasSpeaker) {
         renderer.drawText(std::string_view(line->speaker), layout.speakerX, layout.speakerY,
                            style_.ink, style_.textSize, style_.font);
+    }
+
+    if (layout.hasPortrait) {
+        // 1:1, top of the content area. The layout above already resolved
+        // the side; draw() only emits. 4bpp wins, then 2bpp, then 1bpp --
+        // the same priority computeLayout() sizes with, so drawn and
+        // measured portraits cannot disagree. 1bpp tints with portraitInk;
+        // 2bpp/4bpp resolve through the line's portraitPaletteSlot. Each
+        // null check rides along because hasPortrait is layout state while
+        // the pointers are the data -- belt and suspenders against a torn
+        // read, at zero cost on the frame. Formats compiled out read as
+        // absent (see lineHasAnyPortrait): Renderer::drawSprite() is a
+        // no-op for them, so emitting nothing here keeps draw and layout
+        // in agreement.
+        bool emitted = false;
+        if constexpr (platforms::config::Enable4BppSprites) {
+            if (line->portrait4bpp != nullptr) {
+                renderer.drawSprite(*line->portrait4bpp, layout.portraitX, layout.portraitY,
+                                     line->portraitPaletteSlot);
+                emitted = true;
+            }
+        }
+        if constexpr (platforms::config::Enable2BppSprites) {
+            if (!emitted && line->portrait2bpp != nullptr) {
+                renderer.drawSprite(*line->portrait2bpp, layout.portraitX, layout.portraitY,
+                                     line->portraitPaletteSlot);
+                emitted = true;
+            }
+        }
+        if (!emitted && line->portrait != nullptr) {
+            renderer.drawSprite(*line->portrait, layout.portraitX, layout.portraitY,
+                                 style_.portraitInk);
+        }
     }
 
     for (uint8_t i = 0; i < layout.bodyLineCount; ++i) {
@@ -340,12 +461,33 @@ void DialogBox::draw(RendererT& renderer, gameplay::DialogRunner& runner) {
             // way to see what was selected. A caret sharing the very colour
             // slot it insures against would insure nothing; the body text
             // above already proves `ink` resolves to a visible slot.
-            renderer.drawText(std::string_view(&style_.choiceCaret, 1), layout.choiceX, rowTextY,
+            // Drawn at layout.caretX (the text column), NOT layout.choiceX:
+            // choiceX is the full-row hit-test origin and sits under a
+            // left-side portrait.
+            renderer.drawText(std::string_view(&style_.choiceCaret, 1), layout.caretX, rowTextY,
                                style_.ink, style_.textSize, style_.font);
         }
 
         renderer.drawText(text, layout.choiceTextX, rowTextY, color, style_.textSize,
                            style_.font);
+
+        // Second column: right-aligned against the text column's trailing
+        // edge (layout.detailRightX -- the panel's inner edge, unless a
+        // right-side portrait narrows the column), same baseline,
+        // per-column colour. Null detail draws nothing, preserving
+        // single-column geometry bit for bit. Drawn AFTER the label so a
+        // game that overflows both still shows the price -- the overlap
+        // policy is documented on DialogBoxStyle, not clipped here.
+        if (choice != nullptr && choice->detail != nullptr && choice->detail[0] != '\0') {
+            const std::string_view detail(choice->detail);
+            const Color detailColor = (i == runner.selectedChoice()) ? style_.inkDetailSelected
+                                                                     : style_.inkDetail;
+            const int16_t detailW =
+                TextLayout::measureWidthPx(detail, style_.font, style_.textSize);
+            const int16_t detailX = static_cast<int16_t>(layout.detailRightX - detailW);
+            renderer.drawText(detail, detailX, rowTextY, detailColor, style_.textSize,
+                               style_.font);
+        }
     }
 
     if (style_.fixedPosition) {

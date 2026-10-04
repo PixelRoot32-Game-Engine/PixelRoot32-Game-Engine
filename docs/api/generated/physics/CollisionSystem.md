@@ -81,6 +81,44 @@ Gets the total number of registered entities.
 
 **Returns:** Number of entities.
 
+### `unsigned getDroppedEntityCount() const`
+
+**Description:**
+
+Number of bodies refused by addEntity() because PHYSICS_MAX_ENTITIES was reached.
+
+### `unsigned getDroppedContactCount() const`
+
+**Description:**
+
+Number of contacts discarded because PHYSICS_MAX_CONTACTS was reached.
+
+### `unsigned getDroppedCandidateCount() const`
+
+**Description:**
+
+Number of bodies whose candidate list was truncated at
+       PHYSICS_MAX_CANDIDATES_PER_BODY.
+
+### `void resetLimitDropCounters()`
+
+**Description:**
+
+Resets all capacity-limit drop counters, including the grid's.
+
+### `bool allBodiesAtRest() const`
+
+**Description:**
+
+Checks whether every registered physics body is at rest.
+
+**Returns:** True when no registered physics body has nonzero velocity
+        (or when no physics bodies are registered).
+
+Lets a game know a turn is over (pool, golf, artillery) without
+iterating its own entities (issue #246). Invisible bodies still
+integrate, so they count.
+
 ### `void clear()`
 
 **Description:**

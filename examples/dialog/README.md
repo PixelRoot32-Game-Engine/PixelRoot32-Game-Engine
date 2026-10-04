@@ -13,8 +13,12 @@ branch the player took.
 
 ## Requirements (build flags)
 
-- **`PIXELROOT32_ENABLE_DIALOG=1`** — the only flag this example turns on;
-  everything else keeps the engine's default build flags.
+- **`PIXELROOT32_ENABLE_DIALOG=1`** — the dialog headers (`DialogTypes`,
+  `DialogRunner`, `DialogBox`).
+- **`PIXELROOT32_ENABLE_2BPP_SPRITES` / `PIXELROOT32_ENABLE_4BPP_SPRITES`** —
+  the multi-color portrait blits. Without them a 2bpp/4bpp portrait is a
+  compiled-out no-op and the speaker never appears; everything else keeps
+  the engine's default build flags.
 
 See [`PlatformDefaults.h`](../../include/platforms/PlatformDefaults.h) for
 every other default.
@@ -44,13 +48,26 @@ one pass:
    player.
 3. **A 3-option `Choice` line** — `Up`/`Down` move the selection, `Confirm`
    fires `ChoiceConfirmed` and follows the chosen `DialogChoice::next`; all
-   three branches rejoin at one `LineKind::End` line.
+   three branches rejoin at one `LineKind::End` line. A `ChoiceFilterFn`
+   hides "Ask a riddle" once asked — replay the script to see the
+   two-option menu. "Ask a riddle" also carries a right-aligned `detail`
+   column ("once") drawn in its own colour slots — the multi-column row
+   demo. Narrator speaks with a right-side portrait, Guide with a
+   left-side one — speaker portraits facing each other.
 
 ## Features
 
 - `DialogRunner` — headless five-state machine, driven by `feed()`/`update()`
 - `DialogBox` — default panel, sized once via `measureHeightPx()`
 - A `DialogEventFn` callback reacting to `ChoiceConfirmed`
+- A `ChoiceFilterFn` hiding a one-time option, renormalized via
+  `refreshChoices()`
+- A multi-column option row: `DialogChoice::detail` right-aligned with
+  per-column colour (`inkDetail`/`inkDetailSelected`)
+- Speaker portraits in 4bpp at the `Size32` box: a Dragon Quest-style slime
+  (Narrator, right) and a green-cap hero face (Guide, left) — simple NES
+  references showing the multi-color portrait path (`portrait4bpp` +
+  per-line `portraitPaletteSlot`)
 
 ## File Structure
 

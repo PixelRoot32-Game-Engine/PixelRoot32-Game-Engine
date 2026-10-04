@@ -10,6 +10,7 @@
 #include "physics/RigidActor.h"
 #include "core/Actor.h"
 #include "core/PhysicsActor.h"
+#include "core/Log.h"
 #include "math/MathUtil.h"
 #include <algorithm>
 #include <cassert>
@@ -36,6 +37,47 @@ namespace pixelroot32::physics {
     using math::min;
     using math::max;
     using math::clamp;
+
+#ifdef PIXELROOT32_DEBUG_MODE
+    namespace logging = pixelroot32::core::logging;
+
+    // First-hit capacity reports (issue #243). Each limit logs once per
+    // process; the drop counters on CollisionSystem/SpatialGrid keep the
+    // cumulative totals for tests. All of this compiles out in release.
+    inline void reportEntityLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: entity limit reached (PHYSICS_MAX_ENTITIES=%d); "
+                "body not added to physics. Raise PHYSICS_MAX_ENTITIES.",
+                pixelroot32::platforms::config::PhysicsMaxEntities);
+        }
+    }
+
+    inline void reportContactLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: contact limit reached (PHYSICS_MAX_CONTACTS=%d); "
+                "contact not resolved. Raise PHYSICS_MAX_CONTACTS.",
+                pixelroot32::platforms::config::PhysicsMaxContacts);
+        }
+    }
+
+    inline void reportCandidateLimitOnce() {
+        static bool reported = false;
+        if (!reported) {
+            reported = true;
+            logging::log(logging::LogLevel::Warning,
+                "CollisionSystem: per-body candidate limit reached "
+                "(PHYSICS_MAX_CANDIDATES_PER_BODY=%d); further candidates not tested. "
+                "Raise PHYSICS_MAX_CANDIDATES_PER_BODY.",
+                pixelroot32::platforms::config::PhysicsMaxCandidatesPerBody);
+        }
+    }
+#endif
 
     namespace {
 
@@ -92,7 +134,11 @@ namespace pixelroot32::physics {
     void CollisionSystem::addEntity(Entity* e) {
         assert(e != nullptr && "Cannot add null entity to collision system");
         if (entityCount >= kMaxEntities) {
-            return;  // Silently ignore - could add assert or log
+#ifdef PIXELROOT32_DEBUG_MODE
+            ++droppedEntities_;
+            reportEntityLimitOnce();
+#endif
+            return;  // Over capacity: the body is never added to physics
         }
         if (e->type == EntityType::ACTOR) {
             Actor* actor = static_cast<Actor*>(e);
@@ -113,6 +159,26 @@ namespace pixelroot32::physics {
                 return;
             }
         }
+    }
+
+#ifdef PIXELROOT32_DEBUG_MODE
+    void CollisionSystem::resetLimitDropCounters() {
+        droppedEntities_ = 0;
+        droppedContacts_ = 0;
+        droppedCandidates_ = 0;
+        SpatialGrid::resetLimitDropCounters();
+    }
+#endif
+
+    bool CollisionSystem::allBodiesAtRest() const {
+        for (uint16_t i = 0; i < entityCount; i++) {
+            Entity* e = entities[i];
+            if (e->type != EntityType::ACTOR) continue;
+            Actor* actor = static_cast<Actor*>(e);
+            if (!actor->isPhysicsBody()) continue;
+            if (!static_cast<PhysicsActor*>(actor)->isAtRest()) return false;
+        }
+        return true;
     }
 
     void CollisionSystem::update() {
@@ -178,7 +244,7 @@ namespace pixelroot32::physics {
                 grid.insertDynamic(actor);
         }
 
-        static Actor* potential[64];
+        static Actor* potential[kMaxCandidatesPerBody];
         
         for (uint16_t i = 0; i < entityCount; i++) {
             Entity* e = entities[i];
@@ -190,7 +256,13 @@ namespace pixelroot32::physics {
             PhysicsActor* pA = static_cast<PhysicsActor*>(actorA);
             
             int count = 0;
-            grid.getPotentialColliders(actorA, potential, count, 64);
+            grid.getPotentialColliders(actorA, potential, count, kMaxCandidatesPerBody);
+#ifdef PIXELROOT32_DEBUG_MODE
+            if (count >= kMaxCandidatesPerBody) {
+                ++droppedCandidates_;
+                reportCandidateLimitOnce();
+            }
+#endif
             
             for (int i = 0; i < count; ++i) {
                 Actor* actorB = potential[i];
@@ -248,6 +320,12 @@ namespace pixelroot32::physics {
                         contact.isSensorContact = moving->isSensor() || staticBody->isSensor();
                         if (contactCount < kMaxContacts)
                             contacts[contactCount++] = contact;
+#ifdef PIXELROOT32_DEBUG_MODE
+                        else {
+                            ++droppedContacts_;
+                            reportContactLimitOnce();
+                        }
+#endif
                     }
                 } else {
                     generateContact(pA, pB);
@@ -277,10 +355,25 @@ namespace pixelroot32::physics {
             hit = generateCircleVsCircleContact(contact);
         } else if (shapeA == CollisionShape::AABB && shapeB == CollisionShape::AABB) {
             hit = generateAABBVsAABBContact(contact);
+        } else if ((shapeA == CollisionShape::AABB && shapeB == CollisionShape::SEGMENT) ||
+                   (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::AABB)) {
+            PhysicsActor* box = (shapeA == CollisionShape::AABB) ? a : b;
+            PhysicsActor* segment = (shapeA == CollisionShape::AABB) ? b : a;
+            hit = generateAABBVsSegmentContact(contact, box, segment);
         } else {
             PhysicsActor* circle = (shapeA == CollisionShape::CIRCLE) ? a : b;
-            PhysicsActor* box = (shapeA == CollisionShape::CIRCLE) ? b : a;
-            hit = generateCircleVsAABBContact(contact, circle, box);
+            PhysicsActor* segment = (shapeA == CollisionShape::CIRCLE) ? b : a;
+            if ((shapeA == CollisionShape::CIRCLE && shapeB == CollisionShape::SEGMENT) ||
+                (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::CIRCLE)) {
+                hit = generateCircleVsSegmentContact(contact, circle, segment);
+            } else if (shapeA == CollisionShape::SEGMENT || shapeB == CollisionShape::SEGMENT) {
+                // SEGMENT vs SEGMENT produces no contact; circle-vs-segment
+                // and AABB-vs-segment both collide (issue #241).
+                hit = false;
+            } else {
+                PhysicsActor* box = (shapeA == CollisionShape::CIRCLE) ? b : a;
+                hit = generateCircleVsAABBContact(contact, circle, box);
+            }
         }
         
         // One-way platform filter: validate spatial crossing
@@ -295,6 +388,12 @@ namespace pixelroot32::physics {
             contact.isSensorContact = a->isSensor() || b->isSensor();
             if (contactCount < kMaxContacts)
                 contacts[contactCount++] = contact;
+#ifdef PIXELROOT32_DEBUG_MODE
+            else {
+                ++droppedContacts_;
+                reportContactLimitOnce();
+            }
+#endif
         }
         return hit;
     }
@@ -396,6 +495,131 @@ namespace pixelroot32::physics {
 
         contact.contactPoint = closestP;
         if (circle == contact.bodyB) {
+            contact.normal = -contact.normal;
+        }
+        return true;
+    }
+
+    bool CollisionSystem::generateCircleVsSegmentContact(Contact& contact,
+                                                         PhysicsActor* circle,
+                                                         PhysicsActor* segment) {
+        Scalar r = circle->getRadius();
+        Vector2 centerC = circle->position + Vector2(r, r);
+        Vector2 segA = segment->getSegmentA();
+        Vector2 segB = segment->getSegmentB();
+
+        // Closest point on the segment to the circle center. Clamping the
+        // projection to [0, 1] unifies both demo phases (World::resolveCushions):
+        // an interior projection gives the perpendicular normal, a clamped
+        // endpoint gives the radial normal of a zero-radius circle, so shared
+        // corners between two segments cannot be slipped through (issue #241).
+        Vector2 ab = segB - segA;
+        Scalar lenSq = ab.lengthSquared();
+        Vector2 closestP;
+        if (lenSq <= kEpsilon) {
+            closestP = segA;  // Zero-length segment behaves as a point.
+        } else {
+            Scalar t = (centerC - segA).dot(ab) / lenSq;
+            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+            closestP = segA + ab * t;
+        }
+
+        Vector2 v = centerC - closestP;
+        Scalar distSqr = v.lengthSquared();
+
+        if (distSqr >= r * r) {
+            return false;
+        }
+
+        Scalar dist = sqrt(distSqr);
+        if (dist > kEpsilon) {
+            contact.normal = v / dist;
+            contact.penetration = r - dist;
+        } else if (lenSq > kEpsilon) {
+            // Center exactly on the segment: no defined direction to the
+            // closest point, so use the segment perpendicular.
+            Scalar len = sqrt(lenSq);
+            contact.normal = Vector2(-ab.y / len, ab.x / len);
+            contact.penetration = r;
+        } else {
+            contact.normal = Vector2(0, -1);
+            contact.penetration = r;
+        }
+
+        contact.contactPoint = closestP;
+        if (circle == contact.bodyB) {
+            contact.normal = -contact.normal;
+        }
+        return true;
+    }
+
+    bool CollisionSystem::generateAABBVsSegmentContact(Contact& contact,
+                                                       PhysicsActor* box,
+                                                       PhysicsActor* segment) {
+        ScalarRect boxRec = ScalarRect::from(box->getHitBox());
+        Vector2 segA = segment->getSegmentA();
+        Vector2 segB = segment->getSegmentB();
+        Vector2 boxCenter = Vector2(boxRec.x + boxRec.w / 2, boxRec.y + boxRec.h / 2);
+
+        // Closest point on the segment to the box center, reusing the
+        // circle-vs-segment projection logic: an interior projection gives
+        // the perpendicular ramp normal, a clamped endpoint gives the radial
+        // corner normal, so crates meet ramps and joints like balls do.
+        Vector2 ab = segB - segA;
+        Scalar lenSq = ab.lengthSquared();
+        Vector2 segClosest;
+        if (lenSq <= kEpsilon) {
+            segClosest = segA;  // Zero-length segment behaves as a point.
+        } else {
+            Scalar t = (boxCenter - segA).dot(ab) / lenSq;
+            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+            segClosest = segA + ab * t;
+        }
+
+        // Clamp the segment point to the box: inside/on-edge means overlap
+        // (or exact touch), outside with a gap means no contact. The segment
+        // has no radius, so any positive gap separates, unlike circles.
+        Vector2 boxPoint = segClosest;
+        boxPoint.x = clamp(boxPoint.x, boxRec.x, boxRec.x + boxRec.w);
+        boxPoint.y = clamp(boxPoint.y, boxRec.y, boxRec.y + boxRec.h);
+
+        Vector2 gap = segClosest - boxPoint;
+        if (sqrt(gap.lengthSquared()) > kEpsilon) {
+            return false;
+        }
+
+        // Penetration is the distance from the segment point to the nearest
+        // box face; pushing the box out along the segment normal by that
+        // amount expels an axis-aligned rest exactly and converges for ramps
+        // over successive frames.
+        Scalar dLeft = segClosest.x - boxRec.x;
+        Scalar dRight = (boxRec.x + boxRec.w) - segClosest.x;
+        Scalar dTop = segClosest.y - boxRec.y;
+        Scalar dBottom = (boxRec.y + boxRec.h) - segClosest.y;
+        Scalar minDist = dLeft;
+        if (dRight < minDist) minDist = dRight;
+        if (dTop < minDist) minDist = dTop;
+        if (dBottom < minDist) minDist = dBottom;
+        if (minDist < toScalar(0.0f)) minDist = toScalar(0.0f);
+
+        // Normal points from the segment toward the box center, reusing the
+        // circle-vs-segment direction logic (perpendicular or radial).
+        Vector2 w = boxCenter - segClosest;
+        Scalar distW = sqrt(w.lengthSquared());
+        Vector2 raw;
+        if (distW > kEpsilon) {
+            raw = w / distW;
+        } else if (lenSq > kEpsilon) {
+            Scalar len = sqrt(lenSq);
+            raw = Vector2(-ab.y / len, ab.x / len);
+        } else {
+            raw = Vector2(0, -1);
+        }
+
+        contact.normal = raw;
+        contact.penetration = minDist;
+        contact.contactPoint = segClosest;
+        if (box == contact.bodyB) {
             contact.normal = -contact.normal;
         }
         return true;
@@ -538,6 +762,38 @@ namespace pixelroot32::physics {
                         Circle cA = {pA->position.x + pA->getRadius(), pA->position.y + pA->getRadius(), pA->getRadius()};
                         Circle cB = {pB->position.x + pB->getRadius(), pB->position.y + pB->getRadius(), pB->getRadius()};
                         isColliding = intersects(cA, cB);
+                    } else if ((shapeA == CollisionShape::CIRCLE && shapeB == CollisionShape::SEGMENT) ||
+                               (shapeA == CollisionShape::SEGMENT && shapeB == CollisionShape::CIRCLE)) {
+                        PhysicsActor* circP = (shapeA == CollisionShape::CIRCLE) ? pA : pB;
+                        PhysicsActor* segP = (shapeA == CollisionShape::CIRCLE) ? pB : pA;
+                        Scalar r = circP->getRadius();
+                        Vector2 center = circP->position + Vector2(r, r);
+                        Vector2 segA = segP->getSegmentA();
+                        Vector2 segB = segP->getSegmentB();
+                        Vector2 ab = segB - segA;
+                        Scalar lenSq = ab.lengthSquared();
+                        Vector2 closestP;
+                        if (lenSq <= kEpsilon) {
+                            closestP = segA;
+                        } else {
+                            Scalar t = (center - segA).dot(ab) / lenSq;
+                            t = clamp(t, toScalar(0.0f), toScalar(1.0f));
+                            closestP = segA + ab * t;
+                        }
+                        isColliding = (center - closestP).lengthSquared() < r * r;
+                    } else if (shapeA == CollisionShape::SEGMENT || shapeB == CollisionShape::SEGMENT) {
+                        PhysicsActor* segP = (shapeA == CollisionShape::SEGMENT) ? pA : pB;
+                        PhysicsActor* otherP = (shapeA == CollisionShape::SEGMENT) ? pB : pA;
+                        if (otherP->getShape() == CollisionShape::AABB) {
+                            Segment s = {segP->getSegmentA().x, segP->getSegmentA().y,
+                                         segP->getSegmentB().x, segP->getSegmentB().y};
+                            isColliding = intersects(s, otherP->getHitBox());
+                        } else {
+                            // SEGMENT vs SEGMENT has no narrow phase; fall back
+                            // to hitbox overlap (conservative, like the
+                            // non-physics branch below).
+                            isColliding = actor->getHitBox().intersects(other->getHitBox());
+                        }
                     } else {
                         PhysicsActor* circP = (shapeA == CollisionShape::CIRCLE) ? pA : pB;
                         PhysicsActor* boxP = (shapeA == CollisionShape::CIRCLE) ? pB : pA;

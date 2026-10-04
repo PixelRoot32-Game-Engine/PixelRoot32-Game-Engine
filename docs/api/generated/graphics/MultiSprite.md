@@ -21,5 +21,5 @@ enabling NES/GameBoy-style layered sprites.
 |------|------|-------------|
 | `width` | `uint8_t` | Sprite width in pixels (<= 16). |
 | `height` | `uint8_t` | Sprite height in pixels. |
-| `SpriteLayer` | `const` | Pointer to array of layers. |
+| `layers` | `const SpriteLayer*` | Pointer to array of layers. |
 | `layerCount` | `uint8_t` | Number of layers in the array. |

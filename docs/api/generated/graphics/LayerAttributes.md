@@ -62,6 +62,6 @@ Maximum 65535 tiles with attributes per layer (uint16_t limit)
 
 | Name | Type | Description |
 |------|------|-------------|
-| `char` | `const` | Layer name (PROGMEM string, e.g., "Background") |
+| `layer_name` | `const char*` | Layer name (PROGMEM string, e.g., "Background") |
 | `num_tiles_with_attributes` | `uint16_t` | Number of tiles with attributes in this layer |
-| `TileAttributeEntry` | `const` | PROGMEM array of tiles with attributes (sparse) |
+| `tiles` | `const TileAttributeEntry*` | PROGMEM array of tiles with attributes (sparse) |

@@ -12,7 +12,7 @@ This document describes the **Flat Solver**, the current physics system in Pixel
 
 ### 1.1 Design Philosophy
 
-- **Deterministic**: Fixed timestep (1/60s) ensures consistent behavior across hardware.
+- **Deterministic per build**: Fixed timestep (1/60s) removes frame-rate dependence, so the same build on the same target repeats itself given the same inputs on the same physics steps. It does not guarantee identical results across different hardware/targets (float vs. `Fixed16` targets, different CPUs/compilers, different frame timing — see issue #244).
 - **Stable**: Proper separation of velocity and position solvers eliminates jitter.
 - **Hardware-Optimized**: Uses `Fixed16` on non-FPU microcontrollers (ESP32-C3/C6) for high-performance math without the overhead of floating-point emulation.
 - **Precise Rounding**: Uses `MathUtil` rounding functions to ensure that small penetrations and velocities are handled consistently.
@@ -88,10 +88,6 @@ static constexpr Scalar BIAS = toScalar(0.2f);               // 20% correction p
 static constexpr Scalar VELOCITY_THRESHOLD = toScalar(0.5f); // Zero restitution below this
 static constexpr int VELOCITY_ITERATIONS = 2;                // Impulse solver iterations
 static constexpr Scalar CCD_THRESHOLD = toScalar(3.0f);      // CCD activation threshold
-
-// vPhysics Scheduler constants
-static constexpr Scalar VELOCITY_DAMPING = toScalar(0.999f);  // Per-frame velocity damping
-static constexpr Scalar MAX_VELOCITY = toScalar(500.0f);     // Maximum velocity cap (units/s)
 ```
 
 ---
@@ -154,9 +150,10 @@ void Scene::update(unsigned long deltaTime) {
 
 ```ini
 # platformio.ini
--D PIXELROOT32_VELOCITY_DAMPING=0.999           ; Per-frame damping (default)
--D PIXELROOT32_MAX_VELOCITY=500                  ; Max velocity (units/s, default)
+-D PIXELROOT32_VELOCITY_ITERATIONS=4              ; Impulse solver passes per step (default 2)
 ```
+
+> **Note:** `PIXELROOT32_VELOCITY_DAMPING` and `PIXELROOT32_MAX_VELOCITY` were removed (issue #242): nothing in the engine ever read them. Per-body damping is covered by `friction` (`RigidActor::integrate`).
 
 ---
 
@@ -176,6 +173,17 @@ void Scene::update(unsigned long deltaTime) {
 | AABB vs AABB | SAT (Separating Axis Theorem) |
 | Circle vs Circle | Distance check with vertical fallback for perfect overlap |
 | Circle vs AABB | Closest point clamping |
+| Circle vs Segment | Closest point on segment (interior: perpendicular normal; ends: radial normal); segment-vs-segment and AABB-vs-segment produce no contact |
+
+A segment collider is a static line at any angle: one segment per actor via
+`PhysicsActor::setSegment(a, b)` (endpoints relative to position; width/height
+sync to the bounding box so the broad phase is unchanged). Contacts flow
+through the standard impulse/restitution path, so a circle bounces off a
+diagonal wall with its tangent velocity preserved. Shared end points between
+two segments behave as zero-radius circles, so a body cannot slip through a
+corner joint. Shape validated by the Lunar Pool demo's cushion physics
+(`games/pool` in PixelRoot32-Demo-Projects); a polyline table maps to N static
+segment actors.
 
 ### 3.3 Contact Generation and Pool
 
@@ -523,23 +531,49 @@ Tune in `CollisionSystem.h` or override via `platforms/EngineConfig.h` / build f
 // Contact pool size (fixed array, no heap)
 #define PHYSICS_MAX_CONTACTS 128
 
+// Per-body broadphase candidate buffer (fixed array, no heap)
+#define PHYSICS_MAX_CANDIDATES_PER_BODY 64
+
 // Spatial grid: static = rebuilt when entities change; dynamic = per frame
 #define SPATIAL_GRID_MAX_STATIC_PER_CELL  12
 #define SPATIAL_GRID_MAX_DYNAMIC_PER_CELL 12
 ```
 
-**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage. See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
+### 9.1.1 Capacity limits and what happens at each one (issue #243)
 
-Solver tuning (in code):
+Every buffer below is fixed-size. When one is full, the extra work is **skipped**, and in debug builds (`PIXELROOT32_DEBUG_MODE`) the first hit logs a warning naming the limit and the flag that raises it. The cumulative totals are readable via `CollisionSystem::getDroppedEntityCount()` / `getDroppedContactCount()` / `getDroppedCandidateCount()` and `SpatialGrid::getDroppedStaticInserts()` / `getDroppedDynamicInserts()` (debug builds only). Release builds keep today's skip behavior at zero extra per-frame cost.
 
-```cpp
-// For more stable stacking (slower)
-static constexpr int VELOCITY_ITERATIONS = 4;  // Default: 2
-static constexpr Scalar BIAS = toScalar(0.3f); // Default: 0.2
+| Limit | Default flag | Consequence when reached |
+|-------|--------------|--------------------------|
+| `PHYSICS_MAX_ENTITIES` | `64` | The body is never added to physics (`CollisionSystem::addEntity`). |
+| `SPATIAL_GRID_MAX_STATIC_PER_CELL` | `12` | The static body is not registered in that cell and can miss collisions there. |
+| `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` | `12` | The moving body is not registered in that cell and can miss collisions there. A 15-ball pool rack can exceed this in one 32px cell. |
+| Candidates per body | `PHYSICS_MAX_CANDIDATES_PER_BODY=64` | Further broadphase candidates are not narrow-phase tested for that body. |
+| `PHYSICS_MAX_CONTACTS` | `128` | The contact is not resolved (bodies overlap without response). |
 
-// For looser collision (faster)
-static constexpr Scalar SLOP = toScalar(0.05f); // Default: 0.02
+The grid only covers the logical screen and positions outside it are clamped into the edge cells, so every out-of-screen body shares those few cells and counts against the per-cell caps.
+
+**ESP32 DRAM:** On boards with limited internal RAM, reducing `PHYSICS_MAX_CONTACTS` and `PHYSICS_MAX_PAIRS` (e.g. to 64) and/or `SPATIAL_GRID_MAX_STATIC_PER_CELL` and `SPATIAL_GRID_MAX_DYNAMIC_PER_CELL` (e.g. to 4) lowers `.dram0.bss` usage — but bodies past a lowered per-cell cap stop colliding in that cell (see table above). See [Memory Management Guide](memory-system.md#esp32-dram-and-build-configuration).
+
+Solver tuning via build flags (no engine header edits needed):
+
+```ini
+# platformio.ini
+-D PHYSICS_BIAS=0.3f                  ; 30% correction per step (default 0.2)
+-D PHYSICS_SLOP=0.05f                 ; ignore penetration below this (default 0.02)
+-D PHYSICS_REST_THRESHOLD=5.0f        ; snap slow unforced bodies to rest (default 0 = off)
+-D PIXELROOT32_VELOCITY_ITERATIONS=4  ; impulse solver passes (default 2)
 ```
+
+Each step removes `(penetration - SLOP) * BIAS`, so a larger `BIAS` separates overlapping bodies in fewer steps; correction stops at the `SLOP` floor.
+
+### Rest threshold
+
+Proportional friction (`velocity *= 1 - friction * dt`) decays slow bodies asymptotically — they creep instead of stopping. With `PHYSICS_REST_THRESHOLD` set (e.g. `5.0f`), `RigidActor::integrate()` snaps a body whose speed drops below the threshold to exactly zero velocity, provided the game applied no force to it that step (gravity injected by `integrate()` itself does not count). The default `0` disables the snap and preserves existing behavior.
+
+Two queries expose the state without the game iterating its own entities (turn-based games: pool, golf, artillery):
+- `PhysicsActor::isAtRest()` — true when velocity is exactly zero.
+- `CollisionSystem::allBodiesAtRest()` — true when every registered physics body is at rest.
 
 **Note:** These constants are only compiled when `PIXELROOT32_ENABLE_PHYSICS=1`.
 
@@ -624,7 +658,7 @@ void RigidActor::update(unsigned long deltaTime) {
 1. **More stable stacking**: Impulse solver handles multiple contacts better
 2. **Perfect elastic collisions**: Restitution 1.0 actually works now
 3. **No more sticking**: Proper separation of velocity/position phases
-4. **Deterministic**: Same inputs always produce same outputs
+4. **Deterministic per build**: Same inputs produce same outputs within the same build (see the determinism scope note under Key Design Principles)
 
 ---
 

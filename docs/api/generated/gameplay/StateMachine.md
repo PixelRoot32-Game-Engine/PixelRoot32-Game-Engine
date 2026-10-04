@@ -39,6 +39,7 @@ which is `float` on native and overflows Q16.16 after 32.7 s on the C3.
 
 | Name | Type | Description |
 |------|------|-------------|
+| `kInvalidStateId` | `static constexpr StateId` | No previous/next state (initial entry, teardown, or "unknown"). |
 | `onEnter` | `EnterFn` | May be null. |
 | `onUpdate` | `UpdateFn` | May be null. |
 | `onExit` | `ExitFn` | May be null. |

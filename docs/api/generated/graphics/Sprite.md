@@ -24,6 +24,6 @@ style assets) and keeps data in flash-friendly, constexpr-friendly form.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `uint16_t` | `const` | Pointer to packed row data (size = height). |
+| `data` | `const uint16_t*` | Pointer to packed row data (size = height). |
 | `width` | `uint8_t` | Sprite width in pixels (<= 16). |
 | `height` | `uint8_t` | Sprite height in pixels. |

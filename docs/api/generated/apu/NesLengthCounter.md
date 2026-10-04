@@ -23,3 +23,12 @@ keep `enabled=false` permanently and are unaffected by the dispatch
 loop. Hito 2 M4.
 
 Source: https://www.nesdev.org/wiki/APU_Length_Counter
+
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `enabled` | `bool` | Mirrors $4015 channel-enable bit. False = forced silence, true = armed. |
+| `halt` | `bool` | Halt flag (shared with envelope loop / linear counter). True = freeze decrement. |
+| `index` | `uint8_t` | 0..31; the loaded NES LUT index. |
+| `counter` | `uint16_t` | Remaining ticks; 0 = silenced on next half-clock. |

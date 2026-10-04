@@ -147,6 +147,20 @@ public:
                            int irisInCx, int irisInCy);
 
     /**
+     * @brief Start a transition from the full per-call description.
+     * @param newScene The target scene to transition to.
+     * @param config Transition type, duration, wipe direction, iris centers
+     *        and DiagonalWipe sub-step (issue #240).
+     *
+     * The single funnel behind every overload: stores the whole description
+     * and re-applies it after each effect.init() (Out phase and In phase),
+     * so a transition never inherits direction, sub-step or centers from an
+     * earlier one. Ignored if a transition is already running.
+     */
+    void transitionToScene(Scene* newScene,
+                           const pixelroot32::graphics::TransitionConfig& config);
+
+    /**
      * @brief Whether a scene transition is currently active.
      * @return true when TransitionState != Idle.
      */
@@ -204,6 +218,8 @@ private:
     int irisOutY_ = -1;   ///< Stored Out iris center Y (-1 = not set).
     int irisInX_ = -1;    ///< Stored In iris center X (-1 = not set).
     int irisInY_ = -1;    ///< Stored In iris center Y (-1 = not set).
+    pixelroot32::graphics::WipeDirection wipeDirection_ = pixelroot32::graphics::WipeDirection::NE_SW; ///< Stored wipe direction.
+    uint16_t subStepMs_ = 0; ///< Stored DiagonalWipe sub-step (0 = disabled).
 };
 
 }

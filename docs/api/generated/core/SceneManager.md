@@ -129,6 +129,23 @@ Start a transition with direction-specific iris centers.
 Stores the centers and re-applies them after each effect.init()
 (which resets centers to -1). Only meaningful for Iris transitions.
 
+### `void transitionToScene(Scene* newScene, const pixelroot32::graphics::TransitionConfig& config)`
+
+**Description:**
+
+Start a transition from the full per-call description.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `config`: Transition type, duration, wipe direction, iris centers
+       and DiagonalWipe sub-step (issue #240).
+
+The single funnel behind every overload: stores the whole description
+and re-applies it after each effect.init() (Out phase and In phase),
+so a transition never inherits direction, sub-step or centers from an
+earlier one. Ignored if a transition is already running.
+
 ### `bool isTransitioning() const`
 
 **Description:**

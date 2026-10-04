@@ -332,50 +332,64 @@ public:
 
 ### Level Transitions (Built-in)
 
-The engine provides a built-in scene transition system with Fade and Iris effects. Transitions are triggered via the `Engine::triggerTransition()` API and are feature-gated via `PIXELROOT32_ENABLE_SCENE_TRANSITIONS`.
+The engine provides a built-in scene transition system with Fade, Iris and DiagonalWipe effects. Transitions are triggered via the `Engine::triggerTransition()` API and are feature-gated via `PIXELROOT32_ENABLE_SCENE_TRANSITIONS`. The target scene is passed to `triggerTransition()` itself — the swap between the Out phase (visible → hidden) and the In phase (hidden → visible) is automatic, so do **not** call `setScene()` afterwards.
 
 ```cpp
 #include <Engine.h>
-#include <TransitionEffect.h>
 
 using namespace pixelroot32;
 
 // Fade transition (smooth black dimming)
 void GameLevel::completeLevel() {
-    // Trigger fade-out → scene swap → fade-in (500ms each phase)
+    // Trigger fade-out → automatic scene swap → fade-in (500ms each phase)
     engine->triggerTransition(
+        new NextLevel(),
         graphics::TransitionType::Fade,
-        500,  // duration in ms per phase
-        graphics::TransitionDirection::Out  // fade out first
+        500  // duration in ms per phase
     );
-    
-    // Scene is swapped automatically after fade-out completes
-    engine->setScene(new NextLevel());
 }
 
 // Iris transition (circular wipe)
 void GameLevel::enterBossRoom() {
     engine->triggerTransition(
+        new BossScene(),
         graphics::TransitionType::Iris,
-        400,
-        graphics::TransitionDirection::Out
+        400
     );
-    
-    engine->setScene(new BossScene());
 }
 
-// Iris with custom center (offset iris)
+// Iris with custom centers (offset iris, e.g. closing on the player)
 void GameLevel::teleportPlayer() {
-    graphics::TransitionEffect effect;
-    effect.setIrisCenter(128, 64);  // Right side of screen
-    
     engine->triggerTransition(
+        new TeleportScene(),
         graphics::TransitionType::Iris,
         300,
-        graphics::TransitionDirection::Out
+        128, 64,  // iris center for the Out (closing) phase
+        128, 64   // iris center for the In (opening) phase
     );
-    
-    engine->setScene(new TeleportScene());
+}
+
+// DiagonalWipe transition (corner-to-corner sweep)
+void GameLevel::slideToNextArea() {
+    engine->triggerTransition(
+        new NextArea(),
+        graphics::TransitionType::DiagonalWipe,
+        400
+    );
+}
+```
+
+For full control, pass a `graphics::TransitionConfig`: wipe direction (all four `WipeDirection` values), DiagonalWipe sub-step and per-phase iris centers in one call. The existing overloads stay and forward to it with defaults, and every call carries the whole description, so a transition never inherits the direction or sub-step of an earlier one.
+
+```cpp
+// DiagonalWipe from bottom-left to top-right, flicker-free sub-step
+void GameLevel::slideToNextArea() {
+    graphics::TransitionConfig config;
+    config.type = graphics::TransitionType::DiagonalWipe;
+    config.durationMs = 400;
+    config.wipeDirection = graphics::WipeDirection::SW_NE;
+    config.subStepMs = 16;  // quantise to ~60fps steps; 0 disables
+    engine->triggerTransition(new NextArea(), config);
 }
 ```
 
