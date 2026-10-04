@@ -63,4 +63,4 @@ Use helper functions like get_tile_attribute() for easier queries
 | `x` | `uint16_t` | Tile X coordinate in layer space |
 | `y` | `uint16_t` | Tile Y coordinate in layer space |
 | `num_attributes` | `uint8_t` | Number of attributes for this tile |
-| `TileAttribute` | `const` | PROGMEM array of attribute key-value pairs |
+| `attributes` | `const TileAttribute*` | PROGMEM array of attribute key-value pairs |

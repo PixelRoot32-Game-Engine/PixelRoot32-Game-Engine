@@ -28,6 +28,12 @@ for (uint8_t i = 0; i < count; i++) {
 }
 ```
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `kDragThreshold` | `static constexpr int16_t` | Drag threshold in pixels (ignore movement below this) - TEST: value = 5 |
+
 ## Methods
 
 ### `void reset()`

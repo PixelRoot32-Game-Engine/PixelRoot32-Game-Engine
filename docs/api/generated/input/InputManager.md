@@ -16,7 +16,7 @@ both ESP32 (via TouchManager) and Native (via mouse-to-touch mapping).
 
 | Name | Type | Description |
 |------|------|-------------|
-| `constexpr` | `static` | Maximum number of buttons supported. |
+| `MAX_BUTTONS` | `static constexpr uint8_t` | Maximum number of buttons supported. |
 
 ## Methods
 

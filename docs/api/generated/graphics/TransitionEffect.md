@@ -158,6 +158,14 @@ Set the wipe direction for DiagonalWipe transitions.
 
 Only relevant for DiagonalWipe transitions. Call after init().
 
+### `WipeDirection getWipeDirection() const`
+
+**Description:**
+
+Get the wipe direction for DiagonalWipe transitions.
+
+**Returns:** Current corner-to-corner direction.
+
 ### `void setHoldFrames(uint8_t frames)`
 
 **Description:**
@@ -191,6 +199,14 @@ Only affects DiagonalWipe transitions. Fade and Iris are unaffected.
 Default is 0 (disabled). Enable explicitly for DiagonalWipe when
       you observe boundary flicker during the wipe animation.
 :::
+
+### `uint16_t getSubStepMs() const`
+
+**Description:**
+
+Get the sub-step time for DiagonalWipe transitions.
+
+**Returns:** Sub-step duration in milliseconds (0 = disabled).
 
 ### `void computeFadeLut(uint8_t* lut, uint16_t scaledProgress) const`
 

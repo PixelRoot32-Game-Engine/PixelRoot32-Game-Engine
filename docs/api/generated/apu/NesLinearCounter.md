@@ -31,3 +31,13 @@ counter does not tick and the canonical track PCM is unchanged.
 Hito 2 M5.
 
 Source: https://www.nesdev.org/wiki/APU_Linear_Counter
+
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `linearEnabled` | `bool` | Per-voice opt-in. False = counter does not tick; bypasses the gate. |
+| `reloadFlag` | `bool` | Set by $4008 write; cleared on quarter-clock if the shared halt/control flag is 0. |
+| `reloadValue` | `uint8_t` | 7-bit reload value (high bits ignored). |
+| `counter` | `uint8_t` | Current value, decremented at quarter-clock rate (240 Hz NTSC mode 0). |
+| `lengthCounter` | `NesLengthCounter*` | Bound in AudioChannel::reset() to share the halt/control flag with the length counter. |

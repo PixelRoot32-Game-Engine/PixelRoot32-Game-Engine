@@ -224,7 +224,9 @@ struct DialogLine {
     /// set to false. Flash-resident asset data; never copied, never owned.
     /// The runner never reads these fields.
     const graphics::Sprite* portrait = nullptr;
+    /// 4-color face; same position and priority rules as `portrait` above.
     const graphics::Sprite2bpp* portrait2bpp = nullptr;
+    /// 16-color face; same position and priority rules as `portrait` above.
     const graphics::Sprite4bpp* portrait4bpp = nullptr;
     /// Sprite palette slot (0..7) resolving 2bpp/4bpp portrait colors.
     /// Ignored for a 1bpp portrait, which uses portraitInk instead.

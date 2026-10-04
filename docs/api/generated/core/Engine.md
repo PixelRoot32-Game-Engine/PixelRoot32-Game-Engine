@@ -99,6 +99,22 @@ Start a visual scene transition with direction-specific iris centers.
 Delegates to SceneManager::transitionToScene() with centers.
 Only meaningful for Iris transitions — Fade ignores centers.
 
+### `void triggerTransition(Scene* newScene, const pixelroot32::graphics::TransitionConfig& config)`
+
+**Description:**
+
+Start a visual scene transition from the full per-call description.
+
+**Parameters:**
+
+- `newScene`: The target scene to transition to.
+- `config`: Transition type, duration, wipe direction, iris centers
+       and DiagonalWipe sub-step (issue #240).
+
+The existing overloads stay and forward to it with defaults.
+Delegates to SceneManager::transitionToScene(). Ignored if a
+transition is already in progress.
+
 ### `std::optional<Scene*> getCurrentScene() const`
 
 **Description:**

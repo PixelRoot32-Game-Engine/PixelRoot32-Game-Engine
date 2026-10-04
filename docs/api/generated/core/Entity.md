@@ -22,6 +22,7 @@ Uses adaptable Scalar type for position to ensure consistent physics across plat
 | `type` | `EntityType` | The specific type of this entity. |
 | `isVisible` | `bool` | If false, the entity's draw method will not be called. |
 | `isEnabled` | `bool` | If false, the entity's update method will not be called. |
+| `depthKey` | `int16_t` | Paint-order key, written by game code and only ever COMPARED by the engine (see gameplay::compareByDepthKey). |
 
 ## Methods
 

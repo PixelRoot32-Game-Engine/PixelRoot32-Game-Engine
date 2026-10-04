@@ -221,6 +221,19 @@ Gets the velocity vector.
 
 **Returns:** Reference to the velocity Vector2.
 
+### `bool isAtRest() const`
+
+**Description:**
+
+Checks whether this body is at rest.
+
+**Returns:** True when velocity is exactly zero (issue #246).
+
+Static bodies are always at rest. Rigid bodies reach exact zero through
+the rest threshold (see RigidActor::kRestThreshold) or by having their
+velocity zeroed outright. A slowly creeping body under pure proportional
+friction is NOT at rest.
+
 ### `void setRestitution(pixelroot32::math::Scalar r)`
 
 **Description:**
@@ -284,6 +297,33 @@ Sets the radius and updates width/height to match diameter.
 **Parameters:**
 
 - `r`: Radius value.
+
+### `void setSegment(pixelroot32::math::Vector2 a, pixelroot32::math::Vector2 b)`
+
+**Description:**
+
+Defines the line segment collider (only for Shape::SEGMENT).
+
+**Parameters:**
+
+- `a`: First endpoint, relative to position.
+- `b`: Second endpoint, relative to position.
+
+### `pixelroot32::math::Vector2 getSegmentA() const`
+
+**Description:**
+
+Gets the first segment endpoint in world coordinates.
+
+**Returns:** position + the first offset passed to setSegment.
+
+### `pixelroot32::math::Vector2 getSegmentB() const`
+
+**Description:**
+
+Gets the second segment endpoint in world coordinates.
+
+**Returns:** position + the second offset passed to setSegment.
 
 ### `void setUserData(void* data)`
 

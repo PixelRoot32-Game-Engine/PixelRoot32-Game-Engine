@@ -22,7 +22,7 @@ moveAndSlide for complex character movement.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `constexpr` | `static` | Minimum snap magnitude for SnapPolicy::Step. |
+| `MIN_SNAP` | `static constexpr pixelroot32::math::Scalar` | Minimum snap magnitude for SnapPolicy::Step. |
 
 ## Methods
 

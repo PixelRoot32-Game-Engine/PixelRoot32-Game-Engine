@@ -19,6 +19,14 @@ Time beyond the ceiling is kept in the accumulator, not discarded.
 Zero-heap and zero-allocation: the whole state is an accumulator and a step
 counter.
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `FIXED_DT_MICROS` | `static constexpr uint32_t` | Fixed timestep in microseconds (60 Hz) |
+| `MAX_STEPS_NORMAL` | `static constexpr uint8_t` | Maximum physics steps per frame under normal conditions |
+| `MAX_STEPS_BACKLOG` | `static constexpr uint8_t` | Maximum physics steps when behind (catch-up mode) |
+
 ## Methods
 
 ### `inline void init()`

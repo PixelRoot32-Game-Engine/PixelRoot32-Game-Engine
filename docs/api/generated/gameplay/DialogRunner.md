@@ -91,6 +91,31 @@ Because a start() made from `onEvent` is dropped, a callback cannot
 choose the next line from game state after a choice. The class
 description shows the supported same-frame restart pattern.
 
+### `void setChoiceFilter(void* owner, ChoiceFilterFn filter)`
+
+**Description:**
+
+Binds the optional per-choice visibility filter.
+
+**Parameters:**
+
+- `owner`: Opaque pointer forwarded uncast to every filter call; may be null.
+- `filter`: Predicate the runner calls lazily for each candidate
+       choice whenever it evaluates choiceCount()/choice()/select(),
+       ShowingChoices feed() input, or refreshChoices(). A null filter
+       (the default) shows every choice.
+
+The filter MUST be pure: it must not call back into this runner
+(feed()/update()/start()/stop()/select()/refreshChoices() or any
+accessor). The runner invokes it while evaluating its own accessors,
+so a reentrant call would recurse; an in-filter guard fails open
+(shows every choice) rather than recursing, but well-behaved filters
+never rely on it. Changing the binding is never itself a visible
+change -- call refreshChoices() afterwards when the visible set may
+have changed and the runner should renormalize its selection.
+
+Zero heap; stores two pointers only.
+
 ### `bool start(const DialogScript& script, LineId first = 0)`
 
 **Description:**
@@ -280,6 +305,13 @@ The current line's effective choice count.
         DialogLine::firstChoice that is itself out of range or equal
         to kNoChoice.
 
+        When a ChoiceFilterFn is bound (see setChoiceFilter), the
+        count is instead the number of VISIBLE choices -- candidates
+        the filter hides are compacted out, so every index below the
+        returned count addresses a visible choice through choice().
+        A line with every choice hidden reports 0, exactly like a
+        line with zero usable choices.
+
         WHY CLAMP RATHER THAN REJECT THE SCRIPT IN start(): a
         malformed choice range is a per-line authoring error, and
         start() may be asked to run a script long before the offending
@@ -300,7 +332,10 @@ The choice at `index` on the current ShowingChoices line.
 **Parameters:**
 
 - `index`: Zero-based index, local to the current line (not an
-       offset into DialogScript::choices).
+       offset into DialogScript::choices). Under a ChoiceFilterFn
+       this is an index into the VISIBLE choices, compacted over the
+       hidden ones -- `line.firstChoice + index` is NOT valid then;
+       the runner translates.
 
 **Returns:** nullptr when state() != ShowingChoices or `index >=
         choiceCount()`. Never dereferences DialogScript::choices
@@ -314,6 +349,11 @@ The currently selected choice on a ShowingChoices line.
 
 **Returns:** selected_, or kNoChoice when state() != ShowingChoices or the
         current line has zero usable choices (choiceCount() == 0).
+        Under a ChoiceFilterFn this is an index into the VISIBLE
+        choices; kNoChoice is also returned when the stored selection
+        no longer addresses a visible choice (the filter hid it since
+        the selection was made) -- feed()/select()/refreshChoices()
+        renormalize the stored value, const accessors only report.
         Reset to 0 on entering a ShowingChoices line with at least
         one usable choice, and to kNoChoice on entering any other
         line, or a ShowingChoices line with none.
@@ -326,7 +366,8 @@ Sets the selection directly, for touch hit-testing.
 
 **Parameters:**
 
-- `index`: Zero-based index, local to the current line.
+- `index`: Zero-based index, local to the current line. Under a
+       ChoiceFilterFn this is an index into the VISIBLE choices.
 
 **Returns:** false, changing nothing, when state() != ShowingChoices or
         `index >= choiceCount()`. Both rejection causes collapse to
@@ -350,3 +391,9 @@ Sets the selection directly, for touch hit-testing.
         selection, or finishes, which leaves the state every choice
         accessor gates on. So drive a touch hit-test from LineEnter,
         not from ChoiceConfirmed.
+
+### `void refreshChoices()`
+
+**Description:**
+
+Renormalizes the selection against the current filter result.

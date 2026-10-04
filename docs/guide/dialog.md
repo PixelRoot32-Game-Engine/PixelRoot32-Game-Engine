@@ -428,7 +428,6 @@ The 1.11.0 MVP is deliberately small. It has **no**:
 - conditions, variables or text interpolation — branch with `start(script, first)` from game state, or with separate static choice lines;
 - per-character text reveal or per-character sound;
 - localization text table;
-- multi-column option rows with per-column colour — a padded literal (`"SHIELD   30"`) carries a price today;
 - `GameplayEventBus` bridge — tags already reach the game through `DialogEventFn`.
 
 Each of these is listed under **Dialog System, post-MVP** in the [roadmap](../roadmap.md), and each is waiting for a game to need it. An RPG slice built on the MVP needed none of them, so none has been implemented on speculation.

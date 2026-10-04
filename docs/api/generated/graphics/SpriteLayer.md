@@ -15,5 +15,5 @@ provide its own bitmap and color.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `uint16_t` | `const` | Pointer to packed row data for this layer. |
+| `data` | `const uint16_t*` | Pointer to packed row data for this layer. |
 | `color` | `Color` | Color used for "on" pixels in this layer. |

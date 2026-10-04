@@ -18,16 +18,21 @@ method.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `speakerX` | `int16_t` | Valid when hasSpeaker. |
-| `bodyX` | `int16_t` | Top-left of body line 0. |
-| `choiceX` | `int16_t` | Top-left of choice row 0, gutter included. |
+| `speakerX` | `int16_t` | Valid when hasSpeaker. In the text column (see below). |
+| `bodyX` | `int16_t` | Top-left of body line 0. In the text column. |
+| `choiceX` | `int16_t` | Top-left of choice row 0: FULL content width, gutter included. |
 | `choiceW` | `int16_t` | Row width (panel inner width), gutter included. |
 | `caretGutterPx` | `int16_t` | Width reserved for the caret; 0 when it is disabled. |
-| `choiceTextX` | `int16_t` | choiceX + caretGutterPx. Where option text starts. |
+| `caretX` | `int16_t` | Caret column: text-column origin (past a left portrait), choiceX without one. choiceRect() stays full-width. |
+| `choiceTextX` | `int16_t` | caretX + caretGutterPx. Where option text starts. |
+| `detailRightX` | `int16_t` | Trailing edge of the text column; detail right-aligns here. |
+| `portraitX` | `int16_t` | Top-left of the portrait; valid when hasPortrait. |
+| `portraitW` | `int16_t` | Portrait size in px (1:1 Sprite dims); valid when hasPortrait. |
 | `bodyLineCount` | `uint8_t` | Rows valid in bodyLines. |
 | `choiceCount` | `uint8_t` | Already clamped to DialogMaxChoices. |
 | `pageCount` | `uint8_t` | Total pages of the current line's text. |
 | `page` | `uint8_t` | Zero-based current page index. |
+| `portraitRight` | `bool` | True when kLineFlagPortraitRight mirrors the portrait. |
 
 ## Methods
 
@@ -159,4 +164,12 @@ This is the way to check that a style fits a fixed area such
       as a HUD strip before choosing DialogBoxStyle::h, which draw()
       uses as-is without clipping. The per-line height formula, and
       how `padding` enters it, is in the DialogBoxStyle description.
+:::
+
+::: tip
+A ChoiceFilterFn can only SHRINK the drawn option list, never
+      grow it: this measures the UNFILTERED maximum, so a panel sized
+      from it always fits, filtered or not. There is no runner (and
+      hence no filter) to measure against here by design -- the panel
+      is sized once, up front, for the worst case.
 :::

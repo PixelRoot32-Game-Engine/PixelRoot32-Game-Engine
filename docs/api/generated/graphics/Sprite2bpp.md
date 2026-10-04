@@ -12,8 +12,10 @@ Sprite descriptor for 2bpp (4-color) multi-color sprites.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `uint8_t` | `const` | Pointer to 2bpp bitmap data. |
-| `Color` | `const` | Pointer to color palette (max 4 colors). |
+| `data` | `const uint8_t*` | Pointer to 2bpp bitmap data. |
+| `palette` | `const Color*` | Pointer to color palette (max 4 colors). |
 | `width` | `uint8_t` | Sprite width in pixels. |
 | `height` | `uint8_t` | Sprite height in pixels. |
 | `paletteSize` | `uint8_t` | Number of colors in the palette. |
+| `rowMinX` | `const uint8_t*` | Optional per-row opaque span (start col). nullptr = full bbox. |
+| `rowMaxX` | `const uint8_t*` | Optional per-row opaque span (one past last col). nullptr = full bbox. |

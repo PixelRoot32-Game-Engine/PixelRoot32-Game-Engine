@@ -53,6 +53,12 @@ scene.addEntity(&hearts);
 
 [UIElement](./UIElement.md) → `UISpriteRow`
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `kMaxStates` | `static constexpr int` | Number of fill states an icon can have, empty through full. |
+
 ## Methods
 
 ### `explicit UISpriteRow(pixelroot32::math::Vector2 position)`

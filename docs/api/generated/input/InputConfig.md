@@ -27,3 +27,12 @@ pr32::input::InputConfig config{};
 
 
 InputManager
+
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `MAX_INPUT_COUNT` | `static constexpr size_t` | Maximum number of inputs supported (compile-time fixed size). |
+| `buttonNames` | `std::array<uint8_t, MAX_INPUT_COUNT>` | Array of SDL scancodes for Native platform. |
+| `inputPins` | `std::array<int, MAX_INPUT_COUNT>` | Array of GPIO pin numbers for ESP32. |
+| `count` | `size_t` | Total number of configured inputs (auto-deduced from constructor arguments). |

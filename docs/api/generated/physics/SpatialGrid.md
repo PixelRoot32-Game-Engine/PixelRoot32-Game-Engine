@@ -66,6 +66,26 @@ Gets potential colliders for a given actor from the grid.
 - `count`: Reference to store the number of colliders found.
 - `maxCount`: Maximum number of colliders to return.
 
+### `static unsigned getDroppedStaticInserts()`
+
+**Description:**
+
+Number of static registrations refused because a cell reached
+       SPATIAL_GRID_MAX_STATIC_PER_CELL.
+
+### `static unsigned getDroppedDynamicInserts()`
+
+**Description:**
+
+Number of dynamic registrations refused because a cell reached
+       SPATIAL_GRID_MAX_DYNAMIC_PER_CELL.
+
+### `static void resetLimitDropCounters()`
+
+**Description:**
+
+Resets both per-cell drop counters.
+
 ### `int queryRadius(pixelroot32::math::Vector2 center, pixelroot32::math::Scalar radius, pixelroot32::core::Actor** outArray, int maxCount)`
 
 **Description:**
