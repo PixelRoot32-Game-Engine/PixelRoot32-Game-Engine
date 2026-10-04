@@ -30,3 +30,16 @@ quarter-frame dispatch is a no-op and the canonical track PCM
 remains byte-for-byte identical. Hito 2 M7.
 
 Source: https://www.nesdev.org/wiki/APU_Envelope
+
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `envelopeEnabled` | `bool` | Per-voice opt-in. False = quarter-clock dispatch is a no-op for this voice. |
+| `startFlag` | `bool` | Set by $4003 / $4007 / $400F write; cleared on the next quarter-clock. |
+| `constVolume` | `bool` | C bit (constant volume flag). True = use VVVV directly as output. |
+| `volume` | `uint8_t` | VVVV (4 bits) — constant volume (C=1) or divider reload value (C=0). |
+| `dividerCounter` | `uint8_t` | Current divider counter, decremented each quarter-clock while > 0. |
+| `decayLevel` | `uint8_t` | 0..15. Decremented on each divider wrap; wraps to 15 on loop. |
+| `output` | `uint8_t` | 0..15, computed output = constVolume ? volume : decayLevel. |
+| `lengthCounter` | `NesLengthCounter*` | Bound in AudioChannel::reset() to share the halt/loop flag with the length counter. |

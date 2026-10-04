@@ -30,10 +30,10 @@ Connections are stored by direction index (0 = Up, 1 = Down, 2 = Left,
 | `cameraMaxX` | `math::Scalar` | Right camera bound (world units) |
 | `cameraMaxY` | `math::Scalar` | Bottom camera bound (world units) |
 | `tileOriginCol` | `int16_t` | Tile window origin column (-1 = unused) |
-| `tileOriginRow` | `int16_t` | Tile window origin row    (-1 = unused) |
+| `tileOriginRow` | `int16_t` | Tile window origin row (-1 = unused) |
 | `tileCols` | `int16_t` | Tile window width in tiles |
 | `tileRows` | `int16_t` | Tile window height in tiles |
 | `hasTileWindow` | `bool` | True if tile window fields are valid |
 | `connections_` | `int` | Target room indices by direction (Up/Down/Left/Right) |
 | `connectionCount_` | `uint8_t` | Number of valid connections |
-| `constexpr` | `static` | Sentinel for unused connection slots |
+| `INVALID_ROOM` | `static constexpr int` | Sentinel for unused connection slots |

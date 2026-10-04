@@ -23,3 +23,14 @@ original M14 sketch listed it. That flag is owned per NOTE by
 trigger, unlike the per-SLOT modes below. Putting it in this struct
 would give one field two owners, and the preset would silently win on
 the next note.
+
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `lengthCounterEnabled` | `bool` | Arms the M4 length counter (`$4015` channel enable). |
+| `linearCounterEnabled` | `bool` | Arms the M5 linear counter (TRIANGLE only). |
+| `envelopeEnabled` | `bool` | Arms the M7 envelope (PULSE / NOISE only). |
+| `sweepUnitEnabled` | `bool` | Arms the M6 sweep unit (PULSE only). NOT the `$4001` E bit. |
+| `pulseDutyIndex` | `uint8_t` | M2 duty mode: 0..3 select NES patterns, 255 = continuous. |
+| `noiseLutIndex` | `uint8_t` | M8 noise period: 0..15 select a LUT entry, 255 = from frequency. |

@@ -20,6 +20,7 @@ in rendering calls.
 
 | Name | Type | Description |
 |------|------|-------------|
+| `kNoGlyph` | `static constexpr uint16_t` | Sentinel returned by getGlyphIndex() when no glyph is found. |
 | `index` | `uint16_t` | Index into glyphs[] or extGlyphs[]; kNoGlyph if undrawable |
 | `bytes` | `uint8_t` | Bytes consumed from `text` at `pos` (1-4) |
 | `extended` | `bool` | true when `index` addresses extGlyphs (apply extYOffset) |

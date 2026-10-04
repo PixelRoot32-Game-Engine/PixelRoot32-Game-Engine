@@ -13,8 +13,12 @@ branch the player took.
 
 ## Requirements (build flags)
 
-- **`PIXELROOT32_ENABLE_DIALOG=1`** — the only flag this example turns on;
-  everything else keeps the engine's default build flags.
+- **`PIXELROOT32_ENABLE_DIALOG=1`** — the dialog headers (`DialogTypes`,
+  `DialogRunner`, `DialogBox`).
+- **`PIXELROOT32_ENABLE_2BPP_SPRITES` / `PIXELROOT32_ENABLE_4BPP_SPRITES`** —
+  the multi-color portrait blits. Without them a 2bpp/4bpp portrait is a
+  compiled-out no-op and the speaker never appears; everything else keeps
+  the engine's default build flags.
 
 See [`PlatformDefaults.h`](../../include/platforms/PlatformDefaults.h) for
 every other default.

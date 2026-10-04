@@ -21,7 +21,7 @@ The pipeline is:
 
 | Name | Type | Description |
 |------|------|-------------|
-| `constexpr` | `static` | Fixed-size circular buffer |
+| `CIRCULAR_BUFFER_SIZE` | `static constexpr uint8_t` | Fixed-size circular buffer |
 
 ## Methods
 

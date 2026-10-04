@@ -20,6 +20,12 @@ Thread-safety: Atomic head/tail loads and stores for SPSC handoff.
 Safe for one producer and one consumer; not wait-free under contention from
 multiple producers.
 
+## Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `CAPACITY` | `static constexpr size_t` | Default queue capacity in commands. |
+
 ## Methods
 
 ### `bool enqueue(const AudioCommand& cmd)`

@@ -506,6 +506,99 @@ def parse_header_file(file_path: str) -> List[ClassDoc]:
     return classes
 
 
+def split_member_declarator(decl: str) -> Optional[Tuple[str, str]]:
+    """Split a single data-member declaration into (type, name).
+
+    Handles what the old first-word regex mangled: pointer/reference
+    declarators (`const char* text` -> ("const char*", "text")), defaults
+    (`Color panel = Color::Black`), array sizes (`uint8_t m[4]`) and
+    multi-declarations (first declarator only, e.g. `int x, y` -> "x").
+    Returns None for non-members: methods (have parens), preprocessor
+    lines, using/typedef/friend/template/enum/struct/class/union
+    declarations, bitfields and anything without an identifier.
+    """
+    text = decl.strip()
+    if not text or text.startswith('#') or text.startswith('/'):
+        return None
+    head_keywords = ('using ', 'typedef ', 'friend ', 'template', 'enum ',
+                     'struct ', 'class ', 'union ', 'static_assert')
+    if text.startswith(head_keywords):
+        return None
+    # Drop the default initializer first, so parens inside it (e.g.
+    # `= pixelroot32::math::toScalar(0)`) do not read as a method call.
+    # Only a '=' at paren depth 0 starts a default; '==' and friends never do,
+    # and neither does the '=' inside an operator name (operator=, operator==).
+    cut_eq = len(text)
+    depth = 0
+    pos = 0
+    while pos < len(text):
+        ch = text[pos]
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth = max(0, depth - 1)
+        elif ch == '=' and depth == 0:
+            nxt = text[pos + 1] if pos + 1 < len(text) else ''
+            prv = text[pos - 1] if pos > 0 else ''
+            if nxt != '=' and prv not in '<>=!' and not re.search(r'operator\s*$', text[:pos]):
+                cut_eq = pos
+                break
+        pos += 1
+    text = text[:cut_eq]
+    if '(' in text:
+        return None  # a paren in the declarator itself: method, assert, call
+    # First declarator only, ignoring commas nested in template args
+    # (e.g. std::vector<std::pair<A, B>>).
+    depth = 0
+    cut = len(text)
+    for pos, ch in enumerate(text):
+        if ch == '<':
+            depth += 1
+        elif ch == '>':
+            depth = max(0, depth - 1)
+        elif ch == ',' and depth == 0:
+            cut = pos
+            break
+    first = text[:cut]
+    # Drop array bounds and braced initializers (Type name{}).
+    first = re.sub(r'\[[^\]]*\]', '', first)
+    first = re.sub(r'\{[^}]*\}\s*$', '', first).strip().rstrip(';').strip()
+    if re.search(r':\s*\d+\s*$', first):
+        return None  # bitfield
+    name_match = re.search(r'(\w+)\s*$', first)
+    if not name_match:
+        return None
+    name = name_match.group(1)
+    if name[0].isdigit():
+        return None
+    prop_type = first[:name_match.start()].strip()
+    if not prop_type:
+        return None
+    invalid_names = {'if', 'for', 'while', 'return', 'class', 'struct', 'switch',
+                     'case', 'public', 'private', 'protected', 'true', 'false',
+                     'nullptr', 'const', 'constexpr', 'static', 'virtual',
+                     'inline', 'explicit', 'void', 'bool', 'char', 'int',
+                     'unsigned', 'long', 'short', 'float', 'double'}
+    if name in invalid_names:
+        return None
+    return prop_type, name
+
+
+def brief_of_doc_block(cleaned_lines: List[str]) -> str:
+    """Single-line brief for a member's leading /// block (table cells)."""
+    parsed = parse_doc_comment('/**\n' + '\n'.join(cleaned_lines) + '\n*/')
+    text = parsed.brief
+    if not text:
+        # No @brief: first paragraph, like Doxygen's implicit brief.
+        para: List[str] = []
+        for line in cleaned_lines:
+            if not line.strip():
+                break
+            para.append(line.strip())
+        text = ' '.join(para)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
 def parse_class_body(body: str, class_doc: ClassDoc):
     """Parse the body of a class/struct to extract methods and properties."""
     lines = body.split('\n')
@@ -513,54 +606,122 @@ def parse_class_body(body: str, class_doc: ClassDoc):
     current_access = "private" if class_doc.type == "class" else "public"
     
     i = 0
+    # Leading /// doc block waiting for the member it documents. Filled by
+    # pure /// comment lines, consumed (attached or discarded) by the next
+    # code line, and cleared by anything that breaks Doxygen association:
+    # blank lines, other comment styles and access specifiers.
+    pending_doc: List[str] = []
+    # Same for /** */ blocks documenting a member (as opposed to the /** */
+    # blocks parse_header_file attaches to methods). Accumulated line by
+    # line; see below.
+    in_block = False
+    block_buf: List[str] = []
+
     while i < len(lines):
         line = lines[i].strip()
-        
+
         # Track access specifier
         if line.startswith('public:'):
             current_access = "public"
+            pending_doc = []
             i += 1
             continue
         elif line.startswith('private:'):
             current_access = "private"
+            pending_doc = []
             i += 1
             continue
         elif line.startswith('protected:'):
             current_access = "protected"
+            pending_doc = []
             i += 1
             continue
-        
+
         # Skip private/protected members
         if current_access != "public":
             i += 1
             continue
-        
+
+        # A /** */ block: accumulate until it closes, then hold it as the
+        # pending member doc. Handled here (not via method lookahead) so a
+        # method pages below cannot swallow the member this block documents.
+        if in_block or line.startswith('/**'):
+            if line.startswith('/**'):
+                in_block = True
+                line = re.sub(r'^/\*\*\s?', '', line)
+            if '*/' in line:
+                line = line.split('*/')[0]
+                in_block = False
+            cleaned = re.sub(r'^\s*\*\s?', '', line).strip()
+            if cleaned:
+                block_buf.append(cleaned)
+            elif block_buf:
+                block_buf.append('')
+            if not in_block:
+                pending_doc = [b for b in block_buf]
+                block_buf = []
+            i += 1
+            continue
+
+        # A leading /// block (not a ///< trailing marker): stash its text
+        # and move on WITHOUT running method lookahead here, so a method
+        # pages below cannot swallow the member this block documents.
+        if line.startswith('///') and '///<' not in line[:4]:
+            pending_doc.append(re.sub(r'^///\s?', '', line))
+            i += 1
+            continue
+
+        if not line or line.startswith('//') or line.startswith('/*') or line.startswith('*'):
+            pending_doc = []
+            # Fall through: method lookahead below skips these lines itself.
+
         # Look for inline property documentation with ///<
         # Match patterns like: "Type name; ///< doc" or "Type name = value; ///< doc"
-        # Handle multi-variable declarations like "int x, y; ///< pos" - capture first only
-        # The key is to stop at the FIRST variable name (before comma if present)
-        inline_prop_match = re.match(
-            r'^\s*([\w:<>,\s&*]+?)\s+(\w+)\b',  # Type and first variable name (word boundary)
-            line
-        )
-        if inline_prop_match and '///<' in line:
+        # Declarators are split by split_member_declarator, which understands
+        # pointers, defaults, arrays and first-of-multi declarations.
+        if '///<' in line:
             # Extract the doc part after ///<
             doc_match = re.search(r'///<\s*(.+)$', line)
             if doc_match:
                 full_before_semicolon = line.split(';')[0] if ';' in line else line.split('///<')[0]
-                
-                # Parse type and first variable name
-                type_var_match = re.match(r'^\s*([\w:<>,\s&*]+?)\s+(\w+)\b', full_before_semicolon)
-                if type_var_match:
-                    prop_type = type_var_match.group(1).strip()
-                    prop_name = type_var_match.group(2)
-                    prop_doc = doc_match.group(1).strip()
-                    
-                    # Filter out obvious non-properties and keywords
-                    invalid_names = {'if', 'for', 'while', 'return', 'class', 'struct', 'switch', 'case'}
-                    if prop_name not in invalid_names and not any(p.name == prop_name for p in class_doc.properties):
+
+                split = split_member_declarator(full_before_semicolon)
+                if split:
+                    prop_type, prop_name = split
+                    doc_lines = [doc_match.group(1).strip()]
+                    # Continuation lines (///< on their own lines) belong
+                    # to the same trailing doc; consume them so the doc
+                    # is not truncated to its first line.
+                    k = i + 1
+                    while k < len(lines) and lines[k].strip().startswith('///<'):
+                        doc_lines.append(
+                            re.sub(r'^///<\s?', '', lines[k].strip()))
+                        k += 1
+                    if k > i + 1:
+                        i = k - 1  # re-process the first non-continuation line
+                    prop_doc = re.sub(r'\s+', ' ', ' '.join(doc_lines)).strip()
+
+                    # Filter out duplicates
+                    if not any(p.name == prop_name for p in class_doc.properties):
                         prop = Property(name=prop_name, type=prop_type, doc=prop_doc)
                         class_doc.properties.append(prop)
+            pending_doc = []
+
+        elif pending_doc and ';' in line:
+            # A leading doc block followed by a single-line member: attach
+            # the block's brief. A nested type definition (struct Layout)
+            # is not a member -- its own tag owns that doc block.
+            # Anything else (methods, macros, closers) just consumes it.
+            if re.match(r'^\s*(struct|class|enum|union)\s+(class\s+)?\w+\s*[{;]', line):
+                pending_doc = []
+            else:
+                split = split_member_declarator(line.split(';')[0])
+                if split and not any(p.name == split[1] for p in class_doc.properties):
+                    prop_type, prop_name = split
+                    prop = Property(name=prop_name, type=prop_type,
+                                    doc=brief_of_doc_block(pending_doc))
+                    class_doc.properties.append(prop)
+                pending_doc = []
         
         # Look for methods without preceding doc comments (support multi-line)
         method_info = None
@@ -621,8 +782,19 @@ def parse_class_body(body: str, class_doc: ClassDoc):
                     )
                     class_doc.methods.append(method)
                 i = j + 1  # Advance to the end of the signature
+                pending_doc = []  # a jumped-over /// block must not leak to later members
                 break  # Found method, stop multiline accumulation
-        
+
+        # Lookahead ran: whatever it did with the lines, the pending member
+        # doc no longer precedes the next unprocessed line, so it is
+        # orphaned either way. Dropping it keeps continuation lines of an
+        # unparseable construct (e.g. a multi-line signature
+        # extract_method_signature rejects) from being re-processed as
+        # fresh members with a stale doc attached. Every path that needs
+        # the pending doc (trailing ///</leading block attach above)
+        # already consumed it before this point.
+        pending_doc = []
+
         if not method_info:
             i += 1
 

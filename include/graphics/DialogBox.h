@@ -40,7 +40,7 @@ enum class DialogPortraitSize : uint8_t {
  *
  * Pointer first, tags last (the same field-packing convention
  * DialogRunner and DialogTypes follow, copied from StateMachine): `font`
- * leads, the 18 scalar/enum fields follow.
+ * leads, the 20 scalar/enum fields follow.
  *
  * Colours: `panel`, `border`, `ink`, `inkDim` and `inkSelected` are Color
  * names, not RGB565 values. DialogBox::draw() hands them to the renderer,

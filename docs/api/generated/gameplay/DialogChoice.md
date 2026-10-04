@@ -8,15 +8,18 @@
 
 One selectable option on a DialogState::ShowingChoices line.
 
-8 bytes on ESP32 (4-byte pointer), 16 on 64-bit native -- this exact
+12 bytes on ESP32 (two 4-byte pointers), 24 on 64-bit native -- this exact
 figure is the regression guard `test_dialog_types_dialog_choice_size_guard`
 pins, so growing this struct is a conscious, reviewed change rather
-than silent drift in a game's flash budget.
+than silent drift in a game's flash budget. Grew from 8/16 when the
+optional second-column `detail` literal was added (multi-column option
+rows, second post-MVP dialog item).
 
 ## Properties
 
 | Name | Type | Description |
 |------|------|-------------|
-| `char` | `const` | Flash literal. Never copied. |
+| `text` | `const char*` | Main label, left-aligned. Flash literal. Never copied. |
+| `detail` | `const char*` | Optional second column (e.g. a price), right-aligned. Flash literal. nullptr (the default, so existing 3-value initializers keep compiling) draws the classic single-column row with identical geometry. Never wrapped, like `text`: keep `text + detail` within the panel's content width (see DialogBoxStyle). |
 | `next` | `LineId` | kNoLine ends the dialog. |
 | `tag` | `uint16_t` | Opaque game code. |

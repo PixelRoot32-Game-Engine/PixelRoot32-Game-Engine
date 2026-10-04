@@ -16,6 +16,7 @@ without an FPU (e.g., ESP32-C3 RISC-V).
 
 | Name | Type | Description |
 |------|------|-------------|
+| `stage` | `Stage` | Current ADSR stage. |
 | `attackSamples` | `uint32_t` | Samples for attack phase (0 = instantaneous). |
 | `decaySamples` | `uint32_t` | Samples for decay phase. |
 | `sustainLevel` | `float` | Target volume at sustain phase [0.0 - 1.0]. |

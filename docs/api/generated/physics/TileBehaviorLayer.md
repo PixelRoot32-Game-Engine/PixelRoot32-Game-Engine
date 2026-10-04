@@ -15,6 +15,6 @@ and provides efficient access to tile behavior flags without runtime strings.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `uint8_t` | `const` | Pointer to dense uint8_t array (1 byte per tile) |
+| `data` | `const uint8_t*` | Pointer to dense uint8_t array (1 byte per tile) |
 | `width` | `uint16_t` | Layer width in tiles |
 | `height` | `uint16_t` | Layer height in tiles |

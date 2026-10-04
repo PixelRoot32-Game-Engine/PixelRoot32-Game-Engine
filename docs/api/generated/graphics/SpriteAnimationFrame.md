@@ -16,5 +16,5 @@ sprites without exposing bit-level details to game code.
 
 | Name | Type | Description |
 |------|------|-------------|
-| `Sprite` | `const` | Optional pointer to a simple 1bpp sprite frame. |
-| `MultiSprite` | `const` | Optional pointer to a layered sprite frame. |
+| `sprite` | `const Sprite*` | Optional pointer to a simple 1bpp sprite frame. |
+| `multiSprite` | `const MultiSprite*` | Optional pointer to a layered sprite frame. |

@@ -108,6 +108,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [Color](./graphics/Color.md) — Named color indices into the active 16-entry palette.
 - [DialogBox](./graphics/DialogBox.md) — Optional default dialog panel, driven by a DialogRunner.
 - [DialogBoxStyle](./graphics/DialogBoxStyle.md) — Every visual and layout knob DialogBox needs to draw a panel.
+- [DialogPortraitSize](./graphics/DialogPortraitSize.md) — The closed set of speaker-portrait boxes DialogBox supports.
 - [DirtyGrid](./graphics/DirtyGrid.md) — Two-buffer dirty cell grid (8×8 px cells) for selective framebuffer clears.
 - [DisplayConfig](./graphics/DisplayConfig.md) — Configuration settings for initializing displays with optional resolution scaling.
 - [DisplayType](./graphics/DisplayType.md) — Identifies the type of display driver to use.
@@ -147,6 +148,7 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [TilemapSpriteDirtyMode](./graphics/TilemapSpriteDirtyMode.md) — Suppress per-sprite dirty marks while drawing tilemaps (static layer or selective animated marking).
 - [TouchConfig](./graphics/TouchConfig.md) — Configuration for a touch controller (XPT2046 or GT911).
 - [TouchController](./graphics/TouchController.md) — Supported touch controller types.
+- [TransitionConfig](./graphics/TransitionConfig.md) — Full per-call description of a scene transition (issue #240).
 - [TransitionDirection](./graphics/TransitionDirection.md) — Direction of the transition effect.
 - [TransitionEffect](./graphics/TransitionEffect.md) — Manages a single scene transition with zero runtime allocation.
 - [TransitionType](./graphics/TransitionType.md) — Types of scene transitions.
