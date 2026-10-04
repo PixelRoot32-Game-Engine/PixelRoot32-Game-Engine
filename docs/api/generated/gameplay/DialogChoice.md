@@ -20,6 +20,6 @@ rows, second post-MVP dialog item).
 | Name | Type | Description |
 |------|------|-------------|
 | `text` | `const char*` | Main label, left-aligned. Flash literal. Never copied. |
-| `detail` | `const char*` | Optional second column (e.g. a price), right-aligned. Flash literal. nullptr (the default, so existing 3-value initializers keep compiling) draws the classic single-column row with identical geometry. Never wrapped, like `text`: keep `text + detail` within the panel's content width (see DialogBoxStyle). |
+| `detail` | `const char*` | Optional second column (e.g. a price), right-aligned. Flash literal. nullptr (the default) draws the classic single-column row with identical geometry. Never wrapped, like `text`: keep `text + detail` within the panel's content width (see DialogBoxStyle). Inserted as the second field in 1.12.0, so positional 3-value initializers ({text, next, tag}) no longer compile -- pass an explicit nullptr (or a detail literal) in second position. |
 | `next` | `LineId` | kNoLine ends the dialog. |
 | `tag` | `uint16_t` | Opaque game code. |

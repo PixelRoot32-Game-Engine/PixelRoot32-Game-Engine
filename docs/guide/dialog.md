@@ -62,10 +62,10 @@ namespace gameplay = pixelroot32::gameplay;
 constexpr const char* kGuide = "Guide";
 
 static const gameplay::DialogChoice kChoices[] = {
-    // text            next   tag
-    {"Say hello",      3,     101},
-    {"Ask a riddle",   4,     102},
-    {"Walk away",      5,     103},
+    // text            detail    next   tag
+    {"Say hello",      nullptr,  3,     101},
+    {"Ask a riddle",   "once",   4,     102},
+    {"Walk away",      nullptr,  5,     103},
 };
 
 static const gameplay::DialogLine kLines[] = {
@@ -114,8 +114,11 @@ static const gameplay::DialogScript kScript{
 | Field | Type | Meaning |
 |-------|------|---------|
 | `text` | `const char*` | Flash literal. Never copied, never wrapped. |
+| `detail` | `const char*` | Optional right-aligned second column (e.g. a price). `nullptr` (default) or `""` draws nothing. |
 | `next` | `LineId` | `kNoLine` ends the dialog. |
 | `tag` | `uint16_t` | Opaque to the engine, carried on `ChoiceConfirmed`. |
+
+> **Migration from 1.11.0:** `detail` was inserted as the second field, so positional 3-value initializers (`{text, next, tag}`) no longer compile — pass an explicit `nullptr` (or a detail literal) in second position. `DialogLine` initializers are unaffected: its new fields were appended, so existing 9-value initializers keep compiling.
 
 ### Sentinels and kinds
 

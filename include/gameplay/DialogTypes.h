@@ -170,11 +170,14 @@ using ChoiceFilterFn = bool (*)(void* owner, LineId line, ChoiceId scriptIndex,
 struct DialogChoice {
     const char* text;            ///< Main label, left-aligned. Flash literal. Never copied.
     const char* detail = nullptr;  ///< Optional second column (e.g. a price), right-aligned.
-                                   ///< Flash literal. nullptr (the default, so existing
-                                   ///< 3-value initializers keep compiling) draws the
+                                   ///< Flash literal. nullptr (the default) draws the
                                    ///< classic single-column row with identical geometry.
                                    ///< Never wrapped, like `text`: keep `text + detail`
                                    ///< within the panel's content width (see DialogBoxStyle).
+                                   ///< Inserted as the second field in 1.12.0, so
+                                   ///< positional 3-value initializers ({text, next,
+                                   ///< tag}) no longer compile -- pass an explicit
+                                   ///< nullptr (or a detail literal) in second position.
     LineId      next;   ///< kNoLine ends the dialog.
     uint16_t    tag;    ///< Opaque game code.
 };
