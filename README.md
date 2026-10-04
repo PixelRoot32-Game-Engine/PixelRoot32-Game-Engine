@@ -82,6 +82,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Lightweight UI**: Label, Button, and Checkbox with automatic layouts.
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
 - **Gameplay Framework**: Opt-in building blocks — grid space, state machines, object pools, an event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — each behind its own `PIXELROOT32_ENABLE_*` flag, all default `0`.
+- **Dialog System**: Headless dialog state machine (`DialogRunner`) with paged text, branching and conditional choices, multi-column option rows, multi-format speaker portraits in a fixed size box, and a default `DialogBox` panel — opt-in behind `PIXELROOT32_ENABLE_DIALOG`.
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
@@ -108,7 +109,7 @@ Every demo is a standalone PlatformIO project that builds against the
 `pio run -e native`, and you have a working starting point.
 
 **How it differs from [`examples/`](examples/) in this repository:** the
-examples here are five minimal projects, each isolating a single engine
+examples here are six minimal projects, each isolating a single engine
 capability, and none of them is a game. Read an example to learn one API; read a
 demo to see several of them working together in something finished.
 
@@ -170,7 +171,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.11.0
+    gperez88/PixelRoot32-Game-Engine@^1.12.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -184,7 +185,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `mono_oled`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `mono_oled`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
 3. **Build and Upload** using PlatformIO.
@@ -216,7 +217,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Five minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[Examples](examples/)**: Six minimal, single-idea capability examples (open a subfolder in PlatformIO).
 - **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
 - **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
@@ -232,7 +233,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - 💾 **Persistence (Save/Load)**: One storage interface with NVS on ESP32, external EEPROM, and file-on-native backends.
 - 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
-- 💬 **Dialog System, post-MVP**: Additions to the 1.11.0 dialog system that land when a game needs them: multi-column option rows, conditional choices, speaker portraits, per-character reveal and localization.
+- 💬 **Dialog System, post-MVP**: Remaining additions to the 1.11.0 dialog system that land when a game needs them: per-character text reveal with sound, and a localization text table.
 
 👉 **Full Roadmap**: [docs/roadmap.md](docs/roadmap.md) — including completed features.
 
@@ -240,28 +241,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.11.0
+## 1.12.0
 
-Introduces a **dialog system** and **accented Latin text**. Both are opt-in behind build flags that default to `0`. ASCII text measures and renders exactly as in 1.10.0; the one API change is that `FontManager::getGlyphIndex` now returns `uint16_t` (see Changed).
-
-### 💬 Dialog
-
-- **`DialogRunner` (`PIXELROOT32_ENABLE_DIALOG`)**: a headless dialog state machine for text lines, auto-advancing lines, paged text and choices. It is driven only by semantic `feed(DialogAction)` and `update(deltaTimeMs)` calls, has no `Renderer`, `InputManager` or `Font` dependency, and reports lines and confirmed choices through one event callback. The script is a caller-owned `const` table in flash. A session allocates nothing on the heap, and the runner is 28 B on ESP32.
-- **`DialogBox`**: an optional default panel for a runner. It draws the border, speaker label, the current page of wrapped text and a single-column option list whose selection is marked twice: `inkSelected` plus a `choiceCaret` glyph drawn in `ink`, so it stays visible on a palette that leaves the highlight colour unset. One layout function feeds both drawing and `choiceRect()` touch hit-testing, so the two cannot drift apart, and `measureHeightPx()` sizes a panel for a whole script. It is not a `UIElement`, so it works with the UI system off.
-- **`DialogTypes`**: `DialogLine`, `DialogChoice` and `DialogScript`, the data model a game authors its script in.
-
-### 🔤 Text & Fonts
-
-- **Accented Latin characters (`PIXELROOT32_ENABLE_FONT_LATIN1`)**: renders `á é í ó ú ü ñ Á É Í Ó Ú Ü Ñ ¿ ¡ « » º` from ordinary UTF-8 string literals, with no compiler charset flag. Accented capitals keep the same baseline as unaccented ones.
-- **`TextLayout`**: glyph-accurate word wrap and measurement (`wrap()`, `measureWidthPx()`, `countWrappedLines()`), allocation-free, with page skipping so a presenter never wraps the same text twice. It is always available, with no flag.
-- **`Font` supplement block**: optional extra glyphs appended to the struct, so every existing font initializer keeps compiling.
-
-### 🔧 Changed
-
-- `FontManager::getGlyphIndex` returns `uint16_t` and reports "not found" as `FontManager::kNoGlyph` (`0xFFFF`) instead of `255`, which was itself a legal glyph index. **Migration:** replace comparisons against `255` and stop storing the result in a `uint8_t`. Neither mistake fails to compile, so check call sites by hand.
-- `textWidth` and `drawTextCentered` measure per glyph instead of per byte, so they agree with `drawText` for multi-byte text. ASCII strings are unaffected.
-
-Reference consumer: [`examples/dialog`](examples/dialog), which shows an auto-advancing line, a speaker chain and a branching three-option choice.
+Completes the **dialog post-MVP trio** (conditional choices, multi-column option rows, 1bpp speaker portraits) and extends portraits to **multi-color faces** (`portrait2bpp`/`portrait4bpp` through `portraitPaletteSlot`) in a **fixed size box** (`Size16/24/32`, over-box faces ignored) with the selection caret drawn at the text column. Also adds **segment collision** (ramps and cushions for circles and boxes, tunable bias/slop, rest threshold) and per-call **transition configuration**, and removes the dead `VELOCITY_DAMPING`/`MAX_VELOCITY`/`MIN_VELOCITY` macros. All opt-in additions default to off; ASCII text and existing APIs render and behave as in 1.11.0.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
