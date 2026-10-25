@@ -141,6 +141,7 @@ public:
         hasPeerCommitValue = false;
         hasPeerSeedValue = false;
         localCommitSentValue = false;
+        pendingScoreDeltaValue = 0;
         hasPendingPeerCommitValue = false;
         pendingPeerRoundValue = 0;
         pendingPeerCommitValue = 0;
@@ -172,7 +173,11 @@ public:
     void press() {
         switch (phaseValue) {
             case DuelPhase::Idle:
-                startRound();
+                // A round that resolves while the score is being restored
+                // cannot bank its point; wait for the resync to finish.
+                if (!counter.isResyncing()) {
+                    startRound();
+                }
                 break;
             case DuelPhase::Result:
                 phaseValue = matchOver() ? DuelPhase::MatchOver
@@ -250,6 +255,14 @@ public:
      */
     void update(uint32_t nowMs) {
         lastUpdateMs = nowMs;
+        if (pendingScoreDeltaValue != 0 && !counter.isResyncing()) {
+            // The score op was deferred while the counter restored the match;
+            // bank it as soon as the resync ends. Busy keeps it for next frame.
+            const int8_t delta = pendingScoreDeltaValue;
+            if (counter.add(delta) != pixelroot32::networking::NetResult::Busy) {
+                pendingScoreDeltaValue = 0;
+            }
+        }
         if (phaseValue == DuelPhase::Result && matchOver()) {
             // The score op can land after the loser resolved its own copy of
             // the round: promote the phase so one press is enough to reset.
@@ -593,7 +606,15 @@ private:
             tieValue = true;
         } else if (localDieValue > peerDieValue) {
             localWonValue = true;
-            (void)counter.add(localIsAValue ? 1 : -1);
+            const int8_t delta = localIsAValue ? 1 : -1;
+            if (counter.isResyncing()) {
+                // The counter is restoring the match; bank the point after it
+                // finishes instead of losing it to a Busy answer.
+                pendingScoreDeltaValue = delta;
+            } else if (counter.add(delta) ==
+                       pixelroot32::networking::NetResult::Busy) {
+                pendingScoreDeltaValue = delta;
+            }
         }
 
         phaseValue = matchOver() ? DuelPhase::MatchOver : DuelPhase::Result;
@@ -748,6 +769,7 @@ private:
     bool tieValue = false;          ///< true when both dice matched.
     bool tamperedValue = false;     ///< true after a failed verification.
     bool timedOutValue = false;     ///< true after a timeout abort.
+    int8_t pendingScoreDeltaValue = 0;  ///< Point deferred while the score resyncs.
     bool hasPeerCommitValue = false;  ///< true once a peer commit is stored.
     bool hasPeerSeedValue = false;    ///< true once a peer seed is verified.
     bool localCommitSentValue = false;  ///< true when the commit was accepted.
