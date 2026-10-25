@@ -6,9 +6,9 @@
  * (networking/NetSession.h) as delivered by slice N5.
  *
  * These tests exercise the public send path, the Data receive handling and the
- * event queue. Reliable delivery (ACK/retry/dedupe), backpressure across
- * updates and the sync counter belong to later slices and are deliberately not
- * asserted beyond the documented `Unsupported` answer of this slice.
+ * event queue. Reliable delivery semantics (ACK, retry, dedupe) belong to
+ * test_net_reliability; here only the fact that the reliable contract is
+ * accepted is pinned, so this suite keeps owning the unreliable path.
  *
  * The whole networking module is compiled out unless
  * PIXELROOT32_ENABLE_NETWORKING is 1, and the loopback backend only exists on
@@ -322,10 +322,11 @@ void test_net_data_send_offline_peer_not_found(void) {
 }
 
 // =============================================================================
-// 6. Reliable delivery is not part of this slice: Unsupported, nothing sent.
+// 6. A reliable send is accepted and delivered; the details of ACK and retry
+//    are owned by test_net_reliability.
 // =============================================================================
 
-void test_net_data_reliable_delivery_is_unsupported(void) {
+void test_net_data_reliable_send_is_accepted(void) {
     LoopbackBus bus;
     LoopbackTransport transportA(bus, makeAddress(1));
     LoopbackTransport transportB(bus, makeAddress(2));
@@ -346,16 +347,26 @@ void test_net_data_reliable_delivery_is_unsupported(void) {
 
     uint8_t payload[4];
     fillPayload(payload, sizeof(payload), 0x50);
-    assertNetResult(NetResult::Unsupported,
+    assertNetResult(NetResult::Ok,
                     a.send(0, NetDelivery::Reliable, payload,
                            static_cast<uint16_t>(sizeof(payload))));
 
-    TEST_ASSERT_EQUAL_UINT32(txBefore, a.stats().txMessages);
+    TEST_ASSERT_EQUAL_UINT32(txBefore + 1, a.stats().txMessages);
     TEST_ASSERT_EQUAL_UINT32(0, a.stats().txBusy);
+    TEST_ASSERT_EQUAL_UINT8(1, a.pendingCount());
 
     b.update(0);
+
+    NetEvent event{};
+    TEST_ASSERT_TRUE(b.pollEvent(event));
+    assertEventType(NetEventType::Message, event);
+    TEST_ASSERT_EQUAL_UINT8(0, event.peerId);
+    TEST_ASSERT_EQUAL_UINT8(11, event.nodeId);
+    TEST_ASSERT_EQUAL_UINT32(1, event.sequence);
+    TEST_ASSERT_EQUAL_UINT16(4, event.length);
+    TEST_ASSERT_EQUAL_MEMORY(payload, event.payload, 4);
     TEST_ASSERT_TRUE(hasNoEvent(b));
-    TEST_ASSERT_EQUAL_UINT32(rxBefore, b.stats().rxMessages);
+    TEST_ASSERT_EQUAL_UINT32(rxBefore + 1, b.stats().rxMessages);
 }
 
 // =============================================================================
@@ -677,7 +688,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_net_data_send_before_init_and_invalid_slots);
     RUN_TEST(test_net_data_send_rejects_null_and_oversize_payload);
     RUN_TEST(test_net_data_send_offline_peer_not_found);
-    RUN_TEST(test_net_data_reliable_delivery_is_unsupported);
+    RUN_TEST(test_net_data_reliable_send_is_accepted);
     RUN_TEST(test_net_data_from_unknown_mac_is_dropped);
     RUN_TEST(test_net_data_refreshes_peer_liveness);
     RUN_TEST(test_net_data_revives_offline_peer);

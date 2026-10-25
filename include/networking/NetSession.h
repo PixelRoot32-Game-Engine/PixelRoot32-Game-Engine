@@ -35,8 +35,8 @@ struct NetSessionConfig {
     bool discovery = true;  ///< false disables HELLO and requires seeded peers.
     uint16_t helloIntervalMs = platforms::config::NetHelloIntervalMs;  ///< HELLO period.
     uint16_t peerTimeoutMs = platforms::config::NetPeerTimeoutMs;      ///< Offline threshold.
-    uint16_t ackTimeoutMs = platforms::config::NetAckTimeoutMs;        ///< Reserved for reliability.
-    uint8_t maxRetries = platforms::config::NetMaxRetries;  ///< Reserved for reliability.
+    uint16_t ackTimeoutMs = platforms::config::NetAckTimeoutMs;  ///< Reliable ACK timeout.
+    uint8_t maxRetries = platforms::config::NetMaxRetries;  ///< Retries before SendFailed.
 };
 
 /**
@@ -45,9 +45,9 @@ struct NetSessionConfig {
  *
  * The session turns the transport's raw frames into peer-table state and
  * application events. This slice owns discovery (HELLO), shutdown notification
- * (BYE), the peer table, the offline timeout and the unreliable data path with
- * its receive event queue; ACK and retry, duplicate suppression, backpressure
- * and the sync counter are added by later slices.
+ * (BYE), the peer table, the offline timeout, the unreliable data path, and
+ * reliable delivery with its ACK, retry, duplicate window and give-up event.
+ * The outstanding slices add backpressure across updates and the sync counter.
  *
  * Ownership contract: the session never owns, initializes or shuts down the
  * transport. @ref init requires a transport that is already ready, applies the
@@ -135,16 +135,23 @@ public:
      *         before @ref init, InvalidArgument for an out-of-range or unused
      *         slot or a null payload with a non-zero length, PayloadTooLarge
      *         for a length above NetMaxPayload, PeerNotFound when the slot
-     *         exists but the peer is offline, Unsupported for
-     *         NetDelivery::Reliable, Busy when the transport had no room, or
-     *         the transport's own error.
+     *         exists but the peer is offline, Busy when the reliable queue is
+     *         full or the transport had no room, or the transport's own error.
      *
-     * NetDelivery::Unreliable is the only contract implemented by this slice;
-     * the reliable path answers Unsupported until ACK and retry land. A peer
-     * must already be known and online, because data never creates a peer:
-     * discovery or @ref addPeer owns the table, and a timed-out peer is
+     * NetDelivery::Unreliable is fire-and-forget: no sequence, no ACK, no
+     * retry and no dedupe. NetDelivery::Reliable assigns the peer's next
+     * sequence, keeps the frame in the pending queue until an ACK arrives and
+     * retries it on the ACK timeout configured in NetSessionConfig.
+     *
+     * A peer must already be known and online, because data never creates a
+     * peer: discovery or @ref addPeer owns the table, and a timed-out peer is
      * revived by its next valid frame instead of by an outgoing one. `Ok`
      * means the frame reached the transport, not that the peer received it.
+     *
+     * The pending entry is stamped with the session time of the last
+     * @ref update, so the application must call @ref update once per frame
+     * before sending; otherwise the first ACK timeout is measured from a
+     * stale timestamp.
      */
     NetResult send(uint8_t peerId, NetDelivery delivery, const void* data,
                    uint16_t length);
@@ -195,6 +202,15 @@ public:
     const NetStats& stats() const;
 
     /**
+     * @brief Counts the reliable messages still waiting for an ACK.
+     * @return Number of occupied pending entries, at most NetTxQueueCapacity.
+     *
+     * Diagnostic for tests and games: a full queue makes @ref send answer
+     * Busy even when the transport itself would accept the frame.
+     */
+    uint8_t pendingCount() const;
+
+    /**
      * @brief Returns the effective local application label.
      * @return The configured nodeId, or the value derived from the local MAC.
      */
@@ -218,16 +234,46 @@ private:
         NetAddress address{};    ///< Identity: the peer's source MAC.
         uint32_t lastSeenMs = 0; ///< Session time of the last accepted frame.
         uint32_t uptimeMs = 0;   ///< Uptime last advertised by HELLO.
-        uint16_t bootId = 0;     ///< Peer's boot generation from HELLO.
-        uint8_t nodeId = 0;      ///< Application label from HELLO.
-        bool used = false;       ///< false when the slot was never allocated.
-        bool online = false;     ///< false after BYE or the peer timeout.
+        uint32_t nextTxSequence = 1;  ///< Next reliable sequence to assign.
+        uint32_t rxHighestSeq = 0;    ///< Newest reliable sequence accepted.
+        uint64_t rxWindow = 0;  ///< Accepted older sequences, bit 0 = highest.
+        uint16_t bootId = 0;    ///< Peer's boot generation from HELLO.
+        uint8_t nodeId = 0;     ///< Application label from HELLO.
+        bool used = false;      ///< false when the slot was never allocated.
+        bool online = false;    ///< false after BYE or the peer timeout.
+    };
+
+    /**
+     * @struct PendingTx
+     * @brief One reliable frame waiting for its ACK.
+     *
+     * The whole encoded frame is stored, not the application payload, so a
+     * retry is byte-identical to the first transmission and never re-encodes
+     * against a sequence that has already advanced.
+     */
+    struct PendingTx {
+        uint32_t sequence = 0;    ///< Sequence carried by @ref frame.
+        uint32_t sentAtMs = 0;    ///< Session time of the last transmission.
+        uint16_t frameLength = 0; ///< Valid bytes in @ref frame.
+        uint8_t retries = 0;      ///< Retransmissions already performed.
+        uint8_t peerId = 0;       ///< Destination slot index.
+        uint8_t frame[kNetTransportFrameSize]{};  ///< Encoded frame copy.
     };
 
     /** @brief Frames drained from the transport per update, bounding flood cost. */
     static constexpr uint8_t kMaxRxFramesPerUpdate = 8;
 
+    /** @brief Reliable messages that can await an ACK at the same time. */
+    static constexpr uint8_t kMaxPending =
+        static_cast<uint8_t>(platforms::config::NetTxQueueCapacity);
+
+    // pendingCount() is uint8_t and indexes this array, so a larger configured
+    // queue would silently truncate instead of being honoured.
+    static_assert(platforms::config::NetTxQueueCapacity <= 255,
+                  "NetTxQueueCapacity must fit the uint8_t pending index");
+
     void clearPeers() noexcept;
+    void clearPending() noexcept;
     void clearEvents() noexcept;
     void pushEvent(const NetEvent& event) noexcept;
     void handleFrame(const NetRxInfo& frame, uint32_t nowMs) noexcept;
@@ -236,8 +282,15 @@ private:
     void handleBye(const NetAddress& from) noexcept;
     void handleData(const NetAddress& from, const NetPacketHeader& header,
                     const uint8_t* payload, uint32_t nowMs) noexcept;
+    void handleAck(const NetAddress& from, const NetPacketHeader& header,
+                   const uint8_t* payload, uint32_t nowMs) noexcept;
+    void retryPending(uint32_t nowMs) noexcept;
+    void removePending(uint8_t index) noexcept;
+    bool acceptReliableSequence(PeerSlot& peer, uint32_t sequence) noexcept;
+    void failPendingForPeer(uint8_t peerId) noexcept;
     void expirePeers(uint32_t nowMs) noexcept;
     bool sendHello(uint32_t nowMs) noexcept;
+    bool sendAck(uint8_t peerId, uint32_t sequence) noexcept;
     void sendBye() noexcept;
     int8_t findPeer(const NetAddress& address) const noexcept;
     int8_t allocatePeerSlot() noexcept;
@@ -247,12 +300,15 @@ private:
     NetStats counters{};            ///< Monotonic counters, session lifetime.
     PeerSlot peers[kMaxPeers]{};    ///< Peer table, allocated by MAC.
     NetEvent events[kRxQueueCapacity]{};  ///< Pending application events.
+    PendingTx pendingTx[kMaxPending]{};   ///< Reliable frames awaiting ACK.
     uint16_t eventHead = 0;         ///< Index of the oldest pending event.
     uint16_t eventTail = 0;         ///< Index where the next event is stored.
     uint16_t eventCount = 0;        ///< Number of pending events.
     uint16_t bootIdValue = 0;       ///< Effective boot generation.
     uint8_t nodeIdValue = 0;        ///< Effective application label.
+    uint8_t pendingTxCount = 0;     ///< Occupied entries in @ref pendingTx.
     uint32_t nextHelloMs = 0;       ///< Session time of the next HELLO.
+    uint32_t lastUpdateMs = 0;      ///< Session time of the last update call.
     bool helloPending = false;      ///< First update after init sends immediately.
     bool initialized = false;       ///< true between init() and shutdown().
     bool broadcastRegistered = false;  ///< Broadcast peer already given to the link.

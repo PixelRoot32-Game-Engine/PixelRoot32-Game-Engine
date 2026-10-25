@@ -51,7 +51,7 @@ enum class NetPacketType : uint8_t {
     Data = 1,      ///< Application payload.
     Hello = 2,     ///< Discovery beacon carrying node identity and uptime.
     Bye = 3,       ///< Shutdown notice.
-    Ack = 4,       ///< Acknowledges a reliable sequence, never carries a payload.
+    Ack = 4,       ///< ACKs a reliable sequence; payload is the 32-bit sequence.
     Snapshot = 5   ///< Versioned sync-layer state transfer.
 };
 
@@ -70,7 +70,7 @@ struct NetPacketHeader {
     uint8_t sourceNodeId;   ///< Sender's application label.
     uint16_t sourceBootId;  ///< Sender's boot generation.
     uint32_t sequence;      ///< Sender's monotonic sequence.
-    uint16_t ackSequence;   ///< Acknowledged sequence, 0 when absent.
+    uint16_t ackSequence;   ///< Reserved (0 in v1); ACKs carry the 32-bit sequence in their 4-byte payload.
     uint16_t payloadLength; ///< Declared payload byte count.
 };
 
