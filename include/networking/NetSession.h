@@ -15,6 +15,10 @@
 
 namespace pixelroot32::networking {
 
+// Only referenced by the private Data handler; the wire codec's full
+// definition stays in NetProtocol.h so the session header does not drag it in.
+struct NetPacketHeader;
+
 /**
  * @struct NetSessionConfig
  * @brief Values the application supplies once, when the session starts.
@@ -41,9 +45,9 @@ struct NetSessionConfig {
  *
  * The session turns the transport's raw frames into peer-table state and
  * application events. This slice owns discovery (HELLO), shutdown notification
- * (BYE), the peer table and the offline timeout; the data send path, ACK and
- * retry, duplicate suppression, backpressure and the sync counter are added by
- * later slices.
+ * (BYE), the peer table, the offline timeout and the unreliable data path with
+ * its receive event queue; ACK and retry, duplicate suppression, backpressure
+ * and the sync counter are added by later slices.
  *
  * Ownership contract: the session never owns, initializes or shuts down the
  * transport. @ref init requires a transport that is already ready, applies the
@@ -122,6 +126,30 @@ public:
     void update(uint32_t nowMs);
 
     /**
+     * @brief Queues one application payload for a peer.
+     * @param peerId Peer slot index, as reported by a PeerJoined event.
+     * @param delivery Delivery contract requested for this message.
+     * @param data Payload bytes; may be null only when `length` is 0.
+     * @param length Payload size in bytes, at most NetMaxPayload.
+     * @return Ok when the frame was handed to the transport, NotInitialized
+     *         before @ref init, InvalidArgument for an out-of-range or unused
+     *         slot or a null payload with a non-zero length, PayloadTooLarge
+     *         for a length above NetMaxPayload, PeerNotFound when the slot
+     *         exists but the peer is offline, Unsupported for
+     *         NetDelivery::Reliable, Busy when the transport had no room, or
+     *         the transport's own error.
+     *
+     * NetDelivery::Unreliable is the only contract implemented by this slice;
+     * the reliable path answers Unsupported until ACK and retry land. A peer
+     * must already be known and online, because data never creates a peer:
+     * discovery or @ref addPeer owns the table, and a timed-out peer is
+     * revived by its next valid frame instead of by an outgoing one. `Ok`
+     * means the frame reached the transport, not that the peer received it.
+     */
+    NetResult send(uint8_t peerId, NetDelivery delivery, const void* data,
+                   uint16_t length);
+
+    /**
      * @brief Adds a peer address without waiting for discovery.
      * @param peer Address and application label to register.
      * @return InvalidArgument for the zero or broadcast address, Ok when the
@@ -140,7 +168,8 @@ public:
      * @return true when an event was written, false when the queue is empty.
      *
      * FIFO. PeerJoined and PeerLeft carry the peer slot and its application
-     * label; message events arrive with the later data path.
+     * label; Message events carry a copy of one Data payload, its slot, the
+     * sender's label and the wire sequence.
      */
     bool pollEvent(NetEvent& out);
 
@@ -205,6 +234,8 @@ private:
     void handleHello(const NetAddress& from, uint8_t nodeId, uint16_t bootId,
                      uint32_t uptimeMs, uint32_t nowMs) noexcept;
     void handleBye(const NetAddress& from) noexcept;
+    void handleData(const NetAddress& from, const NetPacketHeader& header,
+                    const uint8_t* payload, uint32_t nowMs) noexcept;
     void expirePeers(uint32_t nowMs) noexcept;
     bool sendHello(uint32_t nowMs) noexcept;
     void sendBye() noexcept;

@@ -300,6 +300,76 @@ uint16_t NetSession::localBootId() const {
 }
 
 // =============================================================================
+// Public send path
+// =============================================================================
+
+NetResult NetSession::send(uint8_t peerId, NetDelivery delivery,
+                           const void* data, uint16_t length) {
+    // The session state, not the transport state, decides whether a send is
+    // meaningful: frames must not leak onto the link from a stopped session.
+    if (!initialized) {
+        return NetResult::NotInitialized;
+    }
+
+    // An index past the table or a never-used row describes no peer at all, so
+    // it is a caller bug rather than "this peer is currently away".
+    if (peerId >= kMaxPeers || !peers[peerId].used) {
+        return NetResult::InvalidArgument;
+    }
+
+    // A payload is validated before the peer's liveness so the answer to a bad
+    // argument does not depend on whether some other peer happened to be
+    // online. NetProtocol rejects the same ceiling, so the frame can never
+    // fail to encode for a size reason after this check.
+    if (data == nullptr && length > 0) {
+        return NetResult::InvalidArgument;
+    }
+    if (length > platforms::config::NetMaxPayload) {
+        return NetResult::PayloadTooLarge;
+    }
+
+    // Reliability owns ACK, retry and dedupe; this slice must not pretend to
+    // deliver something it cannot confirm.
+    if (delivery != NetDelivery::Unreliable) {
+        return NetResult::Unsupported;
+    }
+
+    PeerSlot& peer = peers[peerId];
+    if (!peer.online) {
+        return NetResult::PeerNotFound;
+    }
+
+    NetPacketHeader header{};
+    header.version = platforms::config::NetProtocolVersion;
+    header.type = NetPacketType::Data;
+    header.flags = 0;
+    header.sourceNodeId = nodeIdValue;
+    header.sourceBootId = bootIdValue;
+    header.sequence = 0;     // Reliability assigns sequences in the next slice.
+    header.ackSequence = 0;  // Nothing is acknowledged by an unreliable frame.
+    header.payloadLength = length;
+
+    // The frame is assembled on the stack: the send path never allocates, and
+    // the transport receives exactly one complete frame.
+    uint8_t frame[kNetTransportFrameSize]{};
+    const uint16_t frameLength = encodeFrame(
+        header, static_cast<const uint8_t*>(data), frame, sizeof(frame));
+    if (frameLength == 0) {
+        return NetResult::InvalidArgument;
+    }
+
+    const NetResult result = transport.send(peer.address, frame, frameLength);
+    if (result == NetResult::Ok) {
+        ++counters.txMessages;
+    } else if (result == NetResult::Busy) {
+        // Busy means nothing was queued; the caller keeps the message and the
+        // counter makes the contention visible in stats.
+        ++counters.txBusy;
+    }
+    return result;
+}
+
+// =============================================================================
 // Outgoing frames
 // =============================================================================
 
@@ -397,10 +467,13 @@ void NetSession::handleFrame(const NetRxInfo& frame, uint32_t nowMs) noexcept {
             return;
 
         case NetPacketType::Data:
+            handleData(frame.from, header, payload, nowMs);
+            return;
+
         case NetPacketType::Ack:
         case NetPacketType::Snapshot:
-            // Counted above and otherwise ignored: the data path, reliability
-            // and the sync layer own these frames in later slices.
+            // Counted above and otherwise ignored: reliability and the sync
+            // layer own these frames in later slices.
             return;
     }
 }
@@ -485,6 +558,59 @@ void NetSession::handleBye(const NetAddress& from) noexcept {
     event.type = NetEventType::PeerLeft;
     event.peerId = static_cast<uint8_t>(slot);
     event.nodeId = peer.nodeId;
+    pushEvent(event);
+}
+
+void NetSession::handleData(const NetAddress& from,
+                            const NetPacketHeader& header,
+                            const uint8_t* payload, uint32_t nowMs) noexcept {
+    // Data never creates a peer: discovery or addPeer owns the table, so an
+    // unexpected MAC cannot inject application bytes into the game by itself.
+    // This holds with discovery on, because accepting data from an unknown
+    // sender would bypass every peer-table invariant.
+    const int8_t slot = findPeer(from);
+    if (slot < 0) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    // A declared payload without bytes cannot be delivered; dropping it keeps
+    // the event invariant that `length` bytes are always readable.
+    if (header.payloadLength > 0 && payload == nullptr) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    PeerSlot& peer = peers[static_cast<uint8_t>(slot)];
+
+    // Any valid frame proves the peer is alive, exactly like HELLO: data
+    // traffic keeps a peer from timing out between beacons.
+    peer.lastSeenMs = nowMs;
+    if (!peer.online) {
+        // Reviving a timed-out peer is a join again, and it is emitted before
+        // the message so the application learns the slot is usable first.
+        peer.online = true;
+        NetEvent joined;
+        joined.type = NetEventType::PeerJoined;
+        joined.peerId = static_cast<uint8_t>(slot);
+        joined.nodeId = peer.nodeId;
+        pushEvent(joined);
+    }
+
+    NetEvent event;
+    event.type = NetEventType::Message;
+    event.peerId = static_cast<uint8_t>(slot);
+    event.nodeId = peer.nodeId;
+    event.sequence = header.sequence;
+    event.length = header.payloadLength;
+    // The decoder already proved this length fits NetMaxPayload, so the inline
+    // buffer is always large enough and no truncation rule is needed.
+    for (uint16_t i = 0; i < header.payloadLength; ++i) {
+        event.payload[i] = payload[i];
+    }
+
+    // A full queue drops this message and counts it, extending the existing
+    // drop-newest policy to application messages.
     pushEvent(event);
 }
 
