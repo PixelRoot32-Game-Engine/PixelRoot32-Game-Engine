@@ -70,6 +70,16 @@ Hook for scene-specific handling of unconsumed touch events.
 
 - `event`: The touch event (not consumed by UI).
 
+### `virtual void onNetworkEvent(const pixelroot32::networking::NetEvent& event)`
+
+**Description:**
+
+Optional hook for one event drained from the networking session.
+
+**Parameters:**
+
+- `event`: Event popped from the session's receive queue.
+
 ### `virtual void onRoomEnter(int fromIdx, int toIdx)`
 
 **Description:**

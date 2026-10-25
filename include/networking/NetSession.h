@@ -41,15 +41,16 @@ struct NetSessionConfig {
 
 /**
  * @class NetSession
- * @brief Fixed-capacity networking session: discovery, peer table and lifecycle.
+ * @brief Fixed-capacity networking session: discovery, reliability and lifecycle.
  *
  * The session turns the transport's raw frames into peer-table state and
- * application events. This slice owns discovery (HELLO), shutdown notification
- * (BYE), the peer table, the offline timeout, the unreliable data path, and
- * reliable delivery with its ACK, retry, duplicate window and give-up event.
- * Reliable sends survive a busy transport: an accepted message stays in the
- * pending queue and is transmitted on a later @ref update without consuming a
- * new sequence. The outstanding slices add the sync counter.
+ * application events. It owns discovery (HELLO), shutdown notification (BYE),
+ * the peer table, the offline timeout, the unreliable data path, and reliable
+ * delivery with its ACK, retry, duplicate window and give-up event. Reliable
+ * sends survive a busy transport: an accepted message stays in the pending
+ * queue and is transmitted on a later @ref update without consuming a new
+ * sequence. The sync layer is a separate helper (@ref NetCounter) built on this
+ * session; the session never interprets application payloads.
  *
  * Ownership contract: the session never owns, initializes or shuts down the
  * transport. @ref init requires a transport that is already ready, applies the

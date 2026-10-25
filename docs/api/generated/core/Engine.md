@@ -25,6 +25,15 @@ The order inside Scene::processTouchEvents is guaranteed:
 
 Set PIXELROOT32_ENABLE_TOUCH=0 in platform defines to disable (saves ~200 bytes).
 
+## Networking Pipeline (PIXELROOT32_ENABLE_NETWORKING)
+
+The application owns the transport and the NetSession and registers the
+session with setNetworkSession(); Engine only borrows it. Each update()
+pumps the session once and dispatches its queued events to the scene that is
+current at drain time, before Scene::update():
+
+  input -> session update + dispatch -> scene update -> touch dispatch.
+
 ## Methods
 
 ### `void init()`
@@ -248,6 +257,36 @@ Provides access to the Engine-owned GameplayEventBus.
 The bus is a single Engine-owned instance, wired into SceneManager by
 Engine::init() (mirrors setTransitionEffect()). It is drained on every
 scene swap; see gameplay::GameplayEventBus for the full contract.
+
+### `void setNetworkSession(pixelroot32::networking::NetSession* session)`
+
+**Description:**
+
+Registers the networking session Engine pumps and dispatches from.
+
+**Parameters:**
+
+- `session`: Session to borrow, or nullptr to disable networking.
+
+Ownership stays with the application, exactly like setTouchManager():
+Engine does not initialize, configure or shut the session down, and it
+never keeps more than the raw pointer. The session must outlive its
+registration.
+
+While a session is registered, every update() calls session->update()
+once with the frame timestamp and then drains its event queue, invoking
+Scene::onNetworkEvent() for each event on the scene that is current at
+drain time. Dispatch happens before Scene::update() so the scene can
+react in the same frame. With nullptr, update() skips networking
+entirely and no hook is called.
+
+### `pixelroot32::networking::NetSession* getNetworkSession()`
+
+**Description:**
+
+Returns the session currently registered with the Engine.
+
+**Returns:** Borrowed session pointer; nullptr when none is registered.
 
 ### `void update()`
 

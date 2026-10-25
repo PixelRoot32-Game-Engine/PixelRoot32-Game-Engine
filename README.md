@@ -83,6 +83,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **AABB Physics**: Godot-style physics with Kinematic/Rigid actors, one-way platforms, moving platform support, floor velocity inheritance, and custom hitboxes.
 - **Gameplay Framework**: Opt-in building blocks — grid space, state machines, object pools, an event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — each behind its own `PIXELROOT32_ENABLE_*` flag, all default `0`.
 - **Dialog System**: Headless dialog state machine (`DialogRunner`) with paged text, branching and conditional choices, multi-column option rows, multi-format speaker portraits in a fixed size box, and a default `DialogBox` panel — opt-in behind `PIXELROOT32_ENABLE_DIALOG`.
+- **ESP-NOW Networking**: Optional router-free peer-to-peer module with an ESP-NOW transport and a native loopback, broadcast discovery, per-message reliable delivery (ACK/retry/dedupe), a Scene event hook, and a convergent shared counter with reboot resync - opt-in behind `PIXELROOT32_ENABLE_NETWORKING` (default `0`).
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 

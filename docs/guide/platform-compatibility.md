@@ -26,6 +26,24 @@ For the published site (navigation and anchors), see [Platform compatibility](ht
 | **Recommended Audio Core** | 0 | 0 | 0 | 0 | 0 | N/A |
 | **Recommended Main Core** | 1 | 1 | 0 | 0 | 0 | N/A |
 
+### Networking (ESP-NOW)
+
+The optional `pixelroot32::networking` module (`PIXELROOT32_ENABLE_NETWORKING`,
+default `0`) uses the ESP-NOW support that ships with the ESP32 Arduino core:
+
+- **ESP32 family with ESP-NOW:** real radio transport, no router and no access
+  point. Both nodes must share one channel.
+- **Native:** `LoopbackTransport` only. It simulates the link in one process,
+  with an injectable fault profile; there is no radio and no socket.
+- **Verification:** ESP32-C3 is verified by build (both `examples/esp_now`
+  environments). There is no ESP32 hardware in CI, so RF behavior, latency and
+  heap are validated manually with the example's checklist.
+- **Arduino core:** 2.0.17 is the verified core; 3.x compiles through a
+  callback shim but is not exercised in CI.
+
+See [Networking subsystem](../architecture/networking-subsystem.md) and the
+[Networking guide](networking.md).
+
 ---
 
 ## Detailed Platform Information

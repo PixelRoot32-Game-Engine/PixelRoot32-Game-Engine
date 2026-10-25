@@ -22,6 +22,9 @@ pio test -e native_test --verbose
 # Run a specific test suite (e.g. only test_physics_actor)
 pio test -e native_test -f test_physics_actor
 
+# Run the networking suites with the module compiled in
+pio test -e native_test_networking --verbose
+
 # Run tests with coverage report (Windows)
 python scripts/coverage_win.py --report
 
@@ -44,6 +47,9 @@ pio test -e esp32s3
 
 # Native tests (PC/Mac/Linux)
 pio test -e native_test
+
+# Native tests with the optional networking module compiled in
+pio test -e native_test_networking --verbose
 ```
 
 ---
@@ -97,9 +103,17 @@ test/
     └── MockRenderer.h
 ```
 
+Networking suites (all under `test/unit/`): `test_net_protocol`,
+`test_net_session_discovery`, `test_net_data_path`, `test_net_reliability`,
+`test_net_backpressure`, `test_net_loopback`, `test_net_engine_dispatch`,
+`test_net_counter`, `test_net_counter_resync`, `test_net_flags`.
+
 **PlatformIO configuration (relevant):**
 
 - **Default env:** `native_test` (`[platformio] default_envs = native_test`).
+- **Networking env:** `native_test_networking` extends `native_test` with
+  `PIXELROOT32_ENABLE_NETWORKING=1`. It is the only environment where the
+  networking assertions run; `native_test` proves the flag-off contract.
 - **Test framework:** Unity.
 - **Ignored tests:** `test_embedded` is excluded via `test_ignore` (embedded-only tests).
 - **Coverage:** Build uses `--coverage` and `-lgcov`; scripts are `scripts/coverage_win.py` (Windows) and `scripts/coverage_linux.py` (Linux). The previous single `coverage_check.py` has been replaced by these two platform-specific scripts.
@@ -449,6 +463,9 @@ pio test -e native_test
 
 # Run with verbose output to see failures clearly
 pio test -e native_test --verbose
+
+# Run the networking suites with the module compiled in
+pio test -e native_test_networking --verbose
 
 # Run coverage check and generate HTML report (Windows)
 python scripts/coverage_win.py --report
