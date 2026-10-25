@@ -1,4 +1,4 @@
-# esp_now_dice
+﻿# esp_now_dice
 
 Two ESP32-C3 boards playing a best-of-forever dice duel over ESP-NOW.
 
@@ -107,8 +107,8 @@ Both environments build the same `src/main.cpp`. Only `ESP_NOW_NODE_ID` differs.
 
 | Role | Environment | Node id | Scores | Panel |
 | ---- | ----------- | ------- | ------ | ----- |
-| A | `esp32c3_node_a` | 1 | `+1` per round won | `YOU +n` when ahead |
-| B | `esp32c3_node_b` | 2 | `-1` per round won | `YOU +n` when ahead |
+| A | `esp32c3_node_a` | 1 | `+1` per round won | `+n` bottom-right when ahead |
+| B | `esp32c3_node_b` | 2 | `-1` per round won | `+n` bottom-right when ahead |
 
 A is the canonical first seed: both boards pass A's seed to the dice derivation
 before B's, so the pair is the same on both sides. A is also the node that wins
@@ -157,14 +157,17 @@ One press means one of four things, depending on the phase:
 
 Each 72x40 panel shows:
 
-- **Top left**, the score from this board's point of view: `YOU +2` when you lead
-  by two, `RIV +2` when the other board leads by two, `EVEN` at 0. The shared
+- **Top**, two labels over the dice: `YOU` over the left die and `RIV` over the
+  right one, so ownership never has to be guessed from the score.
+- **Middle**, two 20x20 dice boxes at `y = 9`. The pips are inset two pixels
+  from the border: drawing them flush made corner pips merge with the outline,
+  so faces 2, 4 and 6 read as an empty box on the 1-bit panel. Before a round
+  resolves both boxes are empty, so the panel shows where the dice will land
+  instead of looking blank.
+- **Bottom left**, one status word.
+- **Bottom right**, the score from this board's point of view: `+2` when you
+  lead by two, `-2` when the other board leads by two, `0` at level. The shared
   counter is always `A - B`, so board B negates it before showing it.
-- **Top right**, the round number, `R3`.
-- **Middle**, two 15x15 dice at `y = 11`: yours on the left, the peer's on the
-  right. Before a round resolves both are empty boxes, so the panel shows where
-  the dice will land instead of looking blank.
-- **Bottom**, one status word:
 
 | Word | Meaning |
 | ---- | ------- |
@@ -176,10 +179,12 @@ Each 72x40 panel shows:
 | `CHEAT` | A commitment or reveal failed verification; the round was abandoned |
 | `TIMEOUT` | The round ran past three seconds; the round was abandoned |
 | `SYNC` | A score snapshot is being imported after a reboot |
+| `OUT` | The score resync gave up; the match may be divergent |
+| `NO LINK` | The transport, session or counter failed to start |
 
-Priority is `CHEAT` > `TIMEOUT` > `SYNC` > the phase word: a failed
-verification is the one state the player has to act on, and both abort reasons
-outrank the phase they are technically still in.
+Priority is `NO LINK` > `CHEAT` > `TIMEOUT` > `SYNC` > `OUT` > the phase word:
+a dead link explains every other symptom, and a failed verification is the one
+state the player has to act on.
 
 When nothing visible changes the scene skips the frame via
 `shouldRedrawFramebuffer()`, because a still U8G2 buffer looks exactly like a
@@ -385,3 +390,4 @@ Run this on two physical Beetle ESP32-C3 boards and record the result here.
 - [`Engine`](../../include/core/Engine.h) - the networking pipeline and
   `setNetworkSession`.
 - [Examples catalogue](../README.md)
+

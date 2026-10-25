@@ -40,17 +40,22 @@ constexpr int kPanelHeight = 40;
 /// The built-in font at size 1 is 6x8 per glyph.
 constexpr int kGlyphWidth = 6;
 
-/// Die box geometry: a 5x5 pip grid at scale 3 is 15x15, which is the largest
-/// square that fits between the header line and the status line.
+/// Die box geometry. A 20x20 box with a 5x5 pip grid at scale 3 leaves a 2-pixel
+/// margin between the pips and the border: without that margin the corner pips
+/// merge with the border and faces 2/4/6 read as an empty box.
+constexpr int kDieBox = 20;
 constexpr int kDieScale = 3;
-constexpr int kDieY = 11;
-constexpr int kDieOriginA = 10;
+constexpr int kDiePipMargin = 2;
+constexpr int kDieY = 9;
+constexpr int kDieOriginA = 6;
 constexpr int kDieOriginB = 46;
 
-/// Bottom status line. The header glyphs end at row 7 and the die box at row
-/// 25, so 31 leaves five clear rows under the dice and still keeps the 8-pixel
-/// glyph box inside the 40-row panel.
+/// Bottom status line. The dice end at row 28, leaving rows 31..38 for the
+/// status and the score.
 constexpr int kStatusY = 31;
+
+/// Right margin of the score in the status row.
+constexpr int kScoreRightMargin = 2;
 
 /// Display clamp for the score. The shared score only reaches +/-3 before the
 /// match resets, but a peer is free to publish anything into the counter: the
@@ -411,56 +416,64 @@ void DiceDuelScene::drawNode(Renderer& renderer, const DemoNode& node,
     }
     const std::int32_t advantage = node.isNodeA() ? shared : -shared;
 
-    char header[24];
-    if (advantage > 0) {
-        std::snprintf(header, sizeof(header), "YOU +%ld",
-                      static_cast<long>(advantage));
-    } else if (advantage < 0) {
-        std::snprintf(header, sizeof(header), "RIV +%ld",
-                      static_cast<long>(-advantage));
-    } else {
-        std::snprintf(header, sizeof(header), "EVEN");
-    }
-    renderer.drawText(header, originX + 1, 0, ink, 1);
+    // Explicit ownership: each die sits under the player it belongs to. The
+    // label is centred over the 20-pixel box (an 18-pixel word leaves 1px a
+    // side) because a bare box gave no clue which face was whose.
+    constexpr int kLabelOffset =
+        (kDieBox - 3 * kGlyphWidth) / 2;
+    renderer.drawText("YOU", originX + kDieOriginA + kLabelOffset, 0, ink, 1);
+    renderer.drawText("RIV", originX + kDieOriginB + kLabelOffset, 0, ink, 1);
 
-    char roundText[16];
-    std::snprintf(roundText, sizeof(roundText), "R%u",
-                  static_cast<unsigned>(node.round()));
-    const int roundX = originX + kPanelWidth - 2 -
-                       static_cast<int>(std::strlen(roundText)) * kGlyphWidth;
-    renderer.drawText(roundText, roundX, 0, ink, 1);
-
-    // Your die on the left, the peer's on the right: the layout mirrors the
-    // header, where YOUR score is the one that starts at the left edge.
     drawDie(renderer, originX + kDieOriginA, kDieY, node.localDie(), kDieScale);
     drawDie(renderer, originX + kDieOriginB, kDieY, node.peerDie(), kDieScale);
 
     char status[kStatusCapacity];
     statusText(node, status);
     renderer.drawText(status, originX + 1, kStatusY, ink, 1);
+
+    // The score stays visible in every phase, including Idle, so dismissing a
+    // result does not hide the match state. It is written from this board's
+    // perspective: +N means you lead, -N means the peer does.
+    char scoreText[8];
+    if (advantage > 0) {
+        std::snprintf(scoreText, sizeof(scoreText), "+%ld",
+                      static_cast<long>(advantage));
+    } else if (advantage < 0) {
+        std::snprintf(scoreText, sizeof(scoreText), "-%ld",
+                      static_cast<long>(-advantage));
+    } else {
+        std::snprintf(scoreText, sizeof(scoreText), "0");
+    }
+    const int scoreX = originX + kPanelWidth - kScoreRightMargin -
+                       static_cast<int>(std::strlen(scoreText)) * kGlyphWidth;
+    renderer.drawText(scoreText, scoreX, kStatusY, ink, 1);
 }
 
 void DiceDuelScene::drawDie(Renderer& renderer, int x, int y,
                             std::uint8_t value, int scale) {
     const Color ink = Color::White;
-    const int boxSize = 5 * scale;
 
     // The border is drawn first in every case, including the empty box, so a
     // board that has not resolved a round yet still shows where its die will
     // appear instead of a blank panel that looks like a hung program.
-    renderer.drawRectangle(x, y, boxSize, boxSize, ink);
+    renderer.drawRectangle(x, y, kDieBox, kDieBox, ink);
 
     if (value == 0 || value > kDiceFaces) {
         return;
     }
 
+    // The pip grid is inset from the border. Drawing it flush made corner pips
+    // merge with the border, so 2, 4 and 6 looked like an empty box on the
+    // 1-bit panel. Two pixels of margin keep every pip distinct at 20x20.
+    const int pipX = x + kDiePipMargin;
+    const int pipY = y + kDiePipMargin;
     const std::uint32_t mask = kPipMasks[value - 1];
     for (int row = 0; row < 5; ++row) {
         for (int col = 0; col < 5; ++col) {
             if ((mask & (1u << (row * 5 + col))) == 0) {
                 continue;
             }
-            renderer.drawFilledRectangle(x + col * scale, y + row * scale,
+            renderer.drawFilledRectangle(pipX + col * scale, pipY + row * scale,
                                          scale, scale, ink);
         }
     }
