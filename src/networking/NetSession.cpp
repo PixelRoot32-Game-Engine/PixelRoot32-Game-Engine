@@ -123,6 +123,17 @@ NetResult NetSession::init(const NetSessionConfig& newConfig) {
         return NetResult::NotInitialized;
     }
 
+    // Reject a configuration that cannot drive a working session before it
+    // touches the link. An out-of-range channel is not a frequency the radio
+    // can use, and a zero interval, timeout or retry limit would make the
+    // corresponding timer fire immediately or never; both are caller bugs that
+    // must not leave a half-configured session behind.
+    if (newConfig.channel < 1 || newConfig.channel > 13 ||
+        newConfig.helloIntervalMs == 0 || newConfig.peerTimeoutMs == 0 ||
+        newConfig.ackTimeoutMs == 0 || newConfig.maxRetries == 0) {
+        return NetResult::InvalidArgument;
+    }
+
     const NetResult channelResult = transport.setChannel(newConfig.channel);
     if (channelResult != NetResult::Ok) {
         return channelResult;
@@ -192,9 +203,11 @@ void NetSession::update(uint32_t nowMs) {
 
     // helloPending makes the first update after init send immediately instead
     // of waiting a full interval, so peers meet as soon as the loop starts.
+    // The forward-distance test (half the 32-bit range) is the unsigned,
+    // wrap-safe form of "now is at or past nextHelloMs".
     if (config.discovery &&
         (helloPending ||
-         static_cast<int32_t>(nowMs - nextHelloMs) >= 0)) {
+         static_cast<uint32_t>(nowMs - nextHelloMs) < 0x80000000u)) {
         helloPending = false;
         sendHello(nowMs);
         nextHelloMs = nowMs + static_cast<uint32_t>(config.helloIntervalMs);
@@ -391,29 +404,57 @@ NetResult NetSession::send(uint8_t peerId, NetDelivery delivery,
         return NetResult::InvalidArgument;
     }
 
-    const NetResult result = transport.send(peer.address, frame, frameLength);
-    if (result == NetResult::Ok) {
-        ++counters.txMessages;
-        if (reliable) {
-            // The encoded frame is retained verbatim so a retry after other
-            // sends is byte-identical and keeps its original sequence.
-            PendingTx& pending = pendingTx[pendingTxCount];
-            pending.sequence = sequence;
-            pending.sentAtMs = lastUpdateMs;
-            pending.frameLength = frameLength;
-            pending.retries = 0;
-            pending.peerId = peerId;
-            for (uint16_t i = 0; i < frameLength; ++i) {
-                pending.frame[i] = frame[i];
-            }
-            ++pendingTxCount;
+    if (!reliable) {
+        // Fire-and-forget has no state that could hold the frame, so a
+        // transport rejection is reported verbatim and nothing is queued.
+        const NetResult result =
+            transport.send(peer.address, frame, frameLength);
+        if (result == NetResult::Ok) {
+            ++counters.txMessages;
+        } else if (result == NetResult::Busy) {
+            ++counters.txBusy;
         }
-    } else if (result == NetResult::Busy) {
-        // Busy means nothing was queued; the counter makes the contention
-        // visible. A reliable sequence was already consumed, which is the
-        // documented cost of a rejected send in this slice.
-        ++counters.txBusy;
+        return result;
     }
+
+    // Store the pending entry before the first transmission: the session has
+    // accepted the message and owns its sequence, so a transport that is
+    // momentarily out of room must delay it rather than lose it. The encoded
+    // frame is retained verbatim so a later attempt is byte-identical.
+    PendingTx& pending = pendingTx[pendingTxCount];
+    pending.sequence = sequence;
+    pending.sentAtMs = lastUpdateMs;
+    pending.frameLength = frameLength;
+    pending.retries = 0;
+    pending.peerId = peerId;
+    pending.sent = false;
+    for (uint16_t i = 0; i < frameLength; ++i) {
+        pending.frame[i] = frame[i];
+    }
+    ++pendingTxCount;
+
+    const NetResult result =
+        transport.send(peer.address, frame, frameLength);
+    if (result == NetResult::Ok) {
+        pending.sent = true;
+        pending.sentAtMs = lastUpdateMs;
+        ++counters.txMessages;
+        return NetResult::Ok;
+    }
+
+    if (result == NetResult::Busy) {
+        // Accepted but deferred: retryPending transmits it on a later update
+        // under the same sequence, so Busy never becomes message loss here.
+        pending.sentAtMs = lastUpdateMs;
+        ++counters.txBusy;
+        return NetResult::Ok;
+    }
+
+    // Any other rejection means the link cannot carry this frame at all. The
+    // sequence is already spent (the peer's counter advanced), but no entry
+    // survives to retry a frame the transport refused for a real reason.
+    --pendingTxCount;
+    pendingTx[pendingTxCount] = PendingTx{};
     return result;
 }
 
@@ -788,6 +829,29 @@ void NetSession::retryPending(uint32_t nowMs) noexcept {
     while (index < pendingTxCount) {
         PendingTx& pending = pendingTx[index];
 
+        // An entry the session accepted while the transport was busy has never
+        // been transmitted. It is attempted on every update, in queue order,
+        // and a rejection must not consume a retry attempt: the first
+        // transmission is still owed, so there is nothing to retry yet.
+        if (!pending.sent) {
+            // A pending entry implies a used slot: shutdown clears both, and a
+            // peer reboot fails the entries before the slot can be reused.
+            const PeerSlot& peer = peers[pending.peerId];
+            const NetResult result =
+                transport.send(peer.address, pending.frame, pending.frameLength);
+            if (result == NetResult::Ok) {
+                pending.sent = true;
+                pending.sentAtMs = nowMs;
+                ++counters.txMessages;
+            } else {
+                // Still owed. Any rejection, Busy or otherwise, leaves it
+                // queued and visible in txBusy; the retry budget is untouched.
+                ++counters.txBusy;
+            }
+            ++index;
+            continue;
+        }
+
         // Unsigned subtraction keeps the timeout correct across the 32-bit
         // millisecond wrap.
         if (static_cast<uint32_t>(nowMs - pending.sentAtMs) <
@@ -831,10 +895,10 @@ void NetSession::retryPending(uint32_t nowMs) noexcept {
             ++counters.txBusy;
         }
 
-        // A rejected retry still consumes the window: otherwise a transport
-        // that stays Busy would retry on every update and burn the whole retry
-        // budget in a single frame. Backpressure across updates is a later
-        // slice.
+        // A rejected retry still consumes the window: this entry has already
+        // been transmitted at least once, so re-attempting it on every update
+        // would burn the retry budget in a single frame. Backpressure for a
+        // never-transmitted message is handled by the `!pending.sent` branch.
         pending.sentAtMs = nowMs;
         ++index;
     }

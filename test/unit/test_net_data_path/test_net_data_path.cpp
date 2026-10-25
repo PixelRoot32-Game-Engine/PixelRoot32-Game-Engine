@@ -617,10 +617,11 @@ void test_net_data_maximum_payload_is_delivered_intact(void) {
 }
 
 // =============================================================================
-// 12. A busy transport reports Busy and counts it; nothing is delivered.
+// 12. A busy transport backpressures an unreliable send, while a reliable send
+//     is accepted into the pending queue instead of being lost.
 // =============================================================================
 
-void test_net_data_busy_transport_returns_busy(void) {
+void test_net_data_busy_transport_contract(void) {
     LoopbackBus bus;
     LoopbackTransport transportA(bus, makeAddress(1));
     LoopbackTransport transportB(bus, makeAddress(2));
@@ -644,10 +645,20 @@ void test_net_data_busy_transport_returns_busy(void) {
     bus.setFaults(faults);
 
     uint8_t payload = 0x77u;
+    // Unreliable has nowhere to keep the frame, so it reports the transport's
+    // backpressure to the caller and queues nothing.
     assertNetResult(NetResult::Busy,
                     a.send(0, NetDelivery::Unreliable, &payload, 1));
-
+    TEST_ASSERT_EQUAL_UINT8(0, a.pendingCount());
     TEST_ASSERT_EQUAL_UINT32(1, a.stats().txBusy);
+    TEST_ASSERT_EQUAL_UINT32(txBefore, a.stats().txMessages);
+
+    // Reliable accepts the message: the session owns the sequence and keeps
+    // the frame for a later update, so a busy transport is not a lost message.
+    assertNetResult(NetResult::Ok,
+                    a.send(0, NetDelivery::Reliable, &payload, 1));
+    TEST_ASSERT_EQUAL_UINT8(1, a.pendingCount());
+    TEST_ASSERT_EQUAL_UINT32(2, a.stats().txBusy);
     TEST_ASSERT_EQUAL_UINT32(txBefore, a.stats().txMessages);
 
     b.update(0);
@@ -694,7 +705,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_net_data_revives_offline_peer);
     RUN_TEST(test_net_data_queue_overflow_drops_newest);
     RUN_TEST(test_net_data_maximum_payload_is_delivered_intact);
-    RUN_TEST(test_net_data_busy_transport_returns_busy);
+    RUN_TEST(test_net_data_busy_transport_contract);
 #else
     RUN_TEST(test_net_data_path_flag_off_stub_compiles);
 #endif

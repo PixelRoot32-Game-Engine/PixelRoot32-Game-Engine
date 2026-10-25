@@ -47,7 +47,9 @@ struct NetSessionConfig {
  * application events. This slice owns discovery (HELLO), shutdown notification
  * (BYE), the peer table, the offline timeout, the unreliable data path, and
  * reliable delivery with its ACK, retry, duplicate window and give-up event.
- * The outstanding slices add backpressure across updates and the sync counter.
+ * Reliable sends survive a busy transport: an accepted message stays in the
+ * pending queue and is transmitted on a later @ref update without consuming a
+ * new sequence. The outstanding slices add the sync counter.
  *
  * Ownership contract: the session never owns, initializes or shuts down the
  * transport. @ref init requires a transport that is already ready, applies the
@@ -97,11 +99,16 @@ public:
      * @brief Starts the session on an already initialized transport.
      * @param newConfig Channel, identity and timer configuration.
      * @return Ok on success, NotInitialized when the transport is not ready,
-     *         or the transport's rejection of the channel.
+     *         InvalidArgument for a channel outside 1..13 or a zero interval,
+     *         timeout or retry limit, or the transport's rejection of the
+     *         channel.
      *
-     * Registers the broadcast address with the transport when discovery is on.
-     * Peers registered through @ref addPeer survive a re-init, because they are
-     * configuration rather than live link state; pending events are cleared.
+     * Configuration is validated before the transport is touched, so a
+     * rejected configuration leaves the link's channel and this session
+     * uninitialized. Registers the broadcast address with the transport when
+     * discovery is on. Peers registered through @ref addPeer survive a re-init,
+     * because they are configuration rather than live link state; pending
+     * events are cleared.
      */
     NetResult init(const NetSessionConfig& newConfig);
 
@@ -131,22 +138,28 @@ public:
      * @param delivery Delivery contract requested for this message.
      * @param data Payload bytes; may be null only when `length` is 0.
      * @param length Payload size in bytes, at most NetMaxPayload.
-     * @return Ok when the frame was handed to the transport, NotInitialized
-     *         before @ref init, InvalidArgument for an out-of-range or unused
-     *         slot or a null payload with a non-zero length, PayloadTooLarge
-     *         for a length above NetMaxPayload, PeerNotFound when the slot
-     *         exists but the peer is offline, Busy when the reliable queue is
-     *         full or the transport had no room, or the transport's own error.
+     * @return Ok when the session accepted the message, NotInitialized before
+     *         @ref init, InvalidArgument for an out-of-range or unused slot or
+     *         a null payload with a non-zero length, PayloadTooLarge for a
+     *         length above NetMaxPayload, PeerNotFound when the slot exists but
+     *         the peer is offline, Busy when the reliable pending queue is full
+     *         or an unreliable send found no transport room, or another
+     *         transport error.
      *
      * NetDelivery::Unreliable is fire-and-forget: no sequence, no ACK, no
-     * retry and no dedupe. NetDelivery::Reliable assigns the peer's next
-     * sequence, keeps the frame in the pending queue until an ACK arrives and
-     * retries it on the ACK timeout configured in NetSessionConfig.
+     * retry and no dedupe. A transport Busy is reported to the caller and
+     * nothing is queued, because there is no reliable state to hold the frame.
+     * NetDelivery::Reliable assigns the peer's next sequence, keeps the frame
+     * in the pending queue until an ACK arrives and retries it on the ACK
+     * timeout configured in NetSessionConfig. A busy transport does not fail a
+     * reliable send: the message stays queued with its original sequence and
+     * is transmitted on a later @ref update.
      *
      * A peer must already be known and online, because data never creates a
      * peer: discovery or @ref addPeer owns the table, and a timed-out peer is
      * revived by its next valid frame instead of by an outgoing one. `Ok`
-     * means the frame reached the transport, not that the peer received it.
+     * therefore means the session accepted the message, not that the peer
+     * received it; a reliable message may still be waiting for transport room.
      *
      * The pending entry is stamped with the session time of the last
      * @ref update, so the application must call @ref update once per frame
@@ -249,7 +262,10 @@ private:
      *
      * The whole encoded frame is stored, not the application payload, so a
      * retry is byte-identical to the first transmission and never re-encodes
-     * against a sequence that has already advanced.
+     * against a sequence that has already advanced. `sent` separates an entry
+     * the transport has never accepted from one that is awaiting an ACK: an
+     * unsent entry is attempted on every update and cannot consume the retry
+     * budget, because it has nothing to retry yet.
      */
     struct PendingTx {
         uint32_t sequence = 0;    ///< Sequence carried by @ref frame.
@@ -257,6 +273,7 @@ private:
         uint16_t frameLength = 0; ///< Valid bytes in @ref frame.
         uint8_t retries = 0;      ///< Retransmissions already performed.
         uint8_t peerId = 0;       ///< Destination slot index.
+        bool sent = false;        ///< true once the transport accepted the frame.
         uint8_t frame[kNetTransportFrameSize]{};  ///< Encoded frame copy.
     };
 
