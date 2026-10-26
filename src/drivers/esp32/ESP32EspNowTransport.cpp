@@ -83,9 +83,10 @@ NetResult ESP32EspNowTransport::init(const NetTransportConfig& newConfig) {
     }
     linkUp = true;
 
-    // Arduino core 3.x changed the receive callback to carry a full
-    // esp_now_recv_info_t. The source MAC is the only field this backend reads,
-    // so the shim only changes where that MAC comes from.
+    // Arduino core 3.x changed both ESP-NOW callbacks: receive now carries an
+    // esp_now_recv_info_t and send a wifi_tx_info_t. The source/destination MAC
+    // is the only field this backend reads, so the shim only changes where that
+    // MAC comes from.
     esp_err_t callbackResult;
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
     callbackResult = esp_now_register_recv_cb(
@@ -107,12 +108,22 @@ NetResult ESP32EspNowTransport::init(const NetTransportConfig& newConfig) {
         return NetResult::TransportError;
     }
 
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+    callbackResult = esp_now_register_send_cb(
+        [](const wifi_tx_info_t* info, esp_now_send_status_t status) {
+            if (instance_ != nullptr && info != nullptr) {
+                instance_->stageSendResult(info->des_addr,
+                                           status == ESP_NOW_SEND_SUCCESS);
+            }
+        });
+#else
     callbackResult = esp_now_register_send_cb(
         [](const uint8_t* mac, esp_now_send_status_t status) {
             if (instance_ != nullptr) {
                 instance_->stageSendResult(mac, status == ESP_NOW_SEND_SUCCESS);
             }
         });
+#endif
     if (callbackResult != ESP_OK) {
         release();
         return NetResult::TransportError;
