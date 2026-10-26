@@ -38,8 +38,9 @@ default `0`) uses the ESP-NOW support that ships with the ESP32 Arduino core:
 - **Verification:** ESP32-C3 is verified by build (both `examples/esp_now`
   environments). There is no ESP32 hardware in CI, so RF behavior, latency and
   heap are validated manually with the example's checklist.
-- **Arduino core:** 2.0.17 is the verified core; 3.x compiles through a
-  callback shim but is not exercised in CI.
+- **Arduino core:** 2.0.17 and 3.3.12 are verified; 3.x builds through a
+  compile-time callback shim, and the CI examples matrix compiles it on
+  `esp32c3`.
 
 See [Networking subsystem](../architecture/networking-subsystem.md) and the
 [Networking guide](networking.md).
