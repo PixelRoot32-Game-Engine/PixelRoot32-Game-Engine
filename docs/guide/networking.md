@@ -1,4 +1,4 @@
-# Networking (ESP-NOW)
+# Networking (ESP-NOW) in your game
 
 The `pixelroot32::networking` module gives a game a router-free peer-to-peer
 link: discovery, per-message reliability, and a convergent shared counter.
@@ -13,6 +13,14 @@ see the [Networking subsystem](../architecture/networking-subsystem.md)
 > operations produce the same value on every peer, whatever the arrival order.
 > It does not make two boards draw identical frames. See
 > [Convergence, not lockstep](#convergence-not-lockstep).
+
+**Implementation path:** [enable](#1-enable-the-module) ->
+[wire transport and session](#2-setup) ->
+[send your own messages](#sending-your-own-messages) ->
+[map peers and events](#receiving-events-and-mapping-peers) ->
+[share state](#5-the-convergent-counter) ->
+[test on native](#6-native-loopback) ->
+[ship checklist](#11-ship-checklist).
 
 ---
 
@@ -156,6 +164,119 @@ With Engine-managed dispatch the counter's stored uptime is at most one frame
 old. That is far inside the 1 s uptime tie window the resync rule uses, so the
 example drives `counter.update()` from `Scene::update()` and still converges.
 
+### Sending your own messages
+
+`NetSession` moves opaque application bytes; framing, ACK, retry and duplicate
+suppression are below you. Give every payload a one-byte tag and treat the rest
+as a small versioned record:
+
+| Rule | Why |
+|------|-----|
+| First payload byte is the message tag | The scene routes one stream; the tag says what it is |
+| Tags 1, 2 and 3 belong to `NetCounter`; start your game at 10 | Future module tags stay free; the dice example uses 10-12 |
+| Fixed little-endian fields, explicit encode/decode | Padding and host endianness never reach the wire |
+| Validate `event.length` before reading | A corrupt or foreign peer must not read past the payload |
+| Include a version or round if the schema can change | There is no schema negotiation |
+
+A codec pair and a send look like this:
+
+```cpp
+enum class MsgTag : uint8_t { Move = 16 };  // app tags start at 10; 16 is free
+
+struct Move { int16_t x; int16_t y; };
+
+uint16_t encodeMove(uint8_t* out, uint16_t capacity, const Move& move) {
+    if (capacity < 5) {
+        return 0;
+    }
+    const uint16_t x = static_cast<uint16_t>(move.x);
+    const uint16_t y = static_cast<uint16_t>(move.y);
+    out[0] = static_cast<uint8_t>(MsgTag::Move);
+    out[1] = static_cast<uint8_t>(x & 0xFF);
+    out[2] = static_cast<uint8_t>((x >> 8) & 0xFF);
+    out[3] = static_cast<uint8_t>(y & 0xFF);
+    out[4] = static_cast<uint8_t>((y >> 8) & 0xFF);
+    return 5;
+}
+
+void sendMove(uint8_t peerId, const Move& move) {
+    uint8_t payload[pixelroot32::platforms::config::NetMaxPayload];
+    const uint16_t length = encodeMove(payload, sizeof(payload), move);
+    if (length == 0) {
+        return;
+    }
+    const NetResult result = session.send(
+        peerId, NetDelivery::Unreliable, payload, length);
+    // Ok means the session accepted it, not that the radio delivered it.
+    (void)result;
+}
+```
+
+Pick the delivery contract per message:
+
+- **Reliable** for events that must apply exactly once: a shot, a score, a spawn,
+  a turn change, a dialog choice. The session retries and suppresses duplicates;
+  a give-up arrives as `SendFailed`.
+- **Unreliable** for continuous state where the next packet supersedes the last:
+  movement at a high rate, a cursor, a ping. It has no queue, no retry and no
+  duplicate suppression; a lost packet is simply not applied.
+
+Reliable is **effectively-once, not ordered**. If order matters, put a monotonic
+round or tick in the payload and ignore anything older than the last accepted
+value. `NetSession` does not provide a global order across peers.
+
+The payload ceiling is `PIXELROOT32_NET_MAX_PAYLOAD` (64 B by default, 234 B
+hard maximum). There is no fragmentation: a larger message needs a bigger flag
+(more RAM per queue entry) or your own chunking.
+
+### Receiving events and mapping peers
+
+`Scene::onNetworkEvent` is the single entry point. Route by event type first,
+then by tag:
+
+```cpp
+void onNetworkEvent(const NetEvent& event) override {
+    switch (event.type) {
+        case NetEventType::PeerJoined:
+            // event.peerId is the session slot; event.nodeId is the label from
+            // HELLO. Map the slot to a game player and (re)send any state that
+            // player needs. This also fires when a timed-out peer comes back.
+            break;
+        case NetEventType::PeerLeft:
+            // Mark the player offline and cancel anything waiting on them.
+            break;
+        case NetEventType::SendFailed:
+            // A reliable message exhausted its retries. The game decides
+            // whether to retry with a new message or surface a failure.
+            break;
+        case NetEventType::Message:
+            if (event.length == 0) {
+                break;
+            }
+            switch (event.payload[0]) {
+                case static_cast<uint8_t>(MsgTag::Move):
+                    if (event.length == 5) {
+                        applyMove(event.payload + 1);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+    }
+}
+```
+
+- `peerId` is the session slot (`0..NetMaxPeers-1`) and stays stable while the
+  peer exists, including across a timeout and a revive. `nodeId` is the
+  application label advertised in HELLO. Use `peerId` for `send()` and `nodeId`
+  for game roles and score signs.
+- A `Message` never creates a peer: discovery or `addPeer()` owns the table. Data
+  from an unknown MAC is dropped.
+- `PeerJoined` is also the resync trigger; send your snapshot from it. Do not
+  start a round or a match from `PeerJoined` unless the game wants the link to
+  start it; the player usually presses first.
+
 ---
 
 ## 3. Channel
@@ -256,6 +377,33 @@ the same scope correction recorded for physics: determinism is per build, not
 across hardware or targets (issue #244, see
 [physics-subsystem.md](../architecture/physics-subsystem.md)).
 
+### When the counter is not enough
+
+`NetCounter` is one signed integer shared by every peer, not a generic
+serializer. For per-player scores, inventories, grids or hidden state, keep
+ownership explicit:
+
+- **Owner-published state.** Each player owns its fields and publishes a small
+  fixed-size snapshot on join and on change, with a version or round. Ignore a
+  snapshot older than the one you already have; a single writer per field means
+  no conflict resolution.
+- **Turn protocol.** Only the active player writes; every message carries a turn
+  token and a message id so a retry cannot apply twice.
+  [`examples/esp_now_dice`](../../examples/esp_now_dice/README.md) is the
+  reference: commit/reveal per round, exactly-once scoring through `NetCounter`,
+  a timeout, and a match reset.
+- **One `NetCounter` per session.** Its application tags (1, 2 and 3) are fixed,
+  so a second instance would receive the first one's operations. If a game needs
+  two independent shared integers, combine them into one tagged payload or
+  extend the counter configuration; do not instantiate two counters on the same
+  session as shipped.
+- **Custom resync.** On `PeerJoined`, send the full state reliably; while
+  waiting, buffer incoming operations instead of applying them, then replay only
+  the ones newer than the snapshot's per-node cursor. The counter's resync code
+  and its tests are the worked example.
+- **No persistence.** If both boards reboot, the shared state resets to 0.
+  Save/Load is a separate roadmap item.
+
 ---
 
 ## 6. Native loopback
@@ -301,6 +449,25 @@ timing jitter, or the Wi-Fi stack. It proves logic, not radio behavior.
 with the Engine and drives the second simulated node in `Scene::update()`
 (counter update, session update, poll, counter route). That is a simulation
 detail: two real boards each run their own Engine and pump their own session.
+
+### Test before hardware
+
+The radio is not in CI, so put the deterministic parts under `native_test`:
+
+1. **Pure codecs.** Encode and decode your payloads in a header with no Arduino
+   dependency, and test bounds, malformed lengths, version rejection and
+   round-trips. `test/unit/test_esp_now_dice_protocol/` includes an example
+   header directly; the same pattern works for a game codec.
+2. **Two sessions on the loopback.** Drive `LoopbackTransport` with
+   `LoopbackFaults` (`lossPercent`, `duplicatePercent`, `reorderPercent`,
+   `delayMs`, `sendBusy`) and assert the game rule: one application per event,
+   convergence, timeout, rejoin. `test/unit/test_esp_now_dice/` is a complete
+   two-board harness.
+3. **Build the real target.** `pio run -e <env>` for native and for every
+   hardware role; the examples workflow builds each example's environments.
+4. **Hardware checklist.** Discovery, both press orders, a lost peer mid-round,
+   a reboot mid-match, an out-of-range walk, a channel mismatch, a 10-minute
+   soak, and free-heap and loop-time measurements.
 
 ---
 
@@ -408,20 +575,51 @@ This is the same command the CI workflow runs in its
 `Run Tests (networking enabled)` step. `native_test` stays the flag-off
 contract and does not compile the networking assertions.
 
-Build the demo from `examples/esp_now`:
+Build the counter demo:
 
 ```bash
-pio run -e native
-pio run -e esp32c3_node_up
-pio run -e esp32c3_node_down
+pio run -d examples/esp_now -e native
+pio run -d examples/esp_now -e esp32c3_node_up
+pio run -d examples/esp_now -e esp32c3_node_down
 ```
 
 The two C3 environments are the two roles: node 1 adds, node 2 subtracts.
+The dice example is built the same way:
 
-## 11. Next steps
+```bash
+pio run -d examples/esp_now_dice -e native
+pio run -d examples/esp_now_dice -e esp32c3_node_a
+pio run -d examples/esp_now_dice -e esp32c3_node_b
+```
 
-- [ESP-NOW example](../../examples/esp_now/README.md) - two C3 boards and a
-  native simulation, with wiring, controls and measured build sizes.
+## 11. Ship checklist
+
+- [ ] The flag is defined only for the target environments; the default build
+      stays at `PIXELROOT32_ENABLE_NETWORKING=0`.
+- [ ] Both roles have a unique `nodeId`; the role is compile-time or persisted,
+      never guessed at runtime.
+- [ ] The channel is fixed and documented; neither board joins an access point.
+- [ ] Every message has a tag, a fixed layout, a length check and a version or
+      round when the schema can evolve.
+- [ ] Reliability is chosen per message; `SendFailed` is handled.
+- [ ] `PeerJoined` and `PeerLeft` update the game's player slots; a rejoin
+      resyncs the state the player needs.
+- [ ] Resync behavior is defined for the game state, including what happens if
+      both boards reboot (there is no persistence).
+- [ ] Payload and queue sizes are measured on the C3; audio, physics and UI are
+      off if the game does not need them.
+- [ ] The native loopback tests cover loss, duplication, reorder, busy, timeout
+      and reboot.
+- [ ] The no-encryption limitation is acceptable for the deployment, or the link
+      is kept on a private band with discovery disabled and peers pre-seeded.
+- [ ] The hardware checklist passed on two boards.
+
+## 12. Next steps
+
+- [ESP-NOW counter example](../../examples/esp_now/README.md) - two C3 boards and
+  a native simulation; start here for the transport and the shared counter.
+- [Dice duel example](../../examples/esp_now_dice/README.md) - custom tagged
+  messages, commit/reveal, a shared score, timeout and rematch.
 - [Networking subsystem](../architecture/networking-subsystem.md) - wire format,
   reliability, discovery, threading, memory and limitations.
 - [Networking API](../api/networking.md) - conceptual reference for
