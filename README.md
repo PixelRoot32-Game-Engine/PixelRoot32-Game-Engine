@@ -110,7 +110,7 @@ Every demo is a standalone PlatformIO project that builds against the
 `pio run -e native`, and you have a working starting point.
 
 **How it differs from [`examples/`](examples/) in this repository:** the
-examples here are six minimal projects, each isolating a single engine
+examples here are nine minimal projects, each isolating a single engine
 capability, and none of them is a game. Read an example to learn one API; read a
 demo to see several of them working together in something finished.
 
@@ -172,7 +172,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.12.0
+    gperez88/PixelRoot32-Game-Engine@^1.13.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -186,9 +186,9 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `mono_oled`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `mono_oled`, `esp_now`, `esp_now_dice`, `esp_now_ping`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
-2. **Open that example folder in VS Code** (File → Open Folder) and select your environment (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3`, or `env:native`).
+2. **Open that example folder in VS Code** (File → Open Folder) and select the environment named in its `platformio.ini` (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3_node_up`, `env:esp32c3_node_a`, `env:native`, and so on).
 3. **Build and Upload** using PlatformIO.
 
 > 📚 **More information:** See the [Getting Started Guide](https://docs.pixelroot32.org/).
@@ -218,7 +218,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Six minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[Examples](examples/)**: Nine minimal, single-idea capability examples (open a subfolder in PlatformIO).
 - **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
 - **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
@@ -232,7 +232,6 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 ## 🗺️ Roadmap
 
 - 💾 **Persistence (Save/Load)**: One storage interface with NVS on ESP32, external EEPROM, and file-on-native backends.
-- 📡 **ESP-NOW Networking Module**: Optional peer-to-peer communication layer for local multiplayer and device synchronization. Provides packet abstraction, Scene event integration, optional reliability (ACK/retry), and deterministic state sync. Designed for router-free ESP32 communication.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
 - 💬 **Dialog System, post-MVP**: Remaining additions to the 1.11.0 dialog system that land when a game needs them: per-character text reveal with sound, and a localization text table.
 
@@ -242,9 +241,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.12.0
+## 1.13.0
 
-Completes the **dialog post-MVP trio** (conditional choices, multi-column option rows, 1bpp speaker portraits) and extends portraits to **multi-color faces** (`portrait2bpp`/`portrait4bpp` through `portraitPaletteSlot`) in a **fixed size box** (`Size16/24/32`, over-box faces ignored) with the selection caret drawn at the text column. Also adds **segment collision** (ramps and cushions for circles and boxes, tunable bias/slop, rest threshold) and per-call **transition configuration**, and removes the dead `VELOCITY_DAMPING`/`MAX_VELOCITY`/`MIN_VELOCITY` macros. All opt-in additions default to off; ASCII text and existing APIs render and behave as in 1.11.0.
+Adds the optional **ESP-NOW networking module** (`PIXELROOT32_ENABLE_NETWORKING`, default off): router-free discovery, per-message reliability (ACK/retry/dedupe), a convergent counter with snapshot resync, and the `Scene::onNetworkEvent` hook. Ships with three examples — `esp_now` (shared counter), `esp_now_dice` (commit/reveal prototype) and `esp_now_ping` (tagged custom messages) — plus native loopback tests, documentation and CI coverage. Arduino-ESP32 2.x and 3.x are supported; existing builds are unchanged.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

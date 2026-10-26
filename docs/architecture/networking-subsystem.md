@@ -481,7 +481,7 @@ Do not read them as the module's cost.
 | L5 | **No hardware in CI.** RF behavior, latency, heap and frame time are validated manually. The loopback covers protocol and logic only. |
 | L6 | **No persistence.** If both nodes lose power, the shared value resets to 0. A single reboot is restored by a live peer. |
 | L7 | **Discovery trusts HELLO.** With discovery on, any sender in range can join the peer table. Use `discovery = false` plus pre-seeded peers for locked deployments. |
-| L8 | **Arduino core range.** Arduino-ESP32 2.0.17 is the verified core. A compile-time shim covers the 3.x callback signature, but 3.x is not exercised in CI. |
+| L8 | **Arduino core range.** Arduino-ESP32 2.0.17 and 3.3.12 are verified. A compile-time shim covers the 3.x send and receive callback signatures; the CI examples matrix builds the 3.x branch. |
 | L9 | **One ESP-NOW instance per process.** The callbacks are process-global; a second transport receives `Busy` from `init()` until the owner shuts down. |
 | L10 | **Not IP.** No routing, no internet, no OTA synergy. ESP-NOW is a link-layer protocol. |
 | L11 | **Node id collisions are not detected.** The MAC is the identity; the label is the application's responsibility. |
