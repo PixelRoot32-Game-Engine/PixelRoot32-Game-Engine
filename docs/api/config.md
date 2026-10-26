@@ -74,10 +74,10 @@ Compile-time limits of the optional networking module (`PIXELROOT32_ENABLE_NETWO
 > **Supported targets and core:** real ESP-NOW exists only on the ESP32 family;
 > native builds provide the in-process `LoopbackTransport` and have no radio.
 > Any other target fails the build when the flag is on. The module is verified
-> with Arduino-ESP32 2.0.17 (the legacy ESP-NOW callback signature). Arduino
-> core 3.x compiles through a compile-time callback shim, but no 3.x toolchain
-> runs in CI, so 3.x behavior is unverified. `MAX_PAYLOAD + HEADER_SIZE` is
-> asserted at compile time to stay within ESP-NOW's 250-byte frame.
+> with Arduino-ESP32 2.0.17 and 3.3.12; a compile-time shim covers the 3.x send
+> and receive callback signatures, and the CI examples matrix builds the 3.x
+> branch on `esp32c3`. `MAX_PAYLOAD + HEADER_SIZE` is asserted at compile time
+> to stay within ESP-NOW's 250-byte frame.
 
 ## Memory Savings by Subsystem
 
