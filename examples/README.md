@@ -1,6 +1,6 @@
 # PixelRoot32 — Examples
 
-**Eight small, single-idea projects.** Each one exists to show one capability of
+**Nine small, single-idea projects.** Each one exists to show one capability of
 the engine clearly enough to copy, and stops there.
 
 > **Looking for a game?** These are not games. Complete games, and per-topic
@@ -37,6 +37,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [mono_oled](mono_oled/) | **Monochrome 1-bit OLED** on ESP32-C3: `U8G2_Drawer` via `PIXELROOT32_USE_U8G2`, which renderer paths a monochrome panel gives up (no tilemap fast path, no sprite blit, no palette), a **72x40 logical screen offset inside a 128x64 controller framebuffer**, and one-button interaction | `native`, `esp32c3` |
 | [esp_now](esp_now/) | **ESP-NOW peer-to-peer sync** between two ESP32-C3 boards with no router: discovery, reliable delivery with duplicate suppression, and a **convergent signed counter** where one press on either board updates both displays | `native`, `esp32c3_node_up`, `esp32c3_node_down` |
 | [esp_now_dice](esp_now_dice/) | **Commit/reveal dice duel** over ESP-NOW between two ESP32-C3 boards: one button per board, a round exchanges a commitment and then a seed, both boards derive the **same two dice**, and a **convergent shared score** tracks the match to +3/-3 with a rematch on the same button. Prototype: moves to Demo-Projects after 1.13.0 | `native`, `esp32c3_node_a`, `esp32c3_node_b` |
+| [esp_now_ping](esp_now_ping/) | **Minimal custom-message example** over ESP-NOW between two ESP32-C3 boards: a tagged **7-byte ping/pong codec**, a reliable send, an automatic reply in `Scene::onNetworkEvent`, and an **application RTT** measured from the echoed timestamp | `native`, `esp32c3_ping_a`, `esp32c3_ping_b` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
 
@@ -91,19 +92,20 @@ growing. If you followed a link here, this table is where it now points:
 | `examples/music-demo` | [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) |
 
 `flappy_bird` and `music-demo` were also the only `esp32c3` examples here. That
-coverage is now [mono_oled](mono_oled/), [esp_now](esp_now/) and
-[esp_now_dice](esp_now_dice/), all written for the board deliberately rather
-than inherited from a game.
+coverage is now [mono_oled](mono_oled/), [esp_now](esp_now/),
+[esp_now_dice](esp_now_dice/) and [esp_now_ping](esp_now_ping/), all written for
+the board deliberately rather than inherited from a game.
 
 > **Display drivers.** `PIXELROOT32_USE_U8G2` selects `U8G2_Drawer` for
 > monochrome panels; without it, ESP32 builds default to TFT_eSPI. Only
-> [mono_oled](mono_oled/), [esp_now](esp_now/) and
-> [esp_now_dice](esp_now_dice/) set it, and all three build for `esp32c3`. This
-> flag is not part of the `PIXELROOT32_ENABLE_*` family below.
+> [mono_oled](mono_oled/), [esp_now](esp_now/),
+> [esp_now_dice](esp_now_dice/) and [esp_now_ping](esp_now_ping/) set it, and
+> all four build for `esp32c3`. This flag is not part of the
+> `PIXELROOT32_ENABLE_*` family below.
 
 ## Where each opt-in capability is demonstrated
 
-These eight examples cover the rendering, camera, physics, dialog, display and
+These nine examples cover the rendering, camera, physics, dialog, display and
 networking side of the engine. Each row names the examples that actually define
 the flag in their `platformio.ini` (or their `lib/platformio.ini` template):
 
@@ -120,8 +122,8 @@ the flag in their `platformio.ini` (or their `lib/platformio.ini` template):
 | Touch input | `TOUCH` | [physics](physics/) |
 | Scene arena | `SCENE_ARENA` | [animated_tilemap](animated_tilemap/), [camera](camera/), [physics](physics/) |
 | Dialog | `DIALOG` | [dialog](dialog/) |
-| ESP-NOW peer-to-peer networking | `NETWORKING` | [esp_now](esp_now/), [esp_now_dice](esp_now_dice/) |
-| Monochrome display driver | `PIXELROOT32_USE_U8G2` | [mono_oled](mono_oled/), [esp_now](esp_now/), [esp_now_dice](esp_now_dice/) |
+| ESP-NOW peer-to-peer networking | `NETWORKING` | [esp_now](esp_now/), [esp_now_dice](esp_now_dice/), [esp_now_ping](esp_now_ping/) |
+| Monochrome display driver | `PIXELROOT32_USE_U8G2` | [mono_oled](mono_oled/), [esp_now](esp_now/), [esp_now_dice](esp_now_dice/), [esp_now_ping](esp_now_ping/) |
 
 Every flag above except the last takes the `PIXELROOT32_ENABLE_` prefix.
 

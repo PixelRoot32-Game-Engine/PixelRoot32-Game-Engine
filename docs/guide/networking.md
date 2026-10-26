@@ -212,6 +212,8 @@ void sendMove(uint8_t peerId, const Move& move) {
 }
 ```
 
+The [`esp_now_ping`](../../examples/esp_now_ping/README.md) example is this recipe as a complete project.
+
 Pick the delivery contract per message:
 
 - **Reliable** for events that must apply exactly once: a shot, a score, a spawn,
@@ -618,6 +620,9 @@ pio run -d examples/esp_now_dice -e esp32c3_node_b
 
 - [ESP-NOW counter example](../../examples/esp_now/README.md) - two C3 boards and
   a native simulation; start here for the transport and the shared counter.
+- [Ping/pong example](../../examples/esp_now_ping/README.md) - the minimal
+  custom-message project: a tagged codec, a reliable send, an automatic reply
+  and an application RTT.
 - [Dice duel example](../../examples/esp_now_dice/README.md) - custom tagged
   messages, commit/reveal, a shared score, timeout and rematch.
 - [Networking subsystem](../architecture/networking-subsystem.md) - wire format,
