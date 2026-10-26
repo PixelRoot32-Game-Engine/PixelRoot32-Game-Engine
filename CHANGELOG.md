@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.13.0
+
+### Added
+
+* **ESP-NOW networking module (`PIXELROOT32_ENABLE_NETWORKING`, default `0`)**: an optional router-free peer-to-peer layer. `NetSession` provides broadcast HELLO/BYE discovery, a fixed peer table, per-message reliable delivery (ACK, bounded retry, a 64-bit duplicate window with serial arithmetic and duplicate re-ACK) and a Scene event hook drained by `Engine::update()`. `NetTransport` has two backends: `ESP32EspNowTransport` for real ESP-NOW (station without an access point, atomic SPSC staging rings) and `LoopbackTransport` for deterministic native tests with injectable loss, duplication, reordering, delay and send-busy. `NetCounter` is the reference convergent shared value: idempotent operations, snapshot-based reboot resync with an explicit snapshot request, and `isResyncing`/`isOutOfSync` for the game. Ships with three examples: `examples/esp_now` (shared counter), `examples/esp_now_dice` (commit/reveal prototype) and `examples/esp_now_ping` (tagged custom messages), plus a `native_test_networking` CI environment and architecture, guide and API documentation. The ESP-NOW backend compiles against Arduino-ESP32 2.0.x and 3.x. Existing builds are unchanged: the flag defaults to `0` and contributes no symbols or Engine bytes. v1 has no encryption or authentication (LMK is planned for v2), so the link is only as private as the radio's coverage.
+
 # 1.12.0
 
 ### ✨ Added

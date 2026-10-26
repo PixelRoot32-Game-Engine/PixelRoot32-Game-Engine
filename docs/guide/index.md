@@ -21,7 +21,8 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 - [Physics](./physics.md) — Collisions, actors, tile helpers
 - [Audio](./audio.md) — Channels, SFX, and music overview
 - [UI system](./ui-system.md) — Layouts, widgets, HUDs
-- [Dialog](./dialog.md) — Scripts, `DialogRunner`, `DialogBox`
+- [Dialog](./dialog.md) - Scripts, `DialogRunner`, `DialogBox`
+- [Networking (ESP-NOW)](./networking.md) - Peer discovery, reliable messages, shared state, native loopback, and the two-board examples
 
 ## Advanced
 

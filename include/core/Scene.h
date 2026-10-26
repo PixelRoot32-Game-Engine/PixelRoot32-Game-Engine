@@ -25,6 +25,13 @@
 #include "gameplay/RoomGraph.h"
 #endif
 
+#if PIXELROOT32_ENABLE_NETWORKING
+// Forward declaration only: the default hook never inspects the event, so
+// Scene must not pull the networking headers (and their static arrays) into
+// every scene translation unit.
+namespace pixelroot32 { namespace networking { struct NetEvent; } }
+#endif
+
 namespace pixelroot32::core {
 
 #include <new> // for placement new
@@ -142,6 +149,24 @@ public:
     virtual void onUnconsumedTouchEvent(const pixelroot32::input::TouchEvent& event) {
         (void)event;
     }
+
+#if PIXELROOT32_ENABLE_NETWORKING
+    /**
+     * @brief Optional hook for one event drained from the networking session.
+     *
+     * Engine calls it once per pending session event, before Scene::update(),
+     * on whichever scene is current when the session queue is drained. A scene
+     * swap therefore routes already-queued events to the new scene instead of
+     * discarding them, because a reliable message may already be acknowledged
+     * to the sender. The default implementation is a no-op, so scenes that do
+     * not use networking only pay for the virtual slot.
+     *
+     * @param event Event popped from the session's receive queue.
+     */
+    virtual void onNetworkEvent(const pixelroot32::networking::NetEvent& event) {
+        (void)event;
+    }
+#endif
 
 #if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
     /**

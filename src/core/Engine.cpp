@@ -18,6 +18,11 @@
 #include <cstring>
 #include <cassert>
 
+#if PIXELROOT32_ENABLE_NETWORKING
+#include "networking/NetSession.h"
+#include "networking/NetTypes.h"
+#endif
+
 #ifdef PLATFORM_NATIVE
 #include "drivers/native/SDL2_Drawer.h"
 #endif
@@ -359,7 +364,25 @@ namespace pixelroot32::core {
         #else
             inputManager.update(deltaTime);
         #endif
-        
+
+        #if PIXELROOT32_ENABLE_NETWORKING
+        // Pump and drain the borrowed session before the scene update so a
+        // scene can react to network input in the same frame. Events go to the
+        // scene that is current at drain time: a scene swap between queueing
+        // and this call must not discard an already-acknowledged message.
+        // With no session registered the Engine stays completely inert.
+        if (networkSession != nullptr) {
+            networkSession->update(currentMillis);
+            networking::NetEvent event;
+            while (networkSession->pollEvent(event)) {
+                auto scene = sceneManager.getCurrentScene();
+                if (scene.has_value() && scene.value() != nullptr) {
+                    scene.value()->onNetworkEvent(event);
+                }
+            }
+        }
+        #endif
+
         // Update scene
         sceneManager.update(deltaTime);
         

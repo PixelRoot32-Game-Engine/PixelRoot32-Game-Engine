@@ -1,0 +1,1054 @@
+/*
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
+ */
+#include "networking/NetSession.h"
+
+#if PIXELROOT32_ENABLE_NETWORKING
+
+#include "networking/NetProtocol.h"
+
+#if defined(ESP32)
+#include <esp_system.h>
+#else
+#include <ctime>
+#endif
+
+namespace pixelroot32::networking {
+
+namespace {
+
+/**
+ * @brief Width of the HELLO uptime payload, in bytes.
+ *
+ * HELLO carries exactly one field, the sender's uptime, so a frame with a
+ * different payload length describes a dialect this build cannot interpret and
+ * must be rejected as a whole rather than partially trusted.
+ */
+constexpr uint16_t kHelloPayloadSize = 4;
+
+/**
+ * @brief Decodes one little-endian 32-bit field.
+ * @param payload Pointer to four payload bytes.
+ * @return The decoded value.
+ */
+uint32_t readU32LE(const uint8_t* payload) noexcept {
+    return static_cast<uint32_t>(payload[0]) |
+           (static_cast<uint32_t>(payload[1]) << 8) |
+           (static_cast<uint32_t>(payload[2]) << 16) |
+           (static_cast<uint32_t>(payload[3]) << 24);
+}
+
+/**
+ * @brief Encodes one little-endian 32-bit field.
+ * @param out Destination of exactly four bytes.
+ * @param value Value to encode.
+ */
+void writeU32LE(uint8_t* out, uint32_t value) noexcept {
+    out[0] = static_cast<uint8_t>(value & 0xFFu);
+    out[1] = static_cast<uint8_t>((value >> 8) & 0xFFu);
+    out[2] = static_cast<uint8_t>((value >> 16) & 0xFFu);
+    out[3] = static_cast<uint8_t>((value >> 24) & 0xFFu);
+}
+
+/**
+ * @brief Builds the ESP-NOW broadcast address.
+ * @return Address with every byte set to 0xFF.
+ */
+NetAddress broadcastAddress() noexcept {
+    NetAddress address{};
+    for (uint8_t i = 0; i < kNetAddressSize; ++i) {
+        address.bytes[i] = 0xFFu;
+    }
+    return address;
+}
+
+/**
+ * @brief Derives an application label from a MAC address.
+ * @param address Local link address.
+ * @return Last MAC byte, with 0 and 255 mapped to 1.
+ *
+ * 0 means "derive" in the configuration and 255 is the broadcast marker, so
+ * neither may become the local label of a real node.
+ */
+uint8_t deriveNodeId(const NetAddress& address) noexcept {
+    const uint8_t lastByte = address.bytes[kNetAddressSize - 1];
+    if (lastByte == 0x00u || lastByte == 0xFFu) {
+        return 1;
+    }
+    return lastByte;
+}
+
+/**
+ * @brief Generates a non-zero boot generation.
+ * @param address Local link address, mixed in on native builds.
+ * @return A value that differs between boots and is never zero.
+ *
+ * A boot id is a generation marker, not a random number: two boots of the same
+ * node must differ so peers can reset their per-peer dedupe state. ESP32 has a
+ * hardware RNG for it; native mixes the wall clock, a process-local counter and
+ * the local MAC because it has no RNG contract and must not allocate.
+ */
+uint16_t generateBootId(const NetAddress& address) noexcept {
+#if defined(ESP32)
+    const uint16_t value = static_cast<uint16_t>(esp_random() & 0xFFFFu);
+    return (value != 0) ? value : 1;
+#else
+    static uint16_t bootCounter = 0;
+    ++bootCounter;
+
+    uint32_t mix = static_cast<uint32_t>(std::time(nullptr));
+    for (uint8_t i = 0; i < kNetAddressSize; ++i) {
+        mix = mix * 31u + address.bytes[i];
+    }
+    mix ^= static_cast<uint32_t>(bootCounter) * 2654435761u;
+
+    const uint16_t folded = static_cast<uint16_t>(mix ^ (mix >> 16));
+    return (folded != 0) ? folded : 1;
+#endif
+}
+
+}  // namespace
+
+// =============================================================================
+// Construction and lifecycle
+// =============================================================================
+
+NetSession::NetSession(NetTransport& transportRef) : transport(transportRef) {}
+
+NetResult NetSession::init(const NetSessionConfig& newConfig) {
+    // The session never brings the link up: a caller that forgot to initialize
+    // the transport gets a clear answer instead of a half-working session.
+    if (!transport.isReady()) {
+        return NetResult::NotInitialized;
+    }
+
+    // Reject a configuration that cannot drive a working session before it
+    // touches the link. An out-of-range channel is not a frequency the radio
+    // can use, and a zero interval, timeout or retry limit would make the
+    // corresponding timer fire immediately or never; both are caller bugs that
+    // must not leave a half-configured session behind.
+    if (newConfig.channel < 1 || newConfig.channel > 13 ||
+        newConfig.helloIntervalMs == 0 || newConfig.peerTimeoutMs == 0 ||
+        newConfig.ackTimeoutMs == 0 || newConfig.maxRetries == 0) {
+        return NetResult::InvalidArgument;
+    }
+
+    const NetResult channelResult = transport.setChannel(newConfig.channel);
+    if (channelResult != NetResult::Ok) {
+        return channelResult;
+    }
+
+    config = newConfig;
+
+    nodeIdValue = (config.nodeId != 0)
+                      ? config.nodeId
+                      : deriveNodeId(transport.localAddress());
+
+    // An explicit boot id always wins. When the application lets the session
+    // generate one, the first generated value is kept for the object's whole
+    // lifetime: a re-init reconfigures a running session, it is not a reboot.
+    if (config.bootId != 0) {
+        bootIdValue = config.bootId;
+    } else if (bootIdValue == 0) {
+        bootIdValue = generateBootId(transport.localAddress());
+    }
+
+    // Events describe live traffic, so a (re)start begins with an empty queue.
+    // Peers added through addPeer are configuration and survive: a locked
+    // deployment seeds them before or after init without losing them.
+    clearEvents();
+    nextHelloMs = 0;
+    helloPending = config.discovery;
+    initialized = true;
+
+    if (config.discovery && !broadcastRegistered) {
+        NetPeerConfig broadcast;
+        broadcast.address = broadcastAddress();
+        broadcast.nodeId = 0;
+        broadcast.encrypted = false;
+        transport.addPeer(broadcast);
+        broadcastRegistered = true;
+    }
+
+    return NetResult::Ok;
+}
+
+void NetSession::shutdown() {
+    if (!initialized) {
+        return;
+    }
+
+    // Best effort: if the link is already gone the BYE is simply rejected.
+    sendBye();
+
+    clearPeers();
+    clearPending();
+    clearEvents();
+    initialized = false;
+    helloPending = false;
+    broadcastRegistered = false;
+    nextHelloMs = 0;
+}
+
+void NetSession::update(uint32_t nowMs) {
+    if (!initialized) {
+        return;
+    }
+
+    // send() stamps every pending entry with this value. Keeping it current
+    // is what makes the ACK timeout start at the frame the application actually
+    // sent, not at an arbitrary earlier update.
+    lastUpdateMs = nowMs;
+
+    // helloPending makes the first update after init send immediately instead
+    // of waiting a full interval, so peers meet as soon as the loop starts.
+    // The forward-distance test (half the 32-bit range) is the unsigned,
+    // wrap-safe form of "now is at or past nextHelloMs".
+    if (config.discovery &&
+        (helloPending ||
+         static_cast<uint32_t>(nowMs - nextHelloMs) < 0x80000000u)) {
+        helloPending = false;
+        sendHello(nowMs);
+        nextHelloMs = nowMs + static_cast<uint32_t>(config.helloIntervalMs);
+    }
+
+    // Reliability owns these results later, but they must be consumed now:
+    // otherwise the transport's fixed result queue fills up and sends start
+    // reporting Busy for no reason.
+    NetTxResult txResult{};
+    while (transport.pollTxResult(txResult)) {
+    }
+
+    // Bound the drain so a peer flooding the link cannot starve the game loop.
+    // Undrained frames stay in the transport for the next update.
+    uint8_t drained = 0;
+    NetRxInfo rxFrame{};
+    while (drained < kMaxRxFramesPerUpdate && transport.pollRx(rxFrame)) {
+        ++drained;
+        handleFrame(rxFrame, nowMs);
+    }
+
+    // Retries run after the drain so an ACK that arrived in this update has
+    // already retired its pending entry, and before expirePeers so a retried
+    // frame counts as traffic for the peer's liveness.
+    retryPending(nowMs);
+    expirePeers(nowMs);
+}
+
+NetResult NetSession::addPeer(const NetPeerConfig& peer) {
+    if (peer.address.isZero() || peer.address.isBroadcast()) {
+        return NetResult::InvalidArgument;
+    }
+
+    // Re-registering an address is idempotent: it must not consume a second
+    // slot, and it must not disturb whether the peer is currently online.
+    if (findPeer(peer.address) >= 0) {
+        return NetResult::Ok;
+    }
+
+    const int8_t slot = allocatePeerSlot();
+    if (slot < 0) {
+        return NetResult::PeerTableFull;
+    }
+
+    PeerSlot& entry = peers[static_cast<uint8_t>(slot)];
+    entry.address = peer.address;
+    entry.nodeId = peer.nodeId;
+    entry.bootId = 0;
+    entry.lastSeenMs = 0;
+    entry.uptimeMs = 0;
+    entry.nextTxSequence = 1;
+    entry.rxHighestSeq = 0;
+    entry.rxWindow = 0;
+    entry.used = true;
+    entry.online = false;
+
+    NetPeerConfig registration;
+    registration.address = peer.address;
+    registration.nodeId = peer.nodeId;
+    transport.addPeer(registration);
+
+    return NetResult::Ok;
+}
+
+// =============================================================================
+// Queries
+// =============================================================================
+
+bool NetSession::pollEvent(NetEvent& out) {
+    if (eventCount == 0) {
+        return false;
+    }
+
+    out = events[eventHead];
+    eventHead = static_cast<uint16_t>((eventHead + 1) % kRxQueueCapacity);
+    --eventCount;
+    return true;
+}
+
+bool NetSession::peerInfo(uint8_t peerId, NetPeerInfo& out) const {
+    if (peerId >= kMaxPeers || !peers[peerId].used) {
+        return false;
+    }
+
+    const PeerSlot& peer = peers[peerId];
+    out.address = peer.address;
+    out.nodeId = peer.nodeId;
+    out.bootId = peer.bootId;
+    // Per-peer RTT is not tracked; the session keeps only the most recent
+    // measurement in stats().lastRttMs.
+    out.rttMs = 0;
+    out.lastSeenMs = peer.lastSeenMs;
+    out.uptimeMs = peer.uptimeMs;
+    out.online = peer.online;
+    return true;
+}
+
+uint8_t NetSession::peerCount() const {
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < kMaxPeers; ++i) {
+        if (peers[i].used && peers[i].online) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+const NetStats& NetSession::stats() const {
+    return counters;
+}
+
+uint8_t NetSession::pendingCount() const {
+    return pendingTxCount;
+}
+
+uint8_t NetSession::localNodeId() const {
+    return nodeIdValue;
+}
+
+uint16_t NetSession::localBootId() const {
+    return bootIdValue;
+}
+
+// =============================================================================
+// Public send path
+// =============================================================================
+
+NetResult NetSession::send(uint8_t peerId, NetDelivery delivery,
+                           const void* data, uint16_t length) {
+    // The session state, not the transport state, decides whether a send is
+    // meaningful: frames must not leak onto the link from a stopped session.
+    if (!initialized) {
+        return NetResult::NotInitialized;
+    }
+
+    // An index past the table or a never-used row describes no peer at all, so
+    // it is a caller bug rather than "this peer is currently away".
+    if (peerId >= kMaxPeers || !peers[peerId].used) {
+        return NetResult::InvalidArgument;
+    }
+
+    // A payload is validated before the peer's liveness so the answer to a bad
+    // argument does not depend on whether some other peer happened to be
+    // online. NetProtocol rejects the same ceiling, so the frame can never
+    // fail to encode for a size reason after this check.
+    if (data == nullptr && length > 0) {
+        return NetResult::InvalidArgument;
+    }
+    if (length > platforms::config::NetMaxPayload) {
+        return NetResult::PayloadTooLarge;
+    }
+
+    PeerSlot& peer = peers[peerId];
+    if (!peer.online) {
+        return NetResult::PeerNotFound;
+    }
+
+    const bool reliable = (delivery == NetDelivery::Reliable);
+
+    // A full pending queue cannot track another in-flight sequence, so this is
+    // answered before the sequence advances: the application can retry the
+    // same message later without leaving a gap on the wire.
+    if (reliable && pendingTxCount >= kMaxPending) {
+        return NetResult::Busy;
+    }
+
+    // Only the reliable contract consumes a sequence. 0 is the wire's "no ACK"
+    // sentinel, so a wrapped counter skips it instead of reusing it.
+    uint32_t sequence = 0;
+    if (reliable) {
+        sequence = peer.nextTxSequence;
+        ++peer.nextTxSequence;
+        if (peer.nextTxSequence == 0) {
+            peer.nextTxSequence = 1;
+        }
+    }
+
+    NetPacketHeader header{};
+    header.version = platforms::config::NetProtocolVersion;
+    header.type = NetPacketType::Data;
+    header.flags = reliable ? kNetFlagReliable : 0;
+    header.sourceNodeId = nodeIdValue;
+    header.sourceBootId = bootIdValue;
+    header.sequence = sequence;
+    header.ackSequence = 0;  // Data acknowledges nothing; only ACK frames do.
+    header.payloadLength = length;
+
+    // The frame is assembled on the stack: the send path never allocates, and
+    // the transport receives exactly one complete frame.
+    uint8_t frame[kNetTransportFrameSize]{};
+    const uint16_t frameLength = encodeFrame(
+        header, static_cast<const uint8_t*>(data), frame, sizeof(frame));
+    if (frameLength == 0) {
+        return NetResult::InvalidArgument;
+    }
+
+    if (!reliable) {
+        // Fire-and-forget has no state that could hold the frame, so a
+        // transport rejection is reported verbatim and nothing is queued.
+        const NetResult result =
+            transport.send(peer.address, frame, frameLength);
+        if (result == NetResult::Ok) {
+            ++counters.txMessages;
+        } else if (result == NetResult::Busy) {
+            ++counters.txBusy;
+        }
+        return result;
+    }
+
+    // Store the pending entry before the first transmission: the session has
+    // accepted the message and owns its sequence, so a transport that is
+    // momentarily out of room must delay it rather than lose it. The encoded
+    // frame is retained verbatim so a later attempt is byte-identical.
+    PendingTx& pending = pendingTx[pendingTxCount];
+    pending.sequence = sequence;
+    pending.sentAtMs = lastUpdateMs;
+    pending.frameLength = frameLength;
+    pending.retries = 0;
+    pending.peerId = peerId;
+    pending.sent = false;
+    for (uint16_t i = 0; i < frameLength; ++i) {
+        pending.frame[i] = frame[i];
+    }
+    ++pendingTxCount;
+
+    const NetResult result =
+        transport.send(peer.address, frame, frameLength);
+    if (result == NetResult::Ok) {
+        pending.sent = true;
+        pending.sentAtMs = lastUpdateMs;
+        ++counters.txMessages;
+        return NetResult::Ok;
+    }
+
+    if (result == NetResult::Busy) {
+        // Accepted but deferred: retryPending transmits it on a later update
+        // under the same sequence, so Busy never becomes message loss here.
+        pending.sentAtMs = lastUpdateMs;
+        ++counters.txBusy;
+        return NetResult::Ok;
+    }
+
+    // Any other rejection means the link cannot carry this frame at all. The
+    // sequence is already spent (the peer's counter advanced), but no entry
+    // survives to retry a frame the transport refused for a real reason.
+    --pendingTxCount;
+    pendingTx[pendingTxCount] = PendingTx{};
+    return result;
+}
+
+// =============================================================================
+// Outgoing frames
+// =============================================================================
+
+bool NetSession::sendHello(uint32_t nowMs) noexcept {
+    uint8_t payload[kHelloPayloadSize];
+    writeU32LE(payload, nowMs);
+
+    NetPacketHeader header{};
+    header.version = platforms::config::NetProtocolVersion;
+    header.type = NetPacketType::Hello;
+    header.flags = 0;
+    header.sourceNodeId = nodeIdValue;
+    header.sourceBootId = bootIdValue;
+    header.sequence = 0;
+    header.ackSequence = 0;
+    header.payloadLength = kHelloPayloadSize;
+
+    uint8_t frame[kNetTransportFrameSize]{};
+    const uint16_t length = encodeFrame(header, payload, frame, sizeof(frame));
+    if (length == 0) {
+        return false;
+    }
+
+    if (transport.send(broadcastAddress(), frame, length) != NetResult::Ok) {
+        return false;
+    }
+
+    ++counters.txMessages;
+    return true;
+}
+
+void NetSession::sendBye() noexcept {
+    NetPacketHeader header{};
+    header.version = platforms::config::NetProtocolVersion;
+    header.type = NetPacketType::Bye;
+    header.flags = 0;
+    header.sourceNodeId = nodeIdValue;
+    header.sourceBootId = bootIdValue;
+    header.sequence = 0;
+    header.ackSequence = 0;
+    header.payloadLength = 0;
+
+    uint8_t frame[kNetHeaderSize]{};
+    const uint16_t length = encodeFrame(header, nullptr, frame, sizeof(frame));
+    if (length == 0) {
+        return;
+    }
+
+    if (transport.send(broadcastAddress(), frame, length) == NetResult::Ok) {
+        ++counters.txMessages;
+    }
+}
+
+// =============================================================================
+// Incoming frames
+// =============================================================================
+
+void NetSession::handleFrame(const NetRxInfo& frame, uint32_t nowMs) noexcept {
+    // The zero and broadcast addresses can never name a peer; a frame claiming
+    // one of them is malformed at the identity level.
+    if (frame.from.isZero() || frame.from.isBroadcast()) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    NetPacketHeader header{};
+    const uint8_t* payload = nullptr;
+    if (decodeFrame(frame.data, frame.length, header, &payload) !=
+        NetParseResult::Ok) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    // Every structurally valid frame counts as received, even when its content
+    // is later rejected or belongs to a slice that is not implemented yet.
+    ++counters.rxMessages;
+
+    switch (header.type) {
+        case NetPacketType::Hello:
+            if (header.payloadLength != kHelloPayloadSize ||
+                payload == nullptr) {
+                ++counters.rxDropped;
+                return;
+            }
+            handleHello(frame.from, header.sourceNodeId, header.sourceBootId,
+                        readU32LE(payload), nowMs);
+            return;
+
+        case NetPacketType::Bye:
+            if (header.payloadLength != 0) {
+                ++counters.rxDropped;
+                return;
+            }
+            handleBye(frame.from);
+            return;
+
+        case NetPacketType::Data:
+            handleData(frame.from, header, payload, nowMs);
+            return;
+
+        case NetPacketType::Ack:
+            if (header.payloadLength != 4 || payload == nullptr) {
+                ++counters.rxDropped;
+                return;
+            }
+            handleAck(frame.from, header, payload, nowMs);
+            return;
+
+        case NetPacketType::Snapshot:
+            // The sync layer owns snapshots in a later slice. They are counted
+            // as received but must not enter the reliable dedupe window.
+            return;
+    }
+}
+
+void NetSession::handleHello(const NetAddress& from, uint8_t nodeId,
+                             uint16_t bootId, uint32_t uptimeMs,
+                             uint32_t nowMs) noexcept {
+    const int8_t existing = findPeer(from);
+    if (existing >= 0) {
+        PeerSlot& peer = peers[static_cast<uint8_t>(existing)];
+        peer.nodeId = nodeId;
+
+        // A different boot id means the peer restarted: its sequence and
+        // dedupe state belong to the old boot, and in-flight messages for it
+        // can never be acknowledged. The slot and its index are kept either
+        // way, because they are also the sync layer's stable identity.
+        if (peer.bootId != bootId) {
+            peer.rxHighestSeq = 0;
+            peer.rxWindow = 0;
+            failPendingForPeer(static_cast<uint8_t>(existing));
+        }
+        peer.bootId = bootId;
+        peer.lastSeenMs = nowMs;
+        peer.uptimeMs = uptimeMs;
+
+        if (!peer.online) {
+            // Reviving a timed-out peer is a join again: it is the signal the
+            // sync layer uses to decide a resync is needed.
+            peer.online = true;
+            NetEvent event;
+            event.type = NetEventType::PeerJoined;
+            event.peerId = static_cast<uint8_t>(existing);
+            event.nodeId = nodeId;
+            pushEvent(event);
+        }
+        return;
+    }
+
+    // With discovery disabled only pre-seeded addresses are allowed in.
+    if (!config.discovery) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    const int8_t slot = allocatePeerSlot();
+    if (slot < 0) {
+        // The table is full: drop the frame rather than evicting a peer that
+        // may still be exchanging reliable traffic.
+        ++counters.rxDropped;
+        return;
+    }
+
+    PeerSlot& peer = peers[static_cast<uint8_t>(slot)];
+    peer.address = from;
+    peer.nodeId = nodeId;
+    peer.bootId = bootId;
+    peer.lastSeenMs = nowMs;
+    peer.uptimeMs = uptimeMs;
+    peer.nextTxSequence = 1;
+    peer.rxHighestSeq = 0;
+    peer.rxWindow = 0;
+    peer.used = true;
+    peer.online = true;
+
+    NetPeerConfig registration;
+    registration.address = from;
+    registration.nodeId = nodeId;
+    transport.addPeer(registration);
+
+    NetEvent event;
+    event.type = NetEventType::PeerJoined;
+    event.peerId = static_cast<uint8_t>(slot);
+    event.nodeId = nodeId;
+    pushEvent(event);
+}
+
+void NetSession::handleBye(const NetAddress& from) noexcept {
+    const int8_t slot = findPeer(from);
+    if (slot < 0) {
+        // A peer this session never knew is leaving: not an error, and not an
+        // event, because there is nothing to change.
+        return;
+    }
+
+    PeerSlot& peer = peers[static_cast<uint8_t>(slot)];
+    if (!peer.online) {
+        // Already offline: a duplicate BYE must not emit a second PeerLeft.
+        return;
+    }
+
+    peer.online = false;
+    NetEvent event;
+    event.type = NetEventType::PeerLeft;
+    event.peerId = static_cast<uint8_t>(slot);
+    event.nodeId = peer.nodeId;
+    pushEvent(event);
+}
+
+void NetSession::handleData(const NetAddress& from,
+                            const NetPacketHeader& header,
+                            const uint8_t* payload, uint32_t nowMs) noexcept {
+    // Data never creates a peer: discovery or addPeer owns the table, so an
+    // unexpected MAC cannot inject application bytes into the game by itself.
+    // This holds with discovery on, because accepting data from an unknown
+    // sender would bypass every peer-table invariant.
+    const int8_t slot = findPeer(from);
+    if (slot < 0) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    // A declared payload without bytes cannot be delivered; dropping it keeps
+    // the event invariant that `length` bytes are always readable.
+    if (header.payloadLength > 0 && payload == nullptr) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    PeerSlot& peer = peers[static_cast<uint8_t>(slot)];
+    const uint8_t peerIndex = static_cast<uint8_t>(slot);
+
+    if ((header.flags & kNetFlagReliable) != 0) {
+        // Sequence 0 is the wire's "no ACK" sentinel, so a reliable frame that
+        // claims it cannot be tracked, acknowledged or deduped.
+        if (header.sequence == 0) {
+            ++counters.rxDropped;
+            return;
+        }
+
+        if (!acceptReliableSequence(peer, header.sequence)) {
+            // The original ACK may be the frame that was lost, so a duplicate
+            // is ACKed again even though it is never delivered twice. Liveness
+            // is left to the accepted copy, which already refreshed it.
+            ++counters.rxDuplicates;
+            sendAck(peerIndex, header.sequence);
+            return;
+        }
+
+        // The ACK goes out before the event so the sender can retire its
+        // pending entry even when the application drains events late.
+        sendAck(peerIndex, header.sequence);
+    }
+
+    // Any valid frame proves the peer is alive, exactly like HELLO: data
+    // traffic keeps a peer from timing out between beacons.
+    peer.lastSeenMs = nowMs;
+    if (!peer.online) {
+        // Reviving a timed-out peer is a join again, and it is emitted before
+        // the message so the application learns the slot is usable first.
+        peer.online = true;
+        NetEvent joined;
+        joined.type = NetEventType::PeerJoined;
+        joined.peerId = static_cast<uint8_t>(slot);
+        joined.nodeId = peer.nodeId;
+        pushEvent(joined);
+    }
+
+    NetEvent event;
+    event.type = NetEventType::Message;
+    event.peerId = static_cast<uint8_t>(slot);
+    event.nodeId = peer.nodeId;
+    event.sequence = header.sequence;
+    event.length = header.payloadLength;
+    // The decoder already proved this length fits NetMaxPayload, so the inline
+    // buffer is always large enough and no truncation rule is needed.
+    for (uint16_t i = 0; i < header.payloadLength; ++i) {
+        event.payload[i] = payload[i];
+    }
+
+    // A full queue drops this message and counts it, extending the existing
+    // drop-newest policy to application messages.
+    pushEvent(event);
+}
+
+// =============================================================================
+// Reliable delivery
+// =============================================================================
+
+bool NetSession::sendAck(uint8_t peerId, uint32_t sequence) noexcept {
+    if (peerId >= kMaxPeers || !peers[peerId].used) {
+        return false;
+    }
+
+    // The acknowledged sequence is 32 bits and the header field is only 16, so
+    // the ACK carries the full value as its 4-byte payload. Truncating it would
+    // let a stale ACK alias a newer pending message after 65,536 sends.
+    uint8_t payload[4];
+    writeU32LE(payload, sequence);
+
+    NetPacketHeader header{};
+    header.version = platforms::config::NetProtocolVersion;
+    header.type = NetPacketType::Ack;
+    header.flags = 0;
+    header.sourceNodeId = nodeIdValue;
+    header.sourceBootId = bootIdValue;
+    header.sequence = 0;     // An ACK carries no sequence of its own.
+    header.ackSequence = 0;  // Reserved; the payload carries the full sequence.
+    header.payloadLength = 4;
+
+    uint8_t frame[kNetTransportFrameSize]{};
+    const uint16_t length = encodeFrame(header, payload, frame, sizeof(frame));
+    if (length == 0) {
+        return false;
+    }
+
+    // Best effort: an ACK is never queued or retried, because the peer's own
+    // retransmission is what recovers it.
+    if (transport.send(peers[peerId].address, frame, length) != NetResult::Ok) {
+        return false;
+    }
+
+    ++counters.txMessages;
+    return true;
+}
+
+void NetSession::handleAck(const NetAddress& from, const NetPacketHeader& header,
+                           const uint8_t* payload, uint32_t nowMs) noexcept {
+    // An ACK from a MAC this session never met cannot name a pending entry.
+    const int8_t slot = findPeer(from);
+    if (slot < 0) {
+        return;
+    }
+
+    const uint8_t peerId = static_cast<uint8_t>(slot);
+    PeerSlot& peer = peers[peerId];
+    // Any valid frame proves the peer is alive, exactly like data or HELLO.
+    peer.lastSeenMs = nowMs;
+
+    // The parser accepted the frame; the 4-byte payload contract is checked by
+    // the caller, so this reads the full 32-bit acknowledged sequence.
+    const uint32_t ackedSequence = readU32LE(payload);
+
+    for (uint8_t i = 0; i < pendingTxCount; ++i) {
+        PendingTx& pending = pendingTx[i];
+        if (pending.peerId != peerId ||
+            pending.sequence != ackedSequence) {
+            continue;
+        }
+
+        if (pending.retries == 0) {
+            // Only the first transmission yields a clean RTT; a retried frame
+            // would include the timeout that already elapsed.
+            counters.lastRttMs =
+                static_cast<uint16_t>(nowMs - pending.sentAtMs);
+        }
+
+        removePending(i);
+        return;
+    }
+
+    // A late ACK for a retired sequence, or one that never matched, is not an
+    // error: the message was already acknowledged, failed or never queued.
+}
+
+void NetSession::retryPending(uint32_t nowMs) noexcept {
+    uint8_t index = 0;
+    while (index < pendingTxCount) {
+        PendingTx& pending = pendingTx[index];
+
+        // An entry the session accepted while the transport was busy has never
+        // been transmitted. It is attempted on every update, in queue order,
+        // and a rejection must not consume a retry attempt: the first
+        // transmission is still owed, so there is nothing to retry yet.
+        if (!pending.sent) {
+            // A pending entry implies a used slot: shutdown clears both, and a
+            // peer reboot fails the entries before the slot can be reused.
+            const PeerSlot& peer = peers[pending.peerId];
+            const NetResult result =
+                transport.send(peer.address, pending.frame, pending.frameLength);
+            if (result == NetResult::Ok) {
+                pending.sent = true;
+                pending.sentAtMs = nowMs;
+                ++counters.txMessages;
+            } else {
+                // Still owed. Any rejection, Busy or otherwise, leaves it
+                // queued and visible in txBusy; the retry budget is untouched.
+                ++counters.txBusy;
+            }
+            ++index;
+            continue;
+        }
+
+        // Unsigned subtraction keeps the timeout correct across the 32-bit
+        // millisecond wrap.
+        if (static_cast<uint32_t>(nowMs - pending.sentAtMs) <
+            static_cast<uint32_t>(config.ackTimeoutMs)) {
+            ++index;
+            continue;
+        }
+
+        if (pending.retries >= config.maxRetries) {
+            const uint8_t peerId = pending.peerId;
+            const uint32_t sequence = pending.sequence;
+            const uint8_t nodeId =
+                (peerId < kMaxPeers) ? peers[peerId].nodeId : 0;
+
+            removePending(index);
+            ++counters.txFailed;
+
+            NetEvent event;
+            event.type = NetEventType::SendFailed;
+            event.peerId = peerId;
+            event.nodeId = nodeId;
+            event.sequence = sequence;
+            event.length = 0;
+            pushEvent(event);
+            // The next entry shifted into this index, so it must be examined
+            // in this same pass; only then is index advanced.
+            continue;
+        }
+
+        ++pending.retries;
+        ++counters.txRetries;
+
+        // A pending entry implies a used slot: shutdown clears both, and a
+        // peer reboot fails the entries before the slot can be reused.
+        const PeerSlot& peer = peers[pending.peerId];
+        const NetResult result =
+            transport.send(peer.address, pending.frame, pending.frameLength);
+        if (result == NetResult::Ok) {
+            ++counters.txMessages;
+        } else if (result == NetResult::Busy) {
+            ++counters.txBusy;
+        }
+
+        // A rejected retry still consumes the window: this entry has already
+        // been transmitted at least once, so re-attempting it on every update
+        // would burn the retry budget in a single frame. Backpressure for a
+        // never-transmitted message is handled by the `!pending.sent` branch.
+        pending.sentAtMs = nowMs;
+        ++index;
+    }
+}
+
+void NetSession::removePending(uint8_t index) noexcept {
+    if (index >= pendingTxCount) {
+        return;
+    }
+
+    for (uint8_t i = static_cast<uint8_t>(index + 1); i < pendingTxCount;
+         ++i) {
+        pendingTx[i - 1] = pendingTx[i];
+    }
+    --pendingTxCount;
+    pendingTx[pendingTxCount] = PendingTx{};
+}
+
+bool NetSession::acceptReliableSequence(PeerSlot& peer,
+                                        uint32_t sequence) noexcept {
+    // Serial-number arithmetic: "newer" is a small forward distance after the
+    // wrap, not a plain numeric comparison.
+    const uint32_t ahead = sequence - peer.rxHighestSeq;
+    if (ahead != 0 && ahead < 0x80000000u) {
+        if (ahead >= 64) {
+            // The gap is wider than the window, so every older bit is stale.
+            peer.rxWindow = 0;
+        } else {
+            peer.rxWindow <<= ahead;
+        }
+        peer.rxWindow |= 1;  // Bit 0 always names the newest sequence.
+        peer.rxHighestSeq = sequence;
+        return true;
+    }
+
+    // At or below the newest sequence: only the last 64 are remembered.
+    const uint32_t age = peer.rxHighestSeq - sequence;
+    if (age < 64) {
+        const uint64_t bit = (uint64_t{1} << age);
+        if ((peer.rxWindow & bit) != 0) {
+            return false;
+        }
+        peer.rxWindow |= bit;
+        return true;
+    }
+
+    return false;
+}
+
+void NetSession::failPendingForPeer(uint8_t peerId) noexcept {
+    uint8_t index = 0;
+    while (index < pendingTxCount) {
+        if (pendingTx[index].peerId != peerId) {
+            ++index;
+            continue;
+        }
+
+        const uint32_t sequence = pendingTx[index].sequence;
+        const uint8_t nodeId =
+            (peerId < kMaxPeers) ? peers[peerId].nodeId : 0;
+
+        removePending(index);
+        ++counters.txFailed;
+
+        NetEvent event;
+        event.type = NetEventType::SendFailed;
+        event.peerId = peerId;
+        event.nodeId = nodeId;
+        event.sequence = sequence;
+        event.length = 0;
+        pushEvent(event);
+        // The next entry shifted into this index; retry it without advancing.
+    }
+}
+
+void NetSession::expirePeers(uint32_t nowMs) noexcept {
+    for (uint8_t i = 0; i < kMaxPeers; ++i) {
+        PeerSlot& peer = peers[i];
+        if (!peer.used || !peer.online) {
+            continue;
+        }
+
+        // Unsigned subtraction makes the comparison correct across the 32-bit
+        // millisecond wrap; a signed subtraction would invert near 2^32.
+        if (static_cast<uint32_t>(nowMs - peer.lastSeenMs) >=
+            static_cast<uint32_t>(config.peerTimeoutMs)) {
+            peer.online = false;
+            NetEvent event;
+            event.type = NetEventType::PeerLeft;
+            event.peerId = i;
+            event.nodeId = peer.nodeId;
+            pushEvent(event);
+        }
+    }
+}
+
+// =============================================================================
+// Fixed table helpers
+// =============================================================================
+
+int8_t NetSession::findPeer(const NetAddress& address) const noexcept {
+    for (uint8_t i = 0; i < kMaxPeers; ++i) {
+        if (peers[i].used && peers[i].address == address) {
+            return static_cast<int8_t>(i);
+        }
+    }
+    return -1;
+}
+
+int8_t NetSession::allocatePeerSlot() noexcept {
+    for (uint8_t i = 0; i < kMaxPeers; ++i) {
+        if (!peers[i].used) {
+            return static_cast<int8_t>(i);
+        }
+    }
+    return -1;
+}
+
+void NetSession::clearPeers() noexcept {
+    for (uint8_t i = 0; i < kMaxPeers; ++i) {
+        peers[i] = PeerSlot{};
+    }
+}
+
+void NetSession::clearPending() noexcept {
+    for (uint8_t i = 0; i < kMaxPending; ++i) {
+        pendingTx[i] = PendingTx{};
+    }
+    pendingTxCount = 0;
+}
+
+void NetSession::clearEvents() noexcept {
+    eventHead = 0;
+    eventTail = 0;
+    eventCount = 0;
+}
+
+void NetSession::pushEvent(const NetEvent& event) noexcept {
+    // Drop-newest: an event that cannot fit is discarded and counted, so the
+    // consumer keeps the events that were already promised FIFO order.
+    if (eventCount >= kRxQueueCapacity) {
+        ++counters.rxDropped;
+        return;
+    }
+
+    events[eventTail] = event;
+    eventTail = static_cast<uint16_t>((eventTail + 1) % kRxQueueCapacity);
+    ++eventCount;
+}
+
+}  // namespace pixelroot32::networking
+
+#endif  // PIXELROOT32_ENABLE_NETWORKING
