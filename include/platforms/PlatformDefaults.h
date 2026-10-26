@@ -201,6 +201,141 @@
 #error "PIXELROOT32_ENABLE_TILEMAP_PROJECTION requires PIXELROOT32_ENABLE_PROJECTION=1 (math::ProjectionSpec only exists when projection is enabled)"
 #endif
 
+// -----------------------------------------------------------------------------
+// Networking Feature Defaults (optional ESP-NOW peer-to-peer module)
+// -----------------------------------------------------------------------------
+// Networking is off by default, unlike audio and physics: it pulls the Wi-Fi
+// stack into the image, reserves static RAM for its queues, and only targets
+// that actually have a transport can run it. A game opts in with
+// -D PIXELROOT32_ENABLE_NETWORKING=1 and pays nothing otherwise (no symbols,
+// no Engine bytes, no Scene vtable change).
+
+/**
+ * @def PIXELROOT32_ENABLE_NETWORKING
+ * @brief Compiles the `pixelroot32::networking` module.
+ *
+ * Default 0. When 0 the module contributes no symbols, so existing games keep
+ * their binary size and behavior unchanged.
+ */
+#ifndef PIXELROOT32_ENABLE_NETWORKING
+#define PIXELROOT32_ENABLE_NETWORKING 0
+#endif
+
+/**
+ * @def PIXELROOT32_NET_MAX_PEERS
+ * @brief Peer table capacity.
+ *
+ * Each slot costs static RAM for the whole session lifetime, so the default
+ * stays small (4) while the ESP-NOW hardware ceiling is 20.
+ */
+#ifndef PIXELROOT32_NET_MAX_PEERS
+#define PIXELROOT32_NET_MAX_PEERS 4
+#endif
+
+/**
+ * @def PIXELROOT32_NET_MAX_PAYLOAD
+ * @brief Application payload bytes per message, excluding the protocol header.
+ *
+ * Kept at 64 by default because the ESP-NOW frame limit is 250 bytes total and
+ * larger payloads raise the RAM cost of every queue entry linearly.
+ */
+#ifndef PIXELROOT32_NET_MAX_PAYLOAD
+#define PIXELROOT32_NET_MAX_PAYLOAD 64
+#endif
+
+/**
+ * @def PIXELROOT32_NET_RX_QUEUE_CAPACITY
+ * @brief Number of received events buffered before dispatch to the scene.
+ *
+ * Must be a power of two >= 2 so the ring buffer can use mask indexing.
+ */
+#ifndef PIXELROOT32_NET_RX_QUEUE_CAPACITY
+#define PIXELROOT32_NET_RX_QUEUE_CAPACITY 8
+#endif
+
+/**
+ * @def PIXELROOT32_NET_TX_QUEUE_CAPACITY
+ * @brief Number of reliable messages that may be awaiting an ACK.
+ *
+ * Must be a power of two >= 2 so the ring buffer can use mask indexing.
+ */
+#ifndef PIXELROOT32_NET_TX_QUEUE_CAPACITY
+#define PIXELROOT32_NET_TX_QUEUE_CAPACITY 8
+#endif
+
+/**
+ * @def PIXELROOT32_NET_ACK_TIMEOUT_MS
+ * @brief Delay before retransmitting an unacknowledged reliable message.
+ *
+ * 20 ms keeps a retry inside the frame budget on a shared channel while still
+ * leaving room for 3 retries inside a 60 ms stall.
+ */
+#ifndef PIXELROOT32_NET_ACK_TIMEOUT_MS
+#define PIXELROOT32_NET_ACK_TIMEOUT_MS 20
+#endif
+
+/**
+ * @def PIXELROOT32_NET_MAX_RETRIES
+ * @brief Retransmissions attempted before a reliable send gives up.
+ *
+ * Gives up after maxRetries attempts and reports the failure to the game
+ * instead of blocking the loop.
+ */
+#ifndef PIXELROOT32_NET_MAX_RETRIES
+#define PIXELROOT32_NET_MAX_RETRIES 3
+#endif
+
+/**
+ * @def PIXELROOT32_NET_PEER_TIMEOUT_MS
+ * @brief Silence after which a peer is considered offline.
+ *
+ * Three HELLO intervals, so a single lost discovery broadcast does not mark a
+ * live peer offline.
+ */
+#ifndef PIXELROOT32_NET_PEER_TIMEOUT_MS
+#define PIXELROOT32_NET_PEER_TIMEOUT_MS 3000
+#endif
+
+/**
+ * @def PIXELROOT32_NET_HELLO_INTERVAL_MS
+ * @brief Period of the discovery HELLO broadcast.
+ *
+ * One second is fast enough for a game to find its peer without eating the
+ * channel that carries gameplay messages.
+ */
+#ifndef PIXELROOT32_NET_HELLO_INTERVAL_MS
+#define PIXELROOT32_NET_HELLO_INTERVAL_MS 1000
+#endif
+
+/**
+ * @def PIXELROOT32_NET_PROTOCOL_VERSION
+ * @brief Wire protocol version carried in every frame.
+ *
+ * Bumped when the frame layout changes so mismatched peers can reject traffic
+ * instead of misparsing it.
+ */
+#ifndef PIXELROOT32_NET_PROTOCOL_VERSION
+#define PIXELROOT32_NET_PROTOCOL_VERSION 1
+#endif
+
+/**
+ * @def PIXELROOT32_NET_HEADER_SIZE
+ * @brief Bytes of protocol header preceding every payload.
+ *
+ * Part of the public contract because the application ceiling is
+ * ESP-NOW's 250-byte frame limit minus this header.
+ */
+#ifndef PIXELROOT32_NET_HEADER_SIZE
+#define PIXELROOT32_NET_HEADER_SIZE 16
+#endif
+
+// Only ESP32 (real ESP-NOW) and native (in-process loopback) provide a
+// transport. Fail the build loudly instead of silently producing a module that
+// has nothing to send on.
+#if PIXELROOT32_ENABLE_NETWORKING && !defined(ESP32) && !defined(PLATFORM_NATIVE)
+#error "PIXELROOT32_ENABLE_NETWORKING=1 is only supported on ESP32 and native targets (no networking transport exists for this target)"
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================

@@ -27,6 +27,7 @@
 | **Tile Animation** | [Tile Animation](./tile-animation.md) | Lookup tables, O(1) resolve |
 | **Projected Tilemap Producer Obligations** | [Projected Tilemap: Producer Obligations](./projected-tilemap-producer-obligations.md) | What a `TileMapGeneric<T>` must emit for `drawTileMap`'s projected path (engine-facing, not an editor contract) |
 | **Touch Input** | [Touch Input](./touch-input.md) | Pipeline, XPT2046, calibration |
+| **Networking** | [Networking Subsystem](./networking-subsystem.md) | ESP-NOW, loopback, reliability, convergent counter |
 | **Extensibility** | [Extending PixelRoot32](../guide/extending-pixelroot32.md) | Custom drivers, configuration |
 
 ### API Reference
@@ -85,6 +86,7 @@ graph TD
 | UI System | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enabled |
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
+| Networking (ESP-NOW) | `PIXELROOT32_ENABLE_NETWORKING` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |

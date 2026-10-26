@@ -28,6 +28,13 @@
 namespace pixelroot32 { namespace input { class TouchManager; } }
 #endif
 
+#if PIXELROOT32_ENABLE_NETWORKING
+// Forward declaration only: Engine borrows the session and never needs its
+// definition in this header, keeping the networking arrays out of every game
+// that merely includes Engine.h.
+namespace pixelroot32 { namespace networking { class NetSession; } }
+#endif
+
 namespace pixelroot32::core {
 
 /**
@@ -50,6 +57,15 @@ namespace pixelroot32::core {
  *   UIManager::processEvents (marks consumed) → onUnconsumedTouchEvent (virtual).
  *
  * Set PIXELROOT32_ENABLE_TOUCH=0 in platform defines to disable (saves ~200 bytes).
+ *
+ * ## Networking Pipeline (PIXELROOT32_ENABLE_NETWORKING)
+ *
+ * The application owns the transport and the NetSession and registers the
+ * session with setNetworkSession(); Engine only borrows it. Each update()
+ * pumps the session once and dispatches its queued events to the scene that is
+ * current at drain time, before Scene::update():
+ *
+ *   input -> session update + dispatch -> scene update -> touch dispatch.
  */
 class Engine {
 public:
@@ -279,6 +295,36 @@ public:
     pixelroot32::gameplay::GameplayEventBus& getGameplayEventBus() { return gameplayEventBus_; }
 #endif
 
+#if PIXELROOT32_ENABLE_NETWORKING
+    /**
+     * @brief Registers the networking session Engine pumps and dispatches from.
+     * @param session Session to borrow, or nullptr to disable networking.
+     *
+     * Ownership stays with the application, exactly like setTouchManager():
+     * Engine does not initialize, configure or shut the session down, and it
+     * never keeps more than the raw pointer. The session must outlive its
+     * registration.
+     *
+     * While a session is registered, every update() calls session->update()
+     * once with the frame timestamp and then drains its event queue, invoking
+     * Scene::onNetworkEvent() for each event on the scene that is current at
+     * drain time. Dispatch happens before Scene::update() so the scene can
+     * react in the same frame. With nullptr, update() skips networking
+     * entirely and no hook is called.
+     */
+    void setNetworkSession(pixelroot32::networking::NetSession* session) {
+        networkSession = session;
+    }
+
+    /**
+     * @brief Returns the session currently registered with the Engine.
+     * @return Borrowed session pointer; nullptr when none is registered.
+     */
+    pixelroot32::networking::NetSession* getNetworkSession() {
+        return networkSession;
+    }
+#endif
+
 protected:
     SceneManager sceneManager; ///< Manages scene transitions and the scene stack.
     pixelroot32::graphics::Renderer renderer;         ///< Handles all graphics rendering operations.
@@ -305,6 +351,10 @@ protected:
 
 #if PIXELROOT32_ENABLE_GAMEPLAY_EVENTS
     pixelroot32::gameplay::GameplayEventBus gameplayEventBus_; ///< Engine-owned single instance, wired to SceneManager in init().
+#endif
+
+#if PIXELROOT32_ENABLE_NETWORKING
+    pixelroot32::networking::NetSession* networkSession = nullptr; ///< Borrowed session; Engine never owns, initializes or shuts it down.
 #endif
 
     unsigned long previousMillis; ///< Timestamp of the previous frame.

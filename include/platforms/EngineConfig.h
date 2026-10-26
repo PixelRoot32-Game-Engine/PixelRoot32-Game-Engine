@@ -395,6 +395,79 @@ namespace pixelroot32::platforms::config {
     /** @brief Type-safe access to DialogMaxWrappedLines configuration. */
     inline constexpr uint8_t DialogMaxWrappedLines = PIXELROOT32_DIALOG_MAX_WRAPPED_LINES;
 
+    // Networking
+
+    #if PIXELROOT32_ENABLE_NETWORKING
+
+    /** @brief Type-safe access to EnableNetworking configuration. */
+    inline constexpr bool EnableNetworking = true;
+    #else
+
+    /** @brief Type-safe access to EnableNetworking configuration. */
+    inline constexpr bool EnableNetworking = false;
+    #endif
+
+    /** @brief Type-safe access to NetMaxPeers configuration. */
+    inline constexpr uint8_t NetMaxPeers = PIXELROOT32_NET_MAX_PEERS;
+
+    /** @brief Type-safe access to NetRxQueueCapacity configuration. */
+    inline constexpr uint16_t NetRxQueueCapacity = PIXELROOT32_NET_RX_QUEUE_CAPACITY;
+
+    /** @brief Type-safe access to NetTxQueueCapacity configuration. */
+    inline constexpr uint16_t NetTxQueueCapacity = PIXELROOT32_NET_TX_QUEUE_CAPACITY;
+
+    /** @brief Type-safe access to NetMaxPayload configuration. */
+    inline constexpr uint16_t NetMaxPayload = PIXELROOT32_NET_MAX_PAYLOAD;
+
+    /** @brief Type-safe access to NetHeaderSize configuration. */
+    inline constexpr uint16_t NetHeaderSize = PIXELROOT32_NET_HEADER_SIZE;
+
+    /** @brief Type-safe access to NetAckTimeoutMs configuration. */
+    inline constexpr uint16_t NetAckTimeoutMs = PIXELROOT32_NET_ACK_TIMEOUT_MS;
+
+    /** @brief Type-safe access to NetPeerTimeoutMs configuration. */
+    inline constexpr uint16_t NetPeerTimeoutMs = PIXELROOT32_NET_PEER_TIMEOUT_MS;
+
+    /** @brief Type-safe access to NetHelloIntervalMs configuration. */
+    inline constexpr uint16_t NetHelloIntervalMs = PIXELROOT32_NET_HELLO_INTERVAL_MS;
+
+    /** @brief Type-safe access to NetMaxRetries configuration. */
+    inline constexpr uint8_t NetMaxRetries = PIXELROOT32_NET_MAX_RETRIES;
+
+    /** @brief Type-safe access to NetProtocolVersion configuration. */
+    inline constexpr uint8_t NetProtocolVersion = PIXELROOT32_NET_PROTOCOL_VERSION;
+
+    // Networking constraints. Failing the build is better than discovering at
+    // runtime that a frame overflows ESP-NOW's 250-byte limit, that a peer
+    // table exceeds the hardware ceiling, or that a ring buffer's mask
+    // indexing silently aliases slots.
+
+    /** @brief A message must be able to carry at least one application byte. */
+    static_assert(NetMaxPayload > 0,
+                  "NetMaxPayload must be greater than 0");
+
+    /** @brief One frame is at most 250 bytes, protocol header included. */
+    static_assert(NetMaxPayload + NetHeaderSize <= 250,
+                  "NetMaxPayload + NetHeaderSize must fit one ESP-NOW frame (<= 250 bytes)");
+
+    /** @brief The table may be as small as 1 and never exceeds ESP-NOW's 20. */
+    static_assert(NetMaxPeers >= 1 && NetMaxPeers <= 20,
+                  "NetMaxPeers must be between 1 and 20 (ESP-NOW hardware limit)");
+
+    /** @brief Giving up without ever retrying would make reliability a lie. */
+    static_assert(NetMaxRetries >= 1,
+                  "NetMaxRetries must be at least 1");
+
+    /** @brief Ring buffers index with a mask, so the capacity is a power of two. */
+    static_assert(NetRxQueueCapacity >= 2 &&
+                  (NetRxQueueCapacity & (NetRxQueueCapacity - 1)) == 0,
+                  "NetRxQueueCapacity must be a power of two >= 2");
+
+    /** @brief Ring buffers index with a mask, so the capacity is a power of two. */
+    static_assert(NetTxQueueCapacity >= 2 &&
+                  (NetTxQueueCapacity & (NetTxQueueCapacity - 1)) == 0,
+                  "NetTxQueueCapacity must be a power of two >= 2");
+
     // Deprecated for backward compatibility
 
     /** @brief Type-safe access to PhysicsRelaxationIterations configuration. */

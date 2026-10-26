@@ -36,6 +36,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
+| `PIXELROOT32_ENABLE_NETWORKING` | Enable the optional ESP-NOW peer-to-peer networking module. Only ESP32 and native targets have a transport; any other target fails the build when the flag is on. | `0` |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |
 | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Enable **`StaticLayerSnapshot`** (FB snapshot of game-drawn static layers). Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240). | `0` |
 | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Enable dirty-cell selective framebuffer clear (`DirtyGrid`). Requires 64–226 B RAM. | `0` |
@@ -52,6 +53,31 @@ This document covers global configuration options, build flags, and compile-time
 > **Note:** The two framebuffer caches solve the same problem from opposite ends, and a given static layer wants one or the other, never both. `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` covers layers the engine can redraw itself — it owns the `TileMap4bpp` and repaints it when the cache goes cold. `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` covers layers **game code** draws, caching the resulting framebuffer instead of any source; that is what an isometric or oblique floor needs in the default build, since `drawTileMap` assumes axis-aligned cells and has no diamond to redraw unless given a projection (`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`, default `0`). Pair the snapshot with `PIXELROOT32_ENABLE_DIRTY_REGIONS` to restore only the cells last frame's movers touched rather than the whole buffer.
 
 > **Note:** `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK=60` only became reachable in `d6dc9ae`. Earlier builds hit a buffer-selection bug in `buildScaleLUTs()` that always downgraded to `PIXELROOT32_TFT_ESPI_LINES_PER_BLOCK_FALLBACK`, so the documented `60` default never applied. The fallback still applies when DMA-capable internal RAM is tight.
+
+### Networking Limits
+
+Compile-time limits of the optional networking module (`PIXELROOT32_ENABLE_NETWORKING=1`). Mirrored as `pixelroot32::platforms::config::Net*` constants, which are what code should read.
+
+| Macro | Default | Meaning |
+|-------|---------|---------|
+| `PIXELROOT32_NET_MAX_PEERS` | `4` | Peer table size. ESP-NOW's hardware ceiling is 20. |
+| `PIXELROOT32_NET_MAX_PAYLOAD` | `64` | Application bytes per message, excluding the 16-byte header. |
+| `PIXELROOT32_NET_RX_QUEUE_CAPACITY` | `8` | Received events buffered before dispatch to the scene. Power of two >= 2. |
+| `PIXELROOT32_NET_TX_QUEUE_CAPACITY` | `8` | Reliable messages awaiting an ACK. Power of two >= 2. |
+| `PIXELROOT32_NET_ACK_TIMEOUT_MS` | `20` | Delay before retransmitting an unacknowledged message. |
+| `PIXELROOT32_NET_MAX_RETRIES` | `3` | Retransmissions before a reliable send reports failure. |
+| `PIXELROOT32_NET_PEER_TIMEOUT_MS` | `3000` | Silence after which a peer is considered offline. |
+| `PIXELROOT32_NET_HELLO_INTERVAL_MS` | `1000` | Discovery HELLO broadcast period. |
+| `PIXELROOT32_NET_PROTOCOL_VERSION` | `1` | Wire version carried in every frame. |
+| `PIXELROOT32_NET_HEADER_SIZE` | `16` | Protocol header bytes; `MAX_PAYLOAD + HEADER_SIZE` must stay <= 250. |
+
+> **Supported targets and core:** real ESP-NOW exists only on the ESP32 family;
+> native builds provide the in-process `LoopbackTransport` and have no radio.
+> Any other target fails the build when the flag is on. The module is verified
+> with Arduino-ESP32 2.0.17 (the legacy ESP-NOW callback signature). Arduino
+> core 3.x compiles through a compile-time callback shim, but no 3.x toolchain
+> runs in CI, so 3.x behavior is unverified. `MAX_PAYLOAD + HEADER_SIZE` is
+> asserted at compile time to stay within ESP-NOW's 250-byte frame.
 
 ## Memory Savings by Subsystem
 

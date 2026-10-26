@@ -56,8 +56,12 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 ## Drivers
 
 - [ESP32AudioScheduler](./drivers/ESP32AudioScheduler.md) — Audio scheduler for ESP32 targets.
+- [ESP32EspNowTransport](./drivers/ESP32EspNowTransport.md) — ESP-NOW link backend for ESP32 targets.
 - [ESP32_DAC_AudioBackend](./drivers/ESP32_DAC_AudioBackend.md) — Audio backend for ESP32 classic / S2 internal 8-bit DAC.
 - [ESP32_I2S_AudioBackend](./drivers/ESP32_I2S_AudioBackend.md) — Audio backend implementation for ESP32 using I2S.
+- [LoopbackBus](./drivers/LoopbackBus.md) — In-process bus shared by a set of loopback transports.
+- [LoopbackFaults](./drivers/LoopbackFaults.md) — Injectable link faults for deterministic native testing.
+- [LoopbackTransport](./drivers/LoopbackTransport.md) — Native in-process transport with deterministic fault injection.
 - [NativeAudioScheduler](./drivers/NativeAudioScheduler.md) — Audio scheduler for native builds.
 - [SDL2_AudioBackend](./drivers/SDL2_AudioBackend.md) — Audio backend implementation for SDL2 (Windows/Linux/Mac).
 - [SDL2_Drawer](./drivers/SDL2_Drawer.md) — SDL2-backed draw surface for native desktop builds.
@@ -218,6 +222,30 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
        two screen-space axis vectors of the cell grid.
 - [Random](./math/Random.md) — Instance-based random number generator
 - [Vector2](./math/Vector2.md) — 2D vector using the configured Scalar type (float or Fixed16).
+
+## Networking
+
+- [NetAddress](./networking/NetAddress.md) — Fixed-size peer address, trivially copyable and free of constructors.
+- [NetCounter](./networking/NetCounter.md) — Convergent signed accumulator replicated as idempotent operations.
+- [NetDelivery](./networking/NetDelivery.md) — Delivery contract requested for one outgoing message.
+- [NetEvent](./networking/NetEvent.md) — One fixed-capacity event queued for the application.
+- [NetEventType](./networking/NetEventType.md) — Kind of event drained from the session's receive queue.
+- [NetPacketHeader](./networking/NetPacketHeader.md) — Decoded, host-order view of the 16-byte wire header.
+- [NetPacketType](./networking/NetPacketType.md) — Discriminator carried in the header.
+- [NetParseResult](./networking/NetParseResult.md) — Outcome of decoding a frame.
+- [NetPeerConfig](./networking/NetPeerConfig.md) — One peer registration handed to the transport.
+- [NetPeerInfo](./networking/NetPeerInfo.md) — Snapshot of one peer table slot, copied out on query.
+- [NetResult](./networking/NetResult.md) — Every fallible networking entry point returns one of these.
+- [NetRxInfo](./networking/NetRxInfo.md) — One received frame together with its source address.
+- [NetSession](./networking/NetSession.md) — Fixed-capacity networking session: discovery, reliability and lifecycle.
+- [NetSessionConfig](./networking/NetSessionConfig.md) — Values the application supplies once, when the session starts.
+- [NetStats](./networking/NetStats.md) — Monotonic traffic counters owned by the session.
+- [NetTransport](./networking/NetTransport.md) — Abstract frame-level transport used by the networking session.
+- [NetTransportConfig](./networking/NetTransportConfig.md) — Per-transport initialization values.
+- [NetTxResult](./networking/NetTxResult.md) — Outcome of one accepted send, reported asynchronously.
+- [PeerSlot](./networking/PeerSlot.md) — One fixed peer table row.
+- [PendingTx](./networking/PendingTx.md) — One reliable frame waiting for its ACK.
+- [Slot](./networking/Slot.md) — One node's accumulated contribution to the shared value.
 
 ## Physics
 

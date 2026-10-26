@@ -57,6 +57,13 @@ jobs:
       run: |
         pio test -e native_test_physics_rest --verbose
 
+    # Separate step for the same reason: native_test proves the networking
+    # flag stays behavior-inert when off, while this environment is the only
+    # one where the networking assertions actually run.
+    - name: Run Tests (networking enabled)
+      run: |
+        pio test -e native_test_networking --verbose
+
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info
