@@ -44,7 +44,7 @@ namespace pixelroot32::audio {
          *        every generateSamples() call.
          */
         void init(AudioBackend* backend, int sampleRate,
-                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
+                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 512) override;
         /** @brief Enqueues a command to the ApuCore. @param cmd The command to submit. */
         void submitCommand(const AudioCommand& cmd) override;
         /** @brief Resumes sample generation after stop(). Generation starts enabled. */

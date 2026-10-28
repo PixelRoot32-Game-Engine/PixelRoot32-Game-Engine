@@ -80,6 +80,9 @@ namespace pixelroot32::audio {
         /** @brief Gets the current master bitcrush setting. @return Bit depth (0 = off). */
         uint8_t getMasterBitcrush() const;
 
+        /** @brief Gets the configured render block size in samples; exposed so backends can honour it (config is private). */
+        int getBlockSize() const { return config.blockSize; }
+
         /**
          * @brief Submits a raw audio command to the scheduler.
          * @param cmd The command to execute.
