@@ -140,7 +140,9 @@ namespace pixelroot32::drivers::esp32 {
             const int64_t iterationStartUs = esp_timer_get_time();
 
             // S12: render exactly one block, straight into the member buffer.
+            const int64_t renderStartUs = esp_timer_get_time();
             engineInstance->generateSamples(renderBuffer_, blockSize);
+            const int64_t renderUs = esp_timer_get_time() - renderStartUs;
 
             // Write to I2S (blocking if DMA is full).
             // portMAX_DELAY is deliberate and is the pacing mechanism (S13):
@@ -158,7 +160,7 @@ namespace pixelroot32::drivers::esp32 {
             // empty and the DMA is repeating the last buffer.
             const int64_t iterationUs = esp_timer_get_time() - iterationStartUs;
             const bool countUnderruns = (iteration >= kUnderrunWarmupIterations);
-            accountBlockTiming(iterationUs, writeUs, blockBudgetUs,
+            accountBlockTiming(iterationUs, renderUs, writeUs, blockBudgetUs,
                                err == ESP_OK && bytesWritten == blockBytes,
                                countUnderruns);
             ++iteration;
@@ -171,18 +173,27 @@ namespace pixelroot32::drivers::esp32 {
         }
     }
 
-    void ESP32_I2S_AudioBackend::accountBlockTiming(int64_t iterationUs, int64_t writeUs,
+    void ESP32_I2S_AudioBackend::accountBlockTiming(int64_t iterationUs, int64_t renderUs,
+                                                    int64_t writeUs,
                                                     int64_t budgetUs, bool writeComplete,
                                                     bool countUnderruns) {
         const uint32_t blockUs = (iterationUs > 0) ? (uint32_t)iterationUs : 0u;
+        const uint32_t renderBlockUs = (renderUs > 0) ? (uint32_t)renderUs : 0u;
         const uint32_t writeBlockUs = (writeUs > 0) ? (uint32_t)writeUs : 0u;
 
         // Worst cases over every block, underrun or not: they say how close the
-        // producer ran to its deadline and how much slack the ring had.
+        // producer ran to its deadline and how much slack the ring had. Each is
+        // its own maximum, so they are reported independently: the difference
+        // between the block and the write is not the render cost.
         uint32_t previousWorst = worstBlockUs_.load(std::memory_order_relaxed);
         while (blockUs > previousWorst
                && !worstBlockUs_.compare_exchange_weak(previousWorst, blockUs,
                                                        std::memory_order_relaxed)) {
+        }
+        previousWorst = worstRenderUs_.load(std::memory_order_relaxed);
+        while (renderBlockUs > previousWorst
+               && !worstRenderUs_.compare_exchange_weak(previousWorst, renderBlockUs,
+                                                        std::memory_order_relaxed)) {
         }
         previousWorst = worstWriteUs_.load(std::memory_order_relaxed);
         while (writeBlockUs > previousWorst
@@ -206,10 +217,12 @@ namespace pixelroot32::drivers::esp32 {
         if ((underruns % 100u) == 0u) {
             log(LogLevel::Warning,
                 "[I2S] %u underruns: write blocked %lld us of a %lld us block "
-                "(starved below %lld us), worst block %u us, worst write %u us (%d samples @ %d Hz)",
+                "(starved below %lld us), worst block %u us, worst render %u us, "
+                "worst write %u us (%d samples @ %d Hz)",
                 (unsigned)underruns, (long long)writeUs, (long long)budgetUs,
                 (long long)starvedWriteUs,
                 (unsigned)worstBlockUs_.load(std::memory_order_relaxed),
+                (unsigned)worstRenderUs_.load(std::memory_order_relaxed),
                 (unsigned)worstWriteUs_.load(std::memory_order_relaxed),
                 blockSize, sampleRate);
         }

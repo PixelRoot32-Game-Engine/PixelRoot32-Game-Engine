@@ -16,11 +16,18 @@
  * - `underruns`: the DMA ring had already drained when we came to write (the
  *   documented rule: the write barely waited, see `ESP32_I2S_AudioBackend`).
  * - `worst_block_us`: the slowest whole iteration.
+ * - `worst_render_us`: the slowest synthesis call. Measured on its own, because
+ *   `worst_block_us - worst_write_us` is not the render cost: those are two
+ *   independent maxima and need not come from the same block.
  * - `worst_write_us`: the longest the write waited for space.
+ * - `peak`: the largest absolute sample the mix produced. Zero here means the
+ *   gate measured digital silence and its underrun count proves nothing.
  *
- * Pins are the project's `esp32_dev_ST7789` mapping (BCLK 26, LRCK 25, DOUT 22,
- * MAX98357A-class DAC). No speaker is required for the gate to be valid: the I2S
- * peripheral consumes the ring at the sample rate either way.
+ * The I2S pins are per target. The ESP32 mapping is the project's
+ * `esp32_dev_ST7789` one (BCLK 26, LRCK 25, DOUT 22, MAX98357A-class DAC); the
+ * C3 has no such GPIOs and uses BCLK 4 / LRCK 5 / DOUT 6. No speaker is required
+ * for the gate to be valid: the I2S peripheral consumes the ring at the sample
+ * rate either way.
  */
 
 #include <Arduino.h>
@@ -46,6 +53,8 @@ using pixelroot32::audio::AudioCommandType;
 using pixelroot32::audio::AudioConfig;
 using pixelroot32::audio::AudioEngine;
 using pixelroot32::audio::AudioEvent;
+using pixelroot32::audio::AudioScheduler;
+using pixelroot32::audio::ApuCore;
 using pixelroot32::audio::InstrumentPreset;
 using pixelroot32::audio::MusicNote;
 using pixelroot32::audio::MusicTrack;
@@ -121,11 +130,43 @@ void postMixMono(int16_t* mono, int length, void*)
 AudioConfig gConfig(&gBackend, RUN_SAMPLE_RATE);
 AudioEngine gEngine(gConfig);
 
-/// Wires the post-mix peak counter into the config once the engine exists.
-struct PostMixWireup {
-    PostMixWireup() { gConfig.postMixMono = &postMixMono; }
-};
-PostMixWireup gPostMixWireup;
+/// @brief Connects the post-mix peak counter to the core that actually renders.
+///
+/// `AudioEngine` copies the config in its constructor, so writing
+/// `gConfig.postMixMono` afterwards never reaches the copy `init()` reads: the
+/// hook stays null and the peak reads zero on every board. Wiring it on the
+/// scheduler's own core, after `init()`, is the only path that is guaranteed to
+/// land on the instance the audio task calls.
+void attachPeakMeter()
+{
+    AudioScheduler* scheduler = gEngine.getScheduler();
+    if (scheduler != nullptr) {
+        scheduler->getApuCore().setPostMixMono(&postMixMono, nullptr);
+    }
+}
+
+/// @brief Prints the state of the ApuCore the backend actually renders with.
+///
+/// `peak=0` alone cannot say whether the commands were dropped, whether the
+/// voices started and stayed silent, or whether the mix is silent because
+/// nobody ever started a voice. Those are three different defects, so the gate
+/// reads the core itself through the scheduler the engine already exposes.
+void printCoreState(const char* tag)
+{
+    AudioScheduler* scheduler = gEngine.getScheduler();
+    if (scheduler == nullptr) {
+        Serial.printf("# core %s no-scheduler\n", tag);
+        return;
+    }
+    ApuCore& core = scheduler->getApuCore();
+    Serial.printf(
+        "# core %s rate=%d profile=%d music=%d dropped=%u noteLimit=%u deferred=%u\n",
+        tag, core.getSampleRate(), static_cast<int>(core.getSoundProfile()),
+        core.isMusicPlaying() ? 1 : 0, static_cast<unsigned>(core.getDroppedCommands()),
+        static_cast<unsigned>(core.getSequencerNoteLimit()),
+        static_cast<unsigned>(core.getDeferredNotes()));
+    Serial.flush();
+}
 
 AudioEvent makeLoopEvent(WaveType type, float frequency, float volume,
                          const InstrumentPreset* preset)
@@ -187,12 +228,14 @@ void printReport(const char* tag, uint32_t elapsedSeconds)
 {
     Serial.printf(
         "REPORT %s rate=%d block=%d seconds=%u underruns=%u worst_block_us=%u "
-        "worst_write_us=%u peak=%ld\n",
+        "worst_render_us=%u worst_write_us=%u peak=%ld\n",
         tag, RUN_SAMPLE_RATE, gEngine.getBlockSize(), elapsedSeconds,
         static_cast<unsigned>(gBackend.getUnderrunCount()),
         static_cast<unsigned>(gBackend.getWorstBlockUs()),
+        static_cast<unsigned>(gBackend.getWorstRenderUs()),
         static_cast<unsigned>(gBackend.getWorstWriteUs()),(long)gPeak);
     Serial.flush();
+    printCoreState(tag);
 }
 
 uint32_t gStartMs = 0;
@@ -215,10 +258,14 @@ void setup()
     Serial.flush();
 
     gEngine.init();
+    attachPeakMeter();
     startEightVoices();
     Serial.printf("# state music=%d volume_pct=%d\n", gEngine.isMusicPlaying() ? 1 : 0,
                   (int)(gEngine.getMasterVolume() * 100.0f));
     Serial.flush();
+    printCoreState("immediate");
+    delay(250);
+    printCoreState("after-250ms");
     gStartMs = millis();
     Serial.println("# running");
     Serial.flush();

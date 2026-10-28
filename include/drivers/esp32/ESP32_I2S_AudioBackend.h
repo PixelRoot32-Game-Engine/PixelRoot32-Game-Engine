@@ -76,6 +76,16 @@ namespace pixelroot32::drivers::esp32 {
          */
         uint32_t getWorstWriteUs() const { return worstWriteUs_.load(std::memory_order_relaxed); }
 
+        /**
+         * @brief Worst synthesis (render) time seen, in µs.
+         *
+         * Measured per iteration around `generateSamples` and kept as its own
+         * maximum. Without it the render cost can only be guessed from
+         * `worst_block_us - worst_write_us`, which is wrong: those are two
+         * independent maxima and need not come from the same block.
+         */
+        uint32_t getWorstRenderUs() const { return worstRenderUs_.load(std::memory_order_relaxed); }
+
     private:
         /** S12: fixed `dma_buf_len`; `blockSize` must be a multiple of it. */
         static constexpr int kDmaBufLenSamples = 128;
@@ -102,15 +112,17 @@ namespace pixelroot32::drivers::esp32 {
         std::atomic<uint32_t> worstBlockUs_{0};
         /** Worst `i2s_write` blocking time in microseconds, over every block. */
         std::atomic<uint32_t> worstWriteUs_{0};
+        /** Worst `generateSamples` duration in microseconds, over every block. */
+        std::atomic<uint32_t> worstRenderUs_{0};
 
         /**
-         * @brief Accounts one iteration: updates both worst cases and, once the
+         * @brief Accounts one iteration: updates the worst cases and, once the
          *        ring is primed, the underrun count.
          *
          * Audio thread only. Logs one line every 100 underruns.
          */
-        void accountBlockTiming(int64_t iterationUs, int64_t writeUs, int64_t budgetUs,
-                                bool writeComplete, bool countUnderruns);
+        void accountBlockTiming(int64_t iterationUs, int64_t renderUs, int64_t writeUs,
+                                int64_t budgetUs, bool writeComplete, bool countUnderruns);
     };
 
 }

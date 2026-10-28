@@ -182,7 +182,7 @@ The DMA depth is derived from the block, never hard-coded: `dma_buf_len = 128` s
 
 Because the block is also the command granularity, a queued command may be applied up to one block later than it was submitted — that is the trade for the lower wake-up rate.
 
-**Underruns** are counted, not guessed: an iteration counts as an underrun when the `i2s_write` **barely waited** (`writeUs < budgetUs / 10`, i.e. the DMA ring was already empty), or when the write failed or came back short. The first 10 iterations are discarded because they fill the ring; a healthy write normally blocks for most of the block period. `getUnderrunCount()` reports the accumulated count.
+**Underruns** are counted, not guessed: an iteration counts as an underrun when the `i2s_write` **barely waited** (`writeUs < budgetUs / 10`, i.e. the DMA ring was already empty), or when the write failed or came back short. The first 10 iterations are discarded because they fill the ring; a healthy write normally blocks for most of the block period. `getUnderrunCount()` reports the accumulated count, and `getWorstRenderUs()` reports the worst synthesis time per block, which is what tells you whether the voices you asked for are the voices being rendered.
 
 **One backend instance is ~2 KB**: `sizeof(ESP32_I2S_AudioBackend)` and `sizeof(ESP32_DAC_AudioBackend)` are **2 096 B each** on `esp32dev` (1 024-sample render buffer plus the counters). Give it file scope or heap — **never** a local inside a small-stack task; the audio task it creates itself runs with 4 KB.
 
