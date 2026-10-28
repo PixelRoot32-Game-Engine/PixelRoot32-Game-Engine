@@ -61,8 +61,9 @@ constexpr int kI2sBclk = 26;
 constexpr int kI2sLrck = 25;
 constexpr int kI2sDout = 22;
 
-/// @brief Render block used for the gate: the FPU default after the block change.
-constexpr int kBlockSamples = 512;
+// The render block is left at the platform default (512 with an FPU, 1024
+// without), so the gate measures the configuration the product ships on each
+// board instead of one picked here.
 
 /// @brief One 128-beat note, long enough to outlive the whole run.
 constexpr float kMusicNoteBeats = 128.0f;
@@ -86,7 +87,7 @@ constexpr MusicTrack kMusicTracks[] = {
 /// File scope on purpose: the backend carries a 1 KB render buffer and the
 /// Arduino loop task stack is 8 KB. See the engine's audio guide.
 ESP32_I2S_AudioBackend gBackend(kI2sBclk, kI2sLrck, kI2sDout, RUN_SAMPLE_RATE);
-AudioConfig gConfig(&gBackend, RUN_SAMPLE_RATE, kBlockSamples);
+AudioConfig gConfig(&gBackend, RUN_SAMPLE_RATE);
 AudioEngine gEngine(gConfig);
 
 AudioEvent makeLoopEvent(WaveType type, float frequency, float volume,
@@ -169,7 +170,7 @@ void setup()
 
     Serial.println();
     Serial.printf("# apu_underrun_probe rate=%d seconds=%d block=%d\n",
-                  RUN_SAMPLE_RATE, RUN_SECONDS, kBlockSamples);
+                  RUN_SAMPLE_RATE, RUN_SECONDS, gConfig.blockSize);
     Serial.printf("# chip=%s rev=%u mhz=%u\n", ESP.getChipModel(),
                   static_cast<unsigned>(ESP.getChipRevision()),
                   static_cast<unsigned>(ESP.getCpuFreqMHz()));
