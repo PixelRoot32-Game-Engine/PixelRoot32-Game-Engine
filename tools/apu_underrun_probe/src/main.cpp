@@ -56,10 +56,22 @@ using pixelroot32::drivers::esp32::ESP32_I2S_AudioBackend;
 using pixelroot32::audio::INSTR_PULSE_LEAD;
 using pixelroot32::audio::INSTR_TRIANGLE_BASS;
 
-/// @brief I2S pins of the `esp32_dev_ST7789` platform (BCLK / LRCK / DOUT).
+/// @brief I2S pins (BCLK / LRCK / DOUT).
+///
+/// The ESP32 mapping is the project's `esp32_dev_ST7789` one (MAX98357A). The C3
+/// has no GPIO 26/25/22 at all — it stops at 21 — so asking for them makes
+/// `i2s_set_pin` fail, the backend return before creating its task, and the
+/// counters read zero forever: a gate that would pass without rendering a single
+/// sample. Hence the per-target block, and the liveness check in `loop`.
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+constexpr int kI2sBclk = 4;
+constexpr int kI2sLrck = 5;
+constexpr int kI2sDout = 6;
+#else
 constexpr int kI2sBclk = 26;
 constexpr int kI2sLrck = 25;
 constexpr int kI2sDout = 22;
+#endif
 
 // The render block is left at the platform default (512 with an FPU, 1024
 // without), so the gate measures the configuration the product ships on each
@@ -87,8 +99,33 @@ constexpr MusicTrack kMusicTracks[] = {
 /// File scope on purpose: the backend carries a 1 KB render buffer and the
 /// Arduino loop task stack is 8 KB. See the engine's audio guide.
 ESP32_I2S_AudioBackend gBackend(kI2sBclk, kI2sLrck, kI2sDout, RUN_SAMPLE_RATE);
+/// Peak of the mixed buffer, written by the audio task through the post-mix
+/// hook. It is the only way this harness can prove that voices are actually
+/// sounding: the underrun counters say nothing about the mix, and a gate that
+/// reports ``underruns=0`` over silence is worthless.
+volatile int32_t gPeak = 0;
+
+void postMixMono(int16_t* mono, int length, void*)
+{
+    int32_t peak = 0;
+    for (int i = 0; i < length; ++i) {
+        const int32_t value = mono[i] < 0 ? -static_cast<int32_t>(mono[i]) : mono[i];
+        if (value > peak) {
+            peak = value;
+        }
+    }
+    if (peak > gPeak) {
+        gPeak = peak;
+    }
+}
 AudioConfig gConfig(&gBackend, RUN_SAMPLE_RATE);
 AudioEngine gEngine(gConfig);
+
+/// Wires the post-mix peak counter into the config once the engine exists.
+struct PostMixWireup {
+    PostMixWireup() { gConfig.postMixMono = &postMixMono; }
+};
+PostMixWireup gPostMixWireup;
 
 AudioEvent makeLoopEvent(WaveType type, float frequency, float volume,
                          const InstrumentPreset* preset)
@@ -150,11 +187,11 @@ void printReport(const char* tag, uint32_t elapsedSeconds)
 {
     Serial.printf(
         "REPORT %s rate=%d block=%d seconds=%u underruns=%u worst_block_us=%u "
-        "worst_write_us=%u\n",
+        "worst_write_us=%u peak=%ld\n",
         tag, RUN_SAMPLE_RATE, gEngine.getBlockSize(), elapsedSeconds,
         static_cast<unsigned>(gBackend.getUnderrunCount()),
         static_cast<unsigned>(gBackend.getWorstBlockUs()),
-        static_cast<unsigned>(gBackend.getWorstWriteUs()));
+        static_cast<unsigned>(gBackend.getWorstWriteUs()),(long)gPeak);
     Serial.flush();
 }
 
@@ -169,8 +206,9 @@ void setup()
     delay(1500);
 
     Serial.println();
-    Serial.printf("# apu_underrun_probe rate=%d seconds=%d block=%d\n",
-                  RUN_SAMPLE_RATE, RUN_SECONDS, gConfig.blockSize);
+    Serial.printf("# apu_underrun_probe rate=%d seconds=%d block=%d pins=%d/%d/%d\n",
+                  RUN_SAMPLE_RATE, RUN_SECONDS, gConfig.blockSize, kI2sBclk,
+                  kI2sLrck, kI2sDout);
     Serial.printf("# chip=%s rev=%u mhz=%u\n", ESP.getChipModel(),
                   static_cast<unsigned>(ESP.getChipRevision()),
                   static_cast<unsigned>(ESP.getCpuFreqMHz()));
@@ -178,6 +216,9 @@ void setup()
 
     gEngine.init();
     startEightVoices();
+    Serial.printf("# state music=%d volume_pct=%d\n", gEngine.isMusicPlaying() ? 1 : 0,
+                  (int)(gEngine.getMasterVolume() * 100.0f));
+    Serial.flush();
     gStartMs = millis();
     Serial.println("# running");
     Serial.flush();
@@ -187,6 +228,23 @@ void loop()
 {
     const uint32_t elapsedMs = millis() - gStartMs;
     const uint32_t elapsedSeconds = elapsedMs / 1000u;
+
+    // Liveness: a failed `i2s_driver_install` or `i2s_set_pin` makes the
+    // backend return before creating its task, and every counter then reads zero
+    // forever. Reporting `underruns=0` in that state would be a false pass, so
+    // the run dies loudly instead.
+    static bool aliveChecked = false;
+    if (!aliveChecked && elapsedSeconds >= 5u) {
+        aliveChecked = true;
+        if (gBackend.getWorstBlockUs() == 0u) {
+            Serial.printf("ERROR backend never iterated: i2s init failed? pins=%d/%d/%d\n",
+                          kI2sBclk, kI2sLrck, kI2sDout);
+            Serial.flush();
+            while (true) {
+                delay(1000);
+            }
+        }
+    }
 
     if (elapsedSeconds >= static_cast<uint32_t>(RUN_SECONDS)) {
         printReport("final", elapsedSeconds);
