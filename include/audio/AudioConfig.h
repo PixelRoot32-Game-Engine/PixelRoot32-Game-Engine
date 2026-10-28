@@ -10,6 +10,13 @@
 
 namespace pixelroot32::audio {
 
+    /**
+     * Maximum render block in samples (S12). Render buffers are fixed-size
+     * members, so a `blockSize` above this — or not a multiple of 128 — is
+     * rejected by the backend/scheduler `init()` instead of overflowing them.
+     */
+    inline constexpr int PR32_AUDIO_MAX_BLOCK_SAMPLES = 1024;
+
     /** Optional RT-safe post-mix processing on the final mono int16 buffer (after bitcrush). */
     using PostMixMonoFn = void (*)(int16_t* mono, int length, void* user);
 
