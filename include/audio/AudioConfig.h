@@ -26,7 +26,19 @@ namespace pixelroot32::audio {
      */
     struct AudioConfig {
         AudioBackend* backend = nullptr; ///< Pointer to the platform-specific audio backend.
-        int sampleRate = 22050;          ///< Desired sample rate in Hz.
+        /**
+         * Desired sample rate in Hz.
+         *
+         * 22 050 is the only rate that is supported on every target. 32 000 is
+         * available where p99 stays under half the render block, and the APU's
+         * own measurements decide that per board: on `esp32-c3-devkitm-1` the
+         * `Nes` and `Hybrid` profiles measure 50.1 % and 50.9 % of the block at
+         * eight voices and 32 000 Hz, so that rate is unsupported for those
+         * profiles on that target, while `Legacy` keeps it at 48.7 %. The APU
+         * renders at whatever rate it is given and has no per-target policy:
+         * this is the envelope, and the consumer enforces it.
+         */
+        int sampleRate = 22050;
         /// Audio block size (samples): the render unit, multiple of 128. The I2S backend derives its DMA depth from it.
         int blockSize = platforms::config::HasFPU ? 512 : 1024;
         PostMixMonoFn postMixMono = nullptr;
