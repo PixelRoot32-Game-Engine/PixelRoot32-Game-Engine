@@ -1,0 +1,203 @@
+/*
+ * Copyright (c) 2026 PixelRoot32
+ * Licensed under the MIT License
+ */
+
+/**
+ * @file main.cpp
+ * @brief Underrun gate harness (E0 acceptance, S15.6).
+ *
+ * Runs a real `AudioEngine` plus `ESP32_I2S_AudioBackend` for `RUN_SECONDS` with
+ * eight voices and prints the backend's own counters. This is deliberately not a
+ * benchmark: the CPU baseline comes from the APU's `tools/apu_bench_firmware`,
+ * which renders into RAM. Here the samples go out through I2S, so the numbers
+ * reported are the ones that decide whether the producer kept up:
+ *
+ * - `underruns`: the DMA ring had already drained when we came to write (the
+ *   documented rule: the write barely waited, see `ESP32_I2S_AudioBackend`).
+ * - `worst_block_us`: the slowest whole iteration.
+ * - `worst_write_us`: the longest the write waited for space.
+ *
+ * Pins are the project's `esp32_dev_ST7789` mapping (BCLK 26, LRCK 25, DOUT 22,
+ * MAX98357A-class DAC). No speaker is required for the gate to be valid: the I2S
+ * peripheral consumes the ring at the sample rate either way.
+ */
+
+#include <Arduino.h>
+
+#include <audio/AudioConfig.h>
+#include <audio/AudioEngine.h>
+#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
+#include <pixelroot32/apu/AudioMusicTypes.h>
+#include <pixelroot32/apu/AudioTypes.h>
+
+#ifndef RUN_SAMPLE_RATE
+#define RUN_SAMPLE_RATE 22050
+#endif
+
+#ifndef RUN_SECONDS
+#define RUN_SECONDS 600
+#endif
+
+namespace {
+
+using pixelroot32::audio::AudioCommand;
+using pixelroot32::audio::AudioCommandType;
+using pixelroot32::audio::AudioConfig;
+using pixelroot32::audio::AudioEngine;
+using pixelroot32::audio::AudioEvent;
+using pixelroot32::audio::InstrumentPreset;
+using pixelroot32::audio::MusicNote;
+using pixelroot32::audio::MusicTrack;
+using pixelroot32::audio::Note;
+using pixelroot32::audio::WaveType;
+using pixelroot32::drivers::esp32::ESP32_I2S_AudioBackend;
+
+using pixelroot32::audio::INSTR_PULSE_LEAD;
+using pixelroot32::audio::INSTR_TRIANGLE_BASS;
+
+/// @brief I2S pins of the `esp32_dev_ST7789` platform (BCLK / LRCK / DOUT).
+constexpr int kI2sBclk = 26;
+constexpr int kI2sLrck = 25;
+constexpr int kI2sDout = 22;
+
+/// @brief Render block used for the gate: the FPU default after the block change.
+constexpr int kBlockSamples = 512;
+
+/// @brief One 128-beat note, long enough to outlive the whole run.
+constexpr float kMusicNoteBeats = 128.0f;
+
+constexpr MusicNote kMusicNotes0[] = {
+    {Note::A, 4, kMusicNoteBeats, 0.30f, &INSTR_PULSE_LEAD}};
+constexpr MusicNote kMusicNotes1[] = {
+    {Note::E, 5, kMusicNoteBeats, 0.28f, nullptr}};
+constexpr MusicNote kMusicNotes2[] = {
+    {Note::C, 5, kMusicNoteBeats, 0.22f, nullptr}};
+constexpr MusicNote kMusicNotes3[] = {
+    {Note::G, 4, kMusicNoteBeats, 0.22f, nullptr}};
+
+constexpr MusicTrack kMusicTracks[] = {
+    {kMusicNotes0, 1, true, WaveType::PULSE, 0.5f, nullptr, nullptr, nullptr},
+    {kMusicNotes1, 1, true, WaveType::TRIANGLE, 0.5f, nullptr, nullptr, nullptr},
+    {kMusicNotes2, 1, true, WaveType::SINE, 0.5f, nullptr, nullptr, nullptr},
+    {kMusicNotes3, 1, true, WaveType::SAW, 0.5f, nullptr, nullptr, nullptr},
+};
+
+/// File scope on purpose: the backend carries a 1 KB render buffer and the
+/// Arduino loop task stack is 8 KB. See the engine's audio guide.
+ESP32_I2S_AudioBackend gBackend(kI2sBclk, kI2sLrck, kI2sDout, RUN_SAMPLE_RATE);
+AudioConfig gConfig(&gBackend, RUN_SAMPLE_RATE, kBlockSamples);
+AudioEngine gEngine(gConfig);
+
+AudioEvent makeLoopEvent(WaveType type, float frequency, float volume,
+                         const InstrumentPreset* preset)
+{
+    AudioEvent event{};
+    event.type = type;
+    event.frequency = frequency;
+    event.duration = 0.0f;
+    event.volume = volume;
+    event.duty = 0.5f;
+    event.preset = preset;
+    event.loop = true;
+    return event;
+}
+
+/// @brief Hands one command to the engine.
+///
+/// `AudioEngine::submitCommand` returns void (only `ApuCore` exposes the
+/// queue result), so a rejection would be silent. Five commands against a
+/// 64-slot queue cannot fill it, and the run prints the block cost, which would
+/// drop if a voice failed to start.
+void submit(const AudioCommand& cmd)
+{
+    gEngine.submitCommand(cmd);
+}
+
+/**
+ * @brief Fills the four sequencer slots and the four SFX slots.
+ *
+ * Same recipe as the host benchmark: `PLAY_EVENT` alone can only own slots 4-7,
+ * so the other four voices come from a music command with three sub-tracks.
+ */
+void startEightVoices()
+{
+    AudioCommand event;
+    event.type = AudioCommandType::PLAY_EVENT;
+    event.event = makeLoopEvent(WaveType::PULSE, 330.0f, 0.30f, &INSTR_PULSE_LEAD);
+    submit(event);
+
+    AudioCommand music;
+    music.type = AudioCommandType::MUSIC_PLAY;
+    music.track = &kMusicTracks[0];
+    music.subTracks[0] = &kMusicTracks[1];
+    music.subTracks[1] = &kMusicTracks[2];
+    music.subTracks[2] = &kMusicTracks[3];
+    music.subTrackCount = 3;
+    submit(music);
+
+    event.event = makeLoopEvent(WaveType::TRIANGLE, 196.0f, 0.28f,
+                                &INSTR_TRIANGLE_BASS);
+    submit(event);
+    event.event = makeLoopEvent(WaveType::SINE, 523.25f, 0.22f, nullptr);
+    submit(event);
+    event.event = makeLoopEvent(WaveType::SAW, 392.0f, 0.22f, nullptr);
+    submit(event);
+}
+
+void printReport(const char* tag, uint32_t elapsedSeconds)
+{
+    Serial.printf(
+        "REPORT %s rate=%d block=%d seconds=%u underruns=%u worst_block_us=%u "
+        "worst_write_us=%u\n",
+        tag, RUN_SAMPLE_RATE, gEngine.getBlockSize(), elapsedSeconds,
+        static_cast<unsigned>(gBackend.getUnderrunCount()),
+        static_cast<unsigned>(gBackend.getWorstBlockUs()),
+        static_cast<unsigned>(gBackend.getWorstWriteUs()));
+    Serial.flush();
+}
+
+uint32_t gStartMs = 0;
+uint32_t gLastPrintSeconds = 0;
+
+}  // namespace
+
+void setup()
+{
+    Serial.begin(115200);
+    delay(1500);
+
+    Serial.println();
+    Serial.printf("# apu_underrun_probe rate=%d seconds=%d block=%d\n",
+                  RUN_SAMPLE_RATE, RUN_SECONDS, kBlockSamples);
+    Serial.printf("# chip=%s rev=%u mhz=%u\n", ESP.getChipModel(),
+                  static_cast<unsigned>(ESP.getChipRevision()),
+                  static_cast<unsigned>(ESP.getCpuFreqMHz()));
+    Serial.flush();
+
+    gEngine.init();
+    startEightVoices();
+    gStartMs = millis();
+    Serial.println("# running");
+    Serial.flush();
+}
+
+void loop()
+{
+    const uint32_t elapsedMs = millis() - gStartMs;
+    const uint32_t elapsedSeconds = elapsedMs / 1000u;
+
+    if (elapsedSeconds >= static_cast<uint32_t>(RUN_SECONDS)) {
+        printReport("final", elapsedSeconds);
+        while (true) {
+            delay(1000);
+        }
+    }
+
+    if (elapsedSeconds >= gLastPrintSeconds + 30u) {
+        gLastPrintSeconds = elapsedSeconds;
+        printReport("progress", elapsedSeconds);
+    }
+
+    delay(100);
+}
