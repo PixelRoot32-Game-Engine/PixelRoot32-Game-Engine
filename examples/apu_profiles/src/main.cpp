@@ -47,8 +47,18 @@
  * so a transcript from either build can be compared line for line.
  */
 
+#if defined(PLATFORM_NATIVE)
+#include <cstdarg>
+#include <cstdio>
+
+#include <drivers/native/SDL2_AudioBackend.h>
+#include <platforms/mock/MockArduino.h>
+#else
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+
+#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
+#endif
 
 #include <atomic>
 #include <cstddef>
@@ -57,7 +67,6 @@
 
 #include <audio/AudioConfig.h>
 #include <audio/AudioEngine.h>
-#include <drivers/esp32/ESP32_I2S_AudioBackend.h>
 #include <pixelroot32/apu/ApuCore.h>
 #include <pixelroot32/apu/AudioMusicTypes.h>
 #include <pixelroot32/apu/AudioTypes.h>
@@ -86,7 +95,45 @@ using pixelroot32::audio::INSTR_SNARE;
 using pixelroot32::audio::INSTR_TRIANGLE_BASS;
 using pixelroot32::audio::noteToFrequency;
 
+#if defined(PLATFORM_NATIVE)
+using pixelroot32::drivers::native::SDL2_AudioBackend;
+#else
 using pixelroot32::drivers::esp32::ESP32_I2S_AudioBackend;
+#endif
+
+#if defined(PLATFORM_NATIVE)
+// ---------------------------------------------------------------------------
+// Native (PC) console.
+//
+// The engine already ships the Arduino timing mock (`MockArduino.h`, included
+// above), so `millis()` and `delay()` compile here unchanged. What it does not
+// mock is `Serial`, and the transcript is the whole point of this example: the
+// shim below keeps every call site identical, printing the same lines to stdout
+// instead of the UART.
+// ---------------------------------------------------------------------------
+
+/** @brief Stand-in for the Arduino `Serial` that writes to stdout. */
+struct NativeConsole {
+    void begin(unsigned long) {}
+    void print(const char* text) { std::fputs(text, stdout); }
+    void println(const char* text = "")
+    {
+        std::fputs(text, stdout);
+        std::fputc('\n', stdout);
+    }
+    void printf(const char* format, ...)
+    {
+        va_list args;
+        va_start(args, format);
+        std::vprintf(format, args);
+        va_end(args);
+    }
+    void flush() { std::fflush(stdout); }
+};
+
+NativeConsole Serial;
+
+#endif
 
 // ---------------------------------------------------------------------------
 // Fixed hardware: the `pong` demo's PLATFORM_ESP32DEV_ILI9341 MAX98357A wiring.
@@ -94,15 +141,19 @@ using pixelroot32::drivers::esp32::ESP32_I2S_AudioBackend;
 // meaningful on the board the profiles ship on, so there is nothing to configure.
 // ---------------------------------------------------------------------------
 
+#if !defined(PLATFORM_NATIVE)
 /** @brief I2S bit clock. */
 constexpr int kI2sBclk = 5;
 /** @brief I2S word clock / left-right clock. */
 constexpr int kI2sLrck = 21;
 /** @brief I2S serial data out to the MAX98357A DIN. */
 constexpr int kI2sDout = 19;
+#endif
+
 /** @brief Sample rate the comparison runs at. */
 constexpr int kSampleRate = 22050;
 
+#if !defined(PLATFORM_NATIVE)
 /** @brief Logical panel size after the quarter turn (TFT_WIDTH/HEIGHT are 240x320). */
 constexpr int kScreenWidth = 320;
 constexpr int kScreenHeight = 240;
@@ -110,6 +161,7 @@ constexpr int kScreenHeight = 240;
 constexpr uint8_t kDisplayRotation = DISPLAY_ROTATION;
 static_assert(kScreenWidth == TFT_HEIGHT && kScreenHeight == TFT_WIDTH,
               "the status layout is written for the 240x320 panel after its quarter turn");
+#endif
 
 /** @brief One block per piece x profile combination. */
 constexpr uint32_t kBlockMs = 12000;
@@ -382,7 +434,13 @@ constexpr const char* kProfileLabels[] = {"LEGACY", "NES", "HYBRID"};
 
 /// File scope on purpose: the backend carries a 1 KB render buffer and the
 /// Arduino loop task stack is 8 KB (see the engine's audio guide).
+#if defined(PLATFORM_NATIVE)
+/// SDL2 opens the device with `bufferSize` samples, so 512 keeps the native
+/// latency in the same range as the I2S backend's default block.
+SDL2_AudioBackend gBackend(kSampleRate, 512);
+#else
 ESP32_I2S_AudioBackend gBackend(kI2sBclk, kI2sLrck, kI2sDout, kSampleRate);
+#endif
 AudioConfig gConfig(&gBackend, kSampleRate);
 
 /**
@@ -452,7 +510,9 @@ AudioEngine gEngine(gConfig);
 // ---------------------------------------------------------------------------
 
 /** @brief One drawing target for the whole firmware. */
+#if !defined(PLATFORM_NATIVE)
 TFT_eSPI gTft;
+#endif
 
 /**
  * @brief True only after a completed display init.
@@ -484,9 +544,11 @@ uint8_t gBlockIndex = 0;            ///< 0..8, printed as 1..9.
 uint8_t gPieceIndex = 0;            ///< Index into `kPieces` for the current block.
 uint32_t gBlockStartMs = 0;         ///< `millis()` at the current block's start.
 int32_t gGridLastServed = -1;       ///< Last eighth-note step serviced in this block.
+#if !defined(PLATFORM_NATIVE)
 uint32_t gUnderrunsAtBlockStart = 0;    ///< Backend counter snapshot, block start.
 uint32_t gWorstRenderAtBlockStart = 0;  ///< Backend counter snapshot, block start.
 bool gLivenessChecked = false;      ///< One-shot I2S failure warning.
+#endif
 
 // ---------------------------------------------------------------------------
 // Helpers.
@@ -654,6 +716,7 @@ void serveComplexGrid()
  * @param profileIndex Index into `kProfiles`.
  * @return RGB565 colour for that profile.
  */
+#if !defined(PLATFORM_NATIVE)
 uint16_t profileColor(uint8_t profileIndex)
 {
     switch (profileIndex) {
@@ -777,6 +840,13 @@ void drawStatusScreen()
     gTft.setTextColor(TFT_DARKGREY, TFT_BLACK);
     gTft.drawString("prev = the block that just ended; serial is the record", 8, 230);
 }
+#else
+// The PC build has no panel. The transcript is the record there, and the display
+// stays off rather than pretending to draw: `initDisplay()` reports failure and
+// the caller says so once.
+bool initDisplay() { return false; }
+void drawStatusScreen() {}
+#endif
 
 /**
  * @brief Prints the block banner and starts everything the block needs.
@@ -801,8 +871,10 @@ void startBlock(uint8_t blockIndex)
 
     gBlockPeak.store(0, std::memory_order_relaxed);
     gBlockHash.store(2166136261u, std::memory_order_relaxed);
+#if !defined(PLATFORM_NATIVE)
     gUnderrunsAtBlockStart = gBackend.getUnderrunCount();
     gWorstRenderAtBlockStart = gBackend.getWorstRenderUs();
+#endif
 
     // Hard cut at the boundary: MUSIC_STOP clears the sequencer, but the voices
     // it owns keep their remaining gate, so they are reset explicitly. The click
@@ -868,12 +940,21 @@ void startBlock(uint8_t blockIndex)
  */
 void reportBlock()
 {
+#if defined(PLATFORM_NATIVE)
+    // The SDL2 backend exposes no underrun or render-time counters: it hands the
+    // callback's sample count straight to `generateSamples`. The fields are kept
+    // so the transcript shape stays the same on both builds; `peak` and `hash`
+    // are the numbers that mean something here.
+    const uint32_t underruns = 0;
+    const uint32_t worstRender = 0;
+#else
     const uint32_t underrunsNow = gBackend.getUnderrunCount();
     const uint32_t worstRenderNow = gBackend.getWorstRenderUs();
     const uint32_t underruns = underrunsNow - gUnderrunsAtBlockStart;
     const uint32_t worstRender = (worstRenderNow > gWorstRenderAtBlockStart)
                                      ? (worstRenderNow - gWorstRenderAtBlockStart)
                                      : 0u;
+#endif
     const long peak = static_cast<long>(gBlockPeak.load(std::memory_order_relaxed));
     const unsigned long hash = static_cast<unsigned long>(
         gBlockHash.load(std::memory_order_relaxed));
@@ -903,6 +984,9 @@ void reportBlock()
  */
 void checkBackendLiveness()
 {
+#if defined(PLATFORM_NATIVE)
+    // Nothing to check: SDL2 either opened the device or `init()` reported it.
+#else
     if (gLivenessChecked || millis() < 3000u) {
         return;
     }
@@ -912,6 +996,7 @@ void checkBackendLiveness()
                       kI2sBclk, kI2sLrck, kI2sDout);
         Serial.flush();
     }
+#endif
 }
 
 /**
@@ -958,8 +1043,13 @@ void setup()
     delay(1500);
 
     Serial.println();
+#if defined(PLATFORM_NATIVE)
+    Serial.printf("# apu_listen rate=%d backend=sdl2 block_ms=%u\n", kSampleRate,
+                  static_cast<unsigned>(kBlockMs));
+#else
     Serial.printf("# apu_listen rate=%d pins=%d/%d/%d block_ms=%u\n", kSampleRate, kI2sBclk,
                   kI2sLrck, kI2sDout, static_cast<unsigned>(kBlockMs));
+#endif
     Serial.printf("# order piece=simple,medium,complex x profile=Legacy,Nes,Hybrid; "
                   "repeats forever\n");
     Serial.println(
@@ -985,9 +1075,13 @@ void setup()
     gDisplayReady = initDisplay();
     if (gDisplayReady) {
         drawStatusScreen();
+#if defined(PLATFORM_NATIVE)
+        Serial.println("# display ILI9341 is the board build; see README");
+#else
         Serial.printf("# display ILI9341 %dx%d rot=%u, one repaint per block\n",
                       kScreenWidth, kScreenHeight,
                       static_cast<unsigned>(kDisplayRotation));
+#endif
     } else {
         Serial.println("# display disabled; audio continues without a screen");
     }
@@ -1009,3 +1103,20 @@ void loop()
     checkBackendLiveness();
     delay(2);
 }
+
+#if defined(PLATFORM_NATIVE)
+/**
+ * @brief Entry point for the PC build.
+ *
+ * The Arduino core calls `setup()` once and `loop()` forever; a PC has no core, so
+ * the same two functions are driven from here. `[base_native]` sets
+ * `SDL_MAIN_HANDLED`, which is what makes a plain `main()` legal with SDL2.
+ */
+int main()
+{
+    setup();
+    while (true) {
+        loop();
+    }
+}
+#endif

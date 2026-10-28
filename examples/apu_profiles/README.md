@@ -4,8 +4,9 @@
 
 Nine 12-second blocks — `simple`, `medium` and `complex`, each played under
 `Legacy`, `Nes` and `Hybrid` — loop forever on a classic ESP32 with a MAX98357A
-DAC and an ILI9341 panel. **The speaker is the judge; the serial console is the
-record; the panel is the sign on the door.**
+DAC and an ILI9341 panel, or on a PC through SDL2 with the terminal as the record.
+**The speaker is the judge; the serial console is the record; the panel is the
+sign on the door.**
 
 Only a human ear can answer "which profile sounds better", so this example fixes
 everything else: the programme, the order, the length and the hardware. Two
@@ -89,8 +90,9 @@ After block 9 the programme restarts at block 1, forever: one full cycle is
 
 Classic ESP32 (`board = esp32dev`), the `pong` game's `PLATFORM_ESP32DEV_ILI9341`
 board: a MAX98357A DAC and an ILI9341 240×320 panel mounted in portrait and used
-in landscape. There is one wiring and one environment on purpose — a listening
-comparison is only meaningful on the board the profiles ship on.
+in landscape. There is one wiring on purpose — a listening comparison is only
+meaningful on the board the profiles ship on — but the programme also runs on a PC,
+where the panel is simply absent.
 
 | Signal | GPIO |
 |---|---|
@@ -111,21 +113,42 @@ pins do not collide.
 
 ## Build and flash
 
+Two environments, the same programme: `esp32dev` is the listening session on the
+board, `native` is the same nine blocks on a PC with SDL2 audio. The transcript is
+identical in shape, so a log from either build can be compared with the other.
+
 From **`examples/apu_profiles`**:
 
 ```powershell
-pio run -e esp32dev                                   # build
+pio run -e esp32dev                                    # build
 pio run -e esp32dev --target upload --upload-port COM4 # flash
 pio device monitor --port COM4 --baud 115200           # listen + capture
 ```
 
-`platformio.ini` keeps the shared `[base]` / `[base_esp32]` sections inline
-instead of in `lib/platformio.ini`, because this example has no `native`
-environment to share them with. There is no simulator target: I2S output and a
-real panel are the point.
+And on a PC (needs SDL2 — `libsdl2-dev` on Linux, `pacman -S mingw-w64-x86_64-SDL2`
+on MSYS2; the Windows include/lib paths and `-mconsole` are already in
+`platformio.ini`, and CI deletes those three lines to build against the system
+SDL2):
 
-Measured on the build performed while porting the example (local APU override,
-see below): **334,633 bytes flash (25.5%)**, **24,040 bytes RAM (7.3%)**.
+```powershell
+pio run -e native
+.pio/build/native/program
+```
+
+The shared `[base]` / `[base_esp32]` / `[base_native]` sections live in
+`lib/platformio.ini`, like every other example in this repository.
+
+Measured on the build made against the published APU **2.1.0**, no local override:
+
+| Environment | Flash | RAM |
+|---|---|---|
+| `esp32dev` | **343 237 B (26.2 %)** | **24 040 B (7.3 %)** |
+| `native` | — | — |
+
+The PC build has no panel and no backend counters: `initDisplay()` reports failure
+so the example says so once, and `underruns` / `worst_render_us` print as `0` in
+every `REPORT` because `SDL2_AudioBackend` exposes neither. `peak` and `hash` are
+the numbers that mean something there — they are what prove the block rendered.
 
 Two warnings show up in this build, and neither comes from this example's own
 code:
@@ -248,6 +271,12 @@ on the hardware described above; this example was verified here by compiling it
 against a local APU checkout, and the firmware it produces is the same program.
 Nothing in this example claims a profile sounds better — that verdict is the
 listening test's output, not its input.
+
+Both environments were built for this revision: `esp32dev` against the published
+APU 2.1.0 (**343 237 B** flash, identical to the build made before the PC target
+existed), and `native`, which was also run for one block to confirm it renders —
+`REPORT ... peak=4199 hash=8FDC42EC` followed by the block 2 banner. The board
+build has not been re-flashed since; the audio path it compiles is unchanged.
 
 ## Documentation links
 
