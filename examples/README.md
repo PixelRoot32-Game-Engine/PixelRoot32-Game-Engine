@@ -40,6 +40,7 @@ The engine revision for each example is defined in **`lib_deps`** inside that ex
 | [esp_now_ping](esp_now_ping/) | **Minimal custom-message example** over ESP-NOW between two ESP32-C3 boards: a tagged **7-byte ping/pong codec**, a reliable send, an automatic reply in `Scene::onNetworkEvent`, and an **application RTT** measured from the echoed timestamp | `native`, `esp32c3_ping_a`, `esp32c3_ping_b` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
+| [apu_profiles](apu_profiles/) | The three **sound profiles** — `Legacy`, `Nes`, `Hybrid` — on the same nine 12-second blocks (simple / medium / complex): a serial transcript of every block and an ILI9341 status panel, so a profile switch is judged by ear on identical material | `esp32dev` |
 
 
 ## Suggested learning order
