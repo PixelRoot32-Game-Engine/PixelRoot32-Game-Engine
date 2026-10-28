@@ -15,7 +15,7 @@ flowchart TB
     end
 
     subgraph Queue["SPSC command queue"]
-        B -->|single producer| D[AudioCommandQueue 128 slots]
+        B -->|single producer| D[AudioCommandQueue 64 slots]
     end
 
     subgraph Audio["Audio consumer context"]
@@ -40,7 +40,7 @@ flowchart TB
 | **8 voices** | Dynamic voice pooling with stealing logic. Supports Pulse, Triangle, Noise, Sine, and Saw. |
 | **Sample-accurate** | Channel lifetime in samples; independent of FPS |
 | **Schedulers** | `NativeAudioScheduler` (PC), `ESP32AudioScheduler` (firmware), `DefaultAudioScheduler` (tests / callback-driven) |
-| **Command path** | Lock-free **SPSC** ring buffer, **128** entries; one producer / one consumer |
+| **Command path** | Lock-free **SPSC** ring buffer, **64** entries (32–64; one slot stays free, so 63 commands); one producer / one consumer |
 | **Mixer** | Soft saturation (FPU) or **LUT** (no-FPU, e.g. ESP32-C3) |
 | **Multi-track music** | Up to **`MAX_MUSIC_TRACKS` (4)**: main `MusicTrack` + optional **`secondVoice`**, **`thirdVoice`**, **`percussion`**; `MusicPlayer::play` packs them into **`AudioCommand::subTracks`** |
 | **NES-style timing** | Sequencer in **`ApuCore`** uses **tick** steps derived from **sample time** and **BPM** (default **150** BPM, **4 ticks per beat**); not tied to render FPS |
@@ -146,7 +146,7 @@ The music sequencer lives in **`ApuCore`**. If the audio consumer stops running 
 
 ## Command queue and thread safety
 
-- Only **one thread** should call **`playEvent`**, **`setMasterVolume`**, **`MusicPlayer`**, and **`submitCommand`** (SPSC contract).
+- Only **one thread** should call **`playEvent`**, **`setMasterVolume`**, **`MusicPlayer`**, and **`submitCommand`** (SPSC contract). The ring holds **64** commands, 63 of them usable.
 - If the queue is **full**, the newest command is **dropped**. **`ApuCore`** increments an atomic drop counter and may emit a **throttled** warning when **`PIXELROOT32_DEBUG_MODE`** is defined. Avoid enqueue storms without the audio thread draining the queue.
 
 ## Audio configuration
@@ -161,10 +161,30 @@ pr32::drivers::esp32::ESP32_I2S_AudioBackend audioBackend(26, 25, 22, 22050);
 pr32::audio::AudioConfig audioConfig;
 audioConfig.backend = &audioBackend;
 audioConfig.sampleRate = 22050;
-audioConfig.blockSize = 128; // Optional: tune for platform latency (e.g., 128 for ESP32-C3, 256 for FPU)
+// Render block in samples: a multiple of 128, at most PR32_AUDIO_MAX_BLOCK_SAMPLES
+// (1024). Leave it alone unless you are trading latency for wake-ups:
+// the default is 512 on FPU platforms and 1024 on no-FPU platforms.
+// audioConfig.blockSize = 512;
 
 pr32::core::Engine engine(displayConfig, inputConfig, audioConfig);
 ```
+
+### Block size, latency and underruns
+
+`AudioConfig::blockSize` is the **render unit**: the backend asks `AudioEngine::generateSamples()` for exactly that many samples per iteration, and the I2S and DAC backends **validate it in `init()`** (rejecting with an error log anything that is not a positive multiple of 128, or that exceeds `PR32_AUDIO_MAX_BLOCK_SAMPLES = 1024`). The render buffer is a member of that size, not a stack array.
+
+The DMA depth is derived from the block, never hard-coded: `dma_buf_len = 128` stays fixed and `dma_buf_count = clamp(blockSize / 128, 2, 8)`.
+
+| Platform | `blockSize` | DMA ring | Latency @22 050 Hz | Latency @32 000 Hz |
+|---|---|---|---|---|
+| Dual-core (FPU) | 512 | 128 × 4 | 23.2 ms | 16 ms |
+| Single-core (no FPU) | 1024 | 128 × 8 | 46.4 ms | 32 ms |
+
+Because the block is also the command granularity, a queued command may be applied up to one block later than it was submitted — that is the trade for the lower wake-up rate.
+
+**Underruns** are counted, not guessed: an iteration counts as an underrun when the `i2s_write` **barely waited** (`writeUs < budgetUs / 10`, i.e. the DMA ring was already empty), or when the write failed or came back short. The first 10 iterations are discarded because they fill the ring; a healthy write normally blocks for most of the block period. `getUnderrunCount()` reports the accumulated count.
+
+**One backend instance is ~2 KB**: `sizeof(ESP32_I2S_AudioBackend)` and `sizeof(ESP32_DAC_AudioBackend)` are **2 096 B each** on `esp32dev` (1 024-sample render buffer plus the counters). Give it file scope or heap — **never** a local inside a small-stack task; the audio task it creates itself runs with 4 KB.
 
 See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architecture links.
 

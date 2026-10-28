@@ -106,7 +106,8 @@ void MyScene::init() {
 ## Architecture Notes
 
 - **ApuCore**: Synthesis, non-linear mixing, HPF, master bitcrush, post-mix hooks, sequencing, and the SPSC command queue live here. `DefaultAudioScheduler` and platform variants decide when `generateSamples` runs.
-- **ESP32 buffer notes**: I2S backends use configurable block size (default 512 samples on dual-core, 128 on single-core). Internal DAC output uses I2S in `I2S_MODE_DAC_BUILT_IN`.
+- **ESP32 buffer notes**: the render block is `AudioConfig::blockSize`, a multiple of 128 samples capped at `PR32_AUDIO_MAX_BLOCK_SAMPLES` (1024) and validated by the backends in `init()`. Defaults are **512** samples on FPU platforms and **1024** on no-FPU platforms. The DMA ring is derived from it — `dma_buf_len = 128`, `dma_buf_count = clamp(blockSize / 128, 2, 8)` — which puts the objective latency at **23.2 ms** (dual-core) / **46.4 ms** (single-core) at 22 050 Hz and **16 / 32 ms** at 32 000 Hz. Internal DAC output uses I2S in `I2S_MODE_DAC_BUILT_IN` and follows the same derivation. A backend instance is **2 096 B** on `esp32dev`: give it file scope or heap, never a local in a small-stack task.
+  Underruns are counted per iteration: a write that barely blocked (`writeUs < budgetUs / 10`, meaning the DMA ring was already empty) or that failed/came back short, after 10 warm-up iterations. `getUnderrunCount()`, `getWorstBlockUs()` and `getWorstWriteUs()` expose the counters.
 - On **no-FPU** ESP32 (e.g. ESP32-C3), `ApuCore` uses an integer oscillator mirror, fixed-point HPF, and integer LFO to avoid soft-float in the inner loop.
 - **Noise / LFSR**: Deterministic everywhere (no `rand()`).
 
@@ -118,8 +119,8 @@ void MyScene::init() {
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 | `ApuCore::MAX_VOICES` | `8` | Synthesis voice pool size |
-| `AudioCommandQueue::CAPACITY` | `128` | SPSC ring capacity |
-| `ESP32_I2S_AudioBackend::blockSize` | `512` / `128` (single-core) | DMA buffer block size in samples |
+| `AudioCommandQueue::CAPACITY` | `64` | SPSC ring capacity (range 32–64; 63 usable commands) |
+| `ESP32_I2S_AudioBackend::blockSize` | `512` (FPU) / `1024` (no FPU) | Render block in samples, read from `AudioConfig::blockSize`; multiple of 128, at most `PR32_AUDIO_MAX_BLOCK_SAMPLES` (1024) |
 
 ## Related Types
 
