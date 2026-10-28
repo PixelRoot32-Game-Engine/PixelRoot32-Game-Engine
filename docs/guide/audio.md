@@ -46,6 +46,7 @@ flowchart TB
 | **NES-style timing** | Sequencer in **`ApuCore`** uses **tick** steps derived from **sample time** and **BPM** (default **150** BPM, **4 ticks per beat**); not tied to render FPS |
 | **BPM & tempo** | **`MusicPlayer::setBPM` / `getBPM`** and **`setTempoFactor`** → `MUSIC_SET_BPM` / `MUSIC_SET_TEMPO` |
 | **Percussion presets** | **`INSTR_KICK`**, **`INSTR_SNARE`**, **`INSTR_HIHAT`** (`duty == 0`, **`WaveType::NOISE`**, `noisePeriod` / `defaultDuration` in **`InstrumentPreset`**) |
+| **Sound profiles** | **`Legacy`** (default, frozen) / **`Nes`** / **`Hybrid`**, switched with `SET_SOUND_PROFILE`; see [Sound profiles](#sound-profiles) |
 
 ## Quick start: sound effects
 
@@ -144,6 +145,39 @@ void MyScene::init(pr32::core::Engine& engine) {
 
 The music sequencer lives in **`ApuCore`**. If the audio consumer stops running for a long time (debugger, host suspend), the next **`generateSamples`** may advance **many ticks in one block** (more CPU in that step; there is no fixed per-quantum note cap).
 
+## Sound profiles
+
+The engine ships three profiles. **`Legacy` is the default and a frozen contract** — its rendered PCM is pinned by immutable goldens and does not change between releases, so a game keeps the sound it was tuned against. `Nes` and `Hybrid` are opt-in characters.
+
+| Profile | What changes |
+|---------|--------------|
+| **`Legacy`** (default) | Nothing: the historical rational mix curve, bipolar noise, continuous PULSE duty, ideal SAW ramp, single-pole HPF |
+| **`Nes`** | NES-weighted mix, unipolar noise on the NES period LUT, PULSE duty snapped to the four NES steps, and an output chain: HPF 90 Hz → HPF 440 Hz → Butterworth LPF near 14 kHz |
+| **`Hybrid`** | The **`Nes`** character plus an exponential DECAY/RELEASE envelope and a band-limited SAW read from a mipmap |
+
+Switch it with a command, from the game thread:
+
+```cpp
+#include <audio/AudioTypes.h>
+
+pr32::audio::AudioCommand cmd{};
+cmd.type = pr32::audio::AudioCommandType::SET_SOUND_PROFILE;
+cmd.soundProfile = static_cast<uint8_t>(pr32::audio::SoundProfile::Nes);
+engine.getAudioEngine().submitCommand(cmd);
+```
+
+Or call **`setSoundProfile()`** directly on the audio thread through **`getApuCore()`**. Both produce identical state; the command is the documented path from the game loop, and it is queued like any other command. **`init()` does not reset the profile**, so restarting the audio stream keeps your choice.
+
+What to expect when you switch:
+
+- **The level is matched; the peaks are not.** Both audible profiles carry a trim matched on crest-weighted loudness against **`Legacy`**, so a switch changes character rather than volume. Their transients are hotter: roughly **37 %** (**`Nes`**) and **41 %** (**`Hybrid`**) of full scale on the APU's canonical track against **18 %** for **`Legacy`**, and about **52 % / 51 %** against **36 %** on a dense mix. A game that mixes by peak should re-check its master level.
+- **`Nes` and `Hybrid` render the integer core on every platform** — desktop, ESP32, ESP32-S3 and ESP32-C3 alike. That is what makes them identical across targets, and it is why their CPU cost is the integer cost.
+- **Only `Hybrid` band-limits SAW.** **`Legacy`** and **`Nes`** keep the ideal ramp and its aliasing; `Nes` does so on purpose, because its PULSE character deliberately reproduces the NES's own artefacts. **`SINE`** is untouched on every profile.
+- **An explicit `setHpfCutoffHz()` wins** over the profile chain and suppresses the level trim with it: that call asks for the historical one-pole, level included.
+- **On `esp32-c3-devkitm-1`, 32 kHz is not viable for `Nes` / `Hybrid`**: at eight voices they measure **50.1 %** and **50.9 %** of the block against the half-block rule the scheduler needs, while **`Legacy`** keeps it at **48.7 %**. Stay at 22 050 Hz on that board, or stay on `Legacy`.
+
+Hear all three side by side in **[`examples/apu_profiles`](../../examples/apu_profiles/README.md)**, which renders the same track under each profile.
+
 ## Command queue and thread safety
 
 - Only **one thread** should call **`playEvent`**, **`setMasterVolume`**, **`MusicPlayer`**, and **`submitCommand`** (SPSC contract). The ring holds **64** commands, 63 of them usable.
@@ -196,6 +230,8 @@ See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architec
 | **ESP32-C3 (no FPU)** | LUT + Q15 Fixed-Point HPF | Clocked LFSR + Q15 LFO | Same; integer path with Q15 LFO and HPF, static function pointer dispatch for wave generation |
 | **PC (native)** | Float + soft clip + HPF | Same LFSR as firmware | `std::thread` + ring buffer → SDL2 callback |
 
+That table describes the default **`Legacy`** profile. **`Nes`** and **`Hybrid`** render the integer core on every platform — the FPU row included — and add the NES output chain on top of the summed mix.
+
 ## Best practices
 
 - Keep SFX **`duration`** short when possible; only **four** logical channels exist, with **voice stealing** among channels of the same `WaveType`.
@@ -209,4 +245,5 @@ See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architec
 - **[AudioEngine & types](../api/audio.md)** — Methods, `AudioEvent`, `AudioCommand`, `AudioConfig`, music transport queries
 - **[AudioScheduler](../api/audio.md#architecture-notes)** — Schedulers vs **`ApuCore`**
 - **[MusicPlayer](../api/audio.md#playing-music)** — Tracks, presets, tempo/BPM
+- **[`examples/apu_profiles`](../../examples/apu_profiles/README.md)** — The three profiles on one track; the shortest way to hear what `Nes` and `Hybrid` change
 - **Engine source:** [`ApuCore.h` / `ApuCore.cpp`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/include/audio) — authoritative implementation

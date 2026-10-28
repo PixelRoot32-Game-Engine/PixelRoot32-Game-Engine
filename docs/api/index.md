@@ -21,7 +21,7 @@ The API documentation has been split into modular conceptual guides for easier m
 | [Physics Module](physics.md) | CollisionSystem, PhysicsActor, RigidActor, collision helpers |
 | [Graphics Module](graphics.md) | Renderer, sprites, tilemaps, particles, Camera2D |
 | [UI Module](ui.md) | UI system, touch widgets, layouts |
-| [Audio Module](audio.md) | AudioEngine, MusicPlayer, music tracks |
+| [Audio Module](audio.md) | AudioEngine, MusicPlayer, music tracks, sound profiles |
 | [Input Module](input.md) | InputManager, TouchManager, touch calibration |
 | [Networking Module](networking.md) | NetSession, NetCounter, NetTransport, ESP-NOW and loopback transports |
 | [Platform Abstractions](platform.md) | Logging, PlatformMemory, hardware capabilities |

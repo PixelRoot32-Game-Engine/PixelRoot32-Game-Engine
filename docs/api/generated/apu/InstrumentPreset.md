@@ -23,3 +23,4 @@ For percussion instruments (duty == 0):
 |------|------|-------------|
 | `nesAccurate` | `bool` | Hito 2 M17. When true, `initVoiceFromEvent` resets the voice's NES sub-unit fields to the canonical silent state from the nesdev APU_basics `@regs` array before the note starts, so NES mode always begins from a known point instead of inheriting whatever the previous note left on that slot. |
 | `noiseShortMode` | `bool` | @deprecated Use `noiseLfsrShort`. Will be removed in a future major. |
+| `envelopeCurve` | `EnvelopeCurve` | Shape of this note's ADSR decay and release (E1, S2). |

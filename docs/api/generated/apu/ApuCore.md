@@ -24,11 +24,24 @@ Mixing curve:
   output:      y * masterVolume * 32767, passed through a single-pole
                DC-blocker to remove offset + transient clicks.
 
+`Nes`/`Hybrid` replace the uniform per-channel weighting with
+`MixerCurve::NesWeighted` (S4): the voices are summed per group and the
+published NES ratios decide how much each group contributes, with the
+PULSE group anchored at exactly the level above so the change is
+balance, not loudness. The weighted sum then enters the same compressor,
+master volume and DC blocker chain. `Legacy` keeps the formula above
+unchanged, byte for byte.
+
 On cores without an FPU (ESP32-C3) the integer-optimised path uses
 `audio_mixer_lut`, which is pre-fitted to the same curve and renders
 at the same level (Hito 5 M12). It applies MIXER_SCALE once, after
 summation rather than per channel, because the table's mapping already
 contains the 0.4 — see AudioMixerLUT.h.
+
+Since the profiles arrived (S3) the selector, not the target, decides
+which body runs: `Nes`/`Hybrid` use the integer core on every build, and
+`Legacy` falls back to it where the float body is not compiled
+(`PR32_APU_ENABLE_LEGACY_FLOAT == 0`).
 
 ## Properties
 
@@ -251,6 +264,25 @@ Read back a voice's current NES options.
 
 - `slot`: Voice index [0, MAX_VOICES); out-of-range returns a
             default-constructed value.
+
+### `void setSoundProfile(SoundProfile profile)`
+
+**Description:**
+
+Select the character set applied to every voice.
+
+**Parameters:**
+
+- `profile`: Profile to apply. `Legacy`, `Nes` or `Hybrid`;
+               anything else is ignored.
+
+### `SoundProfile getSoundProfile() const`
+
+**Description:**
+
+Read back the active sound profile.
+
+**Returns:** Profile currently in force.
 
 ### `void setNesFrameCounterMode(int mode)`
 
@@ -718,6 +750,38 @@ Test-only: continuous dutySweep delta per sample (0 when duty stepped).
 
 - `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
 
+### `uint32_t getVoicePhaseIncQ32ForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current Q32 phase increment of a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** The increment the integer core renders the slot with, or 0.
+
+::: tip
+Available only when UNIT_TEST is defined. Not for game code.
+:::
+
+### `static int sawMipmapLevelForTesting(uint32_t phaseIncQ32)`
+
+**Description:**
+
+Test-only: SAW mipmap level the `Hybrid` read selects.
+
+**Parameters:**
+
+- `phaseIncQ32`: Phase increment in Q32 cycles per sample.
+
+**Returns:** Mipmap level in [0, SAW_MIP_LEVEL_COUNT - 1].
+
+::: tip
+Available only when UNIT_TEST is defined. Not for game code.
+:::
+
 ### `void resetNesFrameCounterForTesting()`
 
 **Description:**
@@ -1153,6 +1217,18 @@ Test-only: current NOISE LUT index of a voice.
 Available only when UNIT_TEST is defined. Not for game code.
 :::
 
+### `bool isVoiceNoiseUnipolarForTesting(int slot) const`
+
+**Description:**
+
+Test-only: resolved unipolar gate of a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns false.
+
+**Returns:** true when a NOISE voice gates between 0 and the level.
+
 ### `float getHpfRForTesting() const`
 
 **Description:**
@@ -1183,16 +1259,211 @@ Test-only: requested corner in Hz; negative = legacy coefficient.
 
 Test-only: current master output shaping curve.
 
+### `MixerCurve getMixerCurveForTesting() const`
+
+**Description:**
+
+Test-only: mixer curve the active profile selects.
+
+**Returns:** `Rational` under `Legacy`, `NesWeighted` under `Nes` and
+        `Hybrid`.
+
+### `uint32_t getProfileApplyCountForTesting() const`
+
+**Description:**
+
+Test-only: number of `applyProfileCharacter` applications so far.
+
+**Returns:** Monotonic count since construction.
+
+### `int32_t getProfileTrimQ15ForTesting() const`
+
+**Description:**
+
+Test-only: the Q15 level trim the active profile applies.
+
+**Returns:** `kProfileTrimUnityQ15` under `Legacy`, the profile's gain
+        otherwise; unity when `setHpfCutoffHz` suppressed the chain.
+
+### `EnvelopeCurve getVoiceEnvelopeCurveForTesting(int slot) const`
+
+**Description:**
+
+Test-only: resolved ADSR curve of a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns
+            `EnvelopeCurve::ProfileDefault`.
+
+**Returns:** Resolved curve of the slot.
+
+### `int32_t getVoiceEnvelopeLevelQ15ForTesting(int slot) const`
+
+**Description:**
+
+Test-only: current Q15 ADSR level of a voice slot.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.
+
+**Returns:** Envelope level in Q15 (0..32768), or 0 if invalid.
+
+### `bool isOutputFilterChainActiveForTesting() const`
+
+**Description:**
+
+Test-only: true when the profile chain is installed.
+
+**Returns:** true when the render loop runs the three-stage chain.
+
+### `bool isOutputFilterLpfActiveForTesting() const`
+
+**Description:**
+
+Test-only: true when the LPF is part of the installed chain.
+
+**Returns:** true when the Butterworth stage runs.
+
+### `int32_t getOutputFilterHpf1RQ15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 pole of the 90 Hz high-pass.
+
+### `int32_t getOutputFilterHpf2RQ15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 pole of the 440 Hz high-pass.
+
+### `int32_t getOutputFilterLpfB0Q15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 `b0` of the Butterworth LPF.
+
+### `int32_t getOutputFilterLpfB1Q15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 `b1` of the Butterworth LPF.
+
+### `int32_t getOutputFilterLpfB2Q15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 `b2` of the Butterworth LPF.
+
+### `int32_t getOutputFilterLpfA1Q15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 `a1` of the Butterworth LPF.
+
+### `int32_t getOutputFilterLpfA2Q15ForTesting() const`
+
+**Description:**
+
+Test-only: Q15 `a2` of the Butterworth LPF.
+
+### `float getOutputFilterHpf1CutoffHzForTesting() const`
+
+**Description:**
+
+Test-only: resolved 90 Hz corner.
+
+### `float getOutputFilterHpf2CutoffHzForTesting() const`
+
+**Description:**
+
+Test-only: resolved 440 Hz corner.
+
+### `float getOutputFilterLpfCutoffHzForTesting() const`
+
+**Description:**
+
+Test-only: resolved LPF corner; 0 when the LPF is off.
+
+### `int32_t getOutputFilterStateMaxAbsForTesting() const`
+
+**Description:**
+
+Test-only: largest |state| across both output stages.
+
+**Returns:** Maximum absolute state value.
+
+### `void resetOutputFilterStateForTesting()`
+
+**Description:**
+
+Test-only: clears both output stages' recursion state.
+
+### `void processOutputStageForTesting(int16_t* buffer, int length)`
+
+**Description:**
+
+Test-only: runs `applyOutputStage` over an injected buffer.
+
+**Parameters:**
+
+- `buffer`: Mono int16 samples, rewritten in place.
+- `length`: Number of samples.
+
 ### `void resyncTrackSequencerToTick(size_t track_index, uint64_t target_tick)`
+
+### `bool profileUsesIntegerCore() const`
+
+**Description:**
+
+Reports whether the active profile renders through the integer core.
+
+**Returns:** true if `generateSamples` must use the integer core.
+
+### `void renderIntegerCore(int16_t* stream, int length)`
+
+**Description:**
+
+Renders one block through the portable integer/Q15 core.
+
+**Parameters:**
+
+- `stream`: Output buffer (mono, int16 samples).
+- `length`: Number of samples; the caller guarantees length > 0.
+
+### `void renderFloatLegacy(int16_t* stream, int length)`
+
+**Description:**
+
+Renders one block through the frozen `Legacy` float core.
+
+**Parameters:**
+
+- `stream`: Output buffer (mono, int16 samples).
+- `length`: Number of samples; the caller guarantees length > 0.
+
+### `void applyProfileCharacter(int slot)`
+
+**Description:**
+
+Applies the active profile's character to one voice.
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); the caller guarantees it is
+            a valid voice of the pool.
 
 ### `void recomputeHpfCoefficients()`
 
-### `void tickAllNesEnvelopes()`
+### `void recomputeOutputFilterCoefficients()`
 
-### `void tickAllNesLinearCounters()`
+**Description:**
 
-### `void tickAllNesLengthCounters()`
+Derive the `Nes` / `Hybrid` output chain from profile and rate.
 
-### `void tickAllNesSweepUnits()`
+### `void resetOutputFilterState()`
 
-### `void tickNesFrameCounter(double apuCyclesPerSample)`
+**Description:**
+
+Clears the recursion state of the output chain.

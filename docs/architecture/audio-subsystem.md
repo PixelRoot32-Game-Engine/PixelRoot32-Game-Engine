@@ -49,7 +49,7 @@ flowchart TB
     subgraph Audio["Audio consumer context"]
         D -->|dequeue| E[AudioScheduler thin wrapper]
         E -->|ApuCore::generateSamples| F[Pulse x2 + Triangle + Noise + music]
-        F --> G[Non-linear mixer FPU or LUT + optional HPF]
+        F --> G[Non-linear mixer FPU or LUT + profile output stage]
     end
 
     subgraph Output["Hardware"]
@@ -92,6 +92,18 @@ enum class WaveType : uint8_t {
 
 `WaveType` is the **authoring / API** waveform tag on `AudioEvent` and on `MusicTrack::channelType`.
 
+The **sound profile** is a second, orthogonal axis: it does not replace `WaveType`, it decides how each waveform is rendered and mixed.
+
+```cpp
+enum class SoundProfile : uint8_t {
+    Legacy,   // frozen contract; the default
+    Nes,
+    Hybrid
+};
+```
+
+`Legacy` reproduces the historical sound and is pinned by immutable goldens; `Nes` and `Hybrid` add the NES character (mix balance, unipolar noise, stepped PULSE duty, the output chain) and `Hybrid` also the exponential envelope and the band-limited SAW. The profile is **configuration, applied once per render block**, and a note may still override the per-voice pieces of it — `VoiceNesOptions`, `InstrumentPreset::envelopeCurve`, `setVoicePulseDutyMode`, `setVoiceNesNoiseLutMode`. The precedence is **profile < voice < note**.
+
 For internal bookkeeping (optional reading for engine contributors), [`AudioTypes.h`](include/audio/AudioTypes.h) also defines **`VoiceType`** (same set of synthesis kinds) and **`constexpr`** helpers **`toVoiceType(WaveType)`** / **`toWaveType(VoiceType)`** so `ApuCore` can treat allocation consistently while keeping the public surface on `WaveType`.
 
 ### 2.2 AudioChannel (voice state)
@@ -104,6 +116,7 @@ Highlights (see [`AudioTypes.h`](include/audio/AudioTypes.h) for the full struct
 - **Integer mirror** (ESP32-C3, no FPU): `phaseQ32`, `phaseIncQ32`, `dutyCycleQ32` — updated on each `PLAY_EVENT` so the hot inner loop in `ApuCore::generateSamples` avoids per-sample soft-float.
 - **Noise**: `lfsrState` (15-bit LFSR), `noisePeriodSamples`, `noiseCountdown` — same deterministic polynomial on **all** platforms.
 - **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled, unless **`loop == true`** (see §2.3). Looping voices use a sentinel (`UINT64_MAX`) and do not auto-disable; they may be stolen per §3.5.
+- **Profile character**: `envelopeCurve`, `decayCurveRateQ15`, `noiseUnipolar` / `noiseUnipolarOverridden`, `nesNoiseLutOverridden`, `pulseDutyOverridden` — resolved on note-on from the active profile, and pinned per voice only where the caller overrode them (see §3.4.1).
 
 On **note on**, `ApuCore` initializes an ADSR envelope from the `InstrumentPreset` (or legacy defaults: 2ms attack, no decay, full sustain, 5ms release) to shape the note amplitude over time, reducing clicks and enabling expressive articulation.
 
@@ -192,7 +205,7 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 
 #### Strategy A: Floating-Point (FPU ESP32, ESP32-S3, native)
 
-- Compressor as above, then **HPF** on the mixed float, then clamp to `int16_t`.
+- Compressor as above, then the **output stage** of §3.4.1 on the mixed float, then clamp to `int16_t`.
 - `std::fabs` / float path.
 
 #### Strategy B: Integer + LUT (ESP32-C3, no FPU)
@@ -203,6 +216,21 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 - Per-voice samples are scaled with the same **0.4** intent (`≈ 13107/32768` in Q15) before summation.
 - **`audio_mixer_lut`**: `index = (sum + 131072) >> 8` into 1025 entries; table documented in `AudioMixerLUT.h` to match the FPU curve.
 - **Master volume** via precomputed **Q16** `masterVolumeScale` when ≠ 1.0.
+
+#### 3.4.1 The output stage (profile-owned)
+
+Mixing ends in an **output stage that belongs to the profile**, not to the engine:
+
+| Profile | Stage |
+|---|---|
+| **`Legacy`** (default) | The historical single-pole HPF. Frozen: its rendered PCM is pinned by immutable goldens and does not change between releases. |
+| **`Nes`**, **`Hybrid`** | HPF 90 Hz → HPF 440 Hz → 2nd-order Butterworth LPF at `min(14 kHz, 0.45 · fs)`, applied once to the **summed** mix, followed by the profile's level trim |
+
+The LPF is deliberately **not** engaged when `0.45 · fs < 6 kHz` (`fs < 13 334 Hz`): at 8 000 Hz it would cut most of the passband and gut the sound instead of approximating the NES's 14 kHz roof, so below that floor the chain is the two high-passes only — a documented property of the profile, not a fallback. Coefficients are derived on a configuration or rate change, never per sample; the integer path uses `float` coefficients with `int32` products and an `int64` accumulator.
+
+The stage also carries the **level trim**, so a profile switch is a change of character and not of loudness. It is matched on **crest-weighted loudness** — `0.75 · RMS_dBFS + 0.25 · peak_dBFS` against `Legacy`, a documented heuristic rather than a standard — because matching RMS alone was tried first and sounded louder than `Legacy` on hardware: the chain's crest factor is 13–14 dB against `Legacy`'s 4.6 dB, so an equal-RMS trim lifts every transient by 3–4 dB. The shipped trims are **+1.10 dB** (`Nes`) and **+1.90 dB** (`Hybrid`), applied after the chain and before the master bitcrush, which leaves both about 2.2 / 2.4 dB **below** `Legacy` in RMS on purpose. `Legacy` stays at unity: it never runs the chain, so it never runs the multiply either.
+
+An explicit `setHpfCutoffHz()` call wins over all of it — the caller gets the historical one-pole back **including its level**, so the trim is suppressed with the chain. Headroom is the price of the chain's transients: on the canonical track the peaks are ~37 % (`Nes`) and ~41 % (`Hybrid`) of full scale against `Legacy`'s 18 %, and a dense mix reaches ~52 % / ~51 % against ~36 %, so a consumer that mixes by peak should still check its master level.
 
 #### Clipping prevention
 
