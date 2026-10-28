@@ -218,10 +218,11 @@ lib_deps =
 
 `symlink://../../` pulls the engine, and the engine's `library.json` declares
 `gperez88/PixelRoot32-APU: ^2.0.0` — so the **published** APU is what a reader of
-this example gets. This example needs the profile API (`SoundProfile`,
-`AudioCommandType::SET_SOUND_PROFILE`), which the published registry package did
-not declare yet when the example was written; that is what the override below is
-for.
+this example gets. That is enough now: **2.1.0** is on the registry and it is the
+release that carries the profile API this example uses (`SoundProfile`,
+`AudioCommandType::SET_SOUND_PROFILE`), so nothing has to be overridden. The
+override below is only for working against an APU checkout that has not been
+released yet.
 
 To compile against an unreleased APU checkout, add a second local entry, and
 PlatformIO compiles that checkout instead of the registry copy:
