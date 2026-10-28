@@ -93,6 +93,12 @@ Gets the current master bitcrush setting. @return Bit depth (0 = off).
 
 **Returns:** Bit depth (0 = off).
 
+### `int getBlockSize() const`
+
+**Description:**
+
+Gets the configured render block size in samples; exposed so backends can honour it (config is private).
+
 ### `void submitCommand(const AudioCommand& cmd)`
 
 **Description:**

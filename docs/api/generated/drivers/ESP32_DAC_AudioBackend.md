@@ -17,6 +17,10 @@ pinmux/mutex overhead that `dacWrite()` incurs on every call.
 
 Target: ESP32 (original), ESP32-S2. The DAC does not exist on S3/C3.
 
+Like the I2S backend, the render block is configuration (S12): it is read
+once in init() from AudioEngine::getBlockSize() and drives the DMA depth,
+the per-iteration render length and the underrun budget (S13).
+
 ## Inheritance
 
 [AudioBackend](../audio/AudioBackend.md) → `ESP32_DAC_AudioBackend`
@@ -28,3 +32,31 @@ Target: ESP32 (original), ESP32-S2. The DAC does not exist on S3/C3.
 ### `int getSampleRate() const`
 
 ### `void audioTaskLoop()`
+
+### `uint32_t getUnderrunCount() const`
+
+**Description:**
+
+Blocks where `i2s_write` had almost nothing to wait for
+       (less than a tenth of the block budget, so the DMA ring had
+       already drained), or where the write failed or came back short.
+
+### `uint32_t getWorstBlockUs() const`
+
+**Description:**
+
+Worst total iteration (render + DAC conversion + write)
+       duration, in µs.
+
+### `uint32_t getWorstWriteUs() const`
+
+**Description:**
+
+Worst `i2s_write` blocking time seen, in µs.
+
+### `void accountBlockTiming(int64_t iterationUs, int64_t writeUs, int64_t budgetUs, bool writeComplete, bool countUnderruns)`
+
+**Description:**
+
+Accounts one iteration: updates both worst cases and, once the
+       ring is primed, the underrun count.

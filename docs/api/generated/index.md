@@ -2,7 +2,7 @@
 
 Auto-generated API documentation from C++ header files.
 
-The `apu` module documents PixelRoot32-APU `2.0.0`.
+The `apu` module documents PixelRoot32-APU `2.1.0`.
 
 ## Apu
 
@@ -11,16 +11,20 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [AudioCommand](./apu/AudioCommand.md) — Internal command to communicate between game and audio threads.
 - [AudioCommandQueue](./apu/AudioCommandQueue.md) — Single-Producer Single-Consumer (SPSC) lock-free ring buffer for AudioCommands.
 - [AudioEvent](./apu/AudioEvent.md) — A fire-and-forget sound event triggered by the game.
+- [EnvelopeCurve](./apu/EnvelopeCurve.md) — Shape of the ADSR decay and release ramps.
 - [EnvelopeState](./apu/EnvelopeState.md) — Holds ADSR envelope state for a single voice.
 - [InstrumentPreset](./apu/InstrumentPreset.md) — Defines instrument characteristics for playback.
 - [LfoState](./apu/LfoState.md) — Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
+- [MixerCurve](./apu/MixerCurve.md) — Balance the summed voices carry into the output stage.
 - [MusicNote](./apu/MusicNote.md) — Represents a single note in a melody.
 - [NesEnvelope](./apu/NesEnvelope.md) — NES APU envelope unit state for PULSE 1, PULSE 2, and NOISE.
 - [NesFrameCounter](./apu/NesFrameCounter.md) — NES APU frame counter (sequencer) state.
 - [NesLengthCounter](./apu/NesLengthCounter.md) — NES APU length counter state for a single voice.
 - [NesLinearCounter](./apu/NesLinearCounter.md) — NES APU linear counter state for the TRIANGLE channel.
 - [NesSweepUnit](./apu/NesSweepUnit.md) — NES APU sweep unit state for the PULSE channels.
+- [OutputStageStateQ15](./apu/OutputStageStateQ15.md) — Block-local snapshot of the integer output stage.
 - [SfxBreakpoint](./apu/SfxBreakpoint.md) — Timed automation point for SFX duty steps or pitch envelope.
+- [SoundProfile](./apu/SoundProfile.md) — Named character sets applied to every voice.
 - [VoiceNesOptions](./apu/VoiceNesOptions.md) — Every per-voice NES opt-in in one place (Hito 4 M14).
 
 ## Audio

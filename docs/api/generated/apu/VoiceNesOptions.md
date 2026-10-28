@@ -14,8 +14,16 @@ write, and so the whole configuration can cross the game/audio thread
 boundary through `AudioCommandType::SET_NES_OPTIONS`. The individual
 setters remain the right tool for changing one thing.
 
+The exception is `noiseUnipolar` (S5): it has no standalone setter on
+purpose, because it is profile character with a per-slot override rather
+than an independent sub-unit. This struct — and the command that carries
+it — is its only per-voice owner.
+
 All defaults are "off", so a default-constructed instance disarms a
-voice completely.
+voice completely. That includes the three character fields: writing this
+struct also PINS `noiseUnipolar`, `noiseLutIndex` and `pulseDutyIndex`
+against the sound profile's defaults (D-3 tier 2), which is exactly what
+"disarm" has to mean once a profile arms them.
 
 NOTE: `noiseLfsrShort` is deliberately NOT here even though the
 original M14 sketch listed it. That flag is owned per NOTE by
@@ -32,5 +40,6 @@ the next note.
 | `linearCounterEnabled` | `bool` | Arms the M5 linear counter (TRIANGLE only). |
 | `envelopeEnabled` | `bool` | Arms the M7 envelope (PULSE / NOISE only). |
 | `sweepUnitEnabled` | `bool` | Arms the M6 sweep unit (PULSE only). NOT the `$4001` E bit. |
-| `pulseDutyIndex` | `uint8_t` | M2 duty mode: 0..3 select NES patterns, 255 = continuous. |
+| `pulseDutyIndex` | `uint8_t` | M2/S6 duty mode: 0..3 select NES patterns, 255 = continuous. |
 | `noiseLutIndex` | `uint8_t` | M8 noise period: 0..15 select a LUT entry, 255 = from frequency. |
+| `noiseUnipolar` | `bool` | S5/P9: gate the NOISE output between 0 and the envelope level instead of between -level and +level. |

@@ -29,9 +29,9 @@ namespace pixelroot32::audio {
          * @param sampleRate The output sample rate in Hz.
          * @param caps Platform capabilities to guide core pinning or threading decisions.
          * @param blockSize Audio block size in samples for I2S DMA and ring buffer operations.
-         *        Must be a multiple of 128.
+         *        Must be a multiple of 128. Defaults to 512 (the render unit on FPU platforms).
          */
-        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 256) = 0;
+        virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 512) = 0;
 
         /**
          * @brief Submits a command to the scheduler for execution.
