@@ -28,7 +28,20 @@ namespace pixelroot32::drivers::native {
 
     SDL2_AudioBackend::~SDL2_AudioBackend() {
         if (deviceId != 0) {
-            SDL_CloseAudioDevice(deviceId);
+            // SDL's audio subsystem may already be gone if something else tore
+            // SDL down before this object: the handle would then index freed
+            // state. Skipping the close is what makes the destructor
+            // order-tolerant (issue #273).
+            if (SDL_WasInit(SDL_INIT_AUDIO)) {
+                SDL_CloseAudioDevice(deviceId);
+            }
+            deviceId = 0;
+        }
+        // Quit only the subsystem init() acquired, so a device opened here can
+        // never be closed by a component that did not open it, and vice versa.
+        if (sdlInitialized) {
+            SDL_QuitSubSystem(SDL_INIT_AUDIO);
+            sdlInitialized = false;
         }
     }
 
@@ -39,6 +52,8 @@ namespace pixelroot32::drivers::native {
             log(LogLevel::Error, "SDL Audio initialization failed: %s\n", SDL_GetError());
             return;
         }
+        // Paired with the SDL_QuitSubSystem(SDL_INIT_AUDIO) in the destructor.
+        sdlInitialized = true;
 
         SDL_AudioSpec want, have;
         SDL_zero(want);

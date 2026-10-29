@@ -64,6 +64,13 @@ jobs:
       run: |
         pio test -e native_test_networking --verbose
 
+    # Issue #273: the native SDL2 teardown suite initialises and quits SDL
+    # itself, so it owns its process instead of sharing native_test's binary.
+    # Headless by construction: the suite selects SDL's dummy drivers.
+    - name: Run Tests (native SDL2 teardown)
+      run: |
+        pio test -e native_test_sdl_teardown --verbose
+
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info

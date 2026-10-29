@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# Unreleased
+
+### 🐛 Fixed
+
+* **Native shutdown no longer depends on the destruction order of the process globals (issue #273)**: `SDL2_Drawer`'s destructor called `SDL_Quit()`, which tore down the whole SDL library -- including the audio subsystem `SDL2_AudioBackend` had initialised and the device it still had open. `Engine` owns the drawer and the application owns the backend, so the documented `platforms/native.h` pattern (backend declared before the `Engine`, therefore destroyed after it) freed the SDL state the backend closed afterwards: roughly 40% of window closes on Windows aborted with `0xC0000005` (`3221225477`) while static storage was being destroyed, and any `--target exec` CI job flaked about four times in ten. Each native driver now owns exactly the subsystem it initialised: `SDL2_Drawer::init()` acquires `SDL_INIT_VIDEO` (checked, and logged on failure) and its destructor releases only that flag, while `SDL2_AudioBackend` acquires `SDL_INIT_AUDIO`, closes its device and quits that subsystem, skipping the close when `SDL_WasInit(SDL_INIT_AUDIO)` is already false. Neither destructor calls `SDL_Quit()`, so a documented ordering change is not required and no public API, header signature or build flag moves; the process exit reclaims the library, and a native application that initialises other SDL subsystems for its own use (game controller, joystick) no longer has them killed by the engine. Observable behaviour change: `SDL_Quit()` does not run at engine teardown, so SDL's own global bookkeeping is released at process exit instead. Pinned by `test/test_native_sdl_teardown/` in the new `native_test_sdl_teardown` environment, which selects SDL's dummy video and audio drivers and asserts both orders (engine first, then backend, and backend first, then drawer); the suite failed on both assertions before the change and is wired into CI as its own step. The residual window -- the SDL audio callback can still run between `~Engine` and `~SDL2_AudioBackend`, because the device belongs to an application-owned backend -- is documented in `docs/architecture/layer-drivers.md` and is the argument for a single owner that closes the device before the audio engine dies.
+
 # 1.13.0
 
 ### Added

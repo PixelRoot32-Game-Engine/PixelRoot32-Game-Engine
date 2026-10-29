@@ -114,6 +114,38 @@ Audio driver using SDL2's audio subsystem.
 - Callback-based sample generation
 - Thread-safe command queue
 
+### SDL subsystem ownership (native)
+
+Each native driver owns exactly the SDL subsystem it initialised, and nothing
+else:
+
+- `SDL2_Drawer::init()` acquires `SDL_INIT_VIDEO` and its destructor releases
+  that flag; `SDL2_AudioBackend::init()` acquires `SDL_INIT_AUDIO` and its
+  destructor closes its device and releases that flag.
+- Neither driver calls `SDL_Quit()`. Tearing the whole library down from a
+  destructor made the teardown depend on the destruction order of the
+  application's namespace-scope objects: the documented `platforms/native.h`
+  pattern declares the audio backend **before** the `Engine`, so the drawer died
+  first and freed the audio state the backend still held (issue #273,
+  `0xC0000005` on roughly 40% of window closes on Windows). The process exit
+  reclaims the library instead.
+- The audio backend's destructor skips the `SDL_CloseAudioDevice()` when
+  `SDL_WasInit(SDL_INIT_AUDIO)` is already false, so an earlier teardown is
+  survivable rather than fatal.
+- Because the engine never calls `SDL_Quit()`, a native application may
+  initialise other SDL subsystems (game controller, joystick) for its own use
+  and keep them; the engine will not take them down.
+
+**Known limit:** the device is closed by the backend, and the backend is owned by
+the application, not by the engine. Closing it before the `AudioEngine` dies
+therefore requires the application to destroy the backend first, which the
+documented declaration order does not do. Under that order the SDL audio
+callback can still run between `~Engine` and `~SDL2_AudioBackend` -- a
+microsecond window against a callback every ~46 ms at 1024 samples / 22 050 Hz.
+The reported shutdown crash is fixed; unifying the device's lifetime under one
+owner that closes it before the audio engine dies is the remaining step.
+Pinned by `test/test_native_sdl_teardown/` in `native_test_sdl_teardown`.
+
 ### NativeAudioScheduler
 
 Thread-based audio scheduling for PC platforms.
