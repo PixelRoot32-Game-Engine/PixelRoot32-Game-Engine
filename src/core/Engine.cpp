@@ -313,6 +313,12 @@ namespace pixelroot32::core {
 
                 // Present frame (TFT_eSPI)
                 drawer->present();
+#ifdef PIXELROOT32_DRAIN_PRESENT
+                // Opt-in: close the transfer immediately instead of leaving its
+                // tail to overlap the next frame's draw work. Costs the overlap,
+                // bounds what is still in flight when the surface is rewritten.
+                drawer->flushPendingTransfers();
+#endif
             } else {
                 // The skipped present() would have been what closed the
                 // transfer the previous one left in flight. Close it here so a
