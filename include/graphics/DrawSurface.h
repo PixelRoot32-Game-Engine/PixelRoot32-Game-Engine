@@ -114,7 +114,7 @@ public:
      * @brief Direct tile write to sprite buffer (optimized for tilemap rendering).
      * 
      * Default implementation returns without doing anything.
-     * Override in drivers that support direct buffer access (e.g., TFT_eSPI).
+     * Override in drivers that expose a directly addressable 8bpp buffer.
      * 
      * @param x Tile X position in sprite coordinates
      * @param y Tile Y position in sprite coordinates
@@ -139,7 +139,8 @@ public:
     }
 
     /**
-     * @brief Get pointer to the native pixel buffer (RGB565 on SDL2).
+     * @brief Get pointer to the native pixel buffer, RGB565, when the driver
+     *        presents that format directly.
      *
      * Used by transition effects when no 8bpp sprite buffer is available.
      * Default implementation returns nullptr.
@@ -262,9 +263,9 @@ public:
      *        flight. No-op by default.
      *
      * Exists for drivers that defer the tail of a frame so its bus time
-     * overlaps the next frame's work (see TFT_eSPI_Drawer::sendBufferScaled).
-     * That deferral assumes a present() follows to close the transaction. A
-     * scene that reports `shouldRedrawFramebuffer() == false` breaks the
+     * overlaps the next frame's work. That deferral assumes a present()
+     * follows to close the transaction. A scene that reports
+     * `shouldRedrawFramebuffer() == false` breaks the
      * assumption: without this call the bus stays claimed for as long as the
      * scene stays still, locking out every other device on it.
      *
