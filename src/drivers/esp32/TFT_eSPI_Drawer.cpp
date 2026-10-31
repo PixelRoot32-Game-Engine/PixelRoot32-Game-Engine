@@ -374,26 +374,10 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     //
     // Let's assume we want to store the PRE-SWAPPED value in the LUT
     // so the CPU loop does strictly: dst[i] = LUT[src[i]]
-#if PIXELROOT32_TFT_12BIT_COLOR
-    if (use12BitColor) {
-        // 12-bit mode assembles the wire bytes nibble by nibble, so there is no
-        // 16-bit word left to pre-swap: the LUT holds the plain 0x0RGB value.
-        for (int i = 0; i < 256; ++i) {
-            const uint16_t rgb444 = pixelroot32::graphics::packRgb565ToRgb444(spr.color8to16(i));
-            paletteLUT[i] = rgb444;
-            // The 2x fast path only ever emits pairs of IDENTICAL colours, so
-            // its 3-byte output is a pure function of the palette index. Bake
-            // it once here (768 bytes) instead of packing nibbles per pixel.
-            pixelroot32::graphics::packRgb444Pair(pairLUT[i], rgb444, rgb444);
-        }
-    } else
-#endif
-    for (int i = 0; i < 256; ++i) {
-        uint16_t color16 = spr.color8to16(i);
-        // Swap bytes because pushPixelsDMA expects big-endian (TFT order)
-        // Check if SPI_FREQUENCY is high, maybe we need to be careful?
-        paletteLUT[i] = (color16 >> 8) | (color16 << 8);
-    }
+    //
+    // The default expansion is the driver's own color8to16(); a caller may
+    // replace it later with setPalette8().
+    buildPaletteLUT(nullptr);
 
     // Build X lookup table
     for (int i = 0; i < physicalWidth; ++i) {
@@ -404,6 +388,49 @@ void pr32::drivers::esp32::TFT_eSPI_Drawer::buildScaleLUTs() {
     for (int i = 0; i < physicalHeight; ++i) {
         yLUT[i] = (i * logicalHeight) / physicalHeight;
     }
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::buildPaletteLUT(const uint16_t* source565) {
+    if (!paletteLUT) {
+        // init() allocates the table and then builds the default into it. Before
+        // that there is nowhere to install a caller's table.
+        return;
+    }
+
+    for (int i = 0; i < 256; ++i) {
+        // The sprite's own expansion is the default; a caller's entry is used
+        // verbatim. Both are engine-convention RGB565 (R5 G6 B5).
+        const uint16_t color565 = source565 != nullptr
+            ? source565[i]
+            : spr.color8to16(static_cast<uint8_t>(i));
+
+#if PIXELROOT32_TFT_12BIT_COLOR
+        if (use12BitColor) {
+            // 12-bit mode assembles the wire bytes nibble by nibble, so there is
+            // no 16-bit word left to pre-swap: the LUT holds the plain 0x0RGB
+            // value.
+            const uint16_t rgb444 = pixelroot32::graphics::packRgb565ToRgb444(color565);
+            paletteLUT[i] = rgb444;
+            // The 2x fast path only ever emits pairs of IDENTICAL colours, so
+            // its 3-byte output is a pure function of the palette index. Bake it
+            // once here (768 bytes) instead of packing nibbles per pixel.
+            pixelroot32::graphics::packRgb444Pair(pairLUT[i], rgb444, rgb444);
+            continue;
+        }
+#endif
+        // Swap bytes because pushPixelsDMA expects big-endian (TFT order). The
+        // pre-swap is what keeps the inner loop a single `dst[i] = LUT[src[i]]`.
+        paletteLUT[i] = static_cast<uint16_t>((color565 >> 8) | (color565 << 8));
+    }
+}
+
+void pr32::drivers::esp32::TFT_eSPI_Drawer::setPalette8(const uint16_t* lut565) {
+    // Only the present path reads paletteLUT, and that path owns the SPI bus.
+    // Close the transaction a previous present() deliberately left open before
+    // changing what the next one will read: a table swapped mid-frame would
+    // present one frame in two mappings.
+    waitForPendingDMA();
+    buildPaletteLUT(lut565);
 }
 
 void pr32::drivers::esp32::TFT_eSPI_Drawer::freeScalingBuffers() {

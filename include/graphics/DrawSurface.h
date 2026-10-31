@@ -151,6 +151,34 @@ public:
     }
 
     /**
+     * @brief Installs a caller-supplied expansion table for the 8-bit surface.
+     *
+     * An 8-bit surface stores one byte per pixel and expands each byte to a
+     * 16-bit colour while presenting. A driver may do that with a fixed
+     * expansion; this hook lets a caller replace it with its own table, so a
+     * scene whose bytes are palette indices can present its palette exactly
+     * instead of through the driver's default quantisation.
+     *
+     * @param lut565 256 entries, indexed by surface byte, each holding an
+     *               RGB565 colour in the engine's colour convention
+     *               (little-endian R5 G6 B5, as `color565()` returns).
+     *               The caller keeps ownership; the surface only reads it.
+     *               Pass nullptr to restore the driver's default expansion.
+     *
+     * The table affects every pixel drawn through the 8-bit surface, i.e. it is
+     * the whole presentation mapping, not an overlay on it. Call it between
+     * presents, never while a transfer is in flight: a change mid-frame would
+     * split one frame across two mappings.
+     *
+     * Drivers without an 8-bit buffer ignore the call; the default
+     * implementation here is a no-op, so a surface is never forced to implement
+     * it just to support the interface.
+     */
+    virtual void setPalette8(const uint16_t* lut565) {
+        (void)lut565;
+    }
+
+    /**
      * @brief Sets the display contrast/brightness.
      * @param level Contrast level (0-255).
      */
