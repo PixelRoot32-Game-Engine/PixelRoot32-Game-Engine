@@ -16,7 +16,14 @@
  * HostFileKeyValueStore / HostFileSlotStore run the same contract over files:
  * each fresh() points a new store object at a new, empty directory under one
  * unique scratch root in the system temp directory (never inside the
- * repository), and main() removes that root when the suite ends.
+ * repository), and main() removes that root when the suite ends. They are
+ * registered on native builds only.
+ *
+ * Esp32NvsKeyValueStore / Esp32NvsSlotStore run the same contract on the board
+ * (S14), registered under ESP32 only: each fresh() opens its own handle on the
+ * store's dedicated namespace (pr32ctk / pr32cts) and erases that namespace
+ * alone with nvs_erase_all - never the partition, never another namespace.
+ * tools/persist_nvs_smoke runs this file on the CYD with `pio test`.
  *
  * The memory-only tests at the end exercise the fault-injection hooks of
  * MemoryKeyValueStore / MemorySlotStore (failed writes, counters, byte
@@ -32,7 +39,6 @@
 
 #if PIXELROOT32_ENABLE_PERSISTENCE
 
-#include "drivers/native/HostFileStore.h"
 #include "persistence/KeyValueStore.h"
 #include "persistence/MemoryStores.h"
 #include "persistence/SlotStore.h"
@@ -42,10 +48,21 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+
+#if defined(PLATFORM_NATIVE)
+#include "drivers/native/HostFileStore.h"
+
 #include <filesystem>
 #include <optional>
 #include <random>
 #include <string>
+#endif
+
+#if defined(ESP32)
+#include "drivers/esp32/Esp32NvsStore.h"
+
+#include <nvs.h>
+#endif
 
 using namespace pixelroot32::persistence;
 
@@ -92,6 +109,7 @@ ISlotStore& freshMemorySlots() {
     return gMemSlots;
 }
 
+#if defined(PLATFORM_NATIVE)
 constexpr size_t kHostBlobBytes = 64;
 constexpr uint16_t kHostSlots = 3;
 constexpr size_t kHostRecordBytes = 64;
@@ -141,17 +159,65 @@ ISlotStore& freshHostFileSlots() {
                             static_cast<uint8_t>(gHostSlots->init()));
     return *gHostSlots;
 }
+#endif  // PLATFORM_NATIVE
+
+#if defined(ESP32)
+constexpr size_t kNvsBlobBytes = 64;
+constexpr uint16_t kNvsSlots = 3;
+constexpr size_t kNvsRecordBytes = 64;
+// Dedicated namespaces: fresh() wipes them, so no real data may live there.
+constexpr char kNvsKvNamespace[] = "pr32ctk";
+constexpr char kNvsSlotNamespace[] = "pr32cts";
+
+Esp32NvsKeyValueStore gNvsKv(kNvsKvNamespace, kNvsBlobBytes);
+Esp32NvsSlotStore gNvsSlots(kNvsSlotNamespace, "s", kNvsSlots, kNvsRecordBytes);
+
+// Erases every key of one namespace through a handle of its own; the
+// partition and every other namespace are left alone.
+void eraseNvsNamespace(const char* nameSpace) {
+    nvs_handle_t h = 0;
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_open_from_partition(kNvsDefaultPartition, nameSpace,
+                                                          NVS_READWRITE, &h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_erase_all(h));
+    TEST_ASSERT_EQUAL_INT(ESP_OK, nvs_commit(h));
+    nvs_close(h);
+}
+
+IKeyValueStore& freshNvsKv() {
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(StoreResult::Ok),
+                            static_cast<uint8_t>(gNvsKv.init()));
+    eraseNvsNamespace(kNvsKvNamespace);
+    return gNvsKv;
+}
+
+ISlotStore& freshNvsSlots() {
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(StoreResult::Ok),
+                            static_cast<uint8_t>(gNvsSlots.init()));
+    eraseNvsNamespace(kNvsSlotNamespace);
+    return gNvsSlots;
+}
+#endif  // ESP32
 
 // To add an adapter: write a factory returning a fresh store and append one
 // row here. No test needs to change.
 const KvAdapter kKvAdapters[] = {
     {"MemoryKeyValueStore", &freshMemoryKv, kMemBlobBytes, kMemEntries},
+#if defined(PLATFORM_NATIVE)
     {"HostFileKeyValueStore", &freshHostFileKv, kHostBlobBytes, 0},
+#endif
+#if defined(ESP32)
+    {"Esp32NvsKeyValueStore", &freshNvsKv, kNvsBlobBytes, 0},
+#endif
 };
 
 const SlotAdapter kSlotAdapters[] = {
     {"MemorySlotStore", &freshMemorySlots, kMemSlots, kMemRecordBytes},
+#if defined(PLATFORM_NATIVE)
     {"HostFileSlotStore", &freshHostFileSlots, kHostSlots, kHostRecordBytes},
+#endif
+#if defined(ESP32)
+    {"Esp32NvsSlotStore", &freshNvsSlots, kNvsSlots, kNvsRecordBytes},
+#endif
 };
 
 const KvAdapter* gKv = nullptr;
@@ -870,9 +936,7 @@ void tearDown(void) {
     test_teardown();
 }
 
-int main(int argc, char **argv) {
-    (void)argc;
-    (void)argv;
+static int runAllTests() {
     UNITY_BEGIN();
 
 #if PIXELROOT32_ENABLE_PERSISTENCE
@@ -920,10 +984,29 @@ int main(int argc, char **argv) {
     RUN_TEST(test_mem_kv_corrupt_byte);
     RUN_TEST(test_mem_slot_failed_writes_keep_previous_record);
     RUN_TEST(test_mem_slot_corrupt_byte);
+#if defined(PLATFORM_NATIVE)
     removeHostRoot();
+#endif
 #else
     RUN_TEST(test_persist_contract_flag_off_stub);
 #endif
 
     return UNITY_END();
 }
+
+#if defined(ARDUINO) && !defined(PLATFORM_NATIVE)
+// On the board (tools/persist_nvs_smoke, `pio test`) the Arduino core owns
+// main(): run once from setup(), after the serial port is up.
+void setup() {
+    delay(2000);
+    runAllTests();
+}
+
+void loop() {}
+#else
+int main(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+    return runAllTests();
+}
+#endif

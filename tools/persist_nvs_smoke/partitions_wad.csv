@@ -1,0 +1,19 @@
+# COPY of PixelRoot32-Demo-Projects/games/doom/partitions_wad.csv (the DOOM CYD
+# table), kept byte-for-byte in its rows. Why a copy: the smoke firmware is
+# flashed onto the CYD that carries DOOM, and flashing an image built with any
+# other table (the esp32dev default has an OTA/spiffs layout) would rewrite the
+# partition table and move the 3,473,408 B `wad` container and the `nvs`
+# partition that holds DOOM's `doom/cfg` settings. With the same table the
+# upload only replaces the bootloader, the table (identical) and the 0x10000
+# app slot; `nvs` and `wad` are not touched. A copy rather than a path into the
+# demo repository because this tool must not depend on a directory it does not
+# own. If the DOOM table changes, update this copy to match before flashing.
+#
+#   nvs       0x009000 .. 0x00F000        24 KB
+#   factory   0x010000 .. 0x0B0000       655,360 B  app (the smoke image is far smaller)
+#   wad       0x0B0000 .. 0x400000     3,473,408 B  DOOM's mmap'd container (left alone)
+#
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+factory,  app,  factory, 0x10000,  0xA0000,
+wad,      data, 0x40,    0xB0000,  0x350000,
