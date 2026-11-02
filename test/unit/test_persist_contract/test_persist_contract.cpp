@@ -13,6 +13,11 @@
  * contract once per registered adapter, pointing gKv / gSlot at the current
  * entry; failure messages carry the adapter name.
  *
+ * HostFileKeyValueStore / HostFileSlotStore run the same contract over files:
+ * each fresh() points a new store object at a new, empty directory under one
+ * unique scratch root in the system temp directory (never inside the
+ * repository), and main() removes that root when the suite ends.
+ *
  * The memory-only tests at the end exercise the fault-injection hooks of
  * MemoryKeyValueStore / MemorySlotStore (failed writes, counters, byte
  * corruption), which are not part of the interfaces.
@@ -27,6 +32,7 @@
 
 #if PIXELROOT32_ENABLE_PERSISTENCE
 
+#include "drivers/native/HostFileStore.h"
 #include "persistence/KeyValueStore.h"
 #include "persistence/MemoryStores.h"
 #include "persistence/SlotStore.h"
@@ -34,7 +40,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <optional>
+#include <random>
+#include <string>
 
 using namespace pixelroot32::persistence;
 
@@ -81,14 +92,66 @@ ISlotStore& freshMemorySlots() {
     return gMemSlots;
 }
 
+constexpr size_t kHostBlobBytes = 64;
+constexpr uint16_t kHostSlots = 3;
+constexpr size_t kHostRecordBytes = 64;
+
+std::string gHostBase;        // Unique scratch root of this run; "" until first use.
+unsigned gHostFreshCount = 0;
+std::optional<HostFileKeyValueStore> gHostKv;
+std::optional<HostFileSlotStore> gHostSlots;
+
+// A new, not yet created directory under the run's scratch root.
+std::string nextHostRoot() {
+    if (gHostBase.empty()) {
+        std::error_code ec;
+        std::filesystem::path tmp = std::filesystem::temp_directory_path(ec);
+        if (ec) {
+            tmp = std::filesystem::path(".");
+        }
+        std::random_device rd;
+        char name[48];
+        snprintf(name, sizeof(name), "pr32_persist_contract_%08x%08x", rd(), rd());
+        gHostBase = (tmp / name).generic_string();
+    }
+    return gHostBase + "/r" + std::to_string(++gHostFreshCount);
+}
+
+void removeHostRoot() {
+    if (!gHostBase.empty()) {
+        gHostKv.reset();
+        gHostSlots.reset();
+        std::error_code ec;
+        std::filesystem::remove_all(gHostBase, ec);
+    }
+}
+
+IKeyValueStore& freshHostFileKv() {
+    const std::string root = nextHostRoot();
+    gHostKv.emplace(root.c_str(), "kv", kHostBlobBytes);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(StoreResult::Ok),
+                            static_cast<uint8_t>(gHostKv->init()));
+    return *gHostKv;
+}
+
+ISlotStore& freshHostFileSlots() {
+    const std::string root = nextHostRoot();
+    gHostSlots.emplace(root.c_str(), "slots", kHostSlots, kHostRecordBytes);
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(StoreResult::Ok),
+                            static_cast<uint8_t>(gHostSlots->init()));
+    return *gHostSlots;
+}
+
 // To add an adapter: write a factory returning a fresh store and append one
 // row here. No test needs to change.
 const KvAdapter kKvAdapters[] = {
     {"MemoryKeyValueStore", &freshMemoryKv, kMemBlobBytes, kMemEntries},
+    {"HostFileKeyValueStore", &freshHostFileKv, kHostBlobBytes, 0},
 };
 
 const SlotAdapter kSlotAdapters[] = {
     {"MemorySlotStore", &freshMemorySlots, kMemSlots, kMemRecordBytes},
+    {"HostFileSlotStore", &freshHostFileSlots, kHostSlots, kHostRecordBytes},
 };
 
 const KvAdapter* gKv = nullptr;
@@ -857,6 +920,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_mem_kv_corrupt_byte);
     RUN_TEST(test_mem_slot_failed_writes_keep_previous_record);
     RUN_TEST(test_mem_slot_corrupt_byte);
+    removeHostRoot();
 #else
     RUN_TEST(test_persist_contract_flag_off_stub);
 #endif
