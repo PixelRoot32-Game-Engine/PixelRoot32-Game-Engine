@@ -64,6 +64,13 @@ jobs:
       run: |
         pio test -e native_test_networking --verbose
 
+    # Separate step for the same reason: native_test proves the persistence
+    # flag stays behavior-inert when off, while this environment is the only
+    # one where the persistence assertions actually run.
+    - name: Run Tests (persistence enabled)
+      run: |
+        pio test -e native_test_persistence --verbose
+
     - name: Generate Coverage Report
       run: |
         lcov --capture --directory . --output-file coverage.info

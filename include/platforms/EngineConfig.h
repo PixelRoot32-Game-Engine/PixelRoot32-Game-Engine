@@ -468,6 +468,18 @@ namespace pixelroot32::platforms::config {
                   (NetTxQueueCapacity & (NetTxQueueCapacity - 1)) == 0,
                   "NetTxQueueCapacity must be a power of two >= 2");
 
+    // Persistence
+
+    #if PIXELROOT32_ENABLE_PERSISTENCE
+
+    /** @brief Type-safe access to EnablePersistence configuration. */
+    inline constexpr bool EnablePersistence = true;
+    #else
+
+    /** @brief Type-safe access to EnablePersistence configuration. */
+    inline constexpr bool EnablePersistence = false;
+    #endif
+
     // Deprecated for backward compatibility
 
     /** @brief Type-safe access to PhysicsRelaxationIterations configuration. */
