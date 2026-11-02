@@ -2,18 +2,27 @@
 # table), kept byte-for-byte in its rows. Why a copy: the smoke firmware is
 # flashed onto the CYD that carries DOOM, and flashing an image built with any
 # other table (the esp32dev default has an OTA/spiffs layout) would rewrite the
-# partition table and move the 3,473,408 B `wad` container and the `nvs`
+# partition table and move the 3,375,104 B `wad` container and the `nvs`
 # partition that holds DOOM's `doom/cfg` settings. With the same table the
-# upload only replaces the bootloader, the table (identical) and the 0x10000
-# app slot; `nvs` and `wad` are not touched. A copy rather than a path into the
-# demo repository because this tool must not depend on a directory it does not
-# own. If the DOOM table changes, update this copy to match before flashing.
+# upload only replaces the bootloader, the table (identical), the 0x10000 app
+# slot and 0xE000 boot_app0.bin; `nvs`, `wad` and `saves` are not touched. A
+# copy rather than a path into the demo repository because this tool must not
+# depend on a directory it does not own. If the DOOM table changes, update this
+# copy to match before flashing.
 #
-#   nvs       0x009000 .. 0x00F000        24 KB
-#   factory   0x010000 .. 0x0B0000       655,360 B  app (the smoke image is far smaller)
-#   wad       0x0B0000 .. 0x400000     3,473,408 B  DOOM's mmap'd container (left alone)
+#   nvs       0x009000 .. 0x00F000        24 KB  (DOOM's `doom/cfg` settings)
+#   factory   0x010000 .. 0x0C0000       720,896 B  app (the smoke image is far smaller)
+#   wad       0x0C0000 .. 0x3F8000     3,375,104 B  DOOM's mmap'd container (left alone)
+#   saves     0x3F8000 .. 0x400000        32 KB  DOOM's six save slots (data/nvs)
+#
+# The `saves` row exists since D7.1: the demo writes six 3,968 B slot blobs
+# through the persistence module's Esp32NvsSlotStore. NVS only opens it by
+# label, so a table without the row makes the demo report persistence
+# unavailable rather than crash; a table with a *different* row would move the
+# partition and lose the saves.
 #
 # Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x6000,
-factory,  app,  factory, 0x10000,  0xA0000,
-wad,      data, 0x40,    0xB0000,  0x350000,
+factory,  app,  factory, 0x10000,  0xB0000,
+wad,      data, 0x40,    0xC0000,  0x338000,
+saves,    data, nvs,     0x3F8000, 0x8000,
