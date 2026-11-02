@@ -28,6 +28,7 @@
 | **Projected Tilemap Producer Obligations** | [Projected Tilemap: Producer Obligations](./projected-tilemap-producer-obligations.md) | What a `TileMapGeneric<T>` must emit for `drawTileMap`'s projected path (engine-facing, not an editor contract) |
 | **Touch Input** | [Touch Input](./touch-input.md) | Pipeline, XPT2046, calibration |
 | **Networking** | [Networking Subsystem](./networking-subsystem.md) | ESP-NOW, loopback, reliability, convergent counter |
+| **Persistence** | [Persistence Subsystem](./persistence-subsystem.md) | Key-value and slot stores, record envelope, NVS, host files, flash-write stall |
 | **Extensibility** | [Extending PixelRoot32](../guide/extending-pixelroot32.md) | Custom drivers, configuration |
 
 ### API Reference
@@ -42,6 +43,7 @@
 | UI | [ui.md](../api/ui.md) |
 | Audio | [audio.md](../api/audio.md) |
 | Input | [input.md](../api/input.md) |
+| Persistence | [persistence.md](../api/persistence.md) |
 | Platform | [platform.md](../api/platform.md) |
 
 ---
@@ -87,6 +89,7 @@ graph TD
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Networking (ESP-NOW) | `PIXELROOT32_ENABLE_NETWORKING` | Disabled |
+| Persistence (save data) | `PIXELROOT32_ENABLE_PERSISTENCE` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
 | Debug Overlay | `PIXELROOT32_ENABLE_DEBUG_OVERLAY` | Disabled |

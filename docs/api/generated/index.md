@@ -63,6 +63,10 @@ The `apu` module documents PixelRoot32-APU `2.1.0`.
 - [ESP32EspNowTransport](./drivers/ESP32EspNowTransport.md) — ESP-NOW link backend for ESP32 targets.
 - [ESP32_DAC_AudioBackend](./drivers/ESP32_DAC_AudioBackend.md) — Audio backend for ESP32 classic / S2 internal 8-bit DAC.
 - [ESP32_I2S_AudioBackend](./drivers/ESP32_I2S_AudioBackend.md) — Audio backend implementation for ESP32 using I2S.
+- [Esp32NvsKeyValueStore](./drivers/Esp32NvsKeyValueStore.md) — IKeyValueStore over one ESP-IDF NVS namespace (`nvs.h`).
+- [Esp32NvsSlotStore](./drivers/Esp32NvsSlotStore.md) — ISlotStore over one ESP-IDF NVS namespace: one blob per slot.
+- [HostFileKeyValueStore](./drivers/HostFileKeyValueStore.md) — IKeyValueStore over one file per key, for native (PC) builds.
+- [HostFileSlotStore](./drivers/HostFileSlotStore.md) — ISlotStore over one file per slot, for native (PC) builds.
 - [LoopbackBus](./drivers/LoopbackBus.md) — In-process bus shared by a set of loopback transports.
 - [LoopbackFaults](./drivers/LoopbackFaults.md) — Injectable link faults for deterministic native testing.
 - [LoopbackTransport](./drivers/LoopbackTransport.md) — Native in-process transport with deterministic fault injection.
@@ -250,6 +254,19 @@ The `apu` module documents PixelRoot32-APU `2.1.0`.
 - [PeerSlot](./networking/PeerSlot.md) — One fixed peer table row.
 - [PendingTx](./networking/PendingTx.md) — One reliable frame waiting for its ACK.
 - [Slot](./networking/Slot.md) — One node's accumulated contribution to the shared value.
+
+## Persistence
+
+- [IKeyValueStore](./persistence/IKeyValueStore.md) — Storage model for small named values: typed integers and blobs.
+- [ISlotStore](./persistence/ISlotStore.md) — Storage model for a fixed number of numbered records (save slots).
+- [MemoryKeyValueStore](./persistence/MemoryKeyValueStore.md) — IKeyValueStore over a fixed in-RAM table; for tests and volatile use.
+- [MemorySlotStore](./persistence/MemorySlotStore.md) — ISlotStore over fixed in-RAM records; for tests and volatile use.
+- [NullKeyValueStore](./persistence/NullKeyValueStore.md) — IKeyValueStore that is never available.
+- [NullSlotStore](./persistence/NullSlotStore.md) — ISlotStore that is never available.
+- [PersistenceService](./persistence/PersistenceService.md) — Thin role registry: a settings key-value store and a saves slot store.
+- [RecordCodec](./persistence/RecordCodec.md) — Wraps a game payload in a self-checking envelope.
+- [RecordInfo](./persistence/RecordInfo.md) — Header fields reported by RecordCodec::decode().
+- [StoreResult](./persistence/StoreResult.md) — Outcome of every persistence operation.
 
 ## Physics
 

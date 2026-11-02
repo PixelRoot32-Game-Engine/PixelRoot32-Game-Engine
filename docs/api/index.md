@@ -24,6 +24,7 @@ The API documentation has been split into modular conceptual guides for easier m
 | [Audio Module](audio.md) | AudioEngine, MusicPlayer, music tracks, sound profiles |
 | [Input Module](input.md) | InputManager, TouchManager, touch calibration |
 | [Networking Module](networking.md) | NetSession, NetCounter, NetTransport, ESP-NOW and loopback transports |
+| [Persistence Module](persistence.md) | IKeyValueStore, ISlotStore, RecordCodec, PersistenceService, NVS, host-file and memory stores |
 | [Platform Abstractions](platform.md) | Logging, PlatformMemory, hardware capabilities |
 
 ---
@@ -93,6 +94,7 @@ Some modules are optional and can be disabled to save memory:
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
 | Networking (ESP-NOW) | `PIXELROOT32_ENABLE_NETWORKING` | Disabled |
+| Persistence (save data) | `PIXELROOT32_ENABLE_PERSISTENCE` | Disabled |
 | 2bpp Sprites | `PIXELROOT32_ENABLE_2BPP_SPRITES` | Disabled |
 | 4bpp Sprites | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |

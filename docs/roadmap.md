@@ -4,7 +4,7 @@ Full roadmap for PixelRoot32 Game Engine — planned, in-progress and completed 
 
 ## Planned
 
-- 💾 **Persistence (Save/Load)**: One storage interface with three backends: NVS on ESP32, an external I2C/SPI EEPROM, and a file on native. The data shape, key-value or byte-addressed slots, is decided with all three backends in view. The Arduino-ESP32 `EEPROM` library is itself emulated on NVS, so only an external chip is a distinct backend.
+- 💾 **Persistence (Save/Load)** — first delivery built, not yet released: the optional `pixelroot32::persistence` module (`PIXELROOT32_ENABLE_PERSISTENCE`, default off) separates storage models from media. `IKeyValueStore` (settings) and `ISlotStore` (save slots) ship with NVS adapters on ESP32, host-file adapters on native and memory adapters for tests, plus a CRC-checked record envelope and `PersistenceService`; see the [persistence guide](guide/persistence.md). Still planned: an external I2C EEPROM adapter (the Arduino-ESP32 `EEPROM` library is itself emulated on NVS, so only an external chip is a distinct backend), an SD-card adapter with `IFileStore`, a raw-partition slot store for large saves, and a mirrored slot store for backups.
 - 🔊 **Audio Coprocessor Module**: Optional dual-ESP32 architecture that offloads audio synthesis to a dedicated ESP32-C3 via SPI, improving game performance while remaining fully backward compatible.
 - 💬 **Dialog System, post-MVP**: The MVP (`TextLayout`, `DialogRunner`, `DialogBox`, `examples/dialog`) ships in 1.11.0. Each item below is additive and is waiting for a game to need it:
   - per-character text reveal and per-character sound;
