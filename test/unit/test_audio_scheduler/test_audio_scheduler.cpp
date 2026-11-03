@@ -1,6 +1,7 @@
 #include <unity.h>
 #include "audio/DefaultAudioScheduler.h"
 #include "audio/AudioConfig.h"
+#include "audio/AudioCommandQueue.h"
 #include "audio/AudioMusicTypes.h"
 #include "audio/ApuCore.h"
 
@@ -598,8 +599,12 @@ void test_audio_scheduler_command_queue_overflow(void) {
     // Use different wave types to distribute across available channels
     WaveType types[4] = {WaveType::PULSE, WaveType::PULSE, WaveType::TRIANGLE, WaveType::NOISE};
     
-    // Submit commands (test queue capacity - CAPACITY is 128)
-    for (int i = 0; i < 64; i++) {
+    // Submit one less than the ring's capacity: the ring keeps one slot free to
+    // distinguish full from empty. APU 2.2.0 lowered CAPACITY from 128 to 64 for
+    // the ApuCore RAM budget, so a literal 64 would overflow by one and drop a
+    // command, which is the drop this test exists to catch.
+    const int usable = static_cast<int>(AudioCommandQueue::CAPACITY) - 1;
+    for (int i = 0; i < usable; i++) {
         cmd.event.type = types[i % 4];
         scheduler.submitCommand(cmd);
     }
