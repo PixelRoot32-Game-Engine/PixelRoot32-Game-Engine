@@ -21,7 +21,7 @@ Constructor arguments are reserved for API stability.
 
 ## Methods
 
-### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256)`
+### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 512)`
 
 ### `void submitCommand(const AudioCommand& cmd)`
 

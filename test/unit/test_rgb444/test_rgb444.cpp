@@ -11,6 +11,9 @@
  * - Bijectivity of the RGB332 -> RGB565 -> RGB444 chain (the property that
  *   justifies sending 12 bits instead of 16)
  * - Exact representation of the 2-bit blue channel
+ * - The two wire transforms the driver's 8bpp expansion table applies to a
+ *   caller-supplied RGB565 entry (setPalette8()): the byte-swapped RGB565 word
+ *   and its RGB444 reduction
  */
 
 #include <unity.h>
@@ -321,6 +324,69 @@ void test_pack444_is_constexpr(void) {
 }
 
 // =============================================================================
+// The 8bpp surface's expansion table (DrawSurface::setPalette8)
+// =============================================================================
+
+// The driver itself is not constructible on the host: TFT_eSPI_Drawer needs
+// TFT_eSPI and Arduino, and no native environment has either. These cases pin
+// the two transforms its table builder applies to a caller-supplied RGB565
+// entry -- the part that can be wrong without hardware. The RGB565 present path
+// stores the word byte-swapped; the RGB444 path stores
+// packRgb565ToRgb444(entry) and rebuilds pairLUT from it.
+
+/// Mirrors the byte swap the RGB565 present path stores for each table entry.
+static uint16_t swapWireWord(uint16_t value) {
+    return static_cast<uint16_t>((value >> 8) | (value << 8));
+}
+
+/**
+ * @test A supplied table's 565 word survives the wire byte swap
+ * @expected swap(swap(v)) == v, and each byte is the other byte of v
+ *
+ * pushPixelsDMA() dumps the line buffer verbatim, so the table stores each word
+ * pre-swapped. A table installed with setPalette8() goes through that same
+ * store, which is only lossless if the swap is the inverse the panel applies.
+ * The entries here vary both bytes, so a swap that touched only one of them
+ * fails instead of passing by coincidence.
+ */
+void test_palette565_wire_swap_is_lossless(void) {
+    for (int i = 0; i < 256; ++i) {
+        const uint16_t entry = static_cast<uint16_t>((i << 8) | ((i * 37 + 11) & 0xFF));
+        const uint16_t wire = swapWireWord(entry);
+        TEST_ASSERT_EQUAL_HEX8(static_cast<uint8_t>(entry >> 8),
+                               static_cast<uint8_t>(wire & 0xFF));
+        TEST_ASSERT_EQUAL_HEX8(static_cast<uint8_t>(entry & 0xFF),
+                               static_cast<uint8_t>(wire >> 8));
+        TEST_ASSERT_EQUAL_HEX16(entry, swapWireWord(wire));
+    }
+}
+
+/**
+ * @test A neutral 565 entry keeps its level through the RGB444 reduction
+ * @expected (v,v,v) -> 0xLLL for each of the 16 levels, all distinct
+ *
+ * The 12-bit path stores packRgb565ToRgb444(entry). For a neutral entry whose
+ * 5/6/5 fields all carry the same 4-bit level, the reduction must stay neutral
+ * and keep exactly that level: a channel shift or a misplaced nibble makes a
+ * grey ramp tinted or collapses two levels onto one, which is the failure a
+ * palette of near-neutral colours shows first.
+ */
+void test_palette565_neutral_levels_survive_444(void) {
+    bool seen[16] = {false};
+    for (int level = 0; level < 16; ++level) {
+        const uint8_t v = static_cast<uint8_t>(level * 16 + level);
+        const uint16_t rgb565 =
+            static_cast<uint16_t>(((v & 0xF8) << 8) | ((v & 0xFC) << 3) | (v >> 3));
+        const uint16_t rgb444 = packRgb565ToRgb444(rgb565);
+        const uint16_t expected =
+            static_cast<uint16_t>((level << 8) | (level << 4) | level);
+        TEST_ASSERT_EQUAL_HEX16(expected, rgb444);
+        TEST_ASSERT_FALSE_MESSAGE(seen[level], "neutral level collapsed");
+        seen[level] = true;
+    }
+}
+
+// =============================================================================
 // Main
 // =============================================================================
 
@@ -355,6 +421,10 @@ int main(int argc, char **argv) {
 
     // constexpr
     RUN_TEST(test_pack444_is_constexpr);
+
+    // 8bpp expansion table transforms (setPalette8)
+    RUN_TEST(test_palette565_wire_swap_is_lossless);
+    RUN_TEST(test_palette565_neutral_levels_survive_444);
 
     return UNITY_END();
 }

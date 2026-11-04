@@ -34,6 +34,9 @@ namespace pixelroot32::drivers::native {
         int bufferSize;
         SDL_AudioDeviceID deviceId;
         pixelroot32::audio::AudioEngine* engineInstance = nullptr;
+        /// True only while this backend holds SDL_INIT_AUDIO; guards the quit so
+        /// an init that failed cannot release a subsystem it never acquired.
+        bool sdlInitialized = false;
     };
 
 }

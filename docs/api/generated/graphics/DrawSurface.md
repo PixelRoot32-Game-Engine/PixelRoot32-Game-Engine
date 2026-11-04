@@ -163,9 +163,33 @@ Get pointer to sprite buffer for direct manipulation.
 
 **Description:**
 
-Get pointer to the native pixel buffer (RGB565 on SDL2).
+Get pointer to the native pixel buffer, RGB565, when the driver
+       presents that format directly.
 
 **Returns:** Pointer to RGB565 pixel array, or nullptr if not supported.
+
+### `virtual void setPalette8(const uint16_t* lut565)`
+
+**Description:**
+
+Installs a caller-supplied expansion table for the 8-bit surface.
+
+**Parameters:**
+
+- `lut565`: 256 entries, indexed by surface byte, each holding an
+              RGB565 colour in the engine's colour convention
+              (little-endian R5 G6 B5, as `color565()` returns).
+              The caller keeps ownership; the surface only reads it.
+              Pass nullptr to restore the driver's default expansion.
+
+The table affects every pixel drawn through the 8-bit surface, i.e. it is
+the whole presentation mapping, not an overlay on it. Call it between
+presents, never while a transfer is in flight: a change mid-frame would
+split one frame across two mappings.
+
+Drivers without an 8-bit buffer ignore the call; the default
+implementation here is a no-op, so a surface is never forced to implement
+it just to support the interface.
 
 ### `virtual void setContrast(uint8_t level)`
 

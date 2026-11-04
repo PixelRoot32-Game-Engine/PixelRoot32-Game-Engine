@@ -45,6 +45,27 @@ default `0`) uses the ESP-NOW support that ships with the ESP32 Arduino core:
 See [Networking subsystem](../architecture/networking-subsystem.md) and the
 [Networking guide](networking.md).
 
+### Persistence (save data)
+
+The optional `pixelroot32::persistence` module (`PIXELROOT32_ENABLE_PERSISTENCE`,
+default `0`) has one adapter per medium:
+
+- **ESP32 family:** `Esp32NvsKeyValueStore` / `Esp32NvsSlotStore` over ESP-IDF
+  NVS, byte-compatible with Arduino `Preferences` blobs. Every NVS write stalls
+  flash-resident code on both cores (about 4 ms per set on the CYD), so games
+  save at safe points.
+- **Native:** `HostFileKeyValueStore` / `HostFileSlotStore`, one file per key or
+  slot under a root directory. Verified on Windows; the POSIX path is checked
+  by Linux CI.
+- **Any target:** `MemoryKeyValueStore` / `MemorySlotStore` for tests.
+- **Arduino core:** the NVS adapter is built and run on Arduino-ESP32 2.0.17;
+  3.x has not been built yet.
+- **Custom partition tables:** an `nvs` partition covering `0xE000` is
+  overwritten by `boot_app0.bin` on every Arduino upload.
+
+See [Persistence subsystem](../architecture/persistence-subsystem.md) and the
+[Persistence guide](persistence.md).
+
 ---
 
 ## Detailed Platform Information

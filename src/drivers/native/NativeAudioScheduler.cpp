@@ -5,11 +5,16 @@
 #ifdef PLATFORM_NATIVE
 
 #include "drivers/native/NativeAudioScheduler.h"
+#include "core/Log.h"
 
 #include <chrono>
 #include <cstring>
 
 namespace pixelroot32::audio {
+
+    namespace logging = pixelroot32::core::logging;
+    using logging::LogLevel;
+    using logging::log;
 
     NativeAudioScheduler::NativeAudioScheduler(size_t ringBufferSize)
         : rbCapacity(ringBufferSize) {
@@ -22,6 +27,17 @@ namespace pixelroot32::audio {
 
     void NativeAudioScheduler::init(AudioBackend* /*backend*/, int sampleRate,
                                     const pixelroot32::platforms::PlatformCapabilities& /*caps*/, int blkSize) {
+        // S12: the render buffer is a fixed member, so the block has to be a
+        // multiple of 128 and fit PR32_AUDIO_MAX_BLOCK_SAMPLES — the same rule
+        // the ESP32 backends apply. A rejected block leaves blockSize at 0, so
+        // start() spawns no thread instead of rendering past renderBuffer_.
+        if (blkSize <= 0 || blkSize > PR32_AUDIO_MAX_BLOCK_SAMPLES || (blkSize % 128) != 0) {
+            log(LogLevel::Error,
+                "[NativeAudioScheduler] invalid blockSize %d: must be a multiple of 128 in (0, %d]",
+                blkSize, PR32_AUDIO_MAX_BLOCK_SAMPLES);
+            blockSize = 0;
+            return;
+        }
         apu.init(sampleRate);
         blockSize = blkSize;
     }
@@ -32,6 +48,8 @@ namespace pixelroot32::audio {
 
     void NativeAudioScheduler::start() {
         if (running.load(std::memory_order_acquire)) return;
+        // init() rejected the block (blockSize == 0): no thread, no rendering.
+        if (blockSize <= 0) return;
         running.store(true, std::memory_order_release);
         audioThread = std::thread(&NativeAudioScheduler::threadLoop, this);
     }
@@ -55,13 +73,14 @@ namespace pixelroot32::audio {
     }
 
     void NativeAudioScheduler::threadLoop() {
-        // Max block size is 256 (with FPU), use static buffer to avoid VLA issues
-        int16_t chunk[256];
-
         while (running.load(std::memory_order_acquire)) {
             if (rbAvailableToWrite() >= (size_t)blockSize) {
-                apu.generateSamples(chunk, blockSize);
-                rbWrite(chunk, blockSize);
+                // S12: one block-sized call per block, straight into the member
+                // buffer, so the output is exactly what a single
+                // generateSamples(stream, blockSize) call produces. The block
+                // cannot exceed the buffer: init() rejects anything else.
+                apu.generateSamples(renderBuffer_, blockSize);
+                rbWrite(renderBuffer_, (size_t)blockSize);
             } else {
                 std::this_thread::sleep_for(std::chrono::microseconds(500));
             }

@@ -30,6 +30,9 @@ Designed to be static and memory-efficient.
 | `noisePeriodSamples` | `uint32_t` | Samples until next LFSR step on NOISE; `frequency` sets noise clock rate (not pitch). |
 | `noiseCountdown` | `uint32_t` | Counts down each output sample; at 0 the LFSR advances and reloads to noisePeriodSamples. |
 | `loop` | `bool` | Continuous voice: no auto-disable; cleared only by STOP_CHANNEL / steal. |
+| `noiseUnipolar` | `bool` | When type == NOISE: gate the LFSR output between 0 and the envelope level instead of between -level and +level. |
+| `noiseUnipolarOverridden` | `bool` | Set once the caller pinned `noiseUnipolar` explicitly. |
+| `nesNoiseLutOverridden` | `bool` | Set once the caller pinned `nesNoiseLutIndex` explicitly. |
 | `sweepSamplesTotal` | `uint32_t` | Total samples for the sweep. |
 | `sweepSamplesRemaining` | `uint32_t` | Samples remaining in the sweep. |
 | `sweepStartHz` | `float` | Starting frequency in Hz (NOISE: LFSR clock). |
@@ -44,6 +47,9 @@ Designed to be static and memory-efficient.
 | `nesLinearCounter` | `NesLinearCounter` | NES APU linear counter state for this voice (TRIANGLE). |
 | `nesSweepUnit` | `NesSweepUnit` | NES APU sweep unit state for this voice (PULSE). |
 | `nesEnvelope` | `NesEnvelope` | NES APU envelope unit state for this voice (PULSE / NOISE). |
+| `envelopeCurve` | `EnvelopeCurve` | Resolved ADSR curve for this voice (S2). |
+| `pulseDutyOverridden` | `bool` | Set once the caller pinned the PULSE duty mode of the slot. |
+| `decayCurveRateQ15` | `uint16_t` | Clock of the exponential curve (S2): one rate per stage plus a shared Q15 phase accumulator. |
 
 ## Methods
 

@@ -12,6 +12,15 @@ Fixed-size, zero-allocation queue designed for real-time audio thread communicat
 Supports one producer (game/logic thread) and a single consumer (the audio thread).
 Concurrent multi-producer use is not supported by this algorithm.
 
+Memory: one slot holds a whole AudioCommand (sizeof(AudioCommand) bytes,
+144 B on the host ABI). The ring keeps one slot free to distinguish full
+from empty, so a CAPACITY of 64 accepts 63 commands. The accepted range is
+32-64, and its ceiling is set by RAM, not by throughput: the real command
+rate is tens per second, so the former 128 doubled the dominant cost of
+ApuCore without adding headroom anyone used. Raising the ceiling means
+raising the 9 KB budget below in the same commit, after measuring the new
+slot size: a capacity the budget cannot pay for is not a capacity.
+
 Drop policy: When the queue is full, the newest command is silently dropped and
 the droppedCommands counter is incremented. Callers can monitor this via
 getDroppedCommands() for diagnostics.

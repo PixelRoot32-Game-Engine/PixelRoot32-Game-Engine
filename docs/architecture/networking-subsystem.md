@@ -479,7 +479,7 @@ Do not read them as the module's cost.
 | L3 | **One channel.** Both peers must use the same channel (1..13). Joining an access point can move the radio to the AP's channel and silently drop the link. |
 | L4 | **Peer ceilings.** ESP-NOW allows 20 peers and 6 encrypted peers; the default table is 4. The encrypted ceiling does not apply in v1 because encryption is not implemented. |
 | L5 | **No hardware in CI.** RF behavior, latency, heap and frame time are validated manually. The loopback covers protocol and logic only. |
-| L6 | **No persistence.** If both nodes lose power, the shared value resets to 0. A single reboot is restored by a live peer. |
+| L6 | **No persistence.** If both nodes lose power, the shared value resets to 0. A single reboot is restored by a live peer. The networking module does not save state; a game can store it itself with the [persistence module](persistence-subsystem.md). |
 | L7 | **Discovery trusts HELLO.** With discovery on, any sender in range can join the peer table. Use `discovery = false` plus pre-seeded peers for locked deployments. |
 | L8 | **Arduino core range.** Arduino-ESP32 2.0.17 and 3.3.12 are verified. A compile-time shim covers the 3.x send and receive callback signatures; the CI examples matrix builds the 3.x branch. |
 | L9 | **One ESP-NOW instance per process.** The callbacks are process-global; a second transport receives `Busy` from `init()` until the owner shuts down. |

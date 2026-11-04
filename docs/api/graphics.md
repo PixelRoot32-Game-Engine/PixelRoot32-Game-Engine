@@ -194,6 +194,8 @@ Lightweight, step-based animation controller for advancing through an array of `
 
 Abstract interfaces for platform-specific drawing operations (e.g., `SDL2_Drawer`, `TFT_eSPI_Drawer`).
 
+An 8bpp surface expands its bytes with the driver's own RGB332 table by default. `setPalette8(const uint16_t* lut565)` installs a caller-supplied 256-entry RGB565 table instead, so a scene whose bytes are palette indices (rather than colours) presents its own palette; `nullptr` restores the default, drivers without an 8-bit buffer ignore the call, and the caller keeps ownership of the table.
+
 ### TransitionEffect
 
 *(Requires `PIXELROOT32_ENABLE_SCENE_TRANSITIONS=1`)*

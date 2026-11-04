@@ -6,6 +6,7 @@
 
 #ifdef PLATFORM_NATIVE
 
+#include "audio/AudioConfig.h"
 #include "audio/AudioScheduler.h"
 #include "audio/ApuCore.h"
 
@@ -25,6 +26,11 @@ namespace pixelroot32::audio {
      * a lock-free ring, mirroring the dual-core ESP32 behaviour. All
      * synthesis / sequencer logic lives in ApuCore; this class owns only
      * threading and the ring buffer.
+     *
+     * The render block is configuration (S12): it is read once in init() from
+     * the caller and rendered in a single `generateSamples` call into a member
+     * buffer of `PR32_AUDIO_MAX_BLOCK_SAMPLES`, so the output is exactly what
+     * one block-sized call per block produces.
      */
     class NativeAudioScheduler : public AudioScheduler {
     public:
@@ -32,7 +38,7 @@ namespace pixelroot32::audio {
         ~NativeAudioScheduler() override;
 
         void init(AudioBackend* backend, int sampleRate,
-                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256) override;
+                  const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 512) override;
         void submitCommand(const AudioCommand& cmd) override;
         void start() override;
         void stop() override;
@@ -55,7 +61,13 @@ namespace pixelroot32::audio {
         std::atomic<size_t> rbReadPos{0};
         std::atomic<size_t> rbWritePos{0};
         size_t rbCapacity;
-        int blockSize = 256;
+        /** Render block in samples, set once by init(); 0 means init() rejected it. */
+        int blockSize = 512;
+        /**
+         * Render buffer (S12): a member, not the audio thread's stack. Sized for
+         * the shared maximum block, which init() enforces.
+         */
+        int16_t renderBuffer_[PR32_AUDIO_MAX_BLOCK_SAMPLES];
 
         void threadLoop();
 

@@ -18,6 +18,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Not defined (opt-in) |
 | `PIXELROOT32_USE_U8G2_DRIVER` | Enable U8G2 display driver support for monochromatic OLEDs. | Disabled |
 | `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Not defined (opt-in) |
+| `PIXELROOT32_DRAIN_PRESENT` | Close the frame transfer at the end of `present()` instead of letting the deferred tail overlap the next frame. Costs up to one DMA block of the present path, and removes the dependency on the tail having finished before the surface is rewritten (torn scanlines when present time approaches the frame budget). | Not defined (opt-in) |
 
 ## Modular Compilation Flags
 
@@ -37,6 +38,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
 | `PIXELROOT32_ENABLE_NETWORKING` | Enable the optional ESP-NOW peer-to-peer networking module. Only ESP32 and native targets have a transport; any other target fails the build when the flag is on. | `0` |
+| `PIXELROOT32_ENABLE_PERSISTENCE` | Enable the optional persistence module (key-value settings and save slots over NVS, host files or memory). No limit macros: capacities are chosen where a store is constructed. See [Persistence](persistence.md). | `0` |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |
 | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Enable **`StaticLayerSnapshot`** (FB snapshot of game-drawn static layers). Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240). | `0` |
 | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Enable dirty-cell selective framebuffer clear (`DirtyGrid`). Requires 64–226 B RAM. | `0` |

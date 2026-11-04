@@ -17,6 +17,7 @@ Platform-specific hardware abstraction that bridges the gap between hardware and
 | `ESP32_I2S_AudioBackend` | `drivers/esp32/ESP32_I2S_AudioBackend.cpp` | I2S audio backend for external DACs |
 | `ESP32_DAC_AudioBackend` | `drivers/esp32/ESP32_DAC_AudioBackend.cpp` | Internal DAC audio backend |
 | `ESP32AudioScheduler` | `audio/ESP32AudioScheduler.cpp` | Multi-core audio scheduler (FreeRTOS task) |
+| `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore` | `drivers/esp32/Esp32NvsStore.cpp` | Persistence over ESP-IDF NVS (`PIXELROOT32_ENABLE_PERSISTENCE`); see [Persistence Subsystem](./persistence-subsystem.md) |
 
 ### TFT_eSPI Driver
 
@@ -93,6 +94,7 @@ ESP32_DAC_AudioBackend audioBackend(25, 11025);
 | `SDL2_Drawer` | `drivers/native/SDL2_Drawer.cpp` | SDL2 graphics simulation |
 | `SDL2_AudioBackend` | `drivers/native/SDL2_AudioBackend.cpp` | SDL2 audio backend |
 | `NativeAudioScheduler` | `audio/NativeAudioScheduler.cpp` | Native thread-based scheduler |
+| `HostFileKeyValueStore`, `HostFileSlotStore` | `drivers/native/HostFileStore.cpp` | Persistence as one file per key or slot (`PIXELROOT32_ENABLE_PERSISTENCE`); see [Persistence Subsystem](./persistence-subsystem.md) |
 | `MockArduino` | `platforms/mock/MockArduino.cpp` | Arduino API emulation |
 
 ### SDL2_Drawer
@@ -113,6 +115,38 @@ Audio driver using SDL2's audio subsystem.
 - Standard audio device access
 - Callback-based sample generation
 - Thread-safe command queue
+
+### SDL subsystem ownership (native)
+
+Each native driver owns exactly the SDL subsystem it initialised, and nothing
+else:
+
+- `SDL2_Drawer::init()` acquires `SDL_INIT_VIDEO` and its destructor releases
+  that flag; `SDL2_AudioBackend::init()` acquires `SDL_INIT_AUDIO` and its
+  destructor closes its device and releases that flag.
+- Neither driver calls `SDL_Quit()`. Tearing the whole library down from a
+  destructor made the teardown depend on the destruction order of the
+  application's namespace-scope objects: the documented `platforms/native.h`
+  pattern declares the audio backend **before** the `Engine`, so the drawer died
+  first and freed the audio state the backend still held (issue #273,
+  `0xC0000005` on roughly 40% of window closes on Windows). The process exit
+  reclaims the library instead.
+- The audio backend's destructor skips the `SDL_CloseAudioDevice()` when
+  `SDL_WasInit(SDL_INIT_AUDIO)` is already false, so an earlier teardown is
+  survivable rather than fatal.
+- Because the engine never calls `SDL_Quit()`, a native application may
+  initialise other SDL subsystems (game controller, joystick) for its own use
+  and keep them; the engine will not take them down.
+
+**Known limit:** the device is closed by the backend, and the backend is owned by
+the application, not by the engine. Closing it before the `AudioEngine` dies
+therefore requires the application to destroy the backend first, which the
+documented declaration order does not do. Under that order the SDL audio
+callback can still run between `~Engine` and `~SDL2_AudioBackend` -- a
+microsecond window against a callback every ~46 ms at 1024 samples / 22 050 Hz.
+The reported shutdown crash is fixed; unifying the device's lifetime under one
+owner that closes it before the audio engine dies is the remaining step.
+Pinned by `test/test_native_sdl_teardown/` in `native_test_sdl_teardown`.
 
 ### NativeAudioScheduler
 
