@@ -111,7 +111,7 @@ Every demo is a standalone PlatformIO project that builds against the
 `pio run -e native`, and you have a working starting point.
 
 **How it differs from [`examples/`](examples/) in this repository:** the
-examples here are ten minimal projects, each isolating a single engine
+examples here are eleven minimal projects, each isolating a single engine
 capability, and none of them is a game. Read an example to learn one API; read a
 demo to see several of them working together in something finished.
 
@@ -187,7 +187,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `mono_oled`, `esp_now`, `esp_now_dice`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `persistence`, `mono_oled`, `esp_now`, `esp_now_dice`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select the environment named in its `platformio.ini` (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3_node_up`, `env:esp32c3_node_a`, `env:native`, and so on).
 3. **Build and Upload** using PlatformIO.
@@ -219,7 +219,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ### Local Reference
 
-- **[Examples](examples/)**: Ten minimal, single-idea capability examples (open a subfolder in PlatformIO).
+- **[Examples](examples/)**: Eleven minimal, single-idea capability examples (open a subfolder in PlatformIO).
 - **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
 - **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
