@@ -2,7 +2,7 @@
 
 Auto-generated API documentation from C++ header files.
 
-The `apu` module documents PixelRoot32-APU `2.0.0`.
+The `apu` module documents PixelRoot32-APU `2.1.0`.
 
 ## Apu
 
@@ -11,16 +11,20 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [AudioCommand](./apu/AudioCommand.md) — Internal command to communicate between game and audio threads.
 - [AudioCommandQueue](./apu/AudioCommandQueue.md) — Single-Producer Single-Consumer (SPSC) lock-free ring buffer for AudioCommands.
 - [AudioEvent](./apu/AudioEvent.md) — A fire-and-forget sound event triggered by the game.
+- [EnvelopeCurve](./apu/EnvelopeCurve.md) — Shape of the ADSR decay and release ramps.
 - [EnvelopeState](./apu/EnvelopeState.md) — Holds ADSR envelope state for a single voice.
 - [InstrumentPreset](./apu/InstrumentPreset.md) — Defines instrument characteristics for playback.
 - [LfoState](./apu/LfoState.md) — Holds LFO (Low-Frequency Oscillator) state for pitch or volume modulation.
+- [MixerCurve](./apu/MixerCurve.md) — Balance the summed voices carry into the output stage.
 - [MusicNote](./apu/MusicNote.md) — Represents a single note in a melody.
 - [NesEnvelope](./apu/NesEnvelope.md) — NES APU envelope unit state for PULSE 1, PULSE 2, and NOISE.
 - [NesFrameCounter](./apu/NesFrameCounter.md) — NES APU frame counter (sequencer) state.
 - [NesLengthCounter](./apu/NesLengthCounter.md) — NES APU length counter state for a single voice.
 - [NesLinearCounter](./apu/NesLinearCounter.md) — NES APU linear counter state for the TRIANGLE channel.
 - [NesSweepUnit](./apu/NesSweepUnit.md) — NES APU sweep unit state for the PULSE channels.
+- [OutputStageStateQ15](./apu/OutputStageStateQ15.md) — Block-local snapshot of the integer output stage.
 - [SfxBreakpoint](./apu/SfxBreakpoint.md) — Timed automation point for SFX duty steps or pitch envelope.
+- [SoundProfile](./apu/SoundProfile.md) — Named character sets applied to every voice.
 - [VoiceNesOptions](./apu/VoiceNesOptions.md) — Every per-voice NES opt-in in one place (Hito 4 M14).
 
 ## Audio
@@ -59,6 +63,10 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [ESP32EspNowTransport](./drivers/ESP32EspNowTransport.md) — ESP-NOW link backend for ESP32 targets.
 - [ESP32_DAC_AudioBackend](./drivers/ESP32_DAC_AudioBackend.md) — Audio backend for ESP32 classic / S2 internal 8-bit DAC.
 - [ESP32_I2S_AudioBackend](./drivers/ESP32_I2S_AudioBackend.md) — Audio backend implementation for ESP32 using I2S.
+- [Esp32NvsKeyValueStore](./drivers/Esp32NvsKeyValueStore.md) — IKeyValueStore over one ESP-IDF NVS namespace (`nvs.h`).
+- [Esp32NvsSlotStore](./drivers/Esp32NvsSlotStore.md) — ISlotStore over one ESP-IDF NVS namespace: one blob per slot.
+- [HostFileKeyValueStore](./drivers/HostFileKeyValueStore.md) — IKeyValueStore over one file per key, for native (PC) builds.
+- [HostFileSlotStore](./drivers/HostFileSlotStore.md) — ISlotStore over one file per slot, for native (PC) builds.
 - [LoopbackBus](./drivers/LoopbackBus.md) — In-process bus shared by a set of loopback transports.
 - [LoopbackFaults](./drivers/LoopbackFaults.md) — Injectable link faults for deterministic native testing.
 - [LoopbackTransport](./drivers/LoopbackTransport.md) — Native in-process transport with deterministic fault injection.
@@ -246,6 +254,19 @@ The `apu` module documents PixelRoot32-APU `2.0.0`.
 - [PeerSlot](./networking/PeerSlot.md) — One fixed peer table row.
 - [PendingTx](./networking/PendingTx.md) — One reliable frame waiting for its ACK.
 - [Slot](./networking/Slot.md) — One node's accumulated contribution to the shared value.
+
+## Persistence
+
+- [IKeyValueStore](./persistence/IKeyValueStore.md) — Storage model for small named values: typed integers and blobs.
+- [ISlotStore](./persistence/ISlotStore.md) — Storage model for a fixed number of numbered records (save slots).
+- [MemoryKeyValueStore](./persistence/MemoryKeyValueStore.md) — IKeyValueStore over a fixed in-RAM table; for tests and volatile use.
+- [MemorySlotStore](./persistence/MemorySlotStore.md) — ISlotStore over fixed in-RAM records; for tests and volatile use.
+- [NullKeyValueStore](./persistence/NullKeyValueStore.md) — IKeyValueStore that is never available.
+- [NullSlotStore](./persistence/NullSlotStore.md) — ISlotStore that is never available.
+- [PersistenceService](./persistence/PersistenceService.md) — Thin role registry: a settings key-value store and a saves slot store.
+- [RecordCodec](./persistence/RecordCodec.md) — Wraps a game payload in a self-checking envelope.
+- [RecordInfo](./persistence/RecordInfo.md) — Header fields reported by RecordCodec::decode().
+- [StoreResult](./persistence/StoreResult.md) — Outcome of every persistence operation.
 
 ## Physics
 

@@ -262,6 +262,7 @@ PixelRoot32 uses a modular architecture where subsystems can be enabled or disab
 | UI System | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enabled |
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
+| Persistence (save data) | `PIXELROOT32_ENABLE_PERSISTENCE` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 
 This modular design reduces firmware size when features aren't needed:

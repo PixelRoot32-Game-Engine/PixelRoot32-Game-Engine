@@ -79,8 +79,24 @@ See [`graphics/iso_dungeon`](https://github.com/PixelRoot32-Game-Engine/PixelRoo
 Single-core architectures (like the ESP32-C3) run the game logic, display transfers, and audio synthesis on a single core.
 
 - **Priority Inversion**: Heavy display transfers (like full-screen U8G2 refreshes) can block the audio task, causing buffer underruns and audio glitches. The engine dynamically detects single-core platforms and elevates the audio task priority (e.g., to `18`) to protect audio streams.
-- **Context Thrashing**: An audio priority that is *too* high (e.g., `24`) will preempt the display transfer constantly to synthesize audio, fragmenting the hardware SPI transaction and ballooning draw times (up to 4x). The engine mitigates this by balancing priority, reducing audio buffer block sizes to `128` samples, and using `taskYIELD()` for cooperative multitasking.
+- **Context Thrashing**: An audio priority that is *too* high (e.g., `24`) will preempt the display transfer constantly to synthesize audio, fragmenting the hardware SPI transaction and ballooning draw times (up to 4x). The engine mitigates this by balancing priority, deriving a shallow I2S DMA depth from the render block (see [Audio Block Size and Latency](#audio-block-size-and-latency)), and using `taskYIELD()` for cooperative multitasking.
 - **Float Operations**: Soft-float emulation on the ESP32-C3 is extremely slow. The engine provides fixed-point Q15 implementations for performance-critical inner loops (like `tickEnvelopeQ15`, LFO generation for vibrato/tremolo, HPF filtering, and audio mixer LUTs). Avoid introducing new float-based calculations inside per-sample audio loops or per-pixel drawing loops.
+
+### Audio Block Size and Latency
+
+`AudioConfig::blockSize` is the **render unit**: `AudioEngine::generateSamples()` is asked for exactly that many samples per iteration, and the backend derives its DMA depth from it instead of hard-coding one. `AudioEngine::getBlockSize()` exposes it because `AudioConfig` is held privately by the engine.
+
+| Platform | `blockSize` | I2S DMA | Latency @22 050 Hz | Latency @32 000 Hz |
+|----------|-------------|---------|--------------------|--------------------|
+| Dual-core, FPU | `512` | `128` × `4` buffers | 23.2 ms | 16 ms |
+| Single-core, no FPU | `1024` | `128` × `8` buffers | 46.4 ms | 32 ms |
+
+- **Derivation**: `dma_buf_len = 128` stays fixed and the backend computes `dma_buf_count = clamp(blockSize / 128, 2, 8)`. The DMA chunk never changes size, so the depth (and therefore the latency) scales with the render block: 512 samples is 4 chunks, 1024 samples is 8.
+- **Multiple of 128**: the block size is validated by a `static_assert` on the defaults and rejected at `init()` if a caller passes anything else, because the DMA depth is counted in 128-sample units.
+- **Why 512 on FPU**: it halves the audio task's wake-ups per second compared with 256 while keeping the latency low enough for interaction (23.2 ms at 22 050 Hz). Smaller blocks buy latency the game does not need at the cost of more synthesis callbacks.
+- **Why 1024 on no-FPU**: soft-float and single-core platforms need fewer, longer synthesis iterations so the audio task yields the core less often to the display transfer. The DMA depth is capped at 8 chunks, so the latency stops growing at 46.4 ms at 22 050 Hz — the same drain time the single-core build already had.
+
+> **Design targets, not measurements.** The four latency figures above are derived from `blockSize / sampleRate` and the DMA rule; they are the shape of the trade-off, not a bench result. `tools/apu_bench_firmware` is what turns them into measured values per board and sample rate — until that table exists, treat these numbers as the contract the backends are written against.
 
 ---
 

@@ -23,6 +23,10 @@ namespace pixelroot32::modules {
     // that never opt in keep the Wi-Fi stack out of their image.
     constexpr bool Networking = PIXELROOT32_ENABLE_NETWORKING;
 
+    // Optional settings/save-slot persistence module; off by default so games
+    // that never store anything link none of it.
+    constexpr bool Persistence = PIXELROOT32_ENABLE_PERSISTENCE;
+
     // Assertions in compile-time (Examples)
     // static_assert(!UI || Renderer, "UI Module needs Renderer");
 }

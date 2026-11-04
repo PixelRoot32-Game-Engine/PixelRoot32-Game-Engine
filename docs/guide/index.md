@@ -23,6 +23,7 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 - [UI system](./ui-system.md) — Layouts, widgets, HUDs
 - [Dialog](./dialog.md) - Scripts, `DialogRunner`, `DialogBox`
 - [Networking (ESP-NOW)](./networking.md) - Peer discovery, reliable messages, shared state, native loopback, and the two-board examples
+- [Persistence (save data)](./persistence.md) - Settings and save slots over NVS, host files or memory; schema versions; when to save
 
 ## Advanced
 

@@ -43,13 +43,13 @@ flowchart TB
     end
 
     subgraph Queue["SPSC command queue"]
-        B -->|single producer| D[AudioCommandQueue 128 slots]
+        B -->|single producer| D[AudioCommandQueue 64 slots]
     end
 
     subgraph Audio["Audio consumer context"]
         D -->|dequeue| E[AudioScheduler thin wrapper]
         E -->|ApuCore::generateSamples| F[Pulse x2 + Triangle + Noise + music]
-        F --> G[Non-linear mixer FPU or LUT + optional HPF]
+        F --> G[Non-linear mixer FPU or LUT + profile output stage]
     end
 
     subgraph Output["Hardware"]
@@ -92,6 +92,18 @@ enum class WaveType : uint8_t {
 
 `WaveType` is the **authoring / API** waveform tag on `AudioEvent` and on `MusicTrack::channelType`.
 
+The **sound profile** is a second, orthogonal axis: it does not replace `WaveType`, it decides how each waveform is rendered and mixed.
+
+```cpp
+enum class SoundProfile : uint8_t {
+    Legacy,   // frozen contract; the default
+    Nes,
+    Hybrid
+};
+```
+
+`Legacy` reproduces the historical sound and is pinned by immutable goldens; `Nes` and `Hybrid` add the NES character (mix balance, unipolar noise, stepped PULSE duty, the output chain) and `Hybrid` also the exponential envelope and the band-limited SAW. The profile is **configuration, applied once per render block**, and a note may still override the per-voice pieces of it — `VoiceNesOptions`, `InstrumentPreset::envelopeCurve`, `setVoicePulseDutyMode`, `setVoiceNesNoiseLutMode`. The precedence is **profile < voice < note**.
+
 For internal bookkeeping (optional reading for engine contributors), [`AudioTypes.h`](include/audio/AudioTypes.h) also defines **`VoiceType`** (same set of synthesis kinds) and **`constexpr`** helpers **`toVoiceType(WaveType)`** / **`toWaveType(VoiceType)`** so `ApuCore` can treat allocation consistently while keeping the public surface on `WaveType`.
 
 ### 2.2 AudioChannel (voice state)
@@ -104,6 +116,7 @@ Highlights (see [`AudioTypes.h`](include/audio/AudioTypes.h) for the full struct
 - **Integer mirror** (ESP32-C3, no FPU): `phaseQ32`, `phaseIncQ32`, `dutyCycleQ32` — updated on each `PLAY_EVENT` so the hot inner loop in `ApuCore::generateSamples` avoids per-sample soft-float.
 - **Noise**: `lfsrState` (15-bit LFSR), `noisePeriodSamples`, `noiseCountdown` — same deterministic polynomial on **all** platforms.
 - **Lifetime**: `remainingSamples` counts down each rendered sample until the voice is disabled, unless **`loop == true`** (see §2.3). Looping voices use a sentinel (`UINT64_MAX`) and do not auto-disable; they may be stolen per §3.5.
+- **Profile character**: `envelopeCurve`, `decayCurveRateQ15`, `noiseUnipolar` / `noiseUnipolarOverridden`, `nesNoiseLutOverridden`, `pulseDutyOverridden` — resolved on note-on from the active profile, and pinned per voice only where the caller overrode them (see §3.4.1).
 
 On **note on**, `ApuCore` initializes an ADSR envelope from the `InstrumentPreset` (or legacy defaults: 2ms attack, no decay, full sustain, 5ms release) to shape the note amplitude over time, reducing clicks and enabling expressive articulation.
 
@@ -192,7 +205,7 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 
 #### Strategy A: Floating-Point (FPU ESP32, ESP32-S3, native)
 
-- Compressor as above, then **HPF** on the mixed float, then clamp to `int16_t`.
+- Compressor as above, then the **output stage** of §3.4.1 on the mixed float, then clamp to `int16_t`.
 - `std::fabs` / float path.
 
 #### Strategy B: Integer + LUT (ESP32-C3, no FPU)
@@ -203,6 +216,21 @@ The system uses a **non-linear mixing strategy** aligned across FPU and LUT path
 - Per-voice samples are scaled with the same **0.4** intent (`≈ 13107/32768` in Q15) before summation.
 - **`audio_mixer_lut`**: `index = (sum + 131072) >> 8` into 1025 entries; table documented in `AudioMixerLUT.h` to match the FPU curve.
 - **Master volume** via precomputed **Q16** `masterVolumeScale` when ≠ 1.0.
+
+#### 3.4.1 The output stage (profile-owned)
+
+Mixing ends in an **output stage that belongs to the profile**, not to the engine:
+
+| Profile | Stage |
+|---|---|
+| **`Legacy`** (default) | The historical single-pole HPF. Frozen: its rendered PCM is pinned by immutable goldens and does not change between releases. |
+| **`Nes`**, **`Hybrid`** | HPF 90 Hz → HPF 440 Hz → 2nd-order Butterworth LPF at `min(14 kHz, 0.45 · fs)`, applied once to the **summed** mix, followed by the profile's level trim |
+
+The LPF is deliberately **not** engaged when `0.45 · fs < 6 kHz` (`fs < 13 334 Hz`): at 8 000 Hz it would cut most of the passband and gut the sound instead of approximating the NES's 14 kHz roof, so below that floor the chain is the two high-passes only — a documented property of the profile, not a fallback. Coefficients are derived on a configuration or rate change, never per sample; the integer path uses `float` coefficients with `int32` products and an `int64` accumulator.
+
+The stage also carries the **level trim**, so a profile switch is a change of character and not of loudness. It is matched on **crest-weighted loudness** — `0.75 · RMS_dBFS + 0.25 · peak_dBFS` against `Legacy`, a documented heuristic rather than a standard — because matching RMS alone was tried first and sounded louder than `Legacy` on hardware: the chain's crest factor is 13–14 dB against `Legacy`'s 4.6 dB, so an equal-RMS trim lifts every transient by 3–4 dB. The shipped trims are **+1.10 dB** (`Nes`) and **+1.90 dB** (`Hybrid`), applied after the chain and before the master bitcrush, which leaves both about 2.2 / 2.4 dB **below** `Legacy` in RMS on purpose. `Legacy` stays at unity: it never runs the chain, so it never runs the multiply either.
+
+An explicit `setHpfCutoffHz()` call wins over all of it — the caller gets the historical one-pole back **including its level**, so the trim is suppressed with the chain. Headroom is the price of the chain's transients: on the canonical track the peaks are ~37 % (`Nes`) and ~41 % (`Hybrid`) of full scale against `Legacy`'s 18 %, and a dense mix reaches ~52 % / ~51 % against ~36 %, so a consumer that mixes by peak should still check its master level.
 
 #### Clipping prevention
 
@@ -217,13 +245,13 @@ When **`PIXELROOT32_ENABLE_PROFILING`** is defined (`platforms/EngineConfig.h` �
 `void AudioEngine::playEvent(const AudioEvent& event)`:
 
 - Acts as a **Command Producer**.
-- It enqueues an `AudioCommand` into a lock-free **Single Producer / Single Consumer (SPSC)** ring buffer ([`AudioCommandQueue`](include/audio/AudioCommandQueue.h), capacity **128** entries).
+- It enqueues an `AudioCommand` into a lock-free **Single Producer / Single Consumer (SPSC)** ring buffer ([`AudioCommandQueue`](include/audio/AudioCommandQueue.h), capacity **64** entries, 63 usable).
 - The **audio consumer** (scheduler thread / ESP32 audio task / SDL callback path) dequeues and applies commands.
 
 **Queue contract and overflow**
 
 - The implementation is only safe with **one producer** and **one consumer**. Do not call `playEvent` / `submitCommand` from multiple threads unless you replace the queue with an MPMC-safe structure.
-- If the queue is **full**, `enqueue` **drops the newest command** and returns `false`. **`ApuCore::submitCommand`** increments an atomic **`droppedCommands`** counter and may emit a **throttled** warning when `PIXELROOT32_DEBUG_MODE` is defined. Avoid flooding more than ~127 outstanding commands between consumer passes.
+- If the queue is **full**, `enqueue` **drops the newest command** and returns `false`. **`ApuCore::submitCommand`** increments an atomic **`droppedCommands`** counter and may emit a **throttled** warning when `PIXELROOT32_DEBUG_MODE` is defined. Avoid flooding more than ~63 outstanding commands between consumer passes. The default capacity is 64 because the RAM budget is the real ceiling — 64 × 144 B = 9 216 B — not throughput; `AUDIO_COMMAND_QUEUE_CAPACITY` accepts 32–64 and is refused outside that range at compile time.
 
 `ApuCore` then:
 
@@ -272,8 +300,8 @@ The `AudioScheduler` interface provides `init`, `submitCommand` (forwards to `Ap
 
 The system no longer uses hardcoded core IDs for ESP32. Instead, it uses a `PlatformCapabilities` (`pixelroot32::platforms`) structure to detect hardware features at startup:
 
-- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop). Task priority defaults to `5` and internal DMA buffer block size is `512` samples.
-- **Single-Core ESP32**: Audio task runs on **Core 0**, sharing it with the game loop and display drivers. To prevent audio starvation against heavy display transfers (e.g. U8G2), priority is dynamically elevated to `18`. To prevent this high-priority task from aggressively fragmenting display transfers via priority inversion, the internal buffer block size is reduced to `128` samples, and `taskYIELD()` is used cooperatively.
+- **Dual-Core ESP32**: Audio task is pinned to **Core 0** (leaving Core 1 for the game loop). Task priority defaults to `5` and the render block is `512` samples (the FPU default), which the I2S/DAC DMA ring mirrors as 4 × 128 samples.
+- **Single-Core ESP32**: Audio task runs on **Core 0**, sharing it with the game loop and display drivers. To prevent audio starvation against heavy display transfers (e.g. U8G2), priority is dynamically elevated to `18`. The render block is `1024` samples on no-FPU platforms (8 × 128 in the DMA ring), so the task synthesises once per 1024 samples instead of once per 128 and `taskYIELD()` is used cooperatively.
 - **Native (SDL2)**: Uses a standard system thread.
 
 ### 4.2 Platform Configuration and Build Flags
@@ -341,6 +369,10 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
   - Output is digital I2S (BCLK, LRCK, DOUT).
   - Runs in a dedicated FreeRTOS task to ensure smooth playback.
   - Supports standard sample rates (e.g., 22050Hz, 44100Hz).
+  - **Render block**: reads `AudioEngine::getBlockSize()` once in `init()`, **validates** it there (positive, a multiple of 128, at most `PR32_AUDIO_MAX_BLOCK_SAMPLES` = 1024) and renders each iteration straight into a 1024-sample member buffer. A rejected block logs an error and leaves the driver uninstalled instead of failing later inside the audio task.
+  - **DMA**: `dma_buf_len = 128` stays fixed and `dma_buf_count = clamp(blockSize / 128, 2, 8)`, so 512 → 4 and 1024 → 8 chunks: the ring holds exactly one render block, which is what makes `i2s_write(portMAX_DELAY)` the pacing mechanism. Latency: 23.2 / 46.4 ms at 22 050 Hz and 16 / 32 ms at 32 000 Hz for 512 / 1024 samples.
+  - **Underruns** are measured, not inferred: an iteration counts when the write **barely waited** (`writeUs < budgetUs / 10` - the DMA ring was already empty), or when the write failed or came back short. The first 10 iterations are discarded because they prime the ring. `getUnderrunCount()`, `getWorstBlockUs()`, `getWorstRenderUs()` and `getWorstWriteUs()` expose the counters, and one log line is emitted every 100 underruns. They are four independent maxima: the render cost is measured around `generateSamples()`, never derived from `worstBlockUs - worstWriteUs`.
+  - **Memory**: an instance is **2 096 B**; declare it at file scope or on the heap, never as a local of a small-stack task.
 
 #### B) ESP32 DAC Backend (Internal DAC)
 
@@ -350,6 +382,7 @@ The engine provides two distinct backends for ESP32, allowing developers to choo
 - **Key points**:
   - Uses the legacy **I2S driver** in **`I2S_MODE_DAC_BUILT_IN`**: samples are written with **`i2s_write`** in blocks (DMA), **not** per-sample `dacWrite()`.
   - A FreeRTOS task fills a buffer from `AudioEngine::generateSamples`, converts signed `int16` to **offset-binary** for the DAC path, and applies **~0.7×** headroom before `i2s_write` (same intent as the old PAM8302A scaling).
+  - Derives the DMA ring from the render block with the **same rule** as the I2S backend (`128` × `clamp(blockSize / 128, 2, 8)`), renders into the same 1024-sample member buffer, validates the block in `init()` and keeps the **same underrun counter** and accessors. Its mode and pins do not change.
   - **Hardware note**: internal DAC exists on **classic ESP32** / **ESP32-S2** class chips, not on **S3** / **C3**.
 - **Limitations**: 8-bit effective resolution, mono, more noise than external I2S DAC.
 - **Recommendation**: For higher fidelity, prefer **`ESP32_I2S_AudioBackend`** + external codec.
@@ -777,7 +810,7 @@ With the **Multi-Core Architecture (v0.7.0-dev)**, many previous limitations wer
 - **Code references (maintainers)** — approximate line numbers; re-check after refactors:
   - [`ApuCore.h`](include/audio/ApuCore.h): sequencer limits `MAX_NOTES_PER_FRAME` / `AUDIO_SEQUENCER_MAX_NOTES` (~L44–L52); API `setSequencerNoteLimit`, `getSequencerNoteLimit`, `getDeferredNotes` (~L74–L82).
   - [`ApuCore.cpp`](src/audio/ApuCore.cpp): `executePlayEvent` — linear sweep clamped to note duration (`sweepLen > noteLen` → truncate, ~L433–L451); `apply_linear_frequency_sweep_float` (~L32–L45); no-FPU path, lerp of `phaseIncQ32` during sweep (~L795–L810).
-- **Command queue**: fixed depth **128**; overflow **drops** the newest command and increments **`ApuCore::droppedCommands`**. Contract: **single producer, single consumer** — do not call `playEvent` / `submitCommand` from multiple threads without external serialization.
+- **Command queue**: depth **64** (range 32–64, 63 usable); overflow **drops** the newest command and increments **`ApuCore::droppedCommands`**. Contract: **single producer, single consumer** — do not call `playEvent` / `submitCommand` from multiple threads without external serialization.
 - **`MusicPlayer` vs. drops**: local `playing` / `paused` flags can briefly disagree with `ApuCore` if a command is dropped. For diagnostics, **`ApuCore::getDroppedCommands()`** is public (e.g. tests or a custom scheduler wrapper); stock `AudioEngine` does not expose it—avoid saturating the queue instead.
 
 ### 8.3 Future Extensions

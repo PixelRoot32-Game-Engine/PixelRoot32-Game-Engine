@@ -209,6 +209,7 @@ AudioBackend
 | UI System | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enabled |
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
+| Persistence (save data) | `PIXELROOT32_ENABLE_PERSISTENCE` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap framebuffer cache (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled |
 | Static layer snapshot (game-drawn layers) | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Disabled |

@@ -336,6 +336,26 @@
 #error "PIXELROOT32_ENABLE_NETWORKING=1 is only supported on ESP32 and native targets (no networking transport exists for this target)"
 #endif
 
+// -----------------------------------------------------------------------------
+// Persistence Feature Defaults (optional settings/save-slot storage module)
+// -----------------------------------------------------------------------------
+// Persistence is off by default: most games never store anything, and the ones
+// that do choose their medium explicitly. A game opts in with
+// -D PIXELROOT32_ENABLE_PERSISTENCE=1 and pays nothing otherwise (no symbols,
+// no Engine bytes, no Scene vtable change). Capacities are template parameters
+// or constructor arguments, so there are no limit macros to tune here.
+
+/**
+ * @def PIXELROOT32_ENABLE_PERSISTENCE
+ * @brief Compiles the `pixelroot32::persistence` module.
+ *
+ * Default 0. When 0 the module contributes no symbols, so existing games keep
+ * their binary size and behavior unchanged.
+ */
+#ifndef PIXELROOT32_ENABLE_PERSISTENCE
+#define PIXELROOT32_ENABLE_PERSISTENCE 0
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================

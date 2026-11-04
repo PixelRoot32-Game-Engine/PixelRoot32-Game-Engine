@@ -17,6 +17,7 @@ Platform-specific hardware abstraction that bridges the gap between hardware and
 | `ESP32_I2S_AudioBackend` | `drivers/esp32/ESP32_I2S_AudioBackend.cpp` | I2S audio backend for external DACs |
 | `ESP32_DAC_AudioBackend` | `drivers/esp32/ESP32_DAC_AudioBackend.cpp` | Internal DAC audio backend |
 | `ESP32AudioScheduler` | `audio/ESP32AudioScheduler.cpp` | Multi-core audio scheduler (FreeRTOS task) |
+| `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore` | `drivers/esp32/Esp32NvsStore.cpp` | Persistence over ESP-IDF NVS (`PIXELROOT32_ENABLE_PERSISTENCE`); see [Persistence Subsystem](./persistence-subsystem.md) |
 
 ### TFT_eSPI Driver
 
@@ -93,6 +94,7 @@ ESP32_DAC_AudioBackend audioBackend(25, 11025);
 | `SDL2_Drawer` | `drivers/native/SDL2_Drawer.cpp` | SDL2 graphics simulation |
 | `SDL2_AudioBackend` | `drivers/native/SDL2_AudioBackend.cpp` | SDL2 audio backend |
 | `NativeAudioScheduler` | `audio/NativeAudioScheduler.cpp` | Native thread-based scheduler |
+| `HostFileKeyValueStore`, `HostFileSlotStore` | `drivers/native/HostFileStore.cpp` | Persistence as one file per key or slot (`PIXELROOT32_ENABLE_PERSISTENCE`); see [Persistence Subsystem](./persistence-subsystem.md) |
 | `MockArduino` | `platforms/mock/MockArduino.cpp` | Arduino API emulation |
 
 ### SDL2_Drawer

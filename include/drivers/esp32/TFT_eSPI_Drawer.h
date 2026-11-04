@@ -98,6 +98,38 @@ public:
     uint8_t* getSpriteBuffer() override;
 
     /**
+     * @brief Installs a caller-supplied 8bpp -> RGB565 expansion table.
+     *
+     * The sprite is 8bpp and every byte becomes a wire colour in
+     * sendBufferScaled(), through one of two formats:
+     *
+     *  - RGB565: the first is stored byte-swapped, because pushPixelsDMA()
+     *    dumps the line buffer verbatim and the panel expects big-endian words.
+     *  - RGB444 (PIXELROOT32_TFT_12BIT_COLOR): the same 565 entry is packed by
+     *    packRgb565ToRgb444() into the 0x0RGB pool, and the duplicated-pixel
+     *    pairLUT is rebuilt from it, so the 1:1, 2x and scaled paths all present
+     *    the caller's colour.
+     *
+     * Both formats are derived from the same 565 input, so one call site behaves
+     * identically whichever one the geometry selected.
+     *
+     * @param lut565 256 entries, RGB565 in the engine's colour convention. The
+     *               caller keeps ownership. nullptr rebuilds the table from
+     *               TFT_eSprite::color8to16() - the driver's original expansion -
+     *               rather than leaving it blank.
+     *
+     * Only the present path reads the table: drawTileDirect() and the sprite's
+     * own primitives store bytes, not colours. Nothing else in the driver
+     * consumes it, so the table is exactly the presentation mapping.
+     *
+     * Call between presents. This waits out a transfer a previous present() left
+     * in flight before touching driver state. Before init() there is no table to
+     * write yet; init() rebuilds the default one, so a caller installs its table
+     * after init().
+     */
+    void setPalette8(const uint16_t* lut565) override;
+
+    /**
      * @brief Processes system events. Always true for embedded.
      */
     bool processEvents() override;
@@ -156,7 +188,7 @@ private:
     bool dmaPending = false;                      ///< True while the last block of a frame is still in flight (transaction still open)
     uint16_t* xLUT = nullptr;        ///< Lookup table for X scaling (physical -> logical)
     uint16_t* yLUT = nullptr;        ///< Lookup table for Y scaling (physical -> logical)
-    uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp palette LUT (byte-swapped RGB565, or 0x0RGB in 12-bit mode)
+    uint16_t* paletteLUT = nullptr;  ///< Pre-calculated 8bpp palette LUT (byte-swapped RGB565, or 0x0RGB in 12-bit mode). Read only by sendBufferScaled() and the scaleLine helpers it calls.
 
 #if PIXELROOT32_TFT_12BIT_COLOR
     /// True once the panel has been switched to the 12-bit (RGB444) pixel format.
@@ -180,6 +212,17 @@ private:
         return logicalWidth != physicalWidth || logicalHeight != physicalHeight;
     }
     
+    /**
+     * @brief Builds the 8bpp expansion table in the format the present path uses.
+     *
+     * The single place the table is written. `source565` is the caller's 256-entry
+     * RGB565 table, or nullptr for the driver's default `color8to16()` expansion.
+     * Stores byte-swapped RGB565, or the 0x0RGB form plus the duplicated-pixel
+     * pairLUT when 12-bit colour is active. A no-op before init(), which is also
+     * the only place a default table is first built.
+     */
+    void buildPaletteLUT(const uint16_t* source565);
+
     /**
      * @brief Builds the X and Y scaling lookup tables.
      */

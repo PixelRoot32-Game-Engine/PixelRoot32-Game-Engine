@@ -26,6 +26,7 @@
 | **Resolution Scaling** | [Resolution Scaling](./resolution-scaling.md) | Logical vs physical resolution |
 | **Tile Animation** | [Tile Animation](./tile-animation.md) | Lookup tables, O(1) resolve |
 | **Touch Input** | [Touch Input](./touch-input.md) | Pipeline, XPT2046, calibration |
+| **Persistence** | [Persistence Subsystem](./persistence-subsystem.md) | Key-value and slot stores, record envelope, NVS, host files, flash-write stall |
 | **Extensibility** | [Extending PixelRoot32](../guide/extending-pixelroot32.md) | Custom drivers, configuration |
 
 ### API Reference
@@ -84,6 +85,7 @@ graph TD
 | UI System | `PIXELROOT32_ENABLE_UI_SYSTEM` | Enabled |
 | Particles | `PIXELROOT32_ENABLE_PARTICLES` | Enabled |
 | Touch Input | `PIXELROOT32_ENABLE_TOUCH` | Disabled |
+| Persistence (save data) | `PIXELROOT32_ENABLE_PERSISTENCE` | Disabled |
 | Tile Animations | `PIXELROOT32_ENABLE_TILE_ANIMATIONS` | Enabled |
 | Static tilemap FB snapshot (4bpp) | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enabled (`PlatformDefaults.h`) |
 | Dirty Regions (selective clear) | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Disabled |

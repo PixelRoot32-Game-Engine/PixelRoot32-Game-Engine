@@ -404,7 +404,8 @@ ownership explicit:
   the ones newer than the snapshot's per-node cursor. The counter's resync code
   and its tests are the worked example.
 - **No persistence.** If both boards reboot, the shared state resets to 0.
-  Save/Load is a separate roadmap item.
+  The networking module does not save it; a game that needs to can store its
+  own state with the [persistence module](persistence.md).
 
 ---
 

@@ -14,7 +14,7 @@ or in a dedicated audio thread.
 
 ## Methods
 
-### `virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 256)`
+### `virtual void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps = pixelroot32::platforms::PlatformCapabilities(), int blockSize = 512)`
 
 **Description:**
 
@@ -26,7 +26,7 @@ Initializes the scheduler.
 - `sampleRate`: The output sample rate in Hz.
 - `caps`: Platform capabilities to guide core pinning or threading decisions.
 - `blockSize`: Audio block size in samples for I2S DMA and ring buffer operations.
-       Must be a multiple of 128.
+       Must be a multiple of 128. Defaults to 512 (the render unit on FPU platforms).
 
 ### `virtual void submitCommand(const AudioCommand& cmd)`
 

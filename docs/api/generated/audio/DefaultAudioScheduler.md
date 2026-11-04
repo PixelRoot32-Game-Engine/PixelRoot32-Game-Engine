@@ -28,7 +28,7 @@ For platforms with a dedicated audio task (e.g., FreeRTOS on ESP32),
 
 ## Methods
 
-### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 256)`
+### `void init(AudioBackend* backend, int sampleRate, const pixelroot32::platforms::PlatformCapabilities& caps, int blockSize = 512)`
 
 **Description:**
 

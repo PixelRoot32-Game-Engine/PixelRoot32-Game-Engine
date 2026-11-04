@@ -65,18 +65,22 @@ void test_audio_command_queue_mpsc_single_producer_baseline(void) {
     cmd.event.duration = 0.5f;
     cmd.event.volume = 1.0f;
     
-    // Single producer should work same as before
-    for (size_t i = 0; i < 64; i++) {
+    // Single producer should work same as before. The ring keeps one slot free
+    // to distinguish full from empty, so a CAPACITY of N accepts N - 1 commands.
+    // Sizing the loop to the constant keeps this true when the capacity changes
+    // (APU 2.2.0 took it from 128 to 64 for the ApuCore RAM budget).
+    const size_t usable = AudioCommandQueue::CAPACITY - 1u;
+    for (size_t i = 0; i < usable; i++) {
         TEST_ASSERT_TRUE(queue.enqueue(cmd));
     }
     
-    // Dequeue all 64
+    // Dequeue everything the ring accepted.
     AudioCommand outCmd;
     size_t dequeued = 0;
     while (queue.dequeue(outCmd)) {
         dequeued++;
     }
-    TEST_ASSERT_EQUAL(64, dequeued);
+    TEST_ASSERT_EQUAL_UINT32(static_cast<unsigned>(usable), static_cast<unsigned>(dequeued));
 }
 
 void test_audio_command_queue_mpsc_full_with_drops(void) {

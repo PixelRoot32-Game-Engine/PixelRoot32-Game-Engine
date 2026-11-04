@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# Unreleased
+
+### Added
+
+* **Persistence module (`PIXELROOT32_ENABLE_PERSISTENCE`, default `0`)**: optional save data for settings, scores and small save slots, built as storage models separated from media so a new medium adds an adapter without touching the interfaces or game code. `IKeyValueStore` holds named `int32_t`/`uint32_t`/blob values (one value per key, last write wins, explicit `commit()`); `ISlotStore` holds a fixed number of numbered records with replace-or-keep writes. Every call returns a typed `StoreResult` (`Ok`, `NotFound`, `TooLarge`, `NoSpace`, `Corrupt`, `IoError`, `Unavailable`, `InvalidKey`, `InvalidArgument`), every read takes a capacity and never writes past it, and keys follow one rule on every medium (1..15 bytes of `[A-Za-z0-9_-]`). `RecordCodec` wraps a payload in a 16-byte little-endian envelope (magic `PRST`, envelope version, game-owned schema version, length, CRC-32 over the header and payload) and reports the schema version without judging it. `PersistenceService` binds a settings store and a saves store, never returns null (an unbound role answers `Unavailable`) and adds `saveRecord`/`loadRecord` (slots) and `saveSettingRecord`/`loadSettingRecord` (settings keys) over caller-owned scratch buffers; it never commits on its own. Adapters: `Esp32NvsKeyValueStore`/`Esp32NvsSlotStore` over ESP-IDF NVS (never erases the partition, byte-compatible with Arduino `Preferences` blobs), `HostFileKeyValueStore`/`HostFileSlotStore` for native builds (one file per record, temp file plus replace-existing move), and `MemoryKeyValueStore`/`MemorySlotStore` with fault-injection hooks for tests. One adapter contract suite runs on the host (memory and host files, `native_test_persistence` CI step) and on the board through `tools/persist_nvs_smoke`, which also checks `Preferences` compatibility and measures write cost (on the CYD a `setBlob` takes about 4 ms on average and up to about 13 ms, stalling flash-resident code on both cores, so games save at safe points; `commit()` takes about 12 us). The smoke tool's `keep_nvs.py` drops the `boot_app0.bin` image the Arduino build flashes at `0xE000`, which erases NVS data in custom partition tables whose `nvs` covers that address. Static RAM on the ESP32: 16 B for the service, 24 B per NVS key-value store. Ships with architecture, guide and API documentation. Existing builds are unchanged: the flag defaults to `0` and contributes no symbols or Engine bytes.
+
 # 1.13.0
 
 ### Added
