@@ -34,7 +34,7 @@ PixelRoot32 follows a **scene-based architecture inspired by Godot Engine**, mak
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.13.0
+    gperez88/PixelRoot32-Game-Engine@^1.14.0
 ```
 
 ### Option 2: Clone the repository

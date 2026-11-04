@@ -85,6 +85,28 @@ Get pointer to sprite buffer for direct manipulation.
 
 **Returns:** Pointer to 8bpp sprite buffer, or nullptr if sprite not created
 
+### `void setPalette8(const uint16_t* lut565)`
+
+**Description:**
+
+Installs a caller-supplied 8bpp -> RGB565 expansion table.
+
+**Parameters:**
+
+- `lut565`: 256 entries, RGB565 in the engine's colour convention. The
+              caller keeps ownership. nullptr rebuilds the table from
+              TFT_eSprite::color8to16() - the driver's original expansion -
+              rather than leaving it blank.
+
+Only the present path reads the table: drawTileDirect() and the sprite's
+own primitives store bytes, not colours. Nothing else in the driver
+consumes it, so the table is exactly the presentation mapping.
+
+Call between presents. This waits out a transfer a previous present() left
+in flight before touching driver state. Before init() there is no table to
+write yet; init() rebuilds the default one, so a caller installs its table
+after init().
+
 ### `bool processEvents()`
 
 **Description:**
@@ -122,6 +144,12 @@ synchronously simply inherit the base no-op instead of overriding.
 Checks if scaling is needed.
 
 **Returns:** true if logical != physical resolution.
+
+### `void buildPaletteLUT(const uint16_t* source565)`
+
+**Description:**
+
+Builds the 8bpp expansion table in the format the present path uses.
 
 ### `void buildScaleLUTs()`
 

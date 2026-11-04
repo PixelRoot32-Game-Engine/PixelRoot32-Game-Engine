@@ -7,7 +7,7 @@ boards commit to a secret seed before seeing the other's, then reveal, derive
 the same two dice and score the higher one. `native` simulates both boards in
 one window, keys `1` and `2` driving one panel each.
 
-> **Temporary prototype.** This example lives here for the 1.13.0 cycle and
+> **Temporary prototype.** This example lives here as a prototype until it
 > moves to
 > [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)
 > afterwards. It is a complete two-player game built on top of the networking

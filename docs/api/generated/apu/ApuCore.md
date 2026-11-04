@@ -1443,7 +1443,7 @@ Renders one block through the frozen `Legacy` float core.
 - `stream`: Output buffer (mono, int16 samples).
 - `length`: Number of samples; the caller guarantees length > 0.
 
-### `void applyProfileCharacter(int slot)`
+### `void applyProfileCharacter(int slot, NoisePeriodMode noteNoisePeriodMode, PulseDutyMode notePulseDutyMode)`
 
 **Description:**
 
@@ -1453,6 +1453,8 @@ Applies the active profile's character to one voice.
 
 - `slot`: Voice index [0, MAX_VOICES); the caller guarantees it is
             a valid voice of the pool.
+- `noteNoisePeriodMode`: The note's own NOISE-period request.
+- `notePulseDutyMode`: The note's own PULSE-duty request.
 
 ### `void recomputeHpfCoefficients()`
 

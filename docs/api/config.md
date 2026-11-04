@@ -18,6 +18,7 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_NO_I2S_AUDIO` | Disable I2S audio support. | Not defined (opt-in) |
 | `PIXELROOT32_USE_U8G2_DRIVER` | Enable U8G2 display driver support for monochromatic OLEDs. | Disabled |
 | `PIXELROOT32_NO_TFT_ESPI` | Disable default TFT_eSPI driver support. | Not defined (opt-in) |
+| `PIXELROOT32_DRAIN_PRESENT` | Close the frame transfer at the end of `present()` instead of letting the deferred tail overlap the next frame. Costs up to one DMA block of the present path, and removes the dependency on the tail having finished before the surface is rewritten (torn scanlines when present time approaches the frame budget). | Not defined (opt-in) |
 
 ## Modular Compilation Flags
 

@@ -2,7 +2,7 @@
 
 Auto-generated API documentation from C++ header files.
 
-The `apu` module documents PixelRoot32-APU `2.1.0`.
+The `apu` module documents PixelRoot32-APU `2.2.0`.
 
 ## Apu
 
@@ -22,7 +22,9 @@ The `apu` module documents PixelRoot32-APU `2.1.0`.
 - [NesLengthCounter](./apu/NesLengthCounter.md) — NES APU length counter state for a single voice.
 - [NesLinearCounter](./apu/NesLinearCounter.md) — NES APU linear counter state for the TRIANGLE channel.
 - [NesSweepUnit](./apu/NesSweepUnit.md) — NES APU sweep unit state for the PULSE channels.
+- [NoisePeriodMode](./apu/NoisePeriodMode.md) — Whether a note keeps the NOISE period it authored (E3/A1).
 - [OutputStageStateQ15](./apu/OutputStageStateQ15.md) — Block-local snapshot of the integer output stage.
+- [PulseDutyMode](./apu/PulseDutyMode.md) — Whether a PULSE note keeps the continuous duty generator (E3/A2).
 - [SfxBreakpoint](./apu/SfxBreakpoint.md) — Timed automation point for SFX duty steps or pitch envelope.
 - [SoundProfile](./apu/SoundProfile.md) — Named character sets applied to every voice.
 - [VoiceNesOptions](./apu/VoiceNesOptions.md) — Every per-voice NES opt-in in one place (Hito 4 M14).
