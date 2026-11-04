@@ -97,6 +97,7 @@ private:
     uint16_t* pixels; // Framebuffer (RGB565 format, matches texture)
     pixelroot32::input::TouchEventDispatcher* touchDispatcher;  ///< Direct touch dispatcher
     pixelroot32::input::InputManager* inputManager;  ///< Legacy fallback
+    bool sdlInitialized;  ///< True only while this drawer holds SDL_INIT_VIDEO
 
     void updateTexture();
 

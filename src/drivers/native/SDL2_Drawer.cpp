@@ -19,6 +19,7 @@ pr32::drivers::native::SDL2_Drawer::SDL2_Drawer()
     , pixels(nullptr)
     , touchDispatcher(nullptr)
     , inputManager(nullptr)
+    , sdlInitialized(false)
 {
 }
 
@@ -27,11 +28,25 @@ pr32::drivers::native::SDL2_Drawer::~SDL2_Drawer() {
     if (renderer) SDL_DestroyRenderer(renderer);
     if (window) SDL_DestroyWindow(window);
     if (pixels) delete[] pixels;
-    SDL_Quit();
+    // Quit only the subsystem init() acquired. SDL_Quit() tore down the whole
+    // library from here, including the audio subsystem a backend owns and the
+    // device it still had open, which faulted at shutdown in issue #273.
+    if (sdlInitialized) {
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        sdlInitialized = false;
+    }
 }
 
 void pr32::drivers::native::SDL2_Drawer::init() {
-    SDL_Init(SDL_INIT_VIDEO);
+    if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
+        pixelroot32::core::logging::log(pixelroot32::core::logging::LogLevel::Error,
+                                        "[SDL2_Drawer] SDL video initialization failed: %s\n",
+                                        SDL_GetError());
+    } else {
+        // Paired with the SDL_QuitSubSystem(SDL_INIT_VIDEO) in the destructor,
+        // so a double init cannot leave a reference behind.
+        sdlInitialized = true;
+    }
 
     // Set nearest neighbor scaling hint BEFORE creating renderer
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
