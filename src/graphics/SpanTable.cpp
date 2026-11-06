@@ -49,6 +49,10 @@ void computeSpanTable(Sprite4bpp& s, uint8_t* outMinX, uint8_t* outMaxX) {
 void computeSpanTable(Sprite2bpp& s, uint8_t* outMinX, uint8_t* outMaxX) {
     const int width = s.width;
     const int height = s.height;
+    // Must match Renderer::drawSpriteInternal(Sprite2bpp): same row stride,
+    // and the blit reads little-endian 16-bit words with bitOffset =
+    // (col & 7) << 1 (LSB = leftmost pixel, the compiler's pack_2bpp layout).
+    // Byte-wise that is byte col >> 2 at shift (col & 3) * 2.
     const int rowBytes = (width * 2 + 7) / 8;  // 2bpp: 4 pixels per byte
 
     for (int row = 0; row < height; ++row) {
@@ -57,7 +61,7 @@ void computeSpanTable(Sprite2bpp& s, uint8_t* outMinX, uint8_t* outMaxX) {
         uint8_t maxX = 0;
         for (int col = 0; col < width; ++col) {
             const uint8_t byte = PIXELROOT32_READ_BYTE_P(&rowData[col >> 2]);
-            const uint8_t shift = (3 - (col & 3)) * 2;
+            const uint8_t shift = static_cast<uint8_t>((col & 3) * 2);
             const uint8_t val = (byte >> shift) & 0x03;
             if (val != 0) {
                 if (static_cast<uint8_t>(col) < minX) minX = static_cast<uint8_t>(col);

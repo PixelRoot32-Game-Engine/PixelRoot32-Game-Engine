@@ -57,6 +57,9 @@ void computeSpanTable(Sprite4bpp& s, uint8_t* outMinX, uint8_t* outMaxX);
 /**
  * @brief 2bpp overload of computeSpanTable. Extracts 2-bit pairs per pixel.
  *
+ * Reads pixels in the 2bpp blit's layout: rows of (width * 2 + 7) / 8 bytes,
+ * pixel col in byte col >> 2 at shift (col & 3) * 2 (LSB = leftmost pixel).
+ *
  * @param s Sprite whose data is scanned.
  * @param outMinX Caller-owned uint8_t[height]. Written.
  * @param outMaxX Caller-owned uint8_t[height]. Written.
