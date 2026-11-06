@@ -8,7 +8,7 @@
 
 Whether a note keeps the NOISE period it authored (E3/A1).
 
-`Nes` and `Hybrid` arm the NES period LUT (index 0, `$400E = $00`), which
+`Nes` and `Famicom` arm the NES period LUT (index 0, `$400E = $00`), which
 retunes the LFSR clock and therefore discards the note's own
 `noisePeriod`. That is the right default for a chip-style lead, and the
 wrong one for a curated drum kit: a kick authored with a 60-sample period

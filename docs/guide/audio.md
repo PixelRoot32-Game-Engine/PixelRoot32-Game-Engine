@@ -45,8 +45,8 @@ flowchart TB
 | **Multi-track music** | Up to **`MAX_MUSIC_TRACKS` (4)**: main `MusicTrack` + optional **`secondVoice`**, **`thirdVoice`**, **`percussion`**; `MusicPlayer::play` packs them into **`AudioCommand::subTracks`** |
 | **NES-style timing** | Sequencer in **`ApuCore`** uses **tick** steps derived from **sample time** and **BPM** (default **150** BPM, **4 ticks per beat**); not tied to render FPS |
 | **BPM & tempo** | **`MusicPlayer::setBPM` / `getBPM`** and **`setTempoFactor`** → `MUSIC_SET_BPM` / `MUSIC_SET_TEMPO` |
-| **Percussion presets** | **`INSTR_KICK`**, **`INSTR_SNARE`**, **`INSTR_HIHAT`** (`duty == 0`, **`WaveType::NOISE`**, `noisePeriod` / `defaultDuration` in **`InstrumentPreset`**) |
-| **Sound profiles** | **`Legacy`** (default, frozen) / **`Nes`** / **`Hybrid`**, switched with `SET_SOUND_PROFILE`; see [Sound profiles](#sound-profiles) |
+| **Percussion presets** | **`INSTR_KICK`**, **`INSTR_SNARE`**, **`INSTR_HIHAT`** (`duty == 0`, **`WaveType::NOISE`**, `noisePeriod` / `defaultDuration` in **`InstrumentPreset`**); **`INSTR_KICK_TRI`**, a triangle kick for a **`WaveType::TRIANGLE`** track |
+| **Sound profiles** | **`Legacy`** (default, frozen) / **`Nes`** / **`Famicom`** (`Hybrid` is a deprecated alias of `Famicom`), switched with `SET_SOUND_PROFILE`; see [Sound profiles](#sound-profiles) |
 
 ## Quick start: sound effects
 
@@ -147,13 +147,15 @@ The music sequencer lives in **`ApuCore`**. If the audio consumer stops running 
 
 ## Sound profiles
 
-The engine ships three profiles. **`Legacy` is the default and a frozen contract** — its rendered PCM is pinned by immutable goldens and does not change between releases, so a game keeps the sound it was tuned against. `Nes` and `Hybrid` are opt-in characters.
+The engine ships three profiles. **`Legacy` is the default and a frozen contract** — its rendered PCM is pinned by immutable goldens and does not change between releases, so a game keeps the sound it was tuned against. `Nes` and `Famicom` are opt-in characters.
 
 | Profile | What changes |
 |---------|--------------|
 | **`Legacy`** (default) | Nothing: the historical rational mix curve, bipolar noise, continuous PULSE duty, ideal SAW ramp, single-pole HPF |
-| **`Nes`** | NES-weighted mix, unipolar noise on the NES period LUT, PULSE duty snapped to the four NES steps, and an output chain: HPF 90 Hz → HPF 440 Hz → Butterworth LPF near 14 kHz |
-| **`Hybrid`** | The **`Nes`** character plus an exponential DECAY/RELEASE envelope and a band-limited SAW read from a mipmap |
+| **`Nes`** | Linear envelope plus the 4-bit `nesEnvelope`, NES-weighted mix, unipolar noise on the NES period LUT, PULSE duty snapped to the four NES steps, ideal SAW ramp, and the front-loading NES output stage: HPF 90 Hz → HPF 440 Hz → Butterworth LPF at `min(14 kHz, 0.45·fs)`, trim +1.10 dB |
+| **`Famicom`** | The **`Nes`** character with the Famicom output stage instead: a single HPF 37 Hz → the same LPF, trim −0.27 dB. It keeps the bass and kick fundamentals the NES chain removes (at 65 Hz the APU measures −1.2 dB against −21.1 dB for `Nes`) |
+
+**`Famicom`** is value 2, the value earlier APU releases called `Hybrid`. **`SoundProfile::Hybrid`** still compiles as a deprecated alias of **`Famicom`**, but since APU 2.3.0 value 2 sounds different: decays are linear, SAW is the ideal ramp, the low end is kept and the master level is lower. Replace `Hybrid` with `Famicom` to silence the warning, and re-check content tuned for the old `Hybrid` by ear.
 
 Switch it with a command, from the game thread:
 
@@ -170,11 +172,13 @@ Or call **`setSoundProfile()`** directly on the audio thread through **`getApuCo
 
 What to expect when you switch:
 
-- **The level is matched; the peaks are not.** Both audible profiles carry a trim matched on crest-weighted loudness against **`Legacy`**, so a switch changes character rather than volume. Their transients are hotter: roughly **37 %** (**`Nes`**) and **41 %** (**`Hybrid`**) of full scale on the APU's canonical track against **18 %** for **`Legacy`**, and about **52 % / 51 %** against **36 %** on a dense mix. A game that mixes by peak should re-check its master level.
-- **`Nes` and `Hybrid` render the integer core on every platform** — desktop, ESP32, ESP32-S3 and ESP32-C3 alike. That is what makes them identical across targets, and it is why their CPU cost is the integer cost.
-- **Only `Hybrid` band-limits SAW.** **`Legacy`** and **`Nes`** keep the ideal ramp and its aliasing; `Nes` does so on purpose, because its PULSE character deliberately reproduces the NES's own artefacts. **`SINE`** is untouched on every profile.
+- **The level is matched; the peaks are not.** Both audible profiles carry a trim matched on crest-weighted loudness against **`Legacy`**, so a switch changes character rather than volume. Their transients are hotter: roughly **37 %** (**`Nes`**) and **20 %** (**`Famicom`**) of full scale on the APU's canonical track against **18 %** for **`Legacy`**, and about **52 %** (**`Nes`**) against **36 %** on a dense mix (the APU has not measured **`Famicom`** on a dense mix). A game that mixes by peak should re-check its master level.
+- **`Nes` and `Famicom` render the integer core on every platform** — desktop, ESP32, ESP32-S3 and ESP32-C3 alike. That is what makes them identical across targets, and it is why their CPU cost is the integer cost.
+- **Every profile renders the ideal SAW ramp**, aliasing included; the NES profiles keep it on purpose, because their character deliberately reproduces the NES's own artefacts. The APU's band-limited SAW is dormant. **`SINE`** is untouched on every profile.
+- **The default envelope is linear under every profile.** A note gets the exponential DECAY/RELEASE only when its preset asks for **`EnvelopeCurve::Exponential`**.
+- **Drums under the NES profiles.** **`INSTR_KICK`** and **`INSTR_SNARE`** keep their authored noise period (60 and 15 samples) under **`Nes`** and **`Famicom`**, so the kick keeps its body and the snare its crack; **`INSTR_HIHAT`** takes NES period LUT index 0, the bright NES hi-hat. **`Legacy`** plays all three at their authored period. **`INSTR_KICK_TRI`** on a TRIANGLE track glides from 196 Hz to 50 Hz in 45 ms; double it with a short NOISE hit on the same step for the classic NES attack.
 - **An explicit `setHpfCutoffHz()` wins** over the profile chain and suppresses the level trim with it: that call asks for the historical one-pole, level included.
-- **On `esp32-c3-devkitm-1`, 32 kHz is not viable for `Nes` / `Hybrid`**: at eight voices they measure **50.1 %** and **50.9 %** of the block against the half-block rule the scheduler needs, while **`Legacy`** keeps it at **48.7 %**. Stay at 22 050 Hz on that board, or stay on `Legacy`.
+- **On `esp32-c3-devkitm-1`, 32 kHz is not viable for `Nes` / `Famicom`**: at eight voices **`Nes`** measures **50.1 %** of the block against the half-block rule the scheduler needs, while **`Legacy`** keeps it at **48.7 %**. **`Famicom`** does the same per-sample work as **`Nes`**; it was not measured on that board, so it is not expected to fit at 32 kHz either. Stay at 22 050 Hz on that board, or stay on `Legacy`.
 
 Hear all three side by side in **[`examples/apu_profiles`](../../examples/apu_profiles/README.md)**, which renders the same track under each profile.
 
@@ -230,7 +234,7 @@ See **[AudioEngine](../api/audio.md)** for **`AudioConfig`** fields and architec
 | **ESP32-C3 (no FPU)** | LUT + Q15 Fixed-Point HPF | Clocked LFSR + Q15 LFO | Same; integer path with Q15 LFO and HPF, static function pointer dispatch for wave generation |
 | **PC (native)** | Float + soft clip + HPF | Same LFSR as firmware | `std::thread` + ring buffer → SDL2 callback |
 
-That table describes the default **`Legacy`** profile. **`Nes`** and **`Hybrid`** render the integer core on every platform — the FPU row included — and add the NES output chain on top of the summed mix.
+That table describes the default **`Legacy`** profile. **`Nes`** and **`Famicom`** render the integer core on every platform — the FPU row included — and add their output stage on top of the summed mix.
 
 ## Best practices
 
@@ -245,5 +249,5 @@ That table describes the default **`Legacy`** profile. **`Nes`** and **`Hybrid`*
 - **[AudioEngine & types](../api/audio.md)** — Methods, `AudioEvent`, `AudioCommand`, `AudioConfig`, music transport queries
 - **[AudioScheduler](../api/audio.md#architecture-notes)** — Schedulers vs **`ApuCore`**
 - **[MusicPlayer](../api/audio.md#playing-music)** — Tracks, presets, tempo/BPM
-- **[`examples/apu_profiles`](../../examples/apu_profiles/README.md)** — The three profiles on one track; the shortest way to hear what `Nes` and `Hybrid` change
+- **[`examples/apu_profiles`](../../examples/apu_profiles/README.md)** — The three profiles on one track; the shortest way to hear what `Nes` and `Famicom` change
 - **Engine source:** [`ApuCore.h` / `ApuCore.cpp`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Game-Engine/tree/main/include/audio) — authoritative implementation

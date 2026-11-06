@@ -2,7 +2,7 @@
 
 Auto-generated API documentation from C++ header files.
 
-The `apu` module documents PixelRoot32-APU `2.2.0`.
+The `apu` module documents PixelRoot32-APU `2.3.0`.
 
 ## Apu
 
