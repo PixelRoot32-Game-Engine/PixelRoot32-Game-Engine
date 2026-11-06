@@ -24,7 +24,7 @@ Mixing curve:
   output:      y * masterVolume * 32767, passed through a single-pole
                DC-blocker to remove offset + transient clicks.
 
-`Nes`/`Hybrid` replace the uniform per-channel weighting with
+`Nes`/`Famicom` replace the uniform per-channel weighting with
 `MixerCurve::NesWeighted` (S4): the voices are summed per group and the
 published NES ratios decide how much each group contributes, with the
 PULSE group anchored at exactly the level above so the change is
@@ -39,7 +39,7 @@ summation rather than per channel, because the table's mapping already
 contains the 0.4 — see AudioMixerLUT.h.
 
 Since the profiles arrived (S3) the selector, not the target, decides
-which body runs: `Nes`/`Hybrid` use the integer core on every build, and
+which body runs: `Nes`/`Famicom` use the integer core on every build, and
 `Legacy` falls back to it where the float body is not compiled
 (`PR32_APU_ENABLE_LEGACY_FLOAT == 0`).
 
@@ -273,8 +273,9 @@ Select the character set applied to every voice.
 
 **Parameters:**
 
-- `profile`: Profile to apply. `Legacy`, `Nes` or `Hybrid`;
-               anything else is ignored.
+- `profile`: Profile to apply. `Legacy`, `Nes` or `Famicom`
+               (or its deprecated alias `Hybrid`); anything else is
+               ignored.
 
 ### `SoundProfile getSoundProfile() const`
 
@@ -770,7 +771,7 @@ Available only when UNIT_TEST is defined. Not for game code.
 
 **Description:**
 
-Test-only: SAW mipmap level the `Hybrid` read selects.
+Test-only: SAW mipmap level the dormant band-limited read selects.
 
 **Parameters:**
 
@@ -1266,7 +1267,7 @@ Test-only: current master output shaping curve.
 Test-only: mixer curve the active profile selects.
 
 **Returns:** `Rational` under `Legacy`, `NesWeighted` under `Nes` and
-        `Hybrid`.
+        `Famicom`.
 
 ### `uint32_t getProfileApplyCountForTesting() const`
 
@@ -1316,7 +1317,7 @@ Test-only: current Q15 ADSR level of a voice slot.
 
 Test-only: true when the profile chain is installed.
 
-**Returns:** true when the render loop runs the three-stage chain.
+**Returns:** true when the render loop runs the profile chain.
 
 ### `bool isOutputFilterLpfActiveForTesting() const`
 
@@ -1462,7 +1463,7 @@ Applies the active profile's character to one voice.
 
 **Description:**
 
-Derive the `Nes` / `Hybrid` output chain from profile and rate.
+Derive the `Nes` / `Famicom` output chain from profile and rate.
 
 ### `void resetOutputFilterState()`
 

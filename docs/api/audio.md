@@ -22,7 +22,7 @@ The Audio module provides a **NES-inspired** synthesis stack (Pulse, Triangle, N
 - `TRIANGLE`: Triangle wave (fixed volume/duty).
 - `NOISE`: LFSR-based noise (deterministic, NES-style 15-bit polynomial).
 - `SINE`: Band-limited sine via LUT.
-- `SAW`: Sawtooth. `Legacy` and `Nes` render the ideal ramp, aliasing included; `Hybrid` reads a band-limited mipmap.
+- `SAW`: Sawtooth. Every profile renders the ideal ramp, aliasing included (the APU's band-limited SAW has been dormant since 2.3.0).
 
 All `WaveType` values share the same **`MAX_VOICES`** pool. Under contention the implementation may steal a voice (lowest steal score; looping SFX score 0) to make room for a new event. Internally, `VoiceType` mirrors these for allocation logic.
 
@@ -33,27 +33,31 @@ All `WaveType` values share the same **`MAX_VOICES`** pool. Under contention the
 | Profile | Render core | Character |
 |---|---|---|
 | `Legacy` (default) | float on FPU targets, integer elsewhere | the historical sound: rational mix curve, bipolar noise, continuous PULSE duty, ideal SAW ramp, single-pole HPF |
-| `Nes` | integer everywhere | NES-weighted mix, unipolar noise on the NES period LUT, PULSE duty snapped to the four NES steps, and the NES output chain (HPF 90 Hz → HPF 440 Hz → Butterworth LPF) |
-| `Hybrid` | integer everywhere | the `Nes` character plus an exponential DECAY/RELEASE envelope and a band-limited SAW read from a mipmap |
+| `Nes` | integer everywhere | linear envelope plus the 4-bit `nesEnvelope`, NES-weighted mix, unipolar noise on the NES period LUT, PULSE duty snapped to the four NES steps, ideal SAW ramp, and the front-loading NES output stage (HPF 90 Hz → HPF 440 Hz → Butterworth LPF at `min(14 kHz, 0.45·fs)`), trim +1.10 dB |
+| `Famicom` | integer everywhere | the `Nes` character with the Famicom output stage instead: a single HPF 37 Hz → the same LPF, which keeps the bass and kick fundamentals the NES chain removes; trim −0.27 dB |
+
+`Famicom` is value 2. `SoundProfile::Hybrid` is a `[[deprecated]]` alias of it (same value, so a stored `2` keeps working and existing code compiles with a warning). Since APU 2.3.0 value 2 no longer has the exponential default envelope or the band-limited SAW of the old `Hybrid`: it sounds fuller in the bass and is quieter in peak.
 
 The profile is audio-thread state. From the game thread, switch it with a `SET_SOUND_PROFILE` command — the documented path, which produces exactly the state `ApuCore::setSoundProfile` produces on the audio thread:
 
 ```cpp
 AudioCommand cmd{};
 cmd.type = AudioCommandType::SET_SOUND_PROFILE;
-cmd.soundProfile = static_cast<uint8_t>(SoundProfile::Hybrid);
+cmd.soundProfile = static_cast<uint8_t>(SoundProfile::Famicom);
 audio.submitCommand(cmd);
 ```
 
-`init()` deliberately does not reset it, so restarting the audio stream keeps the caller's choice. Switching profiles changes the character, not the loudness: `Nes` and `Hybrid` carry a level trim matched on crest-weighted loudness against `Legacy`. Their peaks are higher, though — on the canonical track about 37 % (`Nes`) and 41 % (`Hybrid`) of full scale against `Legacy`'s 18 %, and about 52 % / 51 % on a dense mix against 36 % — so a game that mixes by peak should still check its master level.
+`init()` deliberately does not reset it, so restarting the audio stream keeps the caller's choice. Switching profiles changes the character, not the loudness: `Nes` and `Famicom` carry a level trim matched on crest-weighted loudness against `Legacy`. Peaks still differ: on the APU's canonical track `Nes` peaks at about 37 % of full scale and `Famicom` at about 20 %, against `Legacy`'s 18 %; on a dense mix `Nes` reaches about 52 % against 36 % (the APU has not measured `Famicom` on a dense mix). A game that mixes by peak should still check its master level.
 
-`Legacy` and `Nes` keep the ideal SAW ramp, aliasing included; only `Hybrid` band-limits it. `SINE` is identical on every profile. An explicit `setHpfCutoffHz()` call suppresses the `Nes`/`Hybrid` chain and its trim, which puts that voice back on the historical one-pole. The APU's `docs/ABI.md` §6 holds the full matrix and the per-character defaults.
+Every profile keeps the ideal SAW ramp, aliasing included. `SINE` is identical on every profile. The default envelope is linear under every profile; a note gets the exponential DECAY/RELEASE only when its preset asks for `EnvelopeCurve::Exponential`. An explicit `setHpfCutoffHz()` call suppresses the `Nes`/`Famicom` output stage and its trim, which puts the mix back on the historical one-pole. The APU's `docs/ABI.md` §6 holds the full matrix and the per-character defaults.
 
 ### Predefined Instrument Presets
 
 Melodic instruments: `INSTR_PULSE_LEAD`, `INSTR_PULSE_HARMONY`, `INSTR_PULSE_PAD`, `INSTR_PULSE_BASS`, `INSTR_TRIANGLE_LEAD`, `INSTR_TRIANGLE_PAD`, `INSTR_TRIANGLE_BASS`.
 
-Percussion instruments (duty=0, use with WaveType::NOISE): `INSTR_KICK`, `INSTR_SNARE`, `INSTR_HIHAT`.
+Percussion instruments (duty=0, use with WaveType::NOISE): `INSTR_KICK`, `INSTR_SNARE`, `INSTR_HIHAT`. Under `Nes` and `Famicom`, `INSTR_KICK` and `INSTR_SNARE` keep their authored noise period (60 and 15 samples) and `INSTR_HIHAT` takes NES period LUT index 0, the bright NES hi-hat; `Legacy` plays all three at their authored period.
+
+Triangle kick: `INSTR_KICK_TRI`, played on a TRIANGLE track (typically the bass), glides from 196 Hz (`makeNote(INSTR_KICK_TRI, Note::G, beats)`, octave 3) down to 50 Hz in 45 ms with no sustain. Double it with a short NOISE hit on the same step for the classic NES attack. It renders under every profile and is tuned for the NES ones (APU `docs/ABI.md` §7).
 
 ## Usage Examples
 
@@ -142,7 +146,7 @@ void MyScene::init() {
 | `PIXELROOT32_NO_DAC_AUDIO` | - | Disable internal DAC backend on classic ESP32 |
 | `PIXELROOT32_NO_I2S_AUDIO` | - | Disable I2S audio backend |
 | `ApuCore::MAX_VOICES` | `8` | Synthesis voice pool size |
-| `SoundProfile` | `Legacy` | Character applied to every voice; `Nes` and `Hybrid` also select the NES output chain and its level trim. Set with `SET_SOUND_PROFILE` from the game thread |
+| `SoundProfile` | `Legacy` | Character applied to every voice; `Nes` and `Famicom` also select their output stage and its level trim (`Hybrid` is a deprecated alias of `Famicom`). Set with `SET_SOUND_PROFILE` from the game thread |
 | `AudioCommandQueue::CAPACITY` | `64` | SPSC ring capacity (range 32–64; 63 usable commands) |
 | `ESP32_I2S_AudioBackend::blockSize` | `512` (FPU) / `1024` (no FPU) | Render block in samples, read from `AudioConfig::blockSize`; multiple of 128, at most `PR32_AUDIO_MAX_BLOCK_SAMPLES` (1024) |
 

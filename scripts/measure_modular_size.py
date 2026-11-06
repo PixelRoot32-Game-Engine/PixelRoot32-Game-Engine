@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Build modular_size_bench A/B configs and report Flash/RAM deltas (ESP32)."""
+"""Build modular_size_bench A/B configs and report Flash/RAM deltas (ESP32).
+
+The four default-on subsystems (audio, physics, UI, particles) are measured as
+`measure_full` minus their `measure_no_*` build, i.e. the saving when the flag
+is disabled. Networking and persistence default to 0, so `measure_full` already
+leaves them out; their cost is measured as `measure_networking` /
+`measure_persistence` minus `measure_full`, i.e. the cost of enabling them.
+"""
 
 from __future__ import annotations
 
@@ -18,8 +25,17 @@ ENVS = [
     "measure_no_physics",
     "measure_no_ui",
     "measure_no_particles",
+    "measure_networking",
+    "measure_persistence",
     "measure_all_off",
 ]
+
+# Opt-in flags: the delta runs the other way (enabled build minus measure_full)
+# because the flag defaults to 0, so there is no "disabled" build to subtract.
+OPT_IN_ENVS = {
+    "networking": "measure_networking",
+    "persistence": "measure_persistence",
+}
 
 # GNU size output: text / data / bss / dec / hex / filename
 SIZE_GNU_RE = re.compile(
@@ -178,6 +194,22 @@ def main() -> int:
         deltas["all"]["ram_bytes"] = deltas["all"]["ram_static_bytes"] + sizeofs["ESP32AudioScheduler"]
         deltas["all"]["ram_display"] = round_display_kb(deltas["all"]["ram_bytes"])
 
+    opt_in_deltas = {}
+    for key, env in OPT_IN_ENVS.items():
+        r = results[env]
+        # Enabled build minus the reference: positive means the module costs
+        # bytes, which is the direction a reader of the landing table expects
+        # for an opt-in flag.
+        ram = r["ram_bytes"] - full["ram_bytes"]
+        flash = r["flash_bytes"] - full["flash_bytes"]
+        opt_in_deltas[key] = {
+            "env": env,
+            "ram_bytes": ram,
+            "flash_bytes": flash,
+            "ram_display": round_display_kb(ram),
+            "flash_display": round_display_kb(flash),
+        }
+
     payload = {
         "target": "esp32dev",
         "resolution": "128x128",
@@ -185,16 +217,24 @@ def main() -> int:
             "flash": "pio size delta: measure_full vs flag-disabled build (code linked via BenchScene refs)",
             "ram_static": "pio size .data+.bss delta",
             "ram_audio_heap": "sizeof(ESP32AudioScheduler) always allocated when AUDIO=1",
+            "opt_in": "networking/persistence default to 0, so their delta is the enabled build minus measure_full: the cost of enabling the engine module, not a saving of disabling it. Platform backends are excluded, because ESP32EspNowTransport pulls the whole Wi-Fi/lwIP stack (~580 KB flash) and the NVS adapters add their own driver cost; those measure the driver, not the flag",
             "note": "ESP32 base_esp32 uses reduced physics grid (4/4/64). Particles RAM includes 1 ParticleEmitter member pool.",
         },
         "builds": results,
         "sizeofs": sizeofs,
         "deltas": deltas,
+        "opt_in_deltas": opt_in_deltas,
     }
 
     OUT_JSON.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print("\n=== DELTAS (full - disabled) ===")
     for key, d in deltas.items():
+        print(
+            f"{key:10} RAM {d['ram_display']:>8} ({d['ram_bytes']} B)  "
+            f"Flash {d['flash_display']:>8} ({d['flash_bytes']} B)"
+        )
+    print("\n=== OPT-IN DELTAS (enabled - full) ===")
+    for key, d in opt_in_deltas.items():
         print(
             f"{key:10} RAM {d['ram_display']:>8} ({d['ram_bytes']} B)  "
             f"Flash {d['flash_display']:>8} ({d['flash_bytes']} B)"

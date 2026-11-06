@@ -8,7 +8,7 @@
 
 Whether a PULSE note keeps the continuous duty generator (E3/A2).
 
-`Nes` and `Hybrid` snap a static duty to the nearest of the four NES
+`Nes` and `Famicom` snap a static duty to the nearest of the four NES
 patterns (12.5 / 25 / 50 / 75 %). Rounding 30 % to 25 % is what the
 hardware can express, but it makes a value the tool can already author
 unsayable under a profile.

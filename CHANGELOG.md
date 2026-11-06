@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+# 1.14.1
+
+A patch release with no engine API change: the engine now requires PixelRoot32-APU `^2.3.0`, its documentation describes the `Legacy` / `Nes` / `Famicom` profiles, and the `apu_profiles` example plays its complex piece in time.
+
+### Changed
+
+* **PixelRoot32-APU dependency raised to `^2.3.0`** (`library.json` and the `native_test` environment): the engine now builds against the APU release that ships the `Famicom` profile, the NES drum period policy and `INSTR_KICK_TRI`.
+
+* **`SoundProfile::Famicom` replaces `Hybrid` (behaviour change for profile value 2)**: `Famicom` is value 2, so a stored `2` keeps working, and `SoundProfile::Hybrid` remains a `[[deprecated]]` alias of it, so existing code compiles with a warning. It has the `Nes` character (linear default envelope, ideal SAW ramp, stepped NES duty, unipolar noise, NES-weighted mix) and differs from `Nes` only in the output stage: HPF 37 Hz → LPF `min(14 kHz, 0.45·fs)` with a −0.27 dB trim, against `Nes`'s HPF 90 Hz → HPF 440 Hz → LPF and +1.10 dB, so bass and kick fundamentals survive. Content tuned for the old `Hybrid` should be re-checked by ear: decays are linear instead of exponential, SAW is no longer band-limited, the low end is louder relative to the rest and the master level is lower (canonical-track peak about 20 % of full scale instead of 41 %). A note can still request `EnvelopeCurve::Exponential`. The audio API, guide and architecture pages and the generated `apu` API reference describe the three profiles as `Legacy` / `Nes` / `Famicom`.
+
+* **`examples/apu_profiles` plays `Famicom`**, and its complex piece is now a four-track transcription of the Tool Suite sample "Crystal Cascade" (150 BPM): every timed voice is a sequencer track of the same 64-step length, replacing the `millis()`-driven SFX layer that drifted against the music.
+
+### Added
+
+* **Drum presets for the NES profiles, from APU 2.3.0**: under `Nes` and `Famicom`, `INSTR_KICK` and `INSTR_SNARE` keep their authored noise period (60 and 15 samples) instead of collapsing to the 1-sample hiss of NES period LUT index 0, while `INSTR_HIHAT` takes index 0, the bright NES hi-hat; `Legacy` is unchanged. New `INSTR_KICK_TRI`, a triangle kick for a TRIANGLE track that glides from 196 Hz to 50 Hz in 45 ms.
+
 # 1.14.0
 
 ### Added

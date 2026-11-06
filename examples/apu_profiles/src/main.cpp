@@ -8,7 +8,7 @@
  * @brief Example: the three APU sound profiles, judged by ear.
  *
  * Nine 12-second blocks - `simple`, `medium` and `complex`, each under
- * `Legacy`, `Nes` and `Hybrid` - loop forever. Only a human ear can answer
+ * `Legacy`, `Nes` and `Famicom` - loop forever. Only a human ear can answer
  * "which profile sounds better", so this example fixes everything else: the
  * programme, the order, the length and the hardware. It therefore does the two
  * things a listener needs and nothing else:
@@ -29,9 +29,12 @@
  * be attributed to the number of voices:
  *   simple  - one PULSE melody (one voice).
  *   medium  - melody + TRIANGLE bass + NOISE hi-hat (three voices).
- *   complex - four music tracks (melody, harmony a third above, bass, percussion)
- *             plus a four-voice PLAY_EVENT layer on the SFX slots (eight voices
- *             at the peak), the same partition the gate harness exercises.
+ *   complex - the Tool Suite sample song "Crystal Cascade" at 150 BPM: four
+ *             sequencer tracks (12.5 % PULSE lead, TRIANGLE bass, 25 % PULSE
+ *             harmony, NOISE drum kit) on one 16th-note grid, every track exactly
+ *             64 steps long. Three melodic voices, plus drum hits that the
+ *             sequencer plays on the SFX slots, up to three overlapping at the
+ *             pattern's closing crash (six voices at the peak).
  *
  * A status panel (TFT_eSPI, ILI9341) is repainted once per block with the piece
  * and the profile, so the listener can see from across the room what the serial
@@ -42,9 +45,11 @@
  * No buttons, no dynamic allocation in the audio path: every note table is
  * `constexpr` and lives in flash.
  *
- * Ported from the PixelRoot32-APU repository's `tools/apu_listen` harness. The
- * behaviour, the serial contract and the panel layout are unchanged on purpose,
- * so a transcript from either build can be compared line for line.
+ * This example is the APU listening harness: it replaced the PixelRoot32-APU
+ * repository's `tools/apu_listen`, which moved here. The serial contract and
+ * the panel layout are kept on purpose so older transcripts stay readable; the
+ * complex piece is a transcription of a Tool Suite sample song since APU 2.3.0,
+ * so its earlier `peak`/`hash` figures are not comparable.
  */
 
 #if defined(PLATFORM_NATIVE)
@@ -80,20 +85,21 @@ using pixelroot32::audio::AudioConfig;
 using pixelroot32::audio::AudioEngine;
 using pixelroot32::audio::AudioEvent;
 using pixelroot32::audio::AudioScheduler;
+using pixelroot32::audio::EnvelopeCurve;
 using pixelroot32::audio::InstrumentPreset;
+using pixelroot32::audio::LfoTarget;
 using pixelroot32::audio::MusicNote;
 using pixelroot32::audio::MusicTrack;
+using pixelroot32::audio::NoisePeriodMode;
 using pixelroot32::audio::Note;
 using pixelroot32::audio::SoundProfile;
 using pixelroot32::audio::WaveType;
 
 using pixelroot32::audio::INSTR_HIHAT;
 using pixelroot32::audio::INSTR_KICK;
-using pixelroot32::audio::INSTR_PULSE_HARMONY;
 using pixelroot32::audio::INSTR_PULSE_LEAD;
 using pixelroot32::audio::INSTR_SNARE;
 using pixelroot32::audio::INSTR_TRIANGLE_BASS;
-using pixelroot32::audio::noteToFrequency;
 
 #if defined(PLATFORM_NATIVE)
 using pixelroot32::drivers::native::SDL2_AudioBackend;
@@ -166,10 +172,11 @@ static_assert(kScreenWidth == TFT_HEIGHT && kScreenHeight == TFT_WIDTH,
 /** @brief One block per piece x profile combination. */
 constexpr uint32_t kBlockMs = 12000;
 
-/** @brief Tempo of every piece: one beat is 500 ms, one eighth note 250 ms. */
+/**
+ * @brief Tempo of the simple and medium pieces: one beat is 500 ms. The complex
+ *        piece plays at its source song's own tempo (`kCascadeBpm`).
+ */
 constexpr float kBpm = 120.0f;
-/** @brief Eighth-note grid used by the complex piece's SFX layer. */
-constexpr uint32_t kEighthNoteMs = 250;
 
 /** @brief Pieces and profiles, and therefore blocks, in the programme. */
 constexpr uint8_t kPieceCount = 3;
@@ -308,72 +315,370 @@ constexpr MusicTrack kMediumBassTrack{kMediumBassNotes, countOf(kMediumBassNotes
 constexpr MusicTrack kMediumHatTrack{kMediumHatNotes, countOf(kMediumHatNotes), true,
                                      WaveType::NOISE, 0.5f, nullptr, nullptr, nullptr};
 
-// -- complex: four music tracks ---------------------------------------------
+// -- complex: "Crystal Cascade", transcribed from the Tool Suite ---------------
+//
+// The complex piece is the PixelRoot32 Tool Suite sample song "Crystal Cascade"
+// (`toolsuite_app/samples/music/Crystal_Cascade.pr32music`, 150 BPM, 4 steps per
+// beat, 64-step patterns): the first pattern of each of its four tracks (L_a,
+// B_a, H_a, D_a), written out the way the Tool Suite's preview builds a song.
+// That is the Tool Suite's sequencing model, and it is what keeps the piece in
+// time:
+//
+// - every timed voice is a sequencer track; nothing is fired from `millis()`;
+// - notes sit on one 16th-note step grid, by start step and length in steps;
+//   a gap between notes is one merged rest;
+// - every track spans exactly the same 64 steps (16 beats), so the four tracks
+//   loop together forever (checked at compile time below);
+// - drum-kit hits on the same step stack with duration 0, and the last hit of a
+//   step carries the time to the next one, exactly like the Tool Suite's
+//   drum-kit timeline (several lanes, one NOISE track);
+// - a note's volume is `preset.baseVolume * track.volume * note.volume`.
+//
+// The song's library instruments are not shipped by the APU, so the ones it
+// uses are defined here with the Tool Suite catalogue's values. Kick, snare and
+// hi-hat are the APU's own `INSTR_*` presets, which is what the song names.
 
+/** @brief Tempo of the complex piece, the song's own. */
+constexpr float kCascadeBpm = 150.0f;
+/** @brief Grid resolution of the song: four 16th-note steps per beat. */
+constexpr int kCascadeStepsPerBeat = 4;
+/** @brief Length of every track of the piece: one 64-step pattern. */
+constexpr int kCascadePatternSteps = 64;
+static_assert(kCascadeStepsPerBeat == ApuCore::TICKS_PER_BEAT,
+              "one song step is one sequencer tick, so no step is ever rounded");
+
+/** @brief Track volumes from the song (`arrangement.tracks[].volume`). */
+constexpr float kCascadeLeadVolume = 0.72f;
+constexpr float kCascadeBassVolume = 0.75f;
+constexpr float kCascadeHarmonyVolume = 0.48f;
+constexpr float kCascadeDrumsVolume = 0.5f;
+
+/**
+ * @brief Melodic library preset with the Tool Suite catalogue's field order.
+ * @param volume Base volume.
+ * @param duty Pulse duty.
+ * @param octave Default octave.
+ * @param attack Attack time (s).
+ * @param decay Decay time (s).
+ * @param sustain Sustain level [0, 1].
+ * @param release Release time (s).
+ * @return The preset; every other field keeps its default.
+ */
+constexpr InstrumentPreset libMelodic(float volume, float duty, uint8_t octave, float attack,
+                                      float decay, float sustain, float release)
+{
+    return InstrumentPreset{volume, duty, octave, 0.0f, 0, attack, decay, sustain, release};
+}
+
+/**
+ * @brief NOISE drum library preset with the Tool Suite catalogue's field order.
+ *
+ * Like the Tool Suite's drum kit (and the APU's own `INSTR_*` drums), the
+ * authored noise period is pinned per note, so a NES profile does not retune it.
+ * @param volume Base volume.
+ * @param octave Drum-type selector (1 kick, 2 snare, 3+ hat/cymbal).
+ * @param duration Fixed hit length (s).
+ * @param noisePeriod Authored LFSR period.
+ * @param attack Attack time (s).
+ * @param decay Decay time (s).
+ * @param release Release time (s).
+ * @param shortLfsr True for the metallic 93-step LFSR.
+ * @return The preset.
+ */
+constexpr InstrumentPreset libDrum(float volume, uint8_t octave, float duration,
+                                   uint8_t noisePeriod, float attack, float decay,
+                                   float release, bool shortLfsr)
+{
+    return InstrumentPreset{volume,
+                            0.0f,
+                            octave,
+                            duration,
+                            noisePeriod,
+                            attack,
+                            decay,
+                            0.0f,
+                            release,
+                            LfoTarget::NONE,
+                            0.0f,
+                            0.0f,
+                            0.0f,
+                            shortLfsr,
+                            0.0f,
+                            0.0f,
+                            0.0f,
+                            false,      // nesAccurate
+                            shortLfsr,  // noiseShortMode, kept in sync with noiseLfsrShort
+                            EnvelopeCurve::ProfileDefault,
+                            NoisePeriodMode::Note};
+}
+
+// Tool Suite library instruments the song uses (music_instrument_catalog.cpp).
+constexpr InstrumentPreset kLibPulseSpark = libMelodic(0.36f, 0.125f, 5, 0.001f, 0.05f, 0.35f, 0.06f);
+constexpr InstrumentPreset kLibPulseThin = libMelodic(0.36f, 0.125f, 5, 0.001f, 0.10f, 0.80f, 0.16f);
+constexpr InstrumentPreset kLibPulsePluck = libMelodic(0.38f, 0.25f, 4, 0.001f, 0.12f, 0.40f, 0.08f);
+constexpr InstrumentPreset kLibPulseMarimba = libMelodic(0.32f, 0.25f, 5, 0.001f, 0.20f, 0.05f, 0.12f);
+constexpr InstrumentPreset kLibTriangleSubBass = libMelodic(0.40f, 0.5f, 1, 0.004f, 0.12f, 0.65f, 0.16f);
+constexpr InstrumentPreset kLibDrumCrash = libDrum(0.26f, 7, 0.22f, 10, 0.0005f, 0.28f, 0.08f, true);
+constexpr InstrumentPreset kLibDrumOpenHat = libDrum(0.22f, 4, 0.12f, 11, 0.0005f, 0.15f, 0.02f, true);
+
+/**
+ * @brief Converts a length in song steps to sequencer beats.
+ * @param count Number of 16th-note steps.
+ * @return Length in beats.
+ */
+constexpr float steps(int count)
+{
+    return static_cast<float>(count) / static_cast<float>(kCascadeStepsPerBeat);
+}
+
+/**
+ * @brief One melodic note of the song, as the Tool Suite builds it.
+ * @param preset Instrument the note (or its track) names.
+ * @param trackVolume The track's volume.
+ * @param pitch Note name.
+ * @param octave Octave.
+ * @param lengthSteps Length in steps.
+ * @param noteVolume The note's own volume.
+ * @return The note; its volume is `baseVolume * trackVolume * noteVolume`.
+ */
+constexpr MusicNote tone(const InstrumentPreset& preset, float trackVolume, Note pitch,
+                         uint8_t octave, int lengthSteps, float noteVolume)
+{
+    return MusicNote{pitch, octave, steps(lengthSteps),
+                     preset.baseVolume * trackVolume * noteVolume, &preset};
+}
+
+/**
+ * @brief One drum-kit hit of the song, as the Tool Suite builds it.
+ *
+ * A `Note::Rest` with a duty-0 preset is the sequencer's percussion hit. A
+ * length of 0 steps stacks the hit on the same step as the next one; the last
+ * hit of a step carries the time to the next step that has a hit.
+ * @param preset Drum preset.
+ * @param lengthSteps Steps until the next hit (0 = stacked).
+ * @param noteVolume The hit's own volume.
+ * @return The hit; octave 1 as the song stores it (the preset picks the drum).
+ */
+constexpr MusicNote drum(const InstrumentPreset& preset, int lengthSteps, float noteVolume)
+{
+    return MusicNote{Note::Rest, 1, steps(lengthSteps),
+                     preset.baseVolume * kCascadeDrumsVolume * noteVolume, &preset};
+}
+
+/**
+ * @brief Total length of a note table in beats.
+ * @param notes Note table.
+ * @return Sum of every note's duration.
+ */
+template <size_t N>
+constexpr float beatsOf(const MusicNote (&notes)[N])
+{
+    float total = 0.0f;
+    for (size_t i = 0; i < N; ++i) {
+        total += notes[i].duration;
+    }
+    return total;
+}
+
+// Lead (L_a): PULSE, 12.5 % duty, `LIB_PULSE_SPARK` with `LIB_PULSE_THIN` on steps
+// 3, 11, 19, ... (the last 16th of every other beat). One 16th per step, no gaps.
 constexpr MusicNote kComplexMelodyNotes[] = {
-    note(INSTR_PULSE_LEAD, Note::A, 4, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::C, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::E, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::D, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::C, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::A, 4, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::C, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::A, 4, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::E, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::G, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::A, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::G, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::D, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::B, 4, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::D, 5, 1.0f, 0.30f),
-    note(INSTR_PULSE_LEAD, Note::G, 4, 1.0f, 0.30f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::C, 5, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::A, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::F, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::F, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::F, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::G, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::A, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::E, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::E, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 2, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::F, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::F, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::F, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::C, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 4, 1, 0.68f),
+    tone(kLibPulseThin, kCascadeLeadVolume, Note::G, 4, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 4, 1, 0.82f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::B, 3, 1, 0.55f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::G, 3, 1, 0.68f),
+    tone(kLibPulseSpark, kCascadeLeadVolume, Note::D, 3, 1, 0.55f),
 };
 
-// A diatonic third above the melody on the shipped 25 % duty harmony preset, so
-// the lead's stepped 50 % duty and this voice's continuous 25 % duty are heard
-// side by side under `Nes`/`Hybrid`.
-constexpr MusicNote kComplexHarmonyNotes[] = {
-    note(INSTR_PULSE_HARMONY, Note::C, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::E, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::G, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::F, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::E, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::C, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::E, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::C, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::G, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::B, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::C, 6, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::B, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::F, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::D, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::F, 5, 1.0f, 0.18f),
-    note(INSTR_PULSE_HARMONY, Note::B, 4, 1.0f, 0.18f),
-};
-
+// Bass (B_a): TRIANGLE, `LIB_TRIANGLE_SUB_BASS`. Two chord roots per bar, each a
+// dotted eighth on the root and a 16th pickup, so the bass already lands on every
+// kick of the drum track; the triangle kick (`INSTR_KICK_TRI`) is not added here,
+// because it would replace those roots and change the song.
 constexpr MusicNote kComplexBassNotes[] = {
-    note(INSTR_TRIANGLE_BASS, Note::A, 2, 4.0f, 0.28f),
-    note(INSTR_TRIANGLE_BASS, Note::F, 2, 4.0f, 0.28f),
-    note(INSTR_TRIANGLE_BASS, Note::C, 3, 4.0f, 0.28f),
-    note(INSTR_TRIANGLE_BASS, Note::G, 2, 4.0f, 0.28f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::C, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::C, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::C, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 2, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::E, 3, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::C, 3, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::D, 3, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::A, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::E, 3, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::E, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::E, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::E, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::B, 2, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::F, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::C, 3, 1, 0.6f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 2, 3, 0.88f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 3, 1, 0.55f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::G, 2, 3, 0.78f),
+    tone(kLibTriangleSubBass, kCascadeBassVolume, Note::D, 3, 1, 0.6f),
 };
 
-// One percussion hit per beat (kick on 1 and 3, hat on 2 and 4). One hit at a
-// time matters: percussion hits borrow a voice from the SFX pool, and stacking
-// them on one tick would make the allocator reach into a sustained layer.
+// Harmony (H_a): PULSE, 25 % duty, `LIB_PULSE_PLUCK`, with `LIB_PULSE_MARIMBA`
+// opening each chord of the second half. Repeated eighth notes.
+constexpr MusicNote kComplexHarmonyNotes[] = {
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::C, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::C, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::E, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::E, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::A, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::A, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::C, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::C, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::F, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::F, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::D, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::D, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 3, 2, 0.38f),
+    tone(kLibPulseMarimba, kCascadeHarmonyVolume, Note::E, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::E, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::A, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::A, 3, 2, 0.38f),
+    tone(kLibPulseMarimba, kCascadeHarmonyVolume, Note::B, 3, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::B, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::E, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::E, 3, 2, 0.38f),
+    tone(kLibPulseMarimba, kCascadeHarmonyVolume, Note::C, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::C, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::F, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::F, 3, 2, 0.38f),
+    tone(kLibPulseMarimba, kCascadeHarmonyVolume, Note::D, 4, 2, 0.5f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::D, 4, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 3, 2, 0.38f),
+    tone(kLibPulsePluck, kCascadeHarmonyVolume, Note::G, 3, 2, 0.38f),
+};
+
+// Drums (D_a): one NOISE drum-kit track. Kick on beats 1 and 3, snare on 2 and 4,
+// hi-hat on every eighth, and a crash and an open hat closing the pattern. Hits on
+// the same step are stacked (length 0); the last one carries the step's time.
 constexpr MusicNote kComplexPercussionNotes[] = {
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
-    hit(INSTR_KICK, 0.30f), rest(1.0f), hit(INSTR_HIHAT, 0.12f), rest(1.0f),
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.75f),  // step 0
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 2
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.55f),  // step 4
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 6
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.65f),  // step 8
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 10
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.5f),  // step 12
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 14
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.75f),  // step 16
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 18
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.55f),  // step 20
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 22
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.65f),  // step 24
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 26
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.5f),  // step 28
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 30
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.75f),  // step 32
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 34
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.55f),  // step 36
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 38
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.65f),  // step 40
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 42
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.5f),  // step 44
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 46
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.75f),  // step 48
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 50
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 2, 0.55f),  // step 52
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 54
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_KICK, 2, 0.65f),  // step 56
+    drum(INSTR_HIHAT, 2, 0.18f),  // step 58
+    drum(INSTR_HIHAT, 0, 0.26f), drum(INSTR_SNARE, 0, 0.5f), drum(kLibDrumCrash, 2, 0.4f),  // step 60
+    drum(INSTR_HIHAT, 0, 0.18f), drum(kLibDrumOpenHat, 2, 0.35f),  // step 62
 };
 
+// The Tool Suite pads every track to the pattern length so the tracks loop
+// together; this is that guarantee, checked by the compiler.
+constexpr float kCascadePatternBeats = steps(kCascadePatternSteps);
+static_assert(beatsOf(kComplexMelodyNotes) == kCascadePatternBeats,
+              "the complex lead must span exactly one 64-step pattern");
+static_assert(beatsOf(kComplexHarmonyNotes) == kCascadePatternBeats,
+              "the complex harmony must span exactly one 64-step pattern");
+static_assert(beatsOf(kComplexBassNotes) == kCascadePatternBeats,
+              "the complex bass must span exactly one 64-step pattern");
+static_assert(beatsOf(kComplexPercussionNotes) == kCascadePatternBeats,
+              "the complex drums must span exactly one 64-step pattern");
+
+// Track duty is what a PULSE voice plays (the sequencer reads `MusicTrack::duty`),
+// so the lead and the harmony carry the song's 12.5 % and 25 %.
 constexpr MusicTrack kComplexMelodyTrack{kComplexMelodyNotes, countOf(kComplexMelodyNotes),
-                                         true, WaveType::PULSE, 0.5f, nullptr, nullptr,
+                                         true, WaveType::PULSE, 0.125f, nullptr, nullptr,
                                          nullptr};
 constexpr MusicTrack kComplexHarmonyTrack{
     kComplexHarmonyNotes, countOf(kComplexHarmonyNotes), true, WaveType::PULSE, 0.25f,
@@ -383,21 +688,6 @@ constexpr MusicTrack kComplexBassTrack{kComplexBassNotes, countOf(kComplexBassNo
 constexpr MusicTrack kComplexPercussionTrack{
     kComplexPercussionNotes, countOf(kComplexPercussionNotes), true, WaveType::NOISE, 0.5f,
     nullptr, nullptr, nullptr};
-
-// -- complex SFX layer, played on the four PLAY_EVENT slots -------------------
-
-/**
- * @brief Counter-melody for the SINE voice, one note per half note.
- *
- * Kept as a pitch list instead of a `MusicTrack` because this layer must own the
- * SFX slots: the four music slots are already taken by the tracks above.
- */
-constexpr Note kCounterMelodyNotes[] = {
-    Note::E, Note::G, Note::A, Note::G, Note::E, Note::D, Note::C, Note::E};
-
-/** @brief Arpeggio for the PULSE voice, one note per eighth note. */
-constexpr Note kArpeggioNotes[] = {Note::A, Note::C, Note::E, Note::A};
-constexpr uint8_t kArpeggioOctaves[] = {4, 5, 5, 5};
 
 // ---------------------------------------------------------------------------
 // Programme description.
@@ -409,24 +699,23 @@ struct Piece {
     const MusicTrack* mainTrack;                       ///< MUSIC_PLAY's primary track.
     const MusicTrack* subTracks[AudioCommand::MAX_SUB_TRACKS];  ///< MUSIC_PLAY's sub-tracks.
     uint8_t subTrackCount;                             ///< Number of valid sub-track entries.
-    bool withSfxLayer;                                 ///< True for the complex piece.
+    float bpm;                                         ///< Tempo sent with MUSIC_SET_BPM.
 };
 
 constexpr Piece kPieces[] = {
-    {"simple", &kSimpleTrack, {nullptr, nullptr, nullptr}, 0, false},
-    {"medium", &kMediumMelodyTrack, {&kMediumBassTrack, &kMediumHatTrack, nullptr}, 2,
-     false},
+    {"simple", &kSimpleTrack, {nullptr, nullptr, nullptr}, 0, kBpm},
+    {"medium", &kMediumMelodyTrack, {&kMediumBassTrack, &kMediumHatTrack, nullptr}, 2, kBpm},
     {"complex", &kComplexMelodyTrack,
-     {&kComplexHarmonyTrack, &kComplexBassTrack, &kComplexPercussionTrack}, 3, true},
+     {&kComplexHarmonyTrack, &kComplexBassTrack, &kComplexPercussionTrack}, 3, kCascadeBpm},
 };
 
 constexpr SoundProfile kProfiles[] = {SoundProfile::Legacy, SoundProfile::Nes,
-                                      SoundProfile::Hybrid};
-constexpr const char* kProfileNames[] = {"Legacy", "Nes", "Hybrid"};
+                                      SoundProfile::Famicom};
+constexpr const char* kProfileNames[] = {"Legacy", "Nes", "Famicom"};
 /** @brief Uppercase piece names for the panel; the serial lines keep lower case. */
 constexpr const char* kPieceLabels[] = {"SIMPLE", "MEDIUM", "COMPLEX"};
 /** @brief Uppercase profile names for the panel. */
-constexpr const char* kProfileLabels[] = {"LEGACY", "NES", "HYBRID"};
+constexpr const char* kProfileLabels[] = {"LEGACY", "NES", "FAMICOM"};
 
 // ---------------------------------------------------------------------------
 // Engine wiring.
@@ -543,7 +832,6 @@ BlockStats gLastStats;
 uint8_t gBlockIndex = 0;            ///< 0..8, printed as 1..9.
 uint8_t gPieceIndex = 0;            ///< Index into `kPieces` for the current block.
 uint32_t gBlockStartMs = 0;         ///< `millis()` at the current block's start.
-int32_t gGridLastServed = -1;       ///< Last eighth-note step serviced in this block.
 #if !defined(PLATFORM_NATIVE)
 uint32_t gUnderrunsAtBlockStart = 0;    ///< Backend counter snapshot, block start.
 uint32_t gWorstRenderAtBlockStart = 0;  ///< Backend counter snapshot, block start.
@@ -608,111 +896,12 @@ void submit(const AudioCommand& cmd)
 }
 
 /**
- * @brief Submits one one-shot PLAY_EVENT.
- * @param type Waveform of the voice.
- * @param frequency Voice frequency (Hz); NOISE treats it as the LFSR clock.
- * @param duration Audible length in seconds.
- * @param volume Linear event volume [0, 1].
- * @param duty Pulse duty for PULSE voices; ignored otherwise.
- * @param preset Optional instrument preset (ADSR, LFO, noise mode).
- * @param noisePeriod NOISE period override; 0 derives it from `frequency`.
- */
-void submitEvent(WaveType type, float frequency, float duration, float volume, float duty,
-                 const InstrumentPreset* preset, uint8_t noisePeriod = 0)
-{
-    AudioCommand cmd{};
-    cmd.type = AudioCommandType::PLAY_EVENT;
-    cmd.event.type = type;
-    cmd.event.frequency = frequency;
-    cmd.event.duration = duration;
-    cmd.event.volume = volume;
-    cmd.event.duty = duty;
-    cmd.event.noisePeriod = noisePeriod;
-    cmd.event.preset = preset;
-    cmd.event.loop = false;
-    submit(cmd);
-}
-
-/**
- * @brief Starts the sustained SAW pad of the complex piece.
- *
- * The pad is the one SFX voice that is a genuine `loop = true` event: it holds a
- * single pitch for the whole block and gives the eight-voice mix its bed.
- */
-void submitPad()
-{
-    AudioCommand cmd{};
-    cmd.type = AudioCommandType::PLAY_EVENT;
-    cmd.event.type = WaveType::SAW;
-    cmd.event.frequency = noteToFrequency(Note::A, 3);
-    cmd.event.duration = 0.0f;
-    cmd.event.volume = 0.10f;
-    cmd.event.duty = 0.5f;
-    cmd.event.preset = nullptr;
-    cmd.event.loop = true;
-    submit(cmd);
-}
-
-/**
- * @brief Fires the SFX voices due at one eighth-note step of the complex piece.
- *
- * A looping `PLAY_EVENT` is a sustained tone: it cannot retrigger, so a snare
- * pattern and an arpeggio have to be *submitted* on the grid. The pad above is
- * the only sustained member of this layer. Everything here is one shot, shorter
- * than the grid step, which keeps at least one SFX slot free for the next event
- * and stops the allocator from stealing the pad.
- * @param step Zero-based eighth-note index since the block started.
- */
-void fireComplexStep(uint32_t step)
-{
-    const uint8_t arpIndex = static_cast<uint8_t>(step % countOf(kArpeggioNotes));
-    submitEvent(WaveType::PULSE,
-                noteToFrequency(kArpeggioNotes[arpIndex], kArpeggioOctaves[arpIndex]),
-                0.18f, 0.12f, 0.25f, nullptr);
-
-    // 4/4 at 120 BPM: eighth steps 2 and 6 are beats 2 and 4.
-    const uint32_t stepInBar = step % 8u;
-    if (stepInBar == 2u || stepInBar == 6u) {
-        submitEvent(WaveType::NOISE, 150.0f, 0.12f, 0.26f, 0.5f, &INSTR_SNARE,
-                    INSTR_SNARE.noisePeriod);
-    }
-
-    // One counter-melody note per half note, so the SINE line moves against the
-    // PULSE melody instead of doubling it.
-    if ((step % 4u) == 0u) {
-        const uint8_t counterIndex =
-            static_cast<uint8_t>((step / 4u) % countOf(kCounterMelodyNotes));
-        submitEvent(WaveType::SINE, noteToFrequency(kCounterMelodyNotes[counterIndex], 4),
-                    0.60f, 0.14f, 0.5f, nullptr);
-    }
-}
-
-/**
- * @brief Services every eighth-note step that has elapsed in this block.
- *
- * Catch-up is capped: if the main loop stalls, replaying every missed step would
- * burst dozens of commands into a 64-slot queue. A skipped step is inaudible on
- * a 12-second listening block, a dropped command is not.
- */
-void serveComplexGrid()
-{
-    const uint32_t elapsedMs = static_cast<uint32_t>(millis() - gBlockStartMs);
-    const uint32_t grid = elapsedMs / kEighthNoteMs;
-    if (static_cast<int32_t>(grid) > gGridLastServed + 8) {
-        gGridLastServed = static_cast<int32_t>(grid) - 1;
-    }
-    while (gGridLastServed < static_cast<int32_t>(grid)) {
-        ++gGridLastServed;
-        fireComplexStep(static_cast<uint32_t>(gGridLastServed));
-    }
-}
-
-/**
  * @brief Colour the profile is coded with on the panel.
  *
  * The three colours are the "read it from across the room" part of the screen,
  * so they are fixed here and not derived from the theme: white is the flat
- * reference, green the stepped-NES profile and cyan the exponential one.
+ * reference, green the stepped-NES profile and cyan the Famicom one (the same
+ * character through the Famicom's gentler output stage).
  * @param profileIndex Index into `kProfiles`.
  * @return RGB565 colour for that profile.
  */
@@ -890,9 +1079,11 @@ void startBlock(uint8_t blockIndex)
         submit(stopVoice);
     }
 
+    // Each piece carries its tempo (the complex piece keeps its source song's
+    // 150 BPM); MUSIC_PLAY derives the tick length from it, so it goes first.
     AudioCommand tempo{};
     tempo.type = AudioCommandType::MUSIC_SET_BPM;
-    tempo.bpm = kBpm;
+    tempo.bpm = piece.bpm;
     submit(tempo);
 
     // The profile is audio-thread state; the command is the documented path from
@@ -912,10 +1103,6 @@ void startBlock(uint8_t blockIndex)
             music.subTracks[i] = piece.subTracks[i];
         }
         submit(music);
-
-        if (piece.withSfxLayer) {
-            submitPad();
-        }
     } else {
         Serial.printf("# ERROR piece=%s has an invalid track table; playing silence\n",
                       piece.name);
@@ -923,12 +1110,12 @@ void startBlock(uint8_t blockIndex)
     }
 
     // The audio commands are already queued; the panel is painted while the
-    // audio task starts the block, so the two agree within one screen's worth of
-    // SPI time (and a screen-less board simply returns here).
+    // audio task starts the block (a screen-less board simply returns here).
+    // Every timed voice is a sequencer track, so nothing musical depends on this
+    // timestamp: it only measures the block's wall-clock listening length.
     drawStatusScreen();
 
     gBlockStartMs = millis();
-    gGridLastServed = -1;
 }
 
 /**
@@ -1050,11 +1237,11 @@ void setup()
     Serial.printf("# apu_listen rate=%d pins=%d/%d/%d block_ms=%u\n", kSampleRate, kI2sBclk,
                   kI2sLrck, kI2sDout, static_cast<unsigned>(kBlockMs));
 #endif
-    Serial.printf("# order piece=simple,medium,complex x profile=Legacy,Nes,Hybrid; "
+    Serial.printf("# order piece=simple,medium,complex x profile=Legacy,Nes,Famicom; "
                   "repeats forever\n");
     Serial.println(
         "# profiles: Legacy=flat reference, Nes=stepped duty+unipolar noise, "
-        "Hybrid=exponential envelope");
+        "Famicom=Nes character+37 Hz HPF output stage");
     Serial.printf("# sizes MusicNote=%u MusicTrack=%u AudioEvent=%u AudioCommand=%u\n",
                   static_cast<unsigned>(sizeof(MusicNote)),
                   static_cast<unsigned>(sizeof(MusicTrack)),
@@ -1090,10 +1277,6 @@ void setup()
 
 void loop()
 {
-    if (kPieces[gPieceIndex].withSfxLayer) {
-        serveComplexGrid();
-    }
-
     if (static_cast<uint32_t>(millis() - gBlockStartMs) >= kBlockMs) {
         reportBlock();
         startBlock(static_cast<uint8_t>((gBlockIndex + 1u) % kBlockCount));
