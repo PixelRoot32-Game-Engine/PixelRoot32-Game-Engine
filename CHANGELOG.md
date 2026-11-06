@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-# Unreleased
+# 1.14.1
+
+A patch release with no engine API change: the engine now requires PixelRoot32-APU `^2.3.0`, its documentation describes the `Legacy` / `Nes` / `Famicom` profiles, and the `apu_profiles` example plays its complex piece in time.
 
 ### Changed
 
