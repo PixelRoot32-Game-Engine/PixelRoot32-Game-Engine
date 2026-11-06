@@ -6,8 +6,7 @@
  * 2bpp blit (Renderer::drawSpriteInternal), or the span it computes clips the
  * wrong columns.
  *
- * The blit reads each row as little-endian 16-bit words with
- * bitOffset = (col & 7) << 1, i.e. LSB = leftmost pixel: pixel `col` lives in
+ * The blit reads each row byte by byte, LSB = leftmost pixel: pixel `col` lives in
  * byte `col >> 2` at shift `(col & 3) * 2`. Rows are
  * (width * 2 + 7) / 8 bytes apart.
  *
@@ -67,9 +66,9 @@ const uint8_t kPixels[kHeight][kWidth] = {
 const uint8_t kExpectedMin[kHeight] = {0, 9, 5, 0, 7};
 const uint8_t kExpectedMax[kHeight] = {3, 12, 6, 0, 11};
 
-/// Packed sprite data, plus one padding byte: the blit reads whole 16-bit
-/// words, so the last row's second word reaches one byte past the row.
-uint8_t gData[kRowBytes * kHeight + 1];
+/// Packed sprite data, exactly kRowBytes * kHeight bytes: the blit reads
+/// byte by byte and never past the last row.
+uint8_t gData[kRowBytes * kHeight];
 
 /// Packs kPixels exactly the way the blit reads it (LSB = leftmost pixel).
 void packSprite() {

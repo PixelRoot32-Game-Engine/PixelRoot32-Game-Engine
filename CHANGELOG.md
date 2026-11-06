@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
 
 * **`computeSpanTable(Sprite2bpp&)` reads pixels in the 2bpp blit's bit order**: it read each byte MSB-first (pixel `col` at shift `(3 - (col & 3)) * 2`), while `Renderer::drawSpriteInternal(Sprite2bpp)` reads LSB-first (the compiler's `pack_2bpp` layout, pixel `col` at byte `col >> 2`, shift `(col & 3) * 2`). The computed `rowMinX`/`rowMaxX` therefore clipped opaque pixels at the row edges. The row stride already matched. The 4bpp overload was correct and is unchanged.
 
+* **The 2bpp sprite blit no longer reads past the sprite data**: `Renderer::drawSpriteInternal(Sprite2bpp)`, which also draws 2bpp tilemaps (orthogonal and projected), read each row as 16-bit words through a `reinterpret_cast` over the byte-granular row stride `(width * 2 + 7) / 8`. For widths with `width % 8` in 1..4 the last row's final word reached one byte past the sprite data, and rows of an odd stride started at odd addresses (unaligned 16-bit loads, undefined behaviour and risky on Xtensa). The blit now reads byte by byte through `PIXELROOT32_READ_BYTE_P` (pixel `col` at byte `col >> 2`, shift `(col & 3) * 2`, one fetch per 4 pixels); the pixels drawn are unchanged, with and without `flipX`.
+
 # 1.14.1
 
 A patch release with no engine API change: the engine now requires PixelRoot32-APU `^2.3.0`, its documentation describes the `Legacy` / `Nes` / `Famicom` profiles, and the `apu_profiles` example plays its complex piece in time.
