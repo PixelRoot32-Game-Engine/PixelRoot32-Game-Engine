@@ -45,10 +45,11 @@
  * No buttons, no dynamic allocation in the audio path: every note table is
  * `constexpr` and lives in flash.
  *
- * Ported from the PixelRoot32-APU repository's `tools/apu_listen` harness. The
- * serial contract and the panel layout are unchanged on purpose, so a transcript
- * from either build can be compared line for line; only the complex piece
- * differs, because it is now a transcription of a Tool Suite sample song.
+ * This example is the APU listening harness: it replaced the PixelRoot32-APU
+ * repository's `tools/apu_listen`, which moved here. The serial contract and
+ * the panel layout are kept on purpose so older transcripts stay readable; the
+ * complex piece is a transcription of a Tool Suite sample song since APU 2.3.0,
+ * so its earlier `peak`/`hash` figures are not comparable.
  */
 
 #if defined(PLATFORM_NATIVE)

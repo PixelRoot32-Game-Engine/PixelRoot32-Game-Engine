@@ -275,23 +275,27 @@ library in place, so edits in that checkout are picked up by the next build.
 
 ## Status
 
-The programme, the serial lines and the panel layout come from the APU
-repository's `tools/apu_listen` harness. The serial lines and the panel are
-carried here unchanged, so a transcript can be compared with the harness's line
-for line; the `complex` piece is the exception, since this example plays the
-"Crystal Cascade" transcription instead of the harness's piece, so its `hash`
-and `peak` differ by construction. That harness was run
-on the hardware described above; this example was verified here by compiling it
-against the published APU, and the firmware it produces is the same program.
-Nothing in this example claims a profile sounds better — that verdict is the
-listening test's output, not its input.
+This example **is** the listening harness. It started as the APU repository's
+`tools/apu_listen` and replaced it when the harness moved here (APU commit
+`71758cb`, "move the listening harness to the engine examples"); the APU no
+longer ships its own copy. The serial lines keep the `# apu_listen` prefix and
+the panel keeps its layout so older transcripts stay readable, but this
+example's transcripts are now the reference for comparing APU releases by ear.
+
+`peak` and `hash` figures recorded before APU 2.3.0 — including the `complex`
+peaks quoted in the APU's `docs/ABI.md` — belong to the previous `complex`
+piece, which layered a `millis()`-driven SFX grid over the music. The current
+piece is the "Crystal Cascade" transcription, so its figures are a new baseline
+and are not comparable with those. Nothing in this example claims a profile
+sounds better — that verdict is the listening test's output, not its input.
 
 Both environments were built for this revision against the published APU
 2.3.0: `esp32dev` (**345 532 B** flash) and `native`, which was also run
 headless through the first eight blocks to confirm every piece renders — the
 complex piece reports `peak=7671` under `Legacy` and `peak=6435` under `Nes`.
-The board build has not been re-flashed since the complex piece became the
-"Crystal Cascade" transcription, so it has not been listened to on the speaker.
+The `esp32dev` build was flashed and listened to on the board described above
+(2026-11-06): the three pieces play in time under `Legacy`, `Nes` and
+`Famicom`.
 
 ## Documentation links
 
