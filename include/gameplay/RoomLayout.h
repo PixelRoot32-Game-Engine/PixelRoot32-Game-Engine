@@ -372,10 +372,12 @@ inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& s
  * };
  * static const gameplay::RoomLayer ROOM_LAYER = { ROOMS, 2, 32, 16 };
  *
+ * // ROOM_LAYERS[i] is room i's map, as the Tool Suite exports it (one map per
+ * // room, NUM_ROOM_LAYERS of them, indexed like ROOMS).
  * // MyScene::init() -- optionally measure each room's art overhang first.
  * graphics::ScreenBounds art[2];
  * for (int i = 0; i < 2; ++i) {
- *     graphics::expandProjectedMapBounds(art[i], *ROOM_MAPS[i],
+ *     graphics::expandProjectedMapBounds(art[i], *ROOM_LAYERS[i],
  *                                        gameplay::roomProjection(ISO, ROOMS[i]));
  * }
  * if (gameplay::buildRoomGraph(ROOM_LAYER, rooms_, ISO, art) > 0) {
@@ -385,7 +387,7 @@ inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& s
  *
  * // MyScene::draw() -- each room map holds local cells from (0, 0).
  * const uint16_t r = rooms_.currentRoomIndex();
- * renderer.drawTileMap(*ROOM_MAPS[r], 0, 0, layerType,
+ * renderer.drawTileMap(*ROOM_LAYERS[r], 0, 0, layerType,
  *                      gameplay::roomProjection(ISO, ROOMS[r]));
  * @endcode
  *
