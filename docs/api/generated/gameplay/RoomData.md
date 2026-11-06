@@ -8,9 +8,10 @@
 
 One exported room: its tile-space rect plus four connection slots.
 
-Coordinates are in TILES, not world units — that is the space the editor
-authors in. `buildRoomGraph()` multiplies by the layer's tile size to get
-the world-space camera rect.
+Coordinates are in TILES (scene cells), not world units — that is the space
+the editor authors in. The orthogonal `buildRoomGraph()` multiplies by the
+layer's tile size to get the world-space camera rect; the projected overload
+projects the cell block through a `math::ProjectionSpec` instead.
 
 Connection slots are indexed by `RoomDir` (0 = Up, 1 = Down, 2 = Left,
 3 = Right) and hold the target room's index within the same layer, or
