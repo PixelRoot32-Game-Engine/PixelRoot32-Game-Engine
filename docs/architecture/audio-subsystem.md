@@ -98,11 +98,12 @@ The **sound profile** is a second, orthogonal axis: it does not replace `WaveTyp
 enum class SoundProfile : uint8_t {
     Legacy,   // frozen contract; the default
     Nes,
-    Hybrid
+    Famicom,
+    Hybrid [[deprecated("use SoundProfile::Famicom")]] = 2
 };
 ```
 
-`Legacy` reproduces the historical sound and is pinned by immutable goldens; `Nes` and `Hybrid` add the NES character (mix balance, unipolar noise, stepped PULSE duty, the output chain) and `Hybrid` also the exponential envelope and the band-limited SAW. The profile is **configuration, applied once per render block**, and a note may still override the per-voice pieces of it — `VoiceNesOptions`, `InstrumentPreset::envelopeCurve`, `setVoicePulseDutyMode`, `setVoiceNesNoiseLutMode`. The precedence is **profile < voice < note**.
+`Legacy` reproduces the historical sound and is pinned by immutable goldens; `Nes` and `Famicom` share the NES character (linear envelope plus the 4-bit `nesEnvelope`, mix balance, unipolar noise, stepped PULSE duty, ideal SAW ramp) and differ only in the output stage (§3.4.1). `Hybrid` is a deprecated alias of `Famicom` (value 2); since APU 2.3.0 no profile selects the exponential envelope or the band-limited SAW by default, and a note can still ask for `EnvelopeCurve::Exponential`. The profile is **configuration, applied once per render block**, and a note may still override the per-voice pieces of it — `VoiceNesOptions`, `InstrumentPreset::envelopeCurve`, `setVoicePulseDutyMode`, `setVoiceNesNoiseLutMode`. The precedence is **profile < voice < note**.
 
 For internal bookkeeping (optional reading for engine contributors), [`AudioTypes.h`](include/audio/AudioTypes.h) also defines **`VoiceType`** (same set of synthesis kinds) and **`constexpr`** helpers **`toVoiceType(WaveType)`** / **`toWaveType(VoiceType)`** so `ApuCore` can treat allocation consistently while keeping the public surface on `WaveType`.
 
@@ -224,13 +225,14 @@ Mixing ends in an **output stage that belongs to the profile**, not to the engin
 | Profile | Stage |
 |---|---|
 | **`Legacy`** (default) | The historical single-pole HPF. Frozen: its rendered PCM is pinned by immutable goldens and does not change between releases. |
-| **`Nes`**, **`Hybrid`** | HPF 90 Hz → HPF 440 Hz → 2nd-order Butterworth LPF at `min(14 kHz, 0.45 · fs)`, applied once to the **summed** mix, followed by the profile's level trim |
+| **`Nes`** | HPF 90 Hz → HPF 440 Hz → 2nd-order Butterworth LPF at `min(14 kHz, 0.45 · fs)`, applied once to the **summed** mix, followed by the profile's level trim |
+| **`Famicom`** | HPF 37 Hz → the same LPF (the second high-pass is bypassed with a unity pole), then its level trim. At 65 Hz the APU measures −1.2 dB against −21.1 dB for `Nes`, so bass and kick fundamentals survive |
 
-The LPF is deliberately **not** engaged when `0.45 · fs < 6 kHz` (`fs < 13 334 Hz`): at 8 000 Hz it would cut most of the passband and gut the sound instead of approximating the NES's 14 kHz roof, so below that floor the chain is the two high-passes only — a documented property of the profile, not a fallback. Coefficients are derived on a configuration or rate change, never per sample; the integer path uses `float` coefficients with `int32` products and an `int64` accumulator.
+The LPF is deliberately **not** engaged when `0.45 · fs < 6 kHz` (`fs < 13 334 Hz`): at 8 000 Hz it would cut most of the passband and gut the sound instead of approximating the NES's 14 kHz roof, so below that floor the chain is its high-pass section(s) only — a documented property of the profile, not a fallback. Coefficients are derived on a configuration or rate change, never per sample; the integer path uses `float` coefficients with `int32` products and an `int64` accumulator.
 
-The stage also carries the **level trim**, so a profile switch is a change of character and not of loudness. It is matched on **crest-weighted loudness** — `0.75 · RMS_dBFS + 0.25 · peak_dBFS` against `Legacy`, a documented heuristic rather than a standard — because matching RMS alone was tried first and sounded louder than `Legacy` on hardware: the chain's crest factor is 13–14 dB against `Legacy`'s 4.6 dB, so an equal-RMS trim lifts every transient by 3–4 dB. The shipped trims are **+1.10 dB** (`Nes`) and **+1.90 dB** (`Hybrid`), applied after the chain and before the master bitcrush, which leaves both about 2.2 / 2.4 dB **below** `Legacy` in RMS on purpose. `Legacy` stays at unity: it never runs the chain, so it never runs the multiply either.
+The stage also carries the **level trim**, so a profile switch is a change of character and not of loudness. It is matched on **crest-weighted loudness** — `0.75 · RMS_dBFS + 0.25 · peak_dBFS` against `Legacy`, a documented heuristic rather than a standard — because matching RMS alone was tried first and sounded louder than `Legacy` on hardware: the `Nes` chain's crest factor is 13.3 dB against `Legacy`'s 4.6 dB, so an equal-RMS trim lifts every transient by 3–4 dB. The shipped trims are **+1.10 dB** (`Nes`) and **−0.27 dB** (`Famicom`), applied after the chain and before the master bitcrush. `Nes` lands about 2.2 dB **below** `Legacy` in RMS on purpose; the 37 Hz high-pass keeps `Famicom`'s crest factor at 5.8 dB, close to `Legacy`'s, so its match is a slight cut and its RMS lands about 0.3 dB below `Legacy`. `Legacy` stays at unity: it never runs the chain, so it never runs the multiply either.
 
-An explicit `setHpfCutoffHz()` call wins over all of it — the caller gets the historical one-pole back **including its level**, so the trim is suppressed with the chain. Headroom is the price of the chain's transients: on the canonical track the peaks are ~37 % (`Nes`) and ~41 % (`Hybrid`) of full scale against `Legacy`'s 18 %, and a dense mix reaches ~52 % / ~51 % against ~36 %, so a consumer that mixes by peak should still check its master level.
+An explicit `setHpfCutoffHz()` call wins over all of it — the caller gets the historical one-pole back **including its level**, so the trim is suppressed with the chain. Headroom is the price of the chain's transients: on the canonical track the peaks are ~37 % (`Nes`) and ~20 % (`Famicom`) of full scale against `Legacy`'s 18 %, and a dense mix reaches ~52 % under `Nes` against ~36 % (`Famicom` was not measured on a dense mix), so a consumer that mixes by peak should still check its master level.
 
 #### Clipping prevention
 
@@ -661,9 +663,13 @@ inline constexpr InstrumentPreset INSTR_PULSE_HARMONY{0.22f, 0.125f, 5};
 inline constexpr InstrumentPreset INSTR_TRIANGLE_BASS{0.30f, 0.5f, 3};
 
 // Percussion instruments (duty=0, use with WaveType::NOISE)
-inline constexpr InstrumentPreset INSTR_KICK{0.40f, 0.0f, 1, 0.12f, 25};     // Kick: octave=1, dur=0.12s, period=25
-inline constexpr InstrumentPreset INSTR_SNARE{0.30f, 0.0f, 2, 0.15f, 50};   // Snare: octave=2, dur=0.15s, period=50
-inline constexpr InstrumentPreset INSTR_HIHAT{0.20f, 0.0f, 3, 0.05f, 12};    // Hi-HAT: octave=3, dur=0.05s, period=12
+// (abbreviated: the APU's AudioMusicTypes.h holds the full initialisers)
+inline constexpr InstrumentPreset INSTR_KICK{0.45f, 0.0f, 1, 0.12f, 60, /*...*/};   // Kick: octave=1, dur=0.12s, period=60 (kept under Nes/Famicom)
+inline constexpr InstrumentPreset INSTR_SNARE{0.35f, 0.0f, 2, 0.15f, 15, /*...*/};  // Snare: octave=2, dur=0.15s, period=15 (kept under Nes/Famicom)
+inline constexpr InstrumentPreset INSTR_HIHAT{0.25f, 0.0f, 3, 0.05f, 12, /*...*/};  // Hi-HAT: octave=3, dur=0.05s, period=12 (NES LUT index 0 under Nes/Famicom)
+
+// Triangle kick (use with WaveType::TRIANGLE): G3 = 196 Hz gliding to 50 Hz in 45 ms
+inline constexpr InstrumentPreset INSTR_KICK_TRI{0.50f, 0.5f, 3, /*...*/};
 
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, float duration);
 inline MusicNote makeNote(const InstrumentPreset& preset, Note note, uint8_t octave, float duration);

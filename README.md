@@ -173,7 +173,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.14.0
+    gperez88/PixelRoot32-Game-Engine@^1.14.1
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -242,9 +242,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.14.0
+## 1.14.1
 
-Ships the optional **persistence module** (`PIXELROOT32_ENABLE_PERSISTENCE`, default off): key-value settings and numbered save slots behind one contract, with ESP32 NVS, native host-file and in-memory adapters, a CRC-checked record envelope and `PersistenceService`. Raises the **audio render block** to 512 samples on FPU targets and 1024 without an FPU — 23.2 ms and 46.4 ms of latency at 22 050 Hz — with every backend deriving its DMA depth from the block instead of hard-coding one. Adds the caller-supplied **8bpp expansion table** (`DrawSurface::setPalette8`) so a palette-indexed surface presents its own colours, the **`PIXELROOT32_DRAIN_PRESENT`** switch that closes the frame transfer before the next frame, and fixes **native shutdown** so it no longer depends on the destruction order of the process globals (issue #273). The new flags default off and contribute no symbols; the one deliberate behaviour change for an existing sketch is the audio block default, and `AudioConfig::blockSize` puts the old depth back.
+A patch release with no engine API change. The engine now requires **PixelRoot32-APU `^2.3.0`**, whose profile value 2 is **`Famicom`**: the `Nes` character with the Famicom output stage (HPF 37 Hz → LPF), which keeps bass and kick fundamentals; `SoundProfile::Hybrid` remains a deprecated alias, so a game that selects it compiles with a warning and now sounds like `Famicom`. Under the NES profiles the kick and snare presets keep their noise period, and `INSTR_KICK_TRI` adds a triangle kick. The audio docs describe `Legacy` / `Nes` / `Famicom`, and the `apu_profiles` example plays its complex piece in time as a transcription of the Tool Suite sample "Crystal Cascade".
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

@@ -3,7 +3,7 @@
 > **⚠️ Demonstration example** — This project is provided **as an example** to showcase the capabilities of the PixelRoot32 Game Engine and what you can build with it. It may **not be 100% functional or finished**; some features can be incomplete, experimental, or work in progress.
 
 Nine 12-second blocks — `simple`, `medium` and `complex`, each played under
-`Legacy`, `Nes` and `Hybrid` — loop forever on a classic ESP32 with a MAX98357A
+`Legacy`, `Nes` and `Famicom` — loop forever on a classic ESP32 with a MAX98357A
 DAC and an ILI9341 panel, or on a PC through SDL2 with the terminal as the record.
 **The speaker is the judge; the serial console is the record; the panel is the
 sign on the door.**
@@ -27,7 +27,7 @@ single note.
 |---|---|---|
 | `Legacy` | Nothing — the flat reference. Continuous duty, preset noise period, linear envelope. | White |
 | `Nes` | Integer core with the published NES balance, unipolar noise on the NES period LUT, and duty snapped to the four hardware patterns (12.5 / 25 / 50 / 75 %). | Green |
-| `Hybrid` | Everything `Nes` has, plus an exponential decay/release curve. | Cyan |
+| `Famicom` | The `Nes` character — same envelope, duty, noise and mix — through the Famicom's output stage: a 37 Hz high-pass into the low-pass, so bass and kick keep their fundamentals. `Nes` runs the NES stage instead (high-pass 90 Hz → 440 Hz → low-pass). | Cyan |
 
 ### The profile is switched with a command, not a call
 
@@ -43,16 +43,26 @@ A difference heard at one level can then be attributed to the number of voices:
 - **`simple`** — one 50 % `PULSE` melody, sixteen eighth notes, looping. One voice.
 - **`medium`** — the melody plus a `TRIANGLE` bass on the root of each bar
   (i–VI–III–VII) plus a `NOISE` hi-hat on every beat. Three voices.
-- **`complex`** — four music tracks (melody, a diatonic third above on a 25 %
-  duty pulse, bass, kick/hat percussion) plus a four-voice `PLAY_EVENT` layer on
-  the SFX slots: a sustained `SAW` pad, a `SINE` counter-melody on the half notes,
-  a `NOISE` snare on beats 2 and 4, and a `PULSE` arpeggio on the eighth notes.
-  Eight voices at the peak.
+- **`complex`** — the Tool Suite sample song **"Crystal Cascade"**
+  (`PixelRoot32-Tool-Suite/toolsuite_app/samples/music/Crystal_Cascade.pr32music`)
+  at its own 150 BPM: a 12.5 % `PULSE` lead in 16th notes, a `TRIANGLE` bass, a
+  25 % `PULSE` harmony and a `NOISE` drum kit (kick on 1 and 3, snare on 2 and 4,
+  hi-hat on every eighth, a crash and an open hat closing the pattern). Three
+  melodic voices; the drum hits play on the SFX slots, up to three overlapping at
+  the closing crash, so six voices at the peak.
 
-A looping `PLAY_EVENT` is a sustained tone and cannot retrigger, so only the pad
-is `loop = true`; the snare, the counter-melody and the arpeggio are one-shot
-events re-submitted on the eighth-note grid. That is also where the envelope
-difference is easiest to hear: on percussion, not on a held note.
+The complex piece follows the Tool Suite's sequencing model, which is what keeps
+it in time: every timed voice is a sequencer track, none is fired from
+`millis()`. The first pattern of each of the song's four tracks is written out
+the way the Tool Suite's preview builds it — notes on one 16th-note step grid by
+start step and length, gaps merged into one rest, drum hits on the same step
+stacked with length 0 — and every track spans exactly 64 steps (16 beats), which
+a `static_assert` checks, so the four tracks loop together forever. The song's
+library instruments (`LIB_PULSE_SPARK`, `LIB_PULSE_THIN`, `LIB_PULSE_PLUCK`,
+`LIB_PULSE_MARIMBA`, `LIB_TRIANGLE_SUB_BASS`, `LIB_DRUM_CRASH`,
+`LIB_DRUM_OPEN_HAT`) are defined in `main.cpp` with the Tool Suite catalogue's
+values; kick, snare and hi-hat are the APU's `INSTR_*` presets. Percussion is
+where the envelope and noise differences between profiles are easiest to hear.
 
 ### The post-mix hook proves the block happened
 
@@ -75,16 +85,17 @@ byte-identical audio — `underruns=0` alone proves neither.
 |---|---|---|---|
 | 1 | `simple` | `Legacy` | 12 s |
 | 2 | `simple` | `Nes` | 12 s |
-| 3 | `simple` | `Hybrid` | 12 s |
+| 3 | `simple` | `Famicom` | 12 s |
 | 4 | `medium` | `Legacy` | 12 s |
 | 5 | `medium` | `Nes` | 12 s |
-| 6 | `medium` | `Hybrid` | 12 s |
+| 6 | `medium` | `Famicom` | 12 s |
 | 7 | `complex` | `Legacy` | 12 s |
 | 8 | `complex` | `Nes` | 12 s |
-| 9 | `complex` | `Hybrid` | 12 s |
+| 9 | `complex` | `Famicom` | 12 s |
 
 After block 9 the programme restarts at block 1, forever: one full cycle is
-1 min 48 s. Every piece is in A minor / C major at 120 BPM.
+1 min 48 s. `simple` and `medium` are in A minor at 120 BPM; `complex` is
+"Crystal Cascade", in C major at 150 BPM (one 64-step pattern lasts 6.4 s).
 
 ## Wiring (fixed)
 
@@ -138,11 +149,11 @@ pio run -e native
 The shared `[base]` / `[base_esp32]` / `[base_native]` sections live in
 `lib/platformio.ini`, like every other example in this repository.
 
-Measured on the build made against the published APU **2.1.0**, no local override:
+Measured on the build made against the published APU **2.3.0**, no local override:
 
 | Environment | Flash | RAM |
 |---|---|---|
-| `esp32dev` | **343 237 B (26.2 %)** | **24 040 B (7.3 %)** |
+| `esp32dev` | **345 532 B (26.4 %)** | **24 852 B (7.6 %)** |
 | `native` | — | — |
 
 The PC build has no panel and no backend counters: `initDisplay()` reports failure
@@ -166,8 +177,8 @@ Once at start-up:
 
 ```
 # apu_listen rate=22050 pins=5/21/19 block_ms=12000
-# order piece=simple,medium,complex x profile=Legacy,Nes,Hybrid; repeats forever
-# profiles: Legacy=flat reference, Nes=stepped duty+unipolar noise, Hybrid=exponential envelope
+# order piece=simple,medium,complex x profile=Legacy,Nes,Famicom; repeats forever
+# profiles: Legacy=flat reference, Nes=stepped duty+unipolar noise, Famicom=Nes character+37 Hz HPF output stage
 # sizes MusicNote=... MusicTrack=... AudioEvent=... AudioCommand=...
 ```
 
@@ -206,7 +217,7 @@ audio commands are queued and before its timer starts.
  y=18   PIECE                                      light grey, 8 px
  y=28   SIMPLE / MEDIUM / COMPLEX                  white, 26 px letters x2
  y=86   PROFILE                                    light grey, 8 px
- y=96   LEGACY / NES / HYBRID                      26 px letters x3, profile colour
+ y=96   LEGACY / NES / FAMICOM                     26 px letters x3, profile colour
  y=178  full-width colour bar (320x6)              profile colour
  y=190  BLOCK 3/9                                  white, 16 px
  y=210  PREV UNDERRUNS <n>   PEAK <n>              light grey, 8 px
@@ -240,12 +251,12 @@ lib_deps =
 ```
 
 `symlink://../../` pulls the engine, and the engine's `library.json` declares
-`gperez88/PixelRoot32-APU: ^2.0.0` — so the **published** APU is what a reader of
-this example gets. That is enough now: **2.1.0** is on the registry and it is the
-release that carries the profile API this example uses (`SoundProfile`,
-`AudioCommandType::SET_SOUND_PROFILE`), so nothing has to be overridden. The
-override below is only for working against an APU checkout that has not been
-released yet.
+the APU dependency — so the **published** APU is what a reader of this example
+gets. The example needs APU **2.3.0** or later, the release that adds
+`SoundProfile::Famicom` (the profile API itself, `SoundProfile` and
+`AudioCommandType::SET_SOUND_PROFILE`, has been there since 2.1.0); 2.3.0 is on
+the registry, so nothing has to be overridden. The override below is only for
+working against an APU checkout that has not been released yet.
 
 To compile against an unreleased APU checkout, add a second local entry, and
 PlatformIO compiles that checkout instead of the registry copy:
@@ -264,19 +275,27 @@ library in place, so edits in that checkout are picked up by the next build.
 
 ## Status
 
-The programme, the serial lines and the panel layout come from the APU
-repository's `tools/apu_listen` harness and are carried here unchanged, so a
-transcript from either build can be compared line for line. That harness was run
-on the hardware described above; this example was verified here by compiling it
-against a local APU checkout, and the firmware it produces is the same program.
-Nothing in this example claims a profile sounds better — that verdict is the
-listening test's output, not its input.
+This example **is** the listening harness. It started as the APU repository's
+`tools/apu_listen` and replaced it when the harness moved here (APU commit
+`71758cb`, "move the listening harness to the engine examples"); the APU no
+longer ships its own copy. The serial lines keep the `# apu_listen` prefix and
+the panel keeps its layout so older transcripts stay readable, but this
+example's transcripts are now the reference for comparing APU releases by ear.
 
-Both environments were built for this revision: `esp32dev` against the published
-APU 2.1.0 (**343 237 B** flash, identical to the build made before the PC target
-existed), and `native`, which was also run for one block to confirm it renders —
-`REPORT ... peak=4199 hash=8FDC42EC` followed by the block 2 banner. The board
-build has not been re-flashed since; the audio path it compiles is unchanged.
+`peak` and `hash` figures recorded before APU 2.3.0 — including the `complex`
+peaks quoted in the APU's `docs/ABI.md` — belong to the previous `complex`
+piece, which layered a `millis()`-driven SFX grid over the music. The current
+piece is the "Crystal Cascade" transcription, so its figures are a new baseline
+and are not comparable with those. Nothing in this example claims a profile
+sounds better — that verdict is the listening test's output, not its input.
+
+Both environments were built for this revision against the published APU
+2.3.0: `esp32dev` (**345 532 B** flash) and `native`, which was also run
+headless through the first eight blocks to confirm every piece renders — the
+complex piece reports `peak=7671` under `Legacy` and `peak=6435` under `Nes`.
+The `esp32dev` build was flashed and listened to on the board described above
+(2026-11-06): the three pieces play in time under `Legacy`, `Nes` and
+`Famicom`.
 
 ## Documentation links
 
