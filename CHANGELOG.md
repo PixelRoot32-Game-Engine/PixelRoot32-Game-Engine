@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-# Unreleased
+# 1.15.0
+
+A minor release: isometric rooms. `gameplay::buildRoomGraph(layer, graph, proj, perRoom)` builds a room graph for a projected scene, with each room's camera rect taken from its cells' diamonds and optionally widened by the art its own map draws, and `gameplay::roomProjection(proj, room)` places a per-room map with local cells where the room sits in the scene. This is the API the Tilemap Editor's one-map-per-room isometric export targets. It also fixes two 2bpp defects: `computeSpanTable(Sprite2bpp&)` now reads the blit's bit order, and the 2bpp blit no longer reads past the sprite data. The 1bpp bit order is documented as the renderer draws it. The orthogonal room API and every existing draw are unchanged.
 
 ### Added
 
