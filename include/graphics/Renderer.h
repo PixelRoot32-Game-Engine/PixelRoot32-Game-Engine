@@ -37,10 +37,12 @@ namespace pixelroot32::graphics {
  * Sprites are stored as an array of 16-bit rows. Each row packs horizontal
  * pixels into bits, using the following convention:
  *
- * - Bit 0 represents the leftmost pixel of the row.
- * - Bit (width - 1) represents the rightmost pixel of the row.
+ * - Bit (width - 1) represents the leftmost pixel of the row.
+ * - Bit 0 represents the rightmost pixel of the row.
  *
- * Only the lowest (width) bits of each row are used. A bit value of 1 means
+ * A binary literal therefore reads left to right as the row is drawn when
+ * the sprite is 16 pixels wide (`0b1000000000000000` lights only the leftmost
+ * pixel). Only the lowest (width) bits of each row are used. A bit value of 1 means
  * "pixel on", 0 means "pixel off".
  *
  * This format is optimized for small microcontroller displays (NES/GameBoy
@@ -1141,7 +1143,7 @@ public:
      * @brief Draws a 1bpp monochrome sprite using the Sprite descriptor.
      *
      * Sprite data is interpreted bit-by-bit using the Sprite convention:
-     * bit 0 = leftmost pixel, bit (width - 1) = rightmost pixel.
+     * bit (width - 1) = leftmost pixel, bit 0 = rightmost pixel.
      *
      * This API intentionally hides all bit-level details from game code.
      *
@@ -1267,15 +1269,15 @@ public:
      * Places, culls and marks cells through `projection` instead of the
      * axis-aligned grid (see math/Projection.h): each tile is anchored at
      * `(centreX - tile.width / 2, centreY - map.footYFor(index))`, the same
-     * formula already shipped by hand in `examples/iso_dungeon/src/IsoDraw.h:28-29`.
+     * formula the iso_dungeon demo (PixelRoot32-Demo-Projects,
+     * `graphics/iso_dungeon/src/IsoDraw.h`) uses for its sprites.
      *
      * @note `map.tileFootY` is what this path anchors from. The PixelRoot32
-     *       Tilemap Editor does not export a foot-anchor table today, so an
-     *       editor-exported map has `tileFootY == nullptr` and every tile
-     *       anchors at its top-left corner (`footYFor()` returns 0
-     *       uniformly) -- correct for a uniform-height tileset, wrong for
-     *       one with mixed tile heights. Closing that export gap is a later,
-     *       separate change.
+     *       Tilemap Editor exports it for isometric scenes as
+     *       `TILESET_FOOT_Y` and wires it in the generated `init()`. A map
+     *       with `tileFootY == nullptr` anchors every tile at its top-left
+     *       corner (`footYFor()` returns 0 uniformly): correct for a
+     *       uniform-height tileset, wrong for one with mixed tile heights.
      *
      * @param projection Places, culls and marks cells through this basis
      *        instead of the axis-aligned grid.

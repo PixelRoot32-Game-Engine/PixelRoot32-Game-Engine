@@ -9,7 +9,8 @@
  * per-row minX/maxX arrays against hand-derived expected values.
  *
  * The 4bpp encoding packs two pixels per byte: low nibble = even col,
- * high nibble = odd col. The 2bpp encoding packs four pixels per byte.
+ * high nibble = odd col. The 2bpp encoding packs four pixels per byte,
+ * leftmost pixel in the low bits (the layout the 2bpp blit reads).
  */
 
 #include <unity.h>
@@ -31,11 +32,12 @@ inline uint8_t pack4bppNibbles(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
 }
 
 /// Packs 4 2-bit pairs into one 2bpp byte, in the byte layout that
-/// drawSpriteInternal reads: col 0 = high pair (bits 7..6), col 1 = bits 5..4,
-/// col 2 = bits 3..2, col 3 = low pair (bits 1..0).
+/// drawSpriteInternal reads (little-endian words, bitOffset = (col & 7) << 1):
+/// col 0 = low pair (bits 1..0), col 1 = bits 3..2, col 2 = bits 5..4,
+/// col 3 = high pair (bits 7..6).
 inline uint8_t pack2bppPairs(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3) {
-    return static_cast<uint8_t>(((c0 & 0x03) << 6) | ((c1 & 0x03) << 4) |
-                                ((c2 & 0x03) << 2) | ((c3 & 0x03)));
+    return static_cast<uint8_t>((c0 & 0x03) | ((c1 & 0x03) << 2) |
+                                ((c2 & 0x03) << 4) | ((c3 & 0x03) << 6));
 }
 
 constexpr uint8_t kPalette4bpp[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -119,7 +121,7 @@ void test_compute_span_table_4bpp_odd_width(void) {
 }
 
 /// AC: 2bpp variant mirrors 4bpp correctness. Encoding: 4 pixels per byte,
-/// col c at shift (3 - (c & 3)) * 2.
+/// col c in byte c >> 2 at shift (c & 3) * 2.
 void test_compute_span_table_2bpp_known_region(void) {
     // 8x2 sprite. Each row is 2 bytes (8 cols * 2 bits / 8).
     // Row 0: col 2 opaque (value 1); col 5, 6 opaque.

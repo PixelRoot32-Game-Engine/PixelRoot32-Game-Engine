@@ -173,7 +173,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.14.1
+    gperez88/PixelRoot32-Game-Engine@^1.15.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -242,9 +242,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.14.1
+## 1.15.0
 
-A patch release with no engine API change. The engine now requires **PixelRoot32-APU `^2.3.0`**, whose profile value 2 is **`Famicom`**: the `Nes` character with the Famicom output stage (HPF 37 Hz → LPF), which keeps bass and kick fundamentals; `SoundProfile::Hybrid` remains a deprecated alias, so a game that selects it compiles with a warning and now sounds like `Famicom`. Under the NES profiles the kick and snare presets keep their noise period, and `INSTR_KICK_TRI` adds a triangle kick. The audio docs describe `Legacy` / `Nes` / `Famicom`, and the `apu_profiles` example plays its complex piece in time as a transcription of the Tool Suite sample "Crystal Cascade".
+A minor release: **isometric rooms**. `gameplay::buildRoomGraph(layer, graph, proj, perRoom)` builds a room graph for a projected scene, with each room's camera rect taken from its cells' diamonds and optionally widened by the art its own map draws, and `gameplay::roomProjection(proj, room)` places a per-room map with local cells where the room sits in the scene. This is the API the Tilemap Editor's one-map-per-room isometric export targets. It also fixes two 2bpp defects: `computeSpanTable(Sprite2bpp&)` now reads the blit's bit order, and the 2bpp blit no longer reads past the sprite data. The 1bpp bit order is documented as the renderer draws it. The orthogonal room API and every existing draw are unchanged.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

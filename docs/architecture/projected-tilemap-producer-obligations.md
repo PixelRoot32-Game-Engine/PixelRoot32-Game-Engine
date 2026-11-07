@@ -10,7 +10,7 @@
 
 > **Engine-facing only.** This documents what code that *builds* a `TileMapGeneric<T>` for `Renderer::drawTileMap`'s projected overloads must emit for the geometry, culling and colour path in `src/graphics/Renderer.cpp` to render correctly.
 >
-> **This is still not the editor's export *format*, but it now has a reference implementation.** `graphics/iso_dungeon` has since been reshaped into the three-file shape the Tilemap Editor emits, so the obligations below can be read against concrete exported data rather than against a hypothetical one — see [The reference export](#the-reference-export) and the example's own README. The generator itself is unchanged and still cannot emit an isometric map; turning that reference into generator work is phase-2.
+> **This is not the editor's export *format*, but the editor's export satisfies it.** `graphics/iso_dungeon`'s room map is now produced by the Tilemap Editor from a versioned project, so the obligations below can be read against concrete exported data — see [The reference export](#the-reference-export) and the example's own README. The isometric export emits a 32×16 cell stride in `TILE_WIDTH`/`TILE_HEIGHT`, an `ISO_PROJECTION` with its `static_assert`s, a `TILESET_FOOT_Y` table wired into `tileFootY`, a zero-extent slot 0, the depth-guard split, precomputed span tables, `inline constexpr` dimensions and one map per room. The format itself is documented in the [Tilemap Editor Technical Reference](/tools/tilemap-editor/technical-reference#isometric-projection).
 >
 > Source: `graphics/iso_dungeon`'s conversion of `RoomRenderer::drawTiles` from hand-rolled `drawSprite` calls to one projected `drawTileMap` call — the first place in this repo the projected path actually *executes*, not merely links. See [Memory System — Cell-to-screen projection](./memory-system.md) for the measured cost.
 
@@ -20,44 +20,47 @@
 2. **Slot 0 must exist and be readable, even though it is never drawn.** The projected path's cull-window padding scans `tiles[0 .. tileCount)` for the tileset's worst-case sprite extent before the draw loop runs, so it *reads* `tiles[0]` unconditionally even though the draw loop never blits it. A zero-extent sentinel (e.g. `{nullptr, nullptr, 0, 0, 0}` for `Sprite4bpp`) is correct there; a null or absent slot 0 is not. Do not duplicate a real tile into slot 0 to "fill the gap" — that hides an index-0-skip regression instead of exposing it.
 3. **`tileFootY` is parallel to `tiles[]`, `tileCount` entries, and `nullptr` means top-left anchoring** (see `TileMapGeneric::footYFor()`, `include/graphics/Renderer.h`). It is per-tile, not per-map, because one tileset can legitimately mix heights over one cell footprint: `graphics/iso_dungeon`'s room layer uses `8` for floor tiles and `32` for walls and doors in the same 7-slot tileset.
 4. **The projection is a draw parameter, never map data.** The projected `drawTileMap` overloads take `const math::ProjectionSpec&` as a call argument, not a `TileMapGeneric` field. A per-map or per-layer copy of the basis is a per-map chance for two layers to disagree — which renders two different scenes, not one consistent one.
-5. **`tileWidth`/`tileHeight` keep their orthogonal meaning.** They still feed `computeTilemapDirtyTracking`'s cell-grid bookkeeping. They are not the projected diamond's on-screen dimensions — do not set them to the diamond's footprint.
+5. **`tileWidth`/`tileHeight` are the cell stride, not the art extent.** In a 2:1 isometric export they are `32`×`16`, the reference export's `TILE_WIDTH`/`TILE_HEIGHT`, and the same values go into a `gameplay::RoomLayer`. They must not grow to fit tall art: `graphics/iso_dungeon`'s 40 px `WALL` still sits on a 16 px cell height, and its height is carried by the tile's own `Sprite4bpp::height` and `tileFootY`. They still feed `computeTilemapDirtyTracking`'s cell-grid bookkeeping; the projected draw itself places cells through the `ProjectionSpec`, not through these fields.
 6. **Row-major cell iteration must be a valid painter's-algorithm order for the chosen basis.** `math::rowMajorIsPainterOrder(spec)` (`include/math/Projection.h`) is the check; enforcement is caller-side, via a `static_assert` at the spec's declaration site, the same shape `projectionSpecIsValid` uses. It is **sufficient, not necessary**: `false` means the order is unproven, not wrong. It is `false` for both the Orthogonal and Oblique rows of `ProjectionSpec`'s own doc table, and both render correctly because their art fills its cell exactly.
 
 ## The palette-bank obligation
 
 A tile layer drawn via `drawSprite` resolves colour through `getSpritePaletteSlot`; the same layer drawn via `drawTileMap` resolves through `getBackgroundPaletteSlot` — `src/graphics/Color.cpp` keeps `spritePaletteSlots[]` and `backgroundPaletteSlots[]` as separate static arrays. **Converting a layer from sprite-per-cell to `drawTileMap` therefore changes which palette bank it reads, even though nothing about the tile art changed.**
 
-`graphics/iso_dungeon`'s conversion found no visible colour change only because `IsoDungeonScene.cpp:22` installs the same palette pointer into both banks via `setDualCustomPalette(PAL, PAL)`. A game that installs *different* palettes into the sprite bank and the background bank — a legitimate, supported configuration — will see its converted layer's colours change on conversion, silently.
+`graphics/iso_dungeon`'s conversion found no visible colour change only because, at the time, its scene installed the same palette pointer into both banks via `setDualCustomPalette(PAL, PAL)`. (It now installs the exported tilemap palette into the background bank and its own sprite palette into the sprite bank — two palettes chosen per bank on purpose.) A game that installs *different* palettes into the sprite bank and the background bank — a legitimate, supported configuration — will see its converted layer's colours change on conversion, silently.
 
 **Obligation: before converting a sprite-per-cell layer to `drawTileMap`, confirm its sprite-bank and background-bank palettes already agree — otherwise the conversion is also a visual change, not a pure refactor.**
 
 ## The reference export
 
-`graphics/iso_dungeon/src/assets/IsoDungeonRoomTileMap.{h,cpp}` and
-`IsoDungeonRoomTileMapPalette.h` are a hand-written export in the shape the
-generator emits for an orthogonal map
-(`gameplay/metroidvania/src/assets/MetroidvaniaSceneOneTileMap.*`). The delta
-between the two IS the specification for isometric export support:
+`graphics/iso_dungeon/src/assets/tilemap/iso_dungeon_rooms.{h,cpp}` is the
+Tilemap Editor's isometric export of `editor/iso_dungeon.pr32scene.bin`. It
+began as a hand-written export in the shape the generator emits for an
+orthogonal map (`gameplay/metroidvania/src/assets/MetroidvaniaSceneOneTileMap.*`);
+the delta between the two was the specification for isometric export support,
+and every row below is now emitted for isometric scenes only:
 
-| Needed | Orthogonal export today | Why the orthogonal form cannot serve |
+| Needed | Orthogonal export | Why the orthogonal form cannot serve |
 |---|---|---|
-| Rectangular cell stride | one `TILE_SIZE` written into both `tileWidth` and `tileHeight` (`cpp_code_generator.cpp:1035-1036`) | a 32×16 cell whose `WALL` bitmap is 40 px tall is inexpressible |
+| Rectangular cell stride | one tile size written into both `tileWidth` and `tileHeight` | a 32×16 cell whose `WALL` bitmap is 40 px tall is inexpressible |
 | `TILESET_FOOT_Y` | absent | obligation 3 above has nothing to read; every tile anchors top-left |
 | `ISO_PROJECTION` | absent | obligation 6 has no spec to `static_assert` against |
 | Geometry outside the 4bpp guard | whole file is guarded | gameplay places actors at cells where it draws no tile; a 4bpp-off build must still compile |
 | `inline constexpr` dimensions | `static const` | these cross translation units and initialise the consumer's own constants, which an internal-linkage constant cannot legally do |
+| Zero-extent slot 0 | full-size all-zero tile | see below and obligation 2 |
+| One map per room, `ROOM_LAYERS[]` | rooms are rects over one map | a room drawn alone needs its own map with local cells; `roomProjection` places it |
 
-Two further properties the reference export demonstrates, both of which the
-orthogonal generator already satisfies and must keep satisfying:
+Two further properties the reference export demonstrates:
 
 - **Resolved values, never rules.** The reference room's floor checkerboard was
   a runtime `(x + y) & 1` before the reshape. An exporter cannot emit a rule; it
   emits the resolved index array. Anything a producer computes per-cell at draw
   time is, by definition, not exportable.
-- **A zero-extent slot 0, not an all-zero tile.** The orthogonal export emits an
-  all-zero tile of full size at index 0. That is safe there but wrong as an
-  isometric convention, for the reason obligation 2 gives: a full-size empty
-  tile would still render correctly if the index-0 skip regressed.
+- **A zero-extent slot 0, not an all-zero tile.** The orthogonal export still
+  emits an all-zero tile of full size at index 0. That is safe there but wrong
+  as an isometric convention, for the reason obligation 2 gives: a full-size
+  empty tile would still render correctly if the index-0 skip regressed. The
+  isometric export emits `{ nullptr, PALETTE, 0, 0, … }` with a foot of 0.
 
 ## Free-standing props are not tiles, and layers do not change that
 
@@ -83,12 +86,21 @@ This constrains *rendering* only. Whether such props should nonetheless be autho
 
 **The rounding contract is deliberate.** The collapse midpoint is plain C++ integer division, `(lo + hi) / 2`, which TRUNCATES TOWARD ZERO. `math::detail::projectionFloorDiv` (`include/math/Projection.h:130-133`), used elsewhere in this same projection subsystem, floors instead — but that is a correctness requirement for cell picking, not a style default to match. `cameraRangeFor`'s truncation matches the reference `IsoCamera::clampOrCentre` pixel-for-pixel, and negative `left`/`top` coordinates are the NORMAL case here, not an edge case: `axisYx` is negative under an isometric basis (see `ProjectionSpec`'s own doc table), so a world's `left`/`top` routinely land below zero. Do not "fix" this to floor division to match `projectionFloorDiv` — that would silently shift the camera by a pixel and break parity with the reference implementation this capability was built to match.
 
+## Rooms under a projection
+
+Closed: `gameplay/RoomLayout.h` used to build only orthogonal camera rects (`cells * tile size`), so `graphics/iso_dungeon` derived its room layer by hand and passed `camera = nullptr` to `enterRoom`. With `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` and `PIXELROOT32_ENABLE_TILEMAP_PROJECTION` both on, two additions cover it:
+
+- **`buildRoomGraph(layer, graph, proj, perRoom = nullptr)`** makes each room's camera rect the screen box of its cells' footprints (the diamonds under a 2:1 isometric basis). `cellToScreenX/Y` is a cell's centre, where tiles anchor, so the box is the four corners of `[originCol, originCol + cols] × [originRow, originRow + rows]` through `cellToScreenX/Y` moved half a cell by `-(axisX + axisY) / 2`, rounded outward for an odd basis; a floor-only room whose tiles fill their diamonds draws exactly that box. `perRoom`, an optional array of one `graphics::ScreenBounds` per room (typically `expandProjectedMapBounds` over that room's map), widens the box by the art's overhang, which the cells alone cannot know. Validation keeps the orthogonal shape: any bad room rejects the whole layer, and a degenerate projection (`projectionDet < 1`) is one more reason to.
+- **`roomProjection(proj, room)`** returns `proj` with its origin moved to the screen position of cell `(originCol, originRow)`. A map holding only that room, with local cells from `(0, 0)`, drawn through it lands where those cells sit in the scene.
+
+`RoomData` and `RoomLayer` did not change shape: rooms stay in scene cells and `tileWidth`/`tileHeight` stay the cell stride (obligation 5). Negative coordinates work as they are: an isometric basis puts rooms on the `+Y` side at negative screen X (`{120, 88, 16, 8, -16, 8}` puts a 7×7 room at cell `(0, 7)` at `x = -104`), `Room` stores its rect as signed `Scalar`, and `Camera2D` clamps to it as-is. `kMaxRoomWorldCoord` applies to the projected, widened box in both directions, `[-32767, 32767]` per axis, because a `Fixed16` `Scalar` wraps past either end. The orthogonal overload is unchanged; `camera = nullptr` remains valid for a game whose rooms are one screen each.
+
 ## Open: the behaviour layer is not covered
 
 The editor also emits per-tile behaviour flags — `TILE_BEHAVIOR_LAYER_<NAME>[]`,
-`behavior_layers[]` and `NUM_BEHAVIOR_LAYERS` (`cpp_code_generator.cpp:409-461`)
-— against `physics::TileBehaviorLayer`. The reference export does **not** use
-them: `graphics/iso_dungeon` still derives walkability from its layout chars
+`behavior_layers[]` and `NUM_BEHAVIOR_LAYERS` — against
+`physics::TileBehaviorLayer`, in scene cells even when the scene has room maps.
+The reference export carries an empty one, and the game does **not** use it: `graphics/iso_dungeon` still derives walkability from its layout chars
 through `RoomCatalog.h`'s `isSolidTile()`.
 
 That is a known gap with a concrete engine-side cause, not an oversight.

@@ -1,6 +1,6 @@
 ---
 title: "Isometric Guide"
-description: "Isometric scenes in the Tilemap Editor: projection, cell stride, fitting the cell to your art, canvas overlays, and what the export adds"
+description: "Isometric scenes in the Tilemap Editor: projection, cell stride, fitting the cell to your art, canvas overlays, what the export adds, and one map per room"
 ---
 
 # Tilemap Editor - Isometric Guide
@@ -16,6 +16,8 @@ description: "Isometric scenes in the Tilemap Editor: projection, cell stride, f
 > - [Reading the canvas](#reading-the-canvas)
 > - [Painting](#painting)
 > - [Export](#export)
+> - [Rooms](#rooms)
+> - [Re-exporting](#re-exporting)
 > - [Troubleshooting](#troubleshooting)
 
 ::: warning Read this page in order
@@ -213,8 +215,8 @@ any pan or zoom. Red is `+X`, blue is `+Y`, and **both point down**.
 
 ## Painting
 
-Everything works as it does orthogonally — brush, eraser, rectangle, pipette,
-layers, animations, attributes. Three things behave differently:
+The tools are the orthogonal ones — brush, eraser, rectangle, pipette, layers,
+animations, attributes. Three things behave differently:
 
 - **The cell highlight is a diamond**, and so is the rectangle tool's preview.
   Both show the shape the write will actually produce rather than a
@@ -233,44 +235,255 @@ sort and none is needed.
 
 ## Export
 
-An isometric scene's export adds three things to the header. Full field-by-field
-detail is in the
+An isometric scene exports the same `.h`/`.cpp` pair as an orthogonal one, in
+a different shape. Full field-by-field detail is in the
 [Technical Reference](/tools/tilemap-editor/technical-reference#isometric-projection).
 
+The header is split in two. The geometry gameplay needs is always compiled;
+the tile data sits behind the engine's switch for its colour depth:
+
 ```cpp
+// level1.h (abridged)
 #include <math/Projection.h>
 
-inline constexpr uint8_t TILE_WIDTH  = 32;   // the CELL stride
-inline constexpr uint8_t TILE_HEIGHT = 16;   // not the bitmap size
+namespace level1 {
+    inline constexpr uint8_t TILE_WIDTH  = 32;   // the CELL stride,
+    inline constexpr uint8_t TILE_HEIGHT = 16;   // not the bitmap size
+    inline constexpr uint8_t MAP_WIDTH   = 21;
+    inline constexpr uint8_t MAP_HEIGHT  = 7;
 
-inline constexpr pixelroot32::math::ProjectionSpec ISO_PROJECTION{ /* six ints */ };
+    inline constexpr pixelroot32::math::ProjectionSpec ISO_PROJECTION{
+        120, 88, 16, 8, -16, 8};
+    // + three static_asserts on ISO_PROJECTION
 
-extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
+    inline constexpr uint8_t TILESET_MAX_TILE_HEIGHT = 40;  // tallest tile
+    // + SPAWN_TILE_X/Y, room metadata, behaviour layers (when the scene has them)
+}
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES      // _2BPP_ at 2bpp; none at 1bpp
+namespace level1 {
+    inline constexpr uint16_t TILESET_TILE_COUNT = 7;
+    extern const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[TILESET_TILE_COUNT];
+    extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
+    extern pixelroot32::graphics::TileMap4bpp tiles;   // one per layer
+    void init();
+}
+#endif
 ```
 
 - **`ISO_PROJECTION`** — the six integers that map a cell to the screen
 - **`TILESET_FOOT_Y`** — which bitmap row of each tile sits on its cell centre
 - **`TILE_WIDTH` / `TILE_HEIGHT`** — the **cell stride**, which for a tall tile
   is smaller than its bitmap
+- **`TILESET_MAX_TILE_HEIGHT`** — the tallest tile in pixels; a tile overhangs
+  its cell by up to this minus `TILE_HEIGHT`. Size cull margins and depth
+  bands from it instead of hard-coding a number.
+- **`TILESET_SPRITES`** — one descriptor per tile, with **external linkage**:
+  every translation unit that includes the header sees the same array in flash
+
+The `.cpp` wraps its whole body in the same `#ifdef`. A build without the
+depth switch still compiles everything that places actors on cells; it is the
+draw that needs the flag. All the scalar constants are `inline constexpr`, so
+your own `constexpr` values and `static_assert`s can be built from them.
 
 The export's `init()` wires the foot table onto every layer, so a game calls
-`init()`, draws through `ISO_PROJECTION`, and is done. If your scene gives each
-layer its own palette slot, each layer gets its own tileset and therefore its
-own table — `BACKGROUND_TILESET_FOOT_Y`, `LAYER_1_TILESET_FOOT_Y`, and so on.
+`init()`, draws through `ISO_PROJECTION`, and is done:
 
-The header states its own invariants with `static_assert`. They fire at **your**
-compile, which is deliberate: a projection the engine cannot use should stop the
-build that would ship it.
+```cpp
+#include "level1.h"
 
-An **orthogonal** export is unchanged — no projection, no foot table, one tile
-size.
+level1::init();
+renderer.drawTileMap(level1::tiles, 0, 0,
+                     pixelroot32::graphics::LayerType::Static,
+                     level1::ISO_PROJECTION);
+```
+
+If your scene gives each layer its own palette slot, each layer gets its own
+tileset and therefore its own table — `BACKGROUND_TILESET_FOOT_Y`,
+`LAYER_1_TILESET_FOOT_Y`, and so on.
+
+### What else the isometric export does for you
+
+- **Slot 0 is an empty, zero-extent tile** — `{ nullptr, PALETTE, 0, 0, … }`,
+  with no bytes in the data pool and a foot of 0. Index 0 means "no tile" and
+  `drawTileMap` skips it, but the projected path still reads `tiles[0]` when it
+  sizes its cull window, so the slot must exist; zero extent keeps it from
+  widening that window. An orthogonal export keeps its full-size blank tile.
+- **Span tables are precomputed in flash** (4bpp and 2bpp). Each descriptor
+  points at `TILESET_SPAN_MIN_X` / `TILESET_SPAN_MAX_X`, the opaque run of every
+  row, exactly what the engine's `computeSpanTable` would produce. The renderer
+  skips transparent padding without a RAM copy of the tileset and without a
+  `computeSpanTable` pass at startup — draw straight from `TILESET_SPRITES`.
+- **The header states its own invariants** with three `static_assert`s on
+  `ISO_PROJECTION`. They fire at **your** compile, which is deliberate: a
+  projection the engine cannot use should stop the build that would ship it.
+
+An **orthogonal** export is unchanged — no projection, no foot table, no span
+tables, one tile size, no depth guard split.
+
+### Installing the palette
+
+**Install palette in init()**, under *Export options* in the export dialog, picks
+which palette bank `init()` fills with the scene's palette:
+
+| Option | `init()` calls | Use it when |
+|--------|----------------|-------------|
+| **None** (default) | nothing | your game installs palettes itself |
+| **Background** | `setBackgroundCustomPalette(...)` | sprites use a palette of their own |
+| **Dual (background + sprites)** | `setDualCustomPalette(...)` with the scene palette in both banks | tiles and sprites share one palette |
+
+`drawTileMap` reads the **background** bank and `drawSprite` the **sprite**
+bank, so with *None* the tiles draw with whatever background palette happens to
+be installed. The option works in orthogonal scenes too. In multi-palette mode
+it installs the lowest slot's palette before the per-slot calls, which still
+win. At 1bpp there is no RGB565 palette, so every option behaves as *None*.
+
+### Width limit at 1bpp
+
+An engine 1bpp `Sprite` stores one `uint16_t` per row, so a 1bpp tile can be
+at most **16 px** wide; bit `width - 1` is the leftmost pixel, and transparent
+pixels export as off. Isometric art is rarely that narrow: when a 1bpp
+isometric scene uses a tile wider than 16 px, the export reports a warning
+naming the widest tile. The files are still written, but those tiles will not
+draw as authored — add a colour so the scene exports at 2bpp, or use narrower
+tiles.
 
 ### The projection origin
 
 By default the exported origin is the map's own inset, so the map starts at
 `(0,0)` in its own pixel space and your game scrolls a camera over it. Tick
 **Custom screen origin** in the projection dialog only for a fixed, one-screen
-room — the shipped `iso_dungeon` uses `(120, 88)`, placed by hand.
+room — the `iso_dungeon` demo's project sets `(120, 88)` to place each 7×7
+room on its 240×240 screen.
+
+---
+
+## Rooms
+
+Rooms are authored the same way in every scene — see
+[Rooms](/tools/tilemap-editor/usage-guide#rooms) in the Usage Guide. In an
+isometric scene the export adds **one map per room**, so a game can draw one
+room without drawing, or even storing a reference to, the rest of the scene.
+
+For a scene file `iso_dungeon_rooms.h` with one layer called *Tiles* and three
+7×7 rooms, the header gains:
+
+```cpp
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+inline constexpr pixelroot32::gameplay::RoomData ISO_DUNGEON_ROOMS_ROOMS[] = {
+    // originCol, originRow, cols, rows, { Up, Down, Left, Right }
+    {  0, 0, 7, 7, {      1, 0xFFFF,      2, 0xFFFF } },
+    {  7, 0, 7, 7, { 0xFFFF, 0xFFFF,      0, 0xFFFF } },
+    { 14, 0, 7, 7, {      0, 0xFFFF, 0xFFFF, 0xFFFF } },
+};
+inline constexpr pixelroot32::gameplay::RoomLayer ISO_DUNGEON_ROOMS_ROOM_LAYER = {
+    ISO_DUNGEON_ROOMS_ROOMS, 3, 32, 16   // rooms, roomCount, CELL stride
+};
+#endif
+
+// inside the depth guard
+extern pixelroot32::graphics::TileMap4bpp tiles_room0;   // <layer>_room<r>
+extern pixelroot32::graphics::TileMap4bpp tiles_room1;
+extern pixelroot32::graphics::TileMap4bpp tiles_room2;
+inline constexpr uint8_t NUM_ROOM_LAYERS = 3;            // one map per room
+extern pixelroot32::graphics::TileMap4bpp* const ROOM_LAYERS[NUM_ROOM_LAYERS];
+```
+
+- Each room map is cropped to its room: **local cells from (0, 0)**, the same
+  shared tileset, foot table and span tables as the whole-scene map. `init()`
+  wires them all.
+- `ROOMS` keeps each room's origin in **scene** cells, and `ROOM_LAYER` carries
+  the **cell stride** (32×16), not the tile bitmap size.
+- The whole-scene map (`tiles`) is still exported, for code that draws the
+  scene in one call.
+- With several layers, `ROOM_LAYERS` holds the bottom layer's maps, and the
+  header adds `LAYERS_PER_ROOM` and one `<LAYER>_ROOM_LAYERS[]` per layer:
+  drawing room `r` is one `drawTileMap` per layer, bottom to top.
+- Behaviour and attribute layers are **not** cropped. They stay in scene cells;
+  add the room's `originCol`/`originRow` when you query them.
+
+An orthogonal scene with rooms exports its room metadata as before, with no
+room maps.
+
+### Drawing a room
+
+**One screen per room** (what `iso_dungeon` does): draw the current room's map
+through the scene's own `ISO_PROJECTION`. Every room lands at the same place on
+screen, and no camera is needed:
+
+```cpp
+using namespace iso_dungeon;
+rooms::init();
+
+pixelroot32::gameplay::RoomGraph<rooms::NUM_ROOM_LAYERS> graph;
+pixelroot32::gameplay::buildRoomGraph(rooms::ISO_DUNGEON_ROOMS_ROOM_LAYER, graph);
+graph.enterRoom(0, /*camera=*/nullptr);
+
+// draw()
+renderer.drawTileMap(*rooms::ROOM_LAYERS[graph.currentRoomIndex()], 0, 0,
+                     pixelroot32::graphics::LayerType::Static,
+                     rooms::ISO_PROJECTION);
+```
+
+**Rooms placed in a scrolling scene**: give `buildRoomGraph` the projection, so
+each room's camera rect is the screen box of its cell diamonds (exactly what a
+floor-only room draws, 32×16 floor tiles anchored at foot row 8), and draw each
+room through `roomProjection`, which moves the origin to the room's first cell
+so the room lands where it sits in the scene:
+
+```cpp
+namespace gp = pixelroot32::gameplay;
+using namespace iso_dungeon;
+
+if (gp::buildRoomGraph(rooms::ISO_DUNGEON_ROOMS_ROOM_LAYER, graph,
+                       rooms::ISO_PROJECTION) > 0) {
+    setRoomGraph(&graph);
+    graph.enterRoom(0, &camera);
+}
+
+// draw()
+const uint16_t r = graph.currentRoomIndex();
+renderer.drawTileMap(*rooms::ROOM_LAYERS[r], 0, 0,
+                     pixelroot32::graphics::LayerType::Static,
+                     gp::roomProjection(rooms::ISO_PROJECTION,
+                                        rooms::ISO_DUNGEON_ROOMS_ROOMS[r]));
+```
+
+`buildRoomGraph` takes an optional fourth argument, one
+`graphics::ScreenBounds` per room (typically `expandProjectedMapBounds` over
+that room's map), to widen each camera rect by how far tall art overhangs the
+cells. Both need `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` and
+`PIXELROOT32_ENABLE_TILEMAP_PROJECTION`.
+
+::: warning Engine version
+The projected `buildRoomGraph(layer, graph, projection, perRoom)` overload and
+`roomProjection()` ship in the **next engine release (Unreleased)**. The room
+maps themselves, and the one-screen-per-room pattern above, build against the
+current release.
+:::
+
+---
+
+## Re-exporting
+
+The exported files are output, not source: the editor overwrites them on every
+export, so keep game code in your own files and change the map in the editor.
+
+1. **File → Open...** the `.pr32scene.bin`, edit the scene, **File → Save**
+2. **File → Export...** (Ctrl+E). The project file does **not** store the
+   export settings, so set them again every time: **C++ Namespace**,
+   **Store data in Flash (ESP32)**, **Legacy format**, **Install palette in
+   init()**. Leave **Color Depth** auto-detected.
+3. **Export Now** and pick the same folder. The editor overwrites
+   `<namespace>_<scene>.h`, `<namespace>_<scene>.cpp` and
+   `<namespace>_tilemap_palette.h`; the scene's code lives in namespace
+   `<namespace>::<scene>`.
+4. Rebuild. The `static_assert`s and your own `static_assert`s against the
+   exported constants catch a scene that no longer fits your game.
+
+The [`iso_dungeon` and `iso_tilemap_export` demos](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/graphics)
+keep their editor projects next to the code and list their exact export
+settings in their READMEs.
 
 ---
 
@@ -298,6 +511,22 @@ before painting.
 **My game does not compile after export.** Read the `static_assert` message —
 it names which invariant the projection broke. This is the intended failure
 mode; the alternative is a map that draws wrong at runtime.
+
+**`TILESET_SPRITES`, the maps or `init()` are "not declared".** The tile data
+sits behind `#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES` (or `_2BPP_` at 2bpp).
+Add the flag to your build; the geometry above the guard compiles either way.
+
+**The export warns about 1bpp tile widths.** The scene came out 1bpp and uses
+tiles wider than 16 px, which an engine 1bpp sprite cannot hold. See
+[Width limit at 1bpp](#width-limit-at-1bpp).
+
+**The tiles draw in the wrong colours.** `drawTileMap` reads the background
+palette bank. Export with **Install palette in init()** set to *Background* or
+*Dual*, or install the palette yourself before the first draw.
+
+**`roomProjection` or the four-argument `buildRoomGraph` does not exist.**
+Both ship in the next engine release (Unreleased). Use the
+one-screen-per-room pattern in [Drawing a room](#drawing-a-room) until then.
 
 ---
 

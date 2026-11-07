@@ -34,6 +34,13 @@
  * on an empty graph is a silent no-op — the scene would run with no camera
  * bounds and no current room rather than failing loudly.
  *
+ * Projected rooms (isometric, oblique): with PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+ * also on, `buildRoomGraph(layer, graph, proj, perRoom)` takes the scene's
+ * `math::ProjectionSpec` and builds each camera rect from the screen box of
+ * the room's cell diamonds, and `roomProjection(proj, room)` gives the projection a
+ * room-local map (cells from 0,0) is drawn through. See that overload's doc
+ * for an example.
+ *
  * Feature-gated by PIXELROOT32_ENABLE_GAMEPLAY_ROOM (default 0), the same flag
  * that gates RoomGraph itself.
  */
@@ -47,6 +54,11 @@
 #include "gameplay/RoomGraph.h"
 #include "math/Scalar.h"
 #include <cstdint>
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+#include "graphics/ProjectedMapBounds.h"
+#include "math/Projection.h"
+#endif
 
 namespace pixelroot32::gameplay {
 
@@ -86,9 +98,10 @@ inline constexpr int kMaxRoomWorldCoord = 32767;
  * @struct RoomData
  * @brief One exported room: its tile-space rect plus four connection slots.
  *
- * Coordinates are in TILES, not world units — that is the space the editor
- * authors in. `buildRoomGraph()` multiplies by the layer's tile size to get
- * the world-space camera rect.
+ * Coordinates are in TILES (scene cells), not world units — that is the space
+ * the editor authors in. The orthogonal `buildRoomGraph()` multiplies by the
+ * layer's tile size to get the world-space camera rect; the projected overload
+ * projects the cell block through a `math::ProjectionSpec` instead.
  *
  * Connection slots are indexed by `RoomDir` (0 = Up, 1 = Down, 2 = Left,
  * 3 = Right) and hold the target room's index within the same layer, or
@@ -115,9 +128,75 @@ struct RoomData {
 struct RoomLayer {
     const RoomData* rooms;  ///< Pointer to the exported room array (may be null).
     uint16_t roomCount;     ///< Number of entries in `rooms`.
-    uint8_t  tileWidth;     ///< Tile width in world units. MUST be >= 1.
-    uint8_t  tileHeight;    ///< Tile height in world units. MUST be >= 1.
+    uint8_t  tileWidth;     ///< Cell stride X in world units (32 for 2:1 iso, not the art width). MUST be >= 1.
+    uint8_t  tileHeight;    ///< Cell stride Y in world units (16 for 2:1 iso, not the art height). MUST be >= 1.
 };
+
+namespace detail {
+
+/**
+ * @brief Passes 2 and 3 of buildRoomGraph(), shared by both overloads.
+ *
+ * Pass 2 adds one room per layer entry, taking its camera rect from
+ * `rectFor(src, minX, minY, maxX, maxY)` and carrying the tile window over
+ * verbatim. Pass 3 wires connections once every index exists. The caller has
+ * already validated the whole layer (pass 1), so nothing here rejects it.
+ *
+ * `baseIdx` is where the layer's room 0 landed in the graph. It is only 0 when
+ * the graph started empty; appending onto a populated graph shifts every
+ * layer-local index by this offset. Connection targets are layer-local, so
+ * they are bounds-checked against `added` (layer space) and then shifted into
+ * graph space by `baseIdx`. Using the raw layer index would connect the wrong
+ * rooms, and could write edges into rooms this layer never named.
+ */
+template <uint16_t N, typename RectFn>
+uint16_t addRoomsAndWire(const RoomLayer& layer, RoomGraph<N>& graph, RectFn rectFor) {
+    uint16_t added   = 0;
+    uint16_t baseIdx = 0;
+
+    for (uint16_t i = 0; i < layer.roomCount; ++i) {
+        const RoomData& src = layer.rooms[i];
+
+        int minX = 0;
+        int minY = 0;
+        int maxX = 0;
+        int maxY = 0;
+        rectFor(src, minX, minY, maxX, maxY);
+
+        const uint16_t idx = graph.addRoom(math::toScalar(minX), math::toScalar(minY),
+                                           math::toScalar(maxX), math::toScalar(maxY));
+        if (idx == kGraphFull) {
+            break;  // stop here so the remaining layer indices stay contiguous
+        }
+        if (added == 0) {
+            baseIdx = idx;
+        }
+
+        graph.setTileWindow(idx,
+                            static_cast<int16_t>(src.originCol),
+                            static_cast<int16_t>(src.originRow),
+                            static_cast<int16_t>(src.cols),
+                            static_cast<int16_t>(src.rows));
+        ++added;
+    }
+
+    for (uint16_t i = 0; i < added; ++i) {
+        const RoomData& src = layer.rooms[i];
+        for (uint8_t dir = 0; dir < 4; ++dir) {
+            const uint16_t target = src.connections[dir];
+            if (target == kNoRoomConnection || target >= added) {
+                continue;  // wall, corrupt target, or a room truncation dropped
+            }
+            graph.connect(static_cast<uint16_t>(baseIdx + i),
+                          static_cast<uint16_t>(baseIdx + target),
+                          static_cast<RoomDir>(dir));
+        }
+    }
+
+    return added;
+}
+
+} // namespace detail
 
 /**
  * @brief Populate a RoomGraph<N> from an exported room layer.
@@ -172,58 +251,233 @@ uint16_t buildRoomGraph(const RoomLayer& layer, RoomGraph<N>& graph) {
         }
     }
 
-    // ---- Pass 2: tile-space rects become world-space camera rects ----------
-    // `baseIdx` is where the layer's room 0 landed in the graph. It is only 0
-    // when the graph started empty; appending onto a populated graph shifts
-    // every layer-local index by this offset.
-    uint16_t added   = 0;
-    uint16_t baseIdx = 0;
+    // ---- Passes 2 and 3: tile-space rects become world-space camera rects,
+    //      then connections are wired once every index exists --------------
+    return detail::addRoomsAndWire(layer, graph,
+                                   [&](const RoomData& src, int& minX, int& minY,
+                                       int& maxX, int& maxY) {
+        minX = static_cast<int>(src.originCol) * tileW;
+        minY = static_cast<int>(src.originRow) * tileH;
+        maxX = (static_cast<int>(src.originCol) + static_cast<int>(src.cols)) * tileW;
+        maxY = (static_cast<int>(src.originRow) + static_cast<int>(src.rows)) * tileH;
+    });
+}
+
+#if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
+
+/**
+ * @brief Scene projection of one room's local map.
+ *
+ * Returns `proj` with its origin moved to the screen position of the room's
+ * origin cell `(originCol, originRow)`; the basis is unchanged. A map that
+ * holds only this room, with local cells starting at (0, 0), drawn through the
+ * result lands exactly where the same cells land in the whole scene: local
+ * cell `(c, r)` projects to scene cell `(originCol + c, originRow + r)`.
+ *
+ * `constexpr`, so it folds at compile time when both inputs are `constexpr`.
+ */
+constexpr math::ProjectionSpec roomProjection(const math::ProjectionSpec& proj,
+                                              const RoomData& room) {
+    math::ProjectionSpec local = proj;
+    local.originX = math::cellToScreenX(static_cast<int>(room.originCol),
+                                        static_cast<int>(room.originRow), proj);
+    local.originY = math::cellToScreenY(static_cast<int>(room.originCol),
+                                        static_cast<int>(room.originRow), proj);
+    return local;
+}
+
+namespace detail {
+
+/**
+ * @brief Screen box of a room's projected cell block, optionally unioned with
+ *        a measured `ScreenBounds`.
+ *
+ * `cellToScreenX/Y(c, r)` is the CENTRE of cell `(c, r)`'s footprint, the
+ * point the projected renderer anchors a tile on (`centre - width / 2`,
+ * `centre - footY`). The footprint itself is `centre + s * axisX + t * axisY`
+ * for `s, t` in `[-1/2, 1/2]`: the 32x16 diamond `centre +/- (16, 8)` under
+ * the 2:1 isometric basis. The union of the room's footprints is therefore
+ * the parallelogram whose corners are the cell-block corners
+ * `[originCol, originCol + cols] x [originRow, originRow + rows]` moved by
+ * half a cell, `-(axisX + axisY) / 2`. All four corners move by that same
+ * vector, so the box is the corner-anchor box shifted once.
+ *
+ * All four corners still go through `cellToScreenX/Y`: under a non-identity
+ * basis the extremes sit at different corners (with `axisYx < 0` the minimum
+ * X is the `(originCol, originRow + rows)` corner), the same reasoning
+ * `math::projectionSpecIsValid()` uses. An odd `axisXx + axisYx` (or
+ * `axisXy + axisYy`) makes the half-cell shift a half pixel; the box then
+ * rounds outward (floor on the minimum, ceil on the maximum), so it always
+ * contains the footprints. `extra` is ignored when null or when
+ * `extra->valid` is false.
+ */
+inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& src,
+                             const graphics::ScreenBounds* extra,
+                             int& minX, int& minY, int& maxX, int& maxY) {
+    const int c0 = static_cast<int>(src.originCol);
+    const int r0 = static_cast<int>(src.originRow);
+    const int c1 = c0 + static_cast<int>(src.cols);
+    const int r1 = r0 + static_cast<int>(src.rows);
+
+    const int xs[4] = {
+        math::cellToScreenX(c0, r0, proj), math::cellToScreenX(c1, r0, proj),
+        math::cellToScreenX(c0, r1, proj), math::cellToScreenX(c1, r1, proj),
+    };
+    const int ys[4] = {
+        math::cellToScreenY(c0, r0, proj), math::cellToScreenY(c1, r0, proj),
+        math::cellToScreenY(c0, r1, proj), math::cellToScreenY(c1, r1, proj),
+    };
+
+    minX = maxX = xs[0];
+    minY = maxY = ys[0];
+    for (int k = 1; k < 4; ++k) {
+        if (xs[k] < minX) minX = xs[k];
+        if (xs[k] > maxX) maxX = xs[k];
+        if (ys[k] < minY) minY = ys[k];
+        if (ys[k] > maxY) maxY = ys[k];
+    }
+
+    // Half-cell shift from corner anchors to footprint edges, -(axisX +
+    // axisY) / 2, rounded outward: floor(-s / 2) on the minimum and
+    // ceil(-s / 2) == -floor(s / 2) on the maximum. Exact for even sums.
+    const int sumX = proj.axisXx + proj.axisYx;
+    const int sumY = proj.axisXy + proj.axisYy;
+    minX += math::detail::projectionFloorDiv(-sumX, 2);
+    maxX -= math::detail::projectionFloorDiv(sumX, 2);
+    minY += math::detail::projectionFloorDiv(-sumY, 2);
+    maxY -= math::detail::projectionFloorDiv(sumY, 2);
+
+    if (extra != nullptr && extra->valid) {
+        if (extra->left   < minX) minX = extra->left;
+        if (extra->top    < minY) minY = extra->top;
+        if (extra->right  > maxX) maxX = extra->right;
+        if (extra->bottom > maxY) maxY = extra->bottom;
+    }
+}
+
+} // namespace detail
+
+/**
+ * @brief Populate a RoomGraph<N> from an exported room layer whose map is
+ *        drawn through a projection (isometric, oblique, ...).
+ *
+ * Same three passes, same fail-closed validation, and the same tile windows,
+ * connections, truncation and append behaviour as the orthogonal overload.
+ * Only the camera rect differs: instead of `cells * tile size`, each room's
+ * rect is the screen box of its cells' footprints (the 32x16 diamonds of a 2:1
+ * isometric basis), in the scene space the whole map is drawn in.
+ * `cellToScreenX/Y` gives a cell's CENTRE, where the renderer anchors its
+ * tile, so the box is the four corners of
+ * `[originCol, originCol + cols] x [originRow, originRow + rows]` through
+ * `cellToScreenX/Y`, moved half a cell by `-(axisX + axisY) / 2` (for
+ * `{.., 16, 8, -16, 8}`: `(0, -8)`). A floor-only room whose tiles exactly
+ * fill their diamonds (32x16, foot row 8) draws exactly this box. Like the
+ * orthogonal rect, it is the room's extent, not a camera-position range (see
+ * `graphics::cameraRangeFor()` for the latter).
+ *
+ * `layer.tileWidth`/`tileHeight` keep their meaning, the CELL STRIDE (32x16 for
+ * a 2:1 isometric export), and must still be non-zero; the geometry itself
+ * comes from `proj`, which already encodes that stride.
+ *
+ * The diamond box does not know how far the art overhangs its cells (a wall
+ * rising above its diamond). Pass `perRoom` to widen each room's rect by that
+ * room's measured extent, typically `graphics::expandProjectedMapBounds()` over
+ * the room's own map drawn through `roomProjection(proj, room)`. An entry with
+ * `valid == false` leaves its room's box unchanged.
+ *
+ * Coordinates are signed. An isometric basis puts rooms on the +Y side at
+ * negative screen X; `Room` stores them as `Scalar` and `Camera2D` clamps to
+ * them as-is.
+ *
+ * Example (two 7x7 rooms on a 32x16 cell stride, one map per room):
+ * @code
+ * using namespace pixelroot32;
+ * inline constexpr math::ProjectionSpec ISO{120, 88, 16, 8, -16, 8};
+ * static const gameplay::RoomData ROOMS[] = {
+ *     { 0, 0, 7, 7, { 0xFFFF, 0xFFFF, 0xFFFF,      1 } },
+ *     { 7, 0, 7, 7, { 0xFFFF, 0xFFFF,      0, 0xFFFF } },
+ * };
+ * static const gameplay::RoomLayer ROOM_LAYER = { ROOMS, 2, 32, 16 };
+ *
+ * // ROOM_LAYERS[i] is room i's map, as the Tool Suite exports it (one map per
+ * // room, NUM_ROOM_LAYERS of them, indexed like ROOMS).
+ * // MyScene::init() -- optionally measure each room's art overhang first.
+ * graphics::ScreenBounds art[2];
+ * for (int i = 0; i < 2; ++i) {
+ *     graphics::expandProjectedMapBounds(art[i], *ROOM_LAYERS[i],
+ *                                        gameplay::roomProjection(ISO, ROOMS[i]));
+ * }
+ * if (gameplay::buildRoomGraph(ROOM_LAYER, rooms_, ISO, art) > 0) {
+ *     setRoomGraph(&rooms_);
+ *     rooms_.enterRoom(0, &camera);
+ * }
+ *
+ * // MyScene::draw() -- each room map holds local cells from (0, 0).
+ * const uint16_t r = rooms_.currentRoomIndex();
+ * renderer.drawTileMap(*ROOM_LAYERS[r], 0, 0, layerType,
+ *                      gameplay::roomProjection(ISO, ROOMS[r]));
+ * @endcode
+ *
+ * Pass 1 rejects the WHOLE layer, building nothing, on: a null pointer, an
+ * empty layer, a zero tile size, a degenerate projection
+ * (`math::projectionDet(proj) < 1`, as in `projectionSpecIsValid()`), or any
+ * room whose box, after widening, reaches outside
+ * `[-kMaxRoomWorldCoord, kMaxRoomWorldCoord]` on either axis. As with the
+ * orthogonal overload, that covers rooms capacity truncation would drop.
+ *
+ * @tparam N       The graph's compile-time room capacity.
+ * @param  layer   The exported layer; its rooms are in scene cells.
+ * @param  graph   The graph to fill. Rooms are appended, as in the orthogonal
+ *                 overload.
+ * @param  proj    The scene projection the map is drawn through.
+ * @param  perRoom Optional array of `layer.roomCount` measured extents, indexed
+ *                 like `layer.rooms`; may be null.
+ * @return Rooms added, as in the orthogonal overload: `layer.roomCount`, fewer
+ *         on capacity truncation, 0 when the layer was rejected.
+ */
+template <uint16_t N>
+uint16_t buildRoomGraph(const RoomLayer& layer, RoomGraph<N>& graph,
+                        const math::ProjectionSpec& proj,
+                        const graphics::ScreenBounds* perRoom = nullptr) {
+    // ---- Pass 1: validate the layer as a whole -----------------------------
+    if (layer.rooms == nullptr || layer.roomCount == 0) {
+        return 0;
+    }
+    if (layer.tileWidth == 0 || layer.tileHeight == 0) {
+        return 0;
+    }
+    if (math::projectionDet(proj) < 1) {
+        return 0;
+    }
 
     for (uint16_t i = 0; i < layer.roomCount; ++i) {
-        const RoomData& src = layer.rooms[i];
-
-        const int minX = static_cast<int>(src.originCol) * tileW;
-        const int minY = static_cast<int>(src.originRow) * tileH;
-        const int maxX = (static_cast<int>(src.originCol) + static_cast<int>(src.cols)) * tileW;
-        const int maxY = (static_cast<int>(src.originRow) + static_cast<int>(src.rows)) * tileH;
-
-        const uint16_t idx = graph.addRoom(math::toScalar(minX), math::toScalar(minY),
-                                           math::toScalar(maxX), math::toScalar(maxY));
-        if (idx == kGraphFull) {
-            break;  // stop here so the remaining layer indices stay contiguous
-        }
-        if (added == 0) {
-            baseIdx = idx;
-        }
-
-        graph.setTileWindow(idx,
-                            static_cast<int16_t>(src.originCol),
-                            static_cast<int16_t>(src.originRow),
-                            static_cast<int16_t>(src.cols),
-                            static_cast<int16_t>(src.rows));
-        ++added;
-    }
-
-    // ---- Pass 3: wire connections now that every index exists --------------
-    // Connection targets are layer-local, so they are bounds-checked against
-    // `added` (layer space) and then shifted into graph space by `baseIdx`.
-    // Using the raw layer index here would connect the wrong rooms — and could
-    // write edges into rooms this layer never named.
-    for (uint16_t i = 0; i < added; ++i) {
-        const RoomData& src = layer.rooms[i];
-        for (uint8_t dir = 0; dir < 4; ++dir) {
-            const uint16_t target = src.connections[dir];
-            if (target == kNoRoomConnection || target >= added) {
-                continue;  // wall, corrupt target, or a room truncation dropped
-            }
-            graph.connect(static_cast<uint16_t>(baseIdx + i),
-                          static_cast<uint16_t>(baseIdx + target),
-                          static_cast<RoomDir>(dir));
+        int minX = 0;
+        int minY = 0;
+        int maxX = 0;
+        int maxY = 0;
+        detail::projectedRoomBox(proj, layer.rooms[i],
+                                 perRoom != nullptr ? &perRoom[i] : nullptr,
+                                 minX, minY, maxX, maxY);
+        if (minX < -kMaxRoomWorldCoord || minY < -kMaxRoomWorldCoord ||
+            maxX > kMaxRoomWorldCoord || maxY > kMaxRoomWorldCoord) {
+            return 0;
         }
     }
 
-    return added;
+    // ---- Passes 2 and 3: projected boxes become camera rects, then
+    //      connections are wired once every index exists --------------------
+    // `perRoom` is indexed by layer position, recovered from the entry's
+    // address because the graph index differs when appending.
+    return detail::addRoomsAndWire(layer, graph,
+                                   [&](const RoomData& src, int& minX, int& minY,
+                                       int& maxX, int& maxY) {
+        const graphics::ScreenBounds* extra =
+            perRoom != nullptr ? &perRoom[&src - layer.rooms] : nullptr;
+        detail::projectedRoomBox(proj, src, extra, minX, minY, maxX, maxY);
+    });
 }
+
+#endif // PIXELROOT32_ENABLE_TILEMAP_PROJECTION
 
 } // namespace pixelroot32::gameplay
 

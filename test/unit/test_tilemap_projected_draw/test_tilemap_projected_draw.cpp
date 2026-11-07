@@ -128,6 +128,12 @@ void tearDown(void) {
 
 #include "math/Projection.h"
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+#include "gameplay/RoomGraph.h"
+#include "gameplay/RoomLayout.h"
+#include "math/MathUtil.h"
+#endif
+
 namespace math = pixelroot32::math;
 
 namespace {
@@ -1031,6 +1037,76 @@ void test_tilemap_projected_draw_placement_identical_across_1bpp_2bpp_4bpp(void)
     }
 }
 
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+
+/// A projected room's camera rect is the art a floor-only room draws.
+///
+/// The room is 7x7 floor tiles (32x16, foot 8, a sprite that exactly covers
+/// its cell's diamond) at scene cell (1, 0), drawn the way a game draws it:
+/// the room's own local map through `roomProjection()`. The scene basis is
+/// the iso_dungeon one, moved to (104, 48) so the whole room lands inside
+/// the 240x240 framebuffer. The bounding box of every pixel the real
+/// Renderer wrote must equal the rect `buildRoomGraph()` hands the camera,
+/// edge for edge (both half-open).
+///
+/// Expected: cell centres span x [24, 216] and y [56, 152]; a floor tile
+/// covers centre +/- (16, 8), so the art is x [8, 232) and y [48, 160).
+/// The corner-anchor box the rect used to be, y [56, 168), sat half a cell
+/// (8 px) below that art.
+void test_tilemap_projected_draw_floor_only_room_fills_its_camera_rect(void) {
+    namespace gameplay = pixelroot32::gameplay;
+    constexpr math::ProjectionSpec kScene{104, 48, 16, 8, -16, 8};
+    static const gameplay::RoomData kRooms[] = {
+        {1, 0, 7, 7, {gameplay::kNoRoomConnection, gameplay::kNoRoomConnection,
+                      gameplay::kNoRoomConnection, gameplay::kNoRoomConnection}},
+    };
+    static const gameplay::RoomLayer kLayer = {kRooms, 1, 32, 16};
+
+    uint8_t indices[7 * 7];
+    std::memset(indices, 1, sizeof(indices));
+    TileMap4bpp map{};
+    map.indices = indices;
+    map.width = 7;
+    map.height = 7;
+    map.tiles = kTiles;
+    map.tileWidth = 32;
+    map.tileHeight = 16;
+    map.tileCount = 5;
+    map.runtimeMask = nullptr;
+    map.tileFootY = kTileFootY;
+
+    Harness h;
+    h.renderer->drawTileMap(map, 0, 0, LayerType::Static,
+                            gameplay::roomProjection(kScene, kRooms[0]));
+
+    int left = kFbWidth, top = kFbHeight, right = 0, bottom = 0;
+    for (int y = 0; y < kFbHeight; ++y) {
+        for (int x = 0; x < kFbWidth; ++x) {
+            if (fbAt(x, y) == kSentinel) {
+                continue;
+            }
+            if (x < left) left = x;
+            if (y < top) top = y;
+            if (x + 1 > right) right = x + 1;
+            if (y + 1 > bottom) bottom = y + 1;
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(8, left);
+    TEST_ASSERT_EQUAL_INT(48, top);
+    TEST_ASSERT_EQUAL_INT(232, right);
+    TEST_ASSERT_EQUAL_INT(160, bottom);
+
+    gameplay::RoomGraph<1> graph;
+    TEST_ASSERT_EQUAL_UINT16(1, gameplay::buildRoomGraph(kLayer, graph, kScene));
+    const gameplay::Room& room = graph.getRoom(0);
+    TEST_ASSERT_EQUAL_INT(left, pixelroot32::math::roundToInt(room.cameraMinX));
+    TEST_ASSERT_EQUAL_INT(top, pixelroot32::math::roundToInt(room.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(right, pixelroot32::math::roundToInt(room.cameraMaxX));
+    TEST_ASSERT_EQUAL_INT(bottom, pixelroot32::math::roundToInt(room.cameraMaxY));
+}
+
+#endif  // PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+
 void test_tilemap_projected_draw_zero_cost_when_disabled(void) {
     // Flag ON: functional coverage lives in the cases above; this mirrors the
     // always-run half of the idiom used by test_math_projection.cpp.
@@ -1081,6 +1157,9 @@ int main(int argc, char** argv) {
     RUN_TEST(test_tilemap_projected_draw_1bpp_index_skip_unchanged_under_projection);
     RUN_TEST(test_tilemap_projected_draw_1bpp_degenerate_inputs_draw_nothing);
     RUN_TEST(test_tilemap_projected_draw_placement_identical_across_1bpp_2bpp_4bpp);
+#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM
+    RUN_TEST(test_tilemap_projected_draw_floor_only_room_fills_its_camera_rect);
+#endif
 #endif
     RUN_TEST(test_tilemap_projected_draw_zero_cost_when_disabled);
 
