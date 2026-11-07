@@ -1269,15 +1269,15 @@ public:
      * Places, culls and marks cells through `projection` instead of the
      * axis-aligned grid (see math/Projection.h): each tile is anchored at
      * `(centreX - tile.width / 2, centreY - map.footYFor(index))`, the same
-     * formula already shipped by hand in `examples/iso_dungeon/src/IsoDraw.h:28-29`.
+     * formula the iso_dungeon demo (PixelRoot32-Demo-Projects,
+     * `graphics/iso_dungeon/src/IsoDraw.h`) uses for its sprites.
      *
      * @note `map.tileFootY` is what this path anchors from. The PixelRoot32
-     *       Tilemap Editor does not export a foot-anchor table today, so an
-     *       editor-exported map has `tileFootY == nullptr` and every tile
-     *       anchors at its top-left corner (`footYFor()` returns 0
-     *       uniformly) -- correct for a uniform-height tileset, wrong for
-     *       one with mixed tile heights. Closing that export gap is a later,
-     *       separate change.
+     *       Tilemap Editor exports it for isometric scenes as
+     *       `TILESET_FOOT_Y` and wires it in the generated `init()`. A map
+     *       with `tileFootY == nullptr` anchors every tile at its top-left
+     *       corner (`footYFor()` returns 0 uniformly): correct for a
+     *       uniform-height tileset, wrong for one with mixed tile heights.
      *
      * @param projection Places, culls and marks cells through this basis
      *        instead of the axis-aligned grid.

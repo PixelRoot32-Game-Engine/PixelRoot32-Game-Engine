@@ -503,12 +503,11 @@ Draws a tilemap of 4bpp sprites through a projection basis.
 
 ::: tip
 `map.tileFootY` is what this path anchors from. The PixelRoot32
-      Tilemap Editor does not export a foot-anchor table today, so an
-      editor-exported map has `tileFootY == nullptr` and every tile
-      anchors at its top-left corner (`footYFor()` returns 0
-      uniformly) -- correct for a uniform-height tileset, wrong for
-      one with mixed tile heights. Closing that export gap is a later,
-      separate change.
+      Tilemap Editor exports it for isometric scenes as
+      `TILESET_FOOT_Y` and wires it in the generated `init()`. A map
+      with `tileFootY == nullptr` anchors every tile at its top-left
+      corner (`footYFor()` returns 0 uniformly): correct for a
+      uniform-height tileset, wrong for one with mixed tile heights.
 :::
 
 ### `void drawTileMap(const TileMap2bpp& map, int originX, int originY, LayerType layerType, const pixelroot32::math::ProjectionSpec& projection)`
