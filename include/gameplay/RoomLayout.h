@@ -36,8 +36,8 @@
  *
  * Projected rooms (isometric, oblique): with PIXELROOT32_ENABLE_TILEMAP_PROJECTION
  * also on, `buildRoomGraph(layer, graph, proj, perRoom)` takes the scene's
- * `math::ProjectionSpec` and builds each camera rect from the room's projected
- * cell block, and `roomProjection(proj, room)` gives the projection a
+ * `math::ProjectionSpec` and builds each camera rect from the screen box of
+ * the room's cell diamonds, and `roomProjection(proj, room)` gives the projection a
  * room-local map (cells from 0,0) is drawn through. See that overload's doc
  * for an example.
  *
@@ -292,12 +292,24 @@ namespace detail {
  * @brief Screen box of a room's projected cell block, optionally unioned with
  *        a measured `ScreenBounds`.
  *
- * The block is `[originCol, originCol + cols] x [originRow, originRow + rows]`
- * in scene cells, and all four corners go through `cellToScreenX/Y`: under a
- * non-identity basis the extremes sit at different corners (with
- * `axisYx < 0` the minimum X is the `(originCol, originRow + rows)` corner),
- * the same reasoning `math::projectionSpecIsValid()` uses. `extra` is ignored
- * when null or when `extra->valid` is false.
+ * `cellToScreenX/Y(c, r)` is the CENTRE of cell `(c, r)`'s footprint, the
+ * point the projected renderer anchors a tile on (`centre - width / 2`,
+ * `centre - footY`). The footprint itself is `centre + s * axisX + t * axisY`
+ * for `s, t` in `[-1/2, 1/2]`: the 32x16 diamond `centre +/- (16, 8)` under
+ * the 2:1 isometric basis. The union of the room's footprints is therefore
+ * the parallelogram whose corners are the cell-block corners
+ * `[originCol, originCol + cols] x [originRow, originRow + rows]` moved by
+ * half a cell, `-(axisX + axisY) / 2`. All four corners move by that same
+ * vector, so the box is the corner-anchor box shifted once.
+ *
+ * All four corners still go through `cellToScreenX/Y`: under a non-identity
+ * basis the extremes sit at different corners (with `axisYx < 0` the minimum
+ * X is the `(originCol, originRow + rows)` corner), the same reasoning
+ * `math::projectionSpecIsValid()` uses. An odd `axisXx + axisYx` (or
+ * `axisXy + axisYy`) makes the half-cell shift a half pixel; the box then
+ * rounds outward (floor on the minimum, ceil on the maximum), so it always
+ * contains the footprints. `extra` is ignored when null or when
+ * `extra->valid` is false.
  */
 inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& src,
                              const graphics::ScreenBounds* extra,
@@ -325,6 +337,16 @@ inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& s
         if (ys[k] > maxY) maxY = ys[k];
     }
 
+    // Half-cell shift from corner anchors to footprint edges, -(axisX +
+    // axisY) / 2, rounded outward: floor(-s / 2) on the minimum and
+    // ceil(-s / 2) == -floor(s / 2) on the maximum. Exact for even sums.
+    const int sumX = proj.axisXx + proj.axisYx;
+    const int sumY = proj.axisXy + proj.axisYy;
+    minX += math::detail::projectionFloorDiv(-sumX, 2);
+    maxX -= math::detail::projectionFloorDiv(sumX, 2);
+    minY += math::detail::projectionFloorDiv(-sumY, 2);
+    maxY -= math::detail::projectionFloorDiv(sumY, 2);
+
     if (extra != nullptr && extra->valid) {
         if (extra->left   < minX) minX = extra->left;
         if (extra->top    < minY) minY = extra->top;
@@ -342,9 +364,14 @@ inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& s
  * Same three passes, same fail-closed validation, and the same tile windows,
  * connections, truncation and append behaviour as the orthogonal overload.
  * Only the camera rect differs: instead of `cells * tile size`, each room's
- * rect is the screen box of its projected cell block, the four corners of
+ * rect is the screen box of its cells' footprints (the 32x16 diamonds of a 2:1
+ * isometric basis), in the scene space the whole map is drawn in.
+ * `cellToScreenX/Y` gives a cell's CENTRE, where the renderer anchors its
+ * tile, so the box is the four corners of
  * `[originCol, originCol + cols] x [originRow, originRow + rows]` through
- * `cellToScreenX/Y`, in the scene space the whole map is drawn in. Like the
+ * `cellToScreenX/Y`, moved half a cell by `-(axisX + axisY) / 2` (for
+ * `{.., 16, 8, -16, 8}`: `(0, -8)`). A floor-only room whose tiles exactly
+ * fill their diamonds (32x16, foot row 8) draws exactly this box. Like the
  * orthogonal rect, it is the room's extent, not a camera-position range (see
  * `graphics::cameraRangeFor()` for the latter).
  *
@@ -352,7 +379,7 @@ inline void projectedRoomBox(const math::ProjectionSpec& proj, const RoomData& s
  * a 2:1 isometric export), and must still be non-zero; the geometry itself
  * comes from `proj`, which already encodes that stride.
  *
- * The cell box does not know how far the art overhangs its cells (a wall
+ * The diamond box does not know how far the art overhangs its cells (a wall
  * rising above its diamond). Pass `perRoom` to widen each room's rect by that
  * room's measured extent, typically `graphics::expandProjectedMapBounds()` over
  * the room's own map drawn through `roomProjection(proj, room)`. An entry with

@@ -426,7 +426,8 @@ renderer.drawTileMap(*rooms::ROOM_LAYERS[graph.currentRoomIndex()], 0, 0,
 ```
 
 **Rooms placed in a scrolling scene**: give `buildRoomGraph` the projection, so
-each room's camera rect is the screen box of its diamond block, and draw each
+each room's camera rect is the screen box of its cell diamonds (exactly what a
+floor-only room draws, 32×16 floor tiles anchored at foot row 8), and draw each
 room through `roomProjection`, which moves the origin to the room's first cell
 so the room lands where it sits in the scene:
 

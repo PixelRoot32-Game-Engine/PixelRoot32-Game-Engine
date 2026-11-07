@@ -353,28 +353,59 @@ static const RoomData kIsoRoomData[] = {
 static const RoomLayer kIsoRoomLayer = { kIsoRoomData, 3, 32, 16 };
 
 // =============================================================================
-// Requirement: Projected Camera Rect Is The Screen Box Of The Cell Block
+// Requirement: Projected Camera Rect Is The Screen Box Of The Cell Diamonds
 // =============================================================================
+//
+// cellToScreenX/Y gives a cell's CENTRE (where the renderer anchors a tile);
+// the cell's diamond is centre +/- (16, 8). The rect is the box of the room's
+// diamonds: the cell-block corners moved half a cell by -(axisX + axisY) / 2,
+// which for kIso is (0, -8). X is unchanged, Y moves up 8 px. A floor tile
+// that exactly fills its diamond draws this box; see
+// test_tilemap_projected_draw_floor_only_room_fills_its_camera_rect.
 
 void test_iso_build_camera_rect_is_projected_cell_block(void) {
     RoomGraph<4> graph;
     TEST_ASSERT_EQUAL_UINT16(3, buildRoomGraph(kIsoRoomLayer, graph, kIso));
 
     // Room 0 corners: (0,0)->(120,88) (7,0)->(232,144) (0,7)->(8,144)
-    // (7,7)->(120,200). Box x [8, 232], y [88, 200].
+    // (7,7)->(120,200), corner-anchor box x [8, 232], y [88, 200]; moved by
+    // (0, -8): x [8, 232], y [80, 192]. Cell (0,0)'s diamond tops out at
+    // 88 - 8 = 80; cell (6,6) (centre y 184) bottoms out at 192.
     const Room& first = graph.getRoom(0);
     TEST_ASSERT_EQUAL_INT(8,   roundToInt(first.cameraMinX));
-    TEST_ASSERT_EQUAL_INT(88,  roundToInt(first.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(80,  roundToInt(first.cameraMinY));
     TEST_ASSERT_EQUAL_INT(232, roundToInt(first.cameraMaxX));
-    TEST_ASSERT_EQUAL_INT(200, roundToInt(first.cameraMaxY));
+    TEST_ASSERT_EQUAL_INT(192, roundToInt(first.cameraMaxY));
 
     // Room 1 corners: (7,0)->(232,144) (14,0)->(344,200) (7,7)->(120,200)
-    // (14,7)->(232,256). Box x [120, 344], y [144, 256].
+    // (14,7)->(232,256), box x [120, 344], y [144, 256]; moved by (0, -8):
+    // x [120, 344], y [136, 248].
     const Room& second = graph.getRoom(1);
     TEST_ASSERT_EQUAL_INT(120, roundToInt(second.cameraMinX));
-    TEST_ASSERT_EQUAL_INT(144, roundToInt(second.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(136, roundToInt(second.cameraMinY));
     TEST_ASSERT_EQUAL_INT(344, roundToInt(second.cameraMaxX));
-    TEST_ASSERT_EQUAL_INT(256, roundToInt(second.cameraMaxY));
+    TEST_ASSERT_EQUAL_INT(248, roundToInt(second.cameraMaxY));
+}
+
+void test_iso_build_odd_basis_rounds_half_cell_outward(void) {
+    // A 15 px orthogonal basis puts the footprint edge half a pixel off the
+    // grid: cell (0,0) covers [-7.5, 7.5]. The rect rounds outward, floor on
+    // the minimum and ceil on the maximum, so it still contains the cell:
+    // x and y [-8, 8].
+    static constexpr ProjectionSpec kOdd{0, 0, 15, 0, 0, 15};
+    static const RoomData data[] = {
+        { 0, 0, 1, 1, { kNoRoomConnection, kNoRoomConnection,
+                        kNoRoomConnection, kNoRoomConnection } },
+    };
+    static const RoomLayer layer = { data, 1, 15, 15 };
+
+    RoomGraph<4> graph;
+    TEST_ASSERT_EQUAL_UINT16(1, buildRoomGraph(layer, graph, kOdd));
+    const Room& room = graph.getRoom(0);
+    TEST_ASSERT_EQUAL_INT(-8, roundToInt(room.cameraMinX));
+    TEST_ASSERT_EQUAL_INT(-8, roundToInt(room.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(8,  roundToInt(room.cameraMaxX));
+    TEST_ASSERT_EQUAL_INT(8,  roundToInt(room.cameraMaxY));
 }
 
 void test_iso_build_keeps_tile_window_and_wiring(void) {
@@ -398,22 +429,24 @@ void test_iso_build_keeps_tile_window_and_wiring(void) {
 
 void test_iso_build_admits_negative_min_coordinates(void) {
     // Room 2 corners: (0,7)->(8,144) (7,7)->(120,200) (0,14)->(-104,200)
-    // (7,14)->(8,256). An isometric basis puts +Y rooms left of x = 0.
+    // (7,14)->(8,256), box x [-104, 120], y [144, 256]; moved half a cell by
+    // (0, -8): x [-104, 120], y [136, 248]. An isometric basis puts +Y rooms
+    // left of x = 0.
     RoomGraph<4> graph;
     buildRoomGraph(kIsoRoomLayer, graph, kIso);
 
     const Room& third = graph.getRoom(2);
     TEST_ASSERT_EQUAL_INT(-104, roundToInt(third.cameraMinX));
-    TEST_ASSERT_EQUAL_INT(144,  roundToInt(third.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(136,  roundToInt(third.cameraMinY));
     TEST_ASSERT_EQUAL_INT(120,  roundToInt(third.cameraMaxX));
-    TEST_ASSERT_EQUAL_INT(256,  roundToInt(third.cameraMaxY));
+    TEST_ASSERT_EQUAL_INT(248,  roundToInt(third.cameraMaxY));
 
     // And the negative bound survives into the camera clamp.
     Camera2D camera(240, 240);
     graph.enterRoom(2, &camera);
     camera.setPosition({toScalar(-500), toScalar(0)});
     TEST_ASSERT_EQUAL_INT(-104, roundToInt(camera.getX()));
-    TEST_ASSERT_EQUAL_INT(144,  roundToInt(camera.getY()));
+    TEST_ASSERT_EQUAL_INT(136,  roundToInt(camera.getY()));
 }
 
 // =============================================================================
@@ -422,11 +455,12 @@ void test_iso_build_admits_negative_min_coordinates(void) {
 
 void test_iso_build_widens_by_per_room_bounds(void) {
     // Room 0's art overhangs its cells (walls rise above the diamond); room 1
-    // has no measured bounds (valid == false) and keeps the bare cell box;
-    // room 2's bounds lie entirely inside its box and change nothing.
+    // has no measured bounds (valid == false) and keeps the bare diamond box;
+    // room 2's bounds lie entirely inside its box [-104, 120] x [136, 248]
+    // and change nothing.
     ScreenBounds perRoom[3];
     perRoom[0] = ScreenBounds{0, 40, 240, 210, true};
-    perRoom[2] = ScreenBounds{0, 150, 100, 250, true};
+    perRoom[2] = ScreenBounds{0, 150, 100, 240, true};
 
     RoomGraph<4> graph;
     TEST_ASSERT_EQUAL_UINT16(3, buildRoomGraph(kIsoRoomLayer, graph, kIso, perRoom));
@@ -439,15 +473,15 @@ void test_iso_build_widens_by_per_room_bounds(void) {
 
     const Room& second = graph.getRoom(1);
     TEST_ASSERT_EQUAL_INT(120, roundToInt(second.cameraMinX));
-    TEST_ASSERT_EQUAL_INT(144, roundToInt(second.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(136, roundToInt(second.cameraMinY));
     TEST_ASSERT_EQUAL_INT(344, roundToInt(second.cameraMaxX));
-    TEST_ASSERT_EQUAL_INT(256, roundToInt(second.cameraMaxY));
+    TEST_ASSERT_EQUAL_INT(248, roundToInt(second.cameraMaxY));
 
     const Room& third = graph.getRoom(2);
     TEST_ASSERT_EQUAL_INT(-104, roundToInt(third.cameraMinX));
-    TEST_ASSERT_EQUAL_INT(144,  roundToInt(third.cameraMinY));
+    TEST_ASSERT_EQUAL_INT(136,  roundToInt(third.cameraMinY));
     TEST_ASSERT_EQUAL_INT(120,  roundToInt(third.cameraMaxX));
-    TEST_ASSERT_EQUAL_INT(256,  roundToInt(third.cameraMaxY));
+    TEST_ASSERT_EQUAL_INT(248,  roundToInt(third.cameraMaxY));
 }
 
 // =============================================================================
@@ -478,7 +512,8 @@ void test_iso_build_rejects_degenerate_projection(void) {
 
 void test_iso_build_rejects_room_beyond_scalar_range(void) {
     // Room 1 sits 3000 rows down: its (0, 3007) corner projects to
-    // x = 120 - 16 * 3007 = -47992, past -kMaxRoomWorldCoord. Room 0 is fine,
+    // x = 120 - 16 * 3007 = -47992 (the half-cell shift leaves x alone under
+    // kIso), past -kMaxRoomWorldCoord. Room 0 is fine,
     // and is still not built — the whole layer is rejected.
     static const RoomData data[] = {
         { 0, 0, 7, 7, { kNoRoomConnection, kNoRoomConnection,
@@ -578,6 +613,7 @@ int main(int argc, char** argv) {
     RUN_TEST(test_orthogonal_overload_unchanged);
 #if PIXELROOT32_ENABLE_TILEMAP_PROJECTION
     RUN_TEST(test_iso_build_camera_rect_is_projected_cell_block);
+    RUN_TEST(test_iso_build_odd_basis_rounds_half_cell_outward);
     RUN_TEST(test_iso_build_keeps_tile_window_and_wiring);
     RUN_TEST(test_iso_build_admits_negative_min_coordinates);
     RUN_TEST(test_iso_build_widens_by_per_room_bounds);

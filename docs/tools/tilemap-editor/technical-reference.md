@@ -579,7 +579,7 @@ and `PIXELROOT32_ENABLE_TILEMAP_PROJECTION`):
 #include "level1.h"
 namespace gp = pixelroot32::gameplay;
 
-// Camera rect per room = screen box of its projected cell block.
+// Camera rect per room = screen box of its cell diamonds (what its floor draws).
 if (gp::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms,
                        level1::ISO_PROJECTION) > 0) {
     setRoomGraph(&rooms);
