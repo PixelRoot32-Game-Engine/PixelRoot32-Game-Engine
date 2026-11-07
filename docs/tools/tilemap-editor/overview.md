@@ -38,7 +38,7 @@ The Tilemap Editor is part of the **Tool Suite**. Licensing and downloads: [pixe
 | Layers | Up to 8, visibility, reorder, palette slot per layer |
 | Tilesets | Multi-tileset, zoom, per-tileset tile size |
 | Projection | Orthogonal or isometric per scene, cell stride, fit-cell-to-art |
-| Export | Scene `.h`/`.cpp`, animations, `setBackgroundCustomPaletteSlot()`, isometric `ISO_PROJECTION` + foot table |
+| Export | Scene `.h`/`.cpp`, animations, `setBackgroundCustomPaletteSlot()`, optional palette install in `init()`; isometric `ISO_PROJECTION` + foot table, precomputed span tables and one map per room |
 
 ## Documentation Structure
 
@@ -49,7 +49,7 @@ The documentation is organized in **5 guide levels**:
 | [Quick Start](/tools/tilemap-editor/quick-start) | ⭐ Beginner | 5-minute quick start |
 | [Usage Guide](/tools/tilemap-editor/usage-guide) | ⭐/⭐⭐ Basic/Intermediate | Essential features |
 | [Advanced Guide](/tools/tilemap-editor/advanced-guide) | ⭐⭐/⭐⭐⭐ Advanced | Multi-palette, animations, attributes |
-| [Isometric Guide](/tools/tilemap-editor/isometric-guide) | ⭐⭐⭐ Advanced | Projection, cell stride, fit to art, isometric export |
+| [Isometric Guide](/tools/tilemap-editor/isometric-guide) | ⭐⭐⭐ Advanced | Projection, cell stride, fit to art, isometric export, rooms, re-exporting |
 | [Technical Reference](/tools/tilemap-editor/technical-reference) | ⭐⭐⭐ Advanced | API, limits, data formats |
 
 ## Data Formats

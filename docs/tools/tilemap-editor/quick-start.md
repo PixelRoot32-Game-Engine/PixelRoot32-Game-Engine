@@ -90,7 +90,7 @@ When starting without a project, you see the toolbar with:
 1. **Save project**: **Ctrl+S** or **File → Save**
 2. **Export to C++**: Click the **Export** button in the toolbar, or **File → Export**
 
-⚙️ **Export options**: Namespace, color depth (auto-detected), "Store in Flash (ESP32)" for PROGMEM, and Legacy format for compatibility without Flash attributes.
+⚙️ **Export options**: Namespace, color depth (auto-detected), "Store in Flash (ESP32)" for PROGMEM, Legacy format for compatibility without Flash attributes, and "Install palette in init()" (`None`, `Background` or `Dual`) so `init()` can install the scene palette for you. The options are not saved in the project; set them on every export.
 
 🔒 **Note**: C++ export requires a valid license. Without license:
 - Export button shows 🔒

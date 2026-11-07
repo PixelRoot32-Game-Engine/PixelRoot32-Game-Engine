@@ -10,7 +10,7 @@
 
 > **Engine-facing only.** This documents what code that *builds* a `TileMapGeneric<T>` for `Renderer::drawTileMap`'s projected overloads must emit for the geometry, culling and colour path in `src/graphics/Renderer.cpp` to render correctly.
 >
-> **This is still not the editor's export *format*, but it now has a reference implementation.** `graphics/iso_dungeon` has since been reshaped into the three-file shape the Tilemap Editor emits, so the obligations below can be read against concrete exported data rather than against a hypothetical one — see [The reference export](#the-reference-export) and the example's own README. The Tilemap Editor now emits isometric maps against that reference: a 32×16 cell stride in `TILE_WIDTH`/`TILE_HEIGHT`, an `ISO_PROJECTION` with its `static_assert`s, a `TILESET_FOOT_Y` table wired into `tileFootY`, and `inline constexpr` dimensions. What it does not emit yet (zero-extent slot 0, the 4bpp guard split, one map per room) is tracked as editor work, not as an engine obligation.
+> **This is not the editor's export *format*, but the editor's export satisfies it.** `graphics/iso_dungeon`'s room map is now produced by the Tilemap Editor from a versioned project, so the obligations below can be read against concrete exported data — see [The reference export](#the-reference-export) and the example's own README. The isometric export emits a 32×16 cell stride in `TILE_WIDTH`/`TILE_HEIGHT`, an `ISO_PROJECTION` with its `static_assert`s, a `TILESET_FOOT_Y` table wired into `tileFootY`, a zero-extent slot 0, the depth-guard split, precomputed span tables, `inline constexpr` dimensions and one map per room. The format itself is documented in the [Tilemap Editor Technical Reference](/tools/tilemap-editor/technical-reference#isometric-projection).
 >
 > Source: `graphics/iso_dungeon`'s conversion of `RoomRenderer::drawTiles` from hand-rolled `drawSprite` calls to one projected `drawTileMap` call — the first place in this repo the projected path actually *executes*, not merely links. See [Memory System — Cell-to-screen projection](./memory-system.md) for the measured cost.
 
@@ -27,37 +27,40 @@
 
 A tile layer drawn via `drawSprite` resolves colour through `getSpritePaletteSlot`; the same layer drawn via `drawTileMap` resolves through `getBackgroundPaletteSlot` — `src/graphics/Color.cpp` keeps `spritePaletteSlots[]` and `backgroundPaletteSlots[]` as separate static arrays. **Converting a layer from sprite-per-cell to `drawTileMap` therefore changes which palette bank it reads, even though nothing about the tile art changed.**
 
-`graphics/iso_dungeon`'s conversion found no visible colour change only because `IsoDungeonScene.cpp:22` installs the same palette pointer into both banks via `setDualCustomPalette(PAL, PAL)`. A game that installs *different* palettes into the sprite bank and the background bank — a legitimate, supported configuration — will see its converted layer's colours change on conversion, silently.
+`graphics/iso_dungeon`'s conversion found no visible colour change only because, at the time, its scene installed the same palette pointer into both banks via `setDualCustomPalette(PAL, PAL)`. (It now installs the exported tilemap palette into the background bank and its own sprite palette into the sprite bank — two palettes chosen per bank on purpose.) A game that installs *different* palettes into the sprite bank and the background bank — a legitimate, supported configuration — will see its converted layer's colours change on conversion, silently.
 
 **Obligation: before converting a sprite-per-cell layer to `drawTileMap`, confirm its sprite-bank and background-bank palettes already agree — otherwise the conversion is also a visual change, not a pure refactor.**
 
 ## The reference export
 
-`graphics/iso_dungeon/src/assets/IsoDungeonRoomTileMap.{h,cpp}` and
-`IsoDungeonRoomTileMapPalette.h` are a hand-written export in the shape the
-generator emits for an orthogonal map
-(`gameplay/metroidvania/src/assets/MetroidvaniaSceneOneTileMap.*`). The delta
-between the two IS the specification for isometric export support:
+`graphics/iso_dungeon/src/assets/tilemap/iso_dungeon_rooms.{h,cpp}` is the
+Tilemap Editor's isometric export of `editor/iso_dungeon.pr32scene.bin`. It
+began as a hand-written export in the shape the generator emits for an
+orthogonal map (`gameplay/metroidvania/src/assets/MetroidvaniaSceneOneTileMap.*`);
+the delta between the two was the specification for isometric export support,
+and every row below is now emitted for isometric scenes only:
 
-| Needed | Orthogonal export today | Why the orthogonal form cannot serve |
+| Needed | Orthogonal export | Why the orthogonal form cannot serve |
 |---|---|---|
-| Rectangular cell stride | one `TILE_SIZE` written into both `tileWidth` and `tileHeight` (`cpp_code_generator.cpp:1035-1036`) | a 32×16 cell whose `WALL` bitmap is 40 px tall is inexpressible |
+| Rectangular cell stride | one tile size written into both `tileWidth` and `tileHeight` | a 32×16 cell whose `WALL` bitmap is 40 px tall is inexpressible |
 | `TILESET_FOOT_Y` | absent | obligation 3 above has nothing to read; every tile anchors top-left |
 | `ISO_PROJECTION` | absent | obligation 6 has no spec to `static_assert` against |
 | Geometry outside the 4bpp guard | whole file is guarded | gameplay places actors at cells where it draws no tile; a 4bpp-off build must still compile |
 | `inline constexpr` dimensions | `static const` | these cross translation units and initialise the consumer's own constants, which an internal-linkage constant cannot legally do |
+| Zero-extent slot 0 | full-size all-zero tile | see below and obligation 2 |
+| One map per room, `ROOM_LAYERS[]` | rooms are rects over one map | a room drawn alone needs its own map with local cells; `roomProjection` places it |
 
-Two further properties the reference export demonstrates, both of which the
-orthogonal generator already satisfies and must keep satisfying:
+Two further properties the reference export demonstrates:
 
 - **Resolved values, never rules.** The reference room's floor checkerboard was
   a runtime `(x + y) & 1` before the reshape. An exporter cannot emit a rule; it
   emits the resolved index array. Anything a producer computes per-cell at draw
   time is, by definition, not exportable.
-- **A zero-extent slot 0, not an all-zero tile.** The orthogonal export emits an
-  all-zero tile of full size at index 0. That is safe there but wrong as an
-  isometric convention, for the reason obligation 2 gives: a full-size empty
-  tile would still render correctly if the index-0 skip regressed.
+- **A zero-extent slot 0, not an all-zero tile.** The orthogonal export still
+  emits an all-zero tile of full size at index 0. That is safe there but wrong
+  as an isometric convention, for the reason obligation 2 gives: a full-size
+  empty tile would still render correctly if the index-0 skip regressed. The
+  isometric export emits `{ nullptr, PALETTE, 0, 0, … }` with a foot of 0.
 
 ## Free-standing props are not tiles, and layers do not change that
 
@@ -95,9 +98,9 @@ Closed: `gameplay/RoomLayout.h` used to build only orthogonal camera rects (`cel
 ## Open: the behaviour layer is not covered
 
 The editor also emits per-tile behaviour flags — `TILE_BEHAVIOR_LAYER_<NAME>[]`,
-`behavior_layers[]` and `NUM_BEHAVIOR_LAYERS` (`cpp_code_generator.cpp:409-461`)
-— against `physics::TileBehaviorLayer`. The reference export does **not** use
-them: `graphics/iso_dungeon` still derives walkability from its layout chars
+`behavior_layers[]` and `NUM_BEHAVIOR_LAYERS` — against
+`physics::TileBehaviorLayer`, in scene cells even when the scene has room maps.
+The reference export carries an empty one, and the game does **not** use it: `graphics/iso_dungeon` still derives walkability from its layout chars
 through `RoomCatalog.h`'s `isSolidTile()`.
 
 That is a known gap with a concrete engine-side cause, not an oversight.

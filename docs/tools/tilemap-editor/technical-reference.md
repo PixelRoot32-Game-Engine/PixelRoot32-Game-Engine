@@ -217,6 +217,17 @@ The editor's logic is organized into the following internal services (C++):
 | **Color Depth (BPP)** | Read-only; auto-detected (1/2/4) | Auto-detect |
 | **Store in Flash (ESP32)** | Save to PROGMEM | ✅ Always |
 | **Legacy Format** | Without Flash attributes | Compatibility only |
+| **Install palette in init()** | `None` (default), `Background` or `Dual (background + sprites)`: which palette bank `init()` fills with the scene palette | `Background` when sprites have their own palette |
+
+> Export options are not saved in the project file; the dialog starts from its
+> defaults on every export.
+
+**Install palette in init()** adds one call at the top of `init()`:
+`setBackgroundCustomPalette(P)` for *Background*, `setDualCustomPalette(P, P)`
+for *Dual*. `P` is `CUSTOM_PALETTE_DATA` in single-palette mode and the lowest
+slot's palette in multi-palette mode, installed before the per-slot calls so
+those still win. *None* emits exactly the previous `init()`. 1bpp has no RGB565
+palette, so every option emits what *None* does.
 
 ### Export Mode
 
@@ -266,16 +277,51 @@ was.
 // level1.h
 #include <math/Projection.h>
 
-inline constexpr uint8_t TILE_WIDTH  = 32;
-inline constexpr uint8_t TILE_HEIGHT = 16;
+namespace level1 {
+    inline constexpr uint8_t TILE_WIDTH  = 32;
+    inline constexpr uint8_t TILE_HEIGHT = 16;
 
-inline constexpr pixelroot32::math::ProjectionSpec ISO_PROJECTION{
-    120, 88,    // where cell (0,0)'s diamond CENTRE lands
-     16,  8,    // +1 cellX steps right and down
-    -16,  8};   // +1 cellY steps left and down
+    inline constexpr pixelroot32::math::ProjectionSpec ISO_PROJECTION{
+        120, 88,    // where cell (0,0)'s diamond CENTRE lands
+         16,  8,    // +1 cellX steps right and down
+        -16,  8};   // +1 cellY steps left and down
+    // three static_asserts, see below
 
-extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
+    inline constexpr uint8_t TILESET_MAX_TILE_HEIGHT = 40;
+}
+
+#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES
+namespace level1 {
+    inline constexpr uint16_t TILESET_TILE_COUNT = 7;
+    extern const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[TILESET_TILE_COUNT];
+    extern const uint8_t TILESET_FOOT_Y[TILESET_TILE_COUNT];
+    // layer maps, room maps, init(), animations
+}
+#endif
 ```
+
+##### The depth guard and linkage
+
+The isometric header is two blocks of the same namespace:
+
+| Block | Holds | Guard |
+|-------|-------|-------|
+| Geometry | `TILE_WIDTH`/`TILE_HEIGHT`, `MAP_WIDTH`/`MAP_HEIGHT`, `ISO_PROJECTION` and its `static_assert`s, `TILESET_MAX_TILE_HEIGHT`, spawn, room metadata, attributes and behaviour layers | none (room metadata keeps its own `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`) |
+| Tile data | multi-palette palettes, `TILESET_TILE_COUNT`, `TILESET_SPRITES`, `TILESET_FOOT_Y`, layer and room maps, `init()`, animations | `#ifdef PIXELROOT32_ENABLE_4BPP_SPRITES` at 4bpp, `PIXELROOT32_ENABLE_2BPP_SPRITES` at 2bpp, none at 1bpp (the engine has no 1bpp switch) |
+
+The `.cpp` wraps its whole body in the same guard. Gameplay places actors on
+cells where no tile is drawn, so a build without the depth switch must still
+compile the geometry.
+
+Every constant is `inline constexpr`, and `TILESET_SPRITES` (and
+`<LAYER>_TILESET_SPRITES` in multi-palette mode) has **external linkage**: the
+`.cpp` defines it without `static`, so every translation unit sees one array in
+flash. This shape applies to isometric scenes only; an orthogonal export keeps
+its `static const` arrays.
+
+`TILESET_MAX_TILE_HEIGHT` is the height of the tallest tile in the pool (in
+multi-palette mode, in any layer's pool). A tile overhangs its cell by up to
+`TILESET_MAX_TILE_HEIGHT - TILE_HEIGHT` pixels.
 
 ::: warning TILE_WIDTH and TILE_HEIGHT are the cell STRIDE
 
@@ -336,16 +382,58 @@ exactly the bytes its own extents need, laid end to end, and each sprite
 records where its own bytes begin:
 
 ```cpp
-static const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[] = {
-    { &TILESET_DATA_POOL[0],    PALETTE, 32, 32, 16 },  // blank sentinel
-    { &TILESET_DATA_POOL[512],  PALETTE, 32, 16, 16 },  // floor
-    { &TILESET_DATA_POOL[768],  PALETTE, 32, 40, 16 },  // wall
+const pixelroot32::graphics::Sprite4bpp TILESET_SPRITES[TILESET_TILE_COUNT] = {
+    { nullptr, PALETTE, 0, 0, 9},                          // empty slot 0
+    { &TILESET_DATA_POOL[0],   PALETTE, 32, 16, 9,         // floor
+      &TILESET_SPAN_MIN_X[0],  &TILESET_SPAN_MAX_X[0]},
+    { &TILESET_DATA_POOL[256], PALETTE, 32, 40, 9,         // wall
+      &TILESET_SPAN_MIN_X[16], &TILESET_SPAN_MAX_X[16]},
 };
 ```
 
-Index 0 is the blank tile the export reserves for erased cells. `drawTileMap`
-skips it, so it is never read; it is sized by the project's own tile size and
-declares those extents so the offsets after it still add up.
+(The fifth field is the palette's colour count; the last two are the span
+tables described below.)
+
+##### Slot 0
+
+Index 0 is the empty tile the export reserves for erased cells, and
+`drawTileMap` never draws it. In an isometric export it is **zero-extent**:
+`{ nullptr, PALETTE, 0, 0, … }`, no bytes in `TILESET_DATA_POOL` (tile 1 starts
+at offset 0), no span rows, and `TILESET_FOOT_Y[0] == 0`. It still has to exist
+and be readable, because the projected path scans `tiles[0 .. tileCount)` for
+the worst-case extent before it draws; a zero-extent slot does not widen that
+scan. See obligation 2 in
+[Projected Tilemap: Producer Obligations](/architecture/projected-tilemap-producer-obligations).
+
+An orthogonal export keeps its full-size blank tile at index 0, byte for byte
+as before.
+
+##### Span tables
+
+Isometric 4bpp and 2bpp exports precompute each tile's opaque run per row and
+store it in flash:
+
+```cpp
+static const uint8_t PIXELROOT32_SCENE_FLASH_ATTR TILESET_SPAN_MIN_X[] = { /* ... */ };
+static const uint8_t PIXELROOT32_SCENE_FLASH_ATTR TILESET_SPAN_MAX_X[] = { /* ... */ };
+```
+
+Row `y` of tile `i` covers `[MIN_X, MAX_X)`, and a fully transparent row is
+`0/0` — exactly what the engine's `computeSpanTable` writes. Each tile's rows
+follow the previous tile's, so a descriptor points at the running sum of the
+heights before it. Multi-palette scenes get one pair per layer
+(`<LAYER>_TILESET_SPAN_MIN_X`/`_MAX_X`). The renderer uses them to skip
+transparent padding, so a game draws straight from the `const` descriptors: no
+RAM copy, no `computeSpanTable` at startup. Slot 0 has no rows and leaves the
+fields `nullptr`. Orthogonal and 1bpp exports emit no span tables (`Sprite` has
+no span fields).
+
+::: tip Engine version
+A 2bpp tile's precomputed table matches the 2bpp blit's bit order (pixel 0 in
+the low bits). The engine's own `computeSpanTable(Sprite2bpp&)` reads that
+order from the **next engine release (Unreleased)**; earlier releases read the
+bits in the opposite order. The exported tables do not depend on it.
+:::
 
 ::: warning Do not index the pool by `TILE_WIDTH * TILE_HEIGHT`
 
@@ -356,7 +444,7 @@ right for no tile but the first.
 
 :::
 
-##### The four static_asserts
+##### The three static_asserts
 
 The header states its own invariants rather than trusting the exporter, because
 a plain aggregate cannot assert its own initializers under `-fno-exceptions`:
@@ -388,10 +476,49 @@ static const pixelroot32::gameplay::RoomLayer LEVEL1_ROOM_LAYER = {
 };
 ```
 
-> Both arrays are `static const` so the linker parks them in flash — a room
-> layer costs **0 bytes of SRAM**. The structs are declared in
+> Both arrays are `const` so the linker parks them in flash — a room layer
+> costs **0 bytes of SRAM**. The structs are declared in
 > `include/gameplay/RoomLayout.h`, behind `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`,
-> so the generated header must guard the block with that flag.
+> and the generated header wraps the block in `#if PIXELROOT32_ENABLE_GAMEPLAY_ROOM`.
+> The symbol prefix is the scene file's name in upper case (`level1.h` →
+> `LEVEL1_ROOMS`, `iso_dungeon_rooms.h` → `ISO_DUNGEON_ROOMS_ROOMS`).
+
+##### Rooms in an isometric scene
+
+An isometric scene with rooms differs in three ways:
+
+- `ROOMS` and `ROOM_LAYER` are `inline constexpr` instead of `static const`.
+- `ROOM_LAYER`'s `tileWidth`/`tileHeight` are the **cell stride**
+  (`TILE_WIDTH`/`TILE_HEIGHT`, e.g. `32, 16`), not the project's tile size.
+  Room origins stay in scene cells.
+- The export adds **one map per room**, inside the depth guard:
+
+```cpp
+// --- Room Maps ---
+extern pixelroot32::graphics::TileMap4bpp tiles_room0;   // <layer>_room<r>
+extern pixelroot32::graphics::TileMap4bpp tiles_room1;
+
+inline constexpr uint8_t NUM_ROOM_LAYERS = 2;            // = number of rooms
+extern pixelroot32::graphics::TileMap4bpp* const ROOM_LAYERS[NUM_ROOM_LAYERS];
+```
+
+| Symbol | Meaning |
+|--------|---------|
+| `<layer>_room<r>` | Room `r` of layer `<layer>`: `width`×`height` = the room's `cols`×`rows`, local cells from (0, 0), indices in `<LAYER>_ROOM<r>_INDICES[]` |
+| `NUM_ROOM_LAYERS` | Number of rooms; `ROOM_LAYERS` is indexed like `ROOMS` |
+| `ROOM_LAYERS[r]` | Room `r`'s map (the bottom layer's, when there are several) |
+| `LAYERS_PER_ROOM` | Only with several layers: the layer count |
+| `<LAYER>_ROOM_LAYERS[r]` | Only with several layers: room `r`'s map of that layer. Draw room `r` as one `drawTileMap` per layer, bottom to top |
+
+Room maps share the deduplicated tileset, `tileCount`, `TILESET_FOOT_Y` and the
+span tables with the whole-scene map, which is still exported. In multi-palette
+mode each uses its layer's pool and gets its own
+`<LAYER>_ROOM<r>_PALETTE_INDICES`; animated layers share the layer's
+`AnimManager`. `init()` wires every room map. Behaviour and attribute layers are
+not cropped: they stay in scene cells, so add the room origin when querying
+them.
+
+An orthogonal scene, or an isometric one without rooms, emits no room maps.
 
 ### Engine Integration
 
@@ -446,6 +573,34 @@ if (pixelroot32::gameplay::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms) > 0)
 > empty graph is a silent no-op, so a rejected layer otherwise leaves the scene
 > running with no camera bounds and no current room.
 
+**Isometric rooms** (engine next release, Unreleased: `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`
+and `PIXELROOT32_ENABLE_TILEMAP_PROJECTION`):
+```cpp
+#include "level1.h"
+namespace gp = pixelroot32::gameplay;
+
+// Camera rect per room = screen box of its projected cell block.
+if (gp::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms,
+                       level1::ISO_PROJECTION) > 0) {
+    setRoomGraph(&rooms);
+    rooms.enterRoom(0, &camera);
+}
+
+// draw(): the room map's local cells land where the room sits in the scene.
+const uint16_t r = rooms.currentRoomIndex();
+renderer.drawTileMap(*level1::ROOM_LAYERS[r], 0, 0,
+                     pixelroot32::graphics::LayerType::Static,
+                     gp::roomProjection(level1::ISO_PROJECTION,
+                                        level1::LEVEL1_ROOMS[r]));
+```
+
+> An optional fourth argument to `buildRoomGraph`, one `graphics::ScreenBounds`
+> per room (from `expandProjectedMapBounds` over each room map), widens each
+> camera rect by the art's overhang. A game whose rooms are one screen each can
+> instead draw `*ROOM_LAYERS[r]` through `ISO_PROJECTION` and call
+> `enterRoom(r, nullptr)` — that works on the current release. See
+> [Isometric Guide — Rooms](/tools/tilemap-editor/isometric-guide#rooms).
+
 > Each animated layer exposes a `<LayerName>AnimManager()`. A legacy `getAnimManager()` alias maps to the Details layer when present.
 
 ---
@@ -460,11 +615,19 @@ if (pixelroot32::gameplay::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms) > 0)
 
 ### Tiles
 
-| BPP | Per Row | Colors |
-|-----|--------|--------|
-| 1 bpp | 1 byte | 2 |
-| 2 bpp | 2 bytes | 4 |
-| 4 bpp | 4 bytes | 16 |
+| BPP | Per Row | Colors | Bit order |
+|-----|--------|--------|-----------|
+| 1 bpp | one `uint16_t` (width ≤ 16) | 2 | bit `width - 1` = leftmost pixel |
+| 2 bpp | `(width * 2 + 7) / 8` bytes | 4 | pixel 0 in the low bits of each byte |
+| 4 bpp | `(width * 4 + 7) / 8` bytes | 16 | pixel 0 in the low nibble |
+
+- Every 2bpp/4bpp row is padded to whole bytes, the engine's stride, so widths
+  that do not fill a byte (an odd 4bpp width, a 2bpp width that is not a
+  multiple of 4) draw correctly.
+- Transparent pixels (alpha below 128) export as index 0 (2bpp/4bpp) or as
+  "off" (1bpp).
+- A 1bpp tile wider than 16 px does not fit an engine `Sprite`. In an isometric
+  scene the export warns before writing files when a used tile is that wide.
 
 ### Index Map
 
@@ -474,8 +637,11 @@ if (pixelroot32::gameplay::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms) > 0)
 ### Room Layer
 
 Optional metadata describing a graph of connected rooms inside a single scene.
-Coordinates are in **tiles**, not world units — the engine multiplies by the
-layer's tile size when it builds the runtime graph.
+Coordinates are in **tiles** (cells), not world units. The orthogonal
+`buildRoomGraph(layer, graph)` multiplies them by the layer's tile size; the
+projected `buildRoomGraph(layer, graph, projection)` (engine next release,
+Unreleased) projects each room's cell block instead, and there `tileWidth` /
+`tileHeight` are the cell stride.
 
 **`RoomData`** — one room, 16 bytes on every target:
 
@@ -491,7 +657,7 @@ layer's tile size when it builds the runtime graph.
 |-------|------|---------|
 | `rooms` | `const RoomData*` | Pointer to the exported array |
 | `roomCount` | `uint16_t` | Number of entries |
-| `tileWidth` / `tileHeight` | `uint8_t` | Tile size in world units, both `>= 1` |
+| `tileWidth` / `tileHeight` | `uint8_t` | Tile size in world units (orthogonal) or cell stride (isometric), both `>= 1` |
 
 **Emitter rules**:
 
@@ -500,8 +666,9 @@ layer's tile size when it builds the runtime graph.
   second pass.
 - Connections are directed. A two-way door needs both halves
   (`A.Right = B` **and** `B.Left = A`).
-- A room's far edge (`(originCol + cols) * tileWidth`, likewise for rows) must
-  stay at or below **32767**. `Scalar` is `Fixed16` on FPU-less targets and
+- A room's far edge (`(originCol + cols) * tileWidth`, likewise for rows; under
+  a projection, every corner of its projected box) must stay within
+  **±32767**. `Scalar` is `Fixed16` on FPU-less targets and
   would wrap past that. The engine rejects the whole layer if any room
   exceeds it, rather than building a partially-correct map — including rooms
   the consuming graph's capacity would have truncated away. A broken export

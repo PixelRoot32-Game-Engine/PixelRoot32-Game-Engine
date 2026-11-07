@@ -269,6 +269,7 @@ Out of range, the dialog stays open, writes nothing, and shows in red:
 A scene can carry an optional **room layer**: a set of rectangles, in tiles, plus the connections between them. The engine turns it into a room graph that drives camera bounds and room transitions - see [Room Layer](/tools/tilemap-editor/technical-reference#room-layer) for the exported structures.
 
 - **Per scene** and **optional** - a scene with no rooms exports exactly as it did before
+- In an **isometric** scene the export also emits **one map per room** (`ROOM_LAYERS[]`, `NUM_ROOM_LAYERS`) and writes the cell stride into the room layer - see [Isometric Guide - Rooms](/tools/tilemap-editor/isometric-guide#rooms)
 - Each room is a rect in tiles: **origin col/row** plus **width/height**
 - Each room has **four direction slots** (Up, Down, Left, Right); each holds **one target room or None**
 - Rooms are identified by **index** (Room 0, Room 1, ...). Deleting a room renumbers the ones above it and rewrites the other rooms' targets to match
@@ -526,11 +527,16 @@ Mouse over canvas:
 | **Color Depth** | Auto-detected BPP (1/2/4) |
 | **Store in Flash (ESP32)** | Save tile data to PROGMEM |
 | **Legacy Format** | Without Flash attributes (compatibility) |
+| **Install palette in init()** | `None` (default): your game installs palettes. `Background`: `init()` installs the scene palette for tilemaps. `Dual (background + sprites)`: tilemaps and sprites both get it |
 
-3. Select output directory
+3. Click **Export Now** and select the output directory
 4. Generated files: `scene_name.h`, `scene_name.cpp`, and the shared palette header `{namespace}_tilemap_palette.h`
 
 > Tile animations are embedded in the scene header. There are no separate `*_animations.h/.cpp` files.
+
+> The export options are **not saved** in the project: the dialog starts from its defaults every time, so set them again before each re-export. The generated files are overwritten on every export; keep your game code in other files.
+
+> The export can report **warnings** (palette budget, room layer, 1bpp tile width in isometric scenes). They do not stop the export; read them in the status message.
 
 🔒 **License required**: Exporting to C++ requires a valid license. See [License & Activation](/tools/tilemap-editor/license-and-activation).
 
