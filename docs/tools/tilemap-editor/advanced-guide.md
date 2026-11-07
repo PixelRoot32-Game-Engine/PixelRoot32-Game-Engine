@@ -223,6 +223,7 @@ The key is validated against an Ed25519 v3 signature and bound to your machine f
 - One palette per slot
 - One tile pool per layer
 - Auto-generates `setBackgroundCustomPaletteSlot()`
+- With **Install palette in init()** set to `Background` or `Dual`, `init()` first installs the lowest slot's palette as the base palette; the per-slot calls follow and still win
 
 ---
 

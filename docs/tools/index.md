@@ -30,7 +30,7 @@ The **Tool Suite** adds advanced editor modules. Licensing and downloads are han
 
 ### Tilemap Editor (module 1)
 
-Available - visual editor for multi-layer tilemaps, tilesets, animations, attributes, and **C++ export** aligned with the engine. Ships as a native desktop app (C++17 / SDL2 / ImGui) inside the Tool Suite.
+Available - visual editor for multi-layer tilemaps (orthogonal or isometric, per scene), tilesets, animations, attributes, rooms, and **C++ export** aligned with the engine. Ships as a native desktop app (C++17 / SDL2 / ImGui) inside the Tool Suite.
 
 - [Overview](/tools/tilemap-editor/overview)
 - [Quick start](/tools/tilemap-editor/quick-start)

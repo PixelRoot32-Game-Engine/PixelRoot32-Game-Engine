@@ -13,7 +13,7 @@ Patterns and best practices for rendering, sprites, tilemaps, and palette system
 Define sprites as `static const uint16_t` arrays, one row per element:
 
 ```cpp
-// ✅ 1bpp sprite: bit 0 = leftmost, bit (width-1) = rightmost
+// ✅ 1bpp sprite: bit (width-1) = leftmost, bit 0 = rightmost
 static const uint16_t playerBitmap[] = {
     0b0000001111000000,  // Row 0
     0b0000011111100000,  // Row 1

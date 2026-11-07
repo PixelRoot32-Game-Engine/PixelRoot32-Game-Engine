@@ -625,12 +625,16 @@ namespace pixelroot32::graphics {
                 }
             }
 
-            // Data: 16-bit words (8 pixels per word). Compiler pack_2bpp: LSB = left pixel (bitOffset = (col&7)<<1), word order [left, right]
+            // Data: 4 pixels per byte, rows (width * 2 + 7) / 8 bytes apart.
+            // Compiler pack_2bpp: LSB = leftmost pixel, so pixel `col` is byte
+            // col >> 2 at shift (col & 3) * 2. Rows are read byte by byte: a
+            // 16-bit word read reached one byte past the data on the last row
+            // when width % 8 was 1..4, and was unaligned on odd strides.
             for (int row = 0; row < sprite.height; ++row) {
                 const int logicalY = startY + row;
                 if (logicalY < 0 || logicalY >= screenH) continue;
 
-                const uint16_t* rowWords = reinterpret_cast<const uint16_t*>(sprite.data + row * rowStrideBytes);
+                const uint8_t* rowData = sprite.data + row * rowStrideBytes;
                 uint8_t* dstRow = fb8 ? (fb8 + logicalY * screenW) : nullptr;
 
                 int colStart = 0;
@@ -641,10 +645,16 @@ namespace pixelroot32::graphics {
                     if (colStart > colEnd) colEnd = colStart;
                 }
 
+                // Fetch each source byte once per 4 pixels.
+                int cachedByteIdx = -1;
+                uint8_t bits = 0;
                 for (int col = colStart; col < colEnd; ++col) {
-                    const int wordIdx = col >> 3; // 8 pixels per word; word 0 = left half, word 1 = right half
-                    const int bitOffset = (col & 7) << 1; // LSB = pixel 0 (match compiler pack_2bpp)
-                    const uint8_t val = (rowWords[wordIdx] >> bitOffset) & 0x03;
+                    const int byteIdx = col >> 2;
+                    if (byteIdx != cachedByteIdx) {
+                        bits = PIXELROOT32_READ_BYTE_P(&rowData[byteIdx]);
+                        cachedByteIdx = byteIdx;
+                    }
+                    const uint8_t val = (bits >> ((col & 3) << 1)) & 0x03;
 
                     if (val == 0) continue;
 
