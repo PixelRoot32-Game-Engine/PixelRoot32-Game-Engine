@@ -455,13 +455,6 @@ that room's map), to widen each camera rect by how far tall art overhangs the
 cells. Both need `PIXELROOT32_ENABLE_GAMEPLAY_ROOM` and
 `PIXELROOT32_ENABLE_TILEMAP_PROJECTION`.
 
-::: warning Engine version
-The projected `buildRoomGraph(layer, graph, projection, perRoom)` overload and
-`roomProjection()` ship in the **next engine release (Unreleased)**. The room
-maps themselves, and the one-screen-per-room pattern above, build against the
-current release.
-:::
-
 ---
 
 ## Re-exporting
@@ -525,8 +518,9 @@ palette bank. Export with **Install palette in init()** set to *Background* or
 *Dual*, or install the palette yourself before the first draw.
 
 **`roomProjection` or the four-argument `buildRoomGraph` does not exist.**
-Both ship in the next engine release (Unreleased). Use the
-one-screen-per-room pattern in [Drawing a room](#drawing-a-room) until then.
+Both exist since engine 1.15.0: a project on an older engine should upgrade,
+or use the one-screen-per-room pattern in
+[Drawing a room](#drawing-a-room) meanwhile.
 
 ---
 
