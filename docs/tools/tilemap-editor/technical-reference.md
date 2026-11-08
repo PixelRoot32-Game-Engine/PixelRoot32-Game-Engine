@@ -430,9 +430,10 @@ no span fields).
 
 ::: tip Engine version
 A 2bpp tile's precomputed table matches the 2bpp blit's bit order (pixel 0 in
-the low bits). The engine's own `computeSpanTable(Sprite2bpp&)` reads that
-order from the **next engine release (Unreleased)**; earlier releases read the
-bits in the opposite order. The exported tables do not depend on it.
+the low bits). The engine's own `computeSpanTable(Sprite2bpp&)` has read that
+order since engine 1.15.0; earlier releases read the bits in the opposite order,
+so a table they precomputed does not match today's blit. The exported tables do
+not depend on it.
 :::
 
 ::: warning Do not index the pool by `TILE_WIDTH * TILE_HEIGHT`
@@ -573,7 +574,7 @@ if (pixelroot32::gameplay::buildRoomGraph(level1::LEVEL1_ROOM_LAYER, rooms) > 0)
 > empty graph is a silent no-op, so a rejected layer otherwise leaves the scene
 > running with no camera bounds and no current room.
 
-**Isometric rooms** (engine next release, Unreleased: `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`
+**Isometric rooms** (engine 1.15.0: `PIXELROOT32_ENABLE_GAMEPLAY_ROOM`
 and `PIXELROOT32_ENABLE_TILEMAP_PROJECTION`):
 ```cpp
 #include "level1.h"
@@ -639,8 +640,8 @@ renderer.drawTileMap(*level1::ROOM_LAYERS[r], 0, 0,
 Optional metadata describing a graph of connected rooms inside a single scene.
 Coordinates are in **tiles** (cells), not world units. The orthogonal
 `buildRoomGraph(layer, graph)` multiplies them by the layer's tile size; the
-projected `buildRoomGraph(layer, graph, projection)` (engine next release,
-Unreleased) projects each room's cell block instead, and there `tileWidth` /
+projected `buildRoomGraph(layer, graph, projection)` (engine 1.15.0) projects
+each room's cell block instead, and there `tileWidth` /
 `tileHeight` are the cell stride.
 
 **`RoomData`** — one room, 16 bytes on every target:
