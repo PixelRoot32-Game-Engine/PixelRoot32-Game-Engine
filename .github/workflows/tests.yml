@@ -84,18 +84,19 @@ jobs:
 
     - name: Generate Coverage Report
       run: |
-        # `inconsistent` is suppressed because a test file may define the same
-        # function in both branches of an #if/#else (only one is compiled, so
-        # the build is fine), and lcov 2.x with GCC 15 reports the two source
-        # sites as a duplicate definition and exits 1.
+        # `inconsistent` is suppressed on every lcov/genhtml call: a test file may
+        # define the same function in both branches of an #if/#else (only one is
+        # compiled, so the build is fine), and lcov 2.x with GCC 15 reports the two
+        # source sites as a duplicate definition, or a function/line mismatch, and
+        # exits 1. The classes are gcov quirks, not coverage data problems.
         lcov --capture --directory . --output-file coverage.info --ignore-errors inconsistent
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors unused
-        lcov --list coverage.info
-        genhtml coverage.info --output-directory coverage_report
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors inconsistent,unused
+        lcov --list coverage.info --ignore-errors inconsistent
+        genhtml coverage.info --output-directory coverage_report --ignore-errors inconsistent
 
     - name: Verify Coverage Threshold
       run: |
-        TOTAL=$(lcov --summary coverage.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+        TOTAL=$(lcov --summary coverage.info --ignore-errors inconsistent 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
         echo "Line coverage: $TOTAL%"
         if (( $(echo "$TOTAL < 80" | bc -l) )); then
           echo "ERROR: Line coverage $TOTAL% is below 80% threshold"
