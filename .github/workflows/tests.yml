@@ -18,18 +18,22 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Cache PlatformIO
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.platformio
-          .pio
-        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        # Toolchains and platform packages only, like `examples.yml`. `.pio`
+        # holds build outputs and gcov data: caching it restored stale `.gcda`
+        # files from the previous runner image (Ubuntu 26.04 ships GCC 15), so
+        # `lcov --capture` failed with "stamp mismatch" after the tests passed.
+        # The key prefix is bumped to `pio-v2` so entries saved with `.pio`
+        # inside are never restored again.
+        path: ~/.platformio
+        key: ${{ runner.os }}-pio-v2-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
-          ${{ runner.os }}-pio-
+          ${{ runner.os }}-pio-v2-
 
     - name: Install Dependencies
       run: |
@@ -80,14 +84,19 @@ jobs:
 
     - name: Generate Coverage Report
       run: |
-        lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors unused
-        lcov --list coverage.info
-        genhtml coverage.info --output-directory coverage_report
+        # `inconsistent` is suppressed on every lcov/genhtml call: a test file may
+        # define the same function in both branches of an #if/#else (only one is
+        # compiled, so the build is fine), and lcov 2.x with GCC 15 reports the two
+        # source sites as a duplicate definition, or a function/line mismatch, and
+        # exits 1. The classes are gcov quirks, not coverage data problems.
+        lcov --capture --directory . --output-file coverage.info --ignore-errors inconsistent
+        lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors inconsistent,unused
+        lcov --list coverage.info --ignore-errors inconsistent
+        genhtml coverage.info --output-directory coverage_report --ignore-errors inconsistent
 
     - name: Verify Coverage Threshold
       run: |
-        TOTAL=$(lcov --summary coverage.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+        TOTAL=$(lcov --summary coverage.info --ignore-errors inconsistent 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
         echo "Line coverage: $TOTAL%"
         if (( $(echo "$TOTAL < 80" | bc -l) )); then
           echo "ERROR: Line coverage $TOTAL% is below 80% threshold"
