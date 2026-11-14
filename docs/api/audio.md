@@ -59,6 +59,15 @@ Percussion instruments (duty=0, use with WaveType::NOISE): `INSTR_KICK`, `INSTR_
 
 Triangle kick: `INSTR_KICK_TRI`, played on a TRIANGLE track (typically the bass), glides from 196 Hz (`makeNote(INSTR_KICK_TRI, Note::G, beats)`, octave 3) down to 50 Hz in 45 ms with no sustain. Double it with a short NOISE hit on the same step for the classic NES attack. It renders under every profile and is tuned for the NES ones (APU `docs/ABI.md` §7).
 
+### Peak metering
+
+`ApuCore` publishes the peak level of the last rendered block so a host can draw meters (the Tool Suite mixer and SFX editor do). Both reads are relaxed atomic loads, safe from any thread while the audio thread renders:
+
+- **`voicePeak(int slot)`** — one voice's own contribution, normalized to `[0.0, 1.0]`: its waveform times its volume, envelope and tremolo, before the summing and before `MIXER_SCALE`. Four tracks at four volumes read four values, so per-track meters stay comparable. A slot the sequencer does not play reads `0`.
+- **`outputPeak()`** — the peak of the buffer the caller receives, after master volume, the shaping curve, the profile's output filter and the bitcrush. A saturating mix reads exactly `1.0`; this is the only value that answers "does the mix clip".
+
+The values describe the latest block only: **there is no hold and no decay**, so the ballistic behaviour belongs to the meter (the Tool Suite applies a release of 2.5 of full scale per second). Before the first block, and after `reset()`, both read `0.0f`. A sequencer percussion hit is credited to the track that fired it, even though the hit plays on the shared SFX/percussion subpool, so a DrumKit track's own meter follows its drums instead of reading silence.
+
 ## Usage Examples
 
 ### Playing Sound Effects
