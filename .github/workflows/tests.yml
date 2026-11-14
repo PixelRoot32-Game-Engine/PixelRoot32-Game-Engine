@@ -84,7 +84,11 @@ jobs:
 
     - name: Generate Coverage Report
       run: |
-        lcov --capture --directory . --output-file coverage.info
+        # `inconsistent` is suppressed because a test file may define the same
+        # function in both branches of an #if/#else (only one is compiled, so
+        # the build is fine), and lcov 2.x with GCC 15 reports the two source
+        # sites as a duplicate definition and exits 1.
+        lcov --capture --directory . --output-file coverage.info --ignore-errors inconsistent
         lcov --remove coverage.info '/usr/*' '*/.pio/*' '*/test/*' '*/drivers/native/*' '*/drivers/esp32/*' '*/src/core/Engine.cpp' '*/src/graphics/Renderer.cpp' '*/src/physics/TileConsumptionHelper.cpp' '*/include/graphics/BaseDrawSurface.h' '*/include/graphics/DrawSurface.h' '*/include/graphics/ui/UICheckbox.h' '*/include/core/Scene.h' --output-file coverage.info --ignore-errors unused
         lcov --list coverage.info
         genhtml coverage.info --output-directory coverage_report
