@@ -561,6 +561,28 @@ Reads and clears all profile entries.
 - `out`: Array of ProfileEntry to fill.
 - `count`: On input: max entries. On output: actual count written.
 
+### `float voicePeak(int slot) const`
+
+**Description:**
+
+Peak amplitude of one voice's own contribution to the last
+       rendered block, normalized to [0.0, 1.0].
+
+**Parameters:**
+
+- `slot`: Voice index [0, MAX_VOICES); out-of-range returns 0.0f.
+
+**Returns:** Peak in [0.0, 1.0].
+
+### `float outputPeak() const`
+
+**Description:**
+
+Peak amplitude of the final output over the last rendered
+       block, normalized to [0.0, 1.0].
+
+**Returns:** Peak in [0.0, 1.0].
+
 ### `size_t countEnabledVoicesForTesting() const`
 
 **Description:**
@@ -1414,6 +1436,17 @@ Test-only: runs `applyOutputStage` over an injected buffer.
 
 ### `void resyncTrackSequencerToTick(size_t track_index, uint64_t target_tick)`
 
+### `void playSequencerPercussionHit(size_t track_index, const AudioEvent& event)`
+
+**Description:**
+
+Plays one sequencer percussion hit and remembers its voice.
+
+**Parameters:**
+
+- `track_index`: Sequencer track that fired the hit.
+- `event`: Drum event (NOISE, percussion preset).
+
 ### `bool profileUsesIntegerCore() const`
 
 **Description:**
@@ -1443,6 +1476,20 @@ Renders one block through the frozen `Legacy` float core.
 
 - `stream`: Output buffer (mono, int16 samples).
 - `length`: Number of samples; the caller guarantees length > 0.
+
+### `void publishMeterPeaks(const int32_t* voicePeaksQ15, int32_t outputPeakQ15)`
+
+**Description:**
+
+Publishes one block's meter maxima for the reader side.
+
+**Parameters:**
+
+- `voicePeaksQ15`: One maximum per voice slot, |sample| in
+                     0..32767; anything above clamps, because the
+                     unipolar noise compensation and the NES group
+                     weights can push a voice past the int16 rail.
+- `outputPeakQ15`: Maximum |sample| of the final output.
 
 ### `void applyProfileCharacter(int slot, NoisePeriodMode noteNoisePeriodMode, PulseDutyMode notePulseDutyMode)`
 

@@ -39,6 +39,58 @@ Typical generated identifiers:
 - `PLAYER_JUM_SPRITE_0_4BPP`
 - `PLAYER_JUM_PALETTE_MAPPING` (when a custom mapping is emitted)
 
+### Storage: one copy in flash
+
+Since CLI v0.4.0, every generated header starts with `#pragma once`, in every mode, with or without a prefix.
+
+A prefix also changes how the arrays are stored:
+
+- **With a prefix**, the palette mapping and every sprite array are emitted as C++17 `inline constexpr` instead of `static const`. The data is stored once in flash, no matter how many `.cpp` files include the header. Names, types, values and order are the same as before.
+- **Without a prefix**, the arrays stay `static const`, so each `.cpp` file that includes the header gets its own copy. This keeps generic names such as `SPRITE_0_4BPP` from being merged across different sprite sheets.
+
+```cpp
+// --prefix PLAYER
+inline constexpr uint16_t PLAYER_SPRITE_0_4BPP[] = { /* ... */ };
+
+// no prefix
+static const uint16_t SPRITE_0_4BPP[] = { /* ... */ };
+```
+
+Rules for prefixed exports:
+
+- **Use a unique prefix per sprite sheet** within a game. Two `inline` arrays with the same name are treated as one definition and merged at link time, so two sheets exported with the same prefix would silently share data.
+- **Compile as C++17 or newer.** `inline` variables are a C++17 feature.
+
+The Tool Suite module shows the same hint next to the **Prefix** field.
+
+## Naming sprites
+
+Namespaces keep two sheets apart; **`--sprite-name`** (CLI v0.5.0 and newer) also makes each sprite's symbols say what they contain. Give it **once per `--sprite`, in the same order**:
+
+```bash
+python main.py player.png --grid 16x32 \
+  --prefix PLAYER --sprite 0,0,1,1 --sprite 1,0,1,1 \
+  --sprite-name idle --sprite-name walk \
+  --mode 4bpp --out sprites_player.h
+```
+
+```cpp
+// --prefix PLAYER --sprite-name idle / walk
+inline constexpr uint16_t PLAYER_idle_4BPP[] = { /* ... */ };
+inline constexpr uint16_t PLAYER_walk_4BPP[] = { /* ... */ };
+```
+
+The stem is `{prefix}{name}`; the suffix still comes from the mode (`_LAYER_k`, `_2BPP`, `_4BPP`), and `_PALETTE_MAPPING` keeps its prefix-only name. Without `--prefix` the named arrays stay `static const`, exactly like the index-named ones.
+
+Rules, checked before anything is written (a rejected run creates no header and exits with status 1):
+
+- **One name per sprite.** `--sprite-name must be given once per --sprite (got N name(s) for M sprite(s))`.
+- **A valid C identifier.** `[A-Za-z_][A-Za-z0-9_]*`; anything else is reported as `not a valid C identifier`.
+- **Unique within the header.** Two sprites sharing a name would share a symbol.
+- **Opt-in.** Without the flag the header keeps the index stems (`PLAYER_SPRITE_0_4BPP`) and is byte-identical to the output of the previous release.
+
+The prefix rules above still apply to named arrays: `inline constexpr` with a prefix, `static const` without it.
+
 ## Export modes
 
 ### Layered (1bpp layers)
