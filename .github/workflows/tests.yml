@@ -24,12 +24,16 @@ jobs:
     - name: Cache PlatformIO
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.platformio
-          .pio
-        key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+        # Toolchains and platform packages only, like `examples.yml`. `.pio`
+        # holds build outputs and gcov data: caching it restored stale `.gcda`
+        # files from the previous runner image (Ubuntu 26.04 ships GCC 15), so
+        # `lcov --capture` failed with "stamp mismatch" after the tests passed.
+        # The key prefix is bumped to `pio-v2` so entries saved with `.pio`
+        # inside are never restored again.
+        path: ~/.platformio
+        key: ${{ runner.os }}-pio-v2-${{ hashFiles('**/platformio.ini') }}
         restore-keys: |
-          ${{ runner.os }}-pio-
+          ${{ runner.os }}-pio-v2-
 
     - name: Install Dependencies
       run: |
