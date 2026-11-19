@@ -23,7 +23,11 @@ cd <example-folder>
 pio run -e <environment>
 ```
 
-On Windows, **`native`** examples may need local **SDL2** include/lib paths in `platformio.ini` (see comments in [animated_tilemap](animated_tilemap/README.md)).
+Native examples find SDL2 by themselves: `scripts/platformio_native_sdl2.py`
+adds the host's include and library paths at build time and auto-detects the
+Homebrew prefix on macOS and the MSYS2 prefix on Windows. Install SDL2 first —
+`brew install sdl2` on macOS, `pacman -S mingw-w64-x86_64-SDL2` on MSYS2, or
+`libsdl2-dev` on Linux, where it already lives on the default search paths.
 
 The engine revision for each example is defined in **`lib_deps`** inside that example’s `platformio.ini` (registry tag vs Git branch).
 

@@ -137,9 +137,8 @@ pio device monitor --port COM4 --baud 115200           # listen + capture
 ```
 
 And on a PC (needs SDL2 — `libsdl2-dev` on Linux, `pacman -S mingw-w64-x86_64-SDL2`
-on MSYS2; the Windows include/lib paths and `-mconsole` are already in
-`platformio.ini`, and CI deletes those three lines to build against the system
-SDL2):
+on MSYS2, `brew install sdl2` on macOS; the example resolves the host include and
+library paths at build time, so the same `platformio.ini` builds on every OS):
 
 ```powershell
 pio run -e native
