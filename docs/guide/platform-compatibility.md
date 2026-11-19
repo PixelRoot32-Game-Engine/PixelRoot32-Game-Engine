@@ -245,6 +245,11 @@ build_flags =
 
 **Audio:** SDL2 audio (software mixing)
 
+**Running:** the `native` platform cannot flash, so `pio run -e native -t upload`
+executes the built binary and returns its exit code. Closing the window exits
+cleanly with 0; killing the process reports a non-zero status. See
+[Running a native example](../../examples/README.md#running-a-native-example).
+
 ---
 
 ## Build Configuration Examples

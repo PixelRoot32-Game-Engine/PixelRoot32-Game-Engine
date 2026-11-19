@@ -31,6 +31,33 @@ Homebrew prefix on macOS and the MSYS2 prefix on Windows. Install SDL2 first —
 
 The engine revision for each example is defined in **`lib_deps`** inside that example’s `platformio.ini` (registry tag vs Git branch).
 
+### Running a native example
+
+`pio run -e native` only builds. The `native` platform has no board to flash,
+so `-t upload` is the run action: it executes `.pio/build/native/program` and
+that process's exit code becomes the task's exit code. Stopping a game that
+way — Ctrl+C, or the stop button in an editor — kills it with a non-zero
+status, and the editor reports a failed task even though the window was
+running normally. Closing the window is a clean shutdown instead: `SDL_QUIT`
+ends `Engine::run()` and `main()` returns 0.
+
+To build and run without that ambiguity:
+
+```bash
+cd <example-folder>
+pio run -e native
+./.pio/build/native/program
+```
+
+A remote shell with no display can still exercise the game loop through SDL's
+dummy drivers:
+
+```bash
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./.pio/build/native/program
+```
+
+The binary keeps running with no window; stop it with Ctrl+C.
+
 ## Catalogue
 
 | Example | What it demonstrates | PlatformIO environments |
