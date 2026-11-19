@@ -23,9 +23,40 @@ cd <example-folder>
 pio run -e <environment>
 ```
 
-On Windows, **`native`** examples may need local **SDL2** include/lib paths in `platformio.ini` (see comments in [animated_tilemap](animated_tilemap/README.md)).
+Native examples find SDL2 by themselves: `scripts/platformio_native_sdl2.py`
+adds the host's include and library paths at build time and auto-detects the
+Homebrew prefix on macOS and the MSYS2 prefix on Windows. Install SDL2 first —
+`brew install sdl2` on macOS, `pacman -S mingw-w64-x86_64-SDL2` on MSYS2, or
+`libsdl2-dev` on Linux, where it already lives on the default search paths.
 
 The engine revision for each example is defined in **`lib_deps`** inside that example’s `platformio.ini` (registry tag vs Git branch).
+
+### Running a native example
+
+`pio run -e native` only builds. The `native` platform has no board to flash,
+so `-t upload` is the run action: it executes `.pio/build/native/program` and
+that process's exit code becomes the task's exit code. Stopping a game that
+way — Ctrl+C, or the stop button in an editor — kills it with a non-zero
+status, and the editor reports a failed task even though the window was
+running normally. Closing the window is a clean shutdown instead: `SDL_QUIT`
+ends `Engine::run()` and `main()` returns 0.
+
+To build and run without that ambiguity:
+
+```bash
+cd <example-folder>
+pio run -e native
+./.pio/build/native/program
+```
+
+A remote shell with no display can still exercise the game loop through SDL's
+dummy drivers:
+
+```bash
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./.pio/build/native/program
+```
+
+The binary keeps running with no window; stop it with Ctrl+C.
 
 ## Catalogue
 

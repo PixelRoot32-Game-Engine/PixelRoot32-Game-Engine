@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+# Unreleased
+
+A build-tooling release with no engine API change: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
+
+### Fixed
+
+* **Native builds resolve the host's SDL2 paths instead of carrying per-OS flags**: the examples and `[base_native]` committed the Windows/MSYS2 include and library paths with the macOS Homebrew ones commented out, so a native build needed hand editing; on macOS it failed with `SDL2/SDL.h: file not found`, and `-mconsole` is an option clang rejects. `scripts/platformio_native_sdl2.py` now detects the host prefix (Homebrew, MSYS2, or the default search path) and applies `-mconsole` only on Windows. `-Wl,--gc-sections` moves to `[base_esp32]`, the only section whose linker accepts it; every `esp32_*` environment extends that section, so their flags are unchanged.
+
+* **`native_test` builds and reports coverage on macOS**: the environment hardcoded `--coverage -lgcov` for every host, and Apple's clang has no `libgcov`, so linking failed. `scripts/platformio_native_coverage.py` adds `--coverage` to the build and link flags (clang needs the link flag to pull in its profiling runtime) and `-lgcov` only off Darwin, where GCC and MinGW do not link it implicitly. Linux CI keeps `-lgcov`, which `lcov` depends on, and the derived `native_test_*` environments inherit both scripts.
+
+### Documentation
+
+* **Running an example on the native platform**: `pio run -e native` only builds, and `-t upload` executes the binary and returns its exit code, so killing the game reports a failed task while closing the window exits cleanly. The examples README shows the build-then-run recipe, the `-t upload` behaviour and the SDL dummy-driver form, and the platform compatibility guide links to it.
+
 # 1.15.0
 
 A minor release: isometric rooms. `gameplay::buildRoomGraph(layer, graph, proj, perRoom)` builds a room graph for a projected scene, with each room's camera rect taken from its cells' diamonds and optionally widened by the art its own map draws, and `gameplay::roomProjection(proj, room)` places a per-room map with local cells where the room sits in the scene. This is the API the Tilemap Editor's one-map-per-room isometric export targets. It also fixes two 2bpp defects: `computeSpanTable(Sprite2bpp&)` now reads the blit's bit order, and the 2bpp blit no longer reads past the sprite data. The 1bpp bit order is documented as the renderer draws it. The orthogonal room API and every existing draw are unchanged.
