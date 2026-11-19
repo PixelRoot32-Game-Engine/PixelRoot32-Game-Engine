@@ -129,7 +129,13 @@ also run on the board by `tools/persist_nvs_smoke`), `test_persist_service`,
   `PIXELROOT32_ENABLE_PERSISTENCE=1`, the same way; CI runs it as its own step.
 - **Test framework:** Unity.
 - **Ignored tests:** `test_embedded` is excluded via `test_ignore` (embedded-only tests).
-- **Coverage:** Build uses `--coverage` and `-lgcov`; scripts are `scripts/coverage_win.py` (Windows) and `scripts/coverage_linux.py` (Linux). The previous single `coverage_check.py` has been replaced by these two platform-specific scripts.
+- **Coverage:** `scripts/platformio_native_coverage.py` adds `--coverage` to both
+  `BUILD_FLAGS` and `LINKFLAGS`, so every host links its own profiling runtime
+  (Apple's clang needs the explicit link flag). On non-Darwin hosts it also adds
+  `-lgcov`, because GCC and MinGW do not link it implicitly. Reports are produced
+  by `scripts/coverage_win.py` (Windows) and `scripts/coverage_linux.py` (Linux);
+  the previous single `coverage_check.py` has been replaced by these two
+  platform-specific scripts.
 
 ### Test File Naming
 
