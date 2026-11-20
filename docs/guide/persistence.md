@@ -35,9 +35,23 @@ build_flags =
 ```
 
 The flag defaults to `0`. With it off, the module contributes no symbols and
-no `Engine` bytes, and the headers compile to nothing. There are no other
-macros: capacities are constructor arguments or template parameters, so you
-pay only for the stores you create.
+no `Engine` bytes, and the headers compile to nothing. Capacities are
+constructor arguments or template parameters, so you pay only for the stores
+you create.
+
+Save slots on a microSD card need a second flag, ESP32 only:
+
+```ini
+build_flags =
+    -D PIXELROOT32_ENABLE_PERSISTENCE=1
+    -D PIXELROOT32_ENABLE_SD_STORAGE=1
+```
+
+`PIXELROOT32_ENABLE_SD_STORAGE` defaults to `0`. Asking for it without
+`PIXELROOT32_ENABLE_PERSISTENCE=1`, or on a target that is not ESP32, fails the
+build with an explicit `#error` instead of compiling a backend that cannot
+work. With it off the adapter contributes no symbols, so a game that never
+touches a card keeps its binary size.
 
 ---
 
@@ -84,6 +98,77 @@ void setupPersistence() {
 If your game already stores a blob with Arduino `Preferences::putBytes()`,
 `getBlob()` over the same namespace and key reads it back byte for byte - read
 the old record once, then rewrite it in the enveloped format of section 3.
+
+### ESP32: save slots on a microSD card
+
+The card adapter replaces the slot store only; settings can stay in NVS, so a
+game keeps its small fast records on flash and its large ones on the card:
+
+```cpp
+#include <persistence/PersistenceService.h>
+#include <drivers/esp32/Esp32NvsStore.h>
+#include <drivers/esp32/SdStore.h>
+
+using namespace pixelroot32::persistence;
+
+Esp32NvsKeyValueStore settingsStore("mygame", 64);
+SdSlotStore saveStore("/pr32demo", "save", 3, 256);  // /pr32demo/save/<i>.slot
+PersistenceService persistence;
+
+SdConfig sdConfig;               // include/drivers/esp32/SdConfig.h
+sdConfig.spi = &SPI;             // bus to mount on: &SPI, &VSPI or &HSPI
+sdConfig.cs = 5;                 // -1 on any pin means "bus default"
+sdConfig.sck = 18;
+sdConfig.miso = 19;
+sdConfig.mosi = 23;
+sdConfig.frequencyHz = 4000000;  // conservative first bring-up clock
+
+void setupPersistence() {
+    if (settingsStore.init() == StoreResult::Ok) {
+        persistence.bindSettings(&settingsStore);
+    }
+    if (saveStore.init(sdConfig) == StoreResult::Ok) {  // non-destructive mount
+        persistence.bindSaves(&saveStore);
+    }
+}
+```
+
+`SdConfig` is plain data and the adapter holds no board constants: your game
+names its own bus and pins, and a pin left at `-1` uses the bus default. There
+is no new library to add - the adapter mounts through the Arduino `SD` library
+that already ships with the ESP32 core.
+
+Board wiring for the ESP32-2432S028R ("CYD"), whose reader sits on VSPI:
+
+| Signal | GPIO |
+|--------|------|
+| CS | 5 |
+| SCK | 18 |
+| MISO | 19 |
+| MOSI | 23 |
+
+- **Check the bus before blaming the card.** On a CYD the reader owns VSPI and
+  TFT_eSPI defaults to VSPI as well, so `SD.begin()` reconfigures the bus the
+  panel was using: the backlight stays on and the screen stays empty. Build the
+  panel on HSPI (`-D USE_HSPI_PORT`) or move the card to another bus.
+- **`init()` never formats or erases.** It mounts the card and creates
+  `<rootDir>/<prefix>/`; a missing or unmountable card answers `Unavailable`, so
+  the game boots and keeps running on defaults. Format the card FAT32 yourself.
+- **Replace-or-keep is remove then rename**, because FAT cannot rename over an
+  existing file. A power loss leaves the old record, the new record, a torn
+  record that `RecordCodec` rejects as `Corrupt`, or - if it lands between the
+  removal and the rename - an empty slot (`NotFound`). There is no `commit()`:
+  each write is already flushed in place.
+- **Removable media.** A card pulled after `init()` answers `Unavailable` until
+  `init()` runs again; a full card answers `NoSpace`.
+- **Cost.** FATFS costs several KB of RAM. The store object itself is small and
+  holds no path buffer, and records are not limited by the `nvs` partition size.
+- `rootDir` and `prefix` are held by pointer: pass string literals, or keep the
+  buffers alive for as long as the store.
+
+The persistence example ships this wiring as its opt-in `esp32sd` environment,
+next to the default NVS build:
+[`examples/persistence`](../../examples/persistence/README.md).
 
 ### Native (PC/SDL2): host files
 
@@ -340,6 +425,11 @@ The default Arduino partition tables are not affected.
 - [ ] Saves and `commit()` happen only at safe points; nothing saves per
       frame.
 - [ ] The game still runs when `init()` fails (roles left unbound).
+- [ ] SD builds: `PIXELROOT32_ENABLE_SD_STORAGE=1` only together with
+      persistence and on ESP32, the card is FAT32, and the `init()` result is
+      handled like any other store.
+- [ ] The panel and the card are on different SPI buses, or the card is not on
+      the panel's bus; otherwise the display goes blank once the card mounts.
 - [ ] A custom partition table keeps `0xE000` out of `nvs`, or the upload drops
       `boot_app0.bin`.
 - [ ] Settings survive a reflash of the app on the real board.
