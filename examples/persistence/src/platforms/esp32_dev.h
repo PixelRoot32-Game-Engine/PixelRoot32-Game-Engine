@@ -11,15 +11,34 @@ namespace pr32 = pixelroot32;
 
 // Button mapping (Arduino ESP32): 5-directional pad plus A/B. A is the only
 // button this example reads; the rest keep the same wiring as the siblings.
+#ifdef PIXELROOT32_EXAMPLE_CYD
+// The CYD has no 5-way pad and its spare GPIOs are scarce. Wiring the pad to
+// its usual pins would take 12/13/14, which on this board are the panel's SPI
+// bus, and Engine::init() configures the display before the input pins, so
+// pinMode() on them would switch the MOSI line to an input and kill the panel.
+// Every logical button shares the BOOT button (GPIO 0) instead: pressing it
+// triggers A, the only one the scene reads.
+const int BTN_UP_PIN = 0;
+const int BTN_DOWN_PIN = 0;
+const int BTN_LEFT_PIN = 0;
+const int BTN_RIGHT_PIN = 0;
+const int BTN_A_PIN = 0;
+const int BTN_B_PIN = 0;
+#else
 const int BTN_UP_PIN = 32;
 const int BTN_DOWN_PIN = 27;
 const int BTN_LEFT_PIN = 33;
 const int BTN_RIGHT_PIN = 14;
 const int BTN_A_PIN = 13;
 const int BTN_B_PIN = 12;
+#endif
 
 pr32::graphics::DisplayConfig config(
+#ifdef PIXELROOT32_EXAMPLE_ILI9341_2
+    pr32::graphics::DisplayType::ILI9341_2,
+#else
     pr32::graphics::DisplayType::ST7789,
+#endif
     DISPLAY_ROTATION,
     PHYSICAL_DISPLAY_WIDTH,
     PHYSICAL_DISPLAY_HEIGHT,
