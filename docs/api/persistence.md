@@ -21,8 +21,8 @@ The public surface has four parts:
 
 - Two storage models: `IKeyValueStore` (named integers and blobs) and
   `ISlotStore` (numbered records).
-- Adapters, one per medium: NVS on the ESP32, one file per record on native
-  builds, and in-RAM tables for tests.
+- Adapters, one per medium: NVS and a FAT microSD slot store on the ESP32, one
+  file per record on native builds, and in-RAM tables for tests.
 - `RecordCodec`, which wraps a payload in a 16-byte self-checking envelope.
 - `PersistenceService`, a role registry with envelope helpers.
 
@@ -358,6 +358,73 @@ public:
 - `setFailBeforeReplace(true)` simulates a crash between the temp write and
   the move: the set answers `IoError` and the old value is kept.
 
+### `SdSlotStore` (ESP32)
+
+```cpp
+inline constexpr size_t kSdMaxPathBytes = 160;
+
+class SdSlotStore final : public ISlotStore {
+public:
+    SdSlotStore(const char* rootDir, const char* prefix, uint16_t slots,
+                size_t maxRecordBytes) noexcept;
+    StoreResult init(const SdConfig& config) noexcept;
+    // ... ISlotStore
+};
+```
+
+- Guarded by `ESP32` **and** `PIXELROOT32_ENABLE_SD_STORAGE`. The hardware
+  description is a plain `SdConfig` (`include/drivers/esp32/SdConfig.h`):
+  `SPIClass* spi`, `int sck` / `miso` / `mosi` / `cs` (`-1` = bus default) and
+  `uint32_t frequencyHz`. No board pin lives in the adapter.
+- One file per slot at `<rootDir>/<prefix>/<i>.slot`; `rootDir` is a path under
+  the mountpoint the Arduino `SD` library uses, so `rootDir` `"/pr32demo"` and
+  prefix `"save"` give `/pr32demo/save/0.slot` on the card. A missing file is
+  an empty slot. `rootDir` and `prefix` are held by pointer and must outlive
+  the store (string literals are the intended use).
+- `init(config)` is **non-destructive**: it brings up the SPI bus, mounts the
+  card and creates the directory. It never formats, erases or repairs. Until it
+  returns `Ok` every operation answers `Unavailable`; a missing or unmountable
+  card answers `Unavailable` at `init()`, so a game boots and keeps running.
+- **Replace-or-keep is remove then rename.** A write goes to `<file>.tmp`, is
+  flushed (`fsync`) and closed, the old file is removed, then `SD.rename` moves
+  the new file into place, because FAT cannot rename over an existing
+  destination. A power loss before the removal keeps the old record; one during
+  the rename yields the new record or a torn one that `RecordCodec` rejects as
+  `Corrupt`; one in the gap between remove and rename leaves an empty slot
+  (`NotFound`).
+- **Removable media.** A card pulled after `init()` answers `Unavailable`; call
+  `init()` again after reinserting. A full card is `NoSpace`; an oversized or
+  malformed file is `IoError`, never a silent empty slot.
+- There is no `commit()`: each write is already flushed and in place.
+
+The CYD (ESP32-2432S028R) microSD reader is on SPI/VSPI:
+
+```cpp
+#include "persistence/PersistenceService.h"
+#include "drivers/esp32/SdStore.h"
+
+using namespace pixelroot32::persistence;
+
+SdConfig sdConfig;
+sdConfig.spi = &SPI;
+sdConfig.cs = 5;
+sdConfig.sck = 18;
+sdConfig.miso = 19;
+sdConfig.mosi = 23;
+sdConfig.frequencyHz = 4000000;   // conservative first bring-up clock
+
+SdSlotStore saveStore("/pr32demo", "save", 3, 256);
+PersistenceService persistence;
+
+if (saveStore.init(sdConfig) == StoreResult::Ok) {
+    persistence.bindSaves(&saveStore);   // settings may stay on NVS
+}
+```
+
+The persistence example's opt-in `esp32sd` environment wires exactly this,
+next to its default NVS build:
+[`examples/persistence`](../../examples/persistence/README.md).
+
 ### `MemoryKeyValueStore` and `MemorySlotStore` (any target)
 
 ```cpp
@@ -399,6 +466,8 @@ public:
 | `include/persistence/PersistenceService.h` | `PersistenceService`, `NullKeyValueStore`, `NullSlotStore` |
 | `include/persistence/MemoryStores.h` | `MemoryKeyValueStore`, `MemorySlotStore` |
 | `include/drivers/esp32/Esp32NvsStore.h` | `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore`, `kNvsDefaultPartition` (guarded by `ESP32`) |
+| `include/drivers/esp32/SdConfig.h` | `SdConfig`, `kSdDefaultFrequencyHz` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
+| `include/drivers/esp32/SdStore.h` | `SdSlotStore`, `kSdMaxPathBytes` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
 | `include/drivers/native/HostFileStore.h` | `HostFileKeyValueStore`, `HostFileSlotStore`, path limits (guarded by `PLATFORM_NATIVE`) |
 
 The headers are the source of truth for signatures and exact wording.

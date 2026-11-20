@@ -12,6 +12,10 @@
 
 #if defined(ESP32)
 #include <drivers/esp32/Esp32NvsStore.h>
+#if PIXELROOT32_ENABLE_SD_STORAGE
+#include <drivers/esp32/SdConfig.h>
+#include <drivers/esp32/SdStore.h>
+#endif
 #elif defined(PLATFORM_NATIVE)
 #include <drivers/native/HostFileStore.h>
 #endif
@@ -30,6 +34,12 @@ namespace persistenceexample {
  * The same code runs on the board and on a PC. Only the store types differ:
  * NVS through `Esp32NvsKeyValueStore` / `Esp32NvsSlotStore` on the ESP32, host
  * files through `HostFileKeyValueStore` / `HostFileSlotStore` on native.
+ *
+ * On the ESP32 the save slots are opt-in over microSD: build the `esp32sd`
+ * environment (`PIXELROOT32_ENABLE_SD_STORAGE=1`) and the saves move to
+ * `SdSlotStore` while the settings stay in NVS. The scene and the
+ * `PersistenceService` calls do not change - only the saves store does, which
+ * is the adapter pattern this example demonstrates.
  */
 class PersistenceExampleScene : public pixelroot32::core::Scene {
 public:
@@ -49,11 +59,18 @@ private:
     pixelroot32::persistence::PersistenceService persistence_;
 
 #if defined(ESP32)
-    // Namespace "mygame" holds the settings blob (`cfg`) and the slot blob
-    // (`save0`). Three slots, each record up to 256 bytes, on the default
-    // "nvs" partition.
+    // Namespace "mygame" holds the settings blob (`cfg`). In the default NVS
+    // build it also holds the slot blob (`save0`); the opt-in SD build moves
+    // only the saves to the card.
     pixelroot32::persistence::Esp32NvsKeyValueStore settingsStore_{"mygame", 64};
+#if PIXELROOT32_ENABLE_SD_STORAGE
+    // `esp32sd`: saves live at /pr32demo/save/<i>.slot on the FAT card, while
+    // settings still use NVS through the same PersistenceService.
+    pixelroot32::persistence::SdConfig sdConfig_;
+    pixelroot32::persistence::SdSlotStore saveStore_{"/pr32demo", "save", 3, 256};
+#else
     pixelroot32::persistence::Esp32NvsSlotStore saveStore_{"mygame", "save", 3, 256};
+#endif
 #elif defined(PLATFORM_NATIVE)
     // Files land under save_data/mygame/ (cfg.kv) and save_data/save/
     // (0.slot), relative to the working directory the binary runs from.
