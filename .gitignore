@@ -89,17 +89,6 @@ coverage_filtered.info
 test_output.log
 platformio_test.log
 
-
-# ide/agents code
-.opencode/
-.windsurf/
-.cursor/
-.trae/
-.agent/
-.atl/
-openspec/
-AGENTS.md
-
 # Ignore all file start with _*
 _*
 
