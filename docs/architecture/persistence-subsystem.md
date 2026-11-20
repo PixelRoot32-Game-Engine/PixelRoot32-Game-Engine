@@ -6,10 +6,10 @@ slots. It ships behind `PIXELROOT32_ENABLE_PERSISTENCE`, defaults to `0`, and
 contributes no symbols, no `Engine` bytes and no `Scene` vtable change when it
 is off.
 
-The module has three adapters in v1: ESP-IDF NVS on the ESP32, one file per
-record on native (PC) builds, and fixed in-RAM tables for tests. Above them,
-`RecordCodec` wraps game payloads in a self-checking envelope and
-`PersistenceService` binds a settings store and a saves store to two roles.
+The module has four adapters: ESP-IDF NVS and a FAT microSD slot store on the
+ESP32, one file per record on native (PC) builds, and fixed in-RAM tables for
+tests. Above them, `RecordCodec` wraps game payloads in a self-checking envelope
+and `PersistenceService` binds a settings store and a saves store to two roles.
 
 > **Rule, stated once:** the engine never writes in the background. Every set,
 > erase and `commit()` is a call the game makes. On the ESP32 a flash write
@@ -32,6 +32,7 @@ PersistenceService  ------------------  RecordCodec (envelope + CRC-32)
           ^
 Adapters (one per medium)
    |-- Esp32NvsKeyValueStore / Esp32NvsSlotStore   drivers/esp32   (ESP32)
+   |-- SdSlotStore                                 drivers/esp32   (ESP32)
    |-- HostFileKeyValueStore / HostFileSlotStore   drivers/native  (PLATFORM_NATIVE)
    `-- MemoryKeyValueStore   / MemorySlotStore     persistence/    (any target)
 ```
@@ -163,6 +164,10 @@ target without storage keeps running with defaults.
 | `MemoryKeyValueStore<Entries, BlobBytes>`, `MemorySlotStore<Slots, RecordBytes>` | Fixed in-RAM tables | A write applies in full or not at all | Counts calls, `Ok` |
 | `HostFileKeyValueStore`, `HostFileSlotStore` | One file per key or slot | Temp file, flush and sync, then one replace-existing move | `Ok`: every write is already in place |
 | `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore` | One ESP-IDF NVS namespace | Same-type set: one NVS write; cross-type set: not atomic (below) | `nvs_commit` |
+| `SdSlotStore` | SD card (FAT) | temp file + remove + rename | no `commit()`; each write is flushed in place |
+
+The FAT replace is not atomic: a power loss between the remove and the rename
+leaves an empty slot, and a torn record is rejected by the envelope.
 
 ### Memory
 
@@ -323,8 +328,9 @@ saves from another task must serialise all access itself.
 | L5 | **Typed values are `int32_t`, `uint32_t` and blobs.** Strings and floats go through the game's own record. |
 | L6 | **No automatic schema migration.** The codec reports the version; the game migrates. |
 | L7 | **No wear accounting** beyond what NVS does internally. |
-| L8 | **No `IFileStore` yet.** Streaming files arrive with the first backend that needs them (SD). |
+| L8 | **No `IFileStore` yet.** SD *slots* now ship through `SdSlotStore`; streaming files remain the future work that interface waits for. |
 | L9 | **Arduino core range.** The NVS adapter uses `nvs_*` calls common to IDF 4.4 and 5.x; it has been built and run on Arduino-ESP32 2.0.17. Arduino-ESP32 3.x has not yet been built locally. |
+| L10 | **SD slots hold large records** with no NVS partition ceiling, at the cost of several KB of RAM for FATFS. The card is removable: a missing or unmountable card answers `Unavailable`, and a card pulled after `init()` answers `Unavailable` until `init()` runs again. |
 
 ---
 
@@ -336,14 +342,15 @@ through a store reference.
 
 | Medium | Model(s) | Replace-or-keep | Notes |
 |--------|----------|-----------------|-------|
-| SD card (FAT) | Slots, and a future `IFileStore` | Temp file + rename; FAT is not power-safe, so slot reads rely on the envelope to reject a torn record | Several KB of RAM for FATFS; removable media answers `Unavailable` |
+| SD card (FAT) | Slots (shipped: `SdSlotStore`); a future `IFileStore` | Temp file + remove + rename; FAT is not power-safe, so slot reads rely on the envelope to reject a torn record | Several KB of RAM for FATFS; removable media answers `Unavailable` |
 | I2C EEPROM (AT24Cxx-class chip) | Slots, small KV | Two copies per slot (A/B with a sequence number); the envelope picks the valid one | Page-write limits and ~5 ms write cycles live in the adapter |
 | Raw flash partition | Slots | A/B sectors per slot with a sequence number | The route for large save games on boards with 16 MB of flash |
 | Mirrored slot store | Slots | Per underlying store | A `MirroredSlotStore` implementing `ISlotStore` over two others, reporting each result - a "save to two media" policy without a new interface |
 
-`IFileStore` (open, read, write, close, remove, exists, size, replace) is
-deliberately not shipped yet: an interface no backend validates would freeze an
-untested design. It is added with the SD adapter.
+`IFileStore` (open, read, write, close, remove, exists, size, replace) is still
+deliberately not shipped: an interface no backend validates would freeze an
+untested design. SD *slots* now ship through `SdSlotStore`; streaming files
+remain the future work that will validate the interface.
 
 ---
 
@@ -356,6 +363,7 @@ untested design. It is added with the SD adapter.
 | `test/unit/test_persist_contract/` | One adapter contract suite, run unchanged against every adapter in its table |
 | `test/unit/test_persist_service/` | Roles, null stores, record helpers |
 | `test/unit/test_persist_hostfile/` | Host file specifics: `init()`, file layout, case-distinct keys, interrupted writes, stale temp files, malformed files |
+| `tools/persist_sd_smoke/` | Board smoke: `pio test -e smoke` runs the same contract suite over `SdSlotStore` on the CYD |
 
 The contract suite is the heart of it. It runs on the host against the memory
 and host-file adapters under `native_test_persistence`, and on the board

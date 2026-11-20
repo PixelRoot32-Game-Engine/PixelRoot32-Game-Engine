@@ -90,7 +90,22 @@ void PersistenceExampleScene::loadOrUseDefaults() {
 #endif
 
     const persist::StoreResult settingsInit = settingsStore_.init();
+
+#if defined(ESP32) && PIXELROOT32_ENABLE_SD_STORAGE
+    // Opt-in SD build (`-e esp32sd`): the CYD's onboard microSD reader is on
+    // SPI/VSPI. The adapter holds no board constants, so the scene names the
+    // pins here. A missing card answers Unavailable and the scene keeps running
+    // on defaults, like any other failed init.
+    sdConfig_.spi = &SPI;
+    sdConfig_.cs = 5;
+    sdConfig_.sck = 18;
+    sdConfig_.miso = 19;
+    sdConfig_.mosi = 23;
+    sdConfig_.frequencyHz = 4000000;
+    const persist::StoreResult savesInit = saveStore_.init(sdConfig_);
+#else
     const persist::StoreResult savesInit = saveStore_.init();
+#endif
     logLine("PERSIST,boot,settings_store_init,%s", resultName(settingsInit));
     logLine("PERSIST,boot,saves_store_init,%s", resultName(savesInit));
 
