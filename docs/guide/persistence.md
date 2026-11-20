@@ -163,6 +163,12 @@ Board wiring for the ESP32-2432S028R ("CYD"), whose reader sits on VSPI:
   `init()` runs again; a full card answers `NoSpace`.
 - **Cost.** FATFS costs several KB of RAM. The store object itself is small and
   holds no path buffer, and records are not limited by the `nvs` partition size.
+- **Timestamps read 1980 until your game sets the clock.** FAT cannot store a
+  date before 1980-01-01, and the ESP32 has no RTC, so every file the adapter
+  creates gets that date. Nothing in the module reads it - slot identity is the
+  file name and integrity is the record envelope - but if you want real dates in
+  a card reader, call `configTime()` after the network comes up (or copy the
+  time from an external RTC) before writing.
 - `rootDir` and `prefix` are held by pointer: pass string literals, or keep the
   buffers alive for as long as the store.
 
