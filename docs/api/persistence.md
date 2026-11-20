@@ -397,6 +397,20 @@ public:
   malformed file is `IoError`, never a silent empty slot.
 - There is no `commit()`: each write is already flushed and in place.
 
+It is opt-in and ESP32 only:
+
+```ini
+build_flags =
+    -D PIXELROOT32_ENABLE_PERSISTENCE=1
+    -D PIXELROOT32_ENABLE_SD_STORAGE=1
+```
+
+`PIXELROOT32_ENABLE_SD_STORAGE` defaults to `0`. Asking for it without
+`PIXELROOT32_ENABLE_PERSISTENCE=1`, or on a target that is not ESP32, fails the
+build with an explicit `#error`. There is no new `lib_deps`: the adapter mounts
+through the Arduino `SD` library that ships with the ESP32 core. FATFS costs
+several KB of RAM once linked.
+
 The CYD (ESP32-2432S028R) microSD reader is on SPI/VSPI:
 
 ```cpp

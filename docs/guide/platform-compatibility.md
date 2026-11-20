@@ -57,9 +57,18 @@ default `0`) has one adapter per medium:
 - **Native:** `HostFileKeyValueStore` / `HostFileSlotStore`, one file per key or
   slot under a root directory. Verified on Windows; the POSIX path is checked
   by Linux CI.
+- **ESP32 microSD (opt-in):** `SdSlotStore` over a FAT card, one file per slot.
+  Enabled with `PIXELROOT32_ENABLE_SD_STORAGE=1`, which requires persistence and
+  the ESP32 target; the pins come from a runtime `SdConfig`, so the adapter
+  carries no board constants. The card is removable: a missing or unmountable
+  card answers `Unavailable` and the game keeps running.
 - **Any target:** `MemoryKeyValueStore` / `MemorySlotStore` for tests.
 - **Arduino core:** the NVS adapter is built and run on Arduino-ESP32 2.0.17;
-  3.x has not been built yet.
+  3.x has not been built yet. The SD adapter builds and runs on 3.x
+  (espressif32 8.0.0) on the CYD.
+- **SPI buses:** on a board whose panel and card reader share the default
+  VSPI host, the panel has to move (for example `-D USE_HSPI_PORT`); otherwise
+  mounting the card reconfigures the bus the panel is drawing on.
 - **Custom partition tables:** an `nvs` partition covering `0xE000` is
   overwritten by `boot_app0.bin` on every Arduino upload.
 
