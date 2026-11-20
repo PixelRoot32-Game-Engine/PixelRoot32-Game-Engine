@@ -45,8 +45,9 @@ over one kind of storage.
 The split exists so a game never names a medium in its game logic. Code that
 saves a settings record talks to an `IKeyValueStore&`; whether that is NVS on
 the board or a file on the PC is decided once, where the stores are
-constructed. Moving saves to another medium later - an SD card, an I2C EEPROM -
-adds an adapter and leaves the interfaces and the game logic untouched.
+constructed. Moving saves to another medium - NVS on the board, a FAT card
+through `SdSlotStore`, an I2C EEPROM - adds an adapter and leaves the
+interfaces and the game logic untouched.
 
 | Layer | Owns | Knows nothing about |
 |-------|------|---------------------|
@@ -93,7 +94,10 @@ A fixed number of numbered records, `0..slotCount()-1`, each up to
   occupies its slot.
 - **`write()` is replace-or-keep:** after a failed or interrupted write,
   `read()` returns the previous record or the new one, never a mix. Each
-  adapter states how it guarantees this (section 5).
+  adapter states how it guarantees this (section 5). The one exception the
+  interface allows is a medium that cannot replace atomically: on FAT
+  (`SdSlotStore`) a power loss inside the remove-then-rename window can also
+  leave the slot empty, which that adapter documents.
 
 ---
 
@@ -166,8 +170,12 @@ target without storage keeps running with defaults.
 | `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore` | One ESP-IDF NVS namespace | Same-type set: one NVS write; cross-type set: not atomic (below) | `nvs_commit` |
 | `SdSlotStore` | SD card (FAT) | temp file + remove + rename | no `commit()`; each write is flushed in place |
 
-The FAT replace is not atomic: a power loss between the remove and the rename
-leaves an empty slot, and a torn record is rejected by the envelope.
+The FAT replace is not atomic, so `SdSlotStore` is the one shipped adapter
+where the S7 old-or-new rule is weaker: a power loss between the remove and the
+rename leaves an empty slot, and a torn record is rejected by the envelope.
+Mounting is non-destructive (never formats, erases or repairs), and `init()`
+can run again after a card was removed: it probes the store directory,
+releases the dead volume (`SD.end()`) and mounts again.
 
 ### Memory
 
@@ -295,6 +303,7 @@ sized at compile time.
 | `PersistenceService` | Four pointers (two store pointers, two null-store vtables): 16 B on ESP32, 32 B on a 64-bit host |
 | `Esp32NvsKeyValueStore` | 24 B (handle, two string pointers, limits) |
 | `Esp32NvsSlotStore` | 28 B |
+| `SdSlotStore` | 20 B (two string pointers, the limits and a flag); the FATFS driver it links costs several KB |
 | CRC table | 64 B of flash |
 | Measured on the CYD, two NVS KV stores linked | `.dram0.bss` +48 B, `.dram0.data` +0 B; flash +2,760 B text, +680 B rodata |
 | `HostFileKeyValueStore`, `HostFileSlotStore` | One 260-byte path buffer plus the limits each (native only) |
@@ -323,14 +332,14 @@ saves from another task must serialise all access itself.
 |----|-------|
 | L1 | **Keys and namespaces** are 1..15 bytes, each in `[A-Za-z0-9_-]` (`kMaxKeyLength`, `isValidKey()`). Fifteen is the NVS limit, applied to every medium so a key written on the host works on the board; the character set is safe as a file name on Windows and POSIX. An invalid key answers `InvalidKey` before the medium is touched. |
 | L2 | **NVS namespaces** follow the same rule. Use one namespace per store and never share one with unrelated data; a slot store's `<prefix><index>` keys must also fit 15 characters. |
-| L3 | **NVS is for small records.** Usable space is the `nvs` partition minus NVS overhead (the CYD's 24 KB partition holds about 20 KB). Large save games need a raw-partition or SD adapter. |
+| L3 | **NVS is for small records.** Usable space is the `nvs` partition minus NVS overhead (the CYD's 24 KB partition holds about 20 KB). Large save games need the microSD adapter (`SdSlotStore`) or a raw-partition store. |
 | L4 | **Cross-type writes on NVS are not atomic** (section 5). |
 | L5 | **Typed values are `int32_t`, `uint32_t` and blobs.** Strings and floats go through the game's own record. |
 | L6 | **No automatic schema migration.** The codec reports the version; the game migrates. |
 | L7 | **No wear accounting** beyond what NVS does internally. |
 | L8 | **No `IFileStore` yet.** SD *slots* now ship through `SdSlotStore`; streaming files remain the future work that interface waits for. |
 | L9 | **Arduino core range.** The NVS adapter uses `nvs_*` calls common to IDF 4.4 and 5.x; it has been built and run on Arduino-ESP32 2.0.17. Arduino-ESP32 3.x has not yet been built locally. |
-| L10 | **SD slots hold large records** with no NVS partition ceiling, at the cost of several KB of RAM for FATFS. The card is removable: a missing or unmountable card answers `Unavailable`, and a card pulled after `init()` answers `Unavailable` until `init()` runs again. |
+| L10 | **SD slots hold large records** with no NVS partition ceiling, at the cost of several KB of RAM for FATFS. The card is removable: a missing or unmountable card answers `Unavailable` at `init()`. A card pulled after `init()` is not detected up front (the Arduino `SD` library caches the card type at mount), so the next access answers `IoError`/`NotFound`; `init()` again after reinserting probes the directory and mounts the card again, with no reboot. |
 
 ---
 
@@ -342,7 +351,7 @@ through a store reference.
 
 | Medium | Model(s) | Replace-or-keep | Notes |
 |--------|----------|-----------------|-------|
-| SD card (FAT) | Slots (shipped: `SdSlotStore`); a future `IFileStore` | Temp file + remove + rename; FAT is not power-safe, so slot reads rely on the envelope to reject a torn record | Several KB of RAM for FATFS; removable media answers `Unavailable` |
+| SD card (FAT) | Slots (**shipped** as `SdSlotStore`); a future `IFileStore` for streaming files | Temp file + remove + rename; FAT is not power-safe, so a torn record is rejected by the envelope and a loss between remove and rename leaves the slot empty | Several KB of RAM for FATFS; a missing card answers `Unavailable`, a removal after `init()` surfaces as `IoError`/`NotFound` until `init()` remounts |
 | I2C EEPROM (AT24Cxx-class chip) | Slots, small KV | Two copies per slot (A/B with a sequence number); the envelope picks the valid one | Page-write limits and ~5 ms write cycles live in the adapter |
 | Raw flash partition | Slots | A/B sectors per slot with a sequence number | The route for large save games on boards with 16 MB of flash |
 | Mirrored slot store | Slots | Per underlying store | A `MirroredSlotStore` implementing `ISlotStore` over two others, reporting each result - a "save to two media" policy without a new interface |
@@ -363,14 +372,22 @@ remain the future work that will validate the interface.
 | `test/unit/test_persist_contract/` | One adapter contract suite, run unchanged against every adapter in its table |
 | `test/unit/test_persist_service/` | Roles, null stores, record helpers |
 | `test/unit/test_persist_hostfile/` | Host file specifics: `init()`, file layout, case-distinct keys, interrupted writes, stale temp files, malformed files |
-| `tools/persist_sd_smoke/` | Board smoke: `pio test -e smoke` runs the same contract suite over `SdSlotStore` on the CYD |
+| `tools/persist_sd_smoke/` | Board smoke: `pio test -e smoke` runs the same contract suite over `SdSlotStore` on the CYD; the report checks mount, round trip and an interactive card-out/card-back re-mount |
 
 The contract suite is the heart of it. It runs on the host against the memory
 and host-file adapters under `native_test_persistence`, and on the board
-against the NVS adapters through `tools/persist_nvs_smoke` (`pio test -e
-smoke`, which compiles the same test file from the engine's `test/` folder).
-The smoke firmware adds what only hardware can show: `Preferences`
-compatibility, raw IDF type behaviour, write timing and `nvs_get_stats`.
+against the NVS adapters through `tools/persist_nvs_smoke` and against
+`SdSlotStore` through `tools/persist_sd_smoke` (`pio test -e smoke`, which
+compiles the same test file from the engine's `test/` folder). The NVS smoke
+firmware adds what only hardware can show: `Preferences` compatibility, raw
+IDF type behaviour, write timing and `nvs_get_stats`. The SD smoke adds the FAT
+round trip, the card size and `sizeof(SdSlotStore)`, and then asks over serial
+for the card to be taken out and reinserted: the accesses made while it is out
+must fail visibly (`NotFound`/`IoError`, `Unavailable` from `init()` and from a
+write on the unmounted store), `init()` after the reinsert must mount again
+without a reboot, and a record seeded before the removal must read back intact.
+The unanswered prompts of that stage are reported as skipped, not failed, so an
+unattended flash still reports the rest.
 
 ```bash
 pio test -e native_test_persistence   # host: codec, contract, service, host files
@@ -393,8 +410,10 @@ pio run  -e smoke -t upload            # board: compatibility and timing report
 | Memory adapters | [`include/persistence/MemoryStores.h`](../../include/persistence/MemoryStores.h) |
 | Host file adapters | [`include/drivers/native/HostFileStore.h`](../../include/drivers/native/HostFileStore.h) |
 | NVS adapters | [`include/drivers/esp32/Esp32NvsStore.h`](../../include/drivers/esp32/Esp32NvsStore.h) |
+| microSD adapter | [`include/drivers/esp32/SdStore.h`](../../include/drivers/esp32/SdStore.h), hardware in [`SdConfig.h`](../../include/drivers/esp32/SdConfig.h) |
 | Contract suite | [`test/unit/test_persist_contract/`](../../test/unit/test_persist_contract/) |
-| Board smoke tool | [`tools/persist_nvs_smoke/README.md`](../../tools/persist_nvs_smoke/README.md) |
+| Board smoke tool (NVS) | [`tools/persist_nvs_smoke/README.md`](../../tools/persist_nvs_smoke/README.md) |
+| Board smoke tool (microSD) | [`tools/persist_sd_smoke/README.md`](../../tools/persist_sd_smoke/README.md) |
 | Task-oriented guide | [Persistence guide](../guide/persistence.md) |
 | Conceptual API | [Persistence API](../api/persistence.md) |
 | Build flag | [Configuration](../api/config.md) |

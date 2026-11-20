@@ -181,9 +181,10 @@ Insert a **FAT32-formatted** card. The adapter mounts it and creates
 `/pr32demo/save/`; it never formats or erases the card. Without a usable card
 `init()` returns `Unavailable`, the saves role stays unbound, and the scene
 keeps running on defaults. Slots have no `commit()`: each write is flushed in
-place. A card removed after `init()` answers `Unavailable` until `init()` runs
-again. Everything else — the scene, the A press, the `PERSIST,` transcript — is
-identical to the NVS build.
+place. A card removed after `init()` is not noticed up front — the next access
+fails with `IoError`/`NotFound` — and calling `init()` again after reinserting
+releases the dead volume and remounts the card. Everything else — the scene,
+the A press, the `PERSIST,` transcript — is identical to the NVS build.
 
 The panel is the CYD's ILI9341_2 240×320, forced onto **HSPI** with
 `USE_HSPI_PORT`. TFT_eSPI defaults to VSPI — the same host the card reader uses

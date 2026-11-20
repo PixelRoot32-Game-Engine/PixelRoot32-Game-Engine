@@ -2,8 +2,9 @@
 
 The `pixelroot32::persistence` module keeps game data between runs: settings,
 high scores, unlocks and small save slots. On the ESP32 it stores them in NVS
-(the same flash area Arduino `Preferences` uses); on native (PC/SDL2) builds it
-writes one small file per record; in tests it keeps them in RAM.
+(the same flash area Arduino `Preferences` uses) or, for save slots, on an
+opt-in microSD card; on native (PC/SDL2) builds it writes one small file per
+record; in tests it keeps them in RAM.
 
 This page is task-oriented. For the envelope layout, atomicity per medium,
 memory and limits, see the
@@ -154,13 +155,21 @@ Board wiring for the ESP32-2432S028R ("CYD"), whose reader sits on VSPI:
 - **`init()` never formats or erases.** It mounts the card and creates
   `<rootDir>/<prefix>/`; a missing or unmountable card answers `Unavailable`, so
   the game boots and keeps running on defaults. Format the card FAT32 yourself.
+- **`init()` checks its arguments first.** A `rootDir` without a leading `/`
+  (or too long for the 160-byte path budget), zero slots, a zero maximum, a
+  null `spi`, a `cs` outside 0..127, another pin outside -1..127, or a `prefix`
+  that fails `isValidKey()` (1..15 bytes of `[A-Za-z0-9_-]`) is rejected with
+  `InvalidArgument`/`InvalidKey` and nothing is mounted. `frequencyHz` defaults
+  to `kSdDefaultFrequencyHz` (4 MHz).
 - **Replace-or-keep is remove then rename**, because FAT cannot rename over an
   existing file. A power loss leaves the old record, the new record, a torn
   record that `RecordCodec` rejects as `Corrupt`, or - if it lands between the
   removal and the rename - an empty slot (`NotFound`). There is no `commit()`:
   each write is already flushed in place.
-- **Removable media.** A card pulled after `init()` answers `Unavailable` until
-  `init()` runs again; a full card answers `NoSpace`.
+- **Removable media.** A pulled card is not detected up front: the next access
+  answers `IoError` (or `NotFound`). Call `init()` again after reinserting - it
+  probes the store directory, releases the dead volume and mounts again, with
+  no reboot. A full card answers `NoSpace`.
 - **Cost.** FATFS costs several KB of RAM. The store object itself is small and
   holds no path buffer, and records are not limited by the `nvs` partition size.
 - **Timestamps read 1980 until your game sets the clock.** FAT cannot store a
@@ -311,9 +320,11 @@ bool loadSlot(uint16_t slot, uint8_t* out, size_t outSize) {
   without reading it - handy for a "Continue / Empty" slot menu.
 - `saves().erase(slot)` empties a slot.
 - A slot write is **replace-or-keep**: if the power fails mid-write, the slot
-  holds the old save or the new one, never a mix.
-- On the ESP32 slot writes reach flash immediately; there is no separate
-  commit for slots.
+  holds the old save or the new one, never a mix. On a FAT card the replace is
+  remove-then-rename, so a loss inside that window can also leave the slot
+  empty (`NotFound`) - see the microSD section.
+- On the ESP32 an NVS slot write reaches flash immediately, and a card slot
+  write is flushed in place; neither has a separate commit.
 
 ---
 

@@ -74,9 +74,14 @@ SdSlotStore::SdSlotStore(const char* rootDir, const char* prefix, uint16_t slots
 SdSlotStore::~SdSlotStore() = default;
 
 StoreResult SdSlotStore::init(const SdConfig& config) noexcept {
-    if (ready_) {
+    // A ready store stays ready only while its own directory still answers.
+    // The Arduino SD library caches the card type at mount, so cardType()
+    // cannot see a card that went away; one FAT lookup per explicit init()
+    // call (never per operation) is what makes a reinserted card recoverable.
+    if (ready_ && SD.exists(rootDir_)) {
         return StoreResult::Ok;
     }
+    ready_ = false;
     if (rootDir_ == nullptr || rootDir_[0] == '\0') {
         return StoreResult::InvalidArgument;
     }
@@ -107,6 +112,10 @@ StoreResult SdSlotStore::init(const SdConfig& config) noexcept {
         return StoreResult::InvalidArgument;
     }
 
+    // SDFS::begin() returns true without touching the card while a volume is
+    // still registered, so a previous mount has to be released first: that is
+    // the difference between "still mounted" and "mounted again".
+    SD.end();
     // Bring up the bus with the configured pins before the driver probes the
     // card. SD.begin() calls spi.begin() too, but only with the bus defaults.
     config.spi->begin(static_cast<int8_t>(config.sck), static_cast<int8_t>(config.miso),
@@ -140,8 +149,10 @@ StoreResult SdSlotStore::init(const SdConfig& config) noexcept {
 
 StoreResult SdSlotStore::usable(uint16_t slot) const noexcept {
     // Unavailable wins over InvalidArgument: a store nobody mounted answers
-    // the same for every slot, as ISlotStore documents. cardType() is a cached
-    // field read, so it also catches a card unmounted after init().
+    // the same for every slot, as ISlotStore documents. cardType() is the type
+    // cached at mount, so it catches a released SD volume, not a card pulled
+    // after init(): that surfaces as IoError/NotFound in the call that touches
+    // the card. init() re-mounts it.
     if (!ready_ || SD.cardType() == CARD_NONE) {
         return StoreResult::Unavailable;
     }

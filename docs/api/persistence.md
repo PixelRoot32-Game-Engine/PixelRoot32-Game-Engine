@@ -8,6 +8,8 @@
 > - `include/persistence/PersistenceService.h`
 > - `include/persistence/MemoryStores.h`
 > - `include/drivers/esp32/Esp32NvsStore.h`
+> - `include/drivers/esp32/SdConfig.h`
+> - `include/drivers/esp32/SdStore.h`
 > - `include/drivers/native/HostFileStore.h`
 
 ## Overview
@@ -197,7 +199,7 @@ public:
 | Slot range | `0..slotCount()-1`; anything else is `InvalidArgument` before the medium is touched |
 | Empty slot | `query()`/`read()` answer `NotFound` with `stored = 0` |
 | `read()` capacity | Same rules as `getBlob()`, including the `capacity == 0` size query |
-| `write()` | Replace-or-keep: after a failed or interrupted write, `read()` returns the old record or the new one, never a mix. `TooLarge` above `maxRecordSize()`. A zero-size record occupies the slot |
+| `write()` | Replace-or-keep: after a failed or interrupted write, `read()` returns the old record or the new one, never a mix. `TooLarge` above `maxRecordSize()`. A zero-size record occupies the slot. An adapter on a medium that cannot replace atomically (FAT, see `SdSlotStore`) documents that a power loss can also leave the slot empty |
 | `erase()` | `NotFound` when the slot is already empty |
 
 ## `RecordCodec`
@@ -375,7 +377,15 @@ public:
 - Guarded by `ESP32` **and** `PIXELROOT32_ENABLE_SD_STORAGE`. The hardware
   description is a plain `SdConfig` (`include/drivers/esp32/SdConfig.h`):
   `SPIClass* spi`, `int sck` / `miso` / `mosi` / `cs` (`-1` = bus default) and
-  `uint32_t frequencyHz`. No board pin lives in the adapter.
+  `uint32_t frequencyHz`, which defaults to `kSdDefaultFrequencyHz` (4 MHz). No
+  board pin lives in the adapter.
+- `init()` validates before touching the medium: a non-empty `rootDir` with a
+  leading `/` and short enough for `kSdMaxPathBytes` (160) together with the
+  prefix and one slot file, a `prefix` that passes `isValidKey()` (1..15 bytes
+  of `[A-Za-z0-9_-]`), non-zero `slots` and `maxRecordBytes`, a non-null `spi`,
+  a `cs` pin in 0..127 and `sck`/`miso`/`mosi` in -1..127. A bad argument is
+  `InvalidArgument` (`InvalidKey` for the prefix) and nothing is mounted or
+  created.
 - One file per slot at `<rootDir>/<prefix>/<i>.slot`; `rootDir` is a path under
   the mountpoint the Arduino `SD` library uses, so `rootDir` `"/pr32demo"` and
   prefix `"save"` give `/pr32demo/save/0.slot` on the card. A missing file is
@@ -392,9 +402,13 @@ public:
   the rename yields the new record or a torn one that `RecordCodec` rejects as
   `Corrupt`; one in the gap between remove and rename leaves an empty slot
   (`NotFound`).
-- **Removable media.** A card pulled after `init()` answers `Unavailable`; call
-  `init()` again after reinserting. A full card is `NoSpace`; an oversized or
-  malformed file is `IoError`, never a silent empty slot.
+- **Removable media.** A card pulled after `init()` is not detected up front:
+  the Arduino `SD` library caches the card type at mount, so the call that
+  touches the card answers `IoError` (or `NotFound` for a missing file). Call
+  `init()` again after reinserting: it probes the store directory, releases the
+  dead volume (`SD.end()`) and mounts again, so recovery needs no reboot. A
+  full card is `NoSpace`; an oversized or malformed file is `IoError`, never a
+  silent empty slot.
 - There is no `commit()`: each write is already flushed and in place.
 
 It is opt-in and ESP32 only:

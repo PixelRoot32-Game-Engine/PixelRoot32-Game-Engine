@@ -45,7 +45,9 @@ inline constexpr size_t kSdMaxPathBytes = 160;
  * never formats, erases or repairs the card. Until init() returns Ok, every
  * operation - including out-of-range and null arguments - returns Unavailable,
  * so a game can boot, fail to mount and keep running. Calling init() again on
- * a ready store is Ok.
+ * a ready store whose directory still answers is Ok; when the card went away,
+ * init() releases the dead volume and mounts again, so reinserting a card
+ * needs no reboot.
  *
  * Replace-or-keep (S5): every write goes to `<file>.tmp`, which is flushed
  * (the Arduino FS flush calls `fsync`) and closed, then the old `<file>` is
@@ -59,10 +61,14 @@ inline constexpr size_t kSdMaxPathBytes = 160;
  *
  * Errors (S6): a missing file is NotFound; a full card is NoSpace; a file
  * larger than maxRecordSize(), a malformed file or any other I/O failure is
- * IoError (never a silent NotFound, so damage is visible); an uninitialised or
- * unmounted card is Unavailable; an out-of-range slot or a null buffer with a
- * non-zero capacity is InvalidArgument; a record above maxRecordSize() is
- * TooLarge. There is no commit(): every write is flushed and in place.
+ * IoError (never a silent NotFound, so damage is visible); a store that was
+ * never initialised, or whose SD volume was released, is Unavailable; an
+ * out-of-range slot or a null buffer with a non-zero capacity is
+ * InvalidArgument; a record above maxRecordSize() is TooLarge. A card pulled
+ * after init() cannot be detected up front - the Arduino SD library caches
+ * the card type at mount - so the call that touches the card answers IoError
+ * (or NotFound for a missing file); init() mounts it again. There is no
+ * commit(): every write is flushed and in place.
  *
  * Memory: no heap of its own, fixed buffers on the call stack only; two
  * pointer members and the limits. Calls come from one task (the game loop);
@@ -87,10 +93,12 @@ public:
     SdSlotStore& operator=(const SdSlotStore&) = delete;
 
     /**
-     * @brief Checks the arguments, mounts the card and creates the directory.
+     * @brief Checks the arguments, mounts (or re-mounts) the card and creates
+     *        the directory.
      * @param config SPI bus, pins and clock; `spi` must be non-null and `cs`
      *        a valid pin.
-     * @return Ok (also when already ready); InvalidArgument for a null or
+     * @return Ok (also when already mounted and its directory still answers);
+     *         InvalidArgument for a null or
      *         empty root, a root without a leading '/', zero slots, a zero
      *         maximum, a null bus, a negative CS or any pin outside -1..127,
      *         or an over-long path; InvalidKey for a prefix that fails
