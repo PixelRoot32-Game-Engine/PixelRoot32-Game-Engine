@@ -187,7 +187,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `persistence`, `mono_oled`, `esp_now`, `esp_now_dice`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `persistence`, `mono_oled`, `esp_now`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select the environment named in its `platformio.ini` (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3_node_up`, `env:esp32c3_node_a`, `env:native`, and so on).
 3. **Build and Upload** using PlatformIO.

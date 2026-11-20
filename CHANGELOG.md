@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 A build-tooling release with no engine API change: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
 
+### Removed
+
+* **`examples/esp_now_dice`, with its two unit suites (`test/unit/test_esp_now_dice/` and `test/unit/test_esp_now_dice_protocol/`)**: the commit/reveal dice duel is a finished game and now lives in [PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/networking/esp_now_dice), which is what that repository is for. The other two ESP-NOW examples still ship here - `esp_now` for the shared counter and `esp_now_ping` for tagged custom messages - so the module keeps a minimal reference and a custom-message one. No engine symbol changes: the deleted tests covered the example's own `DiceDuel`/`DiceProtocol` headers, and the examples workflow's catalogue check now validates a smaller set.
+
 ### Fixed
 
 * **Native builds resolve the host's SDL2 paths instead of carrying per-OS flags**: the examples and `[base_native]` committed the Windows/MSYS2 include and library paths with the macOS Homebrew ones commented out, so a native build needed hand editing; on macOS it failed with `SDL2/SDL.h: file not found`, and `-mconsole` is an option clang rejects. `scripts/platformio_native_sdl2.py` now detects the host prefix (Homebrew, MSYS2, or the default search path) and applies `-mconsole` only on Windows. `-Wl,--gc-sections` moves to `[base_esp32]`, the only section whose linker accepts it; every `esp32_*` environment extends that section, so their flags are unchanged.
