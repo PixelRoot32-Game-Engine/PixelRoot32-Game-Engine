@@ -480,6 +480,16 @@ namespace pixelroot32::platforms::config {
     inline constexpr bool EnablePersistence = false;
     #endif
 
+    #if PIXELROOT32_ENABLE_SD_STORAGE
+
+    /** @brief Type-safe access to EnableSdStorage configuration. */
+    inline constexpr bool EnableSdStorage = true;
+    #else
+
+    /** @brief Type-safe access to EnableSdStorage configuration. */
+    inline constexpr bool EnableSdStorage = false;
+    #endif
+
     // Deprecated for backward compatibility
 
     /** @brief Type-safe access to PhysicsRelaxationIterations configuration. */
