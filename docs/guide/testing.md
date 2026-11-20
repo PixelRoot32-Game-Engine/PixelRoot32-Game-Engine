@@ -116,7 +116,8 @@ Networking suites (all under `test/unit/`): `test_net_protocol`,
 
 Persistence suites (all under `test/unit/`): `test_persist_flags`,
 `test_persist_codec`, `test_persist_contract` (the shared adapter contract,
-also run on the board by `tools/persist_nvs_smoke`), `test_persist_service`,
+also run on the board by `tools/persist_nvs_smoke` over NVS and by
+`tools/persist_sd_smoke` over microSD), `test_persist_service`,
 `test_persist_hostfile`.
 
 **PlatformIO configuration (relevant):**
@@ -127,6 +128,13 @@ also run on the board by `tools/persist_nvs_smoke`), `test_persist_service`,
   networking assertions run; `native_test` proves the flag-off contract.
 - **Persistence env:** `native_test_persistence` extends `native_test` with
   `PIXELROOT32_ENABLE_PERSISTENCE=1`, the same way; CI runs it as its own step.
+- **SD storage:** `PIXELROOT32_ENABLE_SD_STORAGE` has no host env. It needs the
+  ESP32 target and the Arduino `SD` library, so its assertions run only on a
+  board with a FAT32 card, through `tools/persist_sd_smoke` (`pio test -e
+  smoke`). Its serial report (`pio run -e smoke -t upload`) also runs an
+  interactive hot swap: it asks for the card to be pulled and reinserted and
+  checks that `init()` mounts again without a reboot. Host builds only ever see
+  the flag off, and the adapter compiles to nothing there.
 - **Test framework:** Unity.
 - **Ignored tests:** `test_embedded` is excluded via `test_ignore` (embedded-only tests).
 - **Coverage:** `scripts/platformio_native_coverage.py` adds `--coverage` to both

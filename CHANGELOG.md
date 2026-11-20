@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 # Unreleased
 
-A build-tooling release with no engine API change: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
+An opt-in microSD backend for the persistence module, plus build tooling: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
+
+### Added
+
+* **Save slots on a microSD card (`PIXELROOT32_ENABLE_SD_STORAGE`)**: `persistence::SdSlotStore` (an `ISlotStore`, ESP32 only) keeps one FAT file per slot at `<rootDir>/<prefix>/<i>.slot` and mounts from a plain-data `SdConfig` (`SPIClass* spi`, `sck`/`miso`/`mosi`/`cs` with `-1` = bus default, and `frequencyHz`), so the adapter carries no board pin and no board assumption. The flag defaults to `0`, and the build fails with an explicit `#error` when it is on without `PIXELROOT32_ENABLE_PERSISTENCE=1` or on a target that is not ESP32. `init()` brings up the bus, mounts the card and creates the directory without ever formatting or erasing; a missing or unmountable card answers `Unavailable` and leaves the saves role unbound, so a game boots and keeps running on defaults. Calling `init()` again after the card was removed probes the store directory and mounts again (`SD.end()` first, because `SDFS::begin()` is a no-op while a volume is registered); a removal itself is not visible up front, since the Arduino `SD` library caches the card type at mount, so the first access after pulling the card answers `IoError`/`NotFound`. Replace-or-keep is temp file, flush, remove, rename, because FAT cannot rename over an existing file: a power loss keeps the old record, leaves the new one, leaves a torn record that `RecordCodec` rejects as `Corrupt`, or - when it lands between the removal and the rename - an empty slot (`NotFound`). There is no `commit()`, and the adapter never reads a timestamp: FAT has no date before 1980, so card files show 1980 until the game calls `configTime()` or copies the time from an RTC. Verified on the CYD (ESP32-2432S028R, 32 GB FAT32) by the shared contract suite, by an opt-in `esp32sd` build of `examples/persistence` that keeps settings in NVS and moves save slots to the card, and by an interactive hot-swap stage in `tools/persist_sd_smoke` that asks over serial for the card to be pulled and reinserted and checks the re-mount (and a record seeded before the removal) without a reboot.
 
 ### Removed
 
@@ -19,6 +23,8 @@ A build-tooling release with no engine API change: native builds resolve the hos
 ### Documentation
 
 * **Running an example on the native platform**: `pio run -e native` only builds, and `-t upload` executes the binary and returns its exit code, so killing the game reports a failed task while closing the window exits cleanly. The examples README shows the build-then-run recipe, the `-t upload` behaviour and the SDL dummy-driver form, and the platform compatibility guide links to it.
+
+* **microSD persistence for developers**: the persistence guide gained a save-slots-on-a-microSD section (the two build flags, `SdConfig`, `init()` argument rules, the CYD pin table, separating the panel and card SPI buses, atomicity, removable media and the FATFS cost) and the flag is in the configuration table, the API/guide indexes and the platform-compatibility adapter list. `docs/api/persistence.md` documents `SdSlotStore` and `SdConfig`; `ISlotStore` states the one exception FAT forces on replace-or-keep (a power loss between remove and rename can leave the slot empty); the roadmap, examples catalogue and testing docs list the adapter, its `esp32sd` environment and its board smoke; and the generated API pages include both new headers.
 
 # 1.15.0
 

@@ -356,6 +356,27 @@
 #define PIXELROOT32_ENABLE_PERSISTENCE 0
 #endif
 
+/**
+ * @def PIXELROOT32_ENABLE_SD_STORAGE
+ * @brief Compiles the microSD (FAT) storage adapter.
+ *
+ * Default 0. Requires PIXELROOT32_ENABLE_PERSISTENCE=1 and the ESP32 target,
+ * because the adapter mounts a card through the Arduino `SD` library on real
+ * hardware; it is a build error to ask for it anywhere else. When 0 the
+ * adapter contributes no symbols, so games that never touch a card keep their
+ * binary size and behavior unchanged.
+ */
+#ifndef PIXELROOT32_ENABLE_SD_STORAGE
+#define PIXELROOT32_ENABLE_SD_STORAGE 0
+#endif
+
+// An SD adapter without the persistence module has nothing to plug into, and
+// without an ESP32 there is no SD/FAT driver: fail the build loudly instead of
+// silently compiling a backend that cannot work.
+#if PIXELROOT32_ENABLE_SD_STORAGE && (!PIXELROOT32_ENABLE_PERSISTENCE || !defined(ESP32))
+#error "PIXELROOT32_ENABLE_SD_STORAGE=1 requires PIXELROOT32_ENABLE_PERSISTENCE=1 and the ESP32 target"
+#endif
+
 // =============================================================================
 // Target-dependent feature defaults
 // =============================================================================
