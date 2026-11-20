@@ -51,8 +51,8 @@ on Arduino and from `main()` on the host.
 The upload ends with a reset, so the firmware is already running when it
 finishes: open `pio device monitor` straight away. The report prints without
 help, then the hot swap asks for two steps over the same serial port. Booting
-with the card already out is not a dead end either: it asks for a card (Enter)
-and re-tries `init()` up to `kHotSwapAttempts` times before giving up.
+without a card still ends the report at `# no card mounted: insert a FAT32 card
+and reset`: insert it and reset, and the hot swap runs from a clean mount.
 
 1. It writes a known 64-byte record to slot 1 and prints
    `>>> Take the microSD card OUT of the CYD, then send Enter in this terminal.`
@@ -87,7 +87,7 @@ SIZE SdSlotStore=20
 INIT root=/pr32smk prefix=s cs=5 sck=18 miso=19 mosi=23 hz=4000000 -> Ok
 PASS init() Ok
 INIT again=Ok
-CARD cardSize=... total=... used=... free=... bytes
+CARD cardSize=... total=... used=... bytes
 SLOT0 write=Ok query=Ok(64) read=Ok(64) erase=Ok query_after=NotFound(0)
 PASS slot 0 write/query/read/erase round trip
 HOTSWAP seed slot=1 write=Ok

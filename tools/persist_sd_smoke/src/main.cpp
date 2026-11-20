@@ -124,15 +124,10 @@ bool waitForEnter(uint32_t timeoutMs, const char* what) {
 }
 
 void printCard() {
-    const uint64_t cardSize = SD.cardSize();
-    const uint64_t total = SD.totalBytes();
-    const uint64_t used = SD.usedBytes();
-    const uint64_t free = total >= used ? total - used : 0;
-    Serial.printf("CARD cardSize=%llu total=%llu used=%llu free=%llu bytes\n",
-                  static_cast<unsigned long long>(cardSize),
-                  static_cast<unsigned long long>(total),
-                  static_cast<unsigned long long>(used),
-                  static_cast<unsigned long long>(free));
+    Serial.printf("CARD cardSize=%llu total=%llu used=%llu bytes\n",
+                  static_cast<unsigned long long>(SD.cardSize()),
+                  static_cast<unsigned long long>(SD.totalBytes()),
+                  static_cast<unsigned long long>(SD.usedBytes()));
 }
 
 void roundTrip() {
@@ -288,22 +283,10 @@ void setup() {
     cfg.cs = kCs;
     cfg.frequencyHz = kFrequencyHz;
 
-    StoreResult init = gSlots.init(cfg);
+    const StoreResult init = gSlots.init(cfg);
     Serial.printf("INIT root=%s prefix=%s cs=%d sck=%d miso=%d mosi=%d hz=%u -> %s\n",
                   kRootDir, kPrefix, kCs, kSck, kMiso, kMosi,
                   static_cast<unsigned>(kFrequencyHz), name(init));
-
-    // Booting with the card already out is not a dead end: the hot swap below
-    // pulls it anyway, so ask for it instead of ending the run.
-    for (int attempt = 1; attempt <= kHotSwapAttempts && init != StoreResult::Ok; ++attempt) {
-        Serial.println();
-        Serial.println(">>> Insert a FAT32 microSD card, then send Enter in this terminal.");
-        if (!waitForEnter(kHotSwapTimeoutMs, "INSERT the card")) {
-            break;
-        }
-        init = gSlots.init(cfg);
-        Serial.printf("INIT retry -> %s\n", name(init));
-    }
     verdict("init() Ok", init == StoreResult::Ok);
 
     if (init == StoreResult::Ok) {
