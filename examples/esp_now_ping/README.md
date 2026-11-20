@@ -140,8 +140,7 @@ case NetEventType::SendFailed:
 ## Hardware
 
 Two identical DFRobot Beetle ESP32-C3 boards, exactly as in
-[mono_oled](../mono_oled/), [esp_now](../esp_now/) and
-[esp_now_dice](../esp_now_dice/):
+[mono_oled](../mono_oled/) and [esp_now](../esp_now/):
 
 | Signal | Pin |
 | ------ | --- |
