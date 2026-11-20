@@ -425,6 +425,11 @@ The persistence example's opt-in `esp32sd` environment wires exactly this,
 next to its default NVS build:
 [`examples/persistence`](../../examples/persistence/README.md).
 
+On a CYD the card reader owns VSPI, so the panel has to move off it: build
+TFT_eSPI with `-D USE_HSPI_PORT`. Otherwise `SD.begin()` reconfigures the VSPI
+bus and the panel loses its data lines — the backlight stays on and the screen
+stays empty. Panel on HSPI, card on VSPI is the combination that works.
+
 ### `MemoryKeyValueStore` and `MemorySlotStore` (any target)
 
 ```cpp

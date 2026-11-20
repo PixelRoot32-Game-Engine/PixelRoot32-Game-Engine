@@ -50,12 +50,12 @@ write reached the medium.
 |-------------|-------|
 | **`native`** | SDL2 window, 240×240 logical size. Records become files under `save_data/`. |
 | **`esp32dev`** | **ST7789** TFT 240×240, TFT_eSPI-style pin defines in `platformio.ini`. Records go to NVS. A is **GPIO 13**. |
-| **`esp32sd`** | Opt-in microSD build (`PIXELROOT32_ENABLE_SD_STORAGE=1`). Same display and input as `esp32dev`; settings stay in NVS while save slots move to a FAT32 card at `/pr32demo/save/<i>.slot`. |
+| **`esp32sd`** | Opt-in microSD build (`PIXELROOT32_ENABLE_SD_STORAGE=1`) for the CYD (ESP32-2432S028R): **ILI9341_2** 240×320 on HSPI, A is the **BOOT** button (GPIO 0). Settings stay in NVS while save slots move to a FAT32 card at `/pr32demo/save/<i>.slot`. |
 
 ## Controls
 
-- **A** (`Space` on native, GPIO 13 on the board) — mutate both records, save
-  them, and read both back.
+- **A** (`Space` on native, GPIO 13 on `esp32dev`, the BOOT button on `esp32sd`)
+  — mutate both records, save them, and read both back.
 - Nothing else. The scene has no other input, and no input means no write.
 
 One press makes these changes, so the next boot has something different to
@@ -184,6 +184,18 @@ keeps running on defaults. Slots have no `commit()`: each write is flushed in
 place. A card removed after `init()` answers `Unavailable` until `init()` runs
 again. Everything else — the scene, the A press, the `PERSIST,` transcript — is
 identical to the NVS build.
+
+The panel is the CYD's ILI9341_2 240×320, forced onto **HSPI** with
+`USE_HSPI_PORT`. TFT_eSPI defaults to VSPI — the same host the card reader uses
+— and `SD.begin()` reconfigures that bus, which leaves the panel with no data
+lines and a lit but empty screen. Panel on HSPI, card on VSPI is what makes
+both work at once.
+
+The CYD has no 5-way pad and its spare GPIOs are scarce, so every logical
+button shares the **BOOT** button (GPIO 0); pressing it is the A press. Wiring
+the pad to its usual pins would take 12/13/14, which are the panel's SPI bus on
+this board, and `Engine::init()` sets the display up before the input pins — a
+`pinMode()` there would turn the MOSI line into an input and kill the panel.
 
 ## Schema versions and what `RecordCodec` reports
 
