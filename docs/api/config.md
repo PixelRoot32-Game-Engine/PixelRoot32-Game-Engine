@@ -38,7 +38,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
 | `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
 | `PIXELROOT32_ENABLE_NETWORKING` | Enable the optional ESP-NOW peer-to-peer networking module. Only ESP32 and native targets have a transport; any other target fails the build when the flag is on. | `0` |
-| `PIXELROOT32_ENABLE_PERSISTENCE` | Enable the optional persistence module (key-value settings and save slots over NVS, host files or memory). No limit macros: capacities are chosen where a store is constructed. See [Persistence](persistence.md). | `0` |
+| `PIXELROOT32_ENABLE_PERSISTENCE` | Enable the optional persistence module (key-value settings and save slots over NVS, microSD, host files or memory). No limit macros: capacities are chosen where a store is constructed. See [Persistence](persistence.md). | `0` |
+| `PIXELROOT32_ENABLE_SD_STORAGE` | Enable the microSD (FAT) save-slot adapter, `SdSlotStore`. Requires `PIXELROOT32_ENABLE_PERSISTENCE=1` and the ESP32 target; any other combination fails the build. See [Persistence](persistence.md). | `0` |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |
 | `PIXELROOT32_ENABLE_STATIC_LAYER_SNAPSHOT` | Enable **`StaticLayerSnapshot`** (FB snapshot of game-drawn static layers). Costs one logical framebuffer of heap per allocating scene (~57 KB at 240×240). | `0` |
 | `PIXELROOT32_ENABLE_DIRTY_REGIONS` | Enable dirty-cell selective framebuffer clear (`DirtyGrid`). Requires 64–226 B RAM. | `0` |

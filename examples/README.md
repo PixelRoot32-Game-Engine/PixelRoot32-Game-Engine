@@ -64,7 +64,7 @@ The binary keeps running with no window; stop it with Ctrl+C.
 |--------|----------------------|-------------------------|
 | [camera](camera/) | `Camera2D` (smoothing, bounds), parallax, tile platforms, `KinematicActor`, **camera effects** (shake / punch / offset) and a scripted **`CameraTween`** pan | `native`, `esp32dev` |
 | [dialog](dialog/) | Headless **`DialogRunner`** (five states) driven by semantic actions, and **`DialogBox`** as its default panel: an auto-advance line, a 3-line linear chain, and a branching 3-option **`Choice`** line | `native`, `esp32dev` |
-| [persistence](persistence/) | A **settings key-value record** and a **numbered save slot** through `PersistenceService`: NVS on the board and one file per record on PC, a `StoreResult` name for every call, and the `RecordCodec` schema/CRC envelope reported on load | `native`, `esp32dev` |
+| [persistence](persistence/) | A **settings key-value record** and a **numbered save slot** through `PersistenceService`: NVS on the board, an opt-in `esp32sd` build that moves the slots to a microSD card, and one file per record on PC, a `StoreResult` name for every call, and the `RecordCodec` schema/CRC envelope reported on load | `native`, `esp32dev`, `esp32sd` |
 | [sprites](sprites/) | 2bpp / 4bpp sprites and animation over a drawn background scene, cycling **single / dual / dual-inverted palette mode** with **A**, with the live background table shown as a 16-entry ramp | `native`, `esp32dev` |
 | [mono_oled](mono_oled/) | **Monochrome 1-bit OLED** on ESP32-C3: `U8G2_Drawer` via `PIXELROOT32_USE_U8G2`, which renderer paths a monochrome panel gives up (no tilemap fast path, no sprite blit, no palette), a **72x40 logical screen offset inside a 128x64 controller framebuffer**, and one-button interaction | `native`, `esp32c3` |
 | [esp_now](esp_now/) | **ESP-NOW peer-to-peer sync** between two ESP32-C3 boards with no router: discovery, reliable delivery with duplicate suppression, and a **convergent signed counter** where one press on either board updates both displays | `native`, `esp32c3_node_up`, `esp32c3_node_down` |
@@ -155,6 +155,7 @@ that actually define the flag in their `platformio.ini` (or their
 | Scene arena | `SCENE_ARENA` | [animated_tilemap](animated_tilemap/), [camera](camera/), [physics](physics/) |
 | Dialog | `DIALOG` | [dialog](dialog/) |
 | Persistence records | `PERSISTENCE` | [persistence](persistence/) |
+| Persistence slots on microSD (ESP32) | `SD_STORAGE` | [persistence](persistence/) (`esp32sd`) |
 | ESP-NOW peer-to-peer networking | `NETWORKING` | [esp_now](esp_now/), [esp_now_ping](esp_now_ping/) |
 | Monochrome display driver | `PIXELROOT32_USE_U8G2` | [mono_oled](mono_oled/), [esp_now](esp_now/), [esp_now_ping](esp_now_ping/) |
 
