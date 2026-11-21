@@ -70,6 +70,7 @@ The binary keeps running with no window; stop it with Ctrl+C.
 | [esp_now](esp_now/) | **ESP-NOW peer-to-peer sync** between two ESP32-C3 boards with no router: discovery, reliable delivery with duplicate suppression, and a **convergent signed counter** where one press on either board updates both displays | `native`, `esp32c3_node_up`, `esp32c3_node_down` |
 | [esp_now_ping](esp_now_ping/) | **Minimal custom-message example** over ESP-NOW between two ESP32-C3 boards: a tagged **7-byte ping/pong codec**, a reliable send, an automatic reply in `Scene::onNetworkEvent`, and an **application RTT** measured from the echoed timestamp | `native`, `esp32c3_ping_a`, `esp32c3_ping_b` |
 | [physics](physics/) | `RigidActor` / `KinematicActor` / `StaticActor`, touch, optional touch UI (CYD), **layer-aware radius query** overlay, **collision-driven particle burst** | `native`, `esp32dev`, `esp32cyd` |
+| [platformer](platformer/) | The three actor types in the scene they were designed for: a single-screen platformer with a `KinematicActor` character, `RigidActor` crates and a `StaticActor` level, `setOneWay(true)` platforms and collision layers/masks stated on both sides | `native`, `esp32dev` |
 | [animated_tilemap](animated_tilemap/) | Tile animation, palettes, static tilemap framebuffer cache (reference depth) | `native`, `esp32dev`, `esp32cyd` |
 | [apu_profiles](apu_profiles/) | The three **sound profiles** — `Legacy`, `Nes`, `Famicom` — on the same nine 12-second blocks (simple / medium / complex): a serial transcript of every block and an ILI9341 status panel, so a profile switch is judged by ear on identical material | `native`, `esp32dev` |
 
@@ -80,7 +81,8 @@ The binary keeps running with no window; stop it with Ctrl+C.
 2. **camera** — scrolling, parallax, camera effects and tweens.  
 3. **animated_tilemap** — tile animation, the static tilemap cache and dirty regions.  
 4. **physics** — bodies, sensors, touch, area queries.  
-5. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
+5. **platformer** — the three actor types in a game-shaped scene, one-way platforms and collision masks.  
+6. **mono_oled** — the other end of the hardware range: a 1-bit OLED on an ESP32-C3. Read it when you are choosing a display, not when you are learning the engine — it is mostly about which renderer paths a monochrome panel takes away.
 
 ## The demo projects
 
