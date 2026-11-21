@@ -350,5 +350,6 @@ void onUnconsumedTouchEvent(const input::TouchEvent& event) override {
 
 - **[Samples index](../../examples/README.md)** — Real folders under `examples/`
 - **[Physics (`physics`)](../../examples/physics/README.md)** — Collision and actors
+- **[Platformer (`platformer`)](../../examples/platformer/README.md)** — The three physics actors in a platformer: kinematic character, rigid crates, static level
 - **[Sprites (`sprites`)](../../examples/sprites/README.md)** — Sprite graphics
 - **Audio** — See [`audio/music_sequencer`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/audio/music_sequencer) and [`games/2048`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/games/2048) in Demo-Projects
