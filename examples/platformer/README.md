@@ -8,7 +8,8 @@ that connects them.
 - **`KinematicActor`** — the character (`PlayerCharacter`). The script owns its
   velocity; the engine only resolves it against the level.
 - **`RigidActor`** — the crates (`CrateActor`). The solver owns their velocity:
-  they fall, rest on the shelf and can be pushed.
+  they fall, rest on the shelf and stop the character. What they do *not* do is
+  explained in [what the crates actually do](#what-the-crates-actually-do).
 - **`StaticActor`** — the level (`LevelBlock`). Nothing moves it.
 
 The level is exactly one logical screen (240×240), so there is no camera.
@@ -50,10 +51,10 @@ The scene expects **`extern pixelroot32::core::Engine engine`** (see
 
 | Actor | Layer | Mask | Meaning |
 |---|---|---|---|
-| `PlayerCharacter` | `PLAYER` | `GROUND \| PLATFORM \| PROP` | Walks on solids, lands on one-way platforms, pushes crates |
+| `PlayerCharacter` | `PLAYER` | `GROUND \| PLATFORM \| PROP` | Walks on solids, lands on one-way platforms, is stopped by crates |
 | `LevelBlock` (solid) | `GROUND` | `PLAYER \| PROP` | Floor, walls, crate shelf |
 | `LevelBlock` (one-way) | `PLATFORM` | `PLAYER` | Characters only |
-| `CrateActor` | `PROP` | `GROUND \| PLAYER \| PROP` | Falls through one-way platforms, stacks on other crates |
+| `CrateActor` | `PROP` | `GROUND \| PLAYER \| PROP` | Falls through one-way platforms, rests on solids, stacks when dropped on another crate |
 
 The engine's filter is `(a.mask & b.layer) || (b.mask & a.layer)`, so one side
 naming the other is enough for a contact. The distinctions that matter are still
@@ -80,6 +81,41 @@ body is pulled straight back down.
 transition frame only, so holding the button does not repeat it. There is no
 coyote time and no jump buffer — `is_on_floor()` reports last frame's contact and
 nothing more.
+
+**The jump reach, measured** — with `PLAYER_JUMP_VELOCITY=220` and
+`PLAYER_GRAVITY=400`, the integrator peaks at **62 px** above the takeoff feet
+(the continuous `v² / 2g` says 60.5 px; the extra ~2 px is the discrete step), and
+a full-speed jump stays airborne for **99 px** of horizontal travel. Every gap
+and step in the level table is inside that envelope: the vertical steps are
+24 px, 32 px from the ground up to the first one-way platform, and the 56 px hop
+from the ground to platform B leaves about **6 px** of margin. That last one is
+the tightest jump in the level; platform B is also reachable from platform A,
+where it is only 24 px up, so no route depends on the 6 px.
+
+## What the crates actually do
+
+The crates are a `RigidActor` showcase, and the limits are as instructive as the
+behaviour:
+
+- They **fall** through the one-way platforms (their mask has no `PLATFORM` bit)
+  and **rest** on the shelf 0.5 px into it — the solver's resting penetration,
+  stable for hundreds of frames and free of jitter (`setBounce(false)`, plus
+  `setGravityScale(2.0f)` so their fixed 200 units/s² match the character's 400).
+- They **stack**: dropping one crate above another leaves it about 1.5 px into
+  the one below, and the pair holds — 0.1 px of drift over 600 frames.
+- They **stop the character**. `moveAndSlide()` treats the crate as an obstacle,
+  so the kinematic body cannot walk it along: the solver shoves the crate only
+  far enough to undo the overlap (a few pixels) and then the character is stuck.
+  Pushing a crate across the level is not something this engine does today.
+- **Standing on a crate does not hold.** The character ends up about 5 px inside
+  the crate and the crate about 5 px inside the shelf, with the feet level with
+  the shelf's top edge, and it makes no difference whether the crate has mass 1
+  or 200, or gravity scale 0.5 or 3. The overlap is resolved by moving the rigid
+  body, and once the static shelf stops it there is no clean separation left.
+
+That is the engine's current kinematic-vs-rigid behaviour, which is why the level
+keeps the crates as obstacles on a shelf instead of building a puzzle out of
+them.
 
 ## Controls
 
@@ -129,6 +165,8 @@ src/
 - **No tile collision** — the level is a handful of static runs, not a tilemap
   with per-tile attributes. See
   [animated_tilemap](../animated_tilemap/README.md) for tilemaps.
+- **No pushing or stacking puzzle** — the character cannot push a crate along
+  or ride one; see [what the crates actually do](#what-the-crates-actually-do).
 - **No sprites, audio, particles or touch** — everything is drawn with
   primitives, which keeps the subject on the actors.
 

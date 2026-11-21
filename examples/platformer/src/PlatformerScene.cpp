@@ -43,8 +43,10 @@ struct BlockDef {
  * `PHYSICS_MAX_ENTITIES` are 64, and a 30x30 tile level spent one body per cell
  * would exhaust both before the crates are even spawned.
  *
- * Vertical gaps are 24 px, inside the ~60 px the jump reaches
- * (v^2 / 2g = 220^2 / 800), so every platform is reachable from the one below.
+ * Vertical gaps are 24 px, 32 px from the ground to the first one-way platform
+ * and 56 px from the ground up to platform B, against the 62 px the jump
+ * actually reaches (v^2 / 2g = 60.5 px plus the discrete step), so every
+ * platform is reachable from the one below and the 56 px hop is the tightest.
  */
 const BlockDef LEVEL_BLOCKS[] = {
     {   0, 208, 240,  32, false },  // ground strip
