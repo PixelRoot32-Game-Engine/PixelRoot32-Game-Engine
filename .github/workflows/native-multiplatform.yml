@@ -129,7 +129,10 @@ jobs:
         run: |
           url="https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.tar.gz"
           curl -fsSL -o "$RUNNER_TEMP/sdl2.tar.gz" "$url"
-          tar -xzf "$RUNNER_TEMP/sdl2.tar.gz" -C "$RUNNER_TEMP"
+          # --force-local is required, not cosmetic: GNU tar reads the `D:` in a
+          # Windows path as a remote host name and fails with "Cannot connect to
+          # D: resolve failed" before touching the archive.
+          tar --force-local -xzf "$RUNNER_TEMP/sdl2.tar.gz" -C "$RUNNER_TEMP"
           mkdir -p C:/sdl2
           cp -r "$RUNNER_TEMP/SDL2-2.32.10/x86_64-w64-mingw32/." C:/sdl2/
           echo "SDL2_DIR=C:/sdl2" >> "$GITHUB_ENV"
