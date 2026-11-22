@@ -2,9 +2,13 @@ name: PixelRoot32 CI
 
 on:
   push:
-    branches: [ main, develop ]
+    # feat/sdl2-multiplatform is the long-lived tracker for the multiplatform
+    # work: it does not reach develop until the whole port lands, so without it
+    # listed here the unit suites would not run while that code is written.
+    # Remove it from both lists in the PR that merges the tracker into develop.
+    branches: [ main, develop, feat/sdl2-multiplatform ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, feat/sdl2-multiplatform ]
 
 jobs:
   test_native:

@@ -1,0 +1,185 @@
+name: native-multiplatform
+
+# `tests.yml` and `examples.yml` both run on ubuntu-latest only, so "develop on
+# PC (Windows/Linux/macOS)" was a claim no job checked: a platformio.ini that
+# breaks on MSYS2 or on Homebrew could merge unnoticed. This workflow is that
+# check, and nothing more — it builds and starts the native target on all three
+# desktop operating systems.
+#
+# It deliberately does not run the test suites (tests.yml owns those, with
+# coverage) and does not build ESP32 (examples.yml owns that). Its only job is
+# to answer one question on every push: does the native build still produce a
+# runnable executable on each host we advertise?
+
+# TRACKER BRANCH — read before editing the triggers.
+#
+# `feat/sdl2-multiplatform` is the long-lived tracker for the desktop/web work
+# described in docs/_sdl2_multiplatform.md (local-only until it is promoted). Nothing reaches develop
+# until the whole port is done, so the integration branches alone would mean
+# this workflow never ran while the portability code was being written — the
+# exact blind spot it exists to close. The tracker branch is therefore listed in
+# both filters: every push to it, and every chained PR whose base is it, gets the
+# three-OS build.
+#
+# Remove `feat/sdl2-multiplatform` from both lists in the pull request that
+# merges the tracker into develop. A dead branch in a trigger filter is a job
+# that can never run and a comment nobody re-reads.
+on:
+  push:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  # Chained PRs: each short-lived branch targets the tracker, not develop, so
+  # the base here is the tracker. GitHub runs the workflow from the PR's head
+  # branch, which is what makes a stacked branch testable before it merges.
+  pull_request:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  # Kept for the default branch, where the file is available to the Actions UI.
+  # On a feature branch this entry does nothing: workflow_dispatch only lists
+  # workflows that already exist on the default branch.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One OS failing must not hide the other two: the whole point is to see
+      # *which* host broke.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Two examples, chosen for what they exercise rather than for coverage
+        # breadth: `sprites` is the lightest end-to-end path (framebuffer, font,
+        # SDL window, keyboard) and `platformer` adds physics, collision layers
+        # and a second scene shape. Building all eleven would triple CI time to
+        # re-test the same engine sources.
+        example: [examples/sprites, examples/platformer]
+    defaults:
+      run:
+        # bash on every host, so the build and the smoke run below are one
+        # script instead of three. On Windows this is Git Bash, which ships with
+        # the runner.
+        shell: bash
+    env:
+      # Both are consumed by scripts/platformio_native_sdl2.py and by the smoke
+      # run: SDL picks its dummy drivers, which is what lets a headless runner
+      # execute the game loop without a display.
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      # Keeps `brew install` from spending minutes on unrelated upgrades.
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Toolchains and platform packages only. `.pio` is not cached: the
+      # examples depend on this checkout through symlink://../../, so a cached
+      # libdeps entry would serve engine sources from an older commit.
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-native-${{ hashFiles('platformio.ini', 'scripts/platformio_native_sdl2.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-native-
+
+      # ---------------------------------------------------------------------
+      # SDL2, per host. The engine resolves these paths at build time in
+      # scripts/platformio_native_sdl2.py, so the workflow only has to make the
+      # SDK present where that script looks for it.
+      # ---------------------------------------------------------------------
+      - name: Install SDL2 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libsdl2-dev
+
+      - name: Install SDL2 (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2
+
+      # The Windows runner has no system SDL2, and PlatformIO's `native`
+      # platform uses the host's GCC, so both the SDK and the compiler come from
+      # MSYS2/MinGW64 — the same combination the repository documents for users.
+      - name: Install SDL2 and MinGW (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-SDL2
+
+      # setup-msys2 only puts MinGW on PATH inside its own shell. The build
+      # steps run in Git Bash, so the prefix has to be exported to them:
+      # platformio_native_sdl2.py also finds C:/msys64/mingw64 on its own, but
+      # `gcc` and, at run time, SDL2.dll must be reachable.
+      - name: Put MinGW64 on PATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Show toolchain
+        run: |
+          pio --version
+          echo "--- compiler ---"
+          gcc --version | head -1
+
+      # ---------------------------------------------------------------------
+      # Build. `pio run -e native` links `.pio/build/native/program`
+      # (`program.exe` on Windows); see examples/README.md.
+      # ---------------------------------------------------------------------
+      - name: Build ${{ matrix.example }} (native)
+        working-directory: ${{ matrix.example }}
+        run: pio run -e native
+
+      - name: Assert the executable exists
+        working-directory: ${{ matrix.example }}
+        run: |
+          status=0
+          for candidate in .pio/build/native/program .pio/build/native/program.exe; do
+            if [ -f "$candidate" ]; then
+              echo "built: $candidate"
+              ls -l "$candidate"
+              exit 0
+            fi
+          done
+          echo "::error::pio reported success but produced no native executable"
+          exit 1
+
+      # A link that succeeds still fails for users when the runtime cannot find
+      # SDL2.dll or the dylib/so — the classic Windows symptom. Running the
+      # binary briefly proves the dynamic link resolves. The game loop does not
+      # exit on its own (there is no window to close under the dummy driver), so
+      # the check is "it is still alive after a few seconds, then we stop it".
+      - name: Smoke-run the executable (headless)
+        working-directory: ${{ matrix.example }}
+        run: |
+          bin=.pio/build/native/program
+          [ -f "$bin" ] || bin=.pio/build/native/program.exe
+          "$bin" &
+          pid=$!
+          sleep 3
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "::notice::the native binary started and kept running for 3s"
+            kill "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+          else
+            set +e
+            wait "$pid"
+            echo "::error::the native binary exited during the first 3s — see its output above"
+            exit 1
+          fi
