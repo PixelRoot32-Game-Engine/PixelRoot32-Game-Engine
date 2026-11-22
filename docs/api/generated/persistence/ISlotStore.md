@@ -15,7 +15,11 @@ Rules shared by every adapter:
 - Reads never write past capacity (see read()).
 - write() is replace-or-keep: after a failed or interrupted write, read()
   returns either the previous record or the new one, never a mix. Each
-  adapter documents how it guarantees this.
+  adapter documents how it guarantees this. The one extra outcome the
+  interface allows belongs to a medium that cannot replace atomically: on
+  FAT (SdSlotStore) a power loss inside the remove-then-rename window can
+  also leave the slot empty (NotFound), while the record envelope rejects a
+  torn file.
 - Records are opaque bytes; RecordCodec validates them above this layer.
 - Calls come from one task (the game loop); adapters are not thread-safe.
 
@@ -81,7 +85,9 @@ Replaces the record in a slot (replace-or-keep).
         with a non-zero @p size; TooLarge when @p size exceeds
         maxRecordSize(); NoSpace when the medium is full; IoError or
         Unavailable from the medium. On failure the previous record is
-        kept.
+        kept, except for the documented non-atomic replace of a FAT
+        medium (SdSlotStore): a power loss in that window can leave the
+        slot empty.
 
 ### `virtual StoreResult erase(uint16_t slot)`
 

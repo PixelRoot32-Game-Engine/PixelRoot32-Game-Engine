@@ -8,6 +8,8 @@
 > - `include/persistence/PersistenceService.h`
 > - `include/persistence/MemoryStores.h`
 > - `include/drivers/esp32/Esp32NvsStore.h`
+> - `include/drivers/esp32/SdConfig.h`
+> - `include/drivers/esp32/SdStore.h`
 > - `include/drivers/native/HostFileStore.h`
 
 ## Overview
@@ -21,8 +23,8 @@ The public surface has four parts:
 
 - Two storage models: `IKeyValueStore` (named integers and blobs) and
   `ISlotStore` (numbered records).
-- Adapters, one per medium: NVS on the ESP32, one file per record on native
-  builds, and in-RAM tables for tests.
+- Adapters, one per medium: NVS and a FAT microSD slot store on the ESP32, one
+  file per record on native builds, and in-RAM tables for tests.
 - `RecordCodec`, which wraps a payload in a 16-byte self-checking envelope.
 - `PersistenceService`, a role registry with envelope helpers.
 
@@ -197,7 +199,7 @@ public:
 | Slot range | `0..slotCount()-1`; anything else is `InvalidArgument` before the medium is touched |
 | Empty slot | `query()`/`read()` answer `NotFound` with `stored = 0` |
 | `read()` capacity | Same rules as `getBlob()`, including the `capacity == 0` size query |
-| `write()` | Replace-or-keep: after a failed or interrupted write, `read()` returns the old record or the new one, never a mix. `TooLarge` above `maxRecordSize()`. A zero-size record occupies the slot |
+| `write()` | Replace-or-keep: after a failed or interrupted write, `read()` returns the old record or the new one, never a mix. `TooLarge` above `maxRecordSize()`. A zero-size record occupies the slot. An adapter on a medium that cannot replace atomically (FAT, see `SdSlotStore`) documents that a power loss can also leave the slot empty |
 | `erase()` | `NotFound` when the slot is already empty |
 
 ## `RecordCodec`
@@ -358,6 +360,104 @@ public:
 - `setFailBeforeReplace(true)` simulates a crash between the temp write and
   the move: the set answers `IoError` and the old value is kept.
 
+### `SdSlotStore` (ESP32)
+
+```cpp
+inline constexpr size_t kSdMaxPathBytes = 160;
+
+class SdSlotStore final : public ISlotStore {
+public:
+    SdSlotStore(const char* rootDir, const char* prefix, uint16_t slots,
+                size_t maxRecordBytes) noexcept;
+    StoreResult init(const SdConfig& config) noexcept;
+    // ... ISlotStore
+};
+```
+
+- Guarded by `ESP32` **and** `PIXELROOT32_ENABLE_SD_STORAGE`. The hardware
+  description is a plain `SdConfig` (`include/drivers/esp32/SdConfig.h`):
+  `SPIClass* spi`, `int sck` / `miso` / `mosi` / `cs` (`-1` = bus default) and
+  `uint32_t frequencyHz`, which defaults to `kSdDefaultFrequencyHz` (4 MHz). No
+  board pin lives in the adapter.
+- `init()` validates before touching the medium: a non-empty `rootDir` with a
+  leading `/` and short enough for `kSdMaxPathBytes` (160) together with the
+  prefix and one slot file, a `prefix` that passes `isValidKey()` (1..15 bytes
+  of `[A-Za-z0-9_-]`), non-zero `slots` and `maxRecordBytes`, a non-null `spi`,
+  a `cs` pin in 0..127 and `sck`/`miso`/`mosi` in -1..127. A bad argument is
+  `InvalidArgument` (`InvalidKey` for the prefix) and nothing is mounted or
+  created.
+- One file per slot at `<rootDir>/<prefix>/<i>.slot`; `rootDir` is a path under
+  the mountpoint the Arduino `SD` library uses, so `rootDir` `"/pr32demo"` and
+  prefix `"save"` give `/pr32demo/save/0.slot` on the card. A missing file is
+  an empty slot. `rootDir` and `prefix` are held by pointer and must outlive
+  the store (string literals are the intended use).
+- `init(config)` is **non-destructive**: it brings up the SPI bus, mounts the
+  card and creates the directory. It never formats, erases or repairs. Until it
+  returns `Ok` every operation answers `Unavailable`; a missing or unmountable
+  card answers `Unavailable` at `init()`, so a game boots and keeps running.
+- **Replace-or-keep is remove then rename.** A write goes to `<file>.tmp`, is
+  flushed (`fsync`) and closed, the old file is removed, then `SD.rename` moves
+  the new file into place, because FAT cannot rename over an existing
+  destination. A power loss before the removal keeps the old record; one during
+  the rename yields the new record or a torn one that `RecordCodec` rejects as
+  `Corrupt`; one in the gap between remove and rename leaves an empty slot
+  (`NotFound`).
+- **Removable media.** A card pulled after `init()` is not detected up front:
+  the Arduino `SD` library caches the card type at mount, so the call that
+  touches the card answers `IoError` (or `NotFound` for a missing file). Call
+  `init()` again after reinserting: it probes the store directory, releases the
+  dead volume (`SD.end()`) and mounts again, so recovery needs no reboot. A
+  full card is `NoSpace`; an oversized or malformed file is `IoError`, never a
+  silent empty slot.
+- There is no `commit()`: each write is already flushed and in place.
+
+It is opt-in and ESP32 only:
+
+```ini
+build_flags =
+    -D PIXELROOT32_ENABLE_PERSISTENCE=1
+    -D PIXELROOT32_ENABLE_SD_STORAGE=1
+```
+
+`PIXELROOT32_ENABLE_SD_STORAGE` defaults to `0`. Asking for it without
+`PIXELROOT32_ENABLE_PERSISTENCE=1`, or on a target that is not ESP32, fails the
+build with an explicit `#error`. There is no new `lib_deps`: the adapter mounts
+through the Arduino `SD` library that ships with the ESP32 core. FATFS costs
+several KB of RAM once linked.
+
+The CYD (ESP32-2432S028R) microSD reader is on SPI/VSPI:
+
+```cpp
+#include "persistence/PersistenceService.h"
+#include "drivers/esp32/SdStore.h"
+
+using namespace pixelroot32::persistence;
+
+SdConfig sdConfig;
+sdConfig.spi = &SPI;
+sdConfig.cs = 5;
+sdConfig.sck = 18;
+sdConfig.miso = 19;
+sdConfig.mosi = 23;
+sdConfig.frequencyHz = 4000000;   // conservative first bring-up clock
+
+SdSlotStore saveStore("/pr32demo", "save", 3, 256);
+PersistenceService persistence;
+
+if (saveStore.init(sdConfig) == StoreResult::Ok) {
+    persistence.bindSaves(&saveStore);   // settings may stay on NVS
+}
+```
+
+The persistence example's opt-in `esp32sd` environment wires exactly this,
+next to its default NVS build:
+[`examples/persistence`](../../examples/persistence/README.md).
+
+On a CYD the card reader owns VSPI, so the panel has to move off it: build
+TFT_eSPI with `-D USE_HSPI_PORT`. Otherwise `SD.begin()` reconfigures the VSPI
+bus and the panel loses its data lines — the backlight stays on and the screen
+stays empty. Panel on HSPI, card on VSPI is the combination that works.
+
 ### `MemoryKeyValueStore` and `MemorySlotStore` (any target)
 
 ```cpp
@@ -399,6 +499,8 @@ public:
 | `include/persistence/PersistenceService.h` | `PersistenceService`, `NullKeyValueStore`, `NullSlotStore` |
 | `include/persistence/MemoryStores.h` | `MemoryKeyValueStore`, `MemorySlotStore` |
 | `include/drivers/esp32/Esp32NvsStore.h` | `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore`, `kNvsDefaultPartition` (guarded by `ESP32`) |
+| `include/drivers/esp32/SdConfig.h` | `SdConfig`, `kSdDefaultFrequencyHz` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
+| `include/drivers/esp32/SdStore.h` | `SdSlotStore`, `kSdMaxPathBytes` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
 | `include/drivers/native/HostFileStore.h` | `HostFileKeyValueStore`, `HostFileSlotStore`, path limits (guarded by `PLATFORM_NATIVE`) |
 
 The headers are the source of truth for signatures and exact wording.

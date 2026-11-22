@@ -391,9 +391,9 @@ ownership explicit:
   no conflict resolution.
 - **Turn protocol.** Only the active player writes; every message carries a turn
   token and a message id so a retry cannot apply twice.
-  [`examples/esp_now_dice`](../../examples/esp_now_dice/README.md) is the
-  reference: commit/reveal per round, exactly-once scoring through `NetCounter`,
-  a timeout, and a match reset.
+  [`networking/esp_now_dice`](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/networking/esp_now_dice) in
+  PixelRoot32-Demo-Projects is the reference: commit/reveal per round,
+  exactly-once scoring through `NetCounter`, a timeout, and a match reset.
 - **One `NetCounter` per session.** Its application tags (1, 2 and 3) are fixed,
   so a second instance would receive the first one's operations. If a game needs
   two independent shared integers, combine them into one tagged payload or
@@ -459,13 +459,13 @@ The radio is not in CI, so put the deterministic parts under `native_test`:
 
 1. **Pure codecs.** Encode and decode your payloads in a header with no Arduino
    dependency, and test bounds, malformed lengths, version rejection and
-   round-trips. `test/unit/test_esp_now_dice_protocol/` includes an example
+   round-trips. `test/unit/test_esp_now_ping_protocol/` includes an example
    header directly; the same pattern works for a game codec.
 2. **Two sessions on the loopback.** Drive `LoopbackTransport` with
    `LoopbackFaults` (`lossPercent`, `duplicatePercent`, `reorderPercent`,
    `delayMs`, `sendBusy`) and assert the game rule: one application per event,
-   convergence, timeout, rejoin. `test/unit/test_esp_now_dice/` is a complete
-   two-board harness.
+   convergence, timeout, rejoin. `test/unit/test_net_counter/` drives two
+   sessions over the loopback bus and is a complete two-board harness.
 3. **Build the real target.** `pio run -e <env>` for native and for every
    hardware role; the examples workflow builds each example's environments.
 4. **Hardware checklist.** Discovery, both press orders, a lost peer mid-round,
@@ -587,13 +587,9 @@ pio run -d examples/esp_now -e esp32c3_node_down
 ```
 
 The two C3 environments are the two roles: node 1 adds, node 2 subtracts.
-The dice example is built the same way:
-
-```bash
-pio run -d examples/esp_now_dice -e native
-pio run -d examples/esp_now_dice -e esp32c3_node_a
-pio run -d examples/esp_now_dice -e esp32c3_node_b
-```
+The commit/reveal dice duel that used to be a third example now lives in
+[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/networking/esp_now_dice) and builds
+there.
 
 ## 11. Ship checklist
 
@@ -624,7 +620,7 @@ pio run -d examples/esp_now_dice -e esp32c3_node_b
 - [Ping/pong example](../../examples/esp_now_ping/README.md) - the minimal
   custom-message project: a tagged codec, a reliable send, an automatic reply
   and an application RTT.
-- [Dice duel example](../../examples/esp_now_dice/README.md) - custom tagged
+- [Dice duel demo](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects/tree/main/networking/esp_now_dice) - custom tagged
   messages, commit/reveal, a shared score, timeout and rematch.
 - [Networking subsystem](../architecture/networking-subsystem.md) - wire format,
   reliability, discovery, threading, memory and limitations.

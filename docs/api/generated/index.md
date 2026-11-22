@@ -75,6 +75,8 @@ The `apu` module documents PixelRoot32-APU `2.5.0`.
 - [NativeAudioScheduler](./drivers/NativeAudioScheduler.md) — Audio scheduler for native builds.
 - [SDL2_AudioBackend](./drivers/SDL2_AudioBackend.md) — Audio backend implementation for SDL2 (Windows/Linux/Mac).
 - [SDL2_Drawer](./drivers/SDL2_Drawer.md) — SDL2-backed draw surface for native desktop builds.
+- [SdConfig](./drivers/SdConfig.md) — Hardware configuration for an SD card over SPI.
+- [SdSlotStore](./drivers/SdSlotStore.md) — ISlotStore over one file per slot on a FAT microSD card.
 - [TFT_eSPI_Drawer](./drivers/TFT_eSPI_Drawer.md) — Concrete implementation of DrawSurface for ESP32 using the TFT_eSPI library.
 - [U8G2_Drawer](./drivers/U8G2_Drawer.md) — Implementation of DrawSurface using the U8G2 library for monochromatic OLED displays.
 

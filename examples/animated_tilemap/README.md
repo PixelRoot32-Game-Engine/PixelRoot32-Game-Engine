@@ -62,7 +62,7 @@ La escena implementa **`Scene::shouldRedrawFramebuffer()`**: combina **`TileAnim
 Run from **`examples/animated_tilemap`** (this directory):
 
 ```bash
-# Native (SDL2) — paths in platformio.ini may need local SDL include/lib on Windows
+# Native (SDL2) — install SDL2 first; the host include/lib paths are resolved automatically
 pio run -e native
 
 # ESP32 (ST7789 240×240)

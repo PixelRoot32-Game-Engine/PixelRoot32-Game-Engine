@@ -19,7 +19,8 @@ write reached the medium.
 - **Two stores, one service.** `Esp32NvsKeyValueStore` +
   `Esp32NvsSlotStore` on the board; `HostFileKeyValueStore` +
   `HostFileSlotStore` on native. Both are bound to the same
-  `PersistenceService`.
+  `PersistenceService`. The opt-in `esp32sd` build swaps only the saves store
+  for `SdSlotStore`, leaving the settings in NVS and the scene untouched.
 - **A settings record** (`cfg`, schema 1, three bytes: volume, brightness,
   invert Y) through `saveSettingRecord()` / `loadSettingRecord()`.
 - **A save-slot record** (slot 0, schema 1, three bytes: level, presses) through
@@ -49,11 +50,12 @@ write reached the medium.
 |-------------|-------|
 | **`native`** | SDL2 window, 240×240 logical size. Records become files under `save_data/`. |
 | **`esp32dev`** | **ST7789** TFT 240×240, TFT_eSPI-style pin defines in `platformio.ini`. Records go to NVS. A is **GPIO 13**. |
+| **`esp32sd`** | Opt-in microSD build (`PIXELROOT32_ENABLE_SD_STORAGE=1`) for the CYD (ESP32-2432S028R): **ILI9341_2** 240×320 on HSPI, A is the **BOOT** button (GPIO 0). Settings stay in NVS while save slots move to a FAT32 card at `/pr32demo/save/<i>.slot`. |
 
 ## Controls
 
-- **A** (`Space` on native, GPIO 13 on the board) — mutate both records, save
-  them, and read both back.
+- **A** (`Space` on native, GPIO 13 on `esp32dev`, the BOOT button on `esp32sd`)
+  — mutate both records, save them, and read both back.
 - Nothing else. The scene has no other input, and no input means no write.
 
 One press makes these changes, so the next boot has something different to
@@ -137,7 +139,7 @@ The paths are relative to the working directory the binary runs from. From
 moved into place, so a crash leaves the old file or the new one, never a mix.
 `commit()` returns `Ok` here because each set is already flushed and in place.
 
-### ESP32: NVS
+### ESP32 (default env): NVS
 
 `Esp32NvsKeyValueStore("mygame", 64)` and
 `Esp32NvsSlotStore("mygame", "save", 3, 256)` use the **`mygame`** namespace on
@@ -153,6 +155,48 @@ the default **`nvs`** partition:
 Settings reach flash on the set and again on `commit()`; slot writes reach
 flash immediately, with no separate commit. While flash is written the cache is
 off on both cores, which is why both happen on the A press and nowhere else.
+
+### ESP32 opt-in: SD saves (`esp32sd`)
+
+The `esp32sd` environment adds `-D PIXELROOT32_ENABLE_SD_STORAGE=1` and swaps
+only the saves store. Settings stay in NVS; slot records move to the card:
+
+| Where | Holds |
+|-------|-------|
+| NVS `mygame` / `cfg` | the settings record |
+| `/pr32demo/save/0.slot` | the save-slot record |
+| `/pr32demo/save/1.slot`, `2.slot` | the two unused slots |
+
+The CYD's onboard microSD reader is on SPI/VSPI:
+
+| Signal | GPIO |
+|--------|------|
+| CS | 5 |
+| SCK | 18 |
+| MISO | 19 |
+| MOSI | 23 |
+| Clock | 4 MHz |
+
+Insert a **FAT32-formatted** card. The adapter mounts it and creates
+`/pr32demo/save/`; it never formats or erases the card. Without a usable card
+`init()` returns `Unavailable`, the saves role stays unbound, and the scene
+keeps running on defaults. Slots have no `commit()`: each write is flushed in
+place. A card removed after `init()` is not noticed up front — the next access
+fails with `IoError`/`NotFound` — and calling `init()` again after reinserting
+releases the dead volume and remounts the card. Everything else — the scene,
+the A press, the `PERSIST,` transcript — is identical to the NVS build.
+
+The panel is the CYD's ILI9341_2 240×320, forced onto **HSPI** with
+`USE_HSPI_PORT`. TFT_eSPI defaults to VSPI — the same host the card reader uses
+— and `SD.begin()` reconfigures that bus, which leaves the panel with no data
+lines and a lit but empty screen. Panel on HSPI, card on VSPI is what makes
+both work at once.
+
+The CYD has no 5-way pad and its spare GPIOs are scarce, so every logical
+button shares the **BOOT** button (GPIO 0); pressing it is the A press. Wiring
+the pad to its usual pins would take 12/13/14, which are the panel's SPI bus on
+this board, and `Engine::init()` sets the display up before the input pins — a
+`pinMode()` there would turn the MOSI line into an input and kill the panel.
 
 ## Schema versions and what `RecordCodec` reports
 
@@ -218,6 +262,7 @@ Run from **`examples/persistence`**:
 ```bash
 pio run -e native
 pio run -e esp32dev
+pio run -e esp32sd
 ```
 
 Run the PC build from the same folder so `save_data/` lands there:
@@ -238,5 +283,6 @@ pio run -e esp32dev --target upload
 pio device monitor --baud 115200
 ```
 
-The serial monitor shows the same `PERSIST,` lines the PC build prints to the
+Use `pio run -e esp32sd --target upload` to flash the microSD-saves build. The
+serial monitor shows the same `PERSIST,` lines the PC build prints to the
 terminal.

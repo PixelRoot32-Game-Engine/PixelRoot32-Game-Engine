@@ -84,7 +84,7 @@ Watch PixelRoot32 running on ESP32 with example games:
 - **Gameplay Framework**: Opt-in building blocks — grid space, state machines, object pools, an event bus, interaction triggers, room graphs, camera tweens, depth sorting and spatial queries — each behind its own `PIXELROOT32_ENABLE_*` flag, all default `0`.
 - **Dialog System**: Headless dialog state machine (`DialogRunner`) with paged text, branching and conditional choices, multi-column option rows, multi-format speaker portraits in a fixed size box, and a default `DialogBox` panel — opt-in behind `PIXELROOT32_ENABLE_DIALOG`.
 - **ESP-NOW Networking**: Optional router-free peer-to-peer module with an ESP-NOW transport and a native loopback, broadcast discovery, per-message reliable delivery (ACK/retry/dedupe), a Scene event hook, and a convergent shared counter with reboot resync - opt-in behind `PIXELROOT32_ENABLE_NETWORKING` (default `0`).
-- **Persistence (Save/Load)**: Optional module that separates storage models from media - named key-value settings and numbered save slots with typed results, a CRC-checked record envelope, and ESP32 NVS, native host-file and in-memory adapters - opt-in behind `PIXELROOT32_ENABLE_PERSISTENCE` (default `0`).
+- **Persistence (Save/Load)**: Optional module that separates storage models from media - named key-value settings and numbered save slots with typed results, a CRC-checked record envelope, ESP32 NVS, an opt-in ESP32 microSD (FAT) save-slot adapter, native host-file and in-memory adapters - opt-in behind `PIXELROOT32_ENABLE_PERSISTENCE` (default `0`), with the card adapter behind `PIXELROOT32_ENABLE_SD_STORAGE` (default `0`).
 - **Indexed Color Palettes**: Optimized palettes (PR32, NES, GameBoy, PICO-8) with multi-palette support.
 - **Modular Architecture**: Compile only needed subsystems via `PIXELROOT32_ENABLE_*` flags to reduce firmware size.
 
@@ -173,7 +173,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.15.0
+    gperez88/PixelRoot32-Game-Engine@^1.16.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -187,7 +187,7 @@ PlatformIO will automatically download and install the library and its dependenc
    cd PixelRoot32-Game-Engine/examples/sprites
    ```
 
-   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `dialog`, `persistence`, `mono_oled`, `esp_now`, `esp_now_dice`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
+   Each folder (`sprites`, `camera`, `animated_tilemap`, `physics`, `platformer`, `dialog`, `persistence`, `mono_oled`, `esp_now`, `esp_now_ping`, `apu_profiles`) is a **standalone PlatformIO project** with its own `platformio.ini`. See the [examples catalogue](examples/README.md) for what each one demonstrates and which opt-in capability it turns on. Complete games and larger use cases live in [**PixelRoot32-Demo-Projects**](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects).
 
 2. **Open that example folder in VS Code** (File → Open Folder) and select the environment named in its `platformio.ini` (`env:esp32dev`, `env:esp32cyd`, `env:esp32c3_node_up`, `env:esp32c3_node_a`, `env:native`, and so on).
 3. **Build and Upload** using PlatformIO.
@@ -222,6 +222,7 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 - **[Examples](examples/)**: Eleven minimal, single-idea capability examples (open a subfolder in PlatformIO).
 - **[PixelRoot32-Demo-Projects](https://github.com/PixelRoot32-Game-Engine/PixelRoot32-Demo-Projects)**: Complete games and per-topic demos. Anything larger than a single feature lives there, not in `examples/`.
 - **[Camera Example](examples/camera/)**: `Camera2D` following with smoothing and bounds, parallax layers, camera effects and a scripted `CameraTween` pan.
+- **[Platformer Example](examples/platformer/)**: `KinematicActor`, `RigidActor` and `StaticActor` in one screen, with one-way platforms and collision layers/masks — the Godot `CharacterBody2D`/`RigidBody2D`/`StaticBody2D` mapping.
 - **[API Reference](docs/api/index.md)**: Class reference and usage.
 - **[Architecture](docs/architecture/overview.md)**: System design and layer hierarchy.
 - **[Physics System](docs/architecture/physics-subsystem.md)**: Flat Solver documentation.
@@ -242,9 +243,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.15.0
+## 1.16.0
 
-A minor release: **isometric rooms**. `gameplay::buildRoomGraph(layer, graph, proj, perRoom)` builds a room graph for a projected scene, with each room's camera rect taken from its cells' diamonds and optionally widened by the art its own map draws, and `gameplay::roomProjection(proj, room)` places a per-room map with local cells where the room sits in the scene. This is the API the Tilemap Editor's one-map-per-room isometric export targets. It also fixes two 2bpp defects: `computeSpanTable(Sprite2bpp&)` now reads the blit's bit order, and the 2bpp blit no longer reads past the sprite data. The 1bpp bit order is documented as the renderer draws it. The orthogonal room API and every existing draw are unchanged.
+A minor release: **an opt-in microSD backend for persistence**, plus build tooling. `persistence::SdSlotStore` (flag `PIXELROOT32_ENABLE_SD_STORAGE`, ESP32 only) keeps one FAT file per save slot and mounts from a plain-data `SdConfig`, so the adapter carries no board pin; a missing or unmountable card answers `Unavailable` and the game keeps running on defaults. `examples/platformer` puts `KinematicActor`, `RigidActor` and `StaticActor` in the scene they were designed for, `examples/esp_now_dice` moves to Demo-Projects, native builds resolve the host's SDL2 paths instead of committing per-OS flags, and `native_test` builds and instruments coverage on macOS.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 

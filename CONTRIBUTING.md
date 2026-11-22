@@ -45,7 +45,7 @@ Please follow these steps to have your contribution considered by the maintainer
 
 ### Adding an example
 
-`examples/` holds **five** projects, and that number is deliberate. It was
+`examples/` holds **eleven** projects, and that number is deliberate. It was
 thirteen; most of those were complete games, and a catalogue nobody could read
 in one sitting is a catalogue nobody reads. Complete games and per-topic demos
 now live in
@@ -53,7 +53,7 @@ now live in
 and that is where a new project almost always belongs.
 
 An addition here has to earn its place, so open an issue first. An example
-qualifies only if it teaches **one** engine capability that none of the five
+qualifies only if it teaches **one** engine capability that none of the others
 already covers, and it is not a game. If it needs a paragraph to explain what
 it demonstrates, it belongs in Demo-Projects.
 

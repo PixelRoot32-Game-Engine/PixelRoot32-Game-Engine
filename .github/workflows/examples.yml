@@ -176,18 +176,14 @@ jobs:
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
-      # The native environment links against SDL2; the ESP32 ones do not.
+      # The native environment links against SDL2; the ESP32 ones do not. The
+      # examples resolve the host's SDL2 include and library paths in
+      # scripts/platformio_native_sdl2.py, which needs nothing on Linux: the
+      # distribution package installs them on the default search paths.
       - name: Install SDL2
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y libsdl2-dev
-
-      # The committed [env:native] build_flags target Windows/MSYS2. Strip the
-      # MSYS2 include/library paths and -mconsole so the same file builds
-      # against the distribution SDL2 headers. The macOS Homebrew lines are
-      # already commented out and need no handling.
-      - name: Apply the Linux variant of the native build flags
-        run: sed -i -e '/msys64/d' -e '/-mconsole/d' "${{ matrix.example }}/platformio.ini"
 
       # NOTE on symlink://../../ — every example here depends on the engine
       # through a symlink to the repository root, and that is correct. An

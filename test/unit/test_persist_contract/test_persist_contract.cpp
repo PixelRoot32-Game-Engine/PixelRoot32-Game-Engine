@@ -64,6 +64,10 @@
 #include <nvs.h>
 #endif
 
+#if defined(ESP32) && PIXELROOT32_ENABLE_SD_STORAGE
+#include "drivers/esp32/SdStore.h"
+#endif
+
 using namespace pixelroot32::persistence;
 
 namespace {
@@ -198,6 +202,44 @@ ISlotStore& freshNvsSlots() {
 }
 #endif  // ESP32
 
+#if defined(ESP32) && PIXELROOT32_ENABLE_SD_STORAGE
+// CYD (ESP32-2432S028R, SD on SPI/VSPI) wiring; override the macros to smoke
+// the suite on another board. The store lives under its own root directory,
+// and fresh() wipes it, so no real data may live there.
+#ifndef PR32_SD_SMOKE_CS
+#define PR32_SD_SMOKE_CS 5
+#endif
+#ifndef PR32_SD_SMOKE_SCK
+#define PR32_SD_SMOKE_SCK 18
+#endif
+#ifndef PR32_SD_SMOKE_MISO
+#define PR32_SD_SMOKE_MISO 19
+#endif
+#ifndef PR32_SD_SMOKE_MOSI
+#define PR32_SD_SMOKE_MOSI 23
+#endif
+
+constexpr uint16_t kSdSlots = 3;
+constexpr size_t kSdRecordBytes = 64;
+SdSlotStore gSdSlots("/pr32smk", "s", kSdSlots, kSdRecordBytes);
+
+ISlotStore& freshSdSlots() {
+    SdConfig cfg;
+    cfg.spi = &SPI;
+    cfg.sck = PR32_SD_SMOKE_SCK;
+    cfg.miso = PR32_SD_SMOKE_MISO;
+    cfg.mosi = PR32_SD_SMOKE_MOSI;
+    cfg.cs = PR32_SD_SMOKE_CS;
+    TEST_ASSERT_EQUAL_UINT8(static_cast<uint8_t>(StoreResult::Ok),
+                            static_cast<uint8_t>(gSdSlots.init(cfg)));
+    // Start empty: erasing an already-empty slot is NotFound, which is fine.
+    for (uint16_t i = 0; i < kSdSlots; ++i) {
+        gSdSlots.erase(i);
+    }
+    return gSdSlots;
+}
+#endif  // ESP32 && PIXELROOT32_ENABLE_SD_STORAGE
+
 // To add an adapter: write a factory returning a fresh store and append one
 // row here. No test needs to change.
 const KvAdapter kKvAdapters[] = {
@@ -217,6 +259,9 @@ const SlotAdapter kSlotAdapters[] = {
 #endif
 #if defined(ESP32)
     {"Esp32NvsSlotStore", &freshNvsSlots, kNvsSlots, kNvsRecordBytes},
+#endif
+#if defined(ESP32) && PIXELROOT32_ENABLE_SD_STORAGE
+    {"SdSlotStore", &freshSdSlots, kSdSlots, kSdRecordBytes},
 #endif
 };
 
