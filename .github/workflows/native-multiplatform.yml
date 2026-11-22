@@ -128,13 +128,15 @@ jobs:
         shell: bash
         run: |
           url="https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.tar.gz"
-          curl -fsSL -o "$RUNNER_TEMP/sdl2.tar.gz" "$url"
-          # --force-local is required, not cosmetic: GNU tar reads the `D:` in a
-          # Windows path as a remote host name and fails with "Cannot connect to
-          # D: resolve failed" before touching the archive.
-          tar --force-local -xzf "$RUNNER_TEMP/sdl2.tar.gz" -C "$RUNNER_TEMP"
+          # tar only ever sees relative paths. GNU tar reads the `D:` of a Windows
+          # absolute path as a remote host name ("Cannot connect to D: resolve
+          # failed") and refuses backslashes after -C, so change directory first
+          # instead of handing it a Windows path.
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o sdl2.tar.gz "$url"
+          tar -xzf sdl2.tar.gz
           mkdir -p C:/sdl2
-          cp -r "$RUNNER_TEMP/SDL2-2.32.10/x86_64-w64-mingw32/." C:/sdl2/
+          cp -r SDL2-2.32.10/x86_64-w64-mingw32/. C:/sdl2/
           echo "SDL2_DIR=C:/sdl2" >> "$GITHUB_ENV"
           # SDL2.dll has to be reachable at run time, not only at link time.
           echo "C:/sdl2/bin" >> "$GITHUB_PATH"
