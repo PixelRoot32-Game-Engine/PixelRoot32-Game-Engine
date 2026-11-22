@@ -14,6 +14,12 @@ build, so one committed `platformio.ini` works on Windows, macOS and Linux:
 
 Linux needs nothing: the distribution package (libsdl2-dev) puts the headers and
 libraries on the default search paths.
+
+An explicit `SDL2_DIR` wins over every guess. That is the variable SDL's own
+CMake configuration reads, and it is the way out when nothing installed the SDK
+where this script looks -- CI extracts the official SDL2-devel-*-mingw tarball
+on Windows and points SDL2_DIR at it, because MSYS2's prefix is not predictable
+there.
 """
 
 import os
@@ -39,15 +45,23 @@ def _windows_prefix():
     return next((prefix for prefix in candidates if _has_sdl2(prefix)), None)
 
 
+def _explicit_prefix():
+    """Return SDL2_DIR when it really holds an SDL2 installation."""
+    prefix = os.environ.get("SDL2_DIR")
+    return prefix if _has_sdl2(prefix) else None
+
+
 _system = platform.system()
 
-if _system == "Darwin":
-    _prefix = _darwin_prefix()
-elif _system == "Windows":
-    _prefix = _windows_prefix()
-else:
-    # Linux and the BSDs carry SDL2 on the default search paths.
-    _prefix = None
+_prefix = _explicit_prefix()
+if _prefix is None:
+    if _system == "Darwin":
+        _prefix = _darwin_prefix()
+    elif _system == "Windows":
+        _prefix = _windows_prefix()
+    else:
+        # Linux and the BSDs carry SDL2 on the default search paths.
+        _prefix = None
 
 if _prefix:
     env.AppendUnique(CPPPATH=[os.path.join(_prefix, "include")])
@@ -55,8 +69,9 @@ if _prefix:
 elif _system in ("Darwin", "Windows"):
     print(
         "platformio_native_sdl2: no SDL2 installation found. Install it "
-        "(macOS: brew install sdl2; MSYS2: pacman -S mingw-w64-x86_64-SDL2) "
-        "or add its include and library paths to [env:native] build_flags."
+        "(macOS: brew install sdl2; MSYS2: pacman -S mingw-w64-x86_64-SDL2), "
+        "set SDL2_DIR to an extracted SDL2 SDK, or add its include and library "
+        "paths to [env:native] build_flags."
     )
 
 if _system == "Windows":

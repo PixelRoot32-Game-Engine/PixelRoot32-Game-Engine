@@ -10,20 +10,21 @@ name: native-multiplatform
 # coverage) and does not build ESP32 (examples.yml owns that). Its only job is
 # to answer one question on every push: does the native build still produce a
 # runnable executable on each host we advertise?
-
+#
 # TRACKER BRANCH — read before editing the triggers.
 #
 # `feat/sdl2-multiplatform` is the long-lived tracker for the desktop/web work
-# described in docs/_sdl2_multiplatform.md (local-only until it is promoted). Nothing reaches develop
-# until the whole port is done, so the integration branches alone would mean
-# this workflow never ran while the portability code was being written — the
-# exact blind spot it exists to close. The tracker branch is therefore listed in
-# both filters: every push to it, and every chained PR whose base is it, gets the
-# three-OS build.
+# described in docs/_sdl2_multiplatform.md (local-only until it is promoted).
+# Nothing reaches develop until the whole port is done, so the integration
+# branches alone would mean this workflow never ran while the portability code
+# was being written — the exact blind spot it exists to close. The tracker is
+# therefore listed in both filters: every push to it, and every chained PR whose
+# base is it, gets the three-OS build.
 #
 # Remove `feat/sdl2-multiplatform` from both lists in the pull request that
 # merges the tracker into develop. A dead branch in a trigger filter is a job
 # that can never run and a comment nobody re-reads.
+
 on:
   push:
     branches: [main, develop, feat/sdl2-multiplatform]
@@ -67,9 +68,9 @@ jobs:
         # the runner.
         shell: bash
     env:
-      # Both are consumed by scripts/platformio_native_sdl2.py and by the smoke
-      # run: SDL picks its dummy drivers, which is what lets a headless runner
-      # execute the game loop without a display.
+      # Both are consumed by SDL and by the smoke run: SDL picks its dummy
+      # drivers, which is what lets a headless runner execute the game loop
+      # without a display.
       SDL_VIDEODRIVER: dummy
       SDL_AUDIODRIVER: dummy
       # Keeps `brew install` from spending minutes on unrelated upgrades.
@@ -94,9 +95,10 @@ jobs:
             ${{ runner.os }}-pio-native-
 
       # ---------------------------------------------------------------------
-      # SDL2, per host. The engine resolves these paths at build time in
-      # scripts/platformio_native_sdl2.py, so the workflow only has to make the
-      # SDK present where that script looks for it.
+      # SDL2, per host. scripts/platformio_native_sdl2.py resolves the include
+      # and library paths at build time, so each step only has to put the SDK
+      # where that script looks: SDL2_DIR, Homebrew, or the loader's default
+      # search path on Linux.
       # ---------------------------------------------------------------------
       - name: Install SDL2 (Linux)
         if: runner.os == 'Linux'
@@ -108,34 +110,31 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install sdl2
 
-      # The Windows runner has no system SDL2, and PlatformIO's `native`
-      # platform uses the host's GCC, so both the SDK and the compiler come from
-      # MSYS2/MinGW64 — the same combination the repository documents for users.
-      - name: Install SDL2 and MinGW (Windows)
+      # The Windows runner ships no SDL2, and no package manager puts it on a
+      # path the build can predict: setup-msys2 extracts its own tree under the
+      # runner's temp directory regardless of its `location` input, which the
+      # first two runs of this workflow confirmed — SDL2 was installed and
+      # invisible, and the build died on SDL2/SDL.h. Take the official MinGW
+      # development tarball instead and extract it to C:\sdl2, a path this
+      # workflow owns end to end, then point SDL2_DIR at it.
+      #
+      # The compiler still comes from the runner image (MinGW-Builds gcc), the
+      # same one that compiled the engine during those runs.
+      #
+      # Pinned on purpose: CI should fail loudly when the SDK changes rather
+      # than drift with a moving `latest`.
+      - name: Install SDL2 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          # Pinned, not left to the action's default. Unpinned, setup-msys2
-          # extracted MSYS2 under the runner's temp directory
-          # (D:\a\_temp\setup-msys2), where neither
-          # scripts/platformio_native_sdl2.py nor the PATH step below looks for
-          # it — the first three-OS run failed exactly that way, with SDL2
-          # installed but invisible. C:\msys64 is the location the script
-          # already probes and the one the repository documents for users.
-          location: C:\msys64
-          update: false
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-SDL2
-
-      # setup-msys2 only puts MinGW on PATH inside its own shell. The build
-      # steps run in Git Bash, so the prefix has to be exported to them:
-      # platformio_native_sdl2.py also finds C:/msys64/mingw64 on its own, but
-      # `gcc` and, at run time, SDL2.dll must be reachable.
-      - name: Put MinGW64 on PATH (Windows)
-        if: runner.os == 'Windows'
-        run: echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
+        shell: bash
+        run: |
+          url="https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-mingw.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/sdl2.tar.gz" "$url"
+          tar -xzf "$RUNNER_TEMP/sdl2.tar.gz" -C "$RUNNER_TEMP"
+          mkdir -p C:/sdl2
+          cp -r "$RUNNER_TEMP/SDL2-2.32.10/x86_64-w64-mingw32/." C:/sdl2/
+          echo "SDL2_DIR=C:/sdl2" >> "$GITHUB_ENV"
+          # SDL2.dll has to be reachable at run time, not only at link time.
+          echo "C:/sdl2/bin" >> "$GITHUB_PATH"
 
       # The failure this guards against is not hypothetical: the first run had
       # SDL2 installed under a temp path, so the build died with
@@ -145,11 +144,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          if [ ! -f "C:/msys64/mingw64/include/SDL2/SDL.h" ]; then
-            echo "::error::SDL2 headers are not at C:/msys64/mingw64/include/SDL2 — setup-msys2 installed somewhere else"
+          if [ ! -f "C:/sdl2/include/SDL2/SDL.h" ]; then
+            echo "::error::SDL2 headers missing at C:/sdl2/include/SDL2 — the tarball layout changed; update the copy step"
             exit 1
           fi
-          ls "C:/msys64/mingw64/lib" | grep -i sdl2 || true
+          ls "C:/sdl2/lib" | grep -i sdl2
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
