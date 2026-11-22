@@ -2,9 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-# Unreleased
+# 1.16.0
 
-An opt-in microSD backend for the persistence module, plus build tooling: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
+A minor release: an opt-in microSD backend for the persistence module, plus build tooling: native builds resolve the host's SDL2 instead of committing per-OS flags, and the `native_test` environment builds and instruments coverage on macOS.
 
 ### Added
 

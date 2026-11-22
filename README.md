@@ -173,7 +173,7 @@ To use PixelRoot32 in your own project, add the following to the `lib_deps` opti
 
 ```ini
 lib_deps =
-    gperez88/PixelRoot32-Game-Engine@^1.15.0
+    gperez88/PixelRoot32-Game-Engine@^1.16.0
 ```
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
@@ -243,9 +243,9 @@ To ensure high performance on ESP32, PixelRoot32 enforces strict development pat
 
 ## 🕒 Changelog
 
-## 1.15.0
+## 1.16.0
 
-A minor release: **isometric rooms**. `gameplay::buildRoomGraph(layer, graph, proj, perRoom)` builds a room graph for a projected scene, with each room's camera rect taken from its cells' diamonds and optionally widened by the art its own map draws, and `gameplay::roomProjection(proj, room)` places a per-room map with local cells where the room sits in the scene. This is the API the Tilemap Editor's one-map-per-room isometric export targets. It also fixes two 2bpp defects: `computeSpanTable(Sprite2bpp&)` now reads the blit's bit order, and the 2bpp blit no longer reads past the sprite data. The 1bpp bit order is documented as the renderer draws it. The orthogonal room API and every existing draw are unchanged.
+A minor release: **an opt-in microSD backend for persistence**, plus build tooling. `persistence::SdSlotStore` (flag `PIXELROOT32_ENABLE_SD_STORAGE`, ESP32 only) keeps one FAT file per save slot and mounts from a plain-data `SdConfig`, so the adapter carries no board pin; a missing or unmountable card answers `Unavailable` and the game keeps running on defaults. `examples/platformer` puts `KinematicActor`, `RigidActor` and `StaticActor` in the scene they were designed for, `examples/esp_now_dice` moves to Demo-Projects, native builds resolve the host's SDL2 paths instead of committing per-OS flags, and `native_test` builds and instruments coverage on macOS.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md)
 
