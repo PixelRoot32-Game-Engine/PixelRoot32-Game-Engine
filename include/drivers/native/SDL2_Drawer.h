@@ -6,7 +6,12 @@
 #ifndef SDL2_DRAWER_H
 #define SDL2_DRAWER_H
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// Gated on the capability, not on the host: an SDL2 drawer is valid wherever
+// SDL2 is available, which includes the web build. DisplayConfig.cpp selects it
+// with the same macro, so the type cannot exist in one place and not the other.
+#if PIXELROOT32_HAS_SDL
 
 #include "graphics/BaseDrawSurface.h"
 // SDL2 specific includes would go here
@@ -129,6 +134,6 @@ private:
 
 } // namespace pixelroot32::drivers::native
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL
 
 #endif // SDL2_DRAWER_H

@@ -1,4 +1,6 @@
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
 
 #include <drivers/native/SDL2_Drawer.h>
 #include <input/InputManager.h>
@@ -316,4 +318,4 @@ void pr32::drivers::native::SDL2_Drawer::drawTileDirect(uint16_t x, uint16_t y, 
     }
 }
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL

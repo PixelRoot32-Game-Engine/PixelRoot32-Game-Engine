@@ -5,7 +5,9 @@
 #ifndef MOCK_SPI_H
 #define MOCK_SPI_H
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
 
 #include <cstdint>
 

@@ -28,7 +28,13 @@
  */
 // #define PIXELROOT32_DEBUG_MODE
 
-#ifdef PLATFORM_NATIVE
+// Asked as a capability, not as a host identity: a host build gets the mock
+// (SDL-backed clock plus the Arduino surface the engine calls), firmware gets
+// the real core. Before this, the web build fell through to <Arduino.h> and
+// failed on a header no browser toolchain ships.
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
     #include "platforms/mock/MockArduino.h"
 #else
     #include <Arduino.h>

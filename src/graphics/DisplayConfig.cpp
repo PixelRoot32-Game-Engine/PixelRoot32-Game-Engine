@@ -10,22 +10,15 @@
  */
 #include "graphics/DisplayConfig.h"
 #include "graphics/DrawSurface.h"
+#include <cassert>
+#include <cstdlib>
 
-#ifdef PLATFORM_NATIVE
-    #include "drivers/native/SDL2_Drawer.h"
-    #include <cassert>
-#else
-    #include "platforms/PlatformDefaults.h"
-    #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
-        #include "drivers/esp32/TFT_eSPI_Drawer.h"
-    #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
-        #include "drivers/esp32/U8G2_Drawer.h"
-    #endif
-#endif
+// DisplayConfig.h already includes the driver this build can compile -- SDL2 on
+// a host, TFT_eSPI or U8G2 on the board -- and rejects the build outright when
+// there is none. Duplicating the selection here is what let the two disagree.
 
 #ifdef TEST_MOCK_GRAPHICS
 #include "graphics/BaseDrawSurface.h"
-#include <cassert>
 #endif
 
 namespace pixelroot32::graphics {
@@ -44,7 +37,7 @@ namespace pixelroot32::graphics {
                 void drawBitmap(int, int, int, int, const uint8_t*, uint16_t) override {}
             };
             rawSurface = new MockDrawer();
-        #elif defined(PLATFORM_NATIVE)
+        #elif PIXELROOT32_HAS_SDL
             rawSurface = new pixelroot32::drivers::native::SDL2_Drawer();
         #else
             #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
@@ -107,13 +100,15 @@ namespace pixelroot32::graphics {
             rawSurface->setOffset(xOffset, yOffset);
             rawSurface->setRotation(rotation);
             drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
-        } else {
-            #ifdef PLATFORM_NATIVE
-                assert(false && "Failed to initialize Display Driver: No valid driver selected or supported for this platform.");
-            #else
-                // In ESP32, exceptions may not be enabled by default
-                // while(1); 
-            #endif
+                } else {
+            // A driver is compiled but cannot serve this DisplayType (a U8G2-only
+            // build asked for ST7789, say), or a CUSTOM config arrived without a
+            // surface. Wave-2 analysis reported this branch as ESP32-only silence:
+            // on the host it was an assert, everywhere else an unreachable comment
+            // and a null surface. Both paths stop here now, and the abort covers
+            // NDEBUG builds where assert compiles out.
+            assert(false && "Failed to initialize Display Driver: the compiled driver does not support this DisplayType.");
+            std::abort();
         }
     }
 

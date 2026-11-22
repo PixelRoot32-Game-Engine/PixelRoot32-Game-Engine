@@ -5,7 +5,13 @@
 #ifndef MOCK_ARDUINO_H
 #define MOCK_ARDUINO_H
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// The mocked Arduino surface is part of the SDL capability, not of one host:
+// the desktop simulation and the web build use the same clock and stubs. Gating
+// this on PLATFORM_NATIVE left the web build including <Arduino.h> instead,
+// which no host toolchain provides.
+#if PIXELROOT32_HAS_SDL
 
 // SDL_MAIN_HANDLED is defined in platformio.ini build_flags
 #include <SDL2/SDL.h>
