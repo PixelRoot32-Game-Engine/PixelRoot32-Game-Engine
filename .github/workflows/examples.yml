@@ -8,9 +8,19 @@ name: examples
 # Five examples is a small enough matrix to build on every push. It was not, at
 # thirteen — which is part of why the catalogue was cut back to five.
 
+# TRACKER BRANCH — feat/sdl2-multiplatform is the long-lived tracker for the
+# desktop/web port. It carries ESP32-relevant edits (the platform macro split
+# touches InputManager, EngineConfig and DisplayConfig, all of which the firmware
+# also compiles), so it needs a firmware build on every push — but not the full
+# eleven-example matrix, which is what this workflow deliberately keeps off
+# working branches. The canary job below is that compromise: one example, one
+# ESP32 environment, enough to catch a guard that breaks the firmware.
+#
+# Remove the tracker from the triggers, and the canary job with it, in the PR
+# that merges the tracker into develop.
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, feat/sdl2-multiplatform]
   # Filtered to the integration branches, matching tests.yml. This trigger was
   # deliberately unfiltered at first, on the argument that long-lived feature
   # branches are where examples actually break. That argument is still true, and
@@ -24,7 +34,7 @@ on:
   # branch. Use workflow_dispatch to build examples for a feature branch on
   # demand.
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, feat/sdl2-multiplatform]
   workflow_dispatch:
 
 # A new push to the same branch cancels the previous run: the ESP32 toolchain
@@ -148,6 +158,11 @@ jobs:
   # is never shared with the others whatever the split.
   # ---------------------------------------------------------------------------
   build:
+    # Full matrix stays on the integration branches. On the tracker the canary
+    # below runs instead: eleven ESP32 projects on every push to a branch that
+    # receives a push per stacked PR is the cost this workflow's header warns
+    # about.
+    if: github.base_ref != 'feat/sdl2-multiplatform' && github.ref_name != 'feat/sdl2-multiplatform'
     runs-on: ubuntu-latest
     needs: [discover, catalogue]
     strategy:
@@ -206,3 +221,39 @@ jobs:
             echo "::endgroup::"
           done
           exit $status
+
+  # ---------------------------------------------------------------------------
+  # Firmware canary for the multiplatform tracker branch (see the trigger note at
+  # the top of this file). One example, one environment: `sprites` is the
+  # lightest project that still compiles the display, input and audio paths the
+  # platform-macro split touches. A guard that compiles out an ESP32 driver
+  # fails here within minutes instead of at the final PR to develop.
+  #
+  # Deliberately not `needs: [discover, catalogue]`: it builds a fixed target, so
+  # waiting on discovery would only delay the signal.
+  # ---------------------------------------------------------------------------
+  esp32_canary:
+    name: esp32 canary (sprites/esp32dev)
+    if: github.base_ref == 'feat/sdl2-multiplatform' || github.ref_name == 'feat/sdl2-multiplatform'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO toolchains
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-canary-${{ hashFiles('examples/sprites/platformio.ini', 'examples/sprites/lib/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-canary-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build sprites for esp32dev
+        working-directory: examples/sprites
+        run: pio run -e esp32dev

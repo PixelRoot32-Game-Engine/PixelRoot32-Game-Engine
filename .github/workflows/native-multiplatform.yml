@@ -116,6 +116,14 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
+          # Pinned, not left to the action's default. Unpinned, setup-msys2
+          # extracted MSYS2 under the runner's temp directory
+          # (D:\a\_temp\setup-msys2), where neither
+          # scripts/platformio_native_sdl2.py nor the PATH step below looks for
+          # it — the first three-OS run failed exactly that way, with SDL2
+          # installed but invisible. C:\msys64 is the location the script
+          # already probes and the one the repository documents for users.
+          location: C:\msys64
           update: false
           install: >-
             mingw-w64-x86_64-gcc
@@ -129,6 +137,20 @@ jobs:
         if: runner.os == 'Windows'
         run: echo 'C:\msys64\mingw64\bin' >> "$GITHUB_PATH"
 
+      # The failure this guards against is not hypothetical: the first run had
+      # SDL2 installed under a temp path, so the build died with
+      # "SDL2/SDL.h: No such file or directory" while every prior step was green.
+      # Asserting the prefix here makes the message name the cause.
+      - name: Assert the SDL2 prefix exists (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          if [ ! -f "C:/msys64/mingw64/include/SDL2/SDL.h" ]; then
+            echo "::error::SDL2 headers are not at C:/msys64/mingw64/include/SDL2 — setup-msys2 installed somewhere else"
+            exit 1
+          fi
+          ls "C:/msys64/mingw64/lib" | grep -i sdl2 || true
+
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
@@ -136,6 +158,7 @@ jobs:
         run: |
           pio --version
           echo "--- compiler ---"
+          command -v gcc || true
           gcc --version | head -1
 
       # ---------------------------------------------------------------------
