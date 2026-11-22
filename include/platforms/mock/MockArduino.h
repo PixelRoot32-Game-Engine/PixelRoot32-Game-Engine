@@ -7,10 +7,11 @@
 
 #include "platforms/PlatformSelect.h"
 
-// The mocked Arduino surface is part of the SDL capability, not of one host:
-// the desktop simulation and the web build use the same clock and stubs. Gating
-// this on PLATFORM_NATIVE left the web build including <Arduino.h> instead,
-// which no host toolchain provides.
+// The mock is genuinely SDL-backed -- millis() is SDL_GetTicks(), delay() is
+// SDL_Delay() -- so it is gated on the SDL capability and not on a host. Gating
+// it on PLATFORM_NATIVE left the web build including <Arduino.h> instead, which
+// no host toolchain provides. EngineConfig reaches it only when the Arduino core
+// is absent, which is the caller's question, not this file's.
 #if PIXELROOT32_HAS_SDL
 
 // SDL_MAIN_HANDLED is defined in platformio.ini build_flags
@@ -77,6 +78,6 @@ inline void delayMicroseconds(uint32_t us) {
     SDL_Delay((us + 999) / 1000); // Approximate
 }
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL
 
 #endif // MOCK_ARDUINO_H

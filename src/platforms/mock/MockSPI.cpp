@@ -4,7 +4,7 @@
  */
 #include "platforms/PlatformSelect.h"
 
-#if PIXELROOT32_HAS_SDL
+#if !PIXELROOT32_HAS_ARDUINO
 #include "platforms/mock/MockSPI.h"
 SPIClass SPI;
-#endif // PIXELROOT32_HAS_SDL  
+#endif // !PIXELROOT32_HAS_ARDUINO  

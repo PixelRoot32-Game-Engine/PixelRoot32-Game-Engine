@@ -40,6 +40,7 @@
 #endif
 #include "platforms/EngineConfig.h"
 #include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <utility>
 
@@ -130,7 +131,13 @@ public:
             // Not guarded by the host check any more: a CUSTOM config without a
             // surface is a programming error on every platform, and on ESP32 the
             // old guard made it a null dereference instead of a failing assert.
+            // The assert carries the message; the abort keeps the failure here in
+            // NDEBUG builds, where the assert compiles out and used to leave the
+            // null surface to die on the first frame.
             assert(drawSurface && "DisplayType::CUSTOM requires a valid DrawSurface instance.");
+            if (!drawSurface) {
+                std::abort();
+            }
         }
     }
 

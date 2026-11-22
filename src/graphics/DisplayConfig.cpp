@@ -100,7 +100,7 @@ namespace pixelroot32::graphics {
             rawSurface->setOffset(xOffset, yOffset);
             rawSurface->setRotation(rotation);
             drawSurface = std::unique_ptr<DrawSurface>(rawSurface);
-                } else {
+        } else {
             // A driver is compiled but cannot serve this DisplayType (a U8G2-only
             // build asked for ST7789, say), or a CUSTOM config arrived without a
             // surface. Wave-2 analysis reported this branch as ESP32-only silence:
