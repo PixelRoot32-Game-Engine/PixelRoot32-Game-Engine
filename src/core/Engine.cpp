@@ -23,7 +23,9 @@
 #include "networking/NetTypes.h"
 #endif
 
-#ifdef PLATFORM_NATIVE
+// The drawer this header names is the SDL one, so the question is the SDL
+// capability and not the host: a web build uses it too.
+#if PIXELROOT32_HAS_SDL
 #include "drivers/native/SDL2_Drawer.h"
 #endif
 
@@ -135,7 +137,7 @@ namespace pixelroot32::core {
         assert(renderer.getLogicalHeight() > 0 && "Engine init failed: renderer has invalid height");
         
         // Initialize Serial for debugging (ESP32 only)
-        #ifndef PLATFORM_NATIVE
+        #if PIXELROOT32_HAS_ARDUINO
             Serial.begin(115200);
             delay(100);
         #endif
@@ -159,14 +161,20 @@ namespace pixelroot32::core {
         // Set default font (5x7 bitmap font)
         FontManager::setDefaultFont(&FONT_5X7);
         
-        #ifdef PLATFORM_NATIVE
+        #if PIXELROOT32_HAS_SDL
         connectInputToDrawer();
         #endif
+
+        // Seed the frame clock here rather than in the constructors: the first
+        // frame must not measure the time spent between construction and init.
+        previousMillis = millis();
+        stepAccumulatorMs = 0;
+        frameMillis = 0;
     }
 
-    #ifdef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_SDL
     void Engine::connectInputToDrawer() {
-        // Get the DrawSurface from Renderer - for Native it's SDL2_Drawer
+        // Get the DrawSurface from Renderer - on a host it's SDL2_Drawer
         auto& drawSurface = renderer.getDrawSurface();
         
         // Only SDL2_Drawer supports touch event injection - use dynamic_cast
@@ -180,7 +188,7 @@ namespace pixelroot32::core {
             #endif
         }
     }
-    #endif
+    #endif  // PIXELROOT32_HAS_SDL
 
     #if PIXELROOT32_ENABLE_TOUCH
     void Engine::setTouchManager(pixelroot32::input::TouchManager* tm) {
@@ -192,152 +200,193 @@ namespace pixelroot32::core {
     }
     #endif
 
+    namespace {
+        /// Profiling totals shared by logHeartbeatIfDue() and runFrame(). They
+        /// were function-local statics while the board loop owned the counters;
+        /// one Engine per program is the same assumption either way.
+        struct ProfileTotals {
+            uint32_t frameCount = 0;
+            uint32_t totalUpdateTime = 0;
+            uint32_t totalDrawTime = 0;
+            uint32_t totalPresentTime = 0;
+            uint32_t totalEventsTime = 0;
+        };
+
+        ProfileTotals gProfileTotals;
+        uint32_t gLastHeartbeatMs = 0;
+    }
+
     void Engine::run() {
+        #if PIXELROOT32_HAS_SDL
+            // Desktop and web own the loop here: keep going until the window
+            // closes.
+            while (runFrame()) {
+            }
+        #else
+            // A board's loop() already calls this once per iteration, so one
+            // call is one frame. Looping here would freeze the sketch.
+            runFrame();
+        #endif
+    }
+
+    bool Engine::runFrame() {
+        const unsigned long now = millis();
+        const unsigned long elapsed = now - previousMillis;
+        previousMillis = now;
+        return runFrame(elapsed);
+    }
+
+    bool Engine::runFrame(unsigned long elapsedMs) {
         DrawSurface* drawer = static_cast<DrawSurface*>(&renderer.getDrawSurface());
-        
-        #ifdef PLATFORM_NATIVE
-            bool running = true;
 
-            while (running) {
-                // Process SDL events
-                running = drawer->processEvents();
+        // The caller's clock is authoritative for this frame, but the
+        // measured-clock path must not inherit a timestamp from before it was
+        // used, or its next delta would span the whole stretch.
+        previousMillis = millis();
 
-                update();
+        uint32_t t0 = 0;
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            t0 = pixelroot32::platforms::config::profilerMicros();
+        }
 
-                bool redraw = sceneManager.aggregateShouldRedrawFramebuffer();
-                if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
-                    redraw = true;
-                }
-                if (redraw) {
-                    draw();
-                    drawer->present();
-                }
+        logHeartbeatIfDue();
 
-                SDL_Delay(1);
-            }
-        #else 
-            static uint32_t lastHeartbeat = 0;
+        // Platform events only. This does NOT wait for the deferred DMA,
+        // despite what this comment used to claim: TFT_eSPI_Drawer's
+        // processEvents() is a no-op, and making it flush here would undo
+        // the deferral, since it runs before the draw work that block's SPI
+        // time is meant to overlap. The pending transfer is settled either
+        // by the next present() or, on a skipped frame, by the
+        // flushPendingTransfers() call below.
+        //
+        // They come before the steps rather than after: on desktop they are
+        // what feeds the mouse-to-touch path those steps consume, and a closed
+        // window is the only reason to stop before doing any work.
+        const bool running = drawer->processEvents();
+        if (!running) {
+            return false;
+        }
 
-            static uint32_t frameCount = 0;
-            static uint32_t totalUpdateTime = 0;
-            static uint32_t totalDrawTime = 0;
-            static uint32_t totalPresentTime = 0;
-            static uint32_t totalEventsTime = 0;
-            uint32_t t0 = 0;
+        uint32_t t1 = 0;
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            t1 = pixelroot32::platforms::config::profilerMicros();
+        }
+
+        // Real time goes into the accumulator and never straight into a scene:
+        // the simulation advances in whole fixed steps only, so a 144 Hz display
+        // and a 60 Hz one feed the physics the same increments and merely group
+        // them differently. The backlog is clamped so one long hitch cannot
+        // become an unbounded burst of catch-up steps.
+        frameMillis = elapsedMs;
+        stepAccumulatorMs += elapsedMs;
+        const unsigned long maxBacklog = FIXED_STEP_MS * MAX_STEPS_PER_FRAME;
+        if (stepAccumulatorMs > maxBacklog) {
+            stepAccumulatorMs = maxBacklog;
+        }
+        while (stepAccumulatorMs >= FIXED_STEP_MS) {
+            stepSimulation(FIXED_STEP_MS);
+            stepAccumulatorMs -= FIXED_STEP_MS;
+        }
+
+        uint32_t t2 = 0;
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            t2 = pixelroot32::platforms::config::profilerMicros();
+        }
+
+        bool redraw = sceneManager.aggregateShouldRedrawFramebuffer();
+        if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
+            redraw = true;
+        }
+
+        uint32_t t3 = t2;
+        if (redraw) {
+            draw();
             if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t0 = pixelroot32::platforms::config::profilerMicros();
+                t3 = pixelroot32::platforms::config::profilerMicros();
             }
 
-            if (millis() - lastHeartbeat > 1000) {
-                if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                    log(LogLevel::Profiling, "[Engine] Heartbeat...");
-                    if (frameCount > 0) {
-                        unsigned long avgCollision = 0;
-                        if (gProfilerCollisionTime > 0) {
-                            avgCollision = gProfilerCollisionTime / frameCount;
-                        }
-                        unsigned long avgPhysicsIntegrate = 0;
-                        if (gProfilerPhysicsIntegrateCount > 0) {
-                            avgPhysicsIntegrate = gProfilerPhysicsIntegrateTime / gProfilerPhysicsIntegrateCount;
-                        }
-                        unsigned long physicsIntegrateCount = gProfilerPhysicsIntegrateCount;
-
-                        log(LogLevel::Profiling, "FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus | Collision: %luus | PhysicsInt: %luus (%lu)\n",
-                            frameCount,
-                            totalUpdateTime / frameCount,
-                            totalEventsTime / frameCount,
-                            totalDrawTime / frameCount,
-                            totalPresentTime / frameCount,
-                            avgCollision,
-                            avgPhysicsIntegrate,
-                            physicsIntegrateCount
-                        );
-                        frameCount = 0;
-                        totalUpdateTime = 0;
-                        totalDrawTime = 0;
-                        totalPresentTime = 0;
-                        totalEventsTime = 0;
-                        gProfilerCollisionTime = 0;
-                        gProfilerPhysicsIntegrateTime = 0;
-                        gProfilerPhysicsIntegrateCount = 0;
-                    }
-                    #if PIXELROOT32_ENABLE_AUDIO
-                        audio::ApuCore::ProfileEntry audioEntries[audio::ApuCore::PROFILE_RING_SIZE];
-                        uint8_t audioCount = 0;
-                        audioEngine.getScheduler()->getApuCore().getAndResetProfileStats(audioEntries, audioCount);
-                        for (uint8_t i = 0; i < audioCount; ++i) {
-                            if (audioEntries[i].clipped) {
-                                log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", audioEntries[i].peak);
-                            } else {
-                                log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)",
-                                    audioEntries[i].peak, (audioEntries[i].peak / 32767.0f) * 100.0f);
-                            }
-                        }
-                    #endif
-                }
-                lastHeartbeat = millis();
-            }
-
-            update();
-
-            uint32_t t1 = 0;
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t1 = pixelroot32::platforms::config::profilerMicros();
-            }
-
-            // Platform events only. This does NOT wait for the deferred DMA,
-            // despite what this comment used to claim: TFT_eSPI_Drawer's
-            // processEvents() is a no-op, and making it flush here would undo
-            // the deferral, since it runs before the draw work that block's SPI
-            // time is meant to overlap. The pending transfer is settled either
-            // by the next present() or, on a skipped frame, by the
-            // flushPendingTransfers() call below.
-            drawer->processEvents();
-
-            uint32_t t2 = 0;
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                t2 = pixelroot32::platforms::config::profilerMicros();
-            }
-
-            bool redraw = sceneManager.aggregateShouldRedrawFramebuffer();
-            if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
-                redraw = true;
-            }
-
-            uint32_t t3 = t2;
-            if (redraw) {
-                draw();
-                if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                    t3 = pixelroot32::platforms::config::profilerMicros();
-                }
-
-                // Present frame (TFT_eSPI)
-                drawer->present();
+            // Present frame (TFT_eSPI)
+            drawer->present();
 #ifdef PIXELROOT32_DRAIN_PRESENT
-                // Opt-in: close the transfer immediately instead of leaving its
-                // tail to overlap the next frame's draw work. Costs the overlap,
-                // bounds what is still in flight when the surface is rewritten.
-                drawer->flushPendingTransfers();
+            // Opt-in: close the transfer immediately instead of leaving its
+            // tail to overlap the next frame's draw work. Costs the overlap,
+            // bounds what is still in flight when the surface is rewritten.
+            drawer->flushPendingTransfers();
 #endif
-            } else {
-                // The skipped present() would have been what closed the
-                // transfer the previous one left in flight. Close it here so a
-                // scene sitting still does not hold the bus indefinitely.
-                drawer->flushPendingTransfers();
-            }
+        } else {
+            // The skipped present() would have been what closed the
+            // transfer the previous one left in flight. Close it here so a
+            // scene sitting still does not hold the bus indefinitely.
+            drawer->flushPendingTransfers();
+        }
 
-            if constexpr (pixelroot32::platforms::config::EnableProfiling) {
-                const uint32_t t4 = pixelroot32::platforms::config::profilerMicros();
-                totalUpdateTime += (t1 - t0);
-                totalEventsTime += (t2 - t1);
-                totalDrawTime += redraw ? (t3 - t2) : 0u;
-                totalPresentTime += redraw ? (t4 - t3) : 0u;
-                frameCount++;
-            }
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            const uint32_t t4 = pixelroot32::platforms::config::profilerMicros();
+            gProfileTotals.totalEventsTime += (t1 - t0);
+            gProfileTotals.totalUpdateTime += (t2 - t1);
+            gProfileTotals.totalDrawTime += redraw ? (t3 - t2) : 0u;
+            gProfileTotals.totalPresentTime += redraw ? (t4 - t3) : 0u;
+            gProfileTotals.frameCount++;
+        }
 
+        #if PIXELROOT32_HAS_SDL
+            // Nothing else to do on a host: hand the window a slice.
+            SDL_Delay(1);
+        #else
             yield();
+        #endif
 
-        #endif // PLATFORM_NATIVE
+        return true;
+    }
+
+    void Engine::logHeartbeatIfDue() {
+        if (millis() - gLastHeartbeatMs <= 1000) {
+            return;
+        }
+        gLastHeartbeatMs = millis();
+
+        if constexpr (pixelroot32::platforms::config::EnableProfiling) {
+            log(LogLevel::Profiling, "[Engine] Heartbeat...");
+            if (gProfileTotals.frameCount > 0) {
+                unsigned long avgCollision = 0;
+                if (gProfilerCollisionTime > 0) {
+                    avgCollision = gProfilerCollisionTime / gProfileTotals.frameCount;
+                }
+                unsigned long avgPhysicsIntegrate = 0;
+                if (gProfilerPhysicsIntegrateCount > 0) {
+                    avgPhysicsIntegrate = gProfilerPhysicsIntegrateTime / gProfilerPhysicsIntegrateCount;
+                }
+                unsigned long physicsIntegrateCount = gProfilerPhysicsIntegrateCount;
+
+                log(LogLevel::Profiling, "FPS: %d | Update: %dus | Events: %dus | Draw: %dus | Present: %dus | Collision: %luus | PhysicsInt: %luus (%lu)\n",
+                    gProfileTotals.frameCount,
+                    gProfileTotals.totalUpdateTime / gProfileTotals.frameCount,
+                    gProfileTotals.totalEventsTime / gProfileTotals.frameCount,
+                    gProfileTotals.totalDrawTime / gProfileTotals.frameCount,
+                    gProfileTotals.totalPresentTime / gProfileTotals.frameCount,
+                    avgCollision,
+                    avgPhysicsIntegrate,
+                    physicsIntegrateCount
+                );
+                gProfileTotals = ProfileTotals{};
+                gProfilerCollisionTime = 0;
+                gProfilerPhysicsIntegrateTime = 0;
+                gProfilerPhysicsIntegrateCount = 0;
+            }
+            #if PIXELROOT32_ENABLE_AUDIO
+                audio::ApuCore::ProfileEntry audioEntries[audio::ApuCore::PROFILE_RING_SIZE];
+                uint8_t audioCount = 0;
+                audioEngine.getScheduler()->getApuCore().getAndResetProfileStats(audioEntries, audioCount);
+                for (uint8_t i = 0; i < audioCount; ++i) {
+                    if (audioEntries[i].clipped) {
+                        log(LogLevel::Profiling, "[AUDIO] PEAK DETECTED: %.0f (CLIPPING!)", audioEntries[i].peak);
+                    } else {
+                        log(LogLevel::Profiling, "[AUDIO] Peak: %.0f (%.1f%%)",
+                            audioEntries[i].peak, (audioEntries[i].peak / 32767.0f) * 100.0f);
+                    }
+                }
+            #endif
+        }
     }
 
     void Engine::setScene(Scene* newScene) {
@@ -361,17 +410,32 @@ namespace pixelroot32::core {
     }
 
     void Engine::update() {
-        unsigned long currentMillis = millis();
-        deltaTime = currentMillis - previousMillis;
+        const unsigned long currentMillis = millis();
+        const unsigned long elapsed = currentMillis - previousMillis;
         previousMillis = currentMillis;
 
-        #ifdef PLATFORM_NATIVE
-            inputManager.update(deltaTime, SDL_GetKeyboardState(nullptr));
+        // The single-step path: whatever time really passed becomes one step.
+        // run() and runFrame() are the ones that pace, and they go through
+        // stepSimulation() so a scene always sees FIXED_STEP_MS.
+        frameMillis = elapsed;
+        stepSimulation(elapsed);
+    }
+
+    void Engine::stepSimulation(unsigned long stepMs) {
+        // Scenes see the step, never the frame time: getDeltaTime() reports 16
+        // while the engine drives the loop, whatever the display is doing.
+        deltaTime = stepMs;
+
+        const unsigned long currentMillis = millis();
+
+        #if PIXELROOT32_HAS_SDL
+            inputManager.update(stepMs, SDL_GetKeyboardState(nullptr));
         #else
-            inputManager.update(deltaTime);
+            inputManager.update(stepMs);
         #endif
 
         #if PIXELROOT32_ENABLE_NETWORKING
+        // Pump and drain        #if PIXELROOT32_ENABLE_NETWORKING
         // Pump and drain the borrowed session before the scene update so a
         // scene can react to network input in the same frame. Events go to the
         // scene that is current at drain time: a scene swap between queueing
@@ -481,7 +545,9 @@ namespace pixelroot32::core {
 
     void Engine::drawDebugOverlay(pixelroot32::graphics::Renderer& r) {
         if constexpr (pixelroot32::platforms::config::EnableDebugOverlay) {
-            debugAccumulatedMs += deltaTime;
+            // Frame time, not the step: with fixed stepping the steps of one
+            // frame would otherwise be counted as several frames here.
+            debugAccumulatedMs += frameMillis;
             debugUpdateCounter++;
 
             if (debugUpdateCounter >= DEBUG_UPDATE_INTERVAL) {
@@ -505,7 +571,7 @@ namespace pixelroot32::core {
                     fpsStr[9] = '\0';
                 }
 
-                #ifdef PLATFORM_NATIVE
+                #if !PIXELROOT32_PLATFORM_ESP32
                     ramStr[0] = 'R'; ramStr[1] = 'A'; ramStr[2] = 'M';
                     ramStr[3] = ':'; ramStr[4] = ' ';
                     ramStr[5] = 'N'; ramStr[6] = '/'; ramStr[7] = 'A';
