@@ -6,6 +6,11 @@
 
 #include <cstdint>
 
+namespace pixelroot32::input {
+    class InputManager;
+    class TouchEventDispatcher;
+}
+
 namespace pixelroot32::graphics {
 
 /**
@@ -252,6 +257,32 @@ public:
      * @return false if the application should quit, true otherwise.
      */
     virtual bool processEvents() { return true; }
+
+    /**
+     * @brief Connects this surface's pointer events to the engine's input system.
+     *
+     * A driver that owns a platform window (SDL, and later the web canvas)
+     * receives clicks, but the engine owns the dispatchers that turn them into
+     * touches or buttons. This is the hook between the two, and it lives on the
+     * interface so the engine can wire any surface without knowing which
+     * concrete driver it is holding.
+     *
+     * It replaces the `dynamic_cast<SDL2_Drawer*>` that used to do the same job:
+     * that cast needs RTTI, and the board builds already compile with
+     * `-fno-rtti`, so unifying the flags for the host and web builds would have
+     * turned this into a compile error buried inside a working subsystem.
+     *
+     * Default implementation ignores the call: a driver with no pointer device
+     * (a panel with no touch controller) has nothing to route.
+     *
+     * @param dispatcher Engine's touch dispatcher; null when touch is disabled.
+     * @param manager Engine's InputManager; used only when `dispatcher` is null.
+     */
+    virtual void attachPointerInput(pixelroot32::input::TouchEventDispatcher* dispatcher,
+                                    pixelroot32::input::InputManager* manager) {
+        (void)dispatcher;
+        (void)manager;
+    }
 
     /**
      * @brief Swaps buffers (for double-buffered systems like SDL).

@@ -80,6 +80,16 @@ public:
     bool processEvents() override;
 
     /**
+     * @brief Routes mouse events to the engine's touch dispatcher or InputManager.
+     *
+     * The engine reaches every surface through this hook, so it never needs a
+     * dynamic_cast to find the SDL window (see DrawSurface::attachPointerInput).
+     * Touch wins when both are supplied, matching processEvents().
+     */
+    void attachPointerInput(pixelroot32::input::TouchEventDispatcher* dispatcher,
+                            pixelroot32::input::InputManager* manager) override;
+
+    /**
      * @brief Enters or leaves borderless fullscreen at the desktop resolution.
      *
      * Also reachable from the keyboard: F11 or Alt+Enter toggles it while the
