@@ -355,6 +355,15 @@ void pr32::drivers::native::SDL2_Drawer::toggleFullscreen() {
     setFullscreen(!isFullscreen());
 }
 
+void pr32::drivers::native::SDL2_Drawer::attachPointerInput(
+        pixelroot32::input::TouchEventDispatcher* dispatcher,
+        pixelroot32::input::InputManager* manager) {
+    // One sink, decided here: processEvents() prefers the touch dispatcher and
+    // falls back to the InputManager only when there is none.
+    setTouchDispatcher(dispatcher);
+    setInputManager(dispatcher == nullptr ? manager : nullptr);
+}
+
 void pr32::drivers::native::SDL2_Drawer::setInputManager(pixelroot32::input::InputManager* im) {
     inputManager = im;
 }

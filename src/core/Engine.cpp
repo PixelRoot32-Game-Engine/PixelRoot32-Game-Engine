@@ -23,11 +23,8 @@
 #include "networking/NetTypes.h"
 #endif
 
-// The drawer this header names is the SDL one, so the question is the SDL
-// capability and not the host: a web build uses it too.
-#if PIXELROOT32_HAS_SDL
-#include "drivers/native/SDL2_Drawer.h"
-#endif
+// No drawer header: the pointer-input hook that used to need one is virtual on
+// DrawSurface, so this file names no concrete driver.
 
 namespace pixelroot32::core {
 
@@ -35,7 +32,6 @@ namespace pixelroot32::core {
     namespace gfx = pixelroot32::graphics;
     namespace input = pixelroot32::input;
     namespace audio = pixelroot32::audio;
-    namespace drivers = pixelroot32::drivers;
 
     using gfx::DisplayConfig;
     using input::InputConfig;
@@ -174,19 +170,16 @@ namespace pixelroot32::core {
 
     #if PIXELROOT32_HAS_SDL
     void Engine::connectInputToDrawer() {
-        // Get the DrawSurface from Renderer - on a host it's SDL2_Drawer
+        // The surface owns the window, the engine owns the sinks; the hook is on
+        // the interface, so no build needs RTTI to find the drawer that takes it.
         auto& drawSurface = renderer.getDrawSurface();
-        
-        // Only SDL2_Drawer supports touch event injection - use dynamic_cast
-        auto* sdlDrawer = dynamic_cast<drivers::native::SDL2_Drawer*>(&drawSurface);
-        if (sdlDrawer) {
-            #if PIXELROOT32_ENABLE_TOUCH
-            sdlDrawer->setTouchDispatcher(&touchDispatcher);
-            #else
-            // Fallback to old method for backwards compatibility when touch disabled
-            sdlDrawer->setInputManager(&inputManager);
-            #endif
-        }
+
+        #if PIXELROOT32_ENABLE_TOUCH
+        drawSurface.attachPointerInput(&touchDispatcher, nullptr);
+        #else
+        // Fallback to old method for backwards compatibility when touch disabled
+        drawSurface.attachPointerInput(nullptr, &inputManager);
+        #endif
     }
     #endif  // PIXELROOT32_HAS_SDL
 

@@ -290,7 +290,9 @@ public:
      * @brief Connect InputManager to Drawer for mouse-to-touch mapping.
      *
      * Called automatically in init() for builds with SDL: the mapping only
-     * exists on the SDL drawer, so the capability and not the host decides.
+     * exists on a surface with a window, so the capability and not the host
+     * decides. The call is virtual on DrawSurface, so nothing here depends on
+     * RTTI or on naming the SDL driver.
      */
     void connectInputToDrawer();
     #endif
