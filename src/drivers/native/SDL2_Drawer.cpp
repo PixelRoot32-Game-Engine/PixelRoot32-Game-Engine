@@ -22,6 +22,10 @@ pr32::drivers::native::SDL2_Drawer::SDL2_Drawer()
     , touchDispatcher(nullptr)
     , inputManager(nullptr)
     , sdlInitialized(false)
+    , drawableWidth(0)
+    , drawableHeight(0)
+    , windowWidth(0)
+    , windowHeight(0)
 {
 }
 
@@ -53,20 +57,28 @@ void pr32::drivers::native::SDL2_Drawer::init() {
     // Set nearest neighbor scaling hint BEFORE creating renderer
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
-    // We use a scale factor for the window so it's not too small on high-res monitors
-    // but the window itself will be our physical resolution scaled.
-    int windowScale = 2; 
-    int winWidth = physicalWidth * windowScale;
-    int winHeight = physicalHeight * windowScale;
+    // Window size comes from the display instead of a hardcoded 2: the same
+    // 240x240 game should not open as a thumbnail on a 27" panel and larger
+    // than the screen on a netbook. SDL reports the usable bounds in window
+    // units, so on a HiDPI screen this sizes the window in points and the
+    // drawable comes out larger -- ALLOW_HIGHDPI is what makes that crisp.
+    SDL_Rect usable = {0, 0, 0, 0};
+    if (SDL_GetNumVideoDisplays() > 0) {
+        SDL_GetDisplayUsableBounds(0, &usable);
+    }
+    const int windowScale = defaultWindowScale(physicalWidth, physicalHeight, usable.w, usable.h);
+    const int winWidth = physicalWidth * windowScale;
+    const int winHeight = physicalHeight * windowScale;
 
-    // Create window
+    // Resizable: the user decides how big the game is, and refreshLayout()
+    // re-fits the framebuffer to whatever the window becomes.
     window = SDL_CreateWindow(
         "PixelRoot32 Engine",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         winWidth,
         winHeight,
-        SDL_WINDOW_SHOWN
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
     );
 
     // Create renderer - No logical size needed, we'll let SDL scale Copy to viewport
@@ -86,8 +98,10 @@ void pr32::drivers::native::SDL2_Drawer::init() {
     pixels = new uint16_t[logicalWidth * logicalHeight];
     memset(pixels, 0, logicalWidth * logicalHeight * sizeof(uint16_t));
 
-    pixelroot32::core::logging::log("[SDL2_Drawer] Initialized: Logical=%dx%d, Physical=%dx%d, Window=%dx%d\n", 
-           logicalWidth, logicalHeight, physicalWidth, physicalHeight, winWidth, winHeight);
+    refreshLayout();
+
+    pixelroot32::core::logging::log("[SDL2_Drawer] Initialized: Logical=%dx%d, Physical=%dx%d, Window=%dx%d (%dx scale)\n", 
+           logicalWidth, logicalHeight, physicalWidth, physicalHeight, winWidth, winHeight, windowScale);
 }
 
 void pr32::drivers::native::SDL2_Drawer::setRotation(uint16_t rot) {
@@ -108,19 +122,16 @@ void pr32::drivers::native::SDL2_Drawer::clearBuffer() {
 
 void pr32::drivers::native::SDL2_Drawer::sendBuffer() {
     updateTexture();
+    refreshLayout();
 
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    // Calculate destination rectangle based on offsets and logical size
-    // We use windowScale to keep the same relative size as the physical window
-    int windowScale = 2; // Should probably be a member or calculated
-    SDL_Rect dstRect = {
-        xOffset * windowScale,
-        yOffset * windowScale,
-        logicalWidth * windowScale,
-        logicalHeight * windowScale
-    };
+    // Same layout that maps the mouse back: one scale, one letterbox origin, so
+    // clicks land where the player clicked at any window size.
+    const WindowRect rect = framebufferRect(presentLayout, xOffset, yOffset,
+                                            logicalWidth, logicalHeight);
+    SDL_Rect dstRect = {rect.x, rect.y, rect.width, rect.height};
 
     if (rotation == 0) {
         SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
@@ -210,49 +221,138 @@ void pr32::drivers::native::SDL2_Drawer::updateTexture() {
 bool pr32::drivers::native::SDL2_Drawer::processEvents() {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
-        if (e.type == SDL_QUIT) return false;
-        
+        switch (e.type) {
+            case SDL_QUIT:
+                return false;
+
+            case SDL_KEYDOWN:
+                // F11 and Alt+Enter are the two shortcuts a desktop player tries
+                // first. Auto-repeat is ignored, or holding the key would toggle
+                // fullscreen on every repeat tick.
+                if (e.key.repeat == 0 &&
+                    (e.key.keysym.sym == SDLK_F11 ||
+                     ((e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_KP_ENTER) &&
+                      (e.key.keysym.mod & KMOD_ALT) != 0))) {
+                    toggleFullscreen();
+                }
+                // Keyboard state is polled by the engine, not pushed by events.
+                continue;
+
+            case SDL_WINDOWEVENT:
+                // Nothing to do: the layout is derived from the current sizes on
+                // the next frame and on every mouse event, so a resize or a move
+                // to another display is picked up without extra state.
+                continue;
+
+            default:
+                break;
+        }
+
+        if (e.type != SDL_MOUSEBUTTONDOWN && e.type != SDL_MOUSEBUTTONUP &&
+            e.type != SDL_MOUSEMOTION) {
+            continue;
+        }
+
+        // Mouse events are in window units (points on a HiDPI screen), so the
+        // inverse mapping uses inputLayout, not the drawable size that
+        // presentation uses. They differ by the display scale factor.
+        const int windowX = e.type == SDL_MOUSEMOTION ? e.motion.x : e.button.x;
+        const int windowY = e.type == SDL_MOUSEMOTION ? e.motion.y : e.button.y;
+
+        int fbX = 0;
+        int fbY = 0;
+        refreshLayout();
+        mapToFramebuffer(inputLayout, windowX, windowY, xOffset, yOffset,
+                         logicalWidth, logicalHeight, fbX, fbY);
+
         // Prefer using touchDispatcher if available (new integration)
-        if (touchDispatcher != nullptr && 
-            (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || 
-             e.type == SDL_MOUSEMOTION)) {
-            
-            // Apply window scale and offset to convert from window coords to framebuffer coords
-            int16_t fbX, fbY;
-            
-            if (e.type == SDL_MOUSEMOTION) {
-                fbX = static_cast<int16_t>((e.motion.x - xOffset * 2) / 2);
-                fbY = static_cast<int16_t>((e.motion.y - yOffset * 2) / 2);
-            } else {
-                fbX = static_cast<int16_t>((e.button.x - xOffset * 2) / 2);
-                fbY = static_cast<int16_t>((e.button.y - yOffset * 2) / 2);
-            }
-            
-            // Clamp to framebuffer bounds
-            if (fbX < 0) fbX = 0;
-            if (fbY < 0) fbY = 0;
-            if (fbX >= logicalWidth) fbX = logicalWidth - 1;
-            if (fbY >= logicalHeight) fbY = logicalHeight - 1;
-            
+        if (touchDispatcher != nullptr) {
             // Determine if button is pressed
             bool pressed = false;
             if (e.type == SDL_MOUSEBUTTONDOWN) pressed = true;
             else if (e.type == SDL_MOUSEBUTTONUP) pressed = false;
-            else if (e.type == SDL_MOUSEMOTION) {
+            else {
                 // Check if left button is held
                 pressed = (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
             }
-            
-            touchDispatcher->processTouch(0, pressed, fbX, fbY, SDL_GetTicks());
+
+            touchDispatcher->processTouch(0, pressed,
+                                          static_cast<int16_t>(fbX),
+                                          static_cast<int16_t>(fbY),
+                                          SDL_GetTicks());
         }
-        // Fallback to inputManager for backwards compatibility
-        else if (inputManager != nullptr && 
-                 (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || 
-                  e.type == SDL_MOUSEMOTION)) {
-            inputManager->processSDLEvent(&e);
+        // Fallback to inputManager for backwards compatibility. It maps the SDL
+        // event itself, so it gets a copy carrying the already-mapped
+        // coordinates -- it used to receive raw window pixels and treat them as
+        // framebuffer pixels, which was only ever right at a scale of 1.
+        else if (inputManager != nullptr) {
+            SDL_Event mapped = e;
+            if (mapped.type == SDL_MOUSEMOTION) {
+                mapped.motion.x = fbX;
+                mapped.motion.y = fbY;
+            } else {
+                mapped.button.x = fbX;
+                mapped.button.y = fbY;
+            }
+            inputManager->processSDLEvent(&mapped);
         }
     }
     return true;
+}
+
+void pr32::drivers::native::SDL2_Drawer::refreshLayout() {
+    if (renderer == nullptr || window == nullptr) return;
+
+    int currentDrawableWidth = 0;
+    int currentDrawableHeight = 0;
+    if (SDL_GetRendererOutputSize(renderer, &currentDrawableWidth, &currentDrawableHeight) != 0) {
+        return;
+    }
+
+    int currentWindowWidth = 0;
+    int currentWindowHeight = 0;
+    SDL_GetWindowSize(window, &currentWindowWidth, &currentWindowHeight);
+
+    if (currentDrawableWidth == drawableWidth && currentDrawableHeight == drawableHeight &&
+        currentWindowWidth == windowWidth && currentWindowHeight == windowHeight) {
+        return;
+    }
+
+    drawableWidth = currentDrawableWidth;
+    drawableHeight = currentDrawableHeight;
+    windowWidth = currentWindowWidth;
+    windowHeight = currentWindowHeight;
+
+    presentLayout = fitWindowLayout(drawableWidth, drawableHeight, physicalWidth, physicalHeight);
+    inputLayout = fitWindowLayout(windowWidth, windowHeight, physicalWidth, physicalHeight);
+}
+
+bool pr32::drivers::native::SDL2_Drawer::isFullscreen() const {
+    if (window == nullptr) return false;
+    return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP;
+}
+
+void pr32::drivers::native::SDL2_Drawer::setFullscreen(bool fullscreen) {
+    if (window == nullptr) return;
+
+    // Borderless desktop fullscreen, not a display-mode switch: it never
+    // changes the desktop resolution and leaving it restores the same window.
+    if (SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0) != 0) {
+        pixelroot32::core::logging::log(pixelroot32::core::logging::LogLevel::Warning,
+                                        "[SDL2_Drawer] Fullscreen toggle failed: %s\n",
+                                        SDL_GetError());
+        return;
+    }
+
+    // The sizes may be reported unchanged across the transition; invalidate the
+    // cache so the next frame recomputes the letterbox regardless.
+    drawableWidth = -1;
+    windowWidth = -1;
+    refreshLayout();
+}
+
+void pr32::drivers::native::SDL2_Drawer::toggleFullscreen() {
+    setFullscreen(!isFullscreen());
 }
 
 void pr32::drivers::native::SDL2_Drawer::setInputManager(pixelroot32::input::InputManager* im) {
