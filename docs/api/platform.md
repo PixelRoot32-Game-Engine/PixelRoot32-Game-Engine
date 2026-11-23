@@ -32,14 +32,26 @@ void init() {
 
 ### Conditional Compilation
 
-The engine uses macros to detect the current platform. You can use these in your own game code if you need platform-specific behavior.
+The engine separates *which platform this build targets* (identity) from *what that build can use* (capability). Include `platforms/PlatformSelect.h` and use these in your own game code when you need platform-specific behavior.
 
-- `PIXELROOT32_PLATFORM_ESP32`: Defined when compiling for any ESP32 variant.
-- `PIXELROOT32_PLATFORM_NATIVE`: Defined when compiling for PC (SDL2).
+Identity — every macro is always defined, and exactly one is `1`:
+
+- `PIXELROOT32_PLATFORM_ESP32`: firmware on the board.
+- `PIXELROOT32_PLATFORM_DESKTOP`: native executable (Windows, macOS, Linux).
+- `PIXELROOT32_PLATFORM_WEB`: Emscripten / WebAssembly.
+
+Capability — independent of identity:
+
+- `PIXELROOT32_HAS_SDL`: SDL2 is available (desktop and web).
+- `PIXELROOT32_HAS_ARDUINO`: the Arduino API is available (probed from `ARDUINO`, so it is true only where `<Arduino.h>` really exists).
+
+Because the identity macros are always defined, test their value rather than their existence: `#ifdef PIXELROOT32_PLATFORM_ESP32` is true even on desktop.
 
 **Usage Example:**
 ```cpp
-#ifdef PIXELROOT32_PLATFORM_ESP32
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_ARDUINO
     // Setup ESP32-specific hardware pins
     pinMode(2, OUTPUT);
 #else

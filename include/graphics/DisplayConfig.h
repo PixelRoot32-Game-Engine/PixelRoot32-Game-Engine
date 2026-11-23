@@ -10,21 +10,37 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+#include "platforms/PlatformDefaults.h"
+
+// One decision, in one place: which display driver does this build compile?
+//
+// A build with no driver at all can present nothing. initDrawSurface() finds no
+// surface, Renderer dereferences null and the binary dies on its first frame,
+// with no hint at build time -- which is how a host build without SDL used to
+// "succeed" and was reported as working. The last branch refuses to compile.
+//
+// PIXELROOT32_CUSTOM_DRAW_SURFACE is the escape hatch for a project that always
+// installs its own surface through DisplayType::CUSTOM / PIXELROOT32_CUSTOM_DISPLAY.
+#if PIXELROOT32_HAS_SDL
     #include <platforms/mock/MockSPI.h>
-    #include <drivers/native/SDL2_Drawer.h> 
+    #include <drivers/native/SDL2_Drawer.h>
+    #include "DrawSurface.h"
+#elif defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
+    #include <drivers/esp32/TFT_eSPI_Drawer.h>
+    #include <SPI.h>
+#elif defined(PIXELROOT32_USE_U8G2_DRIVER)
+    #include <drivers/esp32/U8G2_Drawer.h>
+    #include <SPI.h>
+#elif defined(PIXELROOT32_CUSTOM_DRAW_SURFACE) || defined(TEST_MOCK_GRAPHICS)
+    // Nothing to include: the caller installs its own DrawSurface.
     #include "DrawSurface.h"
 #else
-    #include "platforms/PlatformDefaults.h"
-    #if defined(PIXELROOT32_USE_TFT_ESPI_DRIVER)
-        #include <drivers/esp32/TFT_eSPI_Drawer.h>
-    #elif defined(PIXELROOT32_USE_U8G2_DRIVER)
-        #include <drivers/esp32/U8G2_Drawer.h>
-    #endif
-    #include <SPI.h>
+    #error "PixelRoot32: no display driver is compiled for this build. Select one: link SDL2 and build for desktop/web (PIXELROOT32_HAS_SDL), enable PIXELROOT32_USE_TFT_ESPI_DRIVER or PIXELROOT32_USE_U8G2_DRIVER on ESP32, or define PIXELROOT32_CUSTOM_DRAW_SURFACE if the project always supplies its own DrawSurface."
 #endif
 #include "platforms/EngineConfig.h"
 #include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <utility>
 
@@ -111,10 +127,17 @@ public:
         applyRotationNormalization();
         if (type != DisplayType::CUSTOM) {
             initDrawSurface();
-        } else if (!drawSurface) {
-            #ifdef PLATFORM_NATIVE
-                assert(drawSurface && "DisplayType::CUSTOM requires a valid DrawSurface instance.");
-            #endif
+        } else {
+            // Not guarded by the host check any more: a CUSTOM config without a
+            // surface is a programming error on every platform, and on ESP32 the
+            // old guard made it a null dereference instead of a failing assert.
+            // The assert carries the message; the abort keeps the failure here in
+            // NDEBUG builds, where the assert compiles out and used to leave the
+            // null surface to die on the first frame.
+            assert(drawSurface && "DisplayType::CUSTOM requires a valid DrawSurface instance.");
+            if (!drawSurface) {
+                std::abort();
+            }
         }
     }
 

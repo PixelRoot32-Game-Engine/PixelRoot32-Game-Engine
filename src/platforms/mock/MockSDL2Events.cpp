@@ -5,7 +5,9 @@
  * Mock SDL2 events implementation
  */
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
 
 #include "platforms/mock/MockSDL2Events.h"
 
@@ -16,4 +18,4 @@ MockSDL2EventProvider* g_mockSDL2Events = nullptr;
 
 } // namespace pixelroot32::platforms::mock
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL

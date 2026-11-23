@@ -28,10 +28,22 @@
  */
 // #define PIXELROOT32_DEBUG_MODE
 
-#ifdef PLATFORM_NATIVE
+// Asked as a capability, not as a host identity: a build with the Arduino core
+// includes it, a build without one gets the SDL-backed mock. Before this the
+// question was spelled PLATFORM_NATIVE, so the web build fell through to
+// <Arduino.h> and failed on a header no browser toolchain ships.
+//
+// The order matters: HAS_SDL alone is not an answer here. A build with neither
+// the core nor SDL2 has no millis()/delay() to compile at all, and it used to
+// pick <Arduino.h> by elimination -- the error this branch now states outright.
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_ARDUINO
+    #include <Arduino.h>
+#elif PIXELROOT32_HAS_SDL
     #include "platforms/mock/MockArduino.h"
 #else
-    #include <Arduino.h>
+    #error "PixelRoot32: this build has neither the Arduino core nor SDL2, so there is no millis()/delay() implementation. Build for a board with the Arduino framework, or link SDL2 for desktop/web."
 #endif
 
 // =============================================================================

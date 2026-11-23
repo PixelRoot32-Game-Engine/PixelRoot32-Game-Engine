@@ -2,7 +2,9 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if !PIXELROOT32_HAS_ARDUINO
 #include "platforms/mock/MockSPI.h"
 SPIClass SPI;
-#endif  
+#endif // !PIXELROOT32_HAS_ARDUINO  

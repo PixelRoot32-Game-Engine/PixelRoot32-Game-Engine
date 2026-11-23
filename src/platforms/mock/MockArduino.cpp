@@ -2,8 +2,10 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
 
 #include "platforms/mock/MockArduino.h"
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL
