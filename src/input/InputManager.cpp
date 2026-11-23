@@ -11,7 +11,7 @@
 #include "input/InputConfig.h"
 #include "input/InputManager.h"
 
-#ifdef PLATFORM_NATIVE
+#if PIXELROOT32_HAS_SDL
 #include <SDL2/SDL.h>
 #endif
 
@@ -19,7 +19,7 @@ namespace pixelroot32::input {
 
     InputManager::InputManager(const InputConfig& config) 
         : config(config)
-        #ifdef PLATFORM_NATIVE
+        #if PIXELROOT32_HAS_SDL
         , mouseButtonDown(false)
         #endif
     {}
@@ -30,11 +30,11 @@ namespace pixelroot32::input {
         // Initialize button pins - arrays are pre-initialized to zero/false
         // Set all pins as INPUT_PULLUP
         for (size_t i = 0; i < config.count; i++) {
-            #ifdef PLATFORM_NATIVE
+            #if PIXELROOT32_HAS_SDL
                 buttonPins[i] = config.buttonNames[i];
             #else
                 buttonPins[i] = config.inputPins[i];
-            #endif
+            #endif  // PIXELROOT32_HAS_SDL
             pinMode(buttonPins[i], INPUT_PULLUP);
         }
     }
@@ -65,7 +65,7 @@ namespace pixelroot32::input {
         }   
     }
 
-    #ifndef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_ARDUINO
     void InputManager::update(unsigned long dt) {
         if (config.count <= 0) return;
 
@@ -90,7 +90,7 @@ namespace pixelroot32::input {
             }
         }
     }
-    #endif
+    #endif  // PIXELROOT32_HAS_ARDUINO
 
     //has the button been pressed
     bool InputManager::isButtonPressed(uint8_t buttonIndex) const {
@@ -145,7 +145,7 @@ namespace pixelroot32::input {
         return touchDispatcher.getTouchState(touchId);
     }
 
-    #ifdef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_SDL
     void InputManager::processSDLEvent(const void* sdlEvent) {
         const SDL_Event* e = static_cast<const SDL_Event*>(sdlEvent);
         
@@ -186,11 +186,11 @@ namespace pixelroot32::input {
                 break;
         }
     }
-    #endif
+    #endif  // PIXELROOT32_HAS_SDL
 
-    #ifndef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_ARDUINO
     void InputManager::injectTouchPoint(int16_t x, int16_t y, bool pressed, uint8_t id, uint32_t timestamp) {
         touchDispatcher.processTouch(id, pressed, x, y, timestamp);
     }
-    #endif
+    #endif  // PIXELROOT32_HAS_ARDUINO
 }

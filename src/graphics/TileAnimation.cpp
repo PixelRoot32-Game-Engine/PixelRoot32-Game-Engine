@@ -10,12 +10,9 @@
 
 #include <cstring>
 
-#if defined(PLATFORM_NATIVE)
-#include "platforms/mock/MockArduino.h"
-#else
-#include <Arduino.h>
-#endif
-
+// No Arduino include block here: platforms/EngineConfig.h above already picks
+// the real core or the SDL-backed mock, and stops the build when neither is
+// available. micros() and IRAM_ATTR come from there.
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
 #endif

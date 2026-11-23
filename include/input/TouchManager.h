@@ -8,10 +8,17 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// The adapters reached from here compile against the Arduino API, so this
+// header hands them the real core or the SDL-backed mock. Asking
+// PLATFORM_NATIVE sent the web build after <Arduino.h> and failed there.
+#if PIXELROOT32_HAS_ARDUINO
+    #include <Arduino.h>
+#elif PIXELROOT32_HAS_SDL
     #include <platforms/mock/MockArduino.h>
 #else
-    #include <Arduino.h>
+    #error "PixelRoot32 touch: this build has neither the Arduino core nor SDL2, so there is no millis() for the touch adapters."
 #endif
 
 #include <input/TouchPoint.h>

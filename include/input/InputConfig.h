@@ -9,6 +9,7 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
+#include "platforms/PlatformSelect.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -48,11 +49,16 @@ struct InputConfig {
     static_assert(MAX_INPUT_COUNT <= 16,
         "MAX_INPUT_COUNT must not exceed compile-time limits");
 
-#ifdef PLATFORM_NATIVE
-    /// Array of SDL scancodes for Native platform.
+// Scancodes and GPIO pins answer different questions: "can SDL hand me a
+// keyboard state array" and "is there a pin to read". A build can have both
+// (desktop), only the first (web) or only the second (board), so the host
+// identity does not answer either. The layout is a union of one array, so the
+// two questions stay mutually exclusive on purpose.
+#if PIXELROOT32_HAS_SDL
+    /// Array of SDL scancodes, for builds where SDL delivers keyboard state.
     std::array<uint8_t, MAX_INPUT_COUNT> buttonNames{};
 #else
-    /// Array of GPIO pin numbers for ESP32.
+    /// Array of GPIO pin numbers, for board builds.
     std::array<int, MAX_INPUT_COUNT> inputPins{};
 #endif
 
@@ -78,7 +84,7 @@ struct InputConfig {
 
         if constexpr (sizeof...(args) > 0) {
             size_t index = 0;
-#ifdef PLATFORM_NATIVE
+#if PIXELROOT32_HAS_SDL
             ((buttonNames[index++] = static_cast<uint8_t>(args)), ...);
 #else
             ((inputPins[index++] = static_cast<int>(args)), ...);

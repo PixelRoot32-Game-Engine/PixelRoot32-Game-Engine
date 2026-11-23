@@ -326,9 +326,9 @@ uint16_t XPT2046Adapter::readPressure() {
     return 100;  // Above threshold
 }
 
-#elif defined(PLATFORM_NATIVE)
+#elif PIXELROOT32_HAS_SDL
 
-// Native platform - use SDL mouse events as touch input
+// Desktop and web - use SDL mouse events as touch input
 // This allows testing without hardware
 
 bool XPT2046Adapter::initImpl() {

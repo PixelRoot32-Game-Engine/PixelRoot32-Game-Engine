@@ -14,10 +14,18 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// The SPI and GPIO paths are board code; desktop and web get the SDL-backed
+// mock instead (see the mouse-as-touch branch in XPT2046Adapter.cpp). Nothing
+// in between is supported, and this now says so instead of silently asking for
+// <Arduino.h>.
+#if PIXELROOT32_HAS_ARDUINO
+    #include <Arduino.h>
+#elif PIXELROOT32_HAS_SDL
     #include <platforms/mock/MockArduino.h>
 #else
-    #include <Arduino.h>
+    #error "PixelRoot32 touch: this build has neither the Arduino core nor SDL2."
 #endif
 
 #include <input/TouchAdapter.h>

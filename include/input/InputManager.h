@@ -9,10 +9,20 @@
  * This file remains licensed under the MIT License.
  */
 #pragma once
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// Whichever build this is, the header needs an Arduino-shaped API (pinMode,
+// digitalRead, INPUT_PULLUP) in some form: the real core, or the SDL-backed
+// mock. Asking PLATFORM_NATIVE instead left the web build requesting
+// <Arduino.h>, which no browser toolchain ships. A build with neither has
+// nothing to compile against, so it now says so instead of picking one by
+// elimination.
+#if PIXELROOT32_HAS_ARDUINO
+    #include <Arduino.h>
+#elif PIXELROOT32_HAS_SDL
     #include <platforms/mock/MockArduino.h>  // Defines SDL_MAIN_HANDLED before SDL.h
 #else
-    #include <Arduino.h>
+    #error "PixelRoot32 input: this build has neither the Arduino core nor SDL2, so there is no pinMode()/digitalRead() to compile against."
 #endif
 #include "InputConfig.h"
 #include "TouchEventDispatcher.h"
@@ -52,13 +62,17 @@ public:
      */
     void update(unsigned long dt, const uint8_t* keyboardState);
 
-#ifndef PLATFORM_NATIVE
+#if PIXELROOT32_HAS_ARDUINO
     /**
      * @brief Updates input state by polling hardware pins.
      * @param dt Delta time.
+     *
+     * Only a board build has pins to poll: the SDL mock's digitalRead() takes a
+     * pointer and answers from the keyboard state, so desktop and web use the
+     * keyboardState overload below instead.
      */
     void update(unsigned long dt);
-#endif
+#endif  // PIXELROOT32_HAS_ARDUINO
 
     /**
      * @brief Checks if a button was just pressed this frame.
@@ -113,7 +127,7 @@ public:
      */
     TouchState getTouchState(uint8_t touchId) const;
     
-    #ifdef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_SDL
     /**
      * @brief Process an SDL event (mouse/keyboard).
      * @param sdlEvent The SDL event to process.
@@ -124,9 +138,9 @@ public:
      * - SDL_KEYDOWN/SDL_KEYUP: Maps to button events (existing)
      */
     void processSDLEvent(const void* sdlEvent);
-    #endif
+    #endif  // PIXELROOT32_HAS_SDL
     
-    #ifndef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_ARDUINO
     /**
      * @brief Inject a raw touch point from external source (e.g., TouchManager).
      * @param point The touch point to inject.
@@ -135,7 +149,7 @@ public:
      * Used by ESP32 examples to connect TouchManager with InputManager.
      */
     void injectTouchPoint(int16_t x, int16_t y, bool pressed, uint8_t id, uint32_t timestamp);
-    #endif
+    #endif  // PIXELROOT32_HAS_ARDUINO
 
 private:
     InputConfig config;
@@ -151,9 +165,9 @@ private:
     // Touch event system
     TouchEventDispatcher touchDispatcher;  ///< Touch event state machine and queue.
     
-    #ifdef PLATFORM_NATIVE
-    bool mouseButtonDown;  ///< Track mouse button state for Native.
-    #endif
+    #if PIXELROOT32_HAS_SDL
+    bool mouseButtonDown;  ///< Track mouse button state for the mouse-to-touch path.
+    #endif  // PIXELROOT32_HAS_SDL
 };
 
 }
