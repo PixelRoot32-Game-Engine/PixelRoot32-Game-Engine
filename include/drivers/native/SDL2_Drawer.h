@@ -14,6 +14,7 @@
 #if PIXELROOT32_HAS_SDL
 
 #include "graphics/BaseDrawSurface.h"
+#include "drivers/native/WindowLayout.h"
 // SDL2 specific includes would go here
 #include <SDL2/SDL.h>
 #include <stdint.h>
@@ -77,7 +78,27 @@ public:
     }
 
     bool processEvents() override;
-    
+
+    /**
+     * @brief Enters or leaves borderless fullscreen at the desktop resolution.
+     *
+     * Also reachable from the keyboard: F11 or Alt+Enter toggles it while the
+     * window has focus. Fullscreen is desktop-sized, not a display mode change,
+     * so returning from it restores the resizable window where it was.
+     * @param fullscreen true to fill the display, false to return to the window.
+     */
+    void setFullscreen(bool fullscreen);
+
+    /**
+     * @brief Reports whether the window is currently borderless fullscreen.
+     */
+    bool isFullscreen() const;
+
+    /**
+     * @brief Toggles borderless fullscreen.
+     */
+    void toggleFullscreen();
+
     /**
      * @brief Set the TouchEventDispatcher to receive mouse events.
      * @param touchDispatcher Pointer to the Engine's TouchEventDispatcher.
@@ -104,7 +125,23 @@ private:
     pixelroot32::input::InputManager* inputManager;  ///< Legacy fallback
     bool sdlInitialized;  ///< True only while this drawer holds SDL_INIT_VIDEO
 
+    /// Placement of the physical area in drawable pixels: used for presentation.
+    WindowLayout presentLayout;
+    /// Placement of the physical area in window units: used for mouse mapping.
+    /// On a HiDPI screen these two differ (the drawable is larger than the
+    /// window), which is exactly why they are tracked separately.
+    WindowLayout inputLayout;
+    int drawableWidth;   ///< Renderer output width, cached to detect resizes
+    int drawableHeight;  ///< Renderer output height, cached to detect resizes
+    int windowWidth;     ///< Window width in window units, cached for the same reason
+    int windowHeight;    ///< Window height in window units
+
     void updateTexture();
+
+    ///
+    /// Recomputes both layouts when either coordinate space changed size
+    /// (resize, fullscreen toggle, move between displays with different DPI).
+    void refreshLayout();
 
     inline void rgb565ToRGBA(
         uint16_t color,
