@@ -110,10 +110,59 @@ public:
     /**
      * @brief Starts the main game loop.
      *
-     * Infinite loop: update() each iteration; draw() and present() only when the active
-     * scene's Scene::shouldRedrawFramebuffer() is true (always when PIXELROOT32_ENABLE_DEBUG_OVERLAY).
+     * On desktop and web this is an infinite loop of runFrame() until the window
+     * closes; draw() and present() happen only when the active scene's
+     * Scene::shouldRedrawFramebuffer() is true (always when
+     * PIXELROOT32_ENABLE_DEBUG_OVERLAY).
+     *
+     * On a board it is exactly one frame, because the Arduino loop() already
+     * calls it once per iteration: looping inside would freeze the sketch.
      */
     void run();
+
+    /**
+     * @brief Runs exactly one frame and returns.
+     *
+     * One frame is: platform events, then zero or more fixed simulation steps of
+     * FIXED_STEP_MS, then at most one draw and present. The steps are what make
+     * the physics independent of the frame rate -- a 144 Hz display and a 60 Hz
+     * one advance the simulation by the same increments, only in different
+     * groups.
+     *
+     * @return false when the window asked to close, true otherwise.
+     */
+    bool runFrame();
+
+    /**
+     * @brief Runs exactly one frame against a caller-supplied elapsed time.
+     * @param elapsedMs Real milliseconds this frame covers.
+     *
+     * For hosts that own the clock instead of the platform's millis(): a browser
+     * driving frames from requestAnimationFrame, or a test stepping time by
+     * hand. Same contract as runFrame().
+     */
+    bool runFrame(unsigned long elapsedMs);
+
+    /**
+     * @brief Length of one simulation step, in whole milliseconds.
+     *
+     * Scene::update() takes milliseconds, and 1000/60 has no exact whole-
+     * millisecond form: stepping 16.667 ms while handing the scene 16 ms would
+     * run the game 4% slow, and feeding it 16.667 would need a float delta the
+     * scene API does not speak. 16 ms is exact, so simulated time and real time
+     * stay equal. The resulting 62.5 Hz tick is fixed, which is the property the
+     * physics depends on.
+     */
+    static constexpr unsigned long FIXED_STEP_MS = 16;
+
+    /**
+     * @brief Ticks a single frame may catch up with.
+     *
+     * Three steps of backlog are absorbed; anything beyond that is dropped, so a
+     * long hitch costs one frame of slow motion instead of a burst of steps that
+     * makes the next frame slower still.
+     */
+    static constexpr unsigned long MAX_STEPS_PER_FRAME = 4;
 
     /**
      * @brief Gets the time elapsed since the last frame.
@@ -236,12 +285,12 @@ public:
     void setTouchManager(pixelroot32::input::TouchManager* touchManager);
     #endif
     
-    #ifdef PLATFORM_NATIVE
+    #if PIXELROOT32_HAS_SDL
     /**
      * @brief Connect InputManager to Drawer for mouse-to-touch mapping.
-     * @param inputManager Pointer to the InputManager.
-     * 
-     * Called automatically in init() for Native builds.
+     *
+     * Called automatically in init() for builds with SDL: the mapping only
+     * exists on the SDL drawer, so the capability and not the host decides.
      */
     void connectInputToDrawer();
     #endif
@@ -363,9 +412,27 @@ protected:
     /**
      * @brief Updates the game logic.
      * 
-     * Called once per frame. Updates the input manager and the current scene.
+     * The single-step path: measures the time really elapsed since the last call
+     * and advances input, networking and the current scene by that much. run()
+     * and runFrame() do not use it -- they own a fixed-step accumulator instead
+     * and call stepSimulation() per step -- so calling update() directly keeps
+     * the old variable-dt contract for tests and hosts driving their own loop.
      */
     void update();
+
+    /**
+     * @brief Advances input, networking, the scene and touch by one step.
+     * @param stepMs Length of the step, normally FIXED_STEP_MS.
+     */
+    void stepSimulation(unsigned long stepMs);
+
+    /**
+     * @brief Emits the once-per-second profiling heartbeat, when profiling is on.
+     */
+    void logHeartbeatIfDue();
+
+    unsigned long stepAccumulatorMs = 0; ///< Real time waiting to become whole steps.
+    unsigned long frameMillis = 0;       ///< Real length of the frame being processed (FPS metrics).
 
     /**
      * @brief Renders the current frame.
