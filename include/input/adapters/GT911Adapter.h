@@ -13,10 +13,17 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// Same choice as TouchManager.h: the real Arduino core, or the SDL-backed
+// mock on desktop and web. Nothing here reads a GPIO, but readImpl() stamps
+// points with millis() and the header is compiled for every build.
+#if PIXELROOT32_HAS_ARDUINO
+    #include <Arduino.h>
+#elif PIXELROOT32_HAS_SDL
     #include <platforms/mock/MockArduino.h>
 #else
-    #include <Arduino.h>
+    #error "PixelRoot32 touch: this build has neither the Arduino core nor SDL2."
 #endif
 
 #include <input/TouchAdapter.h>
