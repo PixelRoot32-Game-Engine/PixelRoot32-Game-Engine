@@ -10,6 +10,11 @@
  */
 #pragma once
 #include <cstddef>
+// Must be here, not inside the namespace below: a standard header included
+// inside pixelroot32::core makes it declare pixelroot32::core::std, and every
+// std::size_t after that point resolves to the nested namespace. Native builds
+// never noticed because <new> was already in the include graph by then.
+#include <new> // for placement new
 #include "physics/CollisionSystem.h"
 #include "physics/PhysicsScheduler.h"
 #include "Entity.h"
@@ -33,8 +38,6 @@ namespace pixelroot32 { namespace networking { struct NetEvent; } }
 #endif
 
 namespace pixelroot32::core {
-
-#include <new> // for placement new
 
 /**
  * @struct SceneArena
