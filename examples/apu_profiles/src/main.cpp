@@ -70,8 +70,13 @@
 #include <cstdint>
 #include <cstdio>
 
+#if PIXELROOT32_PLATFORM_WEB
+#include <emscripten.h>
+#endif
+
 #include <audio/AudioConfig.h>
 #include <audio/AudioEngine.h>
+#include <platforms/PlatformSelect.h>
 #include <pixelroot32/apu/ApuCore.h>
 #include <pixelroot32/apu/AudioMusicTypes.h>
 #include <pixelroot32/apu/AudioTypes.h>
@@ -1298,8 +1303,16 @@ void loop()
 int main()
 {
     setup();
+#if PIXELROOT32_PLATFORM_WEB
+    // A `while` here would never hand the thread back to the browser: the tab
+    // would stop compositing and no click would ever resume the AudioContext.
+    // loop() is one iteration of the harness, so requestAnimationFrame can own
+    // the repetition, exactly as Engine::run() does for the games.
+    emscripten_set_main_loop(loop, 0, 1);
+#else
     while (true) {
         loop();
     }
+#endif
 }
 #endif
