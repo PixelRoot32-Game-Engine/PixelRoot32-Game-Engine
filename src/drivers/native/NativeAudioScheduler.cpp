@@ -2,7 +2,9 @@
  * Copyright (c) 2026 PixelRoot32
  * Licensed under the MIT License
  */
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_PLATFORM_DESKTOP && PIXELROOT32_HAS_SDL
 
 #include "drivers/native/NativeAudioScheduler.h"
 #include "core/Log.h"
@@ -121,4 +123,4 @@ namespace pixelroot32::audio {
 
 } // namespace pixelroot32::audio
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_PLATFORM_DESKTOP && PIXELROOT32_HAS_SDL

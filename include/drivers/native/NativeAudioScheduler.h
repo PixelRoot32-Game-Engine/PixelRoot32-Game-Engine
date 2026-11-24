@@ -4,7 +4,12 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+// Desktop only: this scheduler exists to run ApuCore on a std::thread, which is
+// exactly what the web cannot do without -pthread (see the H4 decision). The web
+// target uses DefaultAudioScheduler, which synthesises in the audio callback.
+#if PIXELROOT32_PLATFORM_DESKTOP && PIXELROOT32_HAS_SDL
 
 #include "audio/AudioConfig.h"
 #include "audio/AudioScheduler.h"
@@ -79,4 +84,4 @@ namespace pixelroot32::audio {
 
 } // namespace pixelroot32::audio
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_PLATFORM_DESKTOP && PIXELROOT32_HAS_SDL
