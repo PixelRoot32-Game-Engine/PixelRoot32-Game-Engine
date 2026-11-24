@@ -4,7 +4,9 @@
  */
 #pragma once
 
-#ifdef PLATFORM_NATIVE
+#include "platforms/PlatformSelect.h"
+
+#if PIXELROOT32_HAS_SDL
 
 #include "audio/AudioBackend.h"
 #include <core/Log.h>
@@ -41,4 +43,4 @@ namespace pixelroot32::drivers::native {
 
 }
 
-#endif // PLATFORM_NATIVE
+#endif // PIXELROOT32_HAS_SDL

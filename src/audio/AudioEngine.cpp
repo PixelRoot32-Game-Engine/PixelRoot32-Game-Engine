@@ -3,11 +3,15 @@
  * Licensed under the MIT License
  */
 #include "audio/AudioEngine.h"
+#include "platforms/PlatformSelect.h"
 #include "core/Log.h"
 #include <pixelroot32/apu/ApuConfig.h>
-#ifdef ESP32
+// The threaded scheduler is a desktop facility, not a side effect of "has SDL":
+// the browser has no std::thread without -pthread (H4), so the web target must
+// stay on the backend-driven DefaultAudioScheduler below.
+#if PIXELROOT32_PLATFORM_ESP32
 #include "drivers/esp32/ESP32AudioScheduler.h"
-#elif defined(PLATFORM_NATIVE)
+#elif PIXELROOT32_PLATFORM_DESKTOP && PIXELROOT32_HAS_SDL
 #include "drivers/native/NativeAudioScheduler.h"
 #endif
 #include <cstring>
@@ -20,11 +24,15 @@ namespace pixelroot32::audio {
 
     AudioEngine::AudioEngine(const AudioConfig& config, const platforms::PlatformCapabilities& caps) 
         : config(config), capabilities(caps) {
-        #ifdef ESP32
+        #if PIXELROOT32_PLATFORM_ESP32
                 scheduler = std::unique_ptr<ESP32AudioScheduler>(new ESP32AudioScheduler(caps.audioCoreId, caps.audioPriority));
-        #elif defined(PLATFORM_NATIVE) && !defined(UNIT_TEST)
+        #elif PIXELROOT32_PLATFORM_DESKTOP && !defined(UNIT_TEST)
                 scheduler = std::unique_ptr<NativeAudioScheduler>(new NativeAudioScheduler());
         #else
+                // Web (and unit tests): synthesis runs inside the audio callback,
+                // which is what a browser can do without SharedArrayBuffer. Emscripten's
+                // SDL2 audio backend resumes the AudioContext on the first keydown,
+                // mousedown or touchstart, so no separate unlock hook is needed here.
                 scheduler = std::unique_ptr<DefaultAudioScheduler>(new DefaultAudioScheduler());
         #endif
     }
