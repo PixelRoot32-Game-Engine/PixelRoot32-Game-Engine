@@ -18,6 +18,10 @@
 #include <cstring>
 #include <cassert>
 
+#if PIXELROOT32_PLATFORM_WEB
+#include <emscripten.h>
+#endif
+
 #if PIXELROOT32_ENABLE_NETWORKING
 #include "networking/NetSession.h"
 #include "networking/NetTypes.h"
@@ -210,9 +214,16 @@ namespace pixelroot32::core {
     }
 
     void Engine::run() {
-        #if PIXELROOT32_HAS_SDL
-            // Desktop and web own the loop here: keep going until the window
-            // closes.
+        #if PIXELROOT32_PLATFORM_WEB
+            // The browser must never block the main thread: a `while` here would
+            // freeze the tab (no compositing, no input, no rAF). runFrame() already
+            // does exactly one frame, so hand it to requestAnimationFrame and
+            // return; the loop is driven by the browser from here on.
+            emscripten_set_main_loop_arg(
+                [](void* arg) { static_cast<Engine*>(arg)->runFrame(); },
+                this, 0, 1);
+        #elif PIXELROOT32_HAS_SDL
+            // Desktop owns the loop here: keep going until the window closes.
             while (runFrame()) {
             }
         #else
