@@ -178,6 +178,23 @@ lib_deps =
 
 PlatformIO will automatically download and install the library and its dependencies during the next build — including the shared [PixelRoot32-APU](https://registry.platformio.org/libraries/gperez88/PixelRoot32-APU) synthesis core (also used by the PixelRoot32 Tool Suite).
 
+### 📦 Installation (via CMake)
+
+The desktop build is also an installable CMake package, which is what a game shipped as its own CMake project — or packaged as an `.app` or an AppImage — needs:
+
+```bash
+cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<prefix>
+cmake --build build/cmake
+cmake --install build/cmake
+```
+
+```cmake
+find_package(PixelRoot32 REQUIRED)
+target_link_libraries(your_game PRIVATE PixelRoot32::Engine)
+```
+
+The same `PIXELROOT32_ENABLE_*` switches are `option()`s here, with the defaults the headers already declare, so `-DPIXELROOT32_ENABLE_AUDIO=OFF` is the CMake spelling of `-D PIXELROOT32_ENABLE_AUDIO=0`. SDL2 is required (it must ship its CMake config package — Homebrew, `libsdl2-dev` and MSYS2 all do), and PixelRoot32-APU is fetched at a pinned tag, which `-DPIXELROOT32_APU_TAG=` overrides. [`tools/cmake_consumer`](tools/cmake_consumer/) is a worked example of a consumer and the acceptance test for the package; [`.github/workflows/cmake.yml`](.github/workflows/cmake.yml) builds it against a fresh install on Linux and macOS. Firmware keeps building with PlatformIO: CMake packages the desktop target only.
+
 ### Fast Setup
 
 1. **Clone this repository** and open an example under [`examples/`](examples/):

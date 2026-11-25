@@ -49,6 +49,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_TFT_12BIT_COLOR` | Send frames as 12-bit RGB444 (2 pixels per 3 bytes) instead of RGB565. Experimental. | `0` |
 | `PIXELROOT32_DEBUG_MODE` | Enable unified logging system. | Disabled |
 
+> **CMake:** the desktop build exposes exactly these macros as `option()`s of the same name, with the defaults in this table, and exports the non-default ones as compile definitions on `PixelRoot32::Engine` — so a consumer compiles the same branches the library was built with. `PIXELROOT32_ENABLE_SD_STORAGE` is not among them: it is ESP32-only, and firmware configuration belongs to `platformio.ini`. See [Installation via CMake](../../README.md#-installation-via-cmake).
+
 ### TFT_eSPI Display Flags
 
 > **Note:** `PIXELROOT32_TFT_12BIT_COLOR=1` is **experimental and not yet verified on hardware**. It cuts 25% of the SPI bus time per frame and shrinks each DMA line buffer by 25%, and the driver silently keeps RGB565 when `PHYSICAL_DISPLAY_WIDTH` is not a multiple of 4. See [12-bit Color on the Wire (RGB444)](../guide/performance/esp32-performance.md#12-bit-color-on-the-wire-rgb444) for the bandwidth math, the width constraint and the memory trade-off.
