@@ -1,0 +1,145 @@
+name: cmake
+
+# `install()` and `find_package()` are claims about a prefix, not about a build
+# directory, and a claim nobody configures rots fast: the header list, the
+# export set and the APU headers a consumer needs are exactly the kind of thing
+# that keeps working on the machine where it was written.
+#
+# This job answers that on a clean runner: configure, build, install into an
+# empty prefix, then build a project that lives outside the engine's tree and
+# whose only input is `CMAKE_PREFIX_PATH`. It deliberately does not run a game —
+# the consumer never calls Engine::init(), so no window is opened and no SDL
+# video driver is needed.
+#
+# It also builds a second time with flags switched off, which is the half a
+# default build cannot check: `PIXELROOT32_ENABLE_*` values have to reach the
+# exported interface (a consumer compiles the same branches as the library) and
+# a default configure has to emit no macros at all, so the headers stay the
+# single place that decides what "default" means.
+#
+# Windows is absent on purpose: `native-multiplatform.yml` covers the PlatformIO
+# build there, and the CMake path would need the same SDL2 MinGW tarball dance
+# plus a MinGW generator choice. Adding it is a follow-up, not a silent gap.
+#
+# TRACKER BRANCH — same note as the other workflows: feat/sdl2-multiplatform is
+# the long-lived tracker, chained pull requests target it, and nothing reaches
+# develop until the port lands. Remove it from both filters in the pull request
+# that merges the tracker into develop.
+
+on:
+  push:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  pull_request:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install_and_consume:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The engine resolves SDL2 through its CMake config package, which both
+      # the distribution package and Homebrew ship.
+      - name: Install SDL2
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install sdl2
+          else
+            sudo apt-get update
+            sudo apt-get install -y libsdl2-dev
+          fi
+
+      - name: Configure, build and install
+        run: |
+          cmake -S . -B build/cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/prefix"
+          cmake --build build/cmake --parallel
+          cmake --install build/cmake
+
+      # Everything a consumer needs, and nothing a consumer must not get.
+      - name: The installed tree is complete
+        run: |
+          set -eu
+          prefix=build/prefix
+          for file in \
+            lib/cmake/PixelRoot32/PixelRoot32Config.cmake \
+            lib/cmake/PixelRoot32/PixelRoot32ConfigVersion.cmake \
+            lib/cmake/PixelRoot32/PixelRoot32Targets.cmake \
+            include/core/Engine.h \
+            include/platforms/EngineConfig.h \
+            include/pixelroot32/apu/ApuCore.h
+          do
+            test -f "$prefix/$file" || { echo "::error::missing $file in the install tree"; exit 1; }
+          done
+          if [ -d "$prefix/include/test" ]; then
+            echo "::error::the unit-test harness headers were installed; include/test is not API"
+            exit 1
+          fi
+          for lib in libPixelRoot32.a; do
+            test -f "$prefix/lib/$lib" || { echo "::error::missing $lib"; exit 1; }
+          done
+
+      # The acceptance test: a separate project, a separate build directory, no
+      # source path in common with this checkout.
+      - name: Build the out-of-tree consumer
+        run: |
+          cmake -S tools/cmake_consumer -B build/consumer \
+            -DCMAKE_PREFIX_PATH="$PWD/build/prefix"
+          cmake --build build/consumer --parallel
+
+      - name: Run the consumer
+        run: |
+          set -eu
+          output=$(./build/consumer/pr32_cmake_consumer)
+          echo "$output"
+          echo "$output" | grep -q "via find_package" || { echo "::error::the consumer did not report the package version"; exit 1; }
+          echo "$output" | grep -q "sdl2 linked" || { echo "::error::SDL2 did not arrive through the package"; exit 1; }
+
+      # Flags off is the configuration the default build cannot reach: it proves
+      # the engine still builds without audio/physics/UI, and that the choice is
+      # visible in the export rather than only in the library.
+      - name: A non-default configure reaches the package
+        run: |
+          set -eu
+          cmake -S . -B build/cmake-off \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/prefix-off" \
+            -DPIXELROOT32_ENABLE_AUDIO=OFF \
+            -DPIXELROOT32_ENABLE_PHYSICS=OFF \
+            -DPIXELROOT32_ENABLE_UI_SYSTEM=OFF \
+            -DPIXELROOT32_ENABLE_PARTICLES=OFF \
+            -DPIXELROOT32_ENABLE_PERSISTENCE=ON
+          cmake --build build/cmake-off --parallel
+          cmake --install build/cmake-off
+
+          off=build/prefix-off/lib/cmake/PixelRoot32/PixelRoot32Targets.cmake
+          grep -q 'PIXELROOT32_ENABLE_AUDIO=0' "$off" || { echo "::error::PIXELROOT32_ENABLE_AUDIO=0 did not reach the exported interface"; exit 1; }
+          grep -q 'PIXELROOT32_ENABLE_PHYSICS=0' "$off" || { echo "::error::PIXELROOT32_ENABLE_PHYSICS=0 did not reach the exported interface"; exit 1; }
+          grep -q 'PIXELROOT32_ENABLE_PERSISTENCE=1' "$off" || { echo "::error::PIXELROOT32_ENABLE_PERSISTENCE=1 did not reach the exported interface"; exit 1; }
+
+      # And the other direction: a default configure must emit no flag at all,
+      # so a new default in the headers is never shadowed by a stale copy here.
+      - name: A default configure emits no flag macros
+        run: |
+          set -eu
+          targets=build/prefix/lib/cmake/PixelRoot32/PixelRoot32Targets.cmake
+          if grep -q 'PIXELROOT32_ENABLE_' "$targets"; then
+            echo "::error::a default configure exported PIXELROOT32_ENABLE_* macros; only non-default values may be emitted"
+            grep 'PIXELROOT32_ENABLE_' "$targets"
+            exit 1
+          fi
+          grep -q 'PLATFORM_NATIVE' "$targets" || { echo "::error::PLATFORM_NATIVE is not exported"; exit 1; }
