@@ -44,6 +44,7 @@ Capability — independent of identity:
 
 - `PIXELROOT32_HAS_SDL`: SDL2 is available (desktop and web).
 - `PIXELROOT32_HAS_ARDUINO`: the Arduino API is available (probed from `ARDUINO`, so it is true only where `<Arduino.h>` really exists).
+- `PIXELROOT32_HAS_HOST_FS`: a file system with `fopen`/`stat`/`rename` is available (desktop, and the web through Emscripten's virtual FS). It answers "may a file adapter run here?", not "is this a PC".
 
 Because the identity macros are always defined, test their value rather than their existence: `#ifdef PIXELROOT32_PLATFORM_ESP32` is true even on desktop.
 

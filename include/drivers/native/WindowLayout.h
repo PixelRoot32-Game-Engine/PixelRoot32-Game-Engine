@@ -158,6 +158,34 @@ inline WindowRect framebufferRect(const WindowLayout& layout,
 }
 
 /**
+ * @brief Converts a normalised pointer position to window units.
+ *
+ * SDL delivers mouse events in window units but finger events in 0..1 across
+ * the window (`SDL_TouchFingerEvent`). Folding that one difference here keeps a
+ * single inverse mapping (mapToFramebuffer) for both input paths, so a finger
+ * and a click at the same place land on the same framebuffer pixel.
+ *
+ * The result is clamped to the window: a finger at 1.0 (the right edge) would
+ * otherwise index one past the last pixel, and a malformed value would be
+ * undefined behaviour after the float-to-int conversion.
+ */
+inline void normalizedToWindow(float normalizedX, float normalizedY,
+                               int windowWidth, int windowHeight,
+                               int& outX, int& outY) {
+    if (windowWidth <= 0 || windowHeight <= 0 || !std::isfinite(normalizedX) ||
+        !std::isfinite(normalizedY)) {
+        outX = 0;
+        outY = 0;
+        return;
+    }
+
+    outX = std::clamp(static_cast<int>(std::floor(normalizedX * static_cast<float>(windowWidth))),
+                      0, windowWidth - 1);
+    outY = std::clamp(static_cast<int>(std::floor(normalizedY * static_cast<float>(windowHeight))),
+                      0, windowHeight - 1);
+}
+
+/**
  * @brief Maps a window point back to framebuffer coordinates.
  *
  * The inverse of `framebufferRect`. Points outside the framebuffer (the

@@ -51,6 +51,7 @@ write reached the medium.
 | **`native`** | SDL2 window, 240×240 logical size. Records become files under `save_data/`. |
 | **`esp32dev`** | **ST7789** TFT 240×240, TFT_eSPI-style pin defines in `platformio.ini`. Records go to NVS. A is **GPIO 13**. |
 | **`esp32sd`** | Opt-in microSD build (`PIXELROOT32_ENABLE_SD_STORAGE=1`) for the CYD (ESP32-2432S028R): **ILI9341_2** 240×320 on HSPI, A is the **BOOT** button (GPIO 0). Settings stay in NVS while save slots move to a FAT32 card at `/pr32demo/save/<i>.slot`. |
+| **web (`em++`)** | Emscripten build of `env:native`: same stores and same `save_data/` tree, inside the IDBFS mount at `/pr32-persist` and flushed to IndexedDB. Link with `-lidbfs.js`. A tap on the canvas saves, exactly like A. |
 
 ## Controls
 
@@ -138,6 +139,26 @@ The paths are relative to the working directory the binary runs from. From
 `examples/persistence/save_data/`. Every write goes to a temporary file and is
 moved into place, so a crash leaves the old file or the new one, never a mix.
 `commit()` returns `Ok` here because each set is already flushed and in place.
+
+### Web: the same tree, in IndexedDB
+
+The browser build runs this example unchanged. `initPersistentStorage()` mounts
+IDBFS at `/pr32-persist` and makes it the working directory, so
+`save_data/mygame/cfg.kv` and `save_data/save/0.slot` are exactly those paths
+inside the mount. Two differences from a PC:
+
+- The saved data arrives **asynchronously** from IndexedDB, after `main()` has
+  already run the engine, so the scene waits for `isStorageReady()` before
+  reading and shows `loading saved data` until then. Reading earlier would see
+  an empty tree and treat a real save as missing.
+- `fsync()` does nothing there; durability comes from `FS.syncfs()`, which the
+  scene requests after every save and which the lifecycle hooks request when the
+  tab is hidden or closed.
+
+To try it: build the example with `em++` (see the engine's web build recipe),
+link with `-lidbfs.js`, press A or tap the canvas once, then reload the page.
+The boot lines change from `settings_load,NotFound` to `settings_load,Ok` with
+`volume=9` (and so on), which is a save that outlived the page.
 
 ### ESP32 (default env): NVS
 

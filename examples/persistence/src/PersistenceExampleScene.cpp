@@ -6,6 +6,10 @@
 #include <core/Engine.h>
 #include <input/InputManager.h>
 
+#if PIXELROOT32_PLATFORM_WEB
+#include <platforms/WebStorage.h>
+#endif
+
 namespace pr32 = pixelroot32;
 
 extern pr32::core::Engine engine;
@@ -67,12 +71,13 @@ void logLine(const char* format, ...) {
     std::vsnprintf(line, sizeof(line), format, args);
     va_end(args);
 
-#if defined(PLATFORM_NATIVE)
+#if PIXELROOT32_PLATFORM_ESP32
+    Serial.println(line);
+#else
+    // Desktop and web: stdout. In the browser it is the console the page shows.
     std::fputs(line, stdout);
     std::fputc('\n', stdout);
     std::fflush(stdout);
-#else
-    Serial.println(line);
 #endif
 }
 
@@ -83,8 +88,10 @@ uint16_t readU16(const uint8_t* bytes) {
 }  // namespace
 
 void PersistenceExampleScene::loadOrUseDefaults() {
-#if defined(ESP32)
+#if PIXELROOT32_PLATFORM_ESP32
     logLine("PERSIST,platform,esp32");
+#elif PIXELROOT32_PLATFORM_WEB
+    logLine("PERSIST,platform,web");
 #else
     logLine("PERSIST,platform,native");
 #endif
@@ -289,6 +296,14 @@ void PersistenceExampleScene::saveOnInput() {
     } else {
         logLine("PERSIST,save,slot_reload,%s", resultName(slotReload));
     }
+
+#if PIXELROOT32_PLATFORM_WEB
+    // IndexedDB gets the write now instead of waiting for the tab to be hidden.
+    // Reloading the page is the whole point of this example, and a save that
+    // only reaches storage on unload cannot be checked by the player.
+    pr32::platforms::web::flushPersistentStorage();
+    logLine("PERSIST,save,flush,requested");
+#endif
 }
 
 void PersistenceExampleScene::init() {
@@ -300,13 +315,57 @@ void PersistenceExampleScene::init() {
     level_ = 1;
     presses_ = 0;
     lastResult_ = "none";
+    ready_ = false;
+
+#if PIXELROOT32_PLATFORM_WEB
+    // The records are still in IndexedDB at this point: update() reads them
+    // once the browser has handed them over (see isStorageReady()).
+    if (!pr32::platforms::web::isStorageReady()) {
+        return;
+    }
+#endif
 
     loadOrUseDefaults();
+    ready_ = true;
     logLine("PERSIST,ready,input=A");
+}
+
+void PersistenceExampleScene::processTouchEvents(pr32::input::TouchEvent* events,
+                                                uint8_t count) {
+    // A tap does what A does. The web build turns the pointer into touch points
+    // (PIXELROOT32_ENABLE_TOUCH defaults to 1 there), so this is the only input
+    // a player with no keyboard has -- and it is also the cheapest proof from
+    // outside that mouse-to-touch maps onto the framebuffer.
+    if (ready_) {
+        for (uint8_t i = 0; i < count; ++i) {
+            if (static_cast<pr32::input::TouchEventType>(events[i].type) ==
+                pr32::input::TouchEventType::TouchDown) {
+                saveOnInput();
+                break;  // One write per frame, not one per finger.
+            }
+        }
+    }
+    Scene::processTouchEvents(events, count);
 }
 
 void PersistenceExampleScene::update(unsigned long deltaTime) {
     Scene::update(deltaTime);
+
+#if PIXELROOT32_PLATFORM_WEB
+    if (!ready_) {
+        // IndexedDB hands the saved data over after main() runs, and the engine
+        // sets this scene before the first frame. Reading now would find an
+        // empty tree and treat a real save as missing, so the load waits here
+        // and draw() shows why the screen is idle.
+        if (!pr32::platforms::web::isStorageReady()) {
+            return;
+        }
+        loadOrUseDefaults();
+        ready_ = true;
+        logLine("PERSIST,ready,input=A");
+        return;
+    }
+#endif
 
     if (engine.getInputManager().isButtonPressed(kButtonConfirm)) {
         saveOnInput();
@@ -321,6 +380,11 @@ void PersistenceExampleScene::draw(gfx::Renderer& renderer) {
 
     renderer.drawText("Persistence", 4, 4, gfx::Color::Cyan, 1);
 
+    if (!ready_) {
+        renderer.drawText("loading saved data", 4, 24, gfx::Color::Yellow, 1);
+        return;
+    }
+
     char line[48];
     std::snprintf(line, sizeof(line), "volume %u  brightness %u", unsigned(volume_),
                   unsigned(brightness_));
@@ -333,7 +397,7 @@ void PersistenceExampleScene::draw(gfx::Renderer& renderer) {
                   unsigned(level_), unsigned(presses_));
     renderer.drawText(line, 4, 52, gfx::Color::White, 1);
 
-    renderer.drawText("A: change + save", 4, 74, gfx::Color::Yellow, 1);
+    renderer.drawText("A or tap: save", 4, 74, gfx::Color::Yellow, 1);
     std::snprintf(line, sizeof(line), "last write %s", lastResult_);
     renderer.drawText(line, 4, 88, gfx::Color::Gray, 1);
     renderer.drawText("Restart to reload", 4, 104, gfx::Color::Gray, 1);

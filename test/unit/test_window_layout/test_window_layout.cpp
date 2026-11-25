@@ -21,6 +21,7 @@ using pixelroot32::drivers::native::defaultWindowScale;
 using pixelroot32::drivers::native::fitWindowLayout;
 using pixelroot32::drivers::native::framebufferRect;
 using pixelroot32::drivers::native::mapToFramebuffer;
+using pixelroot32::drivers::native::normalizedToWindow;
 using pixelroot32::drivers::native::kFallbackWindowScale;
 using pixelroot32::drivers::native::kMaxDefaultWindowScale;
 
@@ -160,6 +161,60 @@ void test_unknown_display_keeps_the_historic_window_size(void) {
     TEST_ASSERT_EQUAL_INT(kFallbackWindowScale, defaultWindowScale(240, 240, 0, 0));
 }
 
+// =============================================================================
+// 11. Finger events arrive in 0..1 across the window while mouse events arrive
+//     in window units; the normalising step has to land both on the same pixel.
+// =============================================================================
+void test_finger_position_matches_the_mouse_position(void) {
+    int fingerX = 0;
+    int fingerY = 0;
+    normalizedToWindow(0.5f, 0.25f, 480, 480, fingerX, fingerY);
+    TEST_ASSERT_EQUAL_INT(240, fingerX);
+    TEST_ASSERT_EQUAL_INT(120, fingerY);
+
+    // 0.5 of a 240x240 panel in a 2x window is framebuffer pixel 120: the same
+    // result the mouse produces for window point (240, 120).
+    const WindowLayout layout = fitWindowLayout(480, 480, 240, 240);
+    int mouseX = 0;
+    int mouseY = 0;
+    mapToFramebuffer(layout, 240, 120, 0, 0, 240, 240, mouseX, mouseY);
+
+    int fromFingerX = 0;
+    int fromFingerY = 0;
+    mapToFramebuffer(layout, fingerX, fingerY, 0, 0, 240, 240, fromFingerX, fromFingerY);
+    TEST_ASSERT_EQUAL_INT(mouseX, fromFingerX);
+    TEST_ASSERT_EQUAL_INT(mouseY, fromFingerY);
+
+    // The panel origin is the top-left inner pixel, not the centre of it.
+    normalizedToWindow(0.0f, 0.0f, 480, 480, fingerX, fingerY);
+    TEST_ASSERT_EQUAL_INT(0, fingerX);
+    TEST_ASSERT_EQUAL_INT(0, fingerY);
+
+    // A finger lifted exactly at the edge reports 1.0, which is one past the
+    // last window pixel and would read outside the drawable.
+    normalizedToWindow(1.0f, 1.0f, 480, 480, fingerX, fingerY);
+    TEST_ASSERT_EQUAL_INT(479, fingerX);
+    TEST_ASSERT_EQUAL_INT(479, fingerY);
+}
+
+// =============================================================================
+// 12. A window that reports no size, or a broken event, still yields a point.
+// =============================================================================
+void test_invalid_finger_input_yields_the_origin(void) {
+    int x = -1;
+    int y = -1;
+
+    normalizedToWindow(0.5f, 0.5f, 0, 480, x, y);
+    TEST_ASSERT_EQUAL_INT(0, x);
+    TEST_ASSERT_EQUAL_INT(0, y);
+
+    x = -1;
+    y = -1;
+    normalizedToWindow(-1.0f, -1.0f, 480, 480, x, y);
+    TEST_ASSERT_EQUAL_INT(0, x);
+    TEST_ASSERT_EQUAL_INT(0, y);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -174,5 +229,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_clicks_outside_the_surface_are_clamped);
     RUN_TEST(test_default_window_scale_follows_the_display);
     RUN_TEST(test_unknown_display_keeps_the_historic_window_size);
+    RUN_TEST(test_finger_position_matches_the_mouse_position);
+    RUN_TEST(test_invalid_finger_input_yields_the_origin);
     return UNITY_END();
 }

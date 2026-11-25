@@ -120,7 +120,45 @@ void setupPersistence() {
 
 The game code that saves and loads is the same as on the ESP32; only the
 store construction differs. A game that builds for both picks the adapter with
-`#ifdef ESP32` / `#ifdef PLATFORM_NATIVE` around the store definitions.
+`#if PIXELROOT32_PLATFORM_ESP32` / `#elif PIXELROOT32_PLATFORM_DESKTOP ||
+PIXELROOT32_PLATFORM_WEB` around the store definitions.
+
+### Web builds: the same files, flushed to IndexedDB
+
+The browser has a real file system (Emscripten's MEMFS) and no disk, so the
+guest above works there unchanged: same stores, same relative roots, same
+`StoreResult` values. What it does not have on its own is durability, and that
+is what `platforms/WebStorage.h` adds.
+
+```cpp
+#include "platforms/WebStorage.h"
+
+int main() {
+    // Mounts IDBFS at /pr32-persist and makes it the working directory, so
+    // "save_data" lands inside it. Starts loading what IndexedDB holds.
+    pixelroot32::platforms::web::initPersistentStorage();
+
+    engine.init();
+    engine.setScene(&scene);   // Scene::init() must not read the records yet
+    engine.run();
+    return 0;
+}
+```
+
+- **The load is asynchronous.** It finishes after `main()` has returned to the
+  browser, so read the records only once `isStorageReady()` is true (poll it
+  from the first frames). A scene that reads in `init()` would find an empty
+  tree and could write defaults over a save that exists. A game that ignores the
+  check still runs; it just loses the first load.
+- **Flushing is explicit.** `flushPersistentStorage()` is already wired to
+  `visibilitychange` (hidden) and `beforeunload`; call it by hand after a save
+  the player must not lose. `fsync()` is a no-op on the web for the same reason:
+  the durable step is `FS.syncfs()`, not the file close.
+- **Link with `-lidbfs.js`.** Without it there is no `IDBFS` in the build, the
+  mount fails with one console warning, and everything else runs with no
+  persistence rather than failing to start.
+- Only `PIXELROOT32_ENABLE_PERSISTENCE=1` builds include any of this; the module
+  adds nothing to a game that never saves.
 
 ## Results and keys (`StoreTypes.h`)
 
@@ -322,7 +360,7 @@ public:
   strings must stay valid until `init()` has run; the slot prefix must outlive
   the slot store. String literals are the intended use.
 
-### `HostFileKeyValueStore` and `HostFileSlotStore` (native)
+### `HostFileKeyValueStore` and `HostFileSlotStore` (host file systems)
 
 ```cpp
 inline constexpr size_t kHostFileMaxPathBytes = 260;
@@ -348,7 +386,8 @@ public:
 };
 ```
 
-- Guarded by `PLATFORM_NATIVE`. Files live in `<rootDir>/<nameSpace>/` or
+- Guarded by `PIXELROOT32_HAS_HOST_FS`: desktop, and the web through
+  Emscripten's file system. Files live in `<rootDir>/<nameSpace>/` or
   `<rootDir>/<prefix>/`; `init()` creates the directory and its parents.
 - `init()` answers `InvalidArgument` for a null or empty root, a zero maximum,
   zero slots or a root too long for `kHostFileMaxPathBytes`; `InvalidKey` for
@@ -501,7 +540,8 @@ public:
 | `include/drivers/esp32/Esp32NvsStore.h` | `Esp32NvsKeyValueStore`, `Esp32NvsSlotStore`, `kNvsDefaultPartition` (guarded by `ESP32`) |
 | `include/drivers/esp32/SdConfig.h` | `SdConfig`, `kSdDefaultFrequencyHz` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
 | `include/drivers/esp32/SdStore.h` | `SdSlotStore`, `kSdMaxPathBytes` (guarded by `ESP32` + `PIXELROOT32_ENABLE_SD_STORAGE`) |
-| `include/drivers/native/HostFileStore.h` | `HostFileKeyValueStore`, `HostFileSlotStore`, path limits (guarded by `PLATFORM_NATIVE`) |
+| `include/drivers/native/HostFileStore.h` | `HostFileKeyValueStore`, `HostFileSlotStore`, path limits (guarded by `PIXELROOT32_HAS_HOST_FS`) |
+| `include/platforms/WebStorage.h` | Web only: mounts IDBFS, waits for the saved data, flushes to IndexedDB (`PIXELROOT32_PLATFORM_WEB`) |
 
 The headers are the source of truth for signatures and exact wording.
 

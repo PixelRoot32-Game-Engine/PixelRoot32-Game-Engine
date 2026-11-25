@@ -112,9 +112,20 @@
  * @brief Enable touch input system.
  * 
  * Engine processes touch events automatically and sends them to the current scene.
+ *
+ * Default 1 on the web and 0 everywhere else. A browser has no mouse-only
+ * players to preserve: its pointer is a mouse or a finger, both of which the
+ * touch pipeline already turns into touch points, so leaving it at 0 there
+ * means the pointer reaches nothing but the legacy InputManager mouse state.
+ * A web game that wants the raw mouse back builds with
+ * -D PIXELROOT32_ENABLE_TOUCH=0.
  */
 #ifndef PIXELROOT32_ENABLE_TOUCH
-#define PIXELROOT32_ENABLE_TOUCH 0
+    #if PIXELROOT32_PLATFORM_WEB
+        #define PIXELROOT32_ENABLE_TOUCH 1
+    #else
+        #define PIXELROOT32_ENABLE_TOUCH 0
+    #endif
 #endif
 
 // =============================================================================

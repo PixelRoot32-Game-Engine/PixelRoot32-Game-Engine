@@ -4,7 +4,7 @@
  */
 #include "platforms/EngineConfig.h"
 
-#if PIXELROOT32_ENABLE_PERSISTENCE && defined(PLATFORM_NATIVE)
+#if PIXELROOT32_ENABLE_PERSISTENCE && PIXELROOT32_HAS_HOST_FS
 
 #include "drivers/native/HostFileStore.h"
 
@@ -154,7 +154,14 @@ StoreResult readAndClose(FILE* file, uint8_t* out, size_t size) {
 }
 
 bool syncToDisk(FILE* file) {
-#if defined(_WIN32)
+#if PIXELROOT32_PLATFORM_WEB
+    // The browser has no fsync to give: its FS lives in memory, and what makes
+    // a write durable is flushPersistentStorage() (FS.syncfs to IndexedDB).
+    // Reporting failure here would turn every save into IoError on the web for
+    // a guarantee this platform keeps somewhere else.
+    (void)file;
+    return true;
+#elif defined(_WIN32)
     return _commit(_fileno(file)) == 0;
 #else
     return fsync(fileno(file)) == 0;
@@ -565,4 +572,4 @@ StoreResult HostFileSlotStore::erase(uint16_t slot) {
 
 }  // namespace pixelroot32::persistence
 
-#endif  // PIXELROOT32_ENABLE_PERSISTENCE && defined(PLATFORM_NATIVE)
+#endif  // PIXELROOT32_ENABLE_PERSISTENCE && PIXELROOT32_HAS_HOST_FS
