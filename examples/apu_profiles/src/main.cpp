@@ -1289,7 +1289,13 @@ void loop()
     }
 
     checkBackendLiveness();
+#if !PIXELROOT32_PLATFORM_WEB
+    // Web: requestAnimationFrame already hands the thread back to the browser
+    // between iterations, and SDL_Delay() is no sleep here -- SDL only sleeps
+    // through emscripten_sleep(), which needs Asyncify, so it busy-waits on
+    // SDL_GetTicks64() and holds the main thread for 2 ms per frame.
     delay(2);
+#endif
 }
 
 #if defined(PLATFORM_NATIVE)
