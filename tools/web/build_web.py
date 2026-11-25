@@ -36,7 +36,13 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPILER = os.environ.get("PR32_EMXX", "em++")
 
 # Appended to every translation unit, after the database's own flags.
-BASE_COMPILE_FLAGS: tuple[str, ...] = ()
+#
+# `-sUSE_SDL=2` belongs on the compile line as well as on the link: it is what
+# makes em++ install the SDL2 port's headers into its sysroot, and without it a
+# fresh emsdk cannot resolve `#include <SDL2/SDL.h>`. Leaving it only on the link
+# worked on the machine the port was developed on, whose cache already held the
+# port, and failed on a clean CI runner -- which is how it was found.
+BASE_COMPILE_FLAGS: tuple[str, ...] = ("-sUSE_SDL=2",)
 
 # The link line: the objects above plus these. `-sUSE_SDL=2` is the SDL2 port
 # that replaces the host SDK; `-sALLOW_MEMORY_GROWTH` keeps a 240x240 game with
