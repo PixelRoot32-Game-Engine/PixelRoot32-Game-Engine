@@ -1,0 +1,145 @@
+name: web
+
+# The web build was the last piece of this port that existed on one machine
+# only: `build/web_engine/build_web.py`, which `.gitignore` hides under `build/`,
+# plus a hand-typed `em++` line. Phase 5 asks for a "reproducible web build", and
+# a recipe that lives in a gitignored folder is not one. This workflow is that
+# gate.
+#
+# It is also the only place `-lidbfs.js` is ever exercised. Phase 4 shipped web
+# persistence with that flag verified by hand on one laptop; here it is built on
+# a clean runner, and the job fails if the generated glue has no `IDBFS` in it.
+#
+# It deliberately does not serve the page or drive a browser: a headless browser
+# would test the demos, not the build. What it answers is "does this tree still
+# compile to a page on a machine that is not the author's".
+#
+# TRACKER BRANCH — same note as tests.yml, native-multiplatform.yml and
+# examples.yml: `feat/sdl2-multiplatform` is the long-lived tracker, chained pull
+# requests target it, and nothing reaches develop until the port lands. Remove it
+# from both filters in the pull request that merges the tracker into develop.
+
+on:
+  push:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  pull_request:
+    branches: [main, develop, feat/sdl2-multiplatform]
+  # Only lists on the default branch; on a feature branch this does nothing.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned, for the reason native-multiplatform.yml pins the SDL2 tarball: the
+  # generated glue is compiler output, so a moving SDK would turn a green build
+  # into a different green build for no reason and hide the change. 7.0.1 is the
+  # version the port was developed and measured against.
+  EMSDK_VERSION: '7.0.1'
+
+jobs:
+  build:
+    name: web (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    strategy:
+      # One example failing must not hide the other: persistence and sprites fail
+      # for different reasons (IDBFS vs the plain game path).
+      fail-fast: false
+      matrix:
+        # sprites is the lightest complete game path (framebuffer, font, window,
+        # keyboard). persistence is the only example that links IDBFS and the
+        # only one whose boot path waits on asynchronous storage, so between the
+        # two they cover what the browser build actually does today.
+        example: [sprites, persistence]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Toolchains and PlatformIO packages only. `.pio`/`libdeps` are not cached
+      # anywhere in this repository for the same reason as in examples.yml: the
+      # examples depend on the engine through symlink://../../, so a cached
+      # libdeps entry would serve engine sources from an older commit.
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-web-${{ hashFiles('examples/**/platformio.ini', 'platformio.ini', 'scripts/platformio_native_sdl2.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-web-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      # Only the compile database touches the host's SDL2. The em++ build gets
+      # SDL2 from `-sUSE_SDL=2`, never from this package — installing it makes
+      # the database identical to a developer's Linux one instead of a database
+      # generated with SDL2 missing.
+      - name: Install SDL2
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libsdl2-dev
+
+      - name: Install emsdk ${{ env.EMSDK_VERSION }}
+        uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+
+      - name: Show toolchain
+        run: |
+          em++ --version | head -2
+          python3 --version
+
+      # The database is the input, not a convenience: it is what keeps the web
+      # build on the same defines as `native`, including each example's
+      # PIXELROOT32_ENABLE_* set. Regenerating it on a clean runner also proves
+      # that configuration still loads without a developer's .pio directory.
+      - name: Generate the compile database
+        working-directory: examples/${{ matrix.example }}
+        run: pio run -e native -t compiledb
+
+      - name: Build for the browser
+        run: |
+          python3 tools/web/build_web.py \
+            --example ${{ matrix.example }} \
+            --out ${{ matrix.example }}.html
+
+      # A zero exit is not evidence that a page came out. em++ writes the page,
+      # the glue and the wasm together, so assert all three exist and are not
+      # empty rather than trusting the link step.
+      - name: Assert the page, its glue and its wasm exist
+        run: |
+          status=0
+          for suffix in html js wasm; do
+            file="build/web_engine/${{ matrix.example }}.$suffix"
+            if [ ! -s "$file" ]; then
+              echo "::error::$file is missing or empty"
+              status=1
+            else
+              echo "$file: $(wc -c < "$file") bytes"
+            fi
+          done
+          exit $status
+
+      # The one thing the persistence example exists to prove. Without
+      # `-lidbfs.js` it still compiles and still runs: it just cannot keep a save
+      # across a page reload, which is the whole feature. `tools/web/build_web.py`
+      # checks this too; doing it here as well means the workflow fails on the
+      # evidence rather than on a script's exit code.
+      - name: The persistence build carries IDBFS
+        if: matrix.example == 'persistence'
+        run: |
+          if ! grep -q IDBFS build/web_engine/persistence.js; then
+            echo "::error file=build/web_engine/persistence.js::no IDBFS in the generated glue — -lidbfs.js did not reach the link"
+            exit 1
+          fi
+          echo "IDBFS is in the generated glue"

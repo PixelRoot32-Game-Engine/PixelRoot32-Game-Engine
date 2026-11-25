@@ -155,8 +155,16 @@ inside the mount. Two differences from a PC:
   scene requests after every save and which the lifecycle hooks request when the
   tab is hidden or closed.
 
-To try it: build the example with `em++` (see the engine's web build recipe),
-link with `-lidbfs.js`, press A or tap the canvas once, then reload the page.
+To try it, from the repository root:
+
+```
+pio run -e native -d examples/persistence -t compiledb
+python3 tools/web/build_web.py --example persistence
+cd build/web_engine && python3 -m http.server 8124 --bind 127.0.0.1
+```
+
+`tools/web/build_web.py` links `-lidbfs.js` for this example, because its saves
+live in the IDBFS mount. Press A or tap the canvas once, then reload the page.
 The boot lines change from `settings_load,NotFound` to `settings_load,Ok` with
 `volume=9` (and so on), which is a save that outlived the page.
 
