@@ -26,9 +26,11 @@ Defines the hardware mapping for physical buttons on the ESP32.
 
 ### Touch Input System
 
-*(Requires `PIXELROOT32_ENABLE_TOUCH=1`)*
+*(Requires `PIXELROOT32_ENABLE_TOUCH=1`, which is the default on the web and 0 elsewhere; a web game that wants the raw mouse builds with `-D PIXELROOT32_ENABLE_TOUCH=0`)*
 
 A comprehensive touch processing pipeline designed for resistive screens (like the XPT2046) but adaptable to others. It handles raw sampling, noise filtering, calibration, gesture recognition, and event dispatching.
+
+On desktop and in the browser the pipeline has no panel to sample: the SDL2 drawer feeds it directly. A mouse press, drag or release becomes a touch point on the framebuffer; a finger (touchscreen, or a phone browser) arrives normalised in 0..1 across the window and takes the same mapping, so a tap and a click at the same place land on the same pixel. With touch enabled, fingers reach the dispatcher and the browser's emulated mouse events for the same tap are switched off (`SDL_HINT_TOUCH_MOUSE_EVENTS=0`) so nothing is delivered twice.
 
 #### Usage Example
 

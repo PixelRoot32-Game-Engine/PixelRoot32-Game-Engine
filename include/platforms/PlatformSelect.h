@@ -23,6 +23,7 @@
  *
  * - `PIXELROOT32_HAS_SDL`          SDL2 is available to this build
  * - `PIXELROOT32_HAS_ARDUINO`      the Arduino API is available to this build
+ * - `PIXELROOT32_HAS_HOST_FS`      a POSIX-shaped file system is available
  *
  * SDL2 is present on desktop and on the web (Emscripten ships an SDL2 port), so
  * a driver written against SDL2 belongs to the capability and not to the host.
@@ -81,6 +82,20 @@
         #define PIXELROOT32_HAS_SDL 1
     #else
         #define PIXELROOT32_HAS_SDL 0
+    #endif
+#endif
+
+// A file system with fopen()/stat()/mkdir()/rename() and paths: desktop, and
+// the browser through Emscripten's virtual FS. `HostFileKeyValueStore` asks
+// this one, because a file adapter is not a PC feature -- it needs a file
+// system and nothing else. Durability differs by host (rename() is atomic on a
+// POSIX disk, and on the web the mount has to be flushed to IndexedDB with
+// FS.syncfs()), which is what WebStorage.h covers.
+#if !defined(PIXELROOT32_HAS_HOST_FS)
+    #if PIXELROOT32_PLATFORM_DESKTOP || PIXELROOT32_PLATFORM_WEB
+        #define PIXELROOT32_HAS_HOST_FS 1
+    #else
+        #define PIXELROOT32_HAS_HOST_FS 0
     #endif
 #endif
 

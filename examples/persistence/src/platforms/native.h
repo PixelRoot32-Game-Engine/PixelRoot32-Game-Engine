@@ -1,4 +1,6 @@
-#ifdef PLATFORM_NATIVE
+#include <platforms/PlatformSelect.h>
+
+#if PIXELROOT32_PLATFORM_DESKTOP
 
 #include <SDL2/SDL.h>
 
@@ -42,4 +44,4 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
-#endif  // PLATFORM_NATIVE
+#endif  // PIXELROOT32_PLATFORM_DESKTOP

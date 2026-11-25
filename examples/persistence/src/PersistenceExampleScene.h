@@ -16,7 +16,7 @@
 #include <drivers/esp32/SdConfig.h>
 #include <drivers/esp32/SdStore.h>
 #endif
-#elif defined(PLATFORM_NATIVE)
+#elif PIXELROOT32_PLATFORM_DESKTOP || PIXELROOT32_PLATFORM_WEB
 #include <drivers/native/HostFileStore.h>
 #endif
 
@@ -31,9 +31,11 @@ namespace persistenceexample {
  * without that press: the module never saves on its own, and on the board a
  * flash write stalls both cores.
  *
- * The same code runs on the board and on a PC. Only the store types differ:
- * NVS through `Esp32NvsKeyValueStore` / `Esp32NvsSlotStore` on the ESP32, host
- * files through `HostFileKeyValueStore` / `HostFileSlotStore` on native.
+ * The same code runs on the board, on a PC and in the browser. Only the store
+ * types differ: NVS through `Esp32NvsKeyValueStore` / `Esp32NvsSlotStore` on the
+ * ESP32, host files through `HostFileKeyValueStore` / `HostFileSlotStore` on
+ * native and on the web, where the same files live in the IDBFS mount and are
+ * flushed to IndexedDB (see `platforms/WebStorage.h`).
  *
  * On the ESP32 the save slots are opt-in over microSD: build the `esp32sd`
  * environment (`PIXELROOT32_ENABLE_SD_STORAGE=1`) and the saves move to
@@ -46,6 +48,16 @@ public:
     void init() override;
     void update(unsigned long deltaTime) override;
     void draw(pixelroot32::graphics::Renderer& renderer) override;
+
+    /**
+     * @brief A tap saves, exactly like the A button.
+     *
+     * The web build enables the touch pipeline by default, so the browser's
+     * pointer arrives here and not through the legacy mouse state. Handling it
+     * means a player with no keyboard can still save, and it is also the
+     * cheapest way to see from outside that mouse-to-touch works.
+     */
+    void processTouchEvents(pixelroot32::input::TouchEvent* events, uint8_t count) override;
 
 private:
     /// Reads both records, reports every StoreResult, and falls back to
@@ -90,6 +102,11 @@ private:
 
     /// Result name of the last write pair, drawn on the status panel.
     const char* lastResult_ = "none";
+
+    /// True once the records were read (or found missing). On the web the read
+    /// waits for the browser to hand over the saved data, so init() cannot set
+    /// this on its own.
+    bool ready_ = false;
 };
 
 }  // namespace persistenceexample

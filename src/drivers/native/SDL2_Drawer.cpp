@@ -248,6 +248,38 @@ bool pr32::drivers::native::SDL2_Drawer::processEvents() {
                 break;
         }
 
+        // A finger is reported in 0..1 across the window, so it is normalised
+        // into window units first and then takes the same inverse mapping as
+        // the mouse. Fingers only feed the touch dispatcher: with touch
+        // disabled the browser's emulated mouse events already drive the legacy
+        // InputManager, and delivering both would report every tap twice.
+        if (e.type == SDL_FINGERDOWN || e.type == SDL_FINGERMOTION || e.type == SDL_FINGERUP) {
+            if (touchDispatcher == nullptr) {
+                continue;
+            }
+
+            int windowX = 0;
+            int windowY = 0;
+            refreshLayout();
+            normalizedToWindow(e.tfinger.x, e.tfinger.y, windowWidth, windowHeight,
+                               windowX, windowY);
+
+            int fingerX = 0;
+            int fingerY = 0;
+            mapToFramebuffer(inputLayout, windowX, windowY, xOffset, yOffset,
+                             logicalWidth, logicalHeight, fingerX, fingerY);
+
+            // Finger ids arrive from the OS and can outrun the dispatcher's
+            // slots; wrapping keeps every reported finger inside the array the
+            // state machine owns.
+            const uint8_t touchId = static_cast<uint8_t>(
+                static_cast<unsigned>(e.tfinger.fingerId) % pixelroot32::input::TOUCH_MAX_POINTS);
+            touchDispatcher->processTouch(touchId, e.type != SDL_FINGERUP,
+                                          static_cast<int16_t>(fingerX),
+                                          static_cast<int16_t>(fingerY), SDL_GetTicks());
+            continue;
+        }
+
         if (e.type != SDL_MOUSEBUTTONDOWN && e.type != SDL_MOUSEBUTTONUP &&
             e.type != SDL_MOUSEMOTION) {
             continue;
@@ -361,6 +393,11 @@ void pr32::drivers::native::SDL2_Drawer::attachPointerInput(
     // One sink, decided here: processEvents() prefers the touch dispatcher and
     // falls back to the InputManager only when there is none.
     setTouchDispatcher(dispatcher);
+    if (dispatcher != nullptr) {
+        // Fingers reach the dispatcher directly now, so the browser's emulated
+        // mouse events for the same tap must not reach it as well.
+        SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    }
     setInputManager(dispatcher == nullptr ? manager : nullptr);
 }
 

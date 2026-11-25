@@ -6,7 +6,7 @@
 
 #include "platforms/EngineConfig.h"
 
-#if PIXELROOT32_ENABLE_PERSISTENCE && defined(PLATFORM_NATIVE)
+#if PIXELROOT32_ENABLE_PERSISTENCE && PIXELROOT32_HAS_HOST_FS
 
 #include "persistence/KeyValueStore.h"
 #include "persistence/SlotStore.h"
@@ -38,7 +38,15 @@ inline constexpr size_t kHostFileNameReserveBytes = 1 + 2 * kMaxKeyLength + 7;
 
 /**
  * @class HostFileKeyValueStore
- * @brief IKeyValueStore over one file per key, for native (PC) builds.
+ * @brief IKeyValueStore over one file per key, for builds with a file system.
+ *
+ * Desktop writes real files next to the binary's working directory. The
+ * browser has the same API over Emscripten's virtual FS: `initPersistentStorage()`
+ * (platforms/WebStorage.h) mounts IDBFS and makes it the working directory, so
+ * the same relative root lands in memory and `flushPersistentStorage()` copies
+ * it to IndexedDB on hide/unload. Nothing here changes between the two: a
+ * rename() is what keeps a crash from tearing a record, and on the web the
+ * syncfs() is what keeps a closed tab from losing it.
  *
  * Files live in `<rootDir>/<nameSpace>/`. A key's file name is the key with
  * each uppercase letter written as `^` plus its lowercase letter, then `.kv`
@@ -187,4 +195,4 @@ private:
 
 }  // namespace pixelroot32::persistence
 
-#endif  // PIXELROOT32_ENABLE_PERSISTENCE && defined(PLATFORM_NATIVE)
+#endif  // PIXELROOT32_ENABLE_PERSISTENCE && PIXELROOT32_HAS_HOST_FS
