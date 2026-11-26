@@ -16,12 +16,20 @@ Both come from `cmake/PixelRoot32Game.cmake` inside the installed package, so
 find_package(PixelRoot32 REQUIRED)
 
 pixelroot32_add_game(my_game
+    ICON art/icon.png
     src/main.cpp
     src/MyScene.cpp)
 target_include_directories(my_game PRIVATE src)
 
-pixelroot32_add_appimage(my_game DISPLAY_NAME "My Game")
+pixelroot32_add_appimage(my_game
+    ICON art/icon.png
+    DISPLAY_NAME "My Game")
 ```
+
+`ICON` is optional: drop the keyword and the game is packaged with the engine's
+logo (see [Icons](#icons-one-square-png-per-game)). Write it as `ICON ""` and
+CMake drops the empty argument before the helper sees it, so the first source
+file is read as the icon path — leave the keyword out instead.
 
 The build itself is the same one PlatformIO's `native` environment produces, so
 the two paths stay one game, not two branches. [`tools/desktop_package`](../../tools/desktop_package/)
@@ -31,10 +39,10 @@ CI is a real game.
 ## macOS: the `.app`
 
 `pixelroot32_add_game()` passes `MACOSX_BUNDLE` to `add_executable()`, so the
-target builds as `my_game.app` with `Contents/MacOS/my_game` and a generated
-`Info.plist`. The template is `cmake/PixelRoot32Info.plist.in`, shipped with the
-package, because CMake's default one omits two keys a Finder-launched game
-wants:
+target builds as `my_game.app` with `Contents/MacOS/my_game`, an optional
+`Contents/Resources/*.icns` and a generated `Info.plist`. The template is
+`cmake/PixelRoot32Info.plist.in`, shipped with the package, because CMake's
+default one omits two keys a Finder-launched game wants:
 
 - `NSHighResolutionCapable` — draw at native resolution on a Retina display
   instead of being scaled up. CMake has no `MACOSX_BUNDLE_HIGH_RESOLUTION_CAPABLE`
@@ -54,10 +62,9 @@ $ plutil -p my_game.app/Contents/Info.plist
   "NSPrincipalClass" => "NSApplication"
 ```
 
-`VERSION` overrides the engine's version. `ICON` takes an **`.icns`** and puts it
-in `Contents/Resources` with `CFBundleIconFile`; a PNG is accepted with a
-warning, because Finder renders nothing for one and a blank icon reads like a
-packaging bug.
+`VERSION` overrides the engine's version. `ICON` is the same square PNG the
+AppImage uses, converted to `Contents/Resources/<name>.icns` with `sips` and
+`iconutil` and referenced by `CFBundleIconFile`; see [Icons](#icons-one-square-png-per-game).
 
 Two consequences of how a bundle is launched:
 
@@ -93,12 +100,11 @@ cmake --build build --target my_game_appimage
 
 Notes that come from doing it:
 
-- Without an icon, `appimagetool` reports a missing `.DirIcon` and carries on,
-  which reads like a failure in a green build; pass `ICON` as a PNG and the
-  icon sits at the AppDir root (`my_game.png` and `.DirIcon`), where the AppImage
-  desktop integration reads it. It is stored there rather than under
+- The icon sits at the AppDir root (`my_game.png` and `.DirIcon`), where the
+  AppImage desktop integration reads it. It is stored there rather than under
   `usr/share/icons/hicolor/<size>/` because the root copy makes no claim about
-  the image's size.
+  the image's size. `appimagetool` only reports a missing `.DirIcon` (and still
+  finishes), which is why the engine default fills it in when `ICON` is absent.
 - `appimagetool` is not vendored and no distribution packages it. Put it in
   `PATH` or pass `-DPIXELROOT32_APPIMAGETOOL=/path/to/appimagetool`. It is
   itself an AppImage and most runners have no FUSE 2, so the script invokes it
@@ -112,6 +118,37 @@ Notes that come from doing it:
   and nothing to look for.
 - `ARCH` is taken from `uname -m` unless already set; `appimagetool` needs it on
   non-x86 hosts.
+
+## Icons: one square PNG per game
+
+The same shape as Godot's `application/config/icon`: the developer names one
+image, and each platform gets the format it reads. `ICON` is a **square PNG**,
+ideally 1024×1024 or larger.
+
+| host | what the PNG becomes | how |
+|---|---|---|
+| Linux | `my_game.png` and `.DirIcon` at the AppDir root | copied as is |
+| macOS | `Contents/Resources/my_game.icns` | `sips` resizes the ten `.iconset` entries, `iconutil` packs them |
+| Windows | nothing yet | the exe icon is an `.ico` resource; see [Windows](#windows-there-is-no-installer-yet) |
+
+Three rules the formats impose:
+
+- **No `ICON` keyword at all means the engine's logo.** Both helpers fall back to
+  `share/PixelRoot32/icons/pr32_logo.png` from the installed package, so a game
+  is never packaged with the generic OS icon and `appimagetool` never warns
+  about a missing `.DirIcon`. That mark is the engine's, not the game's: a
+  release build should pass its own.
+- **Smaller than 1024 is upscaled, non-square is stretched.** The `.iconset`
+  macOS reads has ten entries up to 512×512@2x, and the conversion does not
+  invent detail or letterbox.
+- **An `.icns` is accepted on macOS** and copied as is, for an icon whose sizes
+  were tuned by hand. The AppImage needs a PNG, so a game that passes only an
+  `.icns` gets a warning and the engine default on Linux.
+
+Conversion needs `sips` and `iconutil`, both shipped with macOS; on a machine
+without them the configure step warns and the bundle shows the generic icon
+instead of failing. Nothing here claims the icon is signed or that it replaces
+the binary's own resource on Windows.
 
 ## The engine has to be configured with the game's flags
 

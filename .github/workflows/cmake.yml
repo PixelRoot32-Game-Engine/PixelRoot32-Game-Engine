@@ -199,9 +199,15 @@ jobs:
           plutil -lint "$app/Contents/Info.plist"
           plist=$(plutil -p "$app/Contents/Info.plist")
           echo "$plist"
-          for key in 'CFBundleExecutable' 'CFBundleIdentifier' 'NSHighResolutionCapable' 'NSPrincipalClass'; do
+          for key in 'CFBundleExecutable' 'CFBundleIdentifier' 'CFBundleIconFile' 'NSHighResolutionCapable' 'NSPrincipalClass'; do
             echo "$plist" | grep -q "\"$key\"" || { echo "::error::$key is missing from Info.plist"; exit 1; }
           done
+          # The game passes no ICON, so this is the engine default arriving
+          # through the installed package and coming out as an .icns.
+          icon="$app/Contents/Resources/pr32_sprites_demo.icns"
+          test -f "$icon" || { echo "::error::the bundle carries no .icns"; exit 1; }
+          file "$icon" | grep -qi 'icns' || { echo "::error::the bundle icon is not an .icns"; exit 1; }
+          echo "$plist" | grep -q 'pr32_sprites_demo.icns' || { echo "::error::CFBundleIconFile does not point at the icon"; exit 1; }
           echo "$plist" | grep -q 'org.pixelroot32.pr32_sprites_demo' || { echo "::error::unexpected bundle identifier"; exit 1; }
           file "$binary" | grep -q 'Mach-O' || { echo "::error::the bundle payload is not a Mach-O executable"; exit 1; }
           otool -L "$binary" | grep -qi sdl2 || { echo "::error::the game does not link SDL2"; exit 1; }

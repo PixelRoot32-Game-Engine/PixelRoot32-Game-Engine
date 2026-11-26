@@ -51,7 +51,19 @@ if(_pr32_2bpp EQUAL -1 AND _pr32_4bpp EQUAL -1)
         "  -DPIXELROOT32_ENABLE_UI_SYSTEM=OFF -DPIXELROOT32_ENABLE_PARTICLES=OFF")
 endif()
 
+# The same ICON on both calls, which is what a game does: one PNG, and each
+# platform turns it into the format it reads (an `.icns` on macOS).
+#
+# `ICON ""` is not "no icon": CMake drops the empty argument before the helper
+# sees it, so the next argument would be read as the icon path. The keyword is
+# added only when there is one, which is also how a game should spell it.
+set(_pr32_icon_arg "")
+if(PR32_PACKAGE_ICON)
+    set(_pr32_icon_arg ICON "${PR32_PACKAGE_ICON}")
+endif()
+
 pixelroot32_add_game(pr32_sprites_demo
+    ${_pr32_icon_arg}
     "${PR32_SPRITES_DIR}/src/main.cpp"
     "${PR32_SPRITES_DIR}/src/SpritesDemoScene.cpp")
 
@@ -65,14 +77,12 @@ target_compile_definitions(pr32_sprites_demo PRIVATE
     PHYSICAL_DISPLAY_WIDTH=240
     PHYSICAL_DISPLAY_HEIGHT=240)
 
-# The engine's own logo, so the artifact is identifiable in a launcher. Without
-# an icon appimagetool reports a missing .DirIcon (and still finishes), which
-# reads like a failure in a green build for no good reason.
-get_filename_component(_pr32_default_icon
-    "${CMAKE_CURRENT_LIST_DIR}/../../assets/pr32_logo.png" ABSOLUTE)
-set(PR32_PACKAGE_ICON "${_pr32_default_icon}" CACHE FILEPATH
-    "Icon for the packaged game, PNG on Linux and .icns on macOS")
+# Left empty on purpose: the icon then comes from the installed package, which
+# is the path a game that defines no icon takes. Set it to a square PNG to
+# check the override (`-DPR32_PACKAGE_ICON=/path/to/icon.png`).
+set(PR32_PACKAGE_ICON "" CACHE FILEPATH
+    "Icon for the packaged game (square PNG; .icns also accepted on macOS). Empty uses the engine's.")
 
 pixelroot32_add_appimage(pr32_sprites_demo
-    DISPLAY_NAME "PixelRoot32 Sprites"
-    ICON "${PR32_PACKAGE_ICON}")
+    ${_pr32_icon_arg}
+    DISPLAY_NAME "PixelRoot32 Sprites")

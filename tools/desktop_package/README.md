@@ -48,9 +48,12 @@ cmake --build build/package --target pr32_sprites_demo_appimage
 in `build/package/AppDir/pr32_sprites_demo` either way, which is the useful half
 when inspecting the layout.
 
-The icon is the engine's logo (`assets/pr32_logo.png`), overridable with
-`-DPR32_PACKAGE_ICON=<path>`. Linux takes the PNG as is; a macOS bundle would
-need an `.icns`, which is why this project passes no icon there.
+The icon is not passed at all: `pixelroot32_add_game()` and
+`pixelroot32_add_appimage()` fall back to the engine's logo installed with the
+package (`share/PixelRoot32/icons/pr32_logo.png`), which is the path a game that
+defines no icon takes. Linux stages that PNG as the AppDir icon and macOS
+derives an `.icns` from it, so this project exercises the default rather than a
+special case. `-DPR32_PACKAGE_ICON=<square.png>` overrides it.
 
 The two calls the engine adds are `pixelroot32_add_game()` and
 `pixelroot32_add_appimage()`, both from `cmake/PixelRoot32Game.cmake` inside the

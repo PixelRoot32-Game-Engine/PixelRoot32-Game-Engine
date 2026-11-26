@@ -25,6 +25,11 @@
     <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
     <key>CFBundleIdentifier</key>
     <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+    <!-- The icon `pixelroot32_add_game()` put in Contents/Resources. CMake
+         substitutes the target's MACOSX_BUNDLE_ICON_FILE here; with no icon
+         the value is empty, which Finder reads as "no icon". -->
+    <key>CFBundleIconFile</key>
+    <string>${MACOSX_BUNDLE_ICON_FILE}</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

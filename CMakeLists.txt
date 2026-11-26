@@ -252,6 +252,16 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32Info.plist.in"
     DESTINATION ${PR32_CMAKE_INSTALL_DIR})
 
+# The default game icon. It travels with the package so `find_package()` alone
+# gives a game a desktop artifact with the engine's mark instead of the generic
+# OS icon; the config file points at it from the prefix. `PR32_ICON_INSTALL_DIR`
+# is spelled into the config at generation time because CMAKE_INSTALL_DATADIR
+# is the engine's variable, not the consumer's.
+set(PR32_ICON_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/PixelRoot32/icons")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/pr32_logo.png"
+    DESTINATION ${PR32_ICON_INSTALL_DIR}
+    RENAME pr32_logo.png)
+
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/PixelRoot32Config.cmake"
