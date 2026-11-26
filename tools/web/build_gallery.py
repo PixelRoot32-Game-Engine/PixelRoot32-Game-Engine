@@ -347,6 +347,12 @@ def main() -> int:
 
     build_dir = Path(args.build_dir)
     out_dir = Path(args.out)
+    # The output directory is deleted before it is written, so a mistyped --out
+    # must not be able to take the repository with it.
+    if out_dir.resolve() in (ROOT, ROOT.parent) or out_dir.resolve() in ROOT.parents:
+        print(f"refusing to write the gallery to {out_dir.resolve()}: pick a directory inside the project", file=sys.stderr)
+        return 1
+
     absent = missing(build_dir)
     if absent:
         print(f"{build_dir} has no complete build for: {', '.join(absent)}", file=sys.stderr)
