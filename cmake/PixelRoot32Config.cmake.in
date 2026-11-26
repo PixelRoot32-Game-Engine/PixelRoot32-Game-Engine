@@ -1,5 +1,17 @@
 @PACKAGE_INIT@
 
+# The engine's logo, shipped as the icon a game gets when it does not pass one
+# to `pixelroot32_add_game()`/`pixelroot32_add_appimage()`. Resolved from the
+# prefix the package was found in, so the installed tree stays relocatable.
+#
+# Set here and not further down on purpose: `PACKAGE_PREFIX_DIR` is written by
+# `@PACKAGE_INIT@`, but every generated dependency config does the same thing in
+# this same scope, so `find_package(SDL2)` below leaves its own prefix in it
+# (Homebrew's `/opt/homebrew`, for instance). Capturing it first is what keeps
+# the path pointing at this package.
+set(PixelRoot32_DEFAULT_ICON
+    "${PACKAGE_PREFIX_DIR}/@PR32_ICON_INSTALL_DIR@/pr32_logo.png")
+
 # SDL2 is a public dependency of the engine: `drivers/native/SDL2_Drawer.h`
 # includes <SDL2/SDL.h>. It is resolved on the consumer's machine and never
 # recorded as an absolute path in the export.
@@ -7,5 +19,10 @@ include(CMakeFindDependencyMacro)
 include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32SDL2.cmake")
 
 include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32Targets.cmake")
+
+# `pixelroot32_add_game()` and `pixelroot32_add_appimage()`: packaging helpers.
+# They only declare functions -- no find_package() of their own -- so a consumer
+# that does not package anything pays nothing for them.
+include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32Game.cmake")
 
 check_required_components(PixelRoot32)

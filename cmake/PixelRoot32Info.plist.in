@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Info.plist for a PixelRoot32 game bundle.
+
+      CMake's default template writes the identity keys but not the ones a
+      Finder-launched game actually needs, and CMake has no
+      `MACOSX_BUNDLE_HIGH_RESOLUTION_CAPABLE` property (setting one is silently
+      ignored), so the bundle gets its own template:
+
+        NSHighResolutionCapable  draw at native resolution on a Retina display
+                                 instead of being scaled up
+        NSPrincipalClass         NSApplication, which is what makes the process
+                                 behave as a GUI app (activation, focus, the
+                                 menu bar owner) rather than a scored one
+
+      The ${...} placeholders are substituted by CMake from the target's
+      MACOSX_BUNDLE_* properties; see pixelroot32_add_game().
+    -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+    <key>CFBundleIdentifier</key>
+    <string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+    <!-- The icon `pixelroot32_add_game()` put in Contents/Resources. CMake
+         substitutes the target's MACOSX_BUNDLE_ICON_FILE here; with no icon
+         the value is empty, which Finder reads as "no icon". -->
+    <key>CFBundleIconFile</key>
+    <string>${MACOSX_BUNDLE_ICON_FILE}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_NAME}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+    <key>CFBundleVersion</key>
+    <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>
