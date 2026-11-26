@@ -141,15 +141,23 @@ function(pixelroot32_add_game target)
 
     # One icon, no argument required: the engine's logo travels with the
     # package, so the default is "the engine" and not "whatever the OS draws".
-    if(NOT _ARG_ICON)
+    if(_ARG_ICON)
+        # A game writes `ICON art/icon.png`, relative to its own source
+        # directory. Resolving it here (that is where the directory is known)
+        # is what keeps a relative path out of the build-time commands, which
+        # run from the binary directory.
+        get_filename_component(_ARG_ICON "${_ARG_ICON}" ABSOLUTE)
+    else()
         if(PixelRoot32_DEFAULT_ICON AND EXISTS "${PixelRoot32_DEFAULT_ICON}")
             set(_ARG_ICON "${PixelRoot32_DEFAULT_ICON}")
-        else()
-            message(WARNING
-                "pixelroot32_add_game(${target}): the package has no default "
-                "icon (${PixelRoot32_DEFAULT_ICON}), so '${target}' is packaged "
-                "with the generic OS icon. Pass ICON <square.png>.")
         endif()
+    endif()
+
+    if(NOT _ARG_ICON)
+        message(WARNING
+            "pixelroot32_add_game(${target}): the package has no default "
+            "icon (${PixelRoot32_DEFAULT_ICON}), so '${target}' is packaged "
+            "with the generic OS icon. Pass ICON <square.png>.")
     elseif(NOT EXISTS "${_ARG_ICON}")
         message(FATAL_ERROR
             "pixelroot32_add_game(${target}): ICON '${_ARG_ICON}' does not exist.")
@@ -193,6 +201,7 @@ function(pixelroot32_add_game target)
             # format every platform shares -- is converted here instead of asking
             # every game to keep two files in sync.
             get_filename_component(_pr32_icon_suffix "${_ARG_ICON}" EXT)
+            string(TOLOWER "${_pr32_icon_suffix}" _pr32_icon_suffix)
             if(_pr32_icon_suffix STREQUAL ".icns")
                 set(_pr32_bundle_icon "${_ARG_ICON}")
             else()
@@ -245,15 +254,17 @@ function(pixelroot32_add_appimage target)
     # Same default as the bundle, and for the same reason: appimagetool reports
     # a missing .DirIcon and carries on, so "no icon" is a green build with a
     # generic artifact.
-    if(NOT _ARG_ICON)
-        if(PixelRoot32_DEFAULT_ICON AND EXISTS "${PixelRoot32_DEFAULT_ICON}")
-            set(_ARG_ICON "${PixelRoot32_DEFAULT_ICON}")
-        else()
-            message(WARNING
-                "pixelroot32_add_appimage(${_ARG_NAME}): the package has no "
-                "default icon, so the AppImage is built without one. "
-                "Pass ICON <square.png>.")
-        endif()
+    if(_ARG_ICON)
+        # Same resolution as the bundle: relative to the game's source directory
+        # at configure time, never to the directory the target runs in.
+        get_filename_component(_ARG_ICON "${_ARG_ICON}" ABSOLUTE)
+    elseif(PixelRoot32_DEFAULT_ICON AND EXISTS "${PixelRoot32_DEFAULT_ICON}")
+        set(_ARG_ICON "${PixelRoot32_DEFAULT_ICON}")
+    else()
+        message(WARNING
+            "pixelroot32_add_appimage(${_ARG_NAME}): the package has no "
+            "default icon, so the AppImage is built without one. "
+            "Pass ICON <square.png>.")
     endif()
 
     # The AppDir root takes the PNG under the app's name; an .icns cannot be
@@ -265,6 +276,7 @@ function(pixelroot32_add_appimage target)
                 "pixelroot32_add_appimage(${_ARG_NAME}): ICON '${_ARG_ICON}' does not exist.")
         endif()
         get_filename_component(_pr32_appimage_suffix "${_ARG_ICON}" EXT)
+        string(TOLOWER "${_pr32_appimage_suffix}" _pr32_appimage_suffix)
         if(NOT _pr32_appimage_suffix STREQUAL ".png")
             message(WARNING
                 "pixelroot32_add_appimage(${_ARG_NAME}): ICON '${_ARG_ICON}' is "

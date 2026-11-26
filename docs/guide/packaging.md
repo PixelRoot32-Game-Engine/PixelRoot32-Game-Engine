@@ -145,6 +145,10 @@ Three rules the formats impose:
   were tuned by hand. The AppImage needs a PNG, so a game that passes only an
   `.icns` gets a warning and the engine default on Linux.
 
+The path may be relative to the game's source directory (`ICON art/icon.png`),
+which is how a game project normally writes it: it is resolved when the target
+is created, not when the artifact is built.
+
 Conversion needs `sips` and `iconutil`, both shipped with macOS; on a machine
 without them the configure step warns and the bundle shows the generic icon
 instead of failing. Nothing here claims the icon is signed or that it replaces

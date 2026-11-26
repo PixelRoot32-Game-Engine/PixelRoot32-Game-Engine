@@ -51,6 +51,16 @@ if(_pr32_2bpp EQUAL -1 AND _pr32_4bpp EQUAL -1)
         "  -DPIXELROOT32_ENABLE_UI_SYSTEM=OFF -DPIXELROOT32_ENABLE_PARTICLES=OFF")
 endif()
 
+# Left empty on purpose: the icon then comes from the installed package, which
+# is the path a game that defines no icon takes. Set it to a square PNG to
+# check the override (`-DPR32_PACKAGE_ICON=/path/to/icon.png`, or a path
+# relative to this directory).
+# STRING, not FILEPATH: CMake turns a relative FILEPATH cache value into an
+# absolute one relative to wherever `cmake` was launched, which is not the game's
+# source directory the helper resolves against. Empty uses the engine's icon.
+set(PR32_PACKAGE_ICON "" CACHE STRING
+    "Icon for the packaged game (square PNG; .icns also accepted on macOS). Empty uses the engine's.")
+
 # The same ICON on both calls, which is what a game does: one PNG, and each
 # platform turns it into the format it reads (an `.icns` on macOS).
 #
@@ -76,12 +86,6 @@ target_include_directories(pr32_sprites_demo PRIVATE "${PR32_SPRITES_DIR}/src")
 target_compile_definitions(pr32_sprites_demo PRIVATE
     PHYSICAL_DISPLAY_WIDTH=240
     PHYSICAL_DISPLAY_HEIGHT=240)
-
-# Left empty on purpose: the icon then comes from the installed package, which
-# is the path a game that defines no icon takes. Set it to a square PNG to
-# check the override (`-DPR32_PACKAGE_ICON=/path/to/icon.png`).
-set(PR32_PACKAGE_ICON "" CACHE FILEPATH
-    "Icon for the packaged game (square PNG; .icns also accepted on macOS). Empty uses the engine's.")
 
 pixelroot32_add_appimage(pr32_sprites_demo
     ${_pr32_icon_arg}
