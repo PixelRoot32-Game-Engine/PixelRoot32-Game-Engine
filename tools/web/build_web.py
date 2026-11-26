@@ -49,6 +49,15 @@ BASE_COMPILE_FLAGS: tuple[str, ...] = ("-sUSE_SDL=2",)
 # a few decoded assets from failing on a fixed heap.
 BASE_LINK_FLAGS = ("-O2", "-sUSE_SDL=2", "-sALLOW_MEMORY_GROWTH")
 
+# The page Emscripten writes around the wasm comes from a shell template, and
+# the default one is a compiler demo's shell: Emscripten's logo, a "powered by
+# emscripten" banner, and pointer-lock/resize controls. `tools/web/shell.html`
+# keeps the runtime contract — `Module`, the canvas, the status line — and adds
+# the one thing a gallery page needs: a way back to `index.html`. The path is
+# absolute because em++ runs with the example directory as its working
+# directory.
+SHELL_FILE = ROOT / "tools" / "web" / "shell.html"
+
 # PlatformIO records the host's SDL2 for `native`. The browser gets SDL2 from the
 # port above, so a host include or library path here would either compile
 # against the wrong headers or try to link a native library into a wasm binary.
@@ -151,6 +160,7 @@ def main():
     obj_dir.mkdir(parents=True, exist_ok=True)
     print(f"em++ flags: compile={' '.join(BASE_COMPILE_FLAGS) or '-'} "
           f"link={' '.join(BASE_LINK_FLAGS)} "
+          f"shell={os.path.relpath(SHELL_FILE, ROOT)} "
           f"extra={' '.join(extra_flags) or '-'} "
           f"example={args.example} per-example-link="
           f"{' '.join(config.get('link_flags', ())) or '-'}")
@@ -180,6 +190,8 @@ def main():
     link = [
         COMPILER,
         *BASE_LINK_FLAGS,
+        "--shell-file",
+        str(SHELL_FILE),
         *config.get("link_flags", ()),
         *extra_flags,
         *(str(obj) for obj in objects),

@@ -47,6 +47,15 @@ The page itself is static: no JavaScript beyond the Emscripten glue of the pages
 it links to, no external font, no analytics. It carries the engine logo and the
 commit it was built from.
 
+Each demo page is written around `tools/web/shell.html`, not Emscripten's default
+shell: that one is a compiler demo's page, with Emscripten's logo, a "powered by
+emscripten" banner and pointer-lock/resize controls. Ours keeps the runtime
+contract (`Module`, the canvas, the status line) and adds a bar with the example's
+name and a link back to the gallery. The canvas sizing there is deliberate too —
+Emscripten's SDL reads the canvas's CSS box back as the window size, so
+`max-width` on the canvas or a flex container around it collapses it to a few
+pixels.
+
 ## What CI does
 
 `.github/workflows/web.yml` builds one demo per matrix entry — the list comes
