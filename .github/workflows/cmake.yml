@@ -17,9 +17,17 @@ name: cmake
 # a default configure has to emit no macros at all, so the headers stay the
 # single place that decides what "default" means.
 #
+# The `package_*` jobs take the installed package one step further: they build
+# `examples/sprites` against it and check the desktop artifact that comes out —
+# a `.app` bundle on macOS, an AppImage on Linux. Both are opened without a
+# display (`SDL_VIDEODRIVER=dummy`) and have to stay alive for three seconds,
+# which is the difference between "the file exists" and "the game came up".
+#
 # Windows is absent on purpose: `native-multiplatform.yml` covers the PlatformIO
 # build there, and the CMake path would need the same SDL2 MinGW tarball dance
-# plus a MinGW generator choice. Adding it is a follow-up, not a silent gap.
+# plus a MinGW generator choice. That is also why there is no Windows installer
+# yet: an installer for a build nobody has run is a worse artifact than a
+# documented gap. See docs/guide/packaging.md.
 #
 # TRACKER BRANCH — same note as the other workflows: feat/sdl2-multiplatform is
 # the long-lived tracker, chained pull requests target it, and nothing reaches
@@ -143,3 +151,159 @@ jobs:
             exit 1
           fi
           grep -q 'PLATFORM_NATIVE' "$targets" || { echo "::error::PLATFORM_NATIVE is not exported"; exit 1; }
+
+  # The flags `examples/sprites/lib/platformio.ini` passes, as CMake options.
+  # The engine is compiled with them and the exported interface hands the same
+  # macros to the game, so both halves of a package build agree.
+  package_macos:
+    runs-on: macos-latest
+    env:
+      PR32_SPRITES_FLAGS: >-
+        -DPIXELROOT32_ENABLE_2BPP_SPRITES=ON
+        -DPIXELROOT32_ENABLE_4BPP_SPRITES=ON
+        -DPIXELROOT32_ENABLE_AUDIO=OFF
+        -DPIXELROOT32_ENABLE_PHYSICS=OFF
+        -DPIXELROOT32_ENABLE_UI_SYSTEM=OFF
+        -DPIXELROOT32_ENABLE_PARTICLES=OFF
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2
+        run: brew install sdl2
+
+      - name: Build and install the engine
+        run: |
+          cmake -S . -B build/cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/prefix" \
+            $PR32_SPRITES_FLAGS
+          cmake --build build/cmake --parallel
+          cmake --install build/cmake
+
+      - name: Build the packaged game
+        run: |
+          cmake -S tools/desktop_package -B build/package \
+            -DCMAKE_PREFIX_PATH="$PWD/build/prefix"
+          cmake --build build/package --parallel
+
+      # A `.app` is a directory layout plus an Info.plist; both are claims the
+      # build makes, and both are checked here rather than trusted.
+      - name: The bundle is a bundle
+        run: |
+          set -eu
+          app=build/package/pr32_sprites_demo.app
+          binary="$app/Contents/MacOS/pr32_sprites_demo"
+          test -x "$binary" || { echo "::error::the bundle has no executable"; exit 1; }
+          test -f "$app/Contents/Info.plist" || { echo "::error::the bundle has no Info.plist"; exit 1; }
+          plutil -lint "$app/Contents/Info.plist"
+          plist=$(plutil -p "$app/Contents/Info.plist")
+          echo "$plist"
+          for key in 'CFBundleExecutable' 'CFBundleIdentifier' 'NSHighResolutionCapable' 'NSPrincipalClass'; do
+            echo "$plist" | grep -q "\"$key\"" || { echo "::error::$key is missing from Info.plist"; exit 1; }
+          done
+          echo "$plist" | grep -q 'org.pixelroot32.pr32_sprites_demo' || { echo "::error::unexpected bundle identifier"; exit 1; }
+          file "$binary" | grep -q 'Mach-O' || { echo "::error::the bundle payload is not a Mach-O executable"; exit 1; }
+          otool -L "$binary" | grep -qi sdl2 || { echo "::error::the game does not link SDL2"; exit 1; }
+
+      # The engine's assets are compiled in, so a bundle that comes up needs no
+      # working directory and no data files; a dummy video driver is enough to
+      # prove the binary initialises and keeps running.
+      - name: The bundle runs
+        run: |
+          set -eu
+          binary=build/package/pr32_sprites_demo.app/Contents/MacOS/pr32_sprites_demo
+          SDL_VIDEODRIVER=dummy "$binary" > package-run.log 2>&1 &
+          pid=$!
+          sleep 3
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::the bundle exited within 3 s"
+            cat package-run.log
+            exit 1
+          fi
+          kill "$pid"
+          wait "$pid" 2>/dev/null || true
+          echo "::notice::the .app bundle ran for 3 s with no display"
+
+  package_appimage:
+    runs-on: ubuntu-latest
+    env:
+      PR32_SPRITES_FLAGS: >-
+        -DPIXELROOT32_ENABLE_2BPP_SPRITES=ON
+        -DPIXELROOT32_ENABLE_4BPP_SPRITES=ON
+        -DPIXELROOT32_ENABLE_AUDIO=OFF
+        -DPIXELROOT32_ENABLE_PHYSICS=OFF
+        -DPIXELROOT32_ENABLE_UI_SYSTEM=OFF
+        -DPIXELROOT32_ENABLE_PARTICLES=OFF
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SDL2 and objdump
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev file
+
+      # appimagetool is not vendored and not packaged by any distribution: the
+      # continuous build per architecture is what the AppImage project ships.
+      # It is itself an AppImage, and runners have no FUSE 2, so the script
+      # invokes it with `--appimage-extract-and-run`.
+      - name: Fetch appimagetool
+        run: |
+          set -eu
+          arch=$(uname -m)
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${arch}.AppImage"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+
+      - name: Build and install the engine
+        run: |
+          cmake -S . -B build/cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/build/prefix" \
+            $PR32_SPRITES_FLAGS
+          cmake --build build/cmake --parallel
+          cmake --install build/cmake
+
+      - name: Package the game as an AppImage
+        run: |
+          cmake -S tools/desktop_package -B build/package \
+            -DCMAKE_PREFIX_PATH="$PWD/build/prefix" \
+            -DPIXELROOT32_APPIMAGETOOL="$RUNNER_TEMP/appimagetool"
+          cmake --build build/package --parallel
+          cmake --build build/package --target pr32_sprites_demo_appimage
+
+      # What makes an AppImage portable is the AppDir it carries: the entry
+      # point, the desktop file and the SDL2 runtime it does not get from the
+      # host.
+      - name: The AppImage carries what it needs
+        run: |
+          set -eu
+          appimage=build/package/pr32_sprites_demo.AppImage
+          test -x "$appimage" || { echo "::error::no AppImage was produced"; exit 1; }
+          ls -l "$appimage"
+          ( cd build/package && ./pr32_sprites_demo.AppImage --appimage-extract > /dev/null )
+          root=build/package/squashfs-root
+          for file in AppRun .DirIcon pr32_sprites_demo.desktop pr32_sprites_demo.png \
+                      usr/bin/pr32_sprites_demo usr/lib/libSDL2-2.0.so.0 \
+                      usr/share/applications/pr32_sprites_demo.desktop; do
+            test -e "$root/$file" || { echo "::error::the AppImage is missing $file"; exit 1; }
+          done
+          file "$root/usr/bin/pr32_sprites_demo" | grep -q 'ELF 64-bit' || { echo "::error::the payload is not an ELF executable"; exit 1; }
+          LD_LIBRARY_PATH="$root/usr/lib" ldd "$root/usr/bin/pr32_sprites_demo" \
+            | grep -q "$root/usr/lib/libSDL2" || { echo "::error::the game resolves SDL2 from the host instead of the AppImage"; exit 1; }
+
+      - name: The AppImage runs
+        run: |
+          set -eu
+          SDL_VIDEODRIVER=dummy build/package/squashfs-root/AppRun > package-run.log 2>&1 &
+          pid=$!
+          sleep 3
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::the AppImage exited within 3 s"
+            cat package-run.log
+            exit 1
+          fi
+          kill "$pid"
+          wait "$pid" 2>/dev/null || true
+          echo "::notice::the AppImage ran for 3 s with no display"

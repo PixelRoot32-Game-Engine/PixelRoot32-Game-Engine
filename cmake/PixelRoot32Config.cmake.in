@@ -8,4 +8,9 @@ include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32SDL2.cmake")
 
 include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32Targets.cmake")
 
+# `pixelroot32_add_game()` and `pixelroot32_add_appimage()`: packaging helpers.
+# They only declare functions -- no find_package() of their own -- so a consumer
+# that does not package anything pays nothing for them.
+include("${CMAKE_CURRENT_LIST_DIR}/PixelRoot32Game.cmake")
+
 check_required_components(PixelRoot32)

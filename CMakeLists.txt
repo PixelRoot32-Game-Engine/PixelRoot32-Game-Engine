@@ -242,6 +242,16 @@ install(EXPORT PixelRoot32Targets
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32SDL2.cmake"
     DESTINATION ${PR32_CMAKE_INSTALL_DIR})
 
+# The packaging helpers travel with it too, so a game gets `.app`/AppImage
+# layout from `find_package()` instead of re-implementing it per project. The
+# script is referenced from the module with CMAKE_CURRENT_FUNCTION_LIST_DIR, so
+# the copy installed here is the one a consumer actually runs.
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32Game.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32AppImage.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32Info.plist.in"
+    DESTINATION ${PR32_CMAKE_INSTALL_DIR})
+
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/PixelRoot32Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/PixelRoot32Config.cmake"

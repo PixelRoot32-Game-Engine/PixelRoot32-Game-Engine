@@ -30,6 +30,7 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 - [Memory](./memory.md) — Pools, arenas, embedded constraints
 - [Performance](./performance/esp32-performance.md) — Hot paths, memory, build profiles, resolution scaling
 - [Graphics Techniques](./graphics-techniques.md) — Tilemaps, palettes, indexed color
+- [Packaging a desktop game](./packaging.md) — `.app` bundles, AppImages, and why there is no Windows installer yet
 - [Platform Compatibility](./platform-compatibility.md) — `platformio.ini`, feature flags
 
 ## Contributing & tooling

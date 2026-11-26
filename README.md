@@ -195,6 +195,8 @@ target_link_libraries(your_game PRIVATE PixelRoot32::Engine)
 
 The same `PIXELROOT32_ENABLE_*` switches are `option()`s here, with the defaults the headers already declare, so `-DPIXELROOT32_ENABLE_AUDIO=OFF` is the CMake spelling of `-D PIXELROOT32_ENABLE_AUDIO=0`. SDL2 is required (it must ship its CMake config package — Homebrew, `libsdl2-dev` and MSYS2 all do), and PixelRoot32-APU is fetched at a pinned tag, which `-DPIXELROOT32_APU_TAG=` overrides. [`tools/cmake_consumer`](tools/cmake_consumer/) is a worked example of a consumer and the acceptance test for the package; [`.github/workflows/cmake.yml`](.github/workflows/cmake.yml) builds it against a fresh install on Linux and macOS. Firmware keeps building with PlatformIO: CMake packages the desktop target only.
 
+For desktop distribution the package also ships `pixelroot32_add_game()` — which makes the game a `.app` bundle on macOS — and `pixelroot32_add_appimage()`, which turns it into an AppImage on Linux. [`tools/desktop_package`](tools/desktop_package/) packages `examples/sprites` with them, and [Packaging a desktop game](docs/guide/packaging.md) covers both artifacts, the flags a package build inherits, and why Windows has no installer yet.
+
 ### Fast Setup
 
 1. **Clone this repository** and open an example under [`examples/`](examples/):
