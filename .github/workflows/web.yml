@@ -1,18 +1,30 @@
 name: web
 
 # The web build was the last piece of this port that existed on one machine
-# only: `build/web_engine/build_web.py`, which `.gitignore` hides under `build/`,
-# plus a hand-typed `em++` line. Phase 5 asks for a "reproducible web build", and
-# a recipe that lives in a gitignored folder is not one. This workflow is that
-# gate.
+# only: `build/web_engine/build_web.py`, which `.gitignore` hides under
+# `build/`, plus a hand-typed `em++` line. Phase 5 asks for a "reproducible web
+# build", and a recipe that lives in a gitignored folder is not one. This
+# workflow is that gate.
 #
 # It is also the only place `-lidbfs.js` is ever exercised. Phase 4 shipped web
 # persistence with that flag verified by hand on one laptop; here it is built on
 # a clean runner, and the job fails if the generated glue has no `IDBFS` in it.
 #
-# It deliberately does not serve the page or drive a browser: a headless browser
-# would test the demos, not the build. What it answers is "does this tree still
-# compile to a page on a machine that is not the author's".
+# Phase 5, point 4 adds the other half of "publication": every run assembles the
+# demos into one static site and uploads it as the `web-demos` artifact, and a
+# push to `main` deploys that same site to GitHub Pages. The artifact is what
+# makes the tracker testable before the port merges: download it, unzip, serve
+# it, and the pages are the ones CI built, not the ones one laptop happened to
+# have.
+#
+# Pages is deployed from `main` only, never from the tracker. The site is a
+# single one per repository, so a deploy from a feature branch would replace
+# what main published; the artifact covers that need instead.
+#
+# What it still does not do is serve the pages or drive a browser through them:
+# a headless browser would test the demos, not the build. What this answers is
+# "does this tree still compile to a page on a machine that is not the author's,
+# and does the site that links those pages come out complete".
 #
 # TRACKER BRANCH — same note as tests.yml, native-multiplatform.yml and
 # examples.yml: `feat/sdl2-multiplatform` is the long-lived tracker, chained pull
@@ -42,19 +54,31 @@ env:
   EMSDK_VERSION: '7.0.1'
 
 jobs:
+  # The list of demos lives in tools/web/build_gallery.py, next to the ones the
+  # gallery presents, and this job is how YAML asks for it. Hardcoding a second
+  # copy here is how a new example gets built by nobody: the gallery asserts the
+  # build exists, so the matrix has to come from the same list.
+  discover:
+    name: demos to build
+    runs-on: ubuntu-latest
+    outputs:
+      examples: ${{ steps.list.outputs.examples }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: echo "examples=$(python3 tools/web/build_gallery.py --matrix)" >> "$GITHUB_OUTPUT"
+
   build:
     name: web (${{ matrix.example }})
+    needs: discover
     runs-on: ubuntu-latest
     strategy:
-      # One example failing must not hide the other: persistence and sprites fail
-      # for different reasons (IDBFS vs the plain game path).
+      # One example failing must not hide the others: persistence fails on
+      # IDBFS, the tilemap examples fail on the cache, and audio fails on its
+      # own scheduler. A matrix that stops at the first error reports one bug.
       fail-fast: false
       matrix:
-        # sprites is the lightest complete game path (framebuffer, font, window,
-        # keyboard). persistence is the only example that links IDBFS and the
-        # only one whose boot path waits on asynchronous storage, so between the
-        # two they cover what the browser build actually does today.
-        example: [sprites, persistence]
+        example: ${{ fromJSON(needs.discover.outputs.examples) }}
     defaults:
       run:
         shell: bash
@@ -143,3 +167,95 @@ jobs:
             exit 1
           fi
           echo "IDBFS is in the generated glue"
+
+      # One artifact per demo, so the gallery job can fail on a missing or empty
+      # page even when the build job that produced it succeeded.
+      - name: Hand the demo to the gallery job
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-${{ matrix.example }}
+          path: build/web_engine/${{ matrix.example }}.*
+          if-no-files-found: error
+          retention-days: 30
+
+  gallery:
+    name: gallery
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Collect the demos
+        uses: actions/download-artifact@v4
+        with:
+          pattern: demo-*
+          merge-multiple: true
+          path: build/web_engine
+
+      # The script fails when a demo in its catalogue has no complete build, and
+      # again when the logo is missing, so this step is the assertion rather than
+      # a producer that happens to succeed.
+      - name: Assemble the site
+        run: |
+          python3 tools/web/build_gallery.py \
+            --build-dir build/web_engine \
+            --out _site \
+            --revision "${GITHUB_SHA::7}"
+
+      # Trust the page count, not the exit code: `_site` must hold the index plus
+      # exactly one page per demo in the catalogue.
+      - name: Assert the site has one page per demo
+        run: |
+          expected=$(( $(python3 tools/web/build_gallery.py --list | wc -l) + 1 ))
+          actual=$(find _site -maxdepth 1 -name '*.html' | wc -l)
+          echo "html pages: $actual (expected $expected)"
+          test -s _site/index.html
+          test "$actual" -eq "$expected"
+          find _site -maxdepth 1 -name '*.wasm' -size 0 -print -quit | tee /tmp/empty
+          test ! -s /tmp/empty
+
+      # Downloadable from any branch, tracker included: this is how the demos are
+      # tried before the port merges.
+      - name: Upload the site
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-demos
+          path: _site
+          if-no-files-found: error
+          retention-days: 30
+
+  # Pages is a single site per repository, so it is deployed from `main` and
+  # nowhere else: a deploy from the tracker would replace what main published.
+  # This job is inert until the workflow reaches `main`, and inert until Pages is
+  # enabled for the repository (Settings -> Pages -> Source: GitHub Actions).
+  deploy:
+    name: deploy to Pages
+    needs: gallery
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Take the assembled site
+        uses: actions/download-artifact@v4
+        with:
+          name: web-demos
+          path: _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

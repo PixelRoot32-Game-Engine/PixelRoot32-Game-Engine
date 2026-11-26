@@ -1,7 +1,9 @@
 # PixelRoot32 — Examples
 
 **Eleven small, single-idea projects.** Each one exists to show one capability
-of the engine clearly enough to copy, and stops there.
+of the engine clearly enough to copy, and stops there. All eleven also compile
+to WebAssembly and run in a browser — see
+[The examples in the browser](../docs/guide/web-demos.md).
 
 > **Looking for a game?** These are not games. Complete games, and per-topic
 > demos for audio, UI, input, gameplay systems and performance, live in
