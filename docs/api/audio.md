@@ -14,6 +14,18 @@ The Audio module provides a **NES-inspired** synthesis stack (Pulse, Triangle, N
 
 > **Note**: The audio system is only available if `PIXELROOT32_ENABLE_AUDIO=1`
 
+## Execution model by target
+
+The mixer is the same; what changes is who calls it.
+
+| Target | Scheduler | Where synthesis runs |
+|---|---|---|
+| ESP32 | `ESP32AudioScheduler` | FreeRTOS audio task created by the I2S/DAC backend |
+| Desktop | `NativeAudioScheduler` | Dedicated `std::thread`; PCM crosses a lock-free ring to the SDL2 callback |
+| Web | `DefaultAudioScheduler` | Inside the SDL2 audio callback — no extra thread, no `SharedArrayBuffer` |
+
+The browser cannot use the threaded scheduler without COOP/COEP headers, so it trades the thread for a per-block synthesis budget inside the callback. Browser autoplay is handled by Emscripten's SDL2 port, which resumes the `AudioContext` on the first user gesture. See [platform support](../architecture/platform-support.md#audio) for the guarantees each target does and does not offer.
+
 ## Key Concepts
 
 ### WaveType & VoiceType

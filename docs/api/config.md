@@ -36,8 +36,8 @@ This document covers global configuration options, build flags, and compile-time
 | `PIXELROOT32_ENABLE_4BPP_SPRITES` | Enable 4bpp sprite support. | Disabled |
 | `PIXELROOT32_ENABLE_SCENE_ARENA` | Enable scene memory arena. | Disabled |
 | `PIXELROOT32_ENABLE_PROFILING` | Enable profiling hooks in physics pipeline. | Disabled |
-| `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. | `0` (disabled) |
-| `PIXELROOT32_ENABLE_NETWORKING` | Enable the optional ESP-NOW peer-to-peer networking module. Only ESP32 and native targets have a transport; any other target fails the build when the flag is on. | `0` |
+| `PIXELROOT32_ENABLE_TOUCH` | Enable automatic touch processing. Defaults to `1` on the web (pointer and fingers) and `0` elsewhere. See [platform support](../architecture/platform-support.md#input). | `0` (disabled; `1` on the web) |
+| `PIXELROOT32_ENABLE_NETWORKING` | Enable the optional peer-to-peer networking module. The ESP32 target has the real ESP-NOW transport; native compiles an in-process `LoopbackTransport` (no radio, no sockets), and the browser build compiles that same loopback because it inherits native's compile database. Any other target fails the build when the flag is on. See [platform support](../architecture/platform-support.md#networking). | `0` |
 | `PIXELROOT32_ENABLE_PERSISTENCE` | Enable the optional persistence module (key-value settings and save slots over NVS, microSD, host files or memory). No limit macros: capacities are chosen where a store is constructed. See [Persistence](persistence.md). | `0` |
 | `PIXELROOT32_ENABLE_SD_STORAGE` | Enable the microSD (FAT) save-slot adapter, `SdSlotStore`. Requires `PIXELROOT32_ENABLE_PERSISTENCE=1` and the ESP32 target; any other combination fails the build. See [Persistence](persistence.md). | `0` |
 | `PIXELROOT32_ENABLE_STATIC_TILEMAP_FB_CACHE` | Enable **`StaticTilemapLayerCache`** (4bpp FB snapshot). | `1` |

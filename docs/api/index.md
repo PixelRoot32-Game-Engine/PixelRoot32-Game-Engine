@@ -108,6 +108,7 @@ Some modules are optional and can be disabled to save memory:
 ## Related Documentation
 
 - [Architecture](../architecture/architecture-index.md) (includes [ESP32 rendering and tilemap caching](../architecture/architecture-index.md#esp32-rendering-pipeline-and-tilemap-caching))
+- [Platform Support](../architecture/platform-support.md) — what desktop and Web do not have
 - [Platform Compatibility Guide](../guide/platform-compatibility.md)
 - [Getting Started Guide](../../README.md)
 - [Extending PixelRoot32](../guide/extending-pixelroot32.md)

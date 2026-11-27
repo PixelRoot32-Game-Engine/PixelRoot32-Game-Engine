@@ -171,6 +171,8 @@ Capacitive screens use I²C and usually report perfect screen coordinates out of
 - You would use `-D TOUCH_DRIVER_GT911` instead.
 - Resistive calibration flags (like `SWAP_AXES` or `MIRROR_X`) are not used.
 
+> **Not implemented yet:** `GT911Adapter` is a placeholder on every target. Its `readRegister()` and `readCoordinate()` return `0` and its `writeRegister()` does nothing, so the flag compiles and the panel reads nothing. The bus transactions are still to be written; XPT2046 is the supported panel. See [platform support](./platform-support.md#input).
+
 ## 10. Engine Integration
 
 When `PIXELROOT32_ENABLE_TOUCH=1`, Engine automatically handles touch processing, eliminating the need for manual integration in your game loop.

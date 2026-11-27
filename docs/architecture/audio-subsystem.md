@@ -292,9 +292,11 @@ The `AudioScheduler` interface provides `init`, `submitCommand` (forwards to `Ap
 
 | Scheduler | Typical use | Where `ApuCore::generateSamples` runs |
 |-----------|-------------|----------------------------------------|
-| **`NativeAudioScheduler`** | `PLATFORM_NATIVE` && !unit tests | Dedicated **`std::thread`**; PCM pushed to a lock-free ring; SDL callback drains via `AudioEngine::generateSamples`. |
+| **`NativeAudioScheduler`** | Desktop (`PIXELROOT32_PLATFORM_DESKTOP`) && !unit tests | Dedicated **`std::thread`**; PCM pushed to a lock-free ring; SDL callback drains via `AudioEngine::generateSamples`. |
 | **`ESP32AudioScheduler`** | ESP32 firmware | Same **CPU context** as the backend audio task (I2S/DAC backend creates the FreeRTOS task and calls `engine->generateSamples`). |
-| **`DefaultAudioScheduler`** | Unit tests, minimal hosts | Whatever thread invokes `generateSamples` (no extra audio thread). |
+| **`DefaultAudioScheduler`** | Unit tests, the browser, minimal hosts | Whatever thread invokes `generateSamples` (no extra audio thread). |
+
+> **Web:** the browser uses `DefaultAudioScheduler`, so synthesis runs inside the SDL2 audio callback. It cannot use the threaded scheduler: `std::thread` needs `SharedArrayBuffer` and COOP/COEP headers. Note that the web build also defines the legacy `PLATFORM_NATIVE` alias, so a guard written against that alias would select the threaded scheduler by mistake; the selection in `src/audio/AudioEngine.cpp` asks for desktop identity instead. See [platform support](./platform-support.md#audio).
 
 **Task creation** for ESP32 still lives in the **backends** ([`ESP32_I2S_AudioBackend`](src/drivers/esp32/ESP32_I2S_AudioBackend.cpp), [`ESP32_DAC_AudioBackend`](src/drivers/esp32/ESP32_DAC_AudioBackend.cpp)), not inside `ESP32AudioScheduler::start()`.
 
