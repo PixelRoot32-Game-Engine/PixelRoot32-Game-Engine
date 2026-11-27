@@ -9,7 +9,9 @@
 
 ## Overview
 
-The Input module manages user interactions across different control methods (keyboard, gamepad, touch). The `InputManager` acts as a unified abstraction layer, polling the underlying hardware (e.g., SDL2 events on PC, or physical buttons/touch drivers on ESP32) and exposing a simple state API for the game.
+The Input module manages keyboard input and, where a panel or a pointer exists, touch. The `InputManager` acts as a unified abstraction layer, polling the underlying hardware (SDL2 scancodes and pointer events on desktop and in the browser, `digitalRead()` on ESP32) and exposing a simple state API for the game.
+
+> **No gamepad support.** No target implements `SDL_GameController` or an equivalent; the abstract buttons are fed by a keyboard, by GPIO pins, or by the touch pipeline. See [platform support](../architecture/platform-support.md#input).
 
 ## Key Concepts
 

@@ -45,6 +45,7 @@ User guides and how-to documentation for PixelRoot32 Game Engine.
 - [Graphics guidelines](./graphics-guidelines.md) — Sprites, tilemaps, palettes (pipeline: [Rendering](./rendering.md))
 - [UI guidelines](./ui-guidelines.md) — Layout patterns (architecture: [UI system](./ui-system.md))
 - [Platform compatibility](./platform-compatibility.md) — Hardware matrix, ESP32 variants
+- [Platform support](../architecture/platform-support.md) — ESP32 vs desktop vs Web: what each target can actually do
 - [Performance](./performance/) — ESP32 hot paths, build profiles
 
 ## Tools & samples

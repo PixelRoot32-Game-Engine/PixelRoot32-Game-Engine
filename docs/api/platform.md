@@ -61,29 +61,29 @@ Because the identity macros are always defined, test their value rather than the
 #endif
 ```
 
-### Platform Memory Allocation
+### Platform Memory and Flash Access
 
-On the ESP32, standard `malloc` and `new` allocate from the default internal RAM. However, the ESP32 also has external PSRAM and faster internal IRAM. The `PlatformMemory` macros abstract these platform-specific allocations. On PC, these macros safely fall back to standard `malloc`/`free`.
+`PlatformMemory.h` does **not** provide an allocator. It provides the flash-access macros that let the same source read asset tables from ESP32 flash and from ordinary RAM on a host. There is no `PSRAM` or `DMA` allocation macro in the engine today: use `malloc`/`new` and the platform's own API when a target needs PSRAM.
 
-| Macro | Description |
-|-------|-------------|
-| `PR32_MALLOC(size)` | Standard allocation (internal RAM). |
-| `PR32_MALLOC_PSRAM(size)` | Allocates in external PSRAM (if available). Great for large tilemaps or audio buffers. |
-| `PR32_MALLOC_DMA(size)` | Allocates DMA-capable memory. Required for SPI display buffers. |
-| `PR32_FREE(ptr)` | Safely frees memory allocated by any of the above macros. |
+| Macro | ESP32 (and AVR) | Desktop / Web |
+|-------|-----------------|---------------|
+| `PIXELROOT32_FLASH_ATTR` | `PROGMEM` | empty |
+| `PIXELROOT32_READ_BYTE_P(addr)` | `pgm_read_byte` | `*(const uint8_t*)(addr)` |
+| `PIXELROOT32_READ_WORD_P` / `_DWORD_P` / `_FLOAT_P` / `_PTR_P` | `pgm_read_*` | plain dereference |
+| `PIXELROOT32_MEMCPY_P` / `PIXELROOT32_STRCMP_P` | `memcpy_P` / `strcmp_P` | `memcpy` / `strcmp` |
+| `PIXELROOT32_SCENE_FLASH_ATTR` | alias of `PIXELROOT32_FLASH_ATTR` | alias of `PIXELROOT32_FLASH_ATTR` |
 
 **Usage Example:**
 ```cpp
 #include "platforms/PlatformMemory.h"
 
-// Allocate a large buffer in PSRAM to save precious internal RAM
-uint8_t* largeBuffer = (uint8_t*)PR32_MALLOC_PSRAM(1024 * 1024);
+// A table lives in flash on the board and in plain RAM on a host.
+const uint8_t kTilemap[] PIXELROOT32_FLASH_ATTR = { /* ... */ };
 
-if (largeBuffer != nullptr) {
-    // Use buffer...
-    PR32_FREE(largeBuffer);
-}
+const uint8_t first = PIXELROOT32_READ_BYTE_P(&kTilemap[0]);
 ```
+
+The practical consequence is that assets compiled as headers need no filesystem on any target: a browser build draws a game without preloading a single file.
 
 ### Platform Capabilities
 

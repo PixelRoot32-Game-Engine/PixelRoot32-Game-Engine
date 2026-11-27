@@ -29,6 +29,7 @@
 | **Touch Input** | [Touch Input](./touch-input.md) | Pipeline, XPT2046, calibration |
 | **Networking** | [Networking Subsystem](./networking-subsystem.md) | ESP-NOW, loopback, reliability, convergent counter |
 | **Persistence** | [Persistence Subsystem](./persistence-subsystem.md) | Key-value and slot stores, record envelope, NVS, host files, flash-write stall |
+| **Platform Support** | [Platform Support](./platform-support.md) | ESP32 vs desktop vs Web: capability matrix, simulated features, limits |
 | **Extensibility** | [Extending PixelRoot32](../guide/extending-pixelroot32.md) | Custom drivers, configuration |
 
 ### API Reference

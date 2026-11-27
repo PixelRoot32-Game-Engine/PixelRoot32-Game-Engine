@@ -1,6 +1,6 @@
 # PixelRoot32 Platform Compatibility Guide
 
-**Canonical doc:** this file is the single source for the platform matrix, `build_flags`, and PlatformIO examples.
+**Canonical doc:** this file is the single source for ESP32 variants, `build_flags`, and PlatformIO examples. The cross-platform capability matrix (ESP32 vs desktop vs Web) and the list of simulated or absent features live in [Platform support](../architecture/platform-support.md).
 
 ## Overview
 
@@ -26,6 +26,8 @@ For the published site (navigation and anchors), see [Platform compatibility](ht
 | **Recommended Audio Core** | 0 | 0 | 0 | 0 | 0 | N/A |
 | **Recommended Main Core** | 1 | 1 | 0 | 0 | 0 | N/A |
 
+The table covers ESP32 variants and native, because those are the targets with a chip to describe. Web is not a column: it has no GPIO, no radio and no panel. Its capability differences are in [Platform support](../architecture/platform-support.md).
+
 ### Networking (ESP-NOW)
 
 The optional `pixelroot32::networking` module (`PIXELROOT32_ENABLE_NETWORKING`,
@@ -35,6 +37,9 @@ default `0`) uses the ESP-NOW support that ships with the ESP32 Arduino core:
   point. Both nodes must share one channel.
 - **Native:** `LoopbackTransport` only. It simulates the link in one process,
   with an injectable fault profile; there is no radio and no socket.
+- **Web:** the same `LoopbackTransport`, because the browser build reuses
+  native's compile database. It is a protocol demo in one tab, not a network;
+  `docs/architecture/platform-support.md` lists it as simulated.
 - **Verification:** ESP32-C3 is verified by build (both `examples/esp_now`
   environments). There is no ESP32 hardware in CI, so RF behavior, latency and
   heap are validated manually with the example's checklist.
@@ -258,6 +263,24 @@ build_flags =
 executes the built binary and returns its exit code. Closing the window exits
 cleanly with 0; killing the process reports a non-zero status. See
 [Running a native example](../../examples/README.md#running-a-native-example).
+
+---
+
+### Web (Emscripten)
+
+**Target ID:** none. There is no `web` environment in `platformio.ini`: the browser build is produced by `tools/web/build_web.py`, which rewrites native's compile database to `em++` and links with `-sUSE_SDL=2`.
+
+**Key Features:**
+
+- **SDL2 via the Emscripten port:** window, input and audio, no host library
+- **No threads:** audio synthesises inside the SDL2 callback; the build needs no `SharedArrayBuffer` and no COOP/COEP headers, so it runs on plain static hosting
+- **Persistence:** IndexedDB through IDBFS, which requires `-lidbfs.js`; without it the build runs with persistence disabled
+- **Touch:** `PIXELROOT32_ENABLE_TOUCH` defaults to `1`, mapping pointer and fingers to the touch pipeline
+- **Networking:** only the in-process loopback, never the radio
+
+**Audio:** `DefaultAudioScheduler` (synthesis in the callback). **Limits:** see [Platform support](../architecture/platform-support.md).
+
+**Running:** serve the output over HTTP; a `.wasm` fetched from `file://` is blocked. See [the examples in the browser](./web-demos.md).
 
 ---
 
