@@ -153,7 +153,7 @@ The important degradation is not the driver, it is the framebuffer:
 
 - One frame is one `runFrame()`: platform events → up to `MAX_STEPS_PER_FRAME` steps of `FIXED_STEP_MS` (16 ms) → at most one draw + present. Identical on all targets, so simulation does not depend on refresh rate.
 - The host loop differs: `emscripten_set_main_loop_arg` on the web (requestAnimationFrame, ~60 Hz), `while (runFrame())` on desktop (vsync), one call per Arduino `loop()` on ESP32.
-- **Known issue in the web loop:** `runFrame()` ends with `SDL_Delay(1)` under `PIXELROOT32_HAS_SDL`. On the web, `SDL_Delay` does not sleep without Asyncify; SDL busy-waits on the clock. That is ~1 ms of main thread per frame spent spinning with nothing to do. Desktop sleeps; ESP32 calls `yield()`. Tracked as the next fix; until then, the browser build pays it.
+- The web loop does not sleep at the end of a frame: `requestAnimationFrame` already returns control to the browser, and `SDL_Delay()` would not sleep here anyway (without Asyncify, SDL spins on the clock). `runFrame()` calls `SDL_Delay(1)` on desktop and `yield()` on ESP32 only. Measured on `examples/sprites` over 300 frames with the same harness (macOS, Chromium): the frame callback went from p50/min 1000 µs to p50 100 µs, mean 88 µs.
 
 ## Build and tooling
 
@@ -180,7 +180,7 @@ These are the cases where a secondary target *appears* to have a capability and 
 | 4 | GT911 answers `0` on every target | `GT911Adapter.h` | No-op |
 | 5 | `analogRead()` returns 0, `digitalWrite()` does nothing, `micros()` is milliseconds | `MockArduino.h` | No-op |
 | 6 | A web build without `-lidbfs.js` runs with persistence disabled after one warning | `WebStorage.h` | No-op |
-| 7 | `delay()` on the web does not sleep; `SDL_Delay` spins | SDL2 port / `Engine.cpp` | Runtime (CPU) |
+| 7 | `delay()` on the web does not sleep; `SDL_Delay` spins. Game code that calls `delay()` pays it — the engine's own frame loop no longer does | SDL2 port / `Engine.cpp` | Runtime (CPU) |
 | 8 | `PR32_HAS_FPU_MACRO` is `1` for any non-IDF target through a fallback | `EngineConfig.h` | Runtime (arithmetic assumption) |
 
 Two of these are latent, not observed in a build: the browser's 4-core claim is inferred from the compile database it reuses (no web binary has been inspected for it), and no example enables networking on the web out of the box.

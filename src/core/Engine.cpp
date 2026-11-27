@@ -333,7 +333,12 @@ namespace pixelroot32::core {
             gProfileTotals.frameCount++;
         }
 
-        #if PIXELROOT32_HAS_SDL
+        #if PIXELROOT32_PLATFORM_WEB
+            // requestAnimationFrame already hands the thread back to the
+            // browser between frames, and SDL_Delay() is no sleep here: without
+            // Asyncify SDL falls back to spinning on SDL_GetTicks64(), which
+            // would hold the main thread for the whole delay every frame.
+        #elif PIXELROOT32_HAS_SDL
             // Nothing else to do on a host: hand the window a slice.
             SDL_Delay(1);
         #else
