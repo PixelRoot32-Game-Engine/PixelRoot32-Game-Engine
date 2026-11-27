@@ -56,9 +56,10 @@ class Demo:
 
 
 # The order is the "Suggested learning order" of examples/README.md, with the
-# hardware-facing demos last. Every entry must build with tools/web/build_web.py;
-# `esp_now` and `esp_now_ping` qualify because `native` simulates both boards in
-# one window, which is exactly what a browser shows.
+# hardware-facing demos last. Every entry must build with tools/web/build_web.py.
+# The ESP-NOW examples are deliberately absent: they are a point solution for a
+# radio only an ESP32 has, and two simulated boards on one page would teach the
+# stub, not the technology.
 DEMOS = (
     Demo(
         slug="sprites",
@@ -161,27 +162,6 @@ DEMOS = (
         ),
         controls="Runs on its own. Browser audio starts after a click on the page.",
     ),
-    Demo(
-        slug="esp_now",
-        title="ESP-NOW counter",
-        tag="Networking",
-        summary=(
-            "Two simulated ESP32-C3 boards sharing one convergent counter: "
-            "discovery, reliable delivery with duplicate suppression, and resync "
-            "after a reboot."
-        ),
-        controls="1 adds on the first board, 2 subtracts on the second.",
-    ),
-    Demo(
-        slug="esp_now_ping",
-        title="ESP-NOW ping",
-        tag="Networking",
-        summary=(
-            "A minimal custom message: a tagged 7-byte ping/pong codec, one "
-            "reliable send, an automatic reply, and the application RTT it measures."
-        ),
-        controls="1 pings from the first board, 2 from the second.",
-    ),
 )
 
 
@@ -266,14 +246,14 @@ PAGE = """<!DOCTYPE html>
   <img src="pr32_logo.png" alt="PixelRoot32 logo">
   <div>
     <h1>PixelRoot32 in the browser</h1>
-    <p class="lede">Eleven examples from the engine repository, compiled to WebAssembly.
+    <p class="lede">Nine examples from the engine repository, compiled to WebAssembly.
     Each one isolates a single capability and stops there: read the source next to the
     page, then copy the folder.</p>
   </div>
 </header>
 <p class="note"><strong>Click a demo to play it.</strong> The engine's browser build needs
 no cross-origin isolation, so these pages run on plain static hosting. Audio starts
-after a click, and the two ESP-NOW examples simulate both boards in one page.</p>
+after a click.</p>
 <main>
   <ul class="grid">
 {cards}
