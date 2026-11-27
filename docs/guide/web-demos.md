@@ -65,13 +65,14 @@ from `build_gallery.py --matrix`, not from a second copy in YAML — then:
   `persistence`'s glue contains `IDBFS`;
 - a `gallery` job collects the builds, assembles `_site` and uploads it as the
   **`web-demos`** artifact on every push and pull request;
-- a `deploy` job publishes that artifact to GitHub Pages, but only from `main`.
+- a `deploy` job publishes that artifact to GitHub Pages, but **only when the
+  workflow is started by hand**. No push deploys anything.
 
-### Trying the demos before they are published
+### Trying the demos
 
-Pages is one site per repository, so a deploy from a feature branch would
-replace what `main` published. Until the port merges, the tracker is tried
-through the artifact:
+The artifact is the distribution. The port is a closed beta under observation,
+so there is no published site to compare against; what CI assembled is what you
+test:
 
 1. Open the `web` workflow run for the commit you care about.
 2. Download the `web-demos` artifact.
@@ -85,15 +86,24 @@ through the artifact:
 The pages are then exactly what the runner built, which is the property a local
 build does not have.
 
-### Enabling Pages
+### Publishing to Pages, by hand
 
-The deploy job is inert until the repository has a Pages site:
+Nothing publishes on a push. The beta is closed and a published site is public
+over HTTPS, so `deploy` runs only from a `workflow_dispatch` run of this
+workflow: starting it by hand is the publish decision. Until then the
+`web-demos` artifact above is the distribution.
 
-1. **Settings → Pages → Source: GitHub Actions.**
-2. Push to `main` (or run the workflow from `main`).
+If the port is ever published, two things are needed:
 
-Nothing else is configured: no `gh-pages` branch, no token, no custom domain.
-`actions/deploy-pages` uses the workflow's own OIDC token.
+1. **Settings → Pages → Source: GitHub Actions**, once in the repository: the
+   job is inert without a Pages site.
+2. **Actions → `web` → Run workflow**, on the branch whose build you want to
+   serve. The run rebuilds the demos and deploys what it built, not an older
+   artifact.
+
+Pages is one site per repository, so that run replaces whatever the site served
+before. Nothing else is configured: no `gh-pages` branch, no token, no custom
+domain. `actions/deploy-pages` uses the workflow's own OIDC token.
 
 ## What the browser build does, and does not, prove
 
