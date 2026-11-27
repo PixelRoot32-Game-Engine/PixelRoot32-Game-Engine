@@ -11,15 +11,17 @@ name: web
 # a clean runner, and the job fails if the generated glue has no `IDBFS` in it.
 #
 # Phase 5, point 4 adds the other half of "publication": every run assembles the
-# demos into one static site and uploads it as the `web-demos` artifact, and a
-# push to `main` deploys that same site to GitHub Pages. The artifact is what
-# makes the tracker testable before the port merges: download it, unzip, serve
-# it, and the pages are the ones CI built, not the ones one laptop happened to
-# have.
+# demos into one static site and uploads it as the `web-demos` artifact. The
+# artifact is what makes the tracker testable before the port merges: download
+# it, unzip, serve it, and the pages are the ones CI built, not the ones one
+# laptop happened to have.
 #
-# Pages is deployed from `main` only, never from the tracker. The site is a
-# single one per repository, so a deploy from a feature branch would replace
-# what main published; the artifact covers that need instead.
+# That artifact is also the distribution while the port is a closed beta: no push
+# publishes anything. The `deploy` job still exists, but it runs only when this
+# workflow is started by hand, so publishing is a deliberate act and never a
+# side effect of merging. Pages is one site per repository and a published site
+# is public over HTTPS, which is exactly the decision the beta status keeps out
+# of the pipeline.
 #
 # What it still does not do is serve the pages or drive a browser through them:
 # a headless browser would test the demos, not the build. What this answers is
@@ -235,7 +237,9 @@ jobs:
   deploy:
     name: deploy to Pages
     needs: gallery
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Manual only: starting this workflow by hand is the publish act. No push to
+    # any branch deploys the site.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
